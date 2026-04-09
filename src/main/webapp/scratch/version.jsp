@@ -65,7 +65,7 @@
     <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
 
     <link rel="stylesheet" type="text/css"
-          href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
+          href="<%=request.getContextPath()%>/library/bootstrap/5.3.8/css/bootstrap.min.css"/>
 
     <style>
         :root * {
@@ -214,12 +214,12 @@
 						let alert = document.createElement("div");
 						if (response && response.success) {
 							alert.className = "alert alert-success";
-							alert.innerHTML = "Scratchpad version " + response.version + " deleted successfully.";
+							alert.textContent = "Scratchpad version " + response.version + " deleted successfully.";
 							alert.role = "alert";
 							document.getElementById("scratchpad-version").replaceWith(alert);
 						} else {
 							alert.className = "alert alert-danger";
-							alert.innerHTML = "Error deleting scratchpad version: " + response.version;
+							alert.textContent = "Error deleting scratchpad version: " + response.version;
 							alert.role = "alert";
 							document.getElementById("scratchpad-version").appendChild(alert);
 							if (button) button.disabled = false;

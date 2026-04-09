@@ -595,9 +595,20 @@ function viewsource(source) {
 		document.getElementById("control3").style.visibility="hidden";
 		document.getElementById("control4").style.visibility="hidden";
 	} else {
-		html = document.getElementById(cfg_editorname).contentWindow.document.body.ownerDocument.createRange();
-		html.selectNodeContents(document.getElementById(cfg_editorname).contentWindow.document.body);
-		document.getElementById(cfg_editorname).contentWindow.document.body.innerHTML = jQuery().convertImagePaths(html.toString());
+		// Read the raw HTML source text that was being edited in source view
+		var sourceText = document.getElementById(cfg_editorname).contentWindow.document.body.textContent;
+		var convertedHtml = jQuery().convertImagePaths(sourceText);
+		// Use DOMParser to reconstruct the DOM from the source view HTML, preventing
+		// DOM text from being reinterpreted as HTML without going through a parser context
+		var parser = new DOMParser();
+		var parsedDoc = parser.parseFromString('<!DOCTYPE html><html><body>' + convertedHtml + '</body></html>', 'text/html');
+		var editorBody = document.getElementById(cfg_editorname).contentWindow.document.body;
+		editorBody.textContent = '';
+		var fragment = document.getElementById(cfg_editorname).contentWindow.document.createDocumentFragment();
+		Array.prototype.forEach.call(parsedDoc.body.childNodes, function (node) {
+			fragment.appendChild(editorBody.ownerDocument.importNode(node, true));
+		});
+		editorBody.appendChild(fragment);
 		document.getElementById("control1").style.visibility="visible";
 		document.getElementById("control2").style.visibility="visible";
 		document.getElementById("control3").style.visibility="visible";
@@ -951,7 +962,22 @@ function submitFaxButton() {
 			$.ajax({
 				url : "efmformrtl_templates.jsp",
 				success : function(data) {
-					$("#template").html(data);
+					if (typeof DOMPurify !== 'undefined') {
+						// DOMPurify config: only allow <option> elements with value/selected attributes.
+						$("#template").html(DOMPurify.sanitize(data, {ALLOWED_TAGS: ['option'], ALLOWED_ATTR: ['value', 'selected']}));
+					} else {
+						// DOMPurify not available in eForm context — fallback safely constructs <option> elements
+						var parser = new DOMParser();
+						var doc = parser.parseFromString(data, 'text/html');
+						var templateSelect = $("#template").empty();
+						doc.querySelectorAll('option').forEach(function(opt) {
+							var safeOpt = document.createElement('option');
+							safeOpt.value = opt.value;
+							safeOpt.textContent = opt.textContent;
+							if (opt.selected) safeOpt.selected = true;
+							templateSelect.append(safeOpt);
+						});
+					}
 					loadDefaultTemplate();
 				},
 				error : function(xhr, status, error) {
@@ -1218,7 +1244,7 @@ function collapseFooter() {
          */
         function consultantSearch(term) {
             if (term.length < 2) {
-                document.getElementById('tempBin').innerHTML = "You must enter at least 2 characters of a patients name!";
+                document.getElementById('tempBin').textContent = "You must enter at least 2 characters of a patient's name!";
                 return false;
             }
 
@@ -1319,7 +1345,7 @@ function collapseFooter() {
                 document.getElementById("tempBin").style.display = 'block';
             } else if (a === 0 && searchDropDownFlag === false) {
                 document.getElementById("tempBin").style.display = 'none';
-                document.getElementById("tempBin").innerHTML = "You must enter at least 2 characters of a patients name!";
+                document.getElementById("tempBin").textContent = "You must enter at least 2 characters of a patient's name!";
             }
         }
 

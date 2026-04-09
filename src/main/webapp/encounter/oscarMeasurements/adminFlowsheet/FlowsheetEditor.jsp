@@ -54,6 +54,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -62,7 +63,7 @@
 <html>
     <head>
         <title>Flowsheet Editor</title>
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <script src="<%=request.getContextPath() %>/js/global.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
@@ -85,7 +86,7 @@
 
             function removeItem(id) {
                 jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=removeItem', {
-                        flowsheetId: <%=id%>,
+                        flowsheetId: '<%=Encode.forJavaScript(id)%>',
                         id: id
                     },
                     function (data) {
@@ -98,7 +99,7 @@
             }
 
             function loadFlowsheet() {
-                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getFlowsheet&id=<%=id%>", {},
+                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getFlowsheet&id=<%=Encode.forUriComponent(id)%>", {},
                     function (xml) {
                         $("#itemTable tbody").empty();
                         document.getElementById('name').textContent = xml.name;
@@ -111,20 +112,31 @@
 
 
                         for (var x = 0; x < xml.items.length; x++) {
-                            var i = xml.items[x];
-                            var type = i.measurementType;
-                            if (i.measurementType === undefined) {
-                                type = i.preventionType;
-                            }
-                            var measuringInst = i.measuringInstruction;
-                            if (measuringInst === undefined) {
-                                measuringInst = "";
-                            }
-                            var validation = i.validation;
-                            if (i.validation === undefined) {
-                                validation = "";
-                            }
-                            $("#itemTable tbody").append("<tr><td><a href=\"javascript:void(0)\" onClick=\"removeItem('" + type + "')\"><img src=\"<%=request.getContextPath()%>/images/icons/101.png\" border=\"0\"/></a>&nbsp;<a href=\"javascript:void(0)\" onClick=\"editItem(<%=id%>,'" + type + "')\"><img src=\"<%=request.getContextPath()%>/images/edit.png\" border=\"0\"/></a>&nbsp;<a href=\"javascript:void(0)\" onClick=\"sortItem('" + type + "','up')\"><img src=\"<%=request.getContextPath()%>/images/icon_up_sort_arrow.png\" border=\"0\"/></a>&nbsp;<a href=\"javascript:void(0)\" onClick=\"sortItem('" + type + "','down')\"><img src=\"<%=request.getContextPath()%>/images/icon_down_sort_arrow.png\" border=\"0\"/></a></td><td>" + type + "</td><td>" + i.displayName + "</td><td>" + i.guideline + "</td><td>" + i.graphable + "</td><td>" + measuringInst + "</td><td>" + validation + "</td></tr>");
+                            (function(i) {
+                                let type = i.measurementType !== undefined ? i.measurementType : i.preventionType;
+                                let measuringInst = i.measuringInstruction !== undefined ? i.measuringInstruction : "";
+                                let validation = i.validation !== undefined ? i.validation : "";
+
+                                var $tr = $('<tr>');
+                                var $tdActions = $('<td>');
+                                var $removeLink = $('<a>').attr('href', 'javascript:void(0)').on('click', function() { removeItem(type); });
+                                $removeLink.append($('<img>').attr({src: '<%=request.getContextPath()%>/images/icons/101.png', border: '0'}));
+                                var $editLink = $('<a>').attr('href', 'javascript:void(0)').on('click', function() { editItem('<%=Encode.forJavaScript(id)%>', type); });
+                                $editLink.append($('<img>').attr({src: '<%=request.getContextPath()%>/images/edit.png', border: '0'}));
+                                var $upLink = $('<a>').attr('href', 'javascript:void(0)').on('click', function() { sortItem(type, 'up'); });
+                                $upLink.append($('<img>').attr({src: '<%=request.getContextPath()%>/images/icon_up_sort_arrow.png', border: '0'}));
+                                var $downLink = $('<a>').attr('href', 'javascript:void(0)').on('click', function() { sortItem(type, 'down'); });
+                                $downLink.append($('<img>').attr({src: '<%=request.getContextPath()%>/images/icon_down_sort_arrow.png', border: '0'}));
+                                $tdActions.append($removeLink).append('\u00a0').append($editLink).append('\u00a0').append($upLink).append('\u00a0').append($downLink);
+                                $tr.append($tdActions);
+                                $tr.append($('<td>').text(type));
+                                $tr.append($('<td>').text(i.displayName));
+                                $tr.append($('<td>').text(i.guideline));
+                                $tr.append($('<td>').text(i.graphable));
+                                $tr.append($('<td>').text(measuringInst));
+                                $tr.append($('<td>').text(validation));
+                                $("#itemTable tbody").append($tr);
+                            })(xml.items[x]);
                         }
                     });
             }
@@ -140,7 +152,7 @@
                         }
 
                         for (var i = 0; i < arr.length; i++) {
-                            jQuery('#types').append("<option value=" + arr[i].id + ">" + arr[i].displayName + "</option>");
+                            jQuery('#types').append($('<option>').attr('value', arr[i].id).text(arr[i].displayName));
                         }
                     });
             }
@@ -157,7 +169,7 @@
                         }
 
                         for (var i = 0; i < arr.length; i++) {
-                            jQuery('#preventionTypes').append("<option value=" + arr[i].id + ">" + arr[i].displayName + "</option>");
+                            jQuery('#preventionTypes').append($('<option>').attr('value', arr[i].id).text(arr[i].displayName));
                         }
                     });
             }
@@ -167,7 +179,7 @@
                 var typeId = document.getElementById('types').value;
 
                 $.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=addMeasurement', {
-                    flowsheetId:<%=id%>,
+                    flowsheetId:'<%=Encode.forJavaScript(id)%>',
                     measurementTypeId: typeId
                 }, function (data) {
                     loadFlowsheet();
@@ -178,7 +190,7 @@
                 var typeId = document.getElementById('preventionTypes').value;
 
                 $.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=addPrevention', {
-                    flowsheetId:<%=id%>,
+                    flowsheetId:'<%=Encode.forJavaScript(id)%>',
                     preventionType: typeId
                 }, function (data) {
                     loadFlowsheet();

@@ -47,7 +47,6 @@
 <%@page import="org.springframework.beans.BeanUtils" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ page import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.db.*" errorPage="/errorpage.jsp" %>
@@ -74,7 +73,6 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.AppointmentManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 
 
@@ -240,7 +238,7 @@
         </tr>
         <tr>
             <td class="MainTableLeftColumn" valign="top"><a
-                    href="<%=request.getContextPath()%>/demographic/DemographicEdit.do?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&apptProvider=<%=session.getAttribute("user") %>"
+                    href="<%=request.getContextPath()%>/demographic/DemographicEdit.do?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&apptProvider=<%=Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull((String) session.getAttribute("user")))%>"
                     onMouseOver="self.status=document.referrer;return true">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/></a>
                 <br/>
@@ -335,14 +333,14 @@
 
                     %>
                     <tr <%=(deleted) ? "style='text-decoration: line-through' " : "" %>
-                            bgcolor="<%=bodd?weakColor:"white"%>" appt_no="<%=appointment.getId().toString()%>"
-                            demographic_no="<%=demographic_no%>" provider_no="<%=provider!=null?provider.getId():""%>">
+                            bgcolor="<%=bodd?weakColor:"white"%>" appt_no="<%=Encode.forHtmlAttribute(appointment.getId().toString())%>"
+                            demographic_no="<%=Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no))%>" provider_no="<%=Encode.forHtmlAttribute(provider!=null?provider.getId():"")%>">
                         <td align="center"><a href=#
-                                              onClick="popupPageNew(360,680, '<%= request.getContextPath() %>/appointment/appointmentcontrol.jsp?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>&appointment_no=<%=Encode.forJavaScriptAttribute(appointment.getId().toString())%>&displaymode=edit&dboperation=search');return false;"><%=appointment.getAppointmentDate()%>
+                                              onClick="popupPageNew(360,680, '<%= request.getContextPath() %>/appointment/appointmentcontrol.jsp?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>&appointment_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(appointment.getId().toString()))%>&displaymode=edit&dboperation=search');return false;"><%=Encode.forHtml(appointment.getAppointmentDate() != null ? appointment.getAppointmentDate().toString() : "")%>
                         </a></td>
-                        <td align="center"><%=appointment.getStartTime()%>
+                        <td align="center"><%=Encode.forHtml(appointment.getStartTime() != null ? appointment.getStartTime().toString() : "")%>
                         </td>
-                        <td align="center"><%=appointment.getEndTime()%>
+                        <td align="center"><%=Encode.forHtml(appointment.getEndTime() != null ? appointment.getEndTime().toString() : "")%>
                         </td>
                         <td align="center">
                             <%if (as != null && as.getDescription() != null) {%>
@@ -351,7 +349,7 @@
                         </td>
                         <td><%=Encode.forHtml(appointment.getType())%>
                         </td>
-                        <td><%=(reasonCodeName != null && !reasonCodeName.isEmpty()) ? reasonCodeName : ""%><%=(appointment.getReason() != null && !appointment.getReason().isEmpty()) ? ((reasonCodeName != null && !reasonCodeName.isEmpty()) ? " - " : "") + UtilMisc.htmlEscape(appointment.getReason()) : ""%>
+                        <td><%=(reasonCodeName != null && !reasonCodeName.isEmpty()) ? Encode.forHtml(reasonCodeName) : ""%><%=(appointment.getReason() != null && !appointment.getReason().isEmpty()) ? ((reasonCodeName != null && !reasonCodeName.isEmpty()) ? " - " : "") + Encode.forHtml(appointment.getReason()) : ""%>
                         </td>
                         <% if (provider != null) {%>
                         <td><%=Encode.forHtml((provider.getLastName() == null ? "N/A" : provider.getLastName()) + "," + (provider.getFirstName() == null ? "N/A" : provider.getFirstName()))%>
@@ -386,8 +384,10 @@
                         <%
                             if (IsPropertiesOn.isMultisitesEnable()) {
                                 String[] sbc = siteBgColor.get(appointment.getLocation());
+                                String siteColor = sbc != null && sbc.length > 0 ? sbc[0] : "";
+                                String siteLabel = sbc != null && sbc.length > 1 ? sbc[1] : io.github.carlos_emr.carlos.util.StringUtils.noNull(appointment.getLocation());
                         %>
-                        <td style='background-color:<%= sbc[0] %>'><%= sbc[1] %>
+                        <td style='background-color:<%= Encode.forCssString(siteColor) %>'><%= Encode.forHtml(siteLabel) %>
                         </td>
                         <%
                             }

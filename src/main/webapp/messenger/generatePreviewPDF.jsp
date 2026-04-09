@@ -117,9 +117,24 @@
 
 
 <%
-    String demographic_no = request.getParameter("demographic_no");
-    // Pre-encode for reuse in URI construction below (null-safe)
-    String encDemoNo = Encode.forUriComponent(demographic_no != null ? demographic_no : "");
+    String demographic_no_raw = request.getParameter("demographic_no");
+    // Validate and parse demographic_no as integer to prevent trust boundary violation (CWE-501)
+    // Reject null/missing or non-integer values before any session writes.
+    int demographicNoInt;
+    if (demographic_no_raw == null || demographic_no_raw.isEmpty()) {
+        response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");
+        return;
+    }
+    try {
+        demographicNoInt = Integer.parseInt(demographic_no_raw);
+    } catch (NumberFormatException e) {
+        response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");
+        return;
+    }
+    // Use the validated integer value as the canonical demographic number string
+    String demographic_no = String.valueOf(demographicNoInt);
+    // Pre-encode for reuse in URI construction below
+    String encDemoNo = Encode.forUriComponent(demographic_no);
 
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -138,6 +153,7 @@
 <%
 
     EctSessionBean bean = new EctSessionBean();
+    // Use validated integer-derived string to prevent raw request data in session (CWE-501)
     bean.demographicNo = demographic_no;
 
     MsgSessionBean MsgSessionBean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
@@ -434,7 +450,7 @@
 
                                             // Set provider and demographic context for prescription profile
                                             Rxbean.setProviderNo((String) request.getSession().getAttribute("user"));
-                                            Rxbean.setDemographicNo(Integer.parseInt(demographic_no));
+                                            Rxbean.setDemographicNo(demographicNoInt);
 
                                         %> <% currentURI = request.getContextPath() + "/oscarRx/PrintDrugProfile2.jsp?demographic_no=" + encDemoNo; %>
 

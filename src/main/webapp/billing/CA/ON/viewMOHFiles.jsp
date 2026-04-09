@@ -15,7 +15,7 @@
 
 --%>
 <%@page import="java.nio.charset.StandardCharsets" %>
-<%@ page import="java.util.*,io.github.carlos_emr.*,java.io.*,java.net.*,io.github.carlos_emr.carlos.util.*,org.apache.commons.io.FileUtils,java.text.SimpleDateFormat,io.github.carlos_emr.carlos.billing.CA.ON.util.EDTFolder,io.github.carlos_emr.carlos.utility.MiscUtils"%>
+<%@ page import="java.util.*,io.github.carlos_emr.*,java.io.*,java.net.*,io.github.carlos_emr.carlos.util.*,org.apache.commons.io.FileUtils,java.text.SimpleDateFormat,io.github.carlos_emr.carlos.billing.CA.ON.util.EDTFolder,io.github.carlos_emr.carlos.utility.MiscUtils,io.github.carlos_emr.carlos.utility.PathValidationUtils"%>
 <%@ page import="io.github.carlos_emr.carlos.util.FileSortByDate" %>
 <%@ page import="io.github.carlos_emr.carlos.util.zip" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -36,15 +36,17 @@
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.viewMOHFiles"/></title>
 
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
     <script LANGUAGE="JavaScript">
-        function viewMOHFile(filename) {
+        function viewMOHFile(anchor) {
+            var filename = anchor.dataset.filename;
+            var decodedFilename = decodeURIComponent(filename.replace(/\+/g, "%20"));
             var form = document.getElementById("form");
             document.getElementById("filename").value = filename;
-            var fileType = filename.substring(0, 1).toUpperCase();
-            if (filename.substring(filename.length - 4).toLowerCase() == ".zip") {
-                var r = alert("Please unzip " + filename + " before processing.");
+            var fileType = decodedFilename.substring(0, 1).toUpperCase();
+            if (decodedFilename.substring(decodedFilename.length - 4).toLowerCase() == ".zip") {
+                alert("Please unzip " + decodedFilename + " before processing.");
                 location.href = "<%= request.getContextPath() %>/billing/CA/ON/viewMOHFiles.jsp";
                 return;
             } else if (fileType == "P" || fileType == "S") {
@@ -55,6 +57,14 @@
                 form.action = "/<%= CarlosProperties.getInstance().getProperty("project_home") %>/oscarBilling/DocumentErrorReportUpload.do";
             }
             form.submit();
+        }
+
+        function navigateToFolder(selectEl) {
+            var allowed = ["inbox", "outbox", "sent", "archive"];
+            var folder = selectEl.options[selectEl.selectedIndex].value;
+            if (allowed.indexOf(folder) !== -1) {
+                location.href = "<%= request.getContextPath() %>/billing/CA/ON/viewMOHFiles.jsp?folder=" + encodeURIComponent(folder);
+            }
         }
 
         function toggleCheckboxes(el) {
@@ -91,7 +101,7 @@
         <% } %>
 
         View:
-        <select name="folder" onchange="location.href='<%= request.getContextPath() %>/billing/CA/ON/viewMOHFiles.jsp?folder='+encodeURIComponent(this.options[selectedIndex].value)">
+        <select name="folder" onchange="navigateToFolder(this)">
             <option value="inbox" <% if (folder == EDTFolder.INBOX) {%>selected<%}%>>Inbox</option>
             <option value="outbox" <% if (folder == EDTFolder.OUTBOX) {%>selected<%}%>>Outbox</option>
             <option value="sent" <% if (folder == EDTFolder.SENT) {%>selected<%}%>>Sent</option>
@@ -126,11 +136,16 @@
                 String unzipMSG = "";
                 try {
                     if (zname != null && !zname.equals("")) {
-                        Boolean unzipDone = zip.unzipXML(folderPath, zname);
+                        // Validate the user-provided filename to prevent path traversal (CWE-22)
+                        File safeZipFile = PathValidationUtils.validatePath(zname, new File(folderPath));
+                        Boolean unzipDone = zip.unzipXML(folderPath, safeZipFile.getName());
                         if (!unzipDone) {
                             unzipMSG = "(Cannot unzip)";
                         }
                     }
+                } catch (SecurityException e) {
+                    MiscUtils.getLogger().warn("viewMOHFiles: path traversal attempt blocked for unzipfile parameter");
+                    unzipMSG = "(Cannot unzip)";
                 } catch (Exception e) {
                     MiscUtils.getLogger().error("viewMOHFiles: unzip file Unhandled exception:", e);
                     unzipMSG = "(Cannot unzip)";
@@ -153,12 +168,12 @@
                     bodd = bodd ? false : true;
                     if (contents[i].isDirectory() || contents[i].getName().startsWith(".")) continue;
                     if (contents[i].getName().endsWith(".sh")) continue;
-                    String archiveElement = "<td ><input type='checkbox' name='mohFile' value='" + URLEncoder.encode(contents[i].getName(), StandardCharsets.UTF_8) + "' title='select to archive'/></td>";
+                    String archiveElement = "<td ><input type='checkbox' name='mohFile' value='" + Encode.forHtmlAttribute(URLEncoder.encode(contents[i].getName(), StandardCharsets.UTF_8)) + "' title='select to archive'/></td>";
                     if (folder == EDTFolder.INBOX || folder == EDTFolder.ARCHIVE) {
-                        out.println("<tr>" + (folder == EDTFolder.INBOX ? archiveElement : "") + "<td><a HREF='#' onclick='viewMOHFile(\"" + URLEncoder.encode(contents[i].getName(), StandardCharsets.UTF_8) + "\")'>" + contents[i].getName() + unzipMSG + "</a></td>");
-                        out.println("<td><a href=\"" + request.getContextPath() + "/servlet/BackupDownload?filename=" + URLEncoder.encode(contents[i].getName(), StandardCharsets.UTF_8) + "\">Download</a></td>");
+                        out.println("<tr>" + (folder == EDTFolder.INBOX ? archiveElement : "") + "<td><a href='#' onclick='viewMOHFile(this)' data-filename='" + Encode.forHtmlAttribute(URLEncoder.encode(contents[i].getName(), StandardCharsets.UTF_8)) + "'>" + Encode.forHtml(contents[i].getName()) + unzipMSG + "</a></td>");
+                        out.println("<td><a href=\"" + Encode.forHtmlAttribute(request.getContextPath() + "/servlet/BackupDownload?filename=" + URLEncoder.encode(contents[i].getName(), StandardCharsets.UTF_8)) + "\">Download</a></td>");
                     } else {
-                        out.println("<tr><td>" + contents[i].getName() + "</td>");
+                        out.println("<tr><td>" + Encode.forHtml(contents[i].getName()) + "</td>");
                     }
                     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
                     Date d = new Date(contents[i].lastModified());
@@ -174,7 +189,7 @@
         <input type="submit" value="Archive" class="btn btn-secondary">
         <% } %>
 
-        <select name="folder" onchange="location.href='<%= request.getContextPath() %>/billing/CA/ON/viewMOHFiles.jsp?folder='+encodeURIComponent(this.options[selectedIndex].value)">
+        <select name="folder" onchange="navigateToFolder(this)">
             <option value="inbox" <% if (folder == EDTFolder.INBOX) {%>selected<%}%>>Inbox</option>
             <option value="outbox" <% if (folder == EDTFolder.OUTBOX) {%>selected<%}%>>Outbox</option>
             <option value="sent" <% if (folder == EDTFolder.SENT) {%>selected<%}%>>Sent</option>

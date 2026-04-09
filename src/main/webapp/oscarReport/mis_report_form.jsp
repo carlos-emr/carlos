@@ -55,7 +55,7 @@
 <%@page import="java.text.DateFormatSymbols" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@page import="org.owasp.encoder.Encode" %>
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -106,7 +106,7 @@
                     <%
                         for (FunctionalCentre functionalCentre : functionalCentres) {
                     %>
-                    <option value="<%=functionalCentre.getAccountId()%>"><%=StringEscapeUtils.escapeHtml4(functionalCentre.getAccountId() + ", " + functionalCentre.getDescription())%>
+                    <option value="<%=functionalCentre.getAccountId()%>"><%=Encode.forHtml(functionalCentre.getAccountId() + ", " + functionalCentre.getDescription())%>
                     </option>
                     <%
                         }
@@ -126,7 +126,7 @@
                         for (Program program : programs) {
                             if ("Service".equalsIgnoreCase(program.getType())) {
                     %>
-                    <option value="<%=program.getId()%>"><%=StringEscapeUtils.escapeHtml4(program.getName() + " (" + program.getType() + ')')%>
+                    <option value="<%=program.getId()%>"><%=Encode.forHtml(program.getName() + " (" + program.getType() + ')')%>
                     </option>
                     <%
                             }

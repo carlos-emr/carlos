@@ -96,7 +96,7 @@
     <center></center>
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr BGCOLOR="#CCCCFF">
-            <td><%=reportName%> Caption</td>
+            <td><%=Encode.forHtml(reportName)%> Caption</td>
             <td width="10%" align="right" nowrap>
                 <% if ("demographic".equals(tableName)) {%> <a
                     href="reportFormDemoConfig.jsp?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>&formTableName=<%= Encode.forUriComponent(formTableName) %>&configTableName=<%= Encode.forUriComponent(configTableName) %>">Back
@@ -121,8 +121,8 @@
                             String fieldCaption = "";
                             String action = " Add ";
                             if (strTemp.length > 1) {
-                                fieldName = StringEscapeUtils.escapeHtml4(strTemp[1]);
-                                fieldCaption = StringEscapeUtils.escapeHtml4(strTemp[0].trim());
+                                fieldName = Encode.forHtml(strTemp[1]);
+                                fieldCaption = Encode.forHtmlAttribute(strTemp[0].trim());
                             }
                             if (fieldCaption.length() > 1) {
                                 color = "gold";

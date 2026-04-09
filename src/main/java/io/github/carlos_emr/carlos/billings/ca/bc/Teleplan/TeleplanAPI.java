@@ -101,6 +101,7 @@ public class TeleplanAPI {
         CONTACT_URL = CarlosProperties.getInstance().getProperty("TELEPLAN_URL", CONTACT_URL);
 
         BasicCookieStore cookieStore = new BasicCookieStore();
+        // nosemgrep: cookie-missing-secure-flag, cookie-missing-httponly, cookie-missing-samesite — outbound HttpClient cookie, not a browser Set-Cookie; Secure/HttpOnly/SameSite do not apply
         BasicClientCookie cookie = new BasicClientCookie("mycookie", "stuff");
         cookie.setDomain("moh.hnet.bc.ca");
         cookie.setPath("/");

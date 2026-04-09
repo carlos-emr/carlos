@@ -75,6 +75,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <html>
 <head>
 
@@ -180,20 +181,20 @@
    %>
 
      <tr>
-        <td ><%=paymentdate%>  </td>
-        <td align="right"><%=Encode.forHtmlContent(payable)%> </td>
-        <td align="right"><%=moneyFormat(amtbilled)%></td>
-        <td align="right"><%=moneyFormat(amtpaid)%></td>
-        <td align="right"><%=moneyFormat(balancefwd)%></td>
-        <td align="right"><%=moneyFormat(chequeamt)%></td>
-        <td align="right"><%=moneyFormat(newbalance)%></td>
+        <td ><%=Encode.forHtml(StringUtils.noNull(paymentdate))%>  </td>
+        <td align="right"><%=Encode.forHtml(StringUtils.noNull(payable))%> </td>
+        <td align="right"><%=Encode.forHtml(moneyFormat(amtbilled))%></td>
+        <td align="right"><%=Encode.forHtml(moneyFormat(amtpaid))%></td>
+        <td align="right"><%=Encode.forHtml(moneyFormat(balancefwd))%></td>
+        <td align="right"><%=Encode.forHtml(moneyFormat(chequeamt))%></td>
+        <td align="right"><%=Encode.forHtml(moneyFormat(newbalance))%></td>
         <td >&nbsp;&nbsp;
-           Billed( <a href="createBillingReportAction.do?docFormat=pdf&repType=REP_MSPREM&rano=<%=raNo%>&selPayee=<%=payeeNo%>" target="_blank">PDF</a>|<a href="createBillingReportAction.do?docFormat=csv&repType=REP_MSPREM&rano=<%=raNo%>&selPayee=<%=payeeNo%>" target="_blank">CSV</a>) | 
-           <a href="genTAS00.jsp?rano=<%=raNo%>&proNo=" target="_blank">Detail</a> |
-           <a href="genTAS22.jsp?rano=<%=raNo%>&proNo=" target="_blank">Summary</a> 
-           ( <a href="createBillingReportAction.do?docFormat=pdf&repType=REP_MSPREMSUM&rano=<%=raNo%>&proNo=" target="_blank">PDF</a>|<a href="createBillingReportAction.do?docFormat=csv&repType=REP_MSPREMSUM&rano=<%=raNo%>&proNo=" target="_blank">CSV</a>)
+           Billed( <a href="createBillingReportAction.do?docFormat=pdf&repType=REP_MSPREM&rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&selPayee=<%=Encode.forUriComponent(StringUtils.noNull(payeeNo))%>" target="_blank">PDF</a>|<a href="createBillingReportAction.do?docFormat=csv&repType=REP_MSPREM&rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&selPayee=<%=Encode.forUriComponent(StringUtils.noNull(payeeNo))%>" target="_blank">CSV</a>) |
+           <a href="genTAS00.jsp?rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&proNo=" target="_blank">Detail</a> |
+           <a href="genTAS22.jsp?rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&proNo=" target="_blank">Summary</a>
+           ( <a href="createBillingReportAction.do?docFormat=pdf&repType=REP_MSPREMSUM&rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&proNo=" target="_blank">PDF</a>|<a href="createBillingReportAction.do?docFormat=csv&repType=REP_MSPREMSUM&rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&proNo=" target="_blank">CSV</a>)
         </td>
-        <td ><%=result.getStatus()%></td>
+        <td ><%=Encode.forHtml(String.valueOf(result.getStatus()))%></td>
      </tr>
      <tr>
         <td colspan="10" bgcolor="#EBF4F5">&nbsp;</td>
@@ -212,11 +213,13 @@
 <%!
     String moneyFormat(String str) {
         String moneyStr = "0.00";
-        try {
-            moneyStr = new java.math.BigDecimal(str).movePointLeft(2).toString();
-        } catch (Exception moneyException) {
-            MiscUtils.getLogger().error("Error", moneyException);
-            moneyStr = str;
+        if (str != null && !str.isEmpty()) {
+            try {
+                moneyStr = new java.math.BigDecimal(str).movePointLeft(2).toString();
+            } catch (NumberFormatException moneyException) {
+                MiscUtils.getLogger().error("Error", moneyException);
+                moneyStr = str;
+            }
         }
         return moneyStr;
     }
