@@ -102,7 +102,7 @@
                     <td class="Header"
                         style="padding-left:2px;padding-right:2px;border-right:2px solid #003399;text-align:left;font-size:80%;font-weight:bold;width:100%;"
                         NOWRAP>
-                        <%=last_name %>, <%=first_name%> <%=sex%> <%=age%>
+                        <%=Encode.forHtml(last_name)%>, <%=Encode.forHtml(first_name)%> <%=Encode.forHtml(sex)%> <%=Encode.forHtml(age)%>
                     </td>
                     <td>
                     </td>
@@ -138,7 +138,7 @@
                 %>
                 <div style="font-weight: bold"><input type="checkbox"
                                                       name="chkSet<%--=i--%>"
-                                                      value="<%=cfgId.get(i)%>"/> <%=(String) cfgSet.get(i)%>;
+                                                      value="<%=Encode.forHtmlAttribute(String.valueOf(cfgId.get(i)))%>"/> <%=Encode.forHtml((String) cfgSet.get(i))%>;
                 </div>
                 <%
                     }

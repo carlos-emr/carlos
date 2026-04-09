@@ -51,6 +51,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 /**
  * Utility class for exporting eForms as ZIP archives.
@@ -201,7 +202,7 @@ public class EFormExportZip {
         //first runthrough, get the properties files, construct eforms, cache files
         while ((ze = zis.getNextEntry()) != null) {
             File file = new File(ze.getName());
-            _log.info("Unzipping..." + file.getName());
+            _log.info("Unzipping..." + LogSanitizer.sanitize(file.getName()));
             if (file.getName().equalsIgnoreCase("eform.properties")) {
                 Properties properties = new Properties();
                 properties.load(zis);
@@ -229,6 +230,8 @@ public class EFormExportZip {
             } else {
                 //store temp files on HD
                 File tempFile = new File(imageTempFolderDir, file.getName());
+                // Zip Slip prevention: ensure extracted file stays within the temp extraction directory
+                tempFile = PathValidationUtils.validateExistingPath(tempFile, imageTempFolderDir);
                 tempFiles.put(file.getName(), tempFile); //reference so we can find it later
                 FileOutputStream fos = new FileOutputStream(tempFile);
                 inputToOutput(zis, fos);
@@ -260,6 +263,8 @@ public class EFormExportZip {
             } else {
                 FileInputStream fis = new FileInputStream(tempFile.getValue());
                 File imageFile = new File(ImageUpload2Action.getImageFolder(), tempFile.getKey());
+                // Zip Slip prevention: ensure the image destination stays within the image folder
+                imageFile = PathValidationUtils.validateExistingPath(imageFile, ImageUpload2Action.getImageFolder());
                 if (imageFile.exists()) {
                     errors.add("Image '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
                     _log.info("EForm Import: Image with name '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");

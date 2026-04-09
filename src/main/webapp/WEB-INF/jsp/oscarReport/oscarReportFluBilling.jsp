@@ -93,7 +93,7 @@
 <div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.title"/>
-        <%=years%>
+        <%=Encode.forHtml(years)%>
     </h4>
 </div>
 
@@ -115,7 +115,7 @@
     <%
         for (Provider p : providers) {
     %>
-    <option value="<%=p.getProviderNo()%>" <%=selled(p.getProviderNo(), pros)%>><%=p.getFormattedName()%>
+    <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>" <%=selled(p.getProviderNo(), pros)%>><%=Encode.forHtml(p.getFormattedName())%>
     </option>
     <%
         }

@@ -32,7 +32,7 @@ package io.github.carlos_emr.carlos.managers;
 
 import java.util.List;
 
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.dao.RBTGroupDao;
 import io.github.carlos_emr.carlos.commn.model.RBTGroup;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -75,7 +75,7 @@ public class RBTGroupManager {
         }
 
         groupName = groupName.trim();
-        groupName = StringEscapeUtils.escapeJava(groupName);
+        groupName = Encode.forJava(groupName);
 
         RBTGroup rbtGroup = new RBTGroup();
         rbtGroup.setTemplateId(tid);

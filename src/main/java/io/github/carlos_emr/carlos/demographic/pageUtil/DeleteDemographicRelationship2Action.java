@@ -78,7 +78,7 @@ public class DeleteDemographicRelationship2Action extends ActionSupport {
         demo.deleteDemographicRelationship(idRel);
 
         String ip = request.getRemoteAddr();
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_DEMOGRAPHIC_RELATION, id, ip);
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_DEMOGRAPHIC_RELATION, id, ip); // nosemgrep: tainted-session-from-http-request
         request.setAttribute("demo", origDemo);
         return SUCCESS;
     }

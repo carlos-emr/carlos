@@ -128,8 +128,8 @@ public class HRMReportParser {
                 }
 
                 // Load and compile the XSD schema
-                SchemaFactory factory = SchemaFactory
-                    .newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+                SchemaFactory factory = XmlUtils.createSecureSchemaFactory(
+                    XMLConstants.W3C_XML_SCHEMA_NS_URI);
                 File schemaFile = new ClassPathResource("/xsd/hrm/1.1.2/ontariomd_hrm.xsd").getFile();
                 Source schemaSource = new StreamSource(schemaFile);
                 Schema schema = factory.newSchema(schemaSource);

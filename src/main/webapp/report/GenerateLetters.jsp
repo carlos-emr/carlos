@@ -226,7 +226,7 @@
                         for (int i = 0; i < list.size(); i++) {
                             Hashtable h = (Hashtable) list.get(i);
                     %>
-                    <option value="<%=h.get("ID")%>"><%=h.get("report_name")%>
+                    <option value="<%=Encode.forHtmlAttribute(String.valueOf(h.get("ID")))%>"><%=Encode.forHtml(String.valueOf(h.get("report_name")))%>
                     </option>
                     <%}%>
                 </select> <%
@@ -263,7 +263,7 @@
                     <tr>
                         <td><%=i + 1%>
                         </td>
-                        <td><input type="checkbox" name="demos" value="<%=demos[i]%>"
+                        <td><input type="checkbox" name="demos" value="<%=Encode.forHtmlAttribute(demos[i])%>"
                                    checked/></td>
 					<td><%=Encode.forHtmlContent(h.get("lastName"))%>, <%=Encode.forHtmlContent(h.get("firstName"))%></td>
 					<td><%=Encode.forHtmlContent(h.get("sex"))%></td>
