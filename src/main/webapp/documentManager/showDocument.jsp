@@ -913,7 +913,6 @@
 <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
 <script type="text/javascript" src="showDocument.js"></script>
-<script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/csrfTokenFetch.js"></script>
 <script type="text/javascript">
     /**
      * Override removeLink for the single-document popup view.
