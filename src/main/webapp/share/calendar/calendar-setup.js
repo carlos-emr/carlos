@@ -66,7 +66,7 @@ Calendar._convertFormat = function (fmt) {
  */
 Calendar._formatDate = function (date, fmt) {
     var y  = date.getFullYear();
-    var mo = date.getMonth() + 1;
+    var mo = date.getMonth();
     var d  = date.getDate();
     var h  = date.getHours();
     var mi = date.getMinutes();
@@ -75,7 +75,7 @@ Calendar._formatDate = function (date, fmt) {
     return fmt
         .replace(/%Y/g, y)
         .replace(/%y/g, String(y).slice(-2))
-        .replace(/%m/g, ("0" + mo).slice(-2))
+        .replace(/%m/g, ("0" + (mo + 1)).slice(-2))
         .replace(/%d/g, ("0" + d).slice(-2))
         .replace(/%e/g, d)
         .replace(/%H/g, ("0" + h).slice(-2))
@@ -86,8 +86,8 @@ Calendar._formatDate = function (date, fmt) {
         .replace(/%p/g, (h < 12 ? "am" : "pm"))
         .replace(/%a/g, (Calendar._SDN[dow] || ""))
         .replace(/%A/g, (Calendar._DN[dow]  || ""))
-        .replace(/%b/g, (Calendar._SMN[date.getMonth()] || ""))
-        .replace(/%B/g, (Calendar._MN[date.getMonth()]  || ""));
+        .replace(/%b/g, (Calendar._SMN[mo]  || ""))
+        .replace(/%B/g, (Calendar._MN[mo]   || ""));
 };
 
 /* ── Calendar.setup() — public entry point ──────────────────────────────── */
