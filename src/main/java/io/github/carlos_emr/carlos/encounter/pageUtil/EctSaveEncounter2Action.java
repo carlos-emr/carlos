@@ -302,7 +302,14 @@ public class EctSaveEncounter2Action extends ActionSupport {
             }
             bean.setBillForm(formBill);
             bean.setPatientNo(sessionbean.demographicNo);
-            bean.setApptNo(httpservletrequest.getParameter("appointment_no"));
+            String apptNoParam = httpservletrequest.getParameter("appointment_no");
+            if ("null".equalsIgnoreCase(apptNoParam) || (apptNoParam != null && apptNoParam.isEmpty())) {
+                apptNoParam = null;
+            } else if (apptNoParam != null && !apptNoParam.matches("\\d{1,9}")) {
+                log.warn("Invalid appointment_no rejected");
+                return "failure";
+            }
+            bean.setApptNo(apptNoParam);
             bean.setApptDate(sessionbean.appointmentDate);
             bean.setApptStatus(httpservletrequest.getParameter("status"));
             httpservletrequest.setAttribute("encounter", "true");

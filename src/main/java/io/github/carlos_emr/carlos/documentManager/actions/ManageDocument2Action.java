@@ -221,8 +221,13 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
-        if (demog != null && !demog.matches("^\\d+$")) {
-            throw new SecurityException("Invalid demographic number");
+        if (documentId == null || !documentId.matches("\\d{1,9}")) {
+            log.warn("documentUpdateAjax: invalid or missing documentId");
+            return;
+        }
+        if (demog == null || !demog.matches("\\d{1,9}")) {
+            log.warn("documentUpdateAjax: invalid or missing demog");
+            return;
         }
 
         LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, documentId, request.getRemoteAddr(), demog); // nosemgrep: tainted-session-from-http-request

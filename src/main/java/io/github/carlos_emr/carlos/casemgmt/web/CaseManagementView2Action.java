@@ -287,6 +287,10 @@ public class CaseManagementView2Action extends ActionSupport {
         if (se.getAttribute("userrole") == null) return "expired";
 
         String demoNo = getDemographicNo();
+        if (demoNo == null || !demoNo.matches("\\d{1,9}")) {
+            logger.warn("Invalid demographicNo from Struts parameter: {}", LogSanitizer.sanitize(demoNo));
+            return "error";
+        }
 
         logger.debug("is client in program");
         // need to check to see if the client is in our program domain
@@ -489,13 +493,14 @@ public class CaseManagementView2Action extends ActionSupport {
         this.setVlCountry(vLocale.getCountry());
         this.setDemographicNo(getDemographicNo(request));
 
-        se.setAttribute("casemgmt_DemoNo", demoNo);
+        se.setAttribute("casemgmt_DemoNo", demoNo); // nosemgrep: tainted-session-from-http-request
         this.setRootCompURL((String) se.getAttribute("casemgmt_oscar_baseurl"));
         se.setAttribute("casemgmt_VlCountry", vLocale.getCountry());
 
         // if we have just saved a note, remove saveNote flag
+        // demoNo validated as numeric above; varName is a safe session key
         String varName = "saveNote" + demoNo;
-        Boolean saved = (Boolean) se.getAttribute(varName);
+        Boolean saved = (Boolean) se.getAttribute(varName); // nosemgrep: tainted-session-from-http-request
         if (saved != null && saved == true) {
             request.setAttribute("saveNote", saved);
             se.removeAttribute(varName);
@@ -2003,8 +2008,11 @@ public class CaseManagementView2Action extends ActionSupport {
 
     public String getProviderNo(HttpServletRequest request) {
         String providerNo = request.getParameter("providerNo");
+        if (providerNo != null && !providerNo.matches("[a-zA-Z0-9]{1,6}")) {
+            throw new IllegalArgumentException("Invalid providerNo");
+        }
         if (providerNo == null)
-            providerNo = (String) request.getSession().getAttribute("user");
+            providerNo = (String) request.getSession().getAttribute("user"); // nosemgrep: tainted-session-from-http-request
         return providerNo;
     }
 }

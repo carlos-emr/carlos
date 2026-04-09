@@ -32,7 +32,7 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
+
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -149,9 +149,19 @@ public final class RxRePrescribe2Action extends ActionSupport {
         beanRX.setProviderNo(sessionBeanRX.getProviderNo());
 
         String script_no = request.getParameter("scriptNo");
+        if (script_no == null || !script_no.matches("\\d{1,9}")) {
+            logger.warn("Invalid scriptNo in reprint2");
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return null;
+        }
+        long parsedScriptNo = Long.parseLong(script_no);
+        if (parsedScriptNo > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("Invalid scriptNo");
+        }
+        int scriptNo = (int) parsedScriptNo;
         String ip = request.getRemoteAddr();
         RxPrescriptionData rxData = new RxPrescriptionData();
-        List<Prescription> list = rxData.getPrescriptionsByScriptNo(Integer.parseInt(script_no), sessionBeanRX.getDemographicNo());
+        List<Prescription> list = rxData.getPrescriptionsByScriptNo(scriptNo, sessionBeanRX.getDemographicNo());
         RxPrescriptionData.Prescription p = null;
         StringBuilder auditStr = new StringBuilder();
         for (int idx = 0; idx < list.size(); ++idx) {
@@ -257,12 +267,22 @@ public String saveDigitalSignature() throws IOException {
     beanRX.setDemographicNo(sessionBeanRX.getDemographicNo());
     beanRX.setProviderNo(sessionBeanRX.getProviderNo());
     
-    // Extract digital signature ID from request (can be null to remove signature)
-    Integer digitalSignatureId = Objects.isNull(request.getParameter("digitalSignatureId"))
-            ? null : Integer.valueOf(request.getParameter("digitalSignatureId"));
-    
-    // Extract required script ID parameter
+    // Extract and validate digital signature ID from request (can be null to remove signature)
+    String digitalSignatureIdParam = request.getParameter("digitalSignatureId");
+    if (digitalSignatureIdParam != null && !digitalSignatureIdParam.matches("\\d{1,9}")) {
+        logger.warn("Invalid digitalSignatureId rejected");
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+        return NONE;
+    }
+    Integer digitalSignatureId = digitalSignatureIdParam == null ? null : Integer.valueOf(digitalSignatureIdParam);
+
+    // Extract and validate required script ID parameter
     String scriptId = request.getParameter("scriptId");
+    if (scriptId == null || !scriptId.matches("\\d{1,9}")) {
+        logger.warn("Invalid scriptId rejected");
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+        return NONE;
+    }
     
     // Capture client IP for audit logging
     String ip = request.getRemoteAddr();
