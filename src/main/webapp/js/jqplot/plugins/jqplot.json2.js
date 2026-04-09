@@ -458,9 +458,12 @@
 // in JavaScript: it can begin a block or an object literal. We wrap the text
 // in parens to eliminate the ambiguity.
 
-                // CARLOS targets ES5+ browsers where JSON.parse is always available.
-                // This polyfill block is only entered when window.JSON is missing (pre-IE8).
-                j = JSON.parse(text); // nosemgrep: eval-detected
+                // CARLOS targets ES5+ browsers; this polyfill block is only entered
+                // when window.JSON is missing (pre-IE8) which is unsupported.
+                if (typeof JSON === 'undefined' || typeof JSON.parse !== 'function') {
+                    throw new Error('JSON.parse is required; CARLOS does not support pre-ES5 browsers');
+                }
+                j = JSON.parse(text);
 
 // In the optional fourth stage, we recursively walk the new structure, passing
 // each name/value pair to a reviver function for possible transformation.
