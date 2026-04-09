@@ -303,7 +303,7 @@ public class Pregnancy2Action extends ActionSupport {
         if (demoNoParam == null || !demoNoParam.matches("\\d{1,10}")) {
             return null;
         }
-        Integer demographicNo = Integer.parseInt(demoNoParam);
+        int demographicNo = Integer.parseInt(demoNoParam);
         String ferritin = request.getParameter("ferritin");
         String hbElectrophoresis = request.getParameter("hb_electrophoresis");
 
