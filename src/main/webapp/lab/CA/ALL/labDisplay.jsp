@@ -962,7 +962,6 @@ input[id^='acklabel_']{
     <form name="acknowledgeForm_<%= Encode.forHtmlAttribute(segmentID) %>"
           id="acknowledgeForm_<%= Encode.forHtmlAttribute(segmentID) %>" method="post" onsubmit="javascript:void(0);"
           action="javascript:void(0);">
-        <input type="hidden" name="CSRF-TOKEN" value="">
 
         <table style="width:100%;">
             <tr>
