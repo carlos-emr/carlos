@@ -38,6 +38,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -378,20 +379,19 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should reset counter when window expires")
-        void shouldResetCounter_whenWindowExpires() throws Exception {
-            // Use a very short window so we can observe reset in tests
-            // We'll use FixedWindowCounter directly for the reset test
-            FixedWindowCounter counter = new FixedWindowCounter(2, 50L); // 50ms window
+        void shouldResetCounter_whenWindowExpires() {
+            AtomicLong fakeNow = new AtomicLong(0L);
+            FixedWindowCounter counter = new FixedWindowCounter(2, 50L, fakeNow::get);
 
             assertThat(counter.tryAcquire()).isTrue();  // 1
             assertThat(counter.tryAcquire()).isTrue();  // 2
             assertThat(counter.tryAcquire()).isFalse(); // 3 — exceeds limit
 
-            // Wait for window to expire
-            Thread.sleep(100L);
+            // Advance clock past the 50ms window — no Thread.sleep needed
+            fakeNow.addAndGet(51L);
 
-            // Counter should reset — should be allowed again
-            assertThat(counter.tryAcquire()).isTrue(); // 1 in new window
+            // Counter should reset; first request in the new window is allowed
+            assertThat(counter.tryAcquire()).isTrue();
         }
     }
 
@@ -447,25 +447,29 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should evict stale counters on cleanup run")
         void shouldEvictStaleCounters_onCleanupRun() throws Exception {
-            // Use a very short global window so counters go stale quickly
+            AtomicLong fakeNow = new AtomicLong(0L);
+            // Inject clock before init so counters created by the filter use it
+            filter.setClock(fakeNow::get);
+
             when(mockProperties.isPropertyActive("WAF_RATE_LIMIT_ENABLED")).thenReturn(true);
             when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("enforce");
             when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("100");
-            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("1"); // 1s
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("1"); // 1s = 1000ms
             when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("");
             when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1");
             when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
             filter.init(mock(FilterConfig.class));
 
-            // Register a counter via a real request
+            // Register a counter (windowStart = fakeNow.get() = 0)
             filter.doFilter(request, response, chain);
             assertThat(filter.getCounters()).isNotEmpty();
             int sizeWithActive = filter.getCounters().size();
 
-            // Wait for the counters' window to expire (> 2 * windowMillis = 2s)
-            Thread.sleep(2100L);
+            // Advance clock by > 2 * windowMillis (window = 1000ms, stale threshold = 2000ms)
+            // Deterministic — no Thread.sleep needed
+            fakeNow.addAndGet(2100L);
 
-            // Run eviction — all counters should be removed (window = 1s, stale after 2s)
+            // Run eviction — all counters should be evicted
             filter.evictStaleCounters();
 
             assertThat(filter.getCounters().size()).isLessThan(sizeWithActive);
@@ -513,17 +517,20 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should report stale after two window durations")
-        void shouldReportStale_afterTwoWindowDurations() throws Exception {
-            FixedWindowCounter counter = new FixedWindowCounter(10, 50L); // 50ms window
-            Thread.sleep(150L); // wait > 2 * 50ms for reliable stale detection
-            assertThat(counter.isStale(System.currentTimeMillis())).isTrue();
+        void shouldReportStale_afterTwoWindowDurations() {
+            AtomicLong fakeNow = new AtomicLong(0L);
+            FixedWindowCounter counter = new FixedWindowCounter(10, 50L, fakeNow::get);
+            // Advance clock by > 2 * 50ms — no Thread.sleep needed
+            fakeNow.addAndGet(101L);
+            assertThat(counter.isStale(fakeNow.get())).isTrue();
         }
 
         @Test
         @DisplayName("should not report stale within one window duration")
         void shouldNotReportStale_withinOneWindowDuration() {
-            FixedWindowCounter counter = new FixedWindowCounter(10, 60_000L);
-            assertThat(counter.isStale(System.currentTimeMillis())).isFalse();
+            AtomicLong fakeNow = new AtomicLong(0L);
+            FixedWindowCounter counter = new FixedWindowCounter(10, 60_000L, fakeNow::get);
+            assertThat(counter.isStale(fakeNow.get())).isFalse();
         }
     }
 }

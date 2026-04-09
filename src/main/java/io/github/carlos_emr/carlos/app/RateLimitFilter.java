@@ -44,6 +44,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.LongSupplier;
 
 /**
  * Per-IP rate-limiting filter for CARLOS EMR.
@@ -135,6 +136,13 @@ public final class RateLimitFilter implements Filter {
 
     /** Background thread for evicting stale counters to prevent unbounded memory growth. */
     private ScheduledExecutorService cleanupScheduler;
+
+    /**
+     * Clock supplier used to obtain the current time in milliseconds.
+     * Defaults to {@link System#currentTimeMillis()}; may be replaced in tests for
+     * deterministic timing control without wall-clock delays.
+     */
+    private LongSupplier clock = System::currentTimeMillis;
 
     /**
      * Initialises the filter by loading all configuration from {@link CarlosProperties}.
@@ -237,7 +245,7 @@ public final class RateLimitFilter implements Filter {
         // Check global counter
         FixedWindowCounter globalCounter = counters.computeIfAbsent(
                 clientIp,
-                k -> new FixedWindowCounter(defaultRequests, defaultWindowSeconds * 1000L));
+                k -> new FixedWindowCounter(defaultRequests, defaultWindowSeconds * 1000L, clock));
 
         boolean globalAllowed = globalCounter.tryAcquire();
 
@@ -260,7 +268,7 @@ public final class RateLimitFilter implements Filter {
             String counterKey = clientIp + "|" + matchedPath;
             FixedWindowCounter pathCounter = counters.computeIfAbsent(
                     counterKey,
-                    k -> new FixedWindowCounter(pathConfig.requests, pathConfig.windowSeconds * 1000L));
+                    k -> new FixedWindowCounter(pathConfig.requests, pathConfig.windowSeconds * 1000L, clock));
 
             boolean pathAllowed = pathCounter.tryAcquire();
 
@@ -291,6 +299,17 @@ public final class RateLimitFilter implements Filter {
     }
 
     // --- Package-visible for testing ---
+
+    /**
+     * Overrides the clock supplier used for time measurements (for testing only).
+     * Must be called before {@link #init(FilterConfig)} so that counters created during
+     * the filter's lifetime use the injected clock.
+     *
+     * @param clock a supplier that returns the current time in milliseconds
+     */
+    void setClock(LongSupplier clock) {
+        this.clock = clock;
+    }
 
     /**
      * Returns a snapshot copy of the current counter map (for testing).
@@ -457,7 +476,7 @@ public final class RateLimitFilter implements Filter {
      * duration ago. This prevents unbounded memory growth from transient client IPs.</p>
      */
     void evictStaleCounters() {
-        long now = System.currentTimeMillis();
+        long now = clock.getAsLong();
         int sizeBefore = counters.size();
         counters.entrySet().removeIf(entry -> entry.getValue().isStale(now));
         int removed = sizeBefore - counters.size();
@@ -506,17 +525,30 @@ public final class RateLimitFilter implements Filter {
         private volatile long windowStart;
         private final int maxRequests;
         private final long windowMillis;
+        private final LongSupplier clock;
 
         /**
-         * Creates a new counter.
+         * Creates a new counter using the system wall clock.
          *
          * @param maxRequests  maximum requests allowed per window
          * @param windowMillis window duration in milliseconds
          */
         FixedWindowCounter(int maxRequests, long windowMillis) {
+            this(maxRequests, windowMillis, System::currentTimeMillis);
+        }
+
+        /**
+         * Creates a new counter with a custom clock supplier (for testing).
+         *
+         * @param maxRequests  maximum requests allowed per window
+         * @param windowMillis window duration in milliseconds
+         * @param clock        supplier of current time in milliseconds
+         */
+        FixedWindowCounter(int maxRequests, long windowMillis, LongSupplier clock) {
             this.maxRequests = maxRequests;
             this.windowMillis = windowMillis;
-            this.windowStart = System.currentTimeMillis();
+            this.clock = clock;
+            this.windowStart = clock.getAsLong();
         }
 
         /**
@@ -525,7 +557,7 @@ public final class RateLimitFilter implements Filter {
          * @return {@code true} if within the rate limit; {@code false} if the limit is exceeded
          */
         boolean tryAcquire() {
-            long now = System.currentTimeMillis();
+            long now = clock.getAsLong();
             if (now - windowStart >= windowMillis) {
                 // Window has expired — reset under lock to avoid multiple simultaneous resets
                 synchronized (this) {
@@ -545,7 +577,7 @@ public final class RateLimitFilter implements Filter {
          * @return seconds until window expiry, minimum 1
          */
         long retryAfterSeconds() {
-            long remaining = (windowStart + windowMillis - System.currentTimeMillis()) / 1000L;
+            long remaining = (windowStart + windowMillis - clock.getAsLong()) / 1000L;
             return Math.max(1L, remaining);
         }
 
