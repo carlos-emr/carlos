@@ -90,9 +90,6 @@ REM076 **                                                             **
                 //27 - 76 Fee Item       X(50)
 
                 boolean parse = true;
-                if (line == null) {
-                    parse = false;
-                }
                 if (line.startsWith("REM")) {
                     parse = false;
                 }
