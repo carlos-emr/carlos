@@ -307,7 +307,7 @@ function seteditControlContents(editorname, value){
 	}
 	var sanitized = (typeof DOMPurify !== 'undefined') ? DOMPurify.sanitize(value) : '';
 
-    if (document.designMode) {
+    if (document.designMode === 'on') {
 		if (isIE()){
 		    if (typeof DOMPurify !== 'undefined') {
 		        window[editorname].document.body.innerHTML = sanitized; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
