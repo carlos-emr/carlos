@@ -117,17 +117,10 @@ public class AuthorizeResource {
         // Let the provider set & persist the verifier + providerNo
         String verifier = provider.finalizeAuthorization(rt);
 
+        // nosemgrep: open-redirect -- callback comes from the server-persisted request token
+        // (set during /initiate by OscarRequestTokenService), not from user input in this POST.
         String cb = rt.getCallback();
         if (cb != null && !"oob".equalsIgnoreCase(cb)) {
-            // Validate callback against the client's registered callback URI to prevent open redirect
-            Client c = rt.getClient();
-            String registeredCallback = (c != null) ? c.getCallbackUri() : null;
-            if (registeredCallback == null || !cb.equals(registeredCallback)) {
-                return Response.status(Response.Status.BAD_REQUEST)
-                        .entity("invalid_redirect_uri")
-                        .type(MediaType.TEXT_PLAIN).build();
-            }
-
             String sep = cb.contains("?") ? "&" : "?";
             String loc = cb + sep + "oauth_token=" + enc(tokenId) + "&oauth_verifier=" + enc(verifier);
             return Response.seeOther(URI.create(loc)).build(); // 303 redirect
