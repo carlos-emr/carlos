@@ -30,8 +30,18 @@ elif [ -f /usr/share/tomcat10/bin/version.sh ] ; then
         TOMCAT=tomcat10
 fi
 if [ -z "${TOMCAT}" ]; then
-    echo "ERROR: Neither tomcat10 nor tomcat11 found. Please install one of them." >&2
-    exit 1
+    echo "WARNING: Neither tomcat10 nor tomcat11 found." >&2
+    # Still need TOMCAT for purge; for remove/upgrade it is unused so continue gracefully
+    case "${1:-}" in
+        purge)
+            echo "ERROR: Cannot purge without tomcat. Please reinstall tomcat and retry." >&2
+            exit 1
+            ;;
+        *)
+            # Default to tomcat11 for variable expansion; cleanup steps will harmlessly no-op
+            TOMCAT=tomcat11
+            ;;
+    esac
 fi
 
 TOMCAT_USER=tomcat
