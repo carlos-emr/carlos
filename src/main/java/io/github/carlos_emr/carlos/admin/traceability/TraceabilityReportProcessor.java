@@ -84,7 +84,9 @@ public class TraceabilityReportProcessor implements Callable<String> {
             }
             return ObjectInputFilter.Status.REJECTED;
         }
-        return ObjectInputFilter.Status.UNDECIDED;
+        // Non-class invocations (metrics-only updates for depth/refs/bytes) —
+        // resource bounds already checked above, so allow them to proceed.
+        return ObjectInputFilter.Status.ALLOWED;
     };
 
     public TraceabilityReportProcessor(OutputStream outputStream, File uploadedFile, HttpServletRequest request) {
