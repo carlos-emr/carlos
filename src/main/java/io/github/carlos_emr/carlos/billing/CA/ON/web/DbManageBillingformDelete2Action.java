@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.commn.dao.CtlDiagCodeDao;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 import io.github.carlos_emr.carlos.commn.model.CtlDiagCode;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -106,7 +107,7 @@ public class DbManageBillingformDelete2Action extends ActionSupport {
             // Remove the billing type entry by its String ID
             billingTypeDao.remove(typeid);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to delete billing form for servicetype={} — data may be inconsistent", typeid, e);
+            MiscUtils.getLogger().error("Failed to delete billing form for servicetype={} — data may be inconsistent", LogSanitizer.sanitize(typeid), e);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to delete billing form");
             return NONE;
         }

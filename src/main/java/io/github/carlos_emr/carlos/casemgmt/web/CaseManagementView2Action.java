@@ -1994,7 +1994,7 @@ public class CaseManagementView2Action extends ActionSupport {
         String demono = request.getParameter("demographicNo");
         if (demono == null || "".equals(demono)) {
             demono = (String) request.getSession().getAttribute("casemgmt_DemoNo");
-        } else if (!demono.matches("\\d+")) {
+        } else if (!demono.matches("\\d{1,9}")) {
             // Reject tainted value (don't store in session) but fall back to session value
             // to avoid crashing 36+ callers that pass the return value to Integer.parseInt()
             logger.error("Invalid non-numeric demographicNo rejected, falling back to session: {}", LogSanitizer.sanitize(demono));

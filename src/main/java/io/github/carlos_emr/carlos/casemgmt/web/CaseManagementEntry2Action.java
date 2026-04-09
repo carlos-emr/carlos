@@ -3227,7 +3227,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String demono = request.getParameter("demographicNo");
         if (demono == null || "".equals(demono)) {
             demono = (String) request.getAttribute("casemgmt_DemoNo");
-        } else if (!demono.matches("\\d+")) {
+        } else if (!demono.matches("\\d{1,9}")) {
             // Reject tainted value but fall back to request attribute to avoid crashing callers
             logger.error("Invalid non-numeric demographicNo rejected, falling back to request attribute: {}", LogSanitizer.sanitize(demono));
             demono = (String) request.getAttribute("casemgmt_DemoNo");

@@ -32,7 +32,6 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.SystemPreferences;

@@ -58,12 +58,12 @@ public class ApptUtil {
     public static void copyAppointmentIntoSession(HttpServletRequest request) {
         // Validate numeric ID fields at trust boundary (CWE-501)
         String demoNoParam = request.getParameter("demographic_no");
-        if (demoNoParam != null && !demoNoParam.isEmpty() && !demoNoParam.matches("\\d+")) {
+        if (demoNoParam != null && !demoNoParam.isEmpty() && !demoNoParam.matches("\\d{1,9}")) {
             logger.warn("Invalid non-numeric demographic_no: {}", LogSanitizer.sanitize(demoNoParam));
             return;
         }
         String chartNo = request.getParameter("chart_no");
-        if (chartNo != null && !chartNo.isEmpty() && !chartNo.matches("\\d+")) {
+        if (chartNo != null && !chartNo.isEmpty() && !chartNo.matches("\\d{1,9}")) {
             logger.warn("Invalid non-numeric chart_no: {}", LogSanitizer.sanitize(chartNo));
             return;
         }
