@@ -235,6 +235,10 @@ fi
 # before adding it to the service file or systemd will refuse to start Tomcat.
 mkdir -p "${BASE_DOCUMENT_DIR}" 2>>$LOG_FILE
 chown -R "${TOMCAT_USER}:${TOMCAT_USER}" "${BASE_DOCUMENT_DIR}" 2>>$LOG_FILE || true
+
+if [ ! -d "/etc/systemd/system/${TOMCAT}.service.d" ] ; then
+	mkdir -p "/etc/systemd/system/${TOMCAT}.service.d" 2>>$LOG_FILE
+fi
 if [ -d "/etc/systemd/system/${TOMCAT}.service.d" ] ; then
 	if [ ! -f /etc/systemd/system/${TOMCAT}.service.d/override.conf ] ; then
         touch /etc/systemd/system/${TOMCAT}.service.d/override.conf
