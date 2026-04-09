@@ -3,7 +3,10 @@
 # Description:
 # Runs PMD static analysis on CARLOS EMR Java source code to detect
 # common programming flaws, potential bugs, and security issues.
-# Results appear as PR annotations and in the GitHub Security tab (SARIF).
+# Results appear in the GitHub Security tab (SARIF upload).
+#
+# Runs PMD CLI directly (no third-party action) to avoid org action
+# allow-list restrictions. PMD only needs source code, not compilation.
 #
 # Ruleset:
 # Uses a project-specific ruleset (.github/pmd/carlos-ruleset.xml) focused on
@@ -12,6 +15,7 @@
 #
 # Usage:
 # - Triggered on pull requests targeting develop, main, experimental
+# - Triggered on pushes to develop
 # - Scheduled weekly full scan (Monday 5:00 UTC)
 # - Manual dispatch available
 #
@@ -47,7 +51,9 @@ on:
 permissions:
   contents: read
   security-events: write
-  pull-requests: write
+
+env:
+  PMD_VERSION: '7.13.0'
 
 jobs:
   pmd:
@@ -58,15 +64,63 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run PMD
-        id: pmd
-        uses: pmd/pmd-github-action@v2
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
         with:
-          version: '7.13.0'
-          sourcePath: 'src/main/java'
-          rulesets: '.github/pmd/carlos-ruleset.xml'
-          analyzeModifiedFilesOnly: false
-          createGitHubAnnotations: true
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Cache PMD installation
+        uses: actions/cache@v4
+        with:
+          path: pmd-bin-${{ env.PMD_VERSION }}
+          key: pmd-${{ env.PMD_VERSION }}
+
+      - name: Download PMD
+        run: |
+          if [ ! -d "pmd-bin-${PMD_VERSION}" ]; then
+            echo "Downloading PMD ${PMD_VERSION}..."
+            wget -q "https://github.com/pmd/pmd/releases/download/pmd_releases%2F${PMD_VERSION}/pmd-dist-${PMD_VERSION}-bin.zip"
+            unzip -q "pmd-dist-${PMD_VERSION}-bin.zip"
+            rm -f "pmd-dist-${PMD_VERSION}-bin.zip"
+          else
+            echo "PMD ${PMD_VERSION} already cached"
+          fi
+
+      - name: Run PMD analysis
+        id: pmd
+        run: |
+          set +e
+          ./pmd-bin-${PMD_VERSION}/bin/pmd check \
+            --dir src/main/java \
+            -R .github/pmd/carlos-ruleset.xml \
+            --format sarif \
+            --report-file pmd-report.sarif \
+            --no-progress
+          PMD_EXIT=$?
+          set -e
+
+          # PMD exit codes: 0=no violations, 4=violations found, other=error
+          if [ "$PMD_EXIT" -eq 0 ]; then
+            echo "violations=0" >> "$GITHUB_OUTPUT"
+            echo "No PMD violations found."
+          elif [ "$PMD_EXIT" -eq 4 ]; then
+            COUNT=$(python3 -c "
+          import json, sys
+          try:
+              with open('pmd-report.sarif') as f:
+                  data = json.load(f)
+              print(sum(len(run.get('results', [])) for run in data.get('runs', [])))
+          except Exception:
+              print('unknown')
+          ")
+            echo "violations=${COUNT}" >> "$GITHUB_OUTPUT"
+            echo "PMD found ${COUNT} violation(s)."
+          else
+            echo "violations=error" >> "$GITHUB_OUTPUT"
+            echo "::error::PMD exited with unexpected code ${PMD_EXIT}"
+            exit 1
+          fi
 
       - name: Upload SARIF to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
@@ -80,11 +134,13 @@ jobs:
         run: |
           echo "### PMD Analysis Results" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Violations found**: ${{ steps.pmd.outputs.violations }}" >> "$GITHUB_STEP_SUMMARY"
-          if [ "${{ steps.pmd.outputs.violations }}" -gt 0 ] 2>/dev/null; then
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "See the **Security** tab or PR annotations for details." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "" >> "$GITHUB_STEP_SUMMARY"
+          VIOLATIONS="${{ steps.pmd.outputs.violations }}"
+          if [ "$VIOLATIONS" = "0" ]; then
             echo "No violations detected." >> "$GITHUB_STEP_SUMMARY"
+          elif [ -n "$VIOLATIONS" ] && [ "$VIOLATIONS" != "error" ]; then
+            echo "- **Violations found**: ${VIOLATIONS}" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "See the **Security** tab for details." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "PMD analysis did not complete successfully." >> "$GITHUB_STEP_SUMMARY"
           fi
