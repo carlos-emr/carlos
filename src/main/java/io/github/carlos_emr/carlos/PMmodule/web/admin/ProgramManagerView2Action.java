@@ -387,7 +387,16 @@ public class ProgramManagerView2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_pmm_management)");
         }
 
-        String programId = (String) request.getSession().getAttribute("programId");
+        Object programIdAttribute = request.getSession().getAttribute("programId");
+        String programIdStr = programIdAttribute == null ? null : String.valueOf(programIdAttribute);
+        Integer programIdInt;
+        try {
+            programIdInt = Integer.valueOf(programIdStr);
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid or missing non-numeric programId in session: {}", LogSanitizer.sanitize(programIdStr));
+            return view();
+        }
+        String programId = String.valueOf(programIdInt);
 
         // Validate clientId is numeric (CWE-501: Trust Boundary Violation)
         String clientIdStr = request.getParameter("clientId");
