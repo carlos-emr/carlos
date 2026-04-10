@@ -58,8 +58,8 @@
         return;
     }
     providerParam = providerParam.trim();
-    // Provider IDs are 6-char alphanumeric; "all" selects every active provider
-    if (!"all".equals(providerParam) && (providerParam.length() < 6 || !providerParam.substring(0, 6).matches("[A-Za-z0-9]{6}"))) {
+    // Provider IDs are exactly 6-char alphanumeric; "all" selects every active provider
+    if (!"all".equals(providerParam) && !providerParam.matches("[A-Za-z0-9]{6}")) {
         response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid providers parameter");
         return;
     }
@@ -176,7 +176,7 @@
     } else {
         batchCount = "0";
         int fileCount = 0;
-        Provider p = providerDao.getProvider(providerParam.substring(0, 6));
+        Provider p = providerDao.getProvider(providerParam);
         if (p != null) {
             if (p.getOhipNo() != null && !p.getOhipNo().isEmpty()) {
 
