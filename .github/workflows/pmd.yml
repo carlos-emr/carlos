@@ -88,7 +88,7 @@ jobs:
             PMD_BASE_URL="https://github.com/pmd/pmd/releases/download/pmd_releases%2F${PMD_VERSION}"
             CHECKSUM_FILE="${PMD_ZIP}.sha256"
             wget -q "${PMD_BASE_URL}/${PMD_ZIP}"
-            if ! wget -O "${CHECKSUM_FILE}" "${PMD_BASE_URL}/${PMD_ZIP}.sha256"; then
+            if ! wget -q -O "${CHECKSUM_FILE}" "${PMD_BASE_URL}/${PMD_ZIP}.sha256"; then
               echo "Failed to download checksum file: ${PMD_BASE_URL}/${PMD_ZIP}.sha256" >&2
               rm -f "${PMD_ZIP}" "${CHECKSUM_FILE}"
               exit 1
