@@ -249,8 +249,8 @@ and other liscences (MIT, LGPL etc) as indicated
 
         function escapeJsStringInHtml(str) {
             return String(str)
-                .replace(/&/g, '\\x26')        // ampersand — MUST be first to avoid double-escaping
-                .replace(/\\/g, '\\\\')
+                .replace(/\\/g, '\\\\')        // backslash — MUST be first to avoid double-escaping
+                .replace(/&/g, '\\x26')
                 .replace(/"/g, '\\"')
                 .replace(/'/g, "\\'")
                 .replace(/\r/g, '\\r')
