@@ -180,8 +180,6 @@ public interface CaseManagementManager {
 
     public CaseManagementNoteLink getLatestLinkByTableId(Integer tableName, Long tableId);
 
-    public Integer getTableNameByDisplay(String disp);
-
     public CaseManagementCPP getCPP(String demographic_no);
 
     public List<Allergy> getAllergies(String demographic_no);
@@ -381,7 +379,7 @@ public interface CaseManagementManager {
 
     public CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
                                                      List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
-                                                     Date now, CaseManagementNote annotationNote, String userName, String user, String remoteAddr,
+                                                     Date now, String userName, String user, String remoteAddr,
                                                      String lastSavedNoteString) throws Exception;
 
     public void setCPPMedicalHistory(CaseManagementCPP cpp, String providerNo, List accessRight);

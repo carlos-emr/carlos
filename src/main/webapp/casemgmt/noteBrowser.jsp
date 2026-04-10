@@ -51,6 +51,7 @@
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay,io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayLocal" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="org.owasp.encoder.Encode" %>
+
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
@@ -139,7 +140,7 @@
 <html>
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.title"/> - <oscar:nameage
-            demographicNo="<%=demographicID%>"/></title>
+            demographicNo="<%=Encode.forHtmlAttribute(demographicID)%>"/></title>
     <script type="text/javascript">
 
         function popup(vheight, vwidth, varpage) { //open a new popup window
@@ -421,9 +422,6 @@
             popup(450, 600, '<%=request.getContextPath()%>/tickler/ForwardDemographicTickler.do?docType=DOC&docId=' + docid + '&demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'tickler');
         }
 
-        function DocAnnotation() {
-            popup(350, 500, '<%= request.getContextPath() %>/annotation/annotation.jsp?display=Documents&table_id=' + docid + '&demo=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'anwin');
-        }
 
         function DocEdit() {
             var th = document.getElementById('doclist');
@@ -478,10 +476,10 @@
         <%}%>
         <tr>
             <td align="left" valign="top" width="50%">
-                <oscar:nameage demographicNo="<%=demographicID%>"/><br>
+                <oscar:nameage demographicNo="<%=Encode.forHtmlAttribute(demographicID)%>"/><br>
 
                 <input type="hidden" name="viewstatus" value="<%= Encode.forHtmlAttribute(viewstatus) %>">
-                <input type="hidden" name="sortorder" value="<%=sortorder%>">
+                <input type="hidden" name="sortorder" value="<%=Encode.forHtmlAttribute(sortorder)%>">
 
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgViewStatus"/> <select id="selviewstatus"
                                                                                        name="selviewstatus"
@@ -528,8 +526,6 @@
                     <% if (module.equalsIgnoreCase("demographic")) {%>
                     <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgAddTickler"/>"
                            onclick="AddTickler();"> <%}%>
-                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgAnnotate"/>"
-                           onclick="DocAnnotation()">
                     <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgEdit"/>"
                            onclick="DocEdit();">
                     <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgDelete"/>"
@@ -599,14 +595,14 @@
                                 NoteDisplay curNote = notesToDisplay.get(idx);
                                 if (!(curNote.isDocument()) && !(curNote.isEformData()) && !(curNote.isRxAnnotation()) && !(curNote.isCpp())) {
                         %>
-                        <option value="<%=curNote.getNoteId()%>"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <%=Encode.forHtml(curNote.getProviderName())%>
+                        <option value="<%=Encode.forHtmlAttribute(String.valueOf(curNote.getNoteId()))%>"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <%=Encode.forHtml(curNote.getProviderName())%>
                         </option>
                         <%
                             }
 
                             if (curNote.isExternalNote()) {
                         %>
-                        <option value="<%=curNote.getNoteId()%>"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <%=Encode.forHtml(curNote.getProviderName())%>
+                        <option value="<%=Encode.forHtmlAttribute(String.valueOf(curNote.getNoteId()))%>"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <%=Encode.forHtml(curNote.getProviderName())%>
                         </option>
                         <%
                                 }

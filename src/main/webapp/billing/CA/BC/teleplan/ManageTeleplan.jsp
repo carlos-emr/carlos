@@ -31,6 +31,7 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.billing.ca.bc.Teleplan.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.TeleplanSequenceDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.TeleplanUserPassDAO" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -46,14 +47,14 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageTeleplan"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
         <style type="text/css">
             input[type="submit"] {
                 margin-bottom: 10px;
             }
         </style>
-        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     </head>
 
     <body>
@@ -75,7 +76,7 @@
         <%if (request.getAttribute("error") != null) { %>
         <div class="alert alert-danger">
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            <%=request.getAttribute("error")%>
+            <%=Encode.forHtml((String) request.getAttribute("error"))%>
         </div>
         <%}%>
 

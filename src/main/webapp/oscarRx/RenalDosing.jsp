@@ -43,6 +43,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.DosingRecomendation" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -60,8 +61,8 @@
 %>
 
 <%
-    String atc = request.getParameter("atcCode");
-    String demographicNo = request.getParameter("demographicNo");
+    String atc = StringUtils.noNull(request.getParameter("atcCode"));
+    String demographicNo = StringUtils.noNull(request.getParameter("demographicNo"));
 
     DosingRecomendation rd = RenalDosingFactory.getDosingInformation(atc);
     if (rd == null) {  // No data so don't continue

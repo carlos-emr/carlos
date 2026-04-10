@@ -121,7 +121,7 @@ public class ReportManager {
 
             if (!paramXML.equals("")) {
                 paramXML = UtilXML.escapeXML(paramXML); //escapes anomalies such as "date >= {mydate}" the '>' character
-                SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
+                SAXBuilder parser = XmlUtils.createSecureSAXBuilder(); // NOSONAR java:S2755 — XXE protection applied via XmlUtils.createSecureSAXBuilder()
                 Document doc = parser.build(new java.io.ByteArrayInputStream(paramXML.getBytes()));
                 Element root = doc.getRootElement();
 
@@ -231,7 +231,7 @@ public class ReportManager {
         String xml = getTemplateXml("1");
         if (xml == "") return "Error: Could not save the template file in the database.";
         try {
-            SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
+            SAXBuilder parser = XmlUtils.createSecureSAXBuilder(); // NOSONAR java:S2755 — XXE protection applied via XmlUtils.createSecureSAXBuilder()
             xml = UtilXML.escapeXML(xml); //escapes anomalies such as "date >= {mydate}" the '>' character
             //xml = UtilXML.escapeAllXML(xml, "<param-list>");  //escapes all markup in <report> tag, otherwise can't retrieve element.getText()
             Document doc = parser.build(new java.io.ByteArrayInputStream(xml.getBytes()));

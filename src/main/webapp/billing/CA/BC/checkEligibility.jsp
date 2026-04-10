@@ -1,4 +1,5 @@
-<%@ page import="io.github.carlos_emr.Misc" %><%--
+<%@ page import="io.github.carlos_emr.Misc" %>
+<%@ page import="org.owasp.encoder.Encode" %><%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -36,4 +37,4 @@
     if (error.length() != 0) {
         error = "Error in teleplan connection : " + error;
     }
-%><%=result%>-<%=msgs%><%=error%>
+%><%=Encode.forHtml(result)%>-<%=Encode.forHtml(msgs)%><%=Encode.forHtml(error)%>

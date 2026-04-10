@@ -37,6 +37,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import java.util.Set;
+
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.billing.CA.ON.model.Billing3rdPartyAddress;
@@ -47,6 +49,18 @@ import org.springframework.stereotype.Repository;
 @Repository
 @SuppressWarnings("unchecked")
 public class Billing3rdPartyAddressDaoImpl extends AbstractDaoImpl<Billing3rdPartyAddress> implements Billing3rdPartyAddressDao {
+
+    /** Allowlisted column names for the WHERE clause search mode. */
+    private static final Set<String> VALID_SEARCH_MODES = Set.of(
+        "search_name", "company_name", "attention", "address", "city", "province",
+        "postcode", "telephone", "fax"
+    );
+
+    /** Allowlisted column names for the ORDER BY clause. */
+    private static final Set<String> VALID_ORDER_BY = Set.of(
+        "id", "company_name", "attention", "address", "city", "province",
+        "postcode", "telephone", "fax"
+    );
 
     public Billing3rdPartyAddressDaoImpl() {
         super(Billing3rdPartyAddress.class);
@@ -68,7 +82,17 @@ public class Billing3rdPartyAddressDaoImpl extends AbstractDaoImpl<Billing3rdPar
     @NativeSql("billing_on_3rdPartyAddress")
     public List<Billing3rdPartyAddress> findAddresses(String searchModeParam, String orderByParam, String keyword, String limit1, String limit2) {
         String search_mode = searchModeParam == null ? "search_name" : searchModeParam;
+        // Validate search_mode against allowlist
+        if (!VALID_SEARCH_MODES.contains(search_mode)) {
+            search_mode = "search_name";
+        }
+
         String orderBy = orderByParam == null ? "company_name" : orderByParam;
+        // Validate orderBy against allowlist
+        if (!VALID_ORDER_BY.contains(orderBy)) {
+            orderBy = "company_name";
+        }
+
         String where = "";
         Map<String, Object> params = new HashMap<String, Object>();
         if ("search_name".equals(search_mode)) {
@@ -90,14 +114,25 @@ public class Billing3rdPartyAddressDaoImpl extends AbstractDaoImpl<Billing3rdPar
             params.put("searchMode", keyword + "%");
         }
 
-        String strLimit1 = "0";
-        String strLimit2 = "20";
-        if (limit1 != null)
-            strLimit1 = limit1;
-        if (limit2 != null)
-            strLimit2 = limit2;
+        // Parse limit values to int to prevent SQL injection
+        int intLimit1;
+        int intLimit2;
+        try {
+            intLimit1 = limit1 != null ? Integer.parseInt(limit1) : 0;
+        } catch (NumberFormatException e) {
+            intLimit1 = 0;
+        }
+        try {
+            intLimit2 = limit2 != null ? Integer.parseInt(limit2) : 20;
+        } catch (NumberFormatException e) {
+            intLimit2 = 20;
+        }
+        // Ensure non-negative values
+        if (intLimit1 < 0) intLimit1 = 0;
+        if (intLimit2 < 1) intLimit2 = 20;
+
         String sql = "select * from billing_on_3rdPartyAddress where " + where + " order by " + orderBy + " limit "
-                + strLimit1 + "," + strLimit2;
+                + intLimit1 + "," + intLimit2;
 
         try {
             Query q = entityManager.createNativeQuery(sql, modelClass);

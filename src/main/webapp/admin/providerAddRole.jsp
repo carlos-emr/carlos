@@ -32,7 +32,7 @@
 <%@ page errorPage="/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.sql.*" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 
 <%@ page import="io.github.carlos_emr.carlos.login.*" %>
@@ -149,7 +149,7 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.addRole"/></title>
         <script src="${pageContext.request.contextPath}/js/global.js"></script>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <!-- Bootstrap -->
 
         <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui.theme-1.14.2.min.css" rel="stylesheet">

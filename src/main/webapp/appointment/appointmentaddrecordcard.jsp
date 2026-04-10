@@ -57,6 +57,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     AppointmentArchiveDao appointmentArchiveDao = (AppointmentArchiveDao) SpringUtils.getBean(AppointmentArchiveDao.class);
     OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
@@ -179,7 +180,7 @@
                         <table style="font-size: 8pt;" align="left" valign="top">
 
                             <tr style="font-family: arial, sans-serif; font-size: 6pt;">
-                                <th colspan="3"><%=patientname%>
+                                <th colspan="3"><%=Encode.forHtml(patientname)%>
                                 </th>
                             </tr>
                             <tr style="font-family: arial, sans-serif; font-size: 8pt;">
@@ -200,9 +201,9 @@
 
                             %>
                             <tr bgcolor="#eeeeff">
-                                <td style="padding-right: 10px"><%=appt_date%>
+                                <td style="padding-right: 10px"><%=Encode.forHtml(appt_date)%>
                                 </td>
-                                <td style="padding-right: 10px"><%=appt_time%>
+                                <td style="padding-right: 10px"><%=Encode.forHtml(appt_time)%>
                                 </td>
                                 <td style="padding-right: 10px">&nbsp;</td>
                             </tr>
@@ -224,11 +225,11 @@
                                     pname = "" + p.getLastName() + ", " + pname.substring(0, 1);
                             %>
                             <tr bgcolor="#eeeeff">
-                                <td style="padding-right: 10px"><%=ConversionUtils.toDateString(ap.getAppointmentDate())%>
+                                <td style="padding-right: 10px"><%=Encode.forHtml(ConversionUtils.toDateString(ap.getAppointmentDate()))%>
                                 </td>
-                                <td style="padding-right: 10px"><%=appt_time%>
+                                <td style="padding-right: 10px"><%=Encode.forHtml(appt_time)%>
                                 </td>
-                                <td style="padding-right: 10px"><%=pname%>
+                                <td style="padding-right: 10px"><%=Encode.forHtml(pname)%>
                                 </td>
                             </tr>
                             <%

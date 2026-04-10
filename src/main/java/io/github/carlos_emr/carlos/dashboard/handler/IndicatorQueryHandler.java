@@ -221,23 +221,41 @@ public class IndicatorQueryHandler extends AbstractQueryHandler {
 
     // helper utilities.
 
+    /**
+     * Serialises graph plots as a valid JSON array of series for use in HTML hidden inputs.
+     * Format: [[["label1", value1], ["label2", value2]], ...]
+     * Each series corresponds to one SQL result row; each element within a series is one column.
+     * Using valid JSON (double-quoted strings) avoids client-side quote-replacement hacks that
+     * corrupt labels containing apostrophes (e.g., "Women's Health").
+     *
+     * @param graphPlots list of series; each series is an array of GraphPlot objects
+     * @return JSON string representation of the graph plot data
+     */
     public static String plotsToStringArray(List<GraphPlot[]> graphPlots) {
-        StringBuilder json = new StringBuilder("");
+        if (graphPlots == null || graphPlots.isEmpty()) {
+            return "[]";
+        }
+        StringBuilder json = new StringBuilder("[");
         for (GraphPlot[] graphPlotArray : graphPlots) {
             json.append("[");
             for (GraphPlot graphPlot : graphPlotArray) {
-                json.append("['");
-                json.append(graphPlot.getLabel());
-                json.append("',");
+                json.append("[\"");
+                // Escape backslashes and double quotes so the output is always valid JSON
+                String label = graphPlot.getLabel()
+                        .replace("\\", "\\\\")
+                        .replace("\"", "\\\"");
+                json.append(label);
+                json.append("\",");
                 json.append(graphPlot.getNumerator());
                 json.append("],");
             }
-            json.deleteCharAt(json.length() - 1);
-
+            if (graphPlotArray.length > 0) {
+                json.deleteCharAt(json.length() - 1);
+            }
             json.append("],");
         }
         json.deleteCharAt(json.length() - 1);
-
+        json.append("]");
         return json.toString();
     }
 

@@ -34,10 +34,10 @@
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.endYearStatement"/></title>
 
-    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
@@ -53,11 +53,11 @@
         function demographicSearch() {
             var search_param = document.getElementById('nameForlooksOnly').value;
             var url = '<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp';
-            url += '?originalpage=' + escape('<%=request.getContextPath()%>/billing/CA/ON/endYearStatement.do?demosearch=true');
+            url += '?originalpage=' + encodeURIComponent('<%=request.getContextPath()%>/billing/CA/ON/endYearStatement.do?demosearch=true');
             url += '&search_mode=search_name';
             url += '&orderby=last_name, first_name';
             url += '&limit1=0&limit2=5';
-            url += '&keyword=' + search_param;
+            url += '&keyword=' + encodeURIComponent(search_param);
             popupPage(700, 1000, url, 'master');
             return false;
         }
@@ -65,7 +65,7 @@
         function refresh() {
             var u = self.location.href;
             if (u.lastIndexOf("view=1") > 0) {
-                self.location.href = u.substring(0, u.lastIndexOf("view=1")) + "view=0" + u.substring(eval(u.lastIndexOf("view=1") + 6));
+                self.location.href = u.substring(0, u.lastIndexOf("view=1")) + "view=0" + u.substring(u.lastIndexOf("view=1") + 6);
             } else {
                 history.go(0);
             }

@@ -34,7 +34,7 @@
          import="java.util.*,java.sql.*,io.github.carlos_emr.*,java.text.*,java.net.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
 <% //
@@ -228,7 +228,7 @@
         <title>Add/Edit Service Code</title>
 
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
 
         <script language="JavaScript">
 

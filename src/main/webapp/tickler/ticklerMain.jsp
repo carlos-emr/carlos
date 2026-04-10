@@ -854,7 +854,7 @@
             </c:if>
         </form>
 
-        <form name="ticklerform" method="post" action="dbTicklerMain.jsp">
+        <form name="ticklerform" method="post" action="DbTicklerMain.do">
             <input type="hidden" name="parentAjaxId" value="<c:out value='${param.parentAjaxId}' />"/>
             <table id="ticklerResults" class="table table-striped table-sm" style="width:100%">
                 <thead>

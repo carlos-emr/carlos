@@ -98,7 +98,7 @@
         <tr>
             <td>Dx &nbsp;&nbsp;
                 <input type="text" name="dxCode" size="5" maxlength="5" ondblClick="dxScriptAttach('dxCode')"
-                       value="<%=defaultDxCode%>"/>
+                       value="<%=Encode.forHtmlAttribute(defaultDxCode)%>"/>
                 <a href=# onclick="dxScriptAttach('dxCode');">Search</a>
             </td>
         </tr>

@@ -58,6 +58,11 @@
     String batchCount = "0";
 //String oscar_home= oscarVariables.getProperty("project_home")+".properties";
     String provider = request.getParameter("providers");
+    String monthCode = request.getParameter("monthCode");
+    if (monthCode == null || !monthCode.matches("^\\d{4}-(0[1-9]|1[0-2])$")) {
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid monthCode parameter");
+        return;
+    }
     String proOHIP = "";
     String specialty_code;
     String billinggroup_no;
@@ -76,7 +81,7 @@
                 batchCount = "0";
                 int fileCount = 0;
 
-                for (BillActivity ba : billActivityDao.findCurrentByMonthCodeAndGroupNo(request.getParameter("monthCode"), proOHIP, ConversionUtils.fromDateString(curYear + "-01-01"))) {
+                for (BillActivity ba : billActivityDao.findCurrentByMonthCodeAndGroupNo(monthCode, proOHIP, ConversionUtils.fromDateString(curYear + "-01-01"))) {
                     batchCount = String.valueOf(ba.getBatchCount());
                 }
 
@@ -106,11 +111,11 @@
                 String zero = "";
                 if (fLength == 1) zero = "0";
                 if (fLength == 2) zero = "00";
-                String htmlFilename = "H" + request.getParameter("monthCode") + proOHIP + "_" + zero + batchCount + ".htm";
-                String ohipFilename = "H" + request.getParameter("monthCode") + proOHIP + "." + zero + batchCount;
+                String htmlFilename = "H" + monthCode + proOHIP + "_" + zero + batchCount + ".htm";
+                String ohipFilename = "H" + monthCode + proOHIP + "." + zero + batchCount;
 
                 BillActivity ba = new BillActivity();
-                ba.setMonthCode(request.getParameter("monthCode"));
+                ba.setMonthCode(monthCode);
                 ba.setBatchCount(Integer.parseInt(batchCount));
                 ba.setHtmlFilename(htmlFilename);
                 ba.setOhipFilename(ohipFilename);
@@ -149,7 +154,7 @@
                     batchCount = "0";
                     int fileCount = 0;
 
-                    for (BillActivity ba : billActivityDao.findCurrentByMonthCodeAndGroupNo(request.getParameter("monthCode"), proOHIP, ConversionUtils.fromDateString(curYear + "-01-01"))) {
+                    for (BillActivity ba : billActivityDao.findCurrentByMonthCodeAndGroupNo(monthCode, proOHIP, ConversionUtils.fromDateString(curYear + "-01-01"))) {
                         batchCount = String.valueOf(ba.getBatchCount());
                     }
 
@@ -179,12 +184,12 @@
                     if (fLength == 1) zero = "0";
                     if (fLength == 2) zero = "00";
 
-                    String htmlFilename = "H" + request.getParameter("monthCode") + proOHIP + "_" + zero + batchCount + ".htm";
-                    String ohipFilename = "H" + request.getParameter("monthCode") + proOHIP + "." + zero + batchCount;
+                    String htmlFilename = "H" + monthCode + proOHIP + "_" + zero + batchCount + ".htm";
+                    String ohipFilename = "H" + monthCode + proOHIP + "." + zero + batchCount;
 
 
                     BillActivity ba = new BillActivity();
-                    ba.setMonthCode(request.getParameter("monthCode"));
+                    ba.setMonthCode(monthCode);
                     ba.setBatchCount(Integer.parseInt(batchCount));
                     ba.setHtmlFilename(htmlFilename);
                     ba.setOhipFilename(ohipFilename);

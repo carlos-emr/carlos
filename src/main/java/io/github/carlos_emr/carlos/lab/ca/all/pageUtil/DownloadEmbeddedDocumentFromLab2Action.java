@@ -63,6 +63,10 @@ public class DownloadEmbeddedDocumentFromLab2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_lab)");
         }
 
+        if (labNo == null || !labNo.matches("\\d+")) {
+            throw new IllegalArgumentException("Lab number must be a non-null numeric value");
+        }
+
         //String hl7 = io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory.getHL7Body(labNo);
 
         MessageHandler handler = Factory.getHandler(labNo);

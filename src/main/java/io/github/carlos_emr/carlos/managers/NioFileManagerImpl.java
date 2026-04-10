@@ -125,7 +125,7 @@ public class NioFileManagerImpl implements NioFileManager {
         
         // Verify the file is within the cache directory (defense in depth)
         try {
-            PathValidationUtils.validateExistingPath(outfile.toFile(), normalizedCacheDir.toFile());
+            outfile = PathValidationUtils.validateExistingPath(outfile.toFile(), normalizedCacheDir.toFile()).toPath();
         } catch (SecurityException e) {
             log.error("Path traversal attempt detected in hasCacheVersion2: " + filename);
             return null;
@@ -198,7 +198,7 @@ public class NioFileManagerImpl implements NioFileManager {
                 
                 // Ensure the source directory is within the allowed base document directory
                 try {
-                    PathValidationUtils.validateExistingPath(normalizedSourceDir.toFile(), baseDocumentPath.toFile());
+                    normalizedSourceDir = PathValidationUtils.validateExistingPath(normalizedSourceDir.toFile(), baseDocumentPath.toFile()).toPath();
                 } catch (SecurityException e) {
                     log.error("Source directory is outside allowed base path: " + sourceDirectory);
                     return null;
@@ -218,7 +218,7 @@ public class NioFileManagerImpl implements NioFileManager {
 
             // Ensure source file is within the source directory
             try {
-                PathValidationUtils.validateExistingPath(sourceFile.toFile(), normalizedSourceDir.toFile());
+                sourceFile = PathValidationUtils.validateExistingPath(sourceFile.toFile(), normalizedSourceDir.toFile()).toPath();
             } catch (SecurityException e) {
                 log.error("Path traversal attempt in source file: " + filename);
                 return null;
@@ -231,7 +231,7 @@ public class NioFileManagerImpl implements NioFileManager {
             
             // Verify the cache file path is within the cache directory
             try {
-                PathValidationUtils.validateExistingPath(cacheFilePath.toFile(), normalizedCacheDir.toFile());
+                cacheFilePath = PathValidationUtils.validateExistingPath(cacheFilePath.toFile(), normalizedCacheDir.toFile()).toPath();
             } catch (SecurityException e) {
                 log.error("Path traversal attempt in cache file creation: " + filename);
                 return null;
@@ -302,7 +302,7 @@ public class NioFileManagerImpl implements NioFileManager {
             
             // Double-check that the file is within the cache directory after normalization
             try {
-                PathValidationUtils.validateExistingPath(normalizedPath.toFile(), normalizedCacheDir.toFile());
+                normalizedPath = PathValidationUtils.validateExistingPath(normalizedPath.toFile(), normalizedCacheDir.toFile()).toPath();
             } catch (SecurityException e) {
                 log.error("Attempt to delete file outside of cache directory: " + fileName);
                 throw new SecurityException("Path traversal attempt detected");
@@ -366,7 +366,20 @@ public class NioFileManagerImpl implements NioFileManager {
         if (fileType == null) {
             fileType = DEFAULT_FILE_SUFFIX;
         }
-        Path file = Files.createFile(Paths.get(directory.toString(), String.format("%1$s.%2$s", fileName, fileType)));
+        String sanitizedName = sanitizeFileName(fileName);
+        // Sanitize fileType to only allow safe alphanumeric extension characters
+        String sanitizedType = fileType.replaceAll("[^a-zA-Z0-9]", "");
+        if (sanitizedType.isEmpty()) {
+            sanitizedType = DEFAULT_FILE_SUFFIX;
+        }
+        Path file = Files.createFile(Paths.get(directory.toString(), String.format("%1$s.%2$s", sanitizedName, sanitizedType)));
+        // Validate the resulting path is within the temp directory
+        try {
+            file = PathValidationUtils.validateExistingPath(file.toFile(), directory.toFile()).toPath();
+        } catch (SecurityException e) {
+            Files.deleteIfExists(file);
+            throw new SecurityException("File can only be created in temporary directory.");
+        }
         return Files.write(file, os.toByteArray());
     }
 
@@ -382,7 +395,7 @@ public class NioFileManagerImpl implements NioFileManager {
 
         // Ensure the resolved path is still within the temp directory
         try {
-            PathValidationUtils.validateExistingPath(file.toFile(), directory.toFile());
+            file = PathValidationUtils.validateExistingPath(file.toFile(), directory.toFile()).toPath();
         } catch (SecurityException e) {
             throw new SecurityException("File can only be created in temporary directory.");
         }
@@ -410,7 +423,7 @@ public class NioFileManagerImpl implements NioFileManager {
             
             // Validate that the file is within the system temp directory
             try {
-                PathValidationUtils.validateExistingPath(tempfile.toFile(), systemTempDir.toFile());
+                tempfile = PathValidationUtils.validateExistingPath(tempfile.toFile(), systemTempDir.toFile()).toPath();
             } catch (SecurityException e) {
                 log.error("Attempt to delete file outside of temp directory: " + fileName);
                 throw new SecurityException("Path traversal attempt detected");
@@ -453,7 +466,7 @@ public class NioFileManagerImpl implements NioFileManager {
         
         // Ensure the file is within the document directory
         try {
-            PathValidationUtils.validateExistingPath(oscarDocument.toFile(), documentDir.toFile());
+            oscarDocument = PathValidationUtils.validateExistingPath(oscarDocument.toFile(), documentDir.toFile()).toPath();
         } catch (SecurityException e) {
             log.error("Path traversal attempt in getOscarDocument: " + fileName);
             throw new SecurityException("Path traversal attempt detected");

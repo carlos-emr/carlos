@@ -159,7 +159,7 @@
 
         for (DSConsequence dscon : list) {
             if (dscon.getConsequenceStrength().equals(DSConsequence.ConsequenceStrength.warning)) {
-                billingRecomendations.append(dscon.getText()).append("<br/>");
+                billingRecomendations.append(Encode.forHtml(dscon.getText())).append("<br/>");
             }
         }
     } catch (Exception e) {
@@ -607,7 +607,7 @@
     <title><fmt:message key="oscar.billing.ca.on.billingON.title"/></title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <link href="${ pageContext.request.contextPath }/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <link href="${ pageContext.request.contextPath }/css/fontawesome-all.min.css" rel="stylesheet" type="text/css">
 
 

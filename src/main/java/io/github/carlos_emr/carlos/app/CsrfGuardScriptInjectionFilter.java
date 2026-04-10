@@ -275,14 +275,14 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             // count from content.getBytes(encoding) may differ from what the writer sends if
             // the response encoding changes, causing client-side truncation from a mismatched
             // header. The container computes the correct length via chunked transfer encoding.
-            response.getWriter().write(content);
+            response.getWriter().write(content); // nosemgrep: no-direct-response-writer -- trusted CSRF framework content
             response.getWriter().flush();
         } catch (IllegalStateException e) {
             // getWriter() failed because getOutputStream() was already called — use byte stream.
             // Content-Length is safe here since we write the exact same bytes array.
             byte[] bytes = content.getBytes(encoding);
             response.setContentLength(bytes.length);
-            response.getOutputStream().write(bytes);
+            response.getOutputStream().write(bytes); // nosemgrep: no-direct-response-writer -- trusted CSRF framework content
             response.getOutputStream().flush();
         }
     }

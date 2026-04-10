@@ -32,17 +32,14 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.Hashtable;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
-
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
-import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
-import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
-import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
@@ -50,8 +47,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.context.support.WebApplicationContextUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
@@ -147,25 +142,6 @@ public class AddEditHtml2Action extends ActionSupport {
             }
 
             String docId = EDocUtil.addDocumentSQL(currentDoc);
-
-            /* Save annotation */
-            String attrib_name = request.getParameter("annotation_attrib");
-            HttpSession se = request.getSession();
-            WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(se.getServletContext());
-            CaseManagementManager cmm = (CaseManagementManager) ctx.getBean(CaseManagementManager.class);
-            if (attrib_name != null) {
-                CaseManagementNote cmn = (CaseManagementNote) se.getAttribute(attrib_name);
-                if (cmn != null) {
-                    cmm.saveNoteSimple(cmn);
-                    CaseManagementNoteLink cml = new CaseManagementNoteLink();
-                    cml.setTableName(CaseManagementNoteLink.DOCUMENT);
-                    cml.setTableId(Long.valueOf(docId));
-                    cml.setNoteId(cmn.getId());
-                    cmm.saveNoteLink(cml);
-
-                    se.removeAttribute(attrib_name);
-                }
-            }
         } else {
             currentDoc = new EDoc(this.getDocDesc(), this.getDocType(), "", this.getHtml(), this.getDocCreator(), this.getResponsibleId(), this.getSource(), 'H', this.getObservationDate(), reviewerId, reviewDateTime, this.getFunction(), this.getFunctionId());
             currentDoc.setDocId(this.getMode());
@@ -177,8 +153,10 @@ public class AddEditHtml2Action extends ActionSupport {
         }
         String contextPath = request.getContextPath();
         StringBuffer redirect = new StringBuffer(contextPath + "/documentManager/documentReport.jsp");
-        redirect.append("?function=").append(request.getParameter("function"));
-        redirect.append("&functionid=").append(request.getParameter("functionid"));
+        String functionParam = request.getParameter("function");
+        String functionIdParam = request.getParameter("functionid");
+        redirect.append("?function=").append(functionParam != null ? URLEncoder.encode(functionParam, StandardCharsets.UTF_8) : "");
+        redirect.append("&functionid=").append(functionIdParam != null ? URLEncoder.encode(functionIdParam, StandardCharsets.UTF_8) : "");
         try {
             response.sendRedirect(redirect.toString());
         } catch (IOException e) {

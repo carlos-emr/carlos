@@ -34,7 +34,7 @@
 <%@page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
+
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.model.Issue" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
@@ -106,7 +106,7 @@
 
                 if (codeDescr != null) {
         %>
-        <p class="PropSheetMenuItemLevel1"><%=StringEscapeUtils.escapeHtml4(codeDescr)%>
+        <p class="PropSheetMenuItemLevel1"><%=Encode.forHtml(codeDescr)%>
         </p>
         <%
                 }
@@ -129,7 +129,7 @@
                 if (!note.isLocked() && !note.isArchived()) {
 
         %>
-        <p class="PropSheetMenuItemLevel1"><%=StringEscapeUtils.escapeHtml4(note.getNote()) %>
+        <p class="PropSheetMenuItemLevel1"><%=Encode.forHtml(note.getNote()) %>
         </p>
         <%
                 }

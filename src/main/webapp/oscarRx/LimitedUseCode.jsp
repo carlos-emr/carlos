@@ -42,10 +42,11 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseCode" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseLookup" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%
-    String din = request.getParameter("din");
-    String randomId = request.getParameter("randomId");
+    String din = StringUtils.noNull(request.getParameter("din"));
+    String randomId = StringUtils.noNull(request.getParameter("randomId"));
     ArrayList<LimitedUseCode> luList = LimitedUseLookup.getLUInfoForDin(din);
 
     if (luList != null) {

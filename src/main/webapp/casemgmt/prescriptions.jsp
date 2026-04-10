@@ -77,9 +77,9 @@ Prescriptions
             </c:if>
             <td bgcolor="white">
                 <caisirole:SecurityAccess accessName="prescription Write" accessType="access"
-                                          providerNo='<%= StringUtils.noNull(request.getParameter("providerNo")) %>'
-                                          demoNo='<%= StringUtils.noNull(request.getParameter("demographicNo")) %>'
-                                          programId='<%=(String)session.getAttribute("case_program_id")%>'>
+                                          providerNo='<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>'
+                                          demoNo='<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("demographicNo"))) %>'
+                                          programId='<%= Encode.forHtmlAttribute(StringUtils.noNull((String)session.getAttribute("case_program_id"))) %>'>
                     <a <%= styleColor%> target="_blank"
                                         href="<%= request.getContextPath() %>/oscarRx/StaticScript2.jsp?regionalIdentifier=<c:out value="${prescription.regionalIdentifier}"/>&cn=<c:out value="${prescription.customName}"/>">
                         <c:out value="${prescription.special}"/>
@@ -87,9 +87,9 @@ Prescriptions
                 </caisirole:SecurityAccess>
 
                 <caisirole:SecurityAccess accessName="prescription Write" accessType="access"
-                                          providerNo='<%= StringUtils.noNull(request.getParameter("providerNo")) %>'
-                                          demoNo='<%= StringUtils.noNull(request.getParameter("demographicNo")) %>'
-                                          programId='<%=(String)session.getAttribute("case_program_id")%>'
+                                          providerNo='<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>'
+                                          demoNo='<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("demographicNo"))) %>'
+                                          programId='<%= Encode.forHtmlAttribute(StringUtils.noNull((String)session.getAttribute("case_program_id"))) %>'
                                           reverse="true">
                     <span <%= styleColor%> ><c:out value="${prescription.special}"/></span>
                 </caisirole:SecurityAccess>

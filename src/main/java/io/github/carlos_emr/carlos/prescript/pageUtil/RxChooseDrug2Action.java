@@ -136,8 +136,6 @@ public final class RxChooseDrug2Action extends ActionSupport {
             rx.setFrequencyCode("OID");
             rx.setDuration("30");
             rx.setDurationUnit("D");
-            bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex()));
-
 
             bean.setStashIndex(bean.addStashItem(loggedInInfo, rx));
         } catch (Exception e) {

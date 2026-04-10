@@ -132,8 +132,8 @@
             }
 
             function setDefaultDates() {
-                document.fieldNoteReportForm.date_start.value = "<%=dateStartDefault%>";
-                document.fieldNoteReportForm.date_end.value = "<%=dateEndDefault%>";
+                document.fieldNoteReportForm.date_start.value = "<%=Encode.forJavaScript(dateStartDefault)%>";
+                document.fieldNoteReportForm.date_end.value = "<%=Encode.forJavaScript(dateEndDefault)%>";
                 document.fieldNoteReportForm.action = "";
                 document.fieldNoteReportForm.submit();
             }
