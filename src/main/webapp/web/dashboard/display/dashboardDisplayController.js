@@ -22,41 +22,11 @@
     Ontario, Canada
 */
 
-var jqplotOptions;
+var chartInstances = {};
 var placeHolderCount = 0;
 var indicatorPanels = [];
 
 $(document).ready(function () {
-
-    jqplotOptions = {
-        title: ' ',
-        seriesDefaults: {
-            shadow: false,
-            renderer: $.jqplot.PieRenderer,
-            rendererOptions: {
-                startAngle: 180,
-                sliceMargin: 4,
-                showDataLabels: true,
-                dataLabels: 'value',
-                dataLabelThreshold: 0
-            }
-        },
-        grid: {
-            drawGridLines: false,        	// wether to draw lines across the grid or not.
-            gridLineColor: '#cccccc',   // CSS color spec of the grid lines.
-            background: 'white',      	// CSS color spec for background color of grid.
-            borderColor: 'white',     	// CSS color spec for border around grid.
-            borderWidth: 0,           	// pixel width of border around grid.
-            shadow: false,              // draw a shadow for grid.
-            shadowAngle: 0,            	// angle of the shadow.  Clockwise from x axis.
-            shadowOffset: 0,          	// offset from the line of the shadow.
-            shadowWidth: 0,             // width of the stroke for the shadow.
-            shadowDepth: 0
-        },
-        legend: {show: true, location: 's'}
-
-    };
-
 
     // get the drill down page
     $(".indicatorWrapper").on('click', ".indicatorDrilldownBtn", function (event) {
@@ -113,37 +83,95 @@ $(document).ready(function () {
 // build Indicator panel with Pie chart.
 function buildIndicatorPanel(html, target, id) {
 
-    let indicatorGraph, data;
-
-    if (indicatorGraph) {
-        indicatorGraph.destroy();
-    }
+    let data;
 
     if (typeof DOMPurify === 'undefined') {
         console.error('DOMPurify is required but not loaded. Indicator panel blocked to prevent XSS.');
         $("#" + target + "_" + id).html('<p style="color:red">Unable to display content safely. Please reload the page.</p>');
         return;
     }
-    // DOMPurify sanitization with defaults plus <input> and value attr. Event handlers are stripped by DOMPurify defaults.
+    // DOMPurify sanitization with defaults plus <input>, <canvas> and value attr. Event handlers are stripped by DOMPurify defaults.
     let panel;
     try {
-        panel = $("#" + target + "_" + id).html(DOMPurify.sanitize(html, {ADD_TAGS: ['input'], ADD_ATTR: ['value']}));
+        if (chartInstances[id]) {
+            chartInstances[id].destroy();
+            delete chartInstances[id];
+        }
+        panel = $("#" + target + "_" + id).html(DOMPurify.sanitize(html, {ADD_TAGS: ['input', 'canvas'], ADD_ATTR: ['value']}));
         let plotVal = panel.find("#graphPlots_" + id).val();
         if (!plotVal) {
             console.error('Graph plot data not found for indicator ' + id);
             return;
         }
-        data = JSON.parse("[" + plotVal.replace(/'/g, '"') + "]");
+        // plotVal is a valid JSON array serialised by IndicatorQueryHandler.plotsToStringArray()
+        data = JSON.parse(plotVal);
     } catch (e) {
         console.error('Error rendering indicator panel ' + id + ':', e); // nosemgrep: unsafe-formatstring -- string concatenation for console logging, id is a server-side indicator ID not user input
         $("#" + target + "_" + id).html('<p style="color:red">Unable to render indicator panel.</p>');
         return;
     }
-    indicatorGraph = $.jqplot('graphContainer_' + id, data, jqplotOptions).replot();
 
-    window.onresize = function (event) {
-        indicatorGraph.replot();
+    // data is [[[label1, val1], [label2, val2]], ...] — one array per SQL result row (series).
+    // Pie charts always use the first (and typically only) series.
+    // If the query returns multiple rows each becomes a separate series; warn so it is visible.
+    if (Array.isArray(data) && data.length > 1) {
+        console.warn('Indicator ' + id + ' returned ' + data.length + ' series; only the first will be rendered as a pie chart.');
     }
+    var seriesData = (Array.isArray(data) && Array.isArray(data[0])) ? data[0] : [];
+    if (seriesData.length === 0) {
+        console.error('No chart data available for indicator ' + id);
+        return;
+    }
+    var labels = seriesData.map(function (item) { return item[0]; });
+    var values = seriesData.map(function (item) { return item[1]; });
+
+    var canvas = document.getElementById('graphCanvas_' + id);
+    if (!canvas) {
+        console.error('Canvas element not found for indicator ' + id);
+        return;
+    }
+
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is required but not loaded. Indicator chart blocked for indicator ' + id + '.');
+        $("#" + target + "_" + id).html('<p style="color:red">Unable to display chart. Please reload the page.</p>');
+        return;
+    }
+
+    chartInstances[id] = new Chart(canvas, {
+        type: 'pie',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: values,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom'
+                },
+                title: {
+                    display: false
+                },
+                // Show value and percentage in tooltip since Chart.js has no built-in on-slice labels
+                // (jqPlot previously rendered values directly on slices via showDataLabels: true).
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            var label = context.label || '';
+                            var value = context.raw;
+                            var total = context.dataset.data.reduce(function (a, b) { return a + b; }, 0);
+                            var pct = total > 0 ? Math.round((value / total) * 100) : 0;
+                            return label + ': ' + value + ' (' + pct + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
 
     let name = panel.find(".indicatorHeading div").text();
 
