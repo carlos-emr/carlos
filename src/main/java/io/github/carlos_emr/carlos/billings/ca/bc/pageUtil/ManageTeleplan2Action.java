@@ -404,12 +404,11 @@ public class ManageTeleplan2Action extends ActionSupport {
         String filename = b.getOhipfilename();
 
         CarlosProperties prop = CarlosProperties.getInstance();
-        String datacenter = prop.getProperty("HOME_DIR", "");
+        File homeDir = new File(prop.getProperty("HOME_DIR", ""));
+        File f = PathValidationUtils.validatePath(filename, homeDir);
 
-        File f = new File(datacenter, filename);
 
-
-        if (f != null && log.isDebugEnabled()) {
+        if (log.isDebugEnabled()) {
             log.debug("File is Readable: {}", f.canRead());
             log.debug("File exists: {}", f.exists());
             log.debug("File Path {}", LogSanitizer.sanitize(f.getCanonicalPath()));

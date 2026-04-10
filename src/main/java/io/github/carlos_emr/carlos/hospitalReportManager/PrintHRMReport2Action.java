@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemo
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
@@ -100,19 +101,22 @@ public class PrintHRMReport2Action extends ActionSupport {
                     demographic = demographicDao.getDemographicById(demographicNo);
                 }
 
-                String fileTempName = "";
+                String tempFileName;
                 if (demographic != null) {
-                    fileTempName = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "//" + demographic.getLastName() + "_" + demographic.getFirstName() + "_" + hrmId + "_HRMReport.pdf";
+                    tempFileName = demographic.getLastName() + "_" + demographic.getFirstName() + "_" + hrmId + "_HRMReport.pdf";
                     fileName = demographic.getLastName() + "_" + demographic.getFirstName() + "_HRMReport" + "_" + (new Date().getTime()) + ".pdf";
                 } else {
-                    fileTempName = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "//HRMReport.pdf";
+                    tempFileName = "HRMReport.pdf";
                     fileName = "_HRMReport" + "_" + (new Date().getTime()) + ".pdf";
                 }
                 response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
 
-                // Create temporary file
-                pdfDocs.add(fileTempName);
-                fileTemp = new File(fileTempName);
+                // Validate the filename component against DOCUMENT_DIR to prevent path traversal
+                // (demographic names from DB could contain path separators)
+                File docDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+                File validatedTemp = PathValidationUtils.validatePath(tempFileName, docDir);
+                pdfDocs.add(validatedTemp.getPath());
+                fileTemp = validatedTemp;
                 osTemp = new FileOutputStream(fileTemp);
 
                 HRMPDFCreator hrmpdfCreator = new HRMPDFCreator(osTemp, hrmId, loggedInInfo);
