@@ -55,7 +55,9 @@ import org.w3c.dom.NodeList;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class DefaultHandler implements MessageHandler {
     Logger logger = MiscUtils.getLogger();
@@ -71,7 +73,7 @@ public class DefaultHandler implements MessageHandler {
     }
 
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
-        logger.info("DefaultHandler.parse: Called with serviceName=" + serviceName + ", fileName=" + fileName + ", fileId=" + fileId);
+        logger.info("DefaultHandler.parse: Called with serviceName={}, fileName={}, fileId={}", LogSanitizer.sanitize(serviceName), LogSanitizer.sanitize(fileName), fileId);
         Document xmlDoc = getXML(fileName);
 
         /*
@@ -139,14 +141,14 @@ public class DefaultHandler implements MessageHandler {
                 file = PathValidationUtils.validateExistingPath(file, docDir);
             }
 
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            factory.setValidating(false);
-            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
             // Use the validated file object instead of creating a new FileInputStream with the raw path
             Document doc = factory.newDocumentBuilder().parse(file);
             return (doc);
 
-            // Ignore exceptions and return false
+            // Re-throw security exceptions from path validation
+        } catch (SecurityException e) {
+            throw e;
         } catch (Exception e) {
             logger.error("Error parsing XML file: " + fileName, e);
             return (null);

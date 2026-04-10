@@ -52,6 +52,7 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.immunization.data.EctImmConfigData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
@@ -101,7 +102,7 @@
                     <td class="Header"
                         style="padding-left:2px;padding-right:2px;border-right:2px solid #003399;text-align:left;font-size:80%;font-weight:bold;width:100%;"
                         NOWRAP>
-                        <%=last_name %>, <%=first_name%> <%=sex%> <%=age%>
+                        <%=Encode.forHtml(last_name)%>, <%=Encode.forHtml(first_name)%> <%=Encode.forHtml(sex)%> <%=Encode.forHtml(age)%>
                     </td>
                     <td>
                     </td>
@@ -127,7 +128,7 @@
             Vector cfgId = new EctImmConfigData().getImmunizationConfigId();
         %>
             <form action="${pageContext.request.contextPath}/encounter/immunization/saveConfig.do" method="post">
-                <input type="hidden" name="demographic_no" value="<%=demoNo%>">
+                <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demoNo) %>">
                 <input type="hidden" name="xmlDoc" value="<%--= UtilMisc.encode64(UtilXML.toXML(cfgDoc)) --%>"/>
 
                 <%
@@ -137,7 +138,7 @@
                 %>
                 <div style="font-weight: bold"><input type="checkbox"
                                                       name="chkSet<%--=i--%>"
-                                                      value="<%=cfgId.get(i)%>"/> <%=(String) cfgSet.get(i)%>;
+                                                      value="<%=Encode.forHtmlAttribute(String.valueOf(cfgId.get(i)))%>"/> <%=Encode.forHtml((String) cfgSet.get(i))%>;
                 </div>
                 <%
                     }
@@ -149,7 +150,7 @@
                             <input type="submit" name="submit"
                                     value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.ScheduleConfig.addTemplate"/>" />
                             <input type="button" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>'
-                                   onclick="javascript:location.href='loadSchedule.do?demographic_no=<%=demoNo%>';"/>
+                                   onclick="javascript:location.href='loadSchedule.do?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demoNo))%>';"/>
                         </td>
                         <td align="right">
                             <input type="button"

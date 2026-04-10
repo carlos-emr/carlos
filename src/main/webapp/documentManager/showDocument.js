@@ -1,6 +1,6 @@
 function popupPatient(height, width, url, windowName, docId) {
     d = document.getElementById('demofind' + docId).value; //demog  //attachedDemoNo
-    urlNew = url + d;
+    urlNew = url + encodeURIComponent(d);
 
     return popup2(height, width, 0, 0, urlNew, windowName);
 }
@@ -8,7 +8,7 @@ function popupPatient(height, width, url, windowName, docId) {
 function popupPatientTicklerPlus(height, width, url, windowName, docId) {
     d = document.getElementById('demofind' + docId).value; //demog  //attachedDemoNo
     n = document.getElementById('demofindName' + docId).value;
-    urlNew = url + "method=edit&tickler.demographic_webName=" + n + "&tickler.demographicNo=" + d + "&docType=DOC&docId=" + docId;
+    urlNew = url + "method=edit&tickler.demographic_webName=" + encodeURIComponent(n) + "&tickler.demographicNo=" + encodeURIComponent(d) + "&docType=DOC&docId=" + encodeURIComponent(docId);
 
     return popup2(height, width, 0, 0, urlNew, windowName);
 }
@@ -16,7 +16,7 @@ function popupPatientTicklerPlus(height, width, url, windowName, docId) {
 function popupPatientTickler(height, width, url, windowName, docId) {
     d = document.getElementById('demofind' + docId).value; //demog  //attachedDemoNo
     n = document.getElementById('demofindName' + docId).value;
-    urlNew = url + "demographic_no=" + d + "&name=" + n + "&chart_no=&bFirstDisp=false&messageID=null&docType=DOC&docId=" + docId;
+    urlNew = url + "demographic_no=" + encodeURIComponent(d) + "&name=" + encodeURIComponent(n) + "&chart_no=&bFirstDisp=false&messageID=null&docType=DOC&docId=" + encodeURIComponent(docId);
     return popup2(height, width, 0, 0, urlNew, windowName);
 }
 

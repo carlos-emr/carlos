@@ -29,24 +29,17 @@
 package io.github.carlos_emr.carlos.webserv.rest.conversion.summary;
 
 
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
-import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSConsequence;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSGuideline;
 import io.github.carlos_emr.carlos.decisionSupport.service.DSService;
-import io.github.carlos_emr.carlos.renal.CkdScreener;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.SummaryItemTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.SummaryTo1;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -58,10 +51,6 @@ public class DecisionSupportSummary implements Summary {
 
     @Autowired
     private DSService dsService = null;
-
-    @Autowired
-    @Qualifier("DxresearchDAO")
-    private DxresearchDAO dxResearchDao;
 
     //protected static final String ELLIPSES = "...";
     //protected static final int MAX_LEN_TITLE = 48;
@@ -76,57 +65,9 @@ public class DecisionSupportSummary implements Summary {
         List<SummaryItemTo1> list = summary.getSummaryItem();
         int count = 0;
 
-        if (CarlosProperties.getInstance().getProperty("ORN_PILOT", "yes").equalsIgnoreCase("yes") && (CarlosProperties.getInstance().getProperty("ckd_notification_scheme", "dsa").equals("dsa") || CarlosProperties.getInstance().getProperty("ckd_notification_scheme", "dsa").equals("all"))) {
-            fillCKD(loggedInInfo, list, demographicNo, count);
-        }
-
-
         fillDSGuidelines(loggedInInfo, list, demographicNo, count);
         return summary;
     }
-
-    private void fillCKD(LoggedInInfo loggedInInfo, List<SummaryItemTo1> list, Integer demographicNo, int count) {
-        CkdScreener ckdScreener = new CkdScreener();
-        List<String> reasons = new ArrayList<String>();
-        boolean match = ckdScreener.screenDemographic(demographicNo, reasons, null);
-        boolean notify = false;
-
-        for (Dxresearch dr : dxResearchDao.find(demographicNo, "OscarCode", "CKDSCREEN")) {
-            //we have an active one, we should notify
-            if (dr.getStatus() == 'A') {
-                notify = true;
-            }
-        }
-        for (Dxresearch dr : dxResearchDao.find(demographicNo, "icd9", "585")) {
-            if (dr.getStatus() == 'A') {
-                notify = false;
-            }
-        }
-        if (!notify) {
-            //there's no active ones, but let's look at the latest one
-            List<Dxresearch> drs = dxResearchDao.find(demographicNo, "OscarCode", "CKDSCREEN");
-            if (drs.size() > 0) {
-                Dxresearch dr = drs.get(0);
-                Calendar aYearAgo = Calendar.getInstance();
-                aYearAgo.add(Calendar.MONTH, -12);
-                if (dr.getUpdateDate().before(aYearAgo.getTime())) {
-                    notify = true;
-                    //reopen it
-                    dr.setStatus('A');
-                    dr.setUpdateDate(new Date());
-                    dxResearchDao.merge(dr);
-                    //need some way to notify that tab to reload
-                    // This won't work anymore not sure of the effectsjavascript.append("jQuery(document).ready(function(){reloadNav('Dx');});");
-                }
-            }
-        }
-        if (match && notify) {
-            SummaryItemTo1 summaryItem = new SummaryItemTo1(count, "Screen for CKD", "action", "ckd");
-            summaryItem.setAction("../renal/CkdDSA.do?method=detail&demographic_no=" + demographicNo);
-
-        }
-    }
-
 
     private void fillDSGuidelines(LoggedInInfo loggedInInfo, List<SummaryItemTo1> list, Integer demographicNo, int count) {
         List<DSGuideline> dsGuidelines = dsService.getDsGuidelinesByProvider(loggedInInfo.getLoggedInProviderNo());

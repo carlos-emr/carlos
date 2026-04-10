@@ -54,7 +54,6 @@
 <%@page import="java.util.Enumeration" %>
 <%@page import="io.github.carlos_emr.carlos.encounter.pageUtil.NavBarDisplayDAO" %>
 <%@page import="java.util.Arrays,java.util.Properties,java.util.List,java.util.Set,java.util.ArrayList,java.util.Enumeration,java.util.HashSet,java.util.Iterator,java.text.SimpleDateFormat,java.util.Calendar,java.util.Date,java.text.ParseException" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.model.*,io.github.carlos_emr.carlos.casemgmt.service.* " %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.*" %>
@@ -90,6 +89,7 @@
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
@@ -176,7 +176,7 @@
     ctx = "<c:out value="${ctx}"/>";
     imgPrintgreen.src = ctx + "/encounter/graphics/printerGreen.png"; //preload green print image so firefox will update properly
     providerNo = "<%=provNo%>";
-    demographicNo = "<%=demographicNo%>";
+    demographicNo = "<%= Encode.forJavaScript(demographicNo) %>";
     case_program_id = "<%=pId%>";
 
     <caisi:isModuleLoad moduleName="caisi">
@@ -209,13 +209,13 @@
     });
 
     <% if( request.getAttribute("NoteLockError") != null ) { %>
-    alert("<%=request.getAttribute("NoteLockError")%>");
+    alert("<%=Encode.forJavaScript(String.valueOf(request.getAttribute("NoteLockError")))%>");
     <%}%>
 
 </script>
 <div id="topContent">
     <form name="caseManagementViewForm" action="${pageContext.request.contextPath}/CaseManagementView.do" method="post">
-        <input type="hidden" name="demographicNo" value="<%=demographicNo%>"/>
+        <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
         <input type="hidden" name="providerNo" value="<%=provNo%>"/>
         <input type="hidden" name="tab" value="Current Issues"/>
         <input type="hidden" name="hideActiveIssue" id="hideActiveIssue"/>
@@ -330,7 +330,7 @@
                                         providerNo = prov.getProviderNo();
                                 %>
                                 <li>
-                                    <input type="checkbox" name="filter_providers" value="<%= providerNo %>" onclick="filterCheckBox(this)" /><%=prov.getFormattedName()%>
+                                    <input type="checkbox" name="filter_providers" value="<%= providerNo %>" onclick="filterCheckBox(this)" /><%=Encode.forHtml(prov.getFormattedName())%>
                                 </li>
                                 <%
                                     }
@@ -353,7 +353,7 @@
                                 %>
                                 <li>
                                     <input type="checkbox" name="filter_roles" value="<%=String.valueOf(role.getId())%>" onclick="filterCheckBox(this)" />
-                                    <%=role.getName()%>
+                                    <%=Encode.forHtml(role.getName())%>
                                 </li>
                                 <%
                                     }
@@ -402,7 +402,7 @@
                                 <li>
                                     <input type="checkbox" name="issues" value="<%=String.valueOf(issue_checkBoxBean.getIssue().getId())%>"
                                                    onclick="filterCheckBox(this)" />
-                                    <%=issue_checkBoxBean.getIssueDisplay().getResolved().equals("resolved") ? "* " : ""%> <%=issue_checkBoxBean.getIssueDisplay().getDescription()%>
+                                    <%=issue_checkBoxBean.getIssueDisplay().getResolved().equals("resolved") ? "* " : ""%> <%=Encode.forHtml(issue_checkBoxBean.getIssueDisplay().getDescription())%>
                                 </li>
                                 <%
                                     }
@@ -427,12 +427,12 @@
                 <oscar:oscarPropertiesCheck value="true" property="STUDENT_PARTICIPATION_CONSENT">
                     <input type="checkbox" value="" name="studentParticipationConsentCheck"
                            id="studentParticipationConsentCheck"
-                           onClick="return doStudentParticipationCheck('<%=demoNo%>');"/>
+                           onClick="return doStudentParticipationCheck('<%= Encode.forJavaScriptAttribute(demoNo) %>');"/>
                     <label for="studentParticipationConsentCheck"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemgmt.chartnotes.studentParticipationConsent"/></label>
                 </oscar:oscarPropertiesCheck>
                 <oscar:oscarPropertiesCheck value="false" property="STUDENT_PARTICIPATION_CONSENT">
                     <input type="checkbox" value="" name="informedConsentCheck" id="informedConsentCheck"
-                           onClick="return doInformedConsent('<%=demoNo%>');"/>
+                           onClick="return doInformedConsent('<%= Encode.forJavaScriptAttribute(demoNo) %>');"/>
                     <label for="informedConsentCheck"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemgmt.chartnotes.informedConsent"/></label>
                 </oscar:oscarPropertiesCheck>
             </div>
@@ -464,15 +464,9 @@
     </div>
 </div>
 <%-- Insert smart note templates here --%>
-<%
-    String oscarMsgType = (String) request.getParameter("msgType");
-    String OscarMsgTypeLink = (String) request.getParameter("OscarMsgTypeLink");
-%>
 <form name="caseManagementEntryForm" id="caseManagementEntryForm" action="<%=request.getContextPath()%>/CaseManagementEntry.do" method="post">
-    <input type="hidden" name="demographicNo" value="<%=demographicNo%>"/>
+    <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
     <input type="hidden" name="includeIssue" value="off"/>
-    <input type="hidden" name="OscarMsgType" value="<%=oscarMsgType%>"/>
-    <input type="hidden" name="OscarMsgTypeLink" value="<%=OscarMsgTypeLink%>"/>
     <%
         String apptNo = request.getParameter("appointmentNo");
         if (apptNo == null || apptNo.equals("") || apptNo.equals("null")) {
@@ -500,13 +494,13 @@
         }
     %>
 
-    <input type="hidden" name="appointmentNo" value="<%=apptNo%>"/>
-    <input type="hidden" name="appointmentDate" value="<%=apptDate%>"/>
-    <input type="hidden" name="start_time" value="<%=startTime%>"/>
+    <input type="hidden" name="appointmentNo" value="<%= Encode.forHtmlAttribute(apptNo) %>"/>
+    <input type="hidden" name="appointmentDate" value="<%= Encode.forHtmlAttribute(apptDate) %>"/>
+    <input type="hidden" name="start_time" value="<%= Encode.forHtmlAttribute(startTime) %>"/>
     <input type="hidden" name="billRegion"
                  value="<%=(CarlosProperties.getInstance().getProperty("billregion","")).trim().toUpperCase()%>"/>
-    <input type="hidden" name="apptProvider" value="<%=apptProv%>"/>
-    <input type="hidden" name="providerview" value="<%=provView%>"/>
+    <input type="hidden" name="apptProvider" value="<%= Encode.forHtmlAttribute(apptProv) %>"/>
+    <input type="hidden" name="providerview" value="<%= Encode.forHtmlAttribute(provView) %>"/>
     <input type="hidden" name="toBill" id="toBill" value="false">
     <input type="hidden" name="deleteId" value="0">
     <input type="hidden" name="lineId" value="0">
@@ -535,7 +529,7 @@
     <input type="hidden" name="pType" id="pType" value="">
     <input type="hidden" name="pStartDate" id="pStartDate" value="">
     <input type="hidden" name="pEndDate" id="pEndDate" value="">
-    <input type="hidden" id="annotation_attribname" name="annotation_attribname" value="">
+
     <span id="notesLoading">
 		<img src="<c:out value="${ctx}/images/DMSLoader.gif" />">Loading Notes...
 	</span>

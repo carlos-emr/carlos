@@ -11,6 +11,7 @@
 
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 
 
@@ -27,7 +28,7 @@
     <head>
         <meta charset="utf-8">
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.PrivateBillingStatement"/></title>
-        <link rel="stylesheet" type="text/css" media="all" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css">
+        <link rel="stylesheet" type="text/css" media="all" href="${ctx}/library/bootstrap/5.3.8/css/bootstrap.min.css">
         <style>
             .table > tbody > tr.highlight_pink {
                 background-color: pink;
@@ -60,7 +61,7 @@
                         onchange="handleFilterByProvider()">
                     <option value="%">All Providers</option>
                     <c:forEach var="provider" items="${providers}">
-                        <option value="${provider.providerNo}" ${providerId==provider.providerNo ? 'selected' : ''}>${provider.getFormattedName()}</option>
+                        <option value="${e:forHtmlAttribute(provider.providerNo)}" ${providerId==provider.providerNo ? 'selected' : ''}>${e:forHtml(provider.getFormattedName())}</option>
                     </c:forEach>
                 </select>
             </div>
@@ -125,17 +126,17 @@
                     </c:otherwise>
                 </c:choose>
                 <tr class="${rowstyle}">
-                    <td><input type="checkbox" class="case" value="${invoice.demographicNumber}|${invoice.recipientId}"
+                    <td><input type="checkbox" class="case" value="${e:forHtmlAttribute(invoice.demographicNumber)}|${e:forHtmlAttribute(invoice.recipientId)}"
                                onclick="checkMasterCheckbox();"/></td>
 
                         <%-- Invoice Date --%>
-                    <td>${invoice.billingDate}</td>
+                    <td>${e:forHtml(invoice.billingDate)}</td>
 
                         <%-- Billing Type & Status --%>
-                    <td>${invoice.billingType} - ${invoice.status}</td>
+                    <td>${e:forHtml(invoice.billingType)} - ${e:forHtml(invoice.status)}</td>
 
                         <%-- Patient --%>
-                    <td>${invoice.demographicName}</td>
+                    <td>${e:forHtml(invoice.demographicName)}</td>
 
                         <%-- Provider
                           - show providers name from provider_no
@@ -148,7 +149,7 @@
                             Provider provider = providerDao.getProvider(providerNumber);
                             pageContext.setAttribute("providerName", provider.getFormattedName());
                         %>
-                            ${providerName}
+                            ${e:forHtml(providerName)}
                     </td>
 
                         <%-- Recipient:
@@ -170,15 +171,16 @@
                           - on click, go to the 'Edit Invoices' page
                         --%>
                     <td>
-                        <a href="javascript: popupPage( 700, 1000, '${ctx}/billing/CA/BC/billStatus.jsp?showPRIV=show&providerview=ALL&verCode=V03&Submit=Create+Report&xml_vdate=&xml_appointment_date=&demographicNo=${ invoice.demographicNumber }&filterPatient=true&submitted=yes' );">
-                                ${invoice.billingCount}
+                        <a href="#" data-demographic-no="${e:forHtmlAttribute(invoice.demographicNumber)}"
+                           onclick="openBillStatus(this.dataset.demographicNo); return false;">
+                                ${e:forHtml(invoice.billingCount)}
                         </a>
                     </td>
 
                         <%-- pop up a printer-frieldy private billing statement page --%>
                     <td>
                         <button class="btn btn-primary btn-sm"
-                                value="${invoice.demographicNumber}|${invoice.recipientId}"
+                                value="${e:forHtmlAttribute(invoice.demographicNumber)}|${e:forHtmlAttribute(invoice.recipientId)}"
                                 onclick="printItem(this.value)">
                             <span class="fa-solid fa-print" aria-hidden="true"></span>
                             print
@@ -192,13 +194,38 @@
 
     <script type="text/javascript" src="${ctx}/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="${ctx}/library/jquery/jquery-compat.js"></script>
-    <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript" src="${ctx}/js/global.js"></script>
     <script type="text/javascript">
+        function openBillStatus(demographicNo) {
+            var id = parseInt(demographicNo, 10);
+            if (isNaN(id)) {
+                console.warn('openBillStatus: invalid demographicNo', demographicNo);
+                return;
+            }
+            var params = new URLSearchParams();
+            params.set("showPRIV", "show");
+            params.set("providerview", "ALL");
+            params.set("verCode", "V03");
+            params.set("Submit", "Create Report");
+            params.set("xml_vdate", "");
+            params.set("xml_appointment_date", "");
+            params.set("demographicNo", String(id));
+            params.set("filterPatient", "true");
+            params.set("submitted", "yes");
+            popupPage(700, 1000, "${ctx}/billing/CA/BC/billStatus.jsp?" + params.toString());
+        }
+
         function printItem(itemValue) {
             var billToClinic = document.getElementById('cbBillToClinic').checked;
             var values = itemValue.split('|');
-            var selectedBillIds = [{demographicNumber: values[0], recipientId: values[1]}];
+            var demographicNumber = parseInt(values[0], 10);
+            var recipientId = parseInt(values[1], 10);
+            if (isNaN(demographicNumber) || isNaN(recipientId)) {
+                console.warn('printItem: invalid bill ID value', itemValue);
+                return;
+            }
+            var selectedBillIds = [{demographicNumber: demographicNumber, recipientId: recipientId}];
             generatePrintFriendlyPage(selectedBillIds, billToClinic);
         }
 
@@ -207,15 +234,23 @@
             var selectedBillIds = [];
             document.querySelectorAll("input.case:checked").forEach(function (el) {
                 var values = el.value.split('|');
-                selectedBillIds.push({demographicNumber: values[0], recipientId: values[1]});
+                var demographicNumber = parseInt(values[0], 10);
+                var recipientId = parseInt(values[1], 10);
+                if (!isNaN(demographicNumber) && !isNaN(recipientId)) {
+                    selectedBillIds.push({demographicNumber: demographicNumber, recipientId: recipientId});
+                } else {
+                    console.warn('printSelected: invalid bill ID value', el.value);
+                }
             });
             generatePrintFriendlyPage(selectedBillIds, billToClinic);
         }
 
         function generatePrintFriendlyPage(billIds, billToClinic) {
-            var encodedParams = encodeURIComponent(JSON.stringify(billIds));
-            // redirect to print-ready page via controller
-            window.location.href = "${ctx}/PrivateBillingController?action=printPreviewBills&billToClinic=" + billToClinic + "&billIds=" + encodedParams;
+            var params = new URLSearchParams();
+            params.set("action", "printPreviewBills");
+            params.set("billToClinic", String(billToClinic));
+            params.set("billIds", JSON.stringify(billIds));
+            window.location.href = "${ctx}/PrivateBillingController?" + params.toString();
         }
 
         function checkAllCaseCheckboxes() {
@@ -246,7 +281,10 @@
 
         function handleFilterByProvider() {
             var providerId = document.getElementById('providerList').value;
-            window.location.href = "${ctx}/PrivateBillingController?action=listPrivateBills&providerId=" + encodeURIComponent(providerId);
+            var params = new URLSearchParams();
+            params.set("action", "listPrivateBills");
+            params.set("providerId", providerId);
+            window.location.href = "${ctx}/PrivateBillingController?" + params.toString();
         }
 
         document.addEventListener('DOMContentLoaded', function () {

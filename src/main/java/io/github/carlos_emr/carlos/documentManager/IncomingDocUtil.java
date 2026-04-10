@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * Utility class for managing incoming documents in the CARLOS EMR document management system.
@@ -410,7 +411,7 @@ public final class IncomingDocUtil {
             if (!canonicalDir.exists()) {
                 boolean created = canonicalDir.mkdirs();
                 if (!created) {
-                    logger.warn("Failed to create directory: " + canonicalDir.getPath());
+                    logger.warn("Failed to create directory: {}", LogSanitizer.sanitize(canonicalDir.getPath()));
                 }
             }
 

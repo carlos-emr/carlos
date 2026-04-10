@@ -187,7 +187,6 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
         	 comment = "";
          }
          Boolean pastMed            = rx.getPastMed();
-         boolean dispenseInternal = rx.getDispenseInternal();
          boolean startDateUnknown	= rx.getStartDateUnknown();
          boolean nonAuthoritative   = rx.isNonAuthoritative();
          boolean nosubs = rx.getNosubs();
@@ -416,12 +415,6 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
        	  <input type="text" size="6" id="dispenseInterval_<%=rand%>" name="dispenseInterval_<%=rand%>" value="<%=dispenseInterval%>" />
        	  </div>
        	  
-	     <%if(CarlosProperties.getInstance().getProperty("rx.enable_internal_dispensing","false").equals("true")) {%>  
-	       <div>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgDispenseInternal"/>
-			  <input type="checkbox" name="dispenseInternal_<%=rand%>" id="dispenseInternal_<%=rand%>" <%if(dispenseInternal) {%> checked="checked" <%}%> />
-      	 </div>
-      	 <% } %>
 		<div>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgPrescribedByOutsideProvider"/>
             <input type="checkbox" id="ocheck_<%=rand%>" name="ocheck_<%=rand%>"

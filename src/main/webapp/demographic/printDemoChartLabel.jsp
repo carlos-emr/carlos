@@ -28,6 +28,7 @@
 
 --%>
 
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -79,11 +80,11 @@
     <%} else {%>
     <fmt:setBundle basename="oscarResources"/><fmt:message key="report.printLabel.DefaultPrinter"/>
     <%}%>
-    <%=defaultPrinterName%>
+    <%=Encode.forHtml(defaultPrinterName)%>
     <%}%>
     <br>
     <object id="pdf" type="application/pdf"
-            data="printDemoChartLabelAction.do?demographic_no=<%=request.getParameter("demographic_no")%><%=request.getParameter("labelName")==null?"":"&labelName="+request.getParameter("labelName")%>"
+            data="printDemoChartLabelAction.do?demographic_no=<%=Encode.forUriComponent(request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "")%><%=request.getParameter("labelName")==null?"":"&labelName="+Encode.forUriComponent(request.getParameter("labelName"))%>"
             height="80%" width="100%"></object>
     </body>
 </html>

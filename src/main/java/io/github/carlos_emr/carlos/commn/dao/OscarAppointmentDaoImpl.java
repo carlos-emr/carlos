@@ -688,51 +688,6 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return query.getResultList();
     }
 
-    /**
-     * Get billed appointment history.
-     * Used if using the Clinicaid billing integration.
-     */
-    @Override
-    public List<Appointment> findPatientBilledAppointmentsByProviderAndAppointmentDate(
-            String providerNo,
-            Date startAppointmentDate,
-            Date endAppointmentDate) {
-        String queryString = "SELECT a FROM Appointment a WHERE a.providerNo = ?1 AND a.appointmentDate >= ?2 AND a.appointmentDate <= ?3 AND a.status = 'B' AND a.demographicNo <> 0 ORDER BY a.appointmentDate DESC, a.startTime DESC ";
-
-        Query q = entityManager.createQuery(queryString);
-        q.setParameter(1, providerNo);
-        q.setParameter(2, startAppointmentDate);
-        q.setParameter(3, endAppointmentDate);
-
-        @SuppressWarnings("unchecked")
-        List<Appointment> results = q.getResultList();
-
-        return results;
-    }
-
-    /**
-     * Get unbilled appointment history.
-     * Used if using the Clinicaid billing integration.
-     */
-    @Override
-    public List<Appointment> findPatientUnbilledAppointmentsByProviderAndAppointmentDate(
-            String providerNo,
-            Date startAppointmentDate,
-            Date endAppointmentDate) {
-
-        String queryString = "SELECT a FROM Appointment a WHERE a.providerNo = ?1 AND a.appointmentDate >= ?2 AND a.appointmentDate <= ?3 AND a.status NOT LIKE 'B%' AND a.status NOT LIKE 'C%' AND a.status NOT LIKE 'N%' AND a.status NOT LIKE 'T%' AND a.status NOT LIKE 't%' AND a.demographicNo != 0 ORDER BY a.appointmentDate DESC, a.startTime DESC";
-
-        Query q = entityManager.createQuery(queryString);
-        q.setParameter(1, providerNo);
-        q.setParameter(2, startAppointmentDate);
-        q.setParameter(3, endAppointmentDate);
-
-        @SuppressWarnings("unchecked")
-        List<Appointment> results = q.getResultList();
-
-        return results;
-    }
-
     @Override
     public List<Appointment> findByProgramProviderDemographicDate(Integer programId, String providerNo,
                                                                   Integer demographicId, Date updatedAfterThisDateExclusive, int itemsToReturn) {

@@ -32,7 +32,7 @@
 
 <%@ include file="/casemgmt/taglibs.jsp" %>
 
-<%@page import="java.util.Enumeration, org.apache.commons.text.StringEscapeUtils" %>
+<%@page import="java.util.Enumeration" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
@@ -40,14 +40,11 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
 <%@page import="org.owasp.encoder.Encode" %>
 <%@page import="java.util.List, java.util.Random" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 
 
 <%
@@ -152,18 +149,6 @@
 <!--js code for newCaseManagementView.jsp -->
 <script type="text/javascript" src="<c:out value="${ctx}/js/newCaseManagementView.js.jsp"/>"></script>
 
-            <%-- Javascripts for the BC Care Connect Button --%>
-        <oscar:oscarPropertiesCheck value="BC" property="billregion">
-            <security:oscarSec roleName="<%=roleName%>" objectName="_careconnect" rights="r">
-                <c:set value="${ CarlosProperties.getInstance()['BC_CARECONNECT_URL'] }" var="careconnecturl"
-                       scope="application"/>
-                <c:if test="${ not empty careconnecturl }">
-                    <script type="text/javascript"
-                            src="${pageContext.servletContext.contextPath}/careconnect/careconnect.js"></script>
-                </c:if>
-            </security:oscarSec>
-        </oscar:oscarPropertiesCheck>
-
         <script type="text/javascript">
 
             jQuery(document).on("ready", function () {
@@ -209,7 +194,8 @@
                      paramValue = request.getParameter(paramName);
 
                  %>
-                params += "&<%=paramName%>=<%=Encode.forJavaScript(paramValue)%>";
+                params += "&" + encodeURIComponent("<%=Encode.forJavaScript(paramName)%>")
+                        + "=" + encodeURIComponent("<%=Encode.forJavaScript(paramValue)%>");
                 <%
 
                  }
@@ -634,7 +620,7 @@
             <input type="hidden" id="containerDiv" name="containerDiv" value="">
             <input type="hidden" id="issueChange" name="issueChange" value="">
             <input type="hidden" id="archived" name="archived" value="false">
-            <input type="hidden" id="annotation_attrib" name="annotation_attrib">
+
             <h3 id="winTitle"></h3>
 
             <textarea cols="50" rows="15" id="noteEditTxt"
@@ -742,11 +728,7 @@
                         type="image"
                         src="<c:out value="${ctx}/encounter/graphics/copy.png"/>"
                         title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnCopy"/>'
-                        onclick="copyCppToCurrentNote(); return false;"> <input
-                    type="image"
-                    src="<c:out value="${ctx}/encounter/graphics/annotation.png"/>"
-                    title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnAnnotation"/>'
-                    id="anno" style="padding-right: 10px;"> <input type="image"
+                        onclick="copyCppToCurrentNote(); return false;"> <input type="image"
                                                                    src="<c:out value="${ctx}/encounter/graphics/edit-cut.png"/>"
                                                                    title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnArchive"/>'
                                                                    onclick="$('archived').value='true';"
@@ -893,82 +875,6 @@
         </form>
     </div>
     <div id="encounterModal"></div>
-    <%
-        String apptNo = request.getParameter("appointmentNo");
-        if (CarlosProperties.getInstance().getProperty("resident_review", "false").equalsIgnoreCase("true") &&
-                loggedInInfo.getLoggedInProvider().getProviderType().equals("resident") && !"null".equalsIgnoreCase(apptNo) && !"".equalsIgnoreCase(apptNo)) {
-            ProviderDataDao providerDao = SpringUtils.getBean(ProviderDataDao.class);
-            List<ProviderData> providerList = providerDao.findAllBilling("1");
-    %>
-    <div id="showResident" class="showResident">
-
-        <div class="showResidentBorder residentText">
-            Resident Check List
-
-            <form action="" id="resident" name="resident" onsubmit="return false;">
-                <input type="hidden" name="residentMethod" id="residentMethod" value="">
-                <input type="hidden" name="residentChain" id="residentChain" value="">
-                <table class="showResidentContent">
-                    <tr>
-                        <td>
-                            Was this encounter reviewed?
-                        </td>
-                        <td>
-                            Yes <input type="radio" value="true" name="reviewed">&nbsp;No <input type="radio"
-                                                                                                 value="false"
-                                                                                                 name="reviewed">
-                        </td>
-                    </tr>
-                    <tr class="reviewer" style="display:none">
-                        <td class="residentText">
-                            Who did you review the encounter with?
-                        </td>
-                        <td>
-                            <select id="reviewer" name="reviewer">
-                                <option value="">Choose Reviewer</option>
-                                <%
-                                    for (ProviderData p : providerList) {
-                                %>
-                                <option value="<%=p.getId()%>"><%=p.getLastName() + ", " + p.getFirstName()%>
-                                </option>
-                                <%
-                                    }
-                                %>
-                            </select>
-                        </td>
-                    </tr>
-                    <tr class="supervisor" style="display:none">
-                        <td class="residentText">
-                            Who is your Supervisor/Monitor for this encounter?
-                        </td>
-                        <td>
-                            <select id="supervisor" name="supervisor">
-                                <option value="">Choose Supervisor</option>
-                                <%
-                                    for (ProviderData p : providerList) {
-                                %>
-                                <option value="<%=p.getId()%>"><%=p.getLastName() + ", " + p.getFirstName()%>
-                                </option>
-                                <%
-                                    }
-                                %>
-                            </select>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td colspan="2">
-                            <input id="submitResident" value="Continue" name="submitResident" type="submit"
-                                   onclick="return subResident();"/>
-                            <input id="submitResidentReturn" value="Return to Chart" name="submitResident" type="submit"
-                                   onclick="return cancelResident();"/>
-                        </td>
-                    </tr>
-                </table>
-            </form>
-        </div>
-
-    </div>
-    <%}%>
 
     </body>
 </html>

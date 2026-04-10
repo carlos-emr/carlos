@@ -32,6 +32,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.service.FieldNoteManager" %>
 <%@ page import="java.util.*, java.text.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -131,8 +132,8 @@
             }
 
             function setDefaultDates() {
-                document.fieldNoteReportForm.date_start.value = "<%=dateStartDefault%>";
-                document.fieldNoteReportForm.date_end.value = "<%=dateEndDefault%>";
+                document.fieldNoteReportForm.date_start.value = "<%=Encode.forJavaScript(dateStartDefault)%>";
+                document.fieldNoteReportForm.date_end.value = "<%=Encode.forJavaScript(dateEndDefault)%>";
                 document.fieldNoteReportForm.action = "";
                 document.fieldNoteReportForm.submit();
             }
@@ -181,11 +182,11 @@
             <tr style="background-color: #F2F2F2;">
                 <td>
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.startDate"/>:<input type="text" name="date_start" size="8"
-                                                                           value="<%=dateStart%>" id="startDate"><a
+                                                                           value="<%= Encode.forHtmlAttribute(dateStart) %>" id="startDate"><a
                         id="SCal"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
                     &nbsp;
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.endDate"/>:<input type="text" name="date_end" size="8"
-                                                                         value="<%=dateEnd%>" id="endDate"><a id="ECal"><img
+                                                                         value="<%= Encode.forHtmlAttribute(dateEnd) %>" id="endDate"><a id="ECal"><img
                         title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
                     &nbsp;
                     <input type="submit" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.getFieldNotes"/>"
@@ -240,7 +241,7 @@
                         %>
                         <tr>
                             <td class="bordered" rowspan="<%=residentCountList.size()%>" valign="top">
-                                <%=supervisor%>
+                                <%=Encode.forHtml(supervisor)%>
                             </td>
                                     <%					boolean first = true;
 					for (String resident : residentCountList.keySet()) {
@@ -255,7 +256,7 @@
                         <tr>
                             <% }
                             %>
-                            <td class="bordered"><%=resident%>
+                            <td class="bordered"><%=Encode.forHtml(resident)%>
                             </td>
                             <td class="bordered" align="center"><%=residentCountList.get(resident)%>
                             </td>
@@ -278,18 +279,17 @@
             <%
                 for (String residentName : residentNameList.keySet()) {
                     String residentId = residentNameList.get(residentName);
-                    String resNameSend = residentName.replace("'", "\\'");
             %>
             <tr>
-                <td><%=residentName%>
+                <td><%=Encode.forHtml(residentName)%>
                 </td>
                 <td>
                     <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.view"/>"
                            title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.viewReport"/>"
-                           onclick="send('<%=residentId%>','<%=resNameSend%>','view');"/>
+                           onclick="send('<%=Encode.forJavaScriptAttribute(residentId)%>','<%=Encode.forJavaScriptAttribute(residentName)%>','view');"/>
                     <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.download"/>"
                            title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.downloadReport"/>"
-                           onclick="send('<%=residentId%>','<%=resNameSend%>','download');"/>
+                           onclick="send('<%=Encode.forJavaScriptAttribute(residentId)%>','<%=Encode.forJavaScriptAttribute(residentName)%>','download');"/>
                 </td>
             </tr>
             <% }

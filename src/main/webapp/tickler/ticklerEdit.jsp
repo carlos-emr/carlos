@@ -475,7 +475,7 @@
                     <div class="col-sm-4">
                         <div class="demo-label"><fmt:message key="tickler.ticklerEdit.demographicName"/></div>
                         <div class="demo-name"><a href="javascript:void(0)"
-                            onClick="popupPage(600,800,'<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=d.getDemographicNo()%>&displaymode=edit&dboperation=search_detail')"><%=Encode.forHtmlContent(d.getLastName())%>, <%=Encode.forHtmlContent(d.getFirstName())%></a></div>
+                            onClick="popupPage(600,800,'<%=request.getContextPath()%>/demographic/DemographicEdit.do?demographic_no=<%=d.getDemographicNo()%>')"><%=Encode.forHtmlContent(d.getLastName())%>, <%=Encode.forHtmlContent(d.getFirstName())%></a></div>
                         <div class="demo-value"><%=Encode.forHtmlContent(d.getAge())%> (<%=Encode.forHtmlContent(d.getFormattedDob())%>)</div>
                     </div>
                     <div class="col-sm-4">

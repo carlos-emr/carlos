@@ -98,7 +98,10 @@
           method="post" onsubmit="return onPicUpload();">
         <input type="hidden" name="method" value="saveImage"/>
         <%
-            request.getSession().setAttribute("clientId", request.getParameter("demographicNo"));
+            String demoNo = request.getParameter("demographicNo");
+            if (demoNo != null && demoNo.matches("\\d+")) {
+                request.getSession().setAttribute("clientId", demoNo);
+            }
         %>
         <div class="row align-items-center mb-3">
             <div class="col-auto">

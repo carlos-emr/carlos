@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.openpdf.text.*;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * Print extension that renders ophthalmology and clinical measurements into the
@@ -84,9 +85,9 @@ public class MeasurementPrint implements ExtPrint {
         String endDate = request.getParameter("pEndDate");
         String demographicNo = request.getParameter("demographicNo");
 
-        logger.info("startDate = " + startDate);
-        logger.info("endDate = " + endDate);
-        logger.info("demographicNo = " + demographicNo);
+        logger.info("startDate = {}", LogSanitizer.sanitize(startDate));
+        logger.info("endDate = {}", LogSanitizer.sanitize(endDate));
+        logger.info("demographicNo = {}", LogSanitizer.sanitize(demographicNo));
 
         List<Measurement> measurements = null;
 

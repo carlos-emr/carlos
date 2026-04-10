@@ -35,26 +35,19 @@
 
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 import java.util.Vector;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
-import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSConsequence;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSGuideline;
 import io.github.carlos_emr.carlos.decisionSupport.service.DSService;
-import io.github.carlos_emr.carlos.renal.CkdScreener;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
@@ -70,9 +63,6 @@ import org.apache.struts2.ServletActionContext;
 public class EctDisplayDecisionSupportAlerts2Action extends EctDisplayAction {
     private String cmd = "Guidelines";
     private static final Logger logger = MiscUtils.getLogger();
-
-    private DxresearchDAO dxResearchDao = (DxresearchDAO) SpringUtils.getBean(DxresearchDAO.class);
-
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
 
@@ -110,54 +100,6 @@ public class EctDisplayDecisionSupportAlerts2Action extends EctDisplayAction {
             String BGCOLOUR = request.getParameter("hC");
 
 
-            //ORN CKD Pilot Code
-            if (CarlosProperties.getInstance().getProperty("ORN_PILOT", "yes").equalsIgnoreCase("yes") && (CarlosProperties.getInstance().getProperty("ckd_notification_scheme", "dsa").equals("dsa") || CarlosProperties.getInstance().getProperty("ckd_notification_scheme", "dsa").equals("all"))) {
-                CkdScreener ckdScreener = new CkdScreener();
-                List<String> reasons = new ArrayList<String>();
-                boolean match = ckdScreener.screenDemographic(Integer.parseInt(bean.demographicNo), reasons, null);
-                boolean notify = false;
-
-                for (Dxresearch dr : dxResearchDao.find(Integer.parseInt(bean.demographicNo), "OscarCode", "CKDSCREEN")) {
-                    //we have an active one, we should notify
-                    if (dr.getStatus() == 'A') {
-                        notify = true;
-                    }
-                }
-                for (Dxresearch dr : dxResearchDao.find(Integer.parseInt(bean.demographicNo), "icd9", "585")) {
-                    if (dr.getStatus() == 'A') {
-                        notify = false;
-                    }
-                }
-                if (!notify) {
-                    //there's no active ones, but let's look at the latest one
-                    List<Dxresearch> drs = dxResearchDao.find(Integer.parseInt(bean.demographicNo), "OscarCode", "CKDSCREEN");
-                    if (drs.size() > 0) {
-                        Dxresearch dr = drs.get(0);
-                        Calendar aYearAgo = Calendar.getInstance();
-                        aYearAgo.add(Calendar.MONTH, -12);
-                        if (dr.getUpdateDate().before(aYearAgo.getTime())) {
-                            notify = true;
-                            //reopen it
-                            dr.setStatus('A');
-                            dr.setUpdateDate(new Date());
-                            dxResearchDao.merge(dr);
-                            //need some way to notify that tab to reload
-                            javascript.append("jQuery(document).ready(function(){reloadNav('Dx');});");
-                        }
-                    }
-                }
-                if (match && notify) {
-                    NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
-                    url = "popupPage(500,950,'" + winName + "','" + request.getContextPath() + "/renal/CkdDSA.do?method=detail&demographic_no=" + bean.demographicNo + "&parentAjaxId=" + cmd + "'); return false;";
-                    item.setURL(url);
-                    item.setLinkTitle("Based on guidelines, a CKD screening should be performed.");
-                    item.setTitle("Screen for CKD");
-                    item.setColour("#ff5409;");
-                    Dao.addItem(item);
-                }
-            }
-
-
             for (DSGuideline dsGuideline : dsGuidelines) {
                 if (CarlosProperties.getInstance().getProperty("dsa.skip." + dsGuideline.getTitle().replaceAll(" ", "_"), "false").equals("true")) {
                     continue;
@@ -177,7 +119,7 @@ public class EctDisplayDecisionSupportAlerts2Action extends EctDisplayAction {
                         //String formattedDate = DateUtils.getDate(date,dateFormat,request.getLocale());
                         key = StringUtils.maxLenString(dsConsequence.getText(), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES);
                         item.setLinkTitle(dsGuideline.getTitle());
-                        key = StringEscapeUtils.escapeEcmaScript(key);
+                        key = Encode.forJavaScript(key);
                         js = "itemColours['" + key + "'] = '" + BGCOLOUR + "'; autoCompleted['" + key + "'] = \"" + url + "\"; autoCompList.push('" + key + "');";
                         javascript.append(js);
                         url += "return false;";

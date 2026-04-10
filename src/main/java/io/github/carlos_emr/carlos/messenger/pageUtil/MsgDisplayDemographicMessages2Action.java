@@ -38,6 +38,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -46,6 +47,7 @@ import io.github.carlos_emr.carlos.messenger.util.MsgDemoMap;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+
 
 /**
  * Struts2 action for displaying and managing messages associated with a specific patient demographic.
@@ -147,11 +149,19 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
             
             // Validate required parameters before proceeding
             if (providerNo == null || userName == null || demographicNo == null) {
-                MiscUtils.getLogger().error("Missing required parameters: " + 
-                                          "providerNo=" + providerNo + 
-                                          ", userName=" + userName + 
-                                          ", demographic_no=" + demographicNo);
+                MiscUtils.getLogger().error("Missing required parameters: providerNo={}, userName={}, demographic_no={}",
+                    providerNo != null ? "present" : "null",
+                    userName != null ? "present" : "null",
+                    demographicNo != null ? "present" : "null");
                 return "error"; 
+            }
+
+            // Validate demographicNo is numeric before storing in session bean
+            if (!demographicNo.matches("\\d+")) {
+                MiscUtils.getLogger().error("Invalid non-numeric demographic_no: {}", LogSanitizer.sanitize(demographicNo));
+                // Clear any stale session bean to prevent PHI leakage from a previous request
+                request.getSession().removeAttribute("msgSessionBean");
+                return "error";
             }
             
             // Initialize the session bean with demographic context
@@ -159,7 +169,8 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
             bean.setUserName(userName);
             bean.setDemographic_no(demographicNo);
 
-            request.getSession().setAttribute("msgSessionBean", bean);
+            // demographicNo validated as numeric; userName is unsanitized — JSPs must use OWASP encoding
+            request.getSession().setAttribute("msgSessionBean", bean); // nosemgrep: tainted-session-from-http-request
             MiscUtils.getLogger().debug("Created new MsgSessionBean for providers: " + providerNo);
         }
 

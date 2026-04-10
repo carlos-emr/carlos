@@ -78,6 +78,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrectionPrep" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.*" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     GregorianCalendar now = new GregorianCalendar();
@@ -321,7 +322,7 @@
     <form name="serviceform" method="post"
           action=""
           onsubmit="return validateAllItems()"><input type="hidden"
-                                                      name="xml_billing_no" value="<%=billNo%>"/> <input type="hidden"
+                                                      name="xml_billing_no" value="<%= Encode.forHtmlAttribute(billNo) %>"/> <input type="hidden"
                                                                                                          name="update_date"
                                                                                                          value="<%=UpdateDate%>"/>
 
@@ -331,7 +332,7 @@
             </tr>
             <tr>
                 <td width="54%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgPatientName"/>: <a href=#
-                                                                             onclick="popupPage(720,860,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=DemoNo %>&displaymode=edit&dboperation=search_detail');return false;">
+                                                                             onclick="popupPage(720,860,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=DemoNo %>');return false;">
                     <%=DemoName%>
                 </a> <input type="hidden" name="demo_name"
                             value="<%=DemoName%>"> </b></td>

@@ -95,6 +95,12 @@ $.extend({
             cookiePath: "/",
 
             //
+            //whether to add the Secure flag to the cookie (prevents transmission over plain HTTP).
+            //defaults to true when the page is served over HTTPS, false otherwise.
+            //
+            cookieSecure: location.protocol === 'https:',
+
+            //
             //the title for the popup second window as a download is processing in the case of a mobile browser
             //
             popupWindowTitle: "Initiating file download...",
@@ -308,7 +314,7 @@ $.extend({
 
                 //remove the cookie and iframe
                 var date = new Date(1000);
-                document.cookie = settings.cookieName + "=; expires=" + date.toUTCString() + "; path=" + settings.cookiePath;
+                document.cookie = settings.cookieName + "=; expires=" + date.toUTCString() + "; path=" + settings.cookiePath + (settings.cookieSecure ? "; Secure" : "");
 
                 cleanUp(false);
 

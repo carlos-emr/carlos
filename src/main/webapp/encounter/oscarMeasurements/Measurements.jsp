@@ -41,6 +41,7 @@
         import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasuringInstructionBeanHandler, io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasuringInstructionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MeasurementManager" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String demo = request.getParameter("demographicNo"); //bean.getDemographicNo();
     request.setAttribute("demo", demo);
@@ -60,7 +61,7 @@
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
 
-        <link href="library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <link href="library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
 
 
         <link rel="stylesheet" href="css/fontawesome-all.min.css">
@@ -156,7 +157,9 @@
                         
                         if (data.errors && data.errors.length > 0) {
                             for (let x = 0; x < data.errors.length; x++) {
-                                errorsList.insertAdjacentHTML('beforeend', data.errors[x]);
+                                const li = document.createElement('li');
+                                li.textContent = data.errors[x];
+                                errorsList.appendChild(li);
                             }
                             errorDiv.style.display = 'block';
                             // Scroll to top to show validation errors
@@ -213,7 +216,7 @@
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(150,200,'<%=request.getContextPath()%>/encounter/calculators.jsp?demo=<%=demo%>'); return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.calculators"/></a></td>
+                                    onClick="popupPage(150,200,'<%=request.getContextPath()%>/encounter/calculators.jsp?demo=<%=Encode.forUriComponent(demo)%>'); return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.calculators"/></a></td>
                         </tr>
                     </table>
                 </td>
@@ -241,7 +244,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><%=Encode.forHtml(error)%></li>
             <% } %>
         </ul>
     </div>

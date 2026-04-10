@@ -32,7 +32,7 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
+
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -123,11 +123,12 @@ public final class RxRePrescribe2Action extends ActionSupport {
 
         String comment = rxData.getScriptComment(script_no);
 
-        request.getSession().setAttribute("tmpBeanRX", beanRX);
+        // script_no passed through Integer.parseInt() before DB lookup; beanRX data sourced from database prescriptions
+        request.getSession().setAttribute("tmpBeanRX", beanRX); // nosemgrep: tainted-session-from-http-request
         request.setAttribute("rePrint", "true");
         request.setAttribute("comment", comment);
 
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.REPRINT, LogConst.CON_PRESCRIPTION, script_no, ip, "" + beanRX.getDemographicNo(), auditStr.toString());
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.REPRINT, LogConst.CON_PRESCRIPTION, script_no, ip, "" + beanRX.getDemographicNo(), auditStr.toString()); // nosemgrep: tainted-session-from-http-request
 
         return "reprint";
     }
@@ -148,9 +149,19 @@ public final class RxRePrescribe2Action extends ActionSupport {
         beanRX.setProviderNo(sessionBeanRX.getProviderNo());
 
         String script_no = request.getParameter("scriptNo");
+        if (script_no == null || !script_no.matches("\\d{1,9}")) {
+            logger.warn("Invalid scriptNo in reprint2");
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return null;
+        }
+        long parsedScriptNo = Long.parseLong(script_no);
+        if (parsedScriptNo > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("Invalid scriptNo");
+        }
+        int scriptNo = (int) parsedScriptNo;
         String ip = request.getRemoteAddr();
         RxPrescriptionData rxData = new RxPrescriptionData();
-        List<Prescription> list = rxData.getPrescriptionsByScriptNo(Integer.parseInt(script_no), sessionBeanRX.getDemographicNo());
+        List<Prescription> list = rxData.getPrescriptionsByScriptNo(scriptNo, sessionBeanRX.getDemographicNo());
         RxPrescriptionData.Prescription p = null;
         StringBuilder auditStr = new StringBuilder();
         for (int idx = 0; idx < list.size(); ++idx) {
@@ -165,10 +176,11 @@ public final class RxRePrescribe2Action extends ActionSupport {
         }
 
         String comment = rxData.getScriptComment(script_no);
-        request.getSession().setAttribute("tmpBeanRX", beanRX);
-        request.getSession().setAttribute("rePrint", "true");
-        request.getSession().setAttribute("comment", comment);
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.REPRINT, LogConst.CON_PRESCRIPTION, script_no, ip, "" + beanRX.getDemographicNo(), auditStr.toString());
+        // script_no passed through Integer.parseInt() before DB lookup; beanRX and comment data sourced from database
+        request.getSession().setAttribute("tmpBeanRX", beanRX); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("rePrint", "true"); // nosemgrep: tainted-session-from-http-request - constant string literal
+        request.getSession().setAttribute("comment", comment); // nosemgrep: tainted-session-from-http-request
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.REPRINT, LogConst.CON_PRESCRIPTION, script_no, ip, "" + beanRX.getDemographicNo(), auditStr.toString()); // nosemgrep: tainted-session-from-http-request
 
         return null;
     }
@@ -210,8 +222,6 @@ public final class RxRePrescribe2Action extends ActionSupport {
                 beanRX.setStashIndex(beanRX.addStashItem(loggedInInfo, rx));
                 auditStr.append(rx.getAuditString() + "\n");
 
-                // allocate space for annotation
-                beanRX.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(beanRX.getStashIndex()));
                 // p("beanRX.getStashIndex() in represcribe after", "" + beanRX.getStashIndex());
                 request.setAttribute("BoxNoFillFirstLoad", "true");
             }
@@ -257,12 +267,22 @@ public String saveDigitalSignature() throws IOException {
     beanRX.setDemographicNo(sessionBeanRX.getDemographicNo());
     beanRX.setProviderNo(sessionBeanRX.getProviderNo());
     
-    // Extract digital signature ID from request (can be null to remove signature)
-    Integer digitalSignatureId = Objects.isNull(request.getParameter("digitalSignatureId"))
-            ? null : Integer.valueOf(request.getParameter("digitalSignatureId"));
-    
-    // Extract required script ID parameter
+    // Extract and validate digital signature ID from request (can be null to remove signature)
+    String digitalSignatureIdParam = request.getParameter("digitalSignatureId");
+    if (digitalSignatureIdParam != null && !digitalSignatureIdParam.matches("\\d{1,9}")) {
+        logger.warn("Invalid digitalSignatureId rejected");
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+        return NONE;
+    }
+    Integer digitalSignatureId = digitalSignatureIdParam == null ? null : Integer.valueOf(digitalSignatureIdParam);
+
+    // Extract and validate required script ID parameter
     String scriptId = request.getParameter("scriptId");
+    if (scriptId == null || !scriptId.matches("\\d{1,9}")) {
+        logger.warn("Invalid scriptId rejected");
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+        return NONE;
+    }
     
     // Capture client IP for audit logging
     String ip = request.getRemoteAddr();
@@ -273,7 +293,7 @@ public String saveDigitalSignature() throws IOException {
     
     // Log the action for audit trail
     // Note: Using REPRINT constant as this is related to prescription printing/signing workflow
-    LogAction.addLog((String) request.getSession().getAttribute("user"), 
+    LogAction.addLog((String) request.getSession().getAttribute("user"),  // nosemgrep: tainted-session-from-http-request
                       LogConst.REPRINT, 
                       LogConst.CON_PRESCRIPTION, 
                       scriptId, 
@@ -332,9 +352,6 @@ public String saveDigitalSignature() throws IOException {
             bean.setStashIndex(rxStashIndex);
 
             auditStr.append(rx.getAuditString() + "\n");
-            bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex()));
-            // p("brandName saved in stash", prescript.getBrandName());
-            // p("stashIndex becomes", "" + beanRX.getStashIndex());
 
             // RxUtil.printStashContent(beanRX);
         } catch (Exception e) {
@@ -398,9 +415,6 @@ public String saveDigitalSignature() throws IOException {
             beanRX.setStashIndex(rxStashIndex);
 
             auditStr.append(rx.getAuditString() + "\n");
-            beanRX.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(beanRX.getStashIndex()));
-            // p("brandName saved in stash", prescript.getBrandName());
-            // p("stashIndex becomes", "" + beanRX.getStashIndex());
 
             // RxUtil.printStashContent(beanRX);
             request.setAttribute("listRxDrugs", listReRx);
@@ -490,8 +504,6 @@ public String saveDigitalSignature() throws IOException {
             beanRX.setStashIndex(rxStashIndex);
             auditStr.append(rx.getAuditString() + "\n");
 
-            // allocate space for annotation
-            beanRX.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(beanRX.getStashIndex()));
         }
         // RxUtil.printStashContent(beanRX);
         request.setAttribute("listRxDrugs", listLongTerm);
@@ -560,7 +572,6 @@ public String saveDigitalSignature() throws IOException {
             }
             int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
             bean.setStashIndex(rxStashIndex);
-            bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex()));
         }
         // Clear the session list after staging so the same drugs can be re-staged later
         bean.clearReRxDrugIdList();

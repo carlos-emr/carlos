@@ -59,6 +59,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     if (!"POST".equalsIgnoreCase(request.getMethod())) {
         response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
@@ -125,10 +126,10 @@
         %>
         <br/>
         <a href="lotnraddrecordhtm.jsp?prevention=<%=URLEncoder.encode(prevention,"UTF-8")%>">Add Another Lot #
-            to <%=prevention %>
+            to <%=Encode.forHtmlContent(prevention)%>
         </a> <br/>
         <a href="lotnrsearchresults.jsp?search_mode=search_prev&keyword=<%=URLEncoder.encode(prevention,"UTF-8")%>&orderby=prevention_type&dboperation=lotnr_search_prevention&limit1=0&limit2=10&button=submit">View
-            Lots for <%=prevention %>
+            Lots for <%=Encode.forHtmlContent(prevention)%>
         </a>
     </center>
     </body>

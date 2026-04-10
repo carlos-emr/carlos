@@ -47,6 +47,8 @@
 %>
 
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
 Prescriptions
 <table width="100%" border="0" cellpadding="0" cellspacing="1" bgcolor="#C0C0C0">
@@ -75,19 +77,19 @@ Prescriptions
             </c:if>
             <td bgcolor="white">
                 <caisirole:SecurityAccess accessName="prescription Write" accessType="access"
-                                          providerNo='<%=request.getParameter("providerNo")%>'
-                                          demoNo='<%=request.getParameter("demographicNo")%>'
-                                          programId='<%=(String)session.getAttribute("case_program_id")%>'>
+                                          providerNo='<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>'
+                                          demoNo='<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("demographicNo"))) %>'
+                                          programId='<%= Encode.forHtmlAttribute(StringUtils.noNull((String)session.getAttribute("case_program_id"))) %>'>
                     <a <%= styleColor%> target="_blank"
-                                        href="<%= request.getContextPath() %>/oscarRx/StaticScript.jsp?regionalIdentifier=<c:out value="${prescription.regionalIdentifier}"/>&cn=<c:out value="${prescription.customName}"/>">
+                                        href="<%= request.getContextPath() %>/oscarRx/StaticScript2.jsp?regionalIdentifier=<c:out value="${prescription.regionalIdentifier}"/>&cn=<c:out value="${prescription.customName}"/>">
                         <c:out value="${prescription.special}"/>
                     </a>
                 </caisirole:SecurityAccess>
 
                 <caisirole:SecurityAccess accessName="prescription Write" accessType="access"
-                                          providerNo='<%=request.getParameter("providerNo")%>'
-                                          demoNo='<%=request.getParameter("demographicNo")%>'
-                                          programId='<%=(String)session.getAttribute("case_program_id")%>'
+                                          providerNo='<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>'
+                                          demoNo='<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("demographicNo"))) %>'
+                                          programId='<%= Encode.forHtmlAttribute(StringUtils.noNull((String)session.getAttribute("case_program_id"))) %>'
                                           reverse="true">
                     <span <%= styleColor%> ><c:out value="${prescription.special}"/></span>
                 </caisirole:SecurityAccess>

@@ -102,10 +102,8 @@ FOR STAND ALONE USE
     <link href="<%= request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css" rel="stylesheet" type="text/css">
     <link href="<%= request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css" rel="stylesheet" type="text/css">
 
-    <!-- signature_pad.min.js (Szymon Nowak) was removed from the project.
-         Without it, wet-signature canvas widgets are unavailable in the editor
-         but existing eforms remain functional. Restore the file to re-enable. -->
-    <%-- <script src="<%= request.getContextPath() %>/share/javascript/signature_pad.min.js"></script> --%>
+    <!-- signature_pad.min.js (Szymon Nowak) for wet-signature canvas widgets. -->
+    <script src="<%= request.getContextPath() %>/share/javascript/signature_pad.min.js"></script>
 
     <!-- main calendar program -->
     <script src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
@@ -383,7 +381,7 @@ var EFORM_I18N = {
                 var myDbWindow = window.open('Eform_dbtags.html', 'mywindow', 'width=800, height=800,  top=0, left=0')
                 myDbWindow.moveTo(0, 0);
             } else {
-                var myDbWindow = window.open('${oscar_image_path}Eform_dbtags.html', 'mywindow', 'width=800, height=800,  top=0, left=0')
+                var myDbWindow = window.open('${e:forJavaScript(oscar_image_path)}Eform_dbtags.html', 'mywindow', 'width=800, height=800,  top=0, left=0')
                 myDbWindow.moveTo(0, 0);
             }
             // Get the modal
@@ -1439,6 +1437,8 @@ var EFORM_I18N = {
         var inChrome = (navigator.userAgent.search("Chrome") >= 0);
         var eFormViewMinWidth = 375; //px
         var eFormViewPadding = 25; //px
+        // Fallback delay (ms) for revoking Blob URLs opened in a new window
+        var BLOB_URL_REVOKE_TIMEOUT_MS = 60000;
 
         var defaultIncludeFaxControl = true;
         var defaultEnableSnapGuides = true;
@@ -1462,21 +1462,6 @@ var EFORM_I18N = {
         var OSCAR_DISPLAY_IMG_SRC = "../eform/displayImage.do?imagefile=";
         var OSCAR_EFORM_ENTITY_URL = "../ws/rs/eform/";
         var OSCAR_EFORM_SEARCH_URL = "../ws/rs/eforms/";
-
-        /**
-         * Validates image src URLs using an allowlist to prevent XSS via dangerous URI schemes
-         * (javascript:, data:text/html, etc.). Allows relative paths, http(s) URLs,
-         * data:image/ URIs (used by signature pads), and simple filenames.
-         */
-        function isValidImageSrc(url) {
-            if (!url || typeof url !== 'string') return false;
-            if (/^(\/(?!\/)|\.\/|\.\.\/)/.test(url)) return true;
-            if (/^https?:\/\//i.test(url)) return true;
-            if (/^data:image\//i.test(url)) return true;
-            if (/^[\w][\w.\- ]*$/.test(url)) return true; // simple filename
-            console.error('isValidImageSrc: rejected URL:', url.substring(0, 50));
-            return false;
-        }
 
         /** GLOBAL SCOPE VARIABLES */
         var groupTitle
@@ -1619,12 +1604,8 @@ var EFORM_I18N = {
 
         /** HTML-encodes a string for safe insertion into HTML content (e.g. title tags) */
         function escapeHtmlText(value) {
-            return String(value)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
+            var htmlEntities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return String(value).replace(/[&<>"']/g, function(match) { return htmlEntities[match]; });
         }
 
         function destroy_gen_widgets($elementSelector) {
@@ -1685,7 +1666,7 @@ var EFORM_I18N = {
                 string = string.replace(new RegExp(regexFixed, "g"), "$" + "{oscar_image_path}");
             } else {
                 //alert("stand alone")
-                string = string.replace(/(img.*?)src\s*=\s*(\"|\')(?!data:image\/png;base64,)/gi, "$1src=$2${oscar_image_path}");
+                string = string.replace(/(img.*?)src\s*=\s*(\"|\')(?!data:image\/png;base64,)/gi, "$1src=$2${"$"}{oscar_image_path}"); // ${"$"}{oscar_image_path} is a template marker replaced at runtime
             }
             return string;
         }
@@ -1898,8 +1879,7 @@ var EFORM_I18N = {
 
             // ------- the eforms generated are currently dependent on jQuery ------
             source += "\<script src='../library/jquery/jquery-3.7.1.min.js'\>\<\/script\>"; // present in CARLOS
-            source += "\<script src='../library/jquery/jquery-3.6.4.min.js'\>\<\/script\>"; // present in OSCAR 19 and OPEN OSP
-            source += "\<script src='$\{oscar_javascript_path\}jquery/jquery-2.2.4.min.js'\>\<\/script\>"; // only present in JUNO
+            source += "\<script\>window.jQuery || document.write(\"\\x3cscript src='../library/jquery/jquery-3.6.4.min.js'\\x3e\\x3c\\/script\\x3e\");\<\/script\>";  // present in OSCAR 19 and OPEN OSP
             source += "\<script\>window.jQuery || document.write(\"\\x3cscript src='../js/jquery-1.12.3.js'\\x3e\\x3c\\/script\\x3e\");\<\/script\>"; // present in WELL and others as
             source += "\<script\>window.jQuery || document.write(\"\\x3cscript src='https://code.jquery.com/jquery-3.6.4.min.js' integrity='sha256-oP6HI9z1XaZNBrJURtCoUT5SUnxFr8s3BzRl+cbzUq8=' crossorigin='anonymous'\\x3e\\x3c\\/script\\x3e\");\<\/script\>"; // if all else fails refer to a CND
 
@@ -2010,7 +1990,7 @@ var EFORM_I18N = {
             }
             source += findSelectedFunctions(htmlElements.innerHTML) + "\<\/script></"+"head><body onload='focusAll();" + loadFunctions + "'>";
             if (setSideBar == "on") {
-                source += "<iframe src='${oscar_image_path}SideBarTemplate.html' id='mySidenavGen2' class='sidenav DoNotPrint' style='margin-top:-60px;margin-left:-100px;height:600px'></iframe>";
+                source += "<iframe src='${"$"}{oscar_image_path}SideBarTemplate.html' id='mySidenavGen2' class='sidenav DoNotPrint' style='margin-top:-60px;margin-left:-100px;height:600px'></iframe>"; // ${"$"}{oscar_image_path} is a template marker replaced at runtime
             }
 
             source += "<div id='eform_container' " + "style='max-width: " + eFormPageWidth + "px'>";
@@ -2021,7 +2001,8 @@ var EFORM_I18N = {
             source = source.replace(/>\s*</g, ">\n<");
             //now we need to escape the html special chars
             if (escapeHtml) {
-                source = source.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                var htmlChars = { '&': '&amp;', '<': '&lt;', '>': '&gt;' };
+                source = source.replace(/[&<>]/g, function(match) { return htmlChars[match]; });
                 //now we add <pre> tags to preserve whitespace
                 source = "<pre>" + source + "</pre>";
             }
@@ -2036,13 +2017,26 @@ var EFORM_I18N = {
 
         function showSource(include_fax) {
             var source = generate_eform_source_html(true, include_fax);
-            //now open the window and set the source as the content
-            var sourceWindow = window.open('', 'Source of page', 'height=800,width=800,scrollbars=1,resizable=1');
-            sourceWindow.document.write(source);
-            sourceWindow.document.title = "eForm Source";
-            sourceWindow.document.close(); //close the document for writing, not the window
-            //give source window focus
-            if (window.focus) sourceWindow.focus();
+            // Use a Blob URL to load the content into a new window, avoiding document.write
+            // with DOM-sourced HTML (CodeQL: DOM text reinterpreted as HTML).
+            var blob = new Blob([source], {type: 'text/html;charset=UTF-8'});
+            var url = URL.createObjectURL(blob);
+            // Revoke the blob URL after BLOB_URL_REVOKE_TIMEOUT_MS as a safety fallback (handles popup-blocked case too)
+            var revokeTimer = setTimeout(function() { URL.revokeObjectURL(url); }, BLOB_URL_REVOKE_TIMEOUT_MS);
+            var sourceWindow = window.open(url, 'Source of page', 'height=800,width=800,scrollbars=1,resizable=1');
+            if (sourceWindow) {
+                sourceWindow.opener = null;
+                // Revoke as soon as the page has loaded to free memory earlier
+                sourceWindow.addEventListener('load', function() {
+                    clearTimeout(revokeTimer);
+                    URL.revokeObjectURL(url);
+                });
+            } else {
+                // Popup was blocked — revoke immediately
+                clearTimeout(revokeTimer);
+                URL.revokeObjectURL(url);
+            }
+            if (sourceWindow && window.focus) sourceWindow.focus();
         }
 
         function download(text, name, type) {
@@ -2643,11 +2637,10 @@ var EFORM_I18N = {
 
             var $div = $(data);
 
-			var imported_form = $div.find("#inputForm").html();
+			var $importedInputForm = $div.find("#inputForm");
 			//May-01-2024 Peter Hutten-Czapski
-            var ferengi = false;
-            if (typeof(imported_form)=="undefined")  {
-                ferengi = true;
+            var ferengi = ($importedInputForm.length === 0);
+            if (ferengi) {
                 if ( typeof($div.find("[id^='BGImage']").html() ) == "undefined" ){
                     custom_alert("We are currently unable to convert eform "+eformName+" as it lacks any recognisable background images.");
                     return;
@@ -2656,11 +2649,16 @@ var EFORM_I18N = {
                     custom_alert("We are currently unable to convert eform "+eformName+" as it lacks a recognisable page structure.");
                     return;
                 }
-			    imported_form = loadPages($div);
             }
 
             var $inputForm = $("#inputForm");
-            $inputForm.html(imported_form);
+            if (ferengi) {
+                $inputForm.html(loadPages($div));
+            } else {
+                // Move child nodes directly to avoid the DOM-text-to-HTML roundtrip (.html() read → .html() write).
+                // jQuery .append() moves (not copies) nodes, automatically detaching them from $importedInputForm.
+                $inputForm.empty().append($importedInputForm.contents());
+            }
 
             // as checkboxes are now Xboxes the only checkboxes left are in the form controls
             $inputForm.find('[checked]').each(function(){
@@ -2799,12 +2797,9 @@ var EFORM_I18N = {
 
 			//console.log($inputForm.html());
 			$('#defaultFaxNo').val(defaultFaxNo);
-			// extract the form with id of inputForm from the imported form
-            var imported_form = $div.find("#inputForm").html();
-			//var imported_form = $div.find("#formName").html();//May-01-2024
-
-            var $inputForm = $("#inputForm");
-            $inputForm.html(imported_form);
+            // inputForm content was already set above (via DOM node movement for standard forms,
+            // or via loadPages for Ferengi forms). The original redundant re-read and re-injection
+            // has been removed to prevent an empty-string overwrite after DOM node movement.
 
             // TODO -- combine with generic makeDraggables and addNewPage
             var $input_elements = $(".input_elements");
@@ -4602,19 +4597,27 @@ var EFORM_I18N = {
                 var style1 = document.getElementById('eform_style').innerHTML;
                 var style2 = document.getElementById('eform_style_shapes').innerHTML;
                 var style3 = document.getElementById('eform_style_signature').innerHTML;
-                var newWin = window.open('', 'Print-Window');
-                newWin.document.open();
+                // Build the print HTML; window.print() + close are triggered via onload in the page itself.
+                // A 1 s close delay ensures Firefox shows the print dialog before the window closes.
                 var htmlPrint = '<html><head><title>' + escapeHtmlText(eformName) + '</title><style>' + style1 + style2 + style3 +
-                    '</style></'+'head><body onload="window.print()">' + divToPrint.innerHTML + '</body></html>';
-                newWin.document.write(htmlPrint);
-                newWin.document.close();
-                var timeout = 1;
-                if (inFirefox) {
-                    timeout = 1000;
+                    '</style></'+'head><body onload="window.print();setTimeout(function(){window.close();},1000);">' + divToPrint.innerHTML + '</body></html>';
+                // Use a Blob URL instead of document.write to avoid DOM text reinterpreted as HTML
+                var blob = new Blob([htmlPrint], {type: 'text/html;charset=UTF-8'});
+                var url = URL.createObjectURL(blob);
+                // Revoke after BLOB_URL_REVOKE_TIMEOUT_MS as a safety fallback (handles popup-blocked case too)
+                var revokeTimer = setTimeout(function() { URL.revokeObjectURL(url); }, BLOB_URL_REVOKE_TIMEOUT_MS);
+                var newWin = window.open(url, 'Print-Window');
+                if (newWin) {
+                    newWin.opener = null;
+                    newWin.addEventListener('load', function() {
+                        clearTimeout(revokeTimer);
+                        URL.revokeObjectURL(url);
+                    });
+                } else {
+                    // Popup was blocked — revoke immediately
+                    clearTimeout(revokeTimer);
+                    URL.revokeObjectURL(url);
                 }
-                newWin.setTimeout(function() {
-                    newWin.close();
-                }, timeout);
             };
             onEformPrintSubmit = function() {
                 onEformPrint();
@@ -4655,6 +4658,22 @@ var EFORM_I18N = {
     </script>
 
     <script id="signature_script" class="toSource">
+
+        /**
+         * Validates image src URLs using an allowlist to prevent XSS via dangerous URI schemes
+         * (javascript:, data:text/html, etc.). Allows relative paths, http(s) URLs,
+         * data:image/ URIs (used by signature pads), and simple filenames.
+         */
+        function isValidImageSrc(url) {
+            if (!url || typeof url !== 'string') return false;
+            if (/^(\/(?!\/)|\.\/|\.\.\/)/.test(url)) return true;
+            if (/^https?:\/\//i.test(url)) return true;
+            if (/^data:image\//i.test(url)) return true;
+            if (/^[\w][\w.\- ]*$/.test(url)) return true; // simple filename
+            console.error('isValidImageSrc: rejected URL:', url.substring(0, 50));
+            return false;
+        }
+
         /** this function is run on page load to make signature pads work. */
         $(function() {
             $(".signaturePad").each(function() {

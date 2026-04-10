@@ -19,6 +19,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+
+<fmt:setBundle basename="oscarResources"/>
 
 <c:if test="${page eq 1}">
 <div id="inboxViewItems" class="inbox-view-items pe-1">
@@ -28,17 +31,17 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         <div class="document-card card mb-1 shadow-sm" id="labdoc_${labResult.segmentID}" style="height: 100%;">
             <div class="card-body">
                 <div class="card-title fw-bold">
-                    <c:out value="${labResult.labType}: " />
+                    ${e:forHtml(labResult.labType)}:
                     <e:forHtmlContent value='${labResult.patientName}' />
                 </div>
-                <iframe 
+                <iframe
                     src="${e:forHtml(labLinks[loopStatus.index])}"
-                    width="100%" 
+                    width="100%"
                     height="100%"
                     style="padding-bottom: 25px;"
                     loading="lazy"
                     title="Lab Result Document">
-                    <p>Your browser does not support iframes. Unable to display the document.</p>
+                    <p><fmt:message key="inboxhub.view.iframeNotSupported"/></p>
                 </iframe>
             </div>
         </div>

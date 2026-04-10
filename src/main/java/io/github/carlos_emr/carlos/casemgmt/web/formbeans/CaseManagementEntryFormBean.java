@@ -75,8 +75,6 @@ public class CaseManagementEntryFormBean {
     private Integer minuteOfEncounterTime;
     private Integer hourOfEncTransportationTime;
     private Integer minuteOfEncTransportationTime;
-    private Integer OscarMsgType;
-    private Integer OscarMsgTypeLink;
 
     public CaseManagementEntryFormBean() {
         super();
@@ -378,35 +376,5 @@ public class CaseManagementEntryFormBean {
     public void setMinuteOfEncTransportationTime(Integer minuteOfEncTransportationTime) {
         this.minuteOfEncTransportationTime = minuteOfEncTransportationTime;
     }
-
-    /**
-     * @return the OscarMsgType
-     */
-    public Integer getOscarMsgType() {
-        return OscarMsgType;
-    }
-
-    /**
-     * @param OscarMsgType the OscarMsgType to set
-     */
-    public void setOscarMsgType(Integer OscarMsgType) {
-        this.OscarMsgType = OscarMsgType;
-    }
-
-
-    /**
-     * @return the OscarMsgTypeLink
-     */
-    public Integer getOscarMsgTypeLink() {
-        return OscarMsgTypeLink;
-    }
-
-    /**
-     * @param OscarMsgTypeLink the OscarMsgTypeLink to set
-     */
-    public void setOscarMsgTypeLink(Integer OscarMsgTypeLink) {
-        this.OscarMsgTypeLink = OscarMsgTypeLink;
-    }
-
 
 }

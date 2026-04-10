@@ -32,7 +32,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -90,5 +92,103 @@ class TicklerHandlerUnitTest {
     void shouldValidateTickler_whenProperlyConstructed() {
         Tickler tickler = ticklerHandler.getTicklerList().get(4);
         assertThat(ticklerHandler.getTicklerManager().validateTicklerIsValid(tickler)).isTrue();
+    }
+
+    /**
+     * Edge-case tests for {@link TicklerHandler#addTickler(String)} — the manual comma/bracket
+     * parsing logic introduced to replace Jackson JSON parsing.
+     */
+    @Nested
+    @DisplayName("addTickler(String) parsing edge cases")
+    class AddTicklerStringParsingEdgeCases {
+
+        private TicklerHandler handler;
+
+        @BeforeEach
+        void setUp() {
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoAsCurrentClassAndMethod();
+            Provider provider = new Provider();
+            provider.setProviderNo("100");
+            loggedInInfo.setLoggedInProvider(provider);
+            handler = new TicklerHandler(loggedInInfo, new TicklerManagerImpl());
+
+            Map<String, String[]> parameterMap = new HashMap<>();
+            parameterMap.put("message", new String[]{"Test message."});
+            parameterMap.put("messageAppend", new String[]{""});
+            parameterMap.put("priority", new String[]{"High"});
+            parameterMap.put("serviceDate", new String[]{"06-18-2017"});
+            parameterMap.put("serviceTime", new String[]{"04:08 PM"});
+            parameterMap.put("taskAssignedTo", new String[]{"100"});
+            parameterMap.put("creator", new String[]{"100"});
+            parameterMap.put("ticklerCategoryId", new String[]{"1"});
+            handler.createMasterTickler(parameterMap);
+        }
+
+        @Test
+        @DisplayName("should return false when input is null")
+        void shouldReturnFalse_whenInputIsNull() {
+            assertThat(handler.addTickler((String) null)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should return false when input is empty string")
+        void shouldReturnFalse_whenInputIsEmpty() {
+            assertThat(handler.addTickler("")).isFalse();
+        }
+
+        @Test
+        @DisplayName("should return false when input is only empty brackets")
+        void shouldReturnFalse_whenInputIsEmptyBrackets() {
+            assertThat(handler.addTickler("[]")).isFalse();
+        }
+
+        @Test
+        @DisplayName("should parse bracket-wrapped IDs same as plain CSV")
+        void shouldParseBracketWrappedIds_sameasPlainCsv() {
+            boolean plainResult = handler.addTickler("1,2,3");
+            handler.setTicklerList(null);
+            boolean bracketResult = handler.addTickler("[1,2,3]");
+            assertThat(bracketResult).isEqualTo(plainResult);
+        }
+
+        @Test
+        @DisplayName("should return false when input contains empty middle token")
+        void shouldReturnFalse_whenInputContainsEmptyMiddleToken() {
+            assertThat(handler.addTickler("1,,2")).isFalse();
+        }
+
+        @Test
+        @DisplayName("should return false when input contains trailing comma")
+        void shouldReturnFalse_whenInputContainsTrailingComma() {
+            assertThat(handler.addTickler("1,2,")).isFalse();
+        }
+
+        @Test
+        @DisplayName("should return false when input contains leading comma")
+        void shouldReturnFalse_whenInputContainsLeadingComma() {
+            assertThat(handler.addTickler(",1,2")).isFalse();
+        }
+
+        @Test
+        @DisplayName("should return false when input contains non-integer token")
+        void shouldReturnFalse_whenInputContainsNonIntegerToken() {
+            assertThat(handler.addTickler("1,abc,3")).isFalse();
+        }
+
+        @Test
+        @DisplayName("should handle whitespace around tokens")
+        void shouldHandleWhitespace_aroundTokens() {
+            // "  1 , 2 , 3  " should parse the same as "1,2,3"
+            boolean result = handler.addTickler("  1 , 2 , 3  ");
+            assertThat(result).isTrue();
+            assertThat(handler.getTicklerList()).hasSize(3);
+        }
+
+        @Test
+        @DisplayName("should parse single demographic ID without brackets")
+        void shouldParseSingleDemographicId_withoutBrackets() {
+            assertThat(handler.addTickler("42")).isTrue();
+            assertThat(handler.getTicklerList()).hasSize(1);
+        }
     }
 }

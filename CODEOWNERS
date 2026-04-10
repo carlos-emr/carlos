@@ -184,7 +184,6 @@ src/main/webapp/apps/ @yingbull
 src/main/webapp/billing/ @yingbull
 src/main/webapp/caisicore/ @yingbull
 src/main/webapp/calendar/ @yingbull
-src/main/webapp/careconnect/ @yingbull
 src/main/webapp/casemgmt/ @yingbull
 src/main/webapp/cc/ @yingbull
 src/main/webapp/common/ @yingbull
@@ -221,7 +220,7 @@ src/main/webapp/oscarPrevention/ @yingbull
 src/main/webapp/oscarReport/ @yingbull
 src/main/webapp/oscarResearch/ @yingbull
 src/main/webapp/oscarRx/ @yingbull
-src/main/webapp/oscarWaitingList/ @yingbull
+src/main/webapp/waitinglist/ @yingbull
 src/main/webapp/oscarWorkflow/ @yingbull
 src/main/webapp/patient/ @yingbull
 src/main/webapp/PMmodule/ @yingbull

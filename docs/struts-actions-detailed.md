@@ -181,8 +181,6 @@ Patient demographic management and related functions.
 | Action Name | Class Name | Description |
 |-------------|------------|-------------|
 | demographic/AddRelation | io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action | Adds patient relationships |
-| demographic/cihiExportOMD4 | io.github.carlos_emr.carlos.demographic.pageUtil.CihiExport2Action | Exports CIHI OMD4 data |
-| demographic/cihiExportPHC_VRS | io.github.carlos_emr.carlos.demographic.pageUtil.CihiExportPHC_VRS2Action | Exports PHC VRS data to CIHI |
 | demographic/Contact | io.github.carlos_emr.carlos.commn.web.Contact2Action | Manages patient contact information |
 | demographic/DeleteRelation | io.github.carlos_emr.carlos.demographic.pageUtil.DeleteDemographicRelationship2Action | Deletes patient relationships |
 | demographic/DemographicExport | io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action | Exports demographic data |
@@ -625,7 +623,6 @@ Clinical encounter management and workflow.
 | encounter/oscarMeasurements/TrackerUpdate | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.FormUpdate2Action | Updates tracker forms |
 | encounter/RequestConsultation | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action | Requests consultations |
 | encounter/SaveEncounter2 | io.github.carlos_emr.carlos.encounter.pageUtil.EctSaveEncounter2Action | Saves clinical encounters |
-| encounter/SaveEncounter | io.github.carlos_emr.carlos.encounter.pageUtil.EctSaveEncounter2Action | Saves encounter data |
 | encounter/ShowAllInstitutions | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllInstitutions2Action | Shows all consultation institutions |
 | encounter/ShowAllServices | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllServices2Action | Shows all consultation services |
 | encounter/UpdateInstitutionDepartment | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConDisplayInstitution2Action | Updates institution departments |
@@ -764,7 +761,6 @@ Prescription and medication management.
 | oscarRx/deleteFavorite2 | io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteFavorite2Action | Deletes prescription favorites |
 | oscarRx/deleteFavorite | io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteFavorite2Action | Deletes favorite prescriptions |
 | oscarRx/deleteRx | io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteRx2Action | Deletes prescriptions |
-| oscarRx/Dispense | io.github.carlos_emr.carlos.dispensary.rx.Dispensary2Action | Manages medication dispensing |
 | oscarRx/drugInfo | io.github.carlos_emr.carlos.prescript.pageUtil.RxDrugInfo2Action | Displays drug information |
 | oscarRx/GetmyDrugrefInfo | io.github.carlos_emr.carlos.prescript.pageUtil.RxMyDrugrefInfo2Action | Gets drug reference information |
 | oscarRx/GetRxPageSizeInfo | io.github.carlos_emr.carlos.prescript.pageUtil.RxRxPageSizeInfo2Action | Gets prescription page size info |
@@ -797,9 +793,9 @@ Patient waiting list management.
 
 | Action Name | Class Name | Description |
 |-------------|------------|-------------|
-| oscarWaitingList/SetupDisplayPatientWaitingList | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2Action | Sets up patient waiting list display |
-| oscarWaitingList/SetupDisplayWaitingList | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action | Sets up waiting list display |
-| oscarWaitingList/WLEditWaitingListNameAction | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action | Edits waiting list names |
+| waitinglist/SetupDisplayPatientWaitingList | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2Action | Sets up patient waiting list display |
+| waitinglist/SetupDisplayWaitingList | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action | Sets up waiting list display |
+| waitinglist/WLEditWaitingListNameAction | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action | Edits waiting list names |
 
 ## Page Monitoring Module
 

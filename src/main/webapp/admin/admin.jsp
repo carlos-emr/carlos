@@ -102,6 +102,12 @@
                 }
             }
 
+            function postToPopup(formId, vheight, vwidth) {
+                var windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
+                window.open("", "groupno", windowprops);
+                document.getElementById(formId).submit();
+            }
+
             function popupPage(vheight, vwidth, varpage) { //open a new popup window
                 var page = "" + varpage;
                 windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";//360,680
@@ -262,16 +268,7 @@
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.billing" rights="r"
                                    reverse="<%=false%>">
                     <%
-                        // Only show link to Clinicaid admin if Clinicaid Billing is enabled
-                        if (oscarVariables.getProperty("billregion", "").equals("CLINICAID")) {
-                    %>
-                    <li>
-                        <a href="<%= request.getContextPath() %>/billing.do?billRegion=CLINICAID&action=invoice_reports" target="_blank">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.invoiceRpts"/>
-                        </a>
-                    </li>
-                    <%
-                    } else if (oscarVariables.getProperty("billregion", "").equals("BC")) {
+                        if (oscarVariables.getProperty("billregion", "").equals("BC")) {
                     %>
                     <li><a href="#"
                            onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/manageBillingform.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
@@ -335,8 +332,8 @@
                            onclick='popupPage(300,600, "${pageContext.request.contextPath}/billing/CA/ON/billingONEditPrivateCode.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.managePrivBillingCode"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(700,1000, "${pageContext.request.contextPath}/admin/manageCSSStyles.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageCodeStyles"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/admin/gstControl.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageGSTControl"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/admin/gstreport.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.gstReport"/></a></li>
+                    <li><a href="${pageContext.request.contextPath}/admin/GstControl.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageGSTControl"/></a></li>
+                    <li><a href="${pageContext.request.contextPath}/admin/GstReport.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.gstReport"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/manageBillingLocation.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddBillingLocation"/></a></li>
                     <li><a href="#"
@@ -466,7 +463,9 @@
                         </a>
                     </li>
                     <li><a href="#"
-                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/dbReportAgeSex.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAgeSexReport"/></a></li>
+                           onclick='postToPopup("ageSexForm",600,900);return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAgeSexReport"/></a>
+                        <form id="ageSexForm" method="post" action="${pageContext.request.contextPath}/oscarReport/DbReportAgeSex.do" target="groupno" style="display:none"></form>
+                    </li>
                     <li><a href="#"
                            onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/oscarReportVisitControl.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnVisitReport"/></a></li>
                         <%-- This links doesnt make sense on Brazil. Hide then --%>
@@ -476,7 +475,7 @@
                     <li><a href="#"
                            onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/FluBilling.do?orderby=");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnFluBillingReport"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(600,1000,"${pageContext.request.contextPath}/oscarReport/obec.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnOvernightChecking"/></a></li>
+                           onclick='popupPage(600,1000,"${pageContext.request.contextPath}/oscarReport/obec.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnOvernightChecking"/></a></li>
 
 
                     <li><a href="#"
@@ -512,21 +511,6 @@
                         }
 
                     %>
-                    <li>
-                        <a href="#" onclick='popupPage(550,800, "${pageContext.request.contextPath}/renal/ckd_screening_report.jsp");return false;'>
-                            CKD Screening Report
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" onclick='popupPage(550,800, "${pageContext.request.contextPath}/renal/preImplementationSubmit.jsp");return false;'>
-                            Pre-Implementation Report
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" onclick='popupPage(550,800, "${pageContext.request.contextPath}/renal/patientLetterManager.jsp");return false;'>
-                            Manage Patient Letter
-                        </a>
-                    </li>
                 </ul>
             </div>
         </security:oscarSec>
@@ -593,7 +577,7 @@
                     </security:oscarSec>
                     <security:oscarSec roleName="<%=roleName$%>"
                                        objectName="_admin.lookupFieldEditor" rights="r">
-                        <li><a href="${pageContext.request.contextPath}/Lookup/LookupTableList.do"> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.LookupFieldEditor"/></a></li>
+                        <li><a href="${pageContext.request.contextPath}/lookupListManagerAction"> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.LookupFieldEditor"/></a></li>
                     </security:oscarSec>
                     <security:oscarSec roleName="<%=roleName$%>"
                                        objectName="_admin.issueEditor" rights="r">
@@ -739,7 +723,7 @@
 
                     <oscar:oscarPropertiesCheck property="LOGINTEST" value="yes">
                         <li><a href="#"
-                               onclick='popupPage(800,1000,"${pageContext.request.contextPath}/admin/uploadEntryText.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadEntryTxt"/></a>
+                               onclick='popupPage(800,1000,"${pageContext.request.contextPath}/admin/uploadEntryText.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadEntryTxt"/></a>
                         </li>
                     </oscar:oscarPropertiesCheck>
 
@@ -813,7 +797,6 @@
                 <ul>
 
                     <li>&nbsp;<a href="#" onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/api/clients.jsp");return false;'>REST Clients</a></li>
-                    <li><a href="<%=request.getContextPath()%>/lab/CA/ALL/sendOruR01.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.sendOruR01"/></a></li>
                     <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/hospitalReportManager.jsp");return false;'>Hospital
                         Report Manager (HRM) Status</a></li>
 

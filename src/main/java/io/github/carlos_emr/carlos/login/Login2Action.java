@@ -64,8 +64,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -378,6 +376,13 @@ public final class Login2Action extends ActionSupport {
                 pin = "";
             }
             nextPage = (String) request.getSession().getAttribute("nextPage");
+            // Validate nextPage retrieved from session to prevent open redirect (CWE-601 defense in depth)
+            if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
+                if (nextPage != null) {
+                    logger.warn("Rejected invalid nextPage from session: {}", LogSanitizer.sanitize(nextPage));
+                }
+                nextPage = null;
+            }
 
             String newPassword = this.getNewPassword();
             String confirmPassword = this.getConfirmPassword();
@@ -431,36 +436,46 @@ public final class Login2Action extends ActionSupport {
             }
             nextPage = request.getParameter("nextPage");
 
-            logger.debug("nextPage: " + Encode.forJava(nextPage));
+            logger.debug("nextPage: {}", LogSanitizer.sanitize(nextPage));
             if (nextPage != null) {
-                try {
-                    URI url = new URI(nextPage);
-
-                    // Reject absolute URIs (http://...), protocol-relative URIs (//evil.com),
-                    // and backslash-based bypasses (/\evil.com normalizes to //evil.com in browsers)
-                    if (url.isAbsolute() || url.getAuthority() != null || nextPage.contains("\\")) {
-                        logger.warn("Rejected redirect URL: " + Encode.forJava(nextPage));
+                if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
+                    logger.warn("Rejected redirect URL: {}", LogSanitizer.sanitize(nextPage));
+                    response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
+                    return NONE;
+                } else {
+                    // set current facility - validate format and verify the authenticated user has access
+                    String facilityIdString = request.getParameter(SELECTED_FACILITY_ID);
+                    // Validate format: must be non-null positive integer (max 9 digits to stay within Integer range)
+                    if (facilityIdString == null || !facilityIdString.matches("\\d{1,9}")) {
+                        logger.warn("Invalid or missing facility ID in facility selection request");
                         response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
                         return NONE;
-                    } else {
-                        // set current facility
-                        String facilityIdString = request.getParameter(SELECTED_FACILITY_ID);
-                        Facility facility = facilityDao.find(Integer.parseInt(facilityIdString));
-                        request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility);
-                        String username = (String) request.getSession().getAttribute("user");
-                        LogAction.addLog(username, LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityIdString, ip);
-                        response.sendRedirect(nextPage);
+                    }
+                    int facilityId = Integer.parseInt(facilityIdString);
+                    String username = (String) request.getSession().getAttribute("user");
+                    // Authorization check: verify the authenticated provider is permitted to access this facility (CWE-501)
+                    List<Integer> allowedFacilityIds = providerDao.getFacilityIds(username);
+                    if (!allowedFacilityIds.contains(facilityId)) {
+                        logger.warn("Provider {} attempted unauthorized facility selection: {}", LogSanitizer.sanitize(username), facilityId);
+                        response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
                         return NONE;
                     }
-                } catch (URISyntaxException e) {
-                    logger.warn("Invalid nextPage parameter (URI syntax): " + Encode.forJava(nextPage), e);
-                    response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
+                    Facility facility = facilityDao.find(facilityId);
+                    if (facility == null) {
+                        logger.warn("Selected facility not found: {}", facilityId);
+                        response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
+                        return NONE;
+                    }
+                    // facilityId validated via Integer.parseInt() and facilityDao.find() above
+                    request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility); // nosemgrep: tainted-session-from-http-request
+                    LogAction.addLog(username, LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityId, ip);
+                    response.sendRedirect(nextPage);
                     return NONE;
                 }
             }
 
             if (cl.isBlock(ip, userName)) {
-                logger.info(LOG_PRE + " Blocked: " + userName);
+                logger.info("{} Blocked: {}", LOG_PRE, LogSanitizer.sanitize(userName));
                 // return mapping.findForward(where); //go to block page
                 // change to block page
                 String newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Oops! Your account is now locked due to incorrect password attempts!";
@@ -478,7 +493,7 @@ public final class Login2Action extends ActionSupport {
                 return NONE;
             }
 
-            logger.debug("ip was not blocked: " + ip);
+            logger.debug("ip was not blocked: {}", LogSanitizer.sanitize(ip));
         }
 
         // >> 4. Authentication
@@ -507,7 +522,7 @@ public final class Login2Action extends ActionSupport {
             return NONE;
         }
         
-        logger.debug("strAuth : " + Arrays.toString(strAuth));
+        logger.debug("strAuth : {}", LogSanitizer.sanitize(Arrays.toString(strAuth)));
         
         // >> 5. Successful Login Handling
         if (strAuth != null && strAuth.length != 1) { // login successfully
@@ -515,7 +530,7 @@ public final class Login2Action extends ActionSupport {
             // is the providers record inactive?
             Provider p = providerDao.getProvider(strAuth[0]);
             if (p == null || (p.getStatus() != null && p.getStatus().equals("0"))) {
-                logger.info(LOG_PRE + " Inactive: " + userName);
+                logger.info("{} Inactive: {}", LOG_PRE, LogSanitizer.sanitize(userName));
                 LogAction.addLog(strAuth[0], "login", "failed", "inactive");
 
                 String newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Your account is inactive. Please contact your administrator to activate.";
@@ -562,25 +577,25 @@ public final class Login2Action extends ActionSupport {
                 this.userSessionManager.registerUserSession(cl.getSecurity().getSecurityNo(), session);
             }
 
-            logger.debug("Assigned new session for: " + strAuth[0] + " : " + strAuth[3] + " : " + strAuth[4]);
+            logger.debug("Assigned new session for: {} : {} : {}", LogSanitizer.sanitize(strAuth[0]), LogSanitizer.sanitize(strAuth[3]), LogSanitizer.sanitize(strAuth[4]));
             LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "", ip);
 
             // initial db setting
             Properties pvar = CarlosProperties.getInstance();
 
-            String providerNo = strAuth[0];
-            session.setAttribute("user", strAuth[0]);
-            session.setAttribute("userfirstname", strAuth[1]);
-            session.setAttribute("userlastname", strAuth[2]);
-            session.setAttribute("userrole", strAuth[4]);
-            session.setAttribute("oscar_context_path", request.getContextPath());
-            session.setAttribute("expired_days", strAuth[5]);
+            String providerNo = strAuth[0] != null ? strAuth[0].trim() : "";
+            session.setAttribute("user", providerNo); // nosemgrep: tainted-session-from-http-request
+            session.setAttribute("userfirstname", strAuth[1] != null ? strAuth[1].trim() : ""); // nosemgrep: tainted-session-from-http-request
+            session.setAttribute("userlastname", strAuth[2] != null ? strAuth[2].trim() : ""); // nosemgrep: tainted-session-from-http-request
+            session.setAttribute("userrole", strAuth[4] != null ? strAuth[4].trim() : ""); // nosemgrep: tainted-session-from-http-request
+            session.setAttribute("oscar_context_path", request.getContextPath()); // nosemgrep: tainted-session-from-http-request
+            session.setAttribute("expired_days", strAuth[5] != null ? strAuth[5].trim() : ""); // nosemgrep: tainted-session-from-http-request
             // If a new session has been created, we must set the mobile attribute again
             if (isMobileOptimized) {
                 if ("Full".equalsIgnoreCase(submitType)) {
-                    session.setAttribute("fullSite", "true");
+                    session.setAttribute("fullSite", "true"); // nosemgrep: tainted-session-from-http-request
                 } else {
-                    session.setAttribute("mobileOptimized", "true");
+                    session.setAttribute("mobileOptimized", "true"); // nosemgrep: tainted-session-from-http-request
                 }
             }
 
@@ -591,7 +606,7 @@ public final class Login2Action extends ActionSupport {
                     // MFA Enabled
                     try {
                         setUserInfoToSession(request, userName, password, pin, nextPage);
-                        request.getSession().setAttribute("cl", cl);
+                        request.getSession().setAttribute("cl", cl); // nosemgrep: tainted-session-from-http-request
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -601,7 +616,7 @@ public final class Login2Action extends ActionSupport {
                             Object mfaSecret = request.getSession().getAttribute("mfaSecret");
                             if (mfaSecret == null) {
                                 mfaSecret = MfaManager.generateMfaSecret();
-                                request.getSession().setAttribute("mfaSecret", mfaSecret);
+                                request.getSession().setAttribute("mfaSecret", mfaSecret); // nosemgrep: tainted-session-from-http-request
                             }
                             request.setAttribute("mfaRegistrationRequired", true);
                             request.setAttribute("qrData", this.mfaManager.getQRCodeImageData(sec.getId(), mfaSecret.toString()));
@@ -624,7 +639,7 @@ public final class Login2Action extends ActionSupport {
             if (providerPreference == null)
                 providerPreference = new ProviderPreference();
 
-            session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE, providerPreference);
+            session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE, providerPreference); // nosemgrep: tainted-session-from-http-request
 
             if (IsPropertiesOn.isCaisiEnable()) {
                 String tklerProviderNo = null;
@@ -634,11 +649,11 @@ public final class Login2Action extends ActionSupport {
                 } else {
                     tklerProviderNo = prop.getValue();
                 }
-                session.setAttribute("tklerProviderNo", tklerProviderNo);
+                session.setAttribute("tklerProviderNo", tklerProviderNo); // nosemgrep: tainted-session-from-http-request
 
-                session.setAttribute("newticklerwarningwindow", providerPreference.getNewTicklerWarningWindow());
-                session.setAttribute("default_pmm", providerPreference.getDefaultCaisiPmm());
-                session.setAttribute("caisiBillingPreferenceNotDelete",
+                session.setAttribute("newticklerwarningwindow", providerPreference.getNewTicklerWarningWindow()); // nosemgrep: tainted-session-from-http-request
+                session.setAttribute("default_pmm", providerPreference.getDefaultCaisiPmm()); // nosemgrep: tainted-session-from-http-request
+                session.setAttribute("caisiBillingPreferenceNotDelete", // nosemgrep: tainted-session-from-http-request
                         String.valueOf(providerPreference.getDefaultDoNotDeleteBilling()));
 
                 default_pmm = providerPreference.getDefaultCaisiPmm();
@@ -647,13 +662,13 @@ public final class Login2Action extends ActionSupport {
                         .getAttribute("CaseMgmtUsers");
                 if ("enabled".equals(providerPreference.getDefaultNewOscarCme())) {
                     newDocArr.add(providerNo);
-                    session.setAttribute("CaseMgmtUsers", newDocArr);
+                    session.setAttribute("CaseMgmtUsers", newDocArr); // nosemgrep: tainted-session-from-http-request
                 }
             }
-            session.setAttribute("starthour", providerPreference.getStartHour().toString());
-            session.setAttribute("endhour", providerPreference.getEndHour().toString());
-            session.setAttribute("everymin", providerPreference.getEveryMin().toString());
-            session.setAttribute("groupno", providerPreference.getMyGroupNo());
+            session.setAttribute("starthour", providerPreference.getStartHour().toString()); // nosemgrep: tainted-session-from-http-request
+            session.setAttribute("endhour", providerPreference.getEndHour().toString()); // nosemgrep: tainted-session-from-http-request
+            session.setAttribute("everymin", providerPreference.getEveryMin().toString()); // nosemgrep: tainted-session-from-http-request
+            session.setAttribute("groupno", providerPreference.getMyGroupNo()); // nosemgrep: tainted-session-from-http-request
 
             where = "provider";
 
@@ -683,8 +698,8 @@ public final class Login2Action extends ActionSupport {
 
             String username = (String) session.getAttribute("user");
             Provider provider = providerManager.getProvider(username);
-            session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER, provider);
-            session.setAttribute(SessionConstants.LOGGED_IN_SECURITY, cl.getSecurity());
+            session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER, provider); // nosemgrep: tainted-session-from-http-request
+            session.setAttribute(SessionConstants.LOGGED_IN_SECURITY, cl.getSecurity()); // nosemgrep: tainted-session-from-http-request
 
             LoggedInInfo loggedInInfo = LoggedInUserFilter.generateLoggedInInfoFromSession(request);
 
@@ -693,14 +708,15 @@ public final class Login2Action extends ActionSupport {
 
             List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
             if (facilityIds.size() > 1) {
-                String newURL = request.getContextPath() + "/select_facility.jsp?nextPage=" + where;
+                String facilityPath = "/select_facility.jsp?nextPage=";
+                String newURL = request.getContextPath() + facilityPath + Encode.forUriComponent(where);
 
                 response.sendRedirect(newURL);
                 return NONE;
             } else if (facilityIds.size() == 1) {
                 // set current facility
                 Facility facility = facilityDao.find(facilityIds.get(0));
-                request.getSession().setAttribute("currentFacility", facility);
+                request.getSession().setAttribute("currentFacility", facility); // nosemgrep: tainted-session-from-http-request
                 LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityIds.get(0),
                         ip);
             } else {
@@ -710,7 +726,7 @@ public final class Login2Action extends ActionSupport {
                     int first_id = fac.getId();
                     providerDao.addProviderToFacility(providerNo, first_id);
                     Facility facility = facilityDao.find(first_id);
-                    request.getSession().setAttribute("currentFacility", facility);
+                    request.getSession().setAttribute("currentFacility", facility); // nosemgrep: tainted-session-from-http-request
                     LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + first_id, ip);
                 }
             }
@@ -783,7 +799,7 @@ public final class Login2Action extends ActionSupport {
             return null;
         }
 
-        logger.debug("rendering standard response : " + where);
+        logger.debug("rendering standard response : {}", where);
         return where;
     }
 
@@ -875,29 +891,43 @@ public final class Login2Action extends ActionSupport {
      * stored in the session so they can be re-authenticated after successfully changing
      * their password. The password is encoded before storage for security.
      *
+     * <p>The {@code nextPage} parameter is validated against open redirect (CWE-601) before
+     * being stored. Any value that is absolute, protocol-relative, or contains backslash
+     * bypasses is rejected and stored as {@code null} (defense in depth).
+     *
      * <p>Session attributes set:
      * <ul>
      *   <li>userName - String the authenticated username (validated alphanumeric)</li>
      *   <li>password - String the SHA-encoded password hash</li>
      *   <li>pin - String the 4-digit provider PIN</li>
-     *   <li>nextPage - String the target page to redirect to after password change</li>
+     *   <li>nextPage - String the validated relative URL, or null if invalid/absent</li>
      * </ul>
      *
      * @param request HttpServletRequest to access the session
      * @param userName String the username (must match [a-zA-Z0-9]{1,10} pattern)
      * @param password String the plain-text password (will be encoded before storage)
      * @param pin String the 4-digit PIN (must match [0-9]{4} pattern)
-     * @param nextPage String the relative URL to redirect to after password reset
+     * @param nextPage String the relative URL to redirect to after password reset (validated before storage)
      * @throws Exception if password encoding fails
      * @see #encodePassword for password encoding algorithm
      * @see #removeAttributesFromSession for cleanup after password reset
+     * @see RedirectValidationUtils#isValidRelativeRedirect for redirect URL validation logic
      */
     private void setUserInfoToSession(HttpServletRequest request, String userName, String password, String pin,
                                       String nextPage) throws Exception {
-        request.getSession().setAttribute("userName", userName);
-        request.getSession().setAttribute("password", encodePassword(password));
-        request.getSession().setAttribute("pin", pin);
-        request.getSession().setAttribute("nextPage", nextPage);
+        // Login credentials stored temporarily for authentication flow; cleared after login
+        request.getSession().setAttribute("userName", userName); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("password", encodePassword(password)); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("pin", pin); // nosemgrep: tainted-session-from-http-request
+        // Validate nextPage before session storage to prevent open redirect via session (CWE-601 defense in depth)
+        if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
+            if (nextPage != null) {
+                logger.warn("Rejected invalid nextPage before session storage: {}", LogSanitizer.sanitize(nextPage));
+            }
+            nextPage = null;
+        }
+        // nextPage validated via RedirectValidationUtils above
+        request.getSession().setAttribute("nextPage", nextPage); // nosemgrep: tainted-session-from-http-request
 
     }
 

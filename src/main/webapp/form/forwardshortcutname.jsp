@@ -41,6 +41,7 @@
 
 <%@ page import="java.net.URLDecoder, io.github.carlos_emr.carlos.form.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.form.data.FrmData" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LogSanitizer" %>
 
 <%
 
@@ -52,13 +53,51 @@
         String[] formPath = (new FrmData()).getShortcutFormValue(request.getParameter("demographic_no"), strFrm);
         formPath[0] = formPath[0].trim();
 
+        // Normalize the deprecated "../" prefix used in older DB entries
+        // (e.g. "../form/formX.jsp?..." → "/form/formX.jsp?...").
+        if (formPath[0].startsWith("../")) {
+            formPath[0] = formPath[0].substring(2);
+        }
+
+        // Validate the DB-resolved path to prevent path traversal (CWE-22) and
+        // unsafe server-side dispatch into protected internal resources.
+        // Extract the path portion (before the query string) and ensure it is an
+        // absolute webapp path with no traversal sequences — checking both the
+        // literal ".." and the common URL-encoded variant "%2e" (case-insensitive)
+        // to defend against canonicalization bypasses.  Additionally, allowlist the
+        // expected path prefixes so that even a compromised DB entry cannot reach
+        // protected directories like /WEB-INF/ or /META-INF/.
+        //
+        // Allowed path patterns after normalization:
+        //   /form/...    — form JSPs and .do files under the /form/ directory
+        //   /billing/... — BC billing form (viewformwcb.do)
+        //   /form*.do    — root-level form .do actions (formBPMH.do, formeCARES.do)
+        //                  matched via /form[a-z0-9]+\.do to avoid over-permitting
+        int queryIndex = formPath[0].indexOf('?');
+        String pathPortion = queryIndex != -1 ? formPath[0].substring(0, queryIndex) : formPath[0];
+        String normalizedPathPortion = pathPortion.toLowerCase(java.util.Locale.ROOT);
+        boolean isAllowedFormPath = normalizedPathPortion.startsWith("/form/")
+                || normalizedPathPortion.startsWith("/billing/")
+                || normalizedPathPortion.matches("/form[a-z0-9]+\\.do");
+        if (!pathPortion.startsWith("/")
+                || pathPortion.contains("..")
+                || normalizedPathPortion.contains("%2e")
+                || normalizedPathPortion.startsWith("/web-inf/")
+                || normalizedPathPortion.startsWith("/meta-inf/")
+                || !isAllowedFormPath) {
+            MiscUtils.getLogger().warn("forwardshortcutname.jsp: blocked invalid form path from DB: {}",
+                    LogSanitizer.sanitize(pathPortion));
+            response.sendError(400, "Invalid form path");
+            return;
+        }
+
         String appointmentNo = request.getParameter("appointmentNo");
 
         String nextPage = formPath[0] +
                 request.getParameter("demographic_no") +
                 ((appointmentNo != null) ? "&appointmentNo=" + appointmentNo : "") +
                 ((request.getParameter("formId") != null) ? "&formId=" + request.getParameter("formId") : "&formId=" + formPath[1]);
-        MiscUtils.getLogger().info("Forwarding to page : " + nextPage);
+        MiscUtils.getLogger().info("Forwarding to page : {}", LogSanitizer.sanitize(nextPage));
         request.getRequestDispatcher(nextPage).include(request, response);
         return;
     }

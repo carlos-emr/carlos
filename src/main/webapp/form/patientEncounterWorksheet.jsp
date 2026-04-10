@@ -58,6 +58,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ page import="java.text.SimpleDateFormat" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     String formClass = "CostQuestionnaire";
@@ -146,8 +147,8 @@
 
     <div align="center">
         <form action="<%= request.getContextPath() %>/form/createpdf" method="POST">
-            <input type="hidden" name="demographic_no" value="<%=request.getParameter("demographic_no") %>"/>
-            <input type="hidden" name="form_id" value="<%=request.getParameter("form_id") %>"/>
+            <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("demographic_no"))) %>"/>
+            <input type="hidden" name="form_id" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("form_id"))) %>"/>
             <input type="hidden" name="__title" value="PatientEcounterWorksheet"/>
             <input type="hidden" name="__cfgfile" value="patientEncounterWorksheetCfg"/>
             <input type="hidden" name="__template" value="patientEncounterWorksheet"/>

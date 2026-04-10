@@ -32,6 +32,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ page import="java.util.*,java.io.*,io.github.carlos_emr.carlos.lab.ca.all.util.KeyPairGen" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + ","
@@ -58,6 +59,12 @@
     String failDisplay = "none";
 
     String error = "false";
+
+    if (name != null && !name.matches("^[a-zA-Z0-9._-]+$")) {
+        error = "true";
+        message = "Failed: Service name contains invalid characters. Only letters, numbers, periods, hyphens and underscores are allowed.";
+        name = null;
+    }
 
     if (name != null) {
         if (name.equals("oscar")) {
@@ -89,7 +96,8 @@
                     String keyPairOut = "-------- Service Name --------\n" + name + "\n------------------------------\n" +
                             "----- Client Private Key -----\n" + clientKey + "\n------------------------------\n" +
                             "------ Oscar Public Key ------\n" + oscarKey + "\n------------------------------";
-                    response.setContentType("text");
+                    response.setContentType("text/plain");
+                    response.setHeader("X-Content-Type-Options", "nosniff");
                     response.setContentLength(keyPairOut.length());
                     response.setHeader("Content-Disposition", "attachment; filename=keyPair.key");
                     ServletOutputStream output = null;
@@ -121,7 +129,6 @@
     }
 %>
 
-<%@page import="io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.OscarToOscarUtils" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -168,9 +175,9 @@
                                 <%
                                     if (message != null) {
                                         if (error.equals("false")) {
-                                            out.print(message);
+                                            out.print(Encode.forHtml(message));
                                         } else {
-                                %><font color="red"><%= message %>
+                                %><font color="red"><%= Encode.forHtml(message) %>
                             </font>
                                 <%
                                         }
@@ -217,7 +224,6 @@
                             <option value="IHAPOI">IHAPOI</option>
                             <option value="MDS">MDS/Lifelabs</option>
                             <!-- <option value="HL7">HL7</option> -->
-                            <option value="OSCAR_TO_OSCAR_HL7_V2">CARLOS_TO_CARLOS_HL7_V2</option>
                             <option value="SIOUX">SIOUX</option>
                             <option value="Spire">Spire</option>
                             <option value="PDFDOC">PDFDOC</option>

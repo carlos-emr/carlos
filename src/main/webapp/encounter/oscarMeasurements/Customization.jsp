@@ -179,7 +179,7 @@
                 <table class=messButtonsA cellspacing=0 cellpadding=3>
                     <tr>
                         <td class="messengerButtonsA" width="200"><a href=#
-                                                                     onClick="popupOscarConS(300,1000,'encounter/oscarMeasurements/AddMeasurementStyleSheet.jsp', event)"
+                                                                     onClick="popupOscarConS(300,1000,'encounter/oscarMeasurements/SetupAddMeasurementStyleSheet.do', event)"
                                                                      class="messengerButtons"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.measurements.addMeasurementStyleSheet"/></a>
                         </td>
                     </tr>

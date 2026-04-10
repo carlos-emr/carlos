@@ -38,6 +38,7 @@
 <%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
@@ -59,7 +60,6 @@
     <script type="text/javascript" charset="utf-8">
         $(function () {
             var tabContainers = $('div.tabs > div');
-            var tab = '<%=tab %>';
             //if (tab == 'download') tabContainers.hide().filter('#download').show();
             //else if (tab == 'upload') tabContainers.hide().filter('#upload').show();
             //else if (tab == 'sent') tabContainers.hide().filter('#sent').show();
@@ -90,7 +90,7 @@
             });
 
             // setting the service Id:
-            var tabChange = '<%=tabChange%>';
+            var tabChange = '<%= Encode.forJavaScript(tabChange) %>';
             if (tabChange == "true") {
                 var val = "<%=defaultId%>";
                 var sel = document.getElementById('serviceIdSent');

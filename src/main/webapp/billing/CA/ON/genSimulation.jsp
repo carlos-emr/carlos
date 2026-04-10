@@ -106,5 +106,5 @@
 <jsp:forward page='billingOHIPsimulation.jsp'>
     <jsp:param name="xml_appointment_date" value='<%=dateEnd%>'/>
     <jsp:param name="xml_v_date" value='<%=dateBegin%>'/>
-    <jsp:param name="provider" value='<%=provider%>'/>
+    <jsp:param name="provider" value='<%= provider %>'/>
 </jsp:forward>

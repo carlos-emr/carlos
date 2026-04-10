@@ -51,6 +51,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     Hl7LinkDao dao = SpringUtils.getBean(Hl7LinkDao.class);
 
@@ -121,12 +122,12 @@
                         String lastName = String.valueOf(o[1]);
                         String firstName = String.valueOf(o[2]);
 
-                        out.println("<option value='" + providerNo + "'" + (providerNo.equals(provider_no) ? "selected" : "") + ">" + lastName + ", " + firstName + "</option>");
+                        out.println("<option value='" + Encode.forHtmlAttribute(providerNo) + "'" + (providerNo.equals(provider_no) ? "selected" : "") + ">" + Encode.forHtml(lastName) + ", " + Encode.forHtml(firstName) + "</option>");
                     }
                 %>
             </select></td>
-            <td class="Text"><input name="start" value="<%=start%>"/></td>
-            <td class="Text"><input name="end" value="<%=end%>"/></td>
+            <td class="Text"><input name="start" value="<%=Encode.forHtmlAttribute(String.valueOf(start))%>"/></td>
+            <td class="Text"><input name="end" value="<%=Encode.forHtmlAttribute(String.valueOf(end))%>"/></td>
             <td class="Text"><input type="submit" name="cmd_search"
                                     value="Search"/></td>
         </tr>
@@ -134,20 +135,20 @@
 </form>
 <table width="100%">
     <tr>
-        <td class="Header" nowrap><a href="<%=url%>">Lab Id</a></td>
+        <td class="Header" nowrap><a href="<%=Encode.forHtmlAttribute(url)%>">Lab Id</a></td>
         <td class="Header" nowrap><a
-                href="<%=url + "&orderby=patient_name"%>">Patient Name</a></td>
+                href="<%=Encode.forHtmlAttribute(url + "&orderby=patient_name")%>">Patient Name</a></td>
         <td class="Header" nowrap><a
-                href="<%=url + "&orderby=ordering_provider"%>">Ordering Provider</a></td>
+                href="<%=Encode.forHtmlAttribute(url + "&orderby=ordering_provider")%>">Ordering Provider</a></td>
         <td class="Header" nowrap><a
-                href="<%=url + "&orderby=result_copies_to"%>">Result Copies To</a></td>
-        <td class="Header" nowrap><a href="<%=url + "&orderby=status"%>">Status</a></td>
+                href="<%=Encode.forHtmlAttribute(url + "&orderby=result_copies_to")%>">Result Copies To</a></td>
+        <td class="Header" nowrap><a href="<%=Encode.forHtmlAttribute(url + "&orderby=status")%>">Status</a></td>
         <td class="Header" nowrap><a
-                href="<%=url + "&orderby=signed_on"%>">Signed</a></td>
+                href="<%=Encode.forHtmlAttribute(url + "&orderby=signed_on")%>">Signed</a></td>
         <td class="Header" nowrap><a
-                href="<%=url + "&orderby=last_name"%>">Signing Provider</a></td>
+                href="<%=Encode.forHtmlAttribute(url + "&orderby=last_name")%>">Signing Provider</a></td>
         <td class="Header" nowrap><a
-                href="<%=url + "&orderby=date_time"%>">Date Received</a></td>
+                href="<%=Encode.forHtmlAttribute(url + "&orderby=date_time")%>">Date Received</a></td>
     </tr>
     <%
         if (command != null) {
@@ -167,13 +168,13 @@
     %>
     <tr class="<%=(other? "LightBG" : "WhiteBG")%>">
         <td class="Text"><a href="searchreports.jsp"
-                            onclick="PopupLab('<%=pid_id%>'); return false;"><%=pid_id%>
+                            onclick="PopupLab('<%=Encode.forJavaScriptAttribute(pid_id)%>'); return false;"><%=Encode.forHtml(pid_id)%>
         </a></td>
-        <td class="Text" nowrap><%=Misc.check(patient_name, "")%>
+        <td class="Text" nowrap><%=Encode.forHtml(Misc.check(patient_name, ""))%>
         </td>
-        <td class="Text" nowrap><%=Misc.check(ordering_provider, "").replaceAll("~", ",<br/>")%>
+        <td class="Text" nowrap><%=Encode.forHtml(Misc.check(ordering_provider, "")).replaceAll("~", ",<br/>")%>
         </td>
-        <td class="Text"><%=Misc.check(result_copies_to, "").replaceAll("~", ",<br/>")%>
+        <td class="Text"><%=Encode.forHtml(Misc.check(result_copies_to, "")).replaceAll("~", ",<br/>")%>
         </td>
         <td class="Text" nowrap>
             <%
@@ -198,13 +199,13 @@
         <td class="Text" nowrap>
             <%
                 String signed = Misc.check(signed_on, "");
-                out.print((signed.indexOf(" ") > -1) ? signed.substring(0, signed.indexOf(" ")) : signed);
+                out.print(Encode.forHtml((signed.indexOf(" ") > -1) ? signed.substring(0, signed.indexOf(" ")) : signed));
             %>
         </td>
         <td class="Text"
-            nowrap><%=((last_name != null && !last_name.equals("")) ? Misc.check(last_name, "") + ", " + Misc.check(first_name, "") : "&nbsp;")%>
+            nowrap><%=((last_name != null && !last_name.equals("")) ? Encode.forHtml(Misc.check(last_name, "")) + ", " + Encode.forHtml(Misc.check(first_name, "")) : "&nbsp;")%>
         </td>
-        <td class="Text" nowrap><%=date_time.substring(0, date_time.indexOf(" "))%>
+        <td class="Text" nowrap><%=Encode.forHtml(date_time.substring(0, date_time.indexOf(" ")))%>
         </td>
     </tr>
     <%

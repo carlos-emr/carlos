@@ -712,10 +712,10 @@ function valDate(dateBox, ds = dtCh) {
             var m = dt[1];
             var y = dt[2];
             var orderString = m + '/' + d + '/' + y;
-            var pass = isDate(orderString);
+            var dateValidationResult = isDate(orderString);
 
-            if (pass !== true) {
-                alert('Invalid ' + pass + ' in field ' + dateBox.title);
+            if (dateValidationResult !== true) {
+                alert('Invalid ' + dateValidationResult + ' in field ' + dateBox.title);
                 dateBox.focus();
                 return false;
             }
@@ -904,7 +904,7 @@ function appendNotify(field) {
             break;
     }
 
-    $('input[type="text"][name=' + field.name + ']').val(fieldMessage);
+    field.value = fieldMessage;
     alert(promptMessage);
 }
 
@@ -950,12 +950,12 @@ function calculateByLMP(field, ds = dtCh) {
 
         var dt = str_date.split(ds);
         var dd = dt[0];
-        var mm = eval(dt[1] - 1);
+        var mm = parseInt(dt[1], 10) - 1;
         var yyyy = dt[2];
 
         var calDate = new Date(yyyy, mm, dd);
 
-        calDate.setTime(eval(calDate.getTime() + (280 * 86400000)));
+        calDate.setTime(calDate.getTime() + (280 * 86400000));
 
         varMonth1 = calDate.getMonth() + 1;
         varMonth1 = varMonth1 > 9 ? varMonth1 : ("0" + varMonth1);

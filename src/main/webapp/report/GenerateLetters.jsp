@@ -199,7 +199,7 @@
                 <table class="TopStatusBar">
                     <tr>
                         <td>Choose Letter</td>
-                        <td>&nbsp; <a href="ManageLetters.jsp">manage</a></td>
+                        <td>&nbsp; <a href="${pageContext.request.contextPath}/report/ViewManageLetters.do">manage</a></td>
                         <td style="text-align: right">
                             <a
                                     href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
@@ -226,7 +226,7 @@
                         for (int i = 0; i < list.size(); i++) {
                             Hashtable h = (Hashtable) list.get(i);
                     %>
-                    <option value="<%=h.get("ID")%>"><%=h.get("report_name")%>
+                    <option value="<%=Encode.forHtmlAttribute(String.valueOf(h.get("ID")))%>"><%=Encode.forHtml(String.valueOf(h.get("report_name")))%>
                     </option>
                     <%}%>
                 </select> <%
@@ -237,9 +237,9 @@
                     if (followUpType != null && followUpValue != null) { %>
                     Mark in patients Records: <input type="checkbox" name="addFollowUp"
                                                      value="ON" checked/> <input type="hidden" name="followupType"
-                                                                                 value="<%=followUpType%>"/> <input
+                                                                                 value="<%= Encode.forHtmlAttribute(followUpType) %>"/> <input
                             type="hidden"
-                            name="followupValue" value="<%=followUpValue%>"/> <%}%>
+                            name="followupValue" value="<%= Encode.forHtmlAttribute(followUpValue) %>"/> <%}%>
                 </div>
 
                 <input type="submit" value="Generate Letters"/>
@@ -263,7 +263,7 @@
                     <tr>
                         <td><%=i + 1%>
                         </td>
-                        <td><input type="checkbox" name="demos" value="<%=demos[i]%>"
+                        <td><input type="checkbox" name="demos" value="<%=Encode.forHtmlAttribute(demos[i])%>"
                                    checked/></td>
 					<td><%=Encode.forHtmlContent(h.get("lastName"))%>, <%=Encode.forHtmlContent(h.get("firstName"))%></td>
 					<td><%=Encode.forHtmlContent(h.get("sex"))%></td>

@@ -403,6 +403,13 @@ Prototype.Browser = {
 // Used by .update() and CarlosAjax.updater().
 // NOTE: <script src="..."> tags are stripped but NOT loaded. Response fragments
 // for this use case must use only inline scripts (same as original Prototype behavior).
+//
+// SECURITY ASSUMPTION: This function only processes trusted same-origin server
+// responses (OWASP-encoded JSP output from internal CARLOS EMR endpoints).
+// The <script> regex extraction is intentional Prototype.js compatibility behavior
+// for AJAX-loaded page fragments — it is NOT a security sanitizer.
+// CodeQL flags this as js/bad-tag-filter; this is a known false positive.
+// See: docs/prototype-to-vanilla-js-migration-plan.md (evalScripts behavior)
 window.carlosExtractAndExecScripts = function (element, html) {
     var scriptPattern = /<script[\s\S]*?>([\s\S]*?)<\/\s*script\s*>/gi;
     var scripts = [];
@@ -412,8 +419,17 @@ window.carlosExtractAndExecScripts = function (element, html) {
         scripts.push(match[1]);
     }
 
-    // Remove script tags from HTML and set as innerHTML
-    element.innerHTML = html.replace(scriptPattern, '');
+    // Remove script tags from HTML (loop to handle nested/overlapping patterns).
+    // Extraction above is single-pass; stripping here is multi-pass. Reconstituted
+    // scripts (from nested patterns like <scr<script>ipt>) are stripped but NOT
+    // executed — this is intentional as they indicate an injection attempt.
+    var cleanHtml = html;
+    var prev;
+    do {
+        prev = cleanHtml;
+        cleanHtml = cleanHtml.replace(scriptPattern, '');
+    } while (cleanHtml !== prev);
+    element.innerHTML = cleanHtml;
 
     // Run extracted scripts by creating dynamic script elements
     scripts.forEach(function (scriptContent) {

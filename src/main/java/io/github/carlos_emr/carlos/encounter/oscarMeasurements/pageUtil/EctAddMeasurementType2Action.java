@@ -36,7 +36,6 @@ import java.util.List;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
@@ -50,9 +49,15 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action for adding a new custom measurement type to the system.
+ * Validates all input fields (type code, description, display name, measuring instruction),
+ * checks for duplicates, and persists the new {@link MeasurementType} record.
+ *
+ * @since 2004-02-23
+ */
 public class EctAddMeasurementType2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
 
 
     private MeasurementTypeDao dao = SpringUtils.getBean(MeasurementTypeDao.class);
@@ -64,15 +69,19 @@ public class EctAddMeasurementType2Action extends ActionSupport {
             List<String> messages = new LinkedList<String>();
 
             String type = this.getType();
+            if (type == null || type.isEmpty()) {
+                addActionError(getText("errors.invalid", new String[]{"Measurement type is required"}));
+                request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
+                return "failure";
+            }
             String typeUp = type.toUpperCase();
             String typeDesc = this.getTypeDesc();
             String typeDisplayName = this.getTypeDisplayName();
             String measuringInstrc = this.getMeasuringInstrc();
             String validation = this.getValidation();
-            String contextPath = request.getContextPath();
             if (!allInputIsValid(request, type, typeDesc, typeDisplayName, measuringInstrc)) {
-                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/AddMeasurementType.jsp");
-                return NONE;
+                request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
+                return "failure";
             }
 
             MeasurementType mt = new MeasurementType();

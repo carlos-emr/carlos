@@ -36,6 +36,7 @@
         import="java.util.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementMapConfig, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.util.StringUtils,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBeanHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
 
@@ -139,9 +140,9 @@
 
                         </tr>
                         <tr>
-                            <td class="Cell" width="20%">To Map to Loinc Code : <%=loinc%>
+                            <td class="Cell" width="20%">To Map to Loinc Code : <%=Encode.forHtml(loinc)%>
                             </td>
-                            <td class="Cell"><input type="hidden" name="loinc_code" value="<%=loinc%>"/></td>
+                            <td class="Cell"><input type="hidden" name="loinc_code" value="<%= Encode.forHtmlAttribute(loinc) %>"/></td>
                         </tr>
                         <tr>
                             <td colspan="2" class="Cell" align="center"><input

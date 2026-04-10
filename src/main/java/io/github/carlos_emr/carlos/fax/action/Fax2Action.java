@@ -96,6 +96,9 @@ public class Fax2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String faxForward = transactionType;
 
+        if (faxFilePath != null && !faxFilePath.trim().isEmpty()) {
+            faxManager.validateFilePath(faxFilePath);
+        }
         faxManager.flush(loggedInInfo, faxFilePath);
 
 

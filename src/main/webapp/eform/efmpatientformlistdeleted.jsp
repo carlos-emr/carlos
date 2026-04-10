@@ -74,7 +74,7 @@
             <fmt:message key="eform.showmyform.title" />
         </title>
 
-		<link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+		<link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 		<link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
 		<link href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.css" rel="stylesheet">
 
@@ -82,7 +82,7 @@
 		<script src="${pageContext.request.contextPath}/js/global.js"></script>
 		<script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
 		<script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
-		<script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+		<script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 		<script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
 		<script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
 
@@ -104,7 +104,7 @@
 			}
 
 			function updateAjax() {
-				let parentAjaxId = "<%=parentAjaxId%>";
+				let parentAjaxId = "<%=Encode.forJavaScript(parentAjaxId)%>";
 				if( parentAjaxId !== "null" ) {
 					window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
 					window.opener.updateNeeded = true;
@@ -119,7 +119,7 @@
 					"lengthMenu": [ [15, 30, 60, 120, -1], [15, 30, 60, 120, "<fmt:message key='demographic.search.All'/>"] ],
 					"order": [2],
 					"language": {
-						"url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key='global.i18nLanguagecode'/>.json"
+						"url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key='global.i18n.datatablescode'/>.json"
 					}
 				});
 
@@ -193,14 +193,14 @@
 		<div class="menu-columns">
 			<div class="left-column">
 
-				<a href="${pageContext.request.contextPath}/demographic/demographiccontrol.jsp?demographic_no=<%=demographic_no%>&appointment=<%=appointment%>&displaymode=edit&dboperation=search_detail"><fmt:message key="demographic.demographiceditdemographic.btnMasterFile" /></a>
+				<a href="${pageContext.request.contextPath}/demographic/DemographicEdit.do?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&appointment=<%=Encode.forUriComponent(appointment)%>"><fmt:message key="demographic.demographiceditdemographic.btnMasterFile" /></a>
 
 				
-				<a href="efmformslistadd.jsp?demographic_no=<%=demographic_no%>&appointment=<%=appointment%>&parentAjaxId=<%=parentAjaxId%>" class="current"> 
+				<a href="efmformslistadd.jsp?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&appointment=<%=Encode.forUriComponent(appointment)%>&parentAjaxId=<%=Encode.forUriComponent(parentAjaxId)%>" class="current">
                     <fmt:message key="eform.showmyform.btnAddEForm"/></a>
-				<a href="efmpatientformlist.jsp?demographic_no=<%=demographic_no%>&appointment=<%=appointment%>&parentAjaxId=<%=parentAjaxId%>">
+				<a href="efmpatientformlist.jsp?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&appointment=<%=Encode.forUriComponent(appointment)%>&parentAjaxId=<%=Encode.forUriComponent(parentAjaxId)%>">
                     <fmt:message key="eform.calldeletedformdata.btnGoToForm"/></a>
-<%--			<a href="efmpatientformlistdeleted.jsp?demographic_no=<%=demographic_no%>&appointment=<%=appointment%>&parentAjaxId=<%=parentAjaxId%>">
+<%--			<a href="efmpatientformlistdeleted.jsp?demographic_no=<%= Encode.forUriComponent(demographic_no) %>&appointment=<%=appointment%>&parentAjaxId=<%=parentAjaxId%>">
                     <fmt:message key="eform.showmyform.btnDeleted"/></a>--%>
 				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.eform" rights="r" reverse="<%=false%>" >
 					<a href="#" onclick="javascript: return popup(600, 1200, '${pageContext.request.contextPath}/administration/?show=Forms', 'manageeforms');" style="color: #835921;">
@@ -241,7 +241,7 @@
 						<td><%=Encode.forHtmlContent((String)curform.get("formSubject"))%></td>
 						<td ><%=curform.get("formDate")%></td>
 						<td ><a
-								href="javascript:void(0);" onClick="if(confirm('Are you sure you want to restore this eform?')){unRemoveEForm('<%=curform.get("fdid")%>','<%=demographic_no%>','<%=parentAjaxId%>');}">
+								href="javascript:void(0);" onClick="if(confirm('Are you sure you want to restore this eform?')){unRemoveEForm('<%=curform.get("fdid")%>','<%=Encode.forJavaScriptAttribute(demographic_no)%>','<%=Encode.forJavaScriptAttribute(parentAjaxId)%>');}">
                                     <fmt:message key="global.btnRestore" /></a></td>
 					</tr>
 					<%

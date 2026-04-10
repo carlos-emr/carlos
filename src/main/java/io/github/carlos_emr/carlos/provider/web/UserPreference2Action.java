@@ -72,7 +72,6 @@ public class UserPreference2Action extends ActionSupport {
         defaults.put("pref." + UserProperty.SCHEDULE_PERIOD, "15");
         defaults.put("pref." + UserProperty.NEW_CME, "Enabled");
         defaults.put("pref." + UserProperty.ENCOUNTER_FORM_LENGTH, "3");
-        defaults.put("pref." + UserProperty.RX_USE_RX3, "yes");
     }
 
     public String getParameter(HttpServletRequest request, String name) {
@@ -255,10 +254,6 @@ public class UserPreference2Action extends ActionSupport {
             for (int x = 1; x <= 36; x++) {
                 options.add(new LabelValueBean(String.valueOf(x), String.valueOf(x)));
             }
-        }
-        if (key.equals("pref." + UserProperty.RX_USE_RX3)) {
-            options.add(new LabelValueBean("Yes", "yes"));
-            options.add(new LabelValueBean("No", "no"));
         }
         if (key.equals("pref." + UserProperty.RX_SHOW_QR_CODE)) {
             options.add(new LabelValueBean("Yes", "yes"));

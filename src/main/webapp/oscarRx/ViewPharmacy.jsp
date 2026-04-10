@@ -34,6 +34,8 @@
 <%@ page
         import="io.github.carlos_emr.carlos.rx.pageUtil.*,io.github.carlos_emr.carlos.rx.data.*,java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -57,17 +59,17 @@
     <head>
         <link rel="stylesheet" type="text/css" href="<%=request.getContextPath()%>/oscarRx/styles.css">
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/jquery-ui-1.10.2.custom.min.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript">
             <%
              if (request.getParameter("ID") != null && type != null && type.equals("View")){ %>
             $(function () {
-                var data = "pharmacyId=<%=request.getParameter("ID")%>";
+                var data = "pharmacyId=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("ID")))%>";
                 $.get("<%=request.getContextPath()%>/oscarRx/managePharmacy.do?method=getPharmacyInfo",
                     data, function (data) {
                         if (data.name) {
-                            $('#pharmacyId').val(<%=request.getParameter("ID")%>);
+                            $('#pharmacyId').val('<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("ID")))%>');
                             $('#pharmacyName').text(data.name);
                             $('#pharmacyAddress').text(data.address);
                             $('#pharmacyCity').text(data.city);

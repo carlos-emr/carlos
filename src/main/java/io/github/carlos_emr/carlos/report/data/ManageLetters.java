@@ -49,6 +49,7 @@ import org.apache.logging.log4j.Logger;
 
 
 import io.github.carlos_emr.OscarDocumentCreator;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * @author jay
@@ -126,7 +127,7 @@ public class ManageLetters {
                 logger.error("Error", e);
             }
         } else {
-            logger.error("Could not find letter for id: " + id);
+            logger.error("Could not find letter for id: {}", LogSanitizer.sanitize(id));
         }
 
     }

@@ -500,7 +500,7 @@ public class HttpMethodGuardFilter implements Filter {
                 request.getMethod(),
                 detail,
                 request.getRemoteAddr(),
-                request.getRequestedSessionId() != null ? "present" : "none");
+                request.getRequestedSessionId() != null ? "present" : "none"); // NOSONAR java:S2254 — session ID value is never exposed; only null/non-null checked for logging
 
         response.setHeader("Allow", "POST");
         response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED,

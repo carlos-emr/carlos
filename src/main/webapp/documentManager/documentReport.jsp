@@ -44,7 +44,6 @@
     String user_no = (String) session.getAttribute("user");
     String demographicNo = (String) session.getAttribute("casemgmt_DemoNo");
 
-    String annotation_display = CaseManagementNoteLink.DISP_DOCUMENT;
     String appointment = request.getParameter("appointmentNo");
     int appointmentNo = 0;
     if (appointment != null && !appointment.isEmpty()) {
@@ -63,11 +62,9 @@
 
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
 
@@ -163,8 +160,8 @@
 %>
 <html>
     <head>
-
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDocuments"/> Manager</title>
+        <fmt:setBundle basename="oscarResources"/>
+        <title><fmt:message key="dms.documentReport.titleDocumentManager"/></title>
 
         <%@ include file="/includes/global-head.jspf" %>
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css"
@@ -219,8 +216,8 @@
 
 
             function checkDelete(docId, func, funcId, viewStatus, docDescription) {
-// revision Apr 05 2004 - we now allow anyone to delete documents
-                if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDelete"/> " + docDescription)) {
+                // revision Apr 05 2004 - we now allow anyone to delete documents
+                if (confirm("<fmt:message key="dms.documentReport.msgDelete"/> " + docDescription)) {
                     submitDocAction('delDocumentNo', docId, func, funcId, viewStatus);
                 }
             }
@@ -255,8 +252,33 @@
                 }
             }
 
-            function submitForm(actionPath) {
+            var msgNoDocSelected = '<fmt:message key="dms.documentReport.msgNoDocSelected"/>';
 
+            /**
+             * Displays a dismissable Bootstrap alert-danger in the document list alert container.
+             * The message text is encoded via DOM textContent to prevent XSS.
+             *
+             * @param {string} message - The plain-text message to display
+             */
+            function showListAlert(message) {
+                var container = document.getElementById('docListAlertContainer');
+                if (!container) return;
+                var msgNode = document.createTextNode(message);
+                var alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+                alertDiv.setAttribute('role', 'alert');
+                alertDiv.appendChild(msgNode);
+                var closeBtn = document.createElement('button');
+                closeBtn.type = 'button';
+                closeBtn.className = 'btn-close';
+                closeBtn.setAttribute('data-bs-dismiss', 'alert');
+                closeBtn.setAttribute('aria-label', 'Close');
+                alertDiv.appendChild(closeBtn);
+                container.innerHTML = '';
+                container.appendChild(alertDiv);
+            }
+
+            function submitForm(actionPath) {
                 var form = document.forms[2];
                 if (verifyChecks(form)) {
                     form.action = actionPath;
@@ -267,9 +289,8 @@
             }
 
             function verifyChecks(t) {
-
                 if (t.docNo == null) {
-                    alert("No documents selected");
+                    showListAlert(msgNoDocSelected);
                     return false;
                 } else {
                     var oneChecked = 0;
@@ -284,7 +305,7 @@
                         oneChecked = t.docNo.checked ? 1 : 0;
 
                     if (oneChecked === 0) {
-                        alert("No documents selected");
+                        showListAlert(msgNoDocSelected);
                         return false;
                     }
                 }
@@ -304,8 +325,8 @@
             }
 
             function setup() {
-                var update = "<%=updateParent%>";
-                var parentId = "<%=parentAjaxId%>";
+                var update = "<%=Encode.forJavaScript(updateParent)%>";
+                var parentId = "<%=Encode.forJavaScript(parentAjaxId)%>";
                 var Url = window.opener.URLs;
 
                 if (update === "true" && !window.opener.closed) {
@@ -335,7 +356,7 @@
                     ],
                     order: [[6, 'dsc']],
                     "language": {
-                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18nLanguagecode"/>.json"
+                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18n.datatablescode"/>.json"
                     }
                 });
             });
@@ -374,8 +395,10 @@
                  class="bi bi-file-earmark" viewBox="0 0 16 16">
                 <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5z"></path>
             </svg>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDocuments"/> Manager
+            <fmt:message key="dms.documentReport.titleDocumentManager"/>
         </h2>
+
+        <div id="docListAlertContainer"></div>
 
         <% if ("demographic".equals(module)) { %>
         <oscar:nameage demographicNo="<%=Encode.forHtmlAttribute(moduleid)%>"/>
@@ -386,6 +409,10 @@
             <jsp:param name="addDocument" value="${param.mode}"/>
         </jsp:include>
 
+
+        <%-- i18n strings for category headings used in the scriptlet below --%>
+        <fmt:message key="dms.documentReport.msgPrivateDocuments" var="msgPrivateDocs"/>
+        <fmt:message key="dms.documentReport.msgPublicDocuments" var="msgPublicDocs"/>
 
         <form action="${pageContext.request.contextPath}/documentManager/combinePDFs.do" method="post">
             <input type="hidden" name="curUser" value="<%=curUser%>">
@@ -398,12 +425,17 @@
                 ArrayList<EDoc> privatedocs = EDocUtil.listDocs(loggedInInfo, module, moduleid, view, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE, viewstatus);
                 MiscUtils.getLogger().debug("privatedocs:" + privatedocs.size());
 
+                // Build i18n category label: "<module name> Private Documents" or just "Private Documents"
+                String privateCategoryLabel = (moduleName != null && !moduleName.isEmpty())
+                        ? moduleName + " " + pageContext.getAttribute("msgPrivateDocs")
+                        : (String) pageContext.getAttribute("msgPrivateDocs");
+
                 categories.add(privatedocs);
-                categoryKeys.add(moduleName + "'s Private Documents");
+                categoryKeys.add(privateCategoryLabel);
                 if (EDocUtil.isProviderModule(module)) {
                     ArrayList publicdocs = EDocUtil.listDocs(loggedInInfo, module, moduleid, view, EDocUtil.PUBLIC, EDocUtil.EDocSort.OBSERVATIONDATE, viewstatus);
                     categories.add(publicdocs);
-                    categoryKeys.add("Public Documents");
+                    categoryKeys.add((String) pageContext.getAttribute("msgPublicDocs"));
                 }
 
                 for (int i = 0; i < categories.size(); i++) {
@@ -424,13 +456,13 @@
                                     <select class="form-select" id="viewstatus" name="viewstatus"
                                             onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&view=<%=Encode.forUriComponent(view)%>&viewstatus=' + val;">
                                         <option value="all"
-                                                <%=viewstatus.equalsIgnoreCase("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgAll"/></option>
+                                                <%=viewstatus.equalsIgnoreCase("all") ? "selected" : ""%>><fmt:message key="dms.documentReport.msgAll"/></option>
                                         <option value="deleted"
                                                 <%=viewstatus.equalsIgnoreCase("deleted") ? "selected" : ""%>>
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDeleted"/></option>
+                                            <fmt:message key="dms.documentReport.msgDeleted"/></option>
                                         <option value="active"
                                                 <%=viewstatus.equalsIgnoreCase("active") ? "selected" : ""%>>
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgPublished"/></option>
+                                            <fmt:message key="dms.documentReport.msgPublished"/></option>
                                     </select>
                                 </div>
                                 <%}%>
@@ -439,7 +471,7 @@
                                     <select id="viewdoctype<%=i%>" name="view" id="view"
                                             class="form-select"
                                             onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&view=' + val;">
-                                        <option value="">All</option>
+                                        <option value=""><fmt:message key="dms.documentReport.msgAll"/></option>
                                         <%
                                             for (int i3 = 0; i3 < doctypes.size(); i3++) {
                                                 String doctype = (String) doctypes.get(i3); %>
@@ -454,7 +486,7 @@
                                 <div class="mb-3">
                                     <a class="btn btn-link"
                                         href="${ pageContext.request.contextPath }/documentManager/documentBrowser.jsp?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&categorykey=<%=Encode.forUri(currentkey)%>">
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgBrowser"/>
+                                        <fmt:message key="dms.documentReport.msgBrowser"/>
                                     </a>
                                 </div>
                                 <%}%>
@@ -471,25 +503,25 @@
                                            onclick="selectAll('pdfCheck<%=i%>','privateDocsDiv', 'tightCheckbox<%=i%>');"/>
                                 </th>
                                 <th>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgContent"/>
+                                    <fmt:message key="dms.documentReport.msgContent"/>
                                 </th>
                                 <th>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDocDesc"/>
+                                    <fmt:message key="dms.documentReport.msgDocDesc"/>
                                 </th>
                                 <th>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgType"/>
+                                    <fmt:message key="dms.documentReport.msgType"/>
                                 </th>
                                 <th>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgCreator"/>
+                                    <fmt:message key="dms.documentReport.msgCreator"/>
                                 </th>
                                 <th>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgResponsible"/>
+                                    <fmt:message key="dms.documentReport.msgResponsible"/>
                                 </th>
                                 <th>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.observationDate"/>
+                                    <fmt:message key="dms.documentReport.observationDate"/>
                                 </th>
                                 <th>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDate"/>
+                                    <fmt:message key="dms.documentReport.msgDate"/>
                                 </th>
 
                                 <th>&nbsp;</th>
@@ -574,7 +606,7 @@
                                                     if (curdoc.getStatus() == 'D') { %>
                                         <a href="javascript:void(0);" onclick="submitDocAction('undelDocumentNo','<%=Encode.forJavaScript(String.valueOf(curdoc.getDocId()))%>','<%=Encode.forJavaScript(module)%>','<%=Encode.forJavaScript(moduleid)%>','<%=Encode.forJavaScript(viewstatus)%>');"
                                            class="btn btn-link" style="padding:0;"
-                                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.btnUnDelete"/>">
+                                           title="<fmt:message key="dms.documentReport.btnUnDelete"/>">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                  fill="currentColor" class="bi bi-arrow-counterclockwise"
                                                  viewBox="0 0 16 16">
@@ -588,7 +620,7 @@
                                         %>
                                         <a style="color:red; padding:0;"
                                            href="javascript:void(0);" onclick="checkDelete('<%=Encode.forJavaScript(String.valueOf(curdoc.getDocId()))%>','<%=Encode.forJavaScript(module)%>','<%=Encode.forJavaScript(moduleid)%>','<%=Encode.forJavaScript(viewstatus)%>','<%=Encode.forJavaScript(curdoc.getDescription())%>');"
-                                           class="btn btn-link" title="Delete">
+                                           class="btn btn-link" title="<fmt:message key="dms.documentReport.btnDelete"/>">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                  fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
                                                 <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"></path>
@@ -602,7 +634,7 @@
                                                            objectName="_admin,_admin.edocdelete" rights="r">
                                             <% if (curdoc.getStatus() == 'D') {%>
                                             <a href="javascript:void(0);" onclick="submitDocAction('undelDocumentNo','<%=Encode.forJavaScript(String.valueOf(curdoc.getDocId()))%>','<%=Encode.forJavaScript(module)%>','<%=Encode.forJavaScript(moduleid)%>','<%=Encode.forJavaScript(viewstatus)%>');"
-                                               title="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.btnUnDelete"/>"
+                                               title="<fmt:message key="dms.documentReport.btnUnDelete"/>"
                                                class="btn btn-link" style="padding:0;">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                      fill="currentColor" class="bi bi-arrow-counterclockwise"
@@ -615,7 +647,7 @@
                                             <% } else { // curdoc get status %>
                                             <a style="color:red;padding:0;"
                                                 href="javascript:void(0);" onclick="checkDelete('<%=Encode.forJavaScript(String.valueOf(curdoc.getDocId()))%>','<%=Encode.forJavaScript(module)%>','<%=Encode.forJavaScript(moduleid)%>','<%=Encode.forJavaScript(viewstatus)%>','<%=Encode.forJavaScript(curdoc.getDescription())%>');"
-                                                class="btn btn-link" title="Delete">
+                                                class="btn btn-link" title="<fmt:message key="dms.documentReport.btnDelete"/>">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                      fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
                                                     <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"></path>
@@ -631,7 +663,7 @@
                                             if (curdoc.getStatus() == 'H') { %>
                                         <a href="javascript:void(0)"
                                            onclick="popup1(450, 600, 'addedithtmldocument.jsp?editDocumentNo=<%=Encode.forUriComponent(String.valueOf(curdoc.getDocId()))%>&function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>', 'EditDoc')"
-                                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.btnEdit"/>"
+                                           title="<fmt:message key="dms.documentReport.btnEdit"/>"
                                            class="btn btn-link" style="padding:0;">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                  fill="currentColor" class="bi bi-pencil-square"
@@ -644,7 +676,7 @@
                                         <%} else {%>
                                         <a href="javascript:void(0)"
                                            onclick="popup1(350, 500, 'editDocument.jsp?editDocumentNo=<%=curdoc.getDocId()%>&function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>', 'EditDoc')"
-                                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.btnEdit"/>"
+                                           title="<fmt:message key="dms.documentReport.btnEdit"/>"
                                            class="btn btn-link" style="padding:0;">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                  fill="currentColor" class="bi bi-pencil-square"
@@ -658,24 +690,13 @@
 
                                         <% } %>
 
-                                        <% if ("demographic".equals(module)) {%>
-                                        <a href="javascript:void(0)" title="Annotation"
-                                           onclick="window.open('${ pageContext.request.contextPath }/annotation/annotation.jsp?display=<%=Encode.forUriComponent(annotation_display)%>&table_id=<%=Encode.forUriComponent(String.valueOf(curdoc.getDocId()))%>&demo=<%=Encode.forUriComponent(moduleid)%>','anwin','width=400,height=500');"
-                                           class="btn btn-link" style="padding:0">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                                                 fill="currentColor" class="bi bi-clipboard" viewBox="0 0 16 16">
-                                                <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"></path>
-                                                <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"></path>
-                                            </svg>
-                                        </a>
-                                        <% } %>
                                         <% if (!("demographic".equals(module) && moduleid != null && moduleid.equals(session.getAttribute("user")))) {
 
-                                            String tickler_url = request.getContextPath() + "/tickler/ForwardDemographicTickler.do?docType=DOC&docId=" + curdoc.getDocId() + "&demographic_no=" + moduleid;
+                                            String tickler_url = request.getContextPath() + "/tickler/ForwardDemographicTickler.do?docType=DOC&docId=" + Encode.forUriComponent(curdoc.getDocId()) + "&demographic_no=" + Encode.forUriComponent(moduleid);
                                         %>
-                                        <a href="javascript:void(0);" title="Tickler" class="btn btn-link"
+                                        <a href="javascript:void(0);" title="<fmt:message key="dms.documentReport.msgTickler"/>" class="btn btn-link"
                                            style="padding: 0;"
-                                           onclick="popup1(450,600,'<%=tickler_url%>','tickler')">
+                                           onclick="popup1(450,600,'<%= Encode.forJavaScriptAttribute(tickler_url) %>','tickler')">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                  fill="currentColor" class="bi bi-feather" viewBox="0 0 16 16">
                                                 <path d="M15.807.531c-.174-.177-.41-.289-.64-.363a3.765 3.765 0 0 0-.833-.15c-.62-.049-1.394 0-2.252.175C10.365.545 8.264 1.415 6.315 3.1c-1.95 1.686-3.168 3.724-3.758 5.423-.294.847-.44 1.634-.429 2.268.005.316.05.62.154.88.017.04.035.082.056.122A68.362 68.362 0 0 0 .08 15.198a.528.528 0 0 0 .157.72.504.504 0 0 0 .705-.16 67.606 67.606 0 0 1 2.158-3.26c.285.141.616.195.958.182.513-.02 1.098-.188 1.723-.49 1.25-.605 2.744-1.787 4.303-3.642l1.518-1.55a.528.528 0 0 0 0-.739l-.729-.744 1.311.209a.504.504 0 0 0 .443-.15c.222-.23.444-.46.663-.684.663-.68 1.292-1.325 1.763-1.892.314-.378.585-.752.754-1.107.163-.345.278-.773.112-1.188a.524.524 0 0 0-.112-.172ZM3.733 11.62C5.385 9.374 7.24 7.215 9.309 5.394l1.21 1.234-1.171 1.196a.526.526 0 0 0-.027.03c-1.5 1.789-2.891 2.867-3.977 3.393-.544.263-.99.378-1.324.39a1.282 1.282 0 0 1-.287-.018Zm6.769-7.22c1.31-1.028 2.7-1.914 4.172-2.6a6.85 6.85 0 0 1-.4.523c-.442.533-1.028 1.134-1.681 1.804l-.51.524-1.581-.25Zm3.346-3.357C9.594 3.147 6.045 6.8 3.149 10.678c.007-.464.121-1.086.37-1.806.533-1.535 1.65-3.415 3.455-4.976 1.807-1.561 3.746-2.36 5.31-2.68a7.97 7.97 0 0 1 1.564-.173Z"></path>
@@ -698,7 +719,7 @@
                 <input type="button" name="Button" class="btn btn-primary"
                         value="<fmt:message key='dms.documentReport.btnDoneClose'/>"
                         onclick="window.closeWindow()"/>
-                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.btnCombinePDF"/>" class="btn btn-secondary"
+                <input type="button" value="<fmt:message key='dms.documentReport.btnCombinePDF'/>" class="btn btn-secondary"
                        onclick="return submitForm('<rewrite:reWrite jspPage="combinePDFs.do"/>');"/>
             </div>
 

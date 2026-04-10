@@ -31,6 +31,8 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%
@@ -67,11 +69,11 @@
 
 
     <object id="pdf" type="application/pdf"
-            data="<%= request.getContextPath() %>/report/GenerateEnvelopes.do?demos=<%=request.getParameter("demos")%>"
+            data="<%= request.getContextPath() %>/report/GenerateEnvelopes.do?demos=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("demos"))) %>"
             height="80%" width="100%" standby="Loading pdf...">
 
         Sorry the pdf failed to load...<a
-            href="<%= request.getContextPath() %>/report/GenerateEnvelopes.do?demos=<%=request.getParameter("demos")%>">click here to download the
+            href="<%= request.getContextPath() %>/report/GenerateEnvelopes.do?demos=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("demos"))) %>">click here to download the
         PDF</a>.
 
     </object>

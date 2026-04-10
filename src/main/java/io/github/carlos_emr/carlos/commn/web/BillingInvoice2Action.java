@@ -53,6 +53,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class BillingInvoice2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -90,7 +91,7 @@ public class BillingInvoice2Action extends ActionSupport {
 
             // Check if we have a valid invoice number after sanitization
             if (sanitizedInvoiceNo.isEmpty()) {
-                MiscUtils.getLogger().error("Invalid invoice number - no digits found: " + invoiceNo);
+                MiscUtils.getLogger().error("Invalid invoice number - no digits found: {}", LogSanitizer.sanitize(invoiceNo));
                 return "error";  // or handle appropriately
             }
 

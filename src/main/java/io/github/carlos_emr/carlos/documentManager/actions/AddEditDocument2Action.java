@@ -164,7 +164,7 @@ public class AddEditDocument2Action extends ActionSupport {
         }
         newDoc.setNumberOfPages(numberOfPages);
         String doc_no = EDocUtil.addDocumentSQL(newDoc);
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr()); // nosemgrep: tainted-session-from-http-request
         String providerId = request.getParameter("providers");
 
         if (providerId != null) { // TODO: THIS NEEDS TO RUN THRU THE lab forwarding rules!
@@ -356,7 +356,7 @@ public class AddEditDocument2Action extends ActionSupport {
 
             // ---
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr()); // nosemgrep: tainted-session-from-http-request
             // add note if document is added under a patient
             String module = this.getFunction().trim();
             String moduleId = this.getFunctionId().trim();
@@ -466,10 +466,10 @@ public class AddEditDocument2Action extends ActionSupport {
                 reviewerId = (String) request.getSession().getAttribute("user");
                 reviewDateTime = UtilDateUtilities.DateToString(new Date(), EDocUtil.REVIEW_DATETIME_FORMAT);
                 if (this.getFunction() != null && this.getFunction().equals("demographic")) {
-                    LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(),
+                    LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(), // nosemgrep: tainted-session-from-http-request
 request.getRemoteAddr(), this.getFunctionId());
                 } else {
-                    LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(),
+                    LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(), // nosemgrep: tainted-session-from-http-request
 request.getRemoteAddr());
                 }
             }
@@ -519,16 +519,16 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             EDocUtil.editDocumentSQL(newDoc, this.getReviewDoc());
 
             if (this.getFunction() != null && this.getFunction().equals("demographic")) {
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, LogConst.CON_DOCUMENT, this.getMode(), request.getRemoteAddr(), this.getFunctionId());
+                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, LogConst.CON_DOCUMENT, this.getMode(), request.getRemoteAddr(), this.getFunctionId()); // nosemgrep: tainted-session-from-http-request
             } else {
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, LogConst.CON_DOCUMENT, this.getMode(), request.getRemoteAddr());
+                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, LogConst.CON_DOCUMENT, this.getMode(), request.getRemoteAddr()); // nosemgrep: tainted-session-from-http-request
 
             }
 
         } catch (Exception e) {
             request.setAttribute("docerrors", errors);
             request.setAttribute("editDocumentNo", this.getMode());
-            e.printStackTrace();
+            MiscUtils.getLogger().error("Failed to edit document", e);
             return "failEdit";
         }
         return "successEdit";

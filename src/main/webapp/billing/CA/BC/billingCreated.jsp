@@ -87,14 +87,14 @@
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.bc.title"/></title>
 
     <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
+          href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css"/>
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.servletContext.contextPath}/css/fontawesome-all.min.css"/>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
             <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
     <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+            src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
     <script language="JavaScript">
         //<!--

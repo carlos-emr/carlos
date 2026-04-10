@@ -44,8 +44,6 @@
         "&appointmentDate=" + (request.getParameter("appointmentDate") != null ? URLEncoder.encode(request.getParameter("appointmentDate"), StandardCharsets.UTF_8) : "") +
         "&start_time=" + (request.getParameter("start_time") != null ? URLEncoder.encode(request.getParameter("start_time"), StandardCharsets.UTF_8) : "") +
         "&apptProvider=" + (request.getParameter("apptProvider") != null ? URLEncoder.encode(request.getParameter("apptProvider"), StandardCharsets.UTF_8) : "") +
-        "&providerview=" + (request.getParameter("providerview") != null ? URLEncoder.encode(request.getParameter("providerview"), StandardCharsets.UTF_8) : "") +
-        "&OscarMsgTypeLink=" + (request.getParameter("OscarMsgTypeLink") != null ? URLEncoder.encode(request.getParameter("OscarMsgTypeLink"), StandardCharsets.UTF_8) : "") +
-        "&msgType=" + (request.getParameter("msgType") != null ? URLEncoder.encode(request.getParameter("msgType"), StandardCharsets.UTF_8) : "");
+        "&providerview=" + (request.getParameter("providerview") != null ? URLEncoder.encode(request.getParameter("providerview"), StandardCharsets.UTF_8) : "");
     response.sendRedirect(redirectURL);
 %>

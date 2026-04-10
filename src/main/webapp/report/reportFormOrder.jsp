@@ -18,6 +18,7 @@
 <%@ page import="org.apache.commons.lang3.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportConfigData" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
     String tableName = request.getParameter("tableName") != null ? request.getParameter("tableName") : "";
@@ -101,9 +102,9 @@
     <center></center>
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr BGCOLOR="#CCCCFF">
-            <td><%=reportName%> Order</td>
+            <td><%=Encode.forHtml(reportName)%> Order</td>
             <td width="10%" align="right" nowrap><a
-                    href="reportFormConfig.jsp?id=<%=reportId%>&tableName=<%=tableName%>">Back
+                    href="reportFormConfig.jsp?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%=Encode.forUriComponent(tableName)%>">Back
                 to the Configuration</a></td>
         </tr>
     </table>
@@ -119,8 +120,8 @@
                             for (int i = 0; i < vecConfigObj.size(); i++) {
                                 String color = i % 2 == 0 ? "trOdd" : "trEven"; //"#EEEEFF" : "";
                                 Properties prop = (Properties) vecConfigObj.get(i);
-                                String fieldName = StringEscapeUtils.escapeHtml4(prop.getProperty("name", ""));
-                                String fieldCaption = StringEscapeUtils.escapeHtml4(prop.getProperty("caption", ""));
+                                String fieldName = Encode.forHtmlAttribute(prop.getProperty("name", ""));
+                                String fieldCaption = Encode.forHtml(prop.getProperty("caption", ""));
                                 String fieldId = prop.getProperty("id", "");
                                 String fieldPosition = prop.getProperty("order_no", "");
                                 String action = " Add ";
@@ -128,20 +129,20 @@
 
                         <tr class=<%=color%>>
                             <td width="20%" align="right"><input type="checkbox"
-                                                                 name="nameSelected" value="<%=fieldId%>"
+                                                                 name="nameSelected" value="<%=Encode.forHtmlAttribute(fieldId)%>"
                                                                  onClick="onCheckbox(this, <%=i%>);"/></td>
                             <td width="30%" nowrap><span title="<%=fieldName%>"><%=fieldCaption%></span></td>
                             <td align="center"><input type="submit" name="submit"
-                                                      value="Move here" onClick="onButMove(<%=fieldPosition%>)"/></td>
+                                                      value="Move here" onClick="onButMove(<%=Encode.forJavaScript(fieldPosition)%>)"/></td>
                         </tr>
                         <% } %>
                         <input type="hidden" name="position"/>
-                        <input type="hidden" name="id" value="<%=reportId%>"/>
-                        <input type="hidden" name="save" value="<%=SAVE_AS%>">
-                        <input type="hidden" name="tableName" value="<%=tableName%>"/>
-                        <input type="hidden" name="formTableName" value="<%=formTableName%>"/>
+                        <input type="hidden" name="id" value="<%= Encode.forHtmlAttribute(reportId) %>"/>
+                        <input type="hidden" name="save" value="<%= Encode.forHtmlAttribute(SAVE_AS) %>">
+                        <input type="hidden" name="tableName" value="<%= Encode.forHtmlAttribute(tableName) %>"/>
+                        <input type="hidden" name="formTableName" value="<%= Encode.forHtmlAttribute(formTableName) %>"/>
                         <input type="hidden" name="configTableName"
-                               value="<%=configTableName%>"/>
+                               value="<%= Encode.forHtmlAttribute(configTableName) %>"/>
                     </form>
                 </table>
             </td>

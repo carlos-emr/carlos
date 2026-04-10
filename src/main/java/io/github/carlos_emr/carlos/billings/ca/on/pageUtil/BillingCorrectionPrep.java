@@ -59,6 +59,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class BillingCorrectionPrep {
     private static final Logger _logger = MiscUtils.getLogger();
@@ -183,7 +184,7 @@ public class BillingCorrectionPrep {
             BillingOnTransactionDao billTransDao = (BillingOnTransactionDao) SpringUtils
                     .getBean(BillingOnTransactionDao.class);
             BillingOnTransaction billTrans = billTransDao.getUpdateCheader1TransTemplate(ch1Obj,
-                    (String) requestData.getSession().getAttribute("user"));
+                    (String) requestData.getSession().getAttribute("user")); // nosemgrep: tainted-session-from-http-request
             billTransDao.persist(billTrans);
         }
 
@@ -304,12 +305,12 @@ public class BillingCorrectionPrep {
             String sStatus = vecStatus.get(i);
             ret = addItem(ch1Obj, lItemObj, updateProviderNo, dx, serviceDate,
                     sName, sUnit, sFee, sStatus);
-            _logger.info(sName + " lItemObj(value = " + ret);
+            _logger.info("{} lItemObj(value = {})", LogSanitizer.sanitize(sName), LogSanitizer.sanitize(ret));
         }
 
         // recalculate amount
         String newAmount = sumFee(vecFee);
-        _logger.info(" lItemObj(newAmount = " + newAmount);
+        _logger.info(" lItemObj(newAmount = {})", LogSanitizer.sanitize(newAmount));
         updateAmount(newAmount, ch1Obj.getId(), updateProviderNo, dx);
 
         // update total field in billing_on_ext if pay_program is 3rd party

@@ -96,7 +96,7 @@
 <!DOCTYPE html>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message var="msgOnUnbilledText" key="provider.appointmentProviderAdminDay.onUnbilled"/>
-<fmt:message var="dtLanguageCode" key="global.i18nLanguagecode"/>
+<fmt:message var="dtLanguageCode" key="global.i18n.datatablescode"/>
 <html>
 <head>
     <title><fmt:message key="billing.billingONHistory.title"/></title>
@@ -110,7 +110,7 @@
             if (confirm("${e:forJavaScript(msgOnUnbilledText)}")) {
                 var form = document.createElement('form');
                 form.method = 'post';
-                form.action = 'billingDeleteNoAppt.jsp';
+                form.action = '<%= request.getContextPath() %>/billing/CA/ON/BillingDeleteNoAppt.do';
                 form.target = 'unbill_popup';
                 var fields = {billing_no: billingNo, billCode: billCode, dboperation: 'delete_bill', hotclick: '0'};
                 for (var key in fields) {

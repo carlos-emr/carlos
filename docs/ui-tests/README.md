@@ -251,7 +251,7 @@ See [smoke-test-results.md](./smoke-test-results.md) for detailed test results f
 - Search query returns 0 results (may be query/filtering issue)
 
 **Investigation Needed**:
-- Review `demographiccontrol.jsp` search query logic
+- Review `DemographicSearch.do` search query logic (migrated from legacy `demographiccontrol.jsp`)
 - Check JavaScript table population
 - Verify security filtering
 - Test with different search criteria
@@ -344,8 +344,8 @@ server start
 | Login | `/index.jsp` | ✅ |
 | Dashboard | `/provider/providercontrol.jsp` | ✅ |
 | Patient Search | `/demographic/search.jsp` | ✅ |
-| Search Results | `/demographic/demographiccontrol.jsp?search_mode=search_name&keyword=...` | ⚠️ |
-| Patient Record | `/demographic/demographiccontrol.jsp?demographic_no=3&displaymode=edit` | ✅ |
+| Search Results | `/demographic/DemographicSearch.do?search_mode=search_name&keyword=...` | ⚠️ |
+| Patient Record | `/demographic/DemographicEdit.do?demographic_no=3` | ✅ |
 | Appointments | `/appointment/appointmentcontrol.jsp` | Not tested |
 | E-Chart | `/encounter/Index.jsp` | Not tested |
 | Prescriptions | `/oscarRx/choosePatient.do` | Not tested |

@@ -71,7 +71,7 @@ Demographic demographic_header=demographicDao_header.getDemographic(d);
 <!--<a><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgNextAppt"/>: <oscar:nextAppt demographicNo='<%=d%>' /></a>-->
 
 <div style="display:inline-block;margin-left:15px;">
-<h4 class="DoNotPrint"><a href="<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=d%>&displaymode=edit&dboperation=search_detail" style="color:#333;text-decoration:none;"><%=demographic_header.getLastName()%>, <%=demographic_header.getFirstName()%> <%if(demographic_header.getTitle() != null && !demographic_header.getTitle().isEmpty()) {%>(<%=demographic_header.getTitle() %>) <%}%></a>
+<h4 class="DoNotPrint"><a href="<%=request.getContextPath()%>/demographic/DemographicEdit.do?demographic_no=<%=d%>" style="color:#333;text-decoration:none;"><%=demographic_header.getLastName()%>, <%=demographic_header.getFirstName()%> <%if(demographic_header.getTitle() != null && !demographic_header.getTitle().isEmpty()) {%>(<%=demographic_header.getTitle() %>) <%}%></a>
 
 
 <%if(alert.length()!=0){%>

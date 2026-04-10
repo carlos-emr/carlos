@@ -121,8 +121,11 @@ import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.WebUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
+import org.owasp.encoder.Encode;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -224,6 +227,9 @@ public class DemographicExportAction42Action extends ActionSupport {
     private static final String RISKFACTOR = "Risk";
     public static final int CMS4 = 0;
     public static final int E2E = 1;
+
+    /** Characters unsafe in filenames across common filesystems; used to sanitize patient name components. */
+    private static final String UNSAFE_FILENAME_CHARS = "[/\\\\:*?\"<>|]";
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -2020,7 +2026,16 @@ public class DemographicExportAction42Action extends ActionSupport {
                             for (int j = 0; j < edoc_list.size(); j++) {
                                 EDoc edoc = edoc_list.get(j);
 
-                                File f = new File(edoc.getFilePath());
+                                File f;
+                                try {
+                                    f = PathValidationUtils.validateExistingPath(
+                                            new File(edoc.getFilePath()),
+                                            new File(oscarProperties.getProperty("DOCUMENT_DIR")));
+                                } catch (SecurityException e) {
+                                    exportError.add("Error! Document \"" + Encode.forHtml(edoc.getFileName()) + "\" path is invalid or outside the allowed directory. Skipping.");
+                                    logger.error("Path traversal attempt on document export: {}", Encode.forJava(edoc.getFilePath()));
+                                    continue;
+                                }
                                 if (!f.exists()) {
                                     exportError.add("Error! Document \"" + f.getName() + "\" does not exist!");
                                 } else if (f.length() > Runtime.getRuntime().freeMemory()) {
@@ -2118,18 +2133,26 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     String reportFile = hrmDoc.getReportFile();
                                     if (StringUtils.empty(reportFile)) continue;
 
+                                    File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
                                     File hrmFile = new File(reportFile);
 
                                     //check the DOCUMENT_DIR
                                     if (!hrmFile.exists()) {
-                                        String place = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-                                        reportFile = place + File.separator + reportFile;
+                                        reportFile = documentDir.getPath() + File.separator + reportFile;
                                         hrmFile = new File(reportFile);
                                     }
 
                                     if (!hrmFile.exists()) {
                                         exportError.add("Error! HRM report file '" + reportFile + "' does not exist! HRM report not exported.");
                                         logger.error("Error! HRM report file '" + reportFile + "' does not exist! HRM report not exported.");
+                                        continue;
+                                    }
+
+                                    try {
+                                        hrmFile = PathValidationUtils.validateExistingPath(hrmFile, documentDir);
+                                    } catch (SecurityException e) {
+                                        exportError.add("Error! HRM report file '" + Encode.forHtml(reportFile) + "' is outside the allowed directory. HRM report not exported.");
+                                        logger.error("HRM report file path traversal attempt: {}", Encode.forJava(reportFile));
                                         continue;
                                     }
 
@@ -2524,6 +2547,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 
 
                         //export file to temp directory
+                        int fileCountBefore = files.size();
                         try {
                             File directory = new File(tmpDir);
                             if (!directory.exists()) {
@@ -2532,13 +2556,26 @@ public class DemographicExportAction42Action extends ActionSupport {
                             }
 
                             //Standard format for xml exported file : PatientFN_PatientLN_PatientUniqueID_DOB (DOB: ddmmyyyy)
-                            String expFile = demographic.getFirstName() + "_" + demographic.getLastName();
+                            // Sanitize name components to remove path separators and other unsafe characters
+                            String safeFirst = demographic.getFirstName() != null ? demographic.getFirstName().replaceAll(UNSAFE_FILENAME_CHARS, "") : "";
+                            String safeLast = demographic.getLastName() != null ? demographic.getLastName().replaceAll(UNSAFE_FILENAME_CHARS, "") : "";
+                            String expFile = safeFirst + "_" + safeLast;
                             expFile += "_" + demoNo;
                             expFile += "_" + demographic.getDateOfBirth() + demographic.getMonthOfBirth() + demographic.getYearOfBirth();
-                            files.add(new File(directory, expFile + ".xml"));
-                            dirs.add(getProviderName(demographic.getProviderNo()));
+                            // Compute both values before adding to either list so that if
+                            // getProviderName() throws, neither list is modified (atomic add).
+                            File validatedFile = PathValidationUtils.validatePath(expFile + ".xml", directory);
+                            String providerName = getProviderName(demographic.getProviderNo());
+                            files.add(validatedFile);
+                            dirs.add(providerName);
                         } catch (Exception e) {
                             logger.error("Error", e);
+                        }
+                        // Guard: only write if a new file entry was successfully added above.
+                        // Without this check, a validation failure would cause us to write
+                        // this patient's data into the previous patient's export file (PHI leak).
+                        if (files.size() <= fileCountBefore) {
+                            continue;
                         }
                         try {
                             FileWriter fw = new FileWriter(files.get(files.size() - 1));
@@ -3604,37 +3641,23 @@ public class DemographicExportAction42Action extends ActionSupport {
     public Boolean validateExport(File f) {
         Boolean result = true;
 
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        factory.setNamespaceAware(true);
-        
+        DocumentBuilderFactory factory = null;
         try {
-            // Disable external entities to prevent XXE attacks
-            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-            
-            // Disable XInclude
-            factory.setXIncludeAware(false);
-            
-            // Disabled expansion of entity references
-            factory.setExpandEntityReferences(false);
+            factory = XmlUtils.createSecureDocumentBuilderFactory();
+            factory.setNamespaceAware(true);
         } catch (ParserConfigurationException e) {
-            logger.error("Failed to configure XML parser security features", e);
-            return false;
-        }
-        
-        DocumentBuilder builder = null;
-        try {
-            builder = factory.newDocumentBuilder();
-        } catch (ParserConfigurationException e1) {
-            logger.error("Parse exception", e1);
+            logger.error("Failed to create secure XML parser factory", e);
             return false;
         }
 
         URL url = getClass().getResource("/omdDataMigration/EMR_Data_Migration_Schema.xsd");
-        String constant = XMLConstants.W3C_XML_SCHEMA_NS_URI;
-        SchemaFactory xsdFactory = SchemaFactory.newInstance(constant);
+        SchemaFactory xsdFactory;
+        try {
+            xsdFactory = XmlUtils.createSecureSchemaFactory(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+        } catch (SAXException e) {
+            logger.error("Failed to create secure schema factory", e);
+            return false;
+        }
         Schema schema = null;
         try {
             schema = xsdFactory.newSchema(url);
@@ -3642,8 +3665,14 @@ public class DemographicExportAction42Action extends ActionSupport {
             logger.error("Parse exception", e);
             return false;
         }
-        factory.setSchema(schema);
 
+        DocumentBuilder builder = null;
+        try {
+            builder = factory.newDocumentBuilder();
+        } catch (ParserConfigurationException e1) {
+            logger.error("Parse exception", e1);
+            return false;
+        }
 
         Document doc = null;
         try {
@@ -3657,7 +3686,13 @@ public class DemographicExportAction42Action extends ActionSupport {
         }
 
         // Check whether document is valid; validation stops at first error detected.
-        Validator validator = schema.newValidator();
+        Validator validator;
+        try {
+            validator = XmlUtils.createSecureValidator(schema);
+        } catch (SAXException e) {
+            logger.error("Failed to create secure validator", e);
+            return false;
+        }
         try {
             validator.validate(new DOMSource(doc));
         } catch (SAXException e) {

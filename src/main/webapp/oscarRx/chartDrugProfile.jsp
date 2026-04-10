@@ -50,9 +50,9 @@
 
 
 <%
-    String labType = request.getParameter("labType");
-    String demographicNo = request.getParameter("demographic_no");
-    String testName = request.getParameter("testName");
+    String labType = StringUtils.noNull(request.getParameter("labType"));
+    String demographicNo = StringUtils.noNull(request.getParameter("demographic_no"));
+    String testName = StringUtils.noNull(request.getParameter("testName"));
     String identifier = request.getParameter("identifier");
     if (identifier == null) {
         identifier = "NULL";
@@ -73,14 +73,14 @@
     if (request.getParameterValues("drug") != null) {
         String[] drugs = request.getParameterValues("drug");
         for (String d : drugs) {
-            sb.append("&drug=" + d);
+            sb.append("&drug=" + Encode.forUriComponent(d));
             h.put(d, "drug");
         }
     } else {
         for (int idx = 0; idx < arr.length; ++idx) {
             RxPrescriptionData.Prescription drug = arr[idx];
             if (!drug.isCustom()) {
-                sb.append("&drug=" + drug.getRegionalIdentifier());
+                sb.append("&drug=" + Encode.forUriComponent(drug.getRegionalIdentifier()));
                 h.put(drug.getRegionalIdentifier(), "drug");
             }
         }
@@ -94,6 +94,8 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath()%>/js/global.js"></script>
@@ -140,16 +142,16 @@
             </table>
 
 
-            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements.do?method=ChartMeds&demographic_no=<%=demographicNo%><%=drugForGraph%>"/>
+            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements.do?method=ChartMeds&demographic_no=<%= Encode.forUriComponent(demographicNo) %><%=drugForGraph%>"/>
 
 
             <fieldset>
                 <legend>Med List</legend>
                 <form action="oscarRx/chartDrugProfile.jsp">
-                    <input type="hidden" name="labType" value="<%=labType%>"/>
-                    <input type="hidden" name="demographic_no" value="<%=demographicNo%>"/>
-                    <input type="hidden" name="testName" value="<%=testName%>"/>
-                    <input type="hidden" name="identifier" value="<%=identifier%>"/>
+                    <input type="hidden" name="labType" value="<%= Encode.forHtmlAttribute(labType) %>"/>
+                    <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
+                    <input type="hidden" name="testName" value="<%= Encode.forHtmlAttribute(testName) %>"/>
+                    <input type="hidden" name="identifier" value="<%= Encode.forHtmlAttribute(identifier) %>"/>
                     <input type="submit" value="Add Meds to Graph"/>
                     <ul>
                         <%
@@ -178,7 +180,7 @@
                                 }
                         %>
                         <li><input type="checkbox"  <%=getChecked(h, drug.getRegionalIdentifier())%> name="drug"
-                                   value="<%=drug.getRegionalIdentifier()%>"/> <%=drug.getFullOutLine().replaceAll(";", " ")%>
+                                   value="<%=Encode.forHtmlAttribute(drug.getRegionalIdentifier())%>"/> <%=Encode.forHtml(drug.getFullOutLine().replaceAll(";", " "))%>
                         </li>
                         <%
                             }

@@ -66,6 +66,7 @@ import io.github.carlos_emr.carlos.util.StringUtils;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class BillingCorrection2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -130,7 +131,7 @@ public class BillingCorrection2Action extends ActionSupport {
 
             return SUCCESS;
         } else {
-            MiscUtils.getLogger().error("Invalid billing invoice:" + invoiceNo);
+            MiscUtils.getLogger().error("Invalid billing invoice:{}", LogSanitizer.sanitize(invoiceNo));
             return "closeReload";
         }
 
@@ -142,13 +143,13 @@ public class BillingCorrection2Action extends ActionSupport {
         try {
             billingNo = Integer.parseInt(request.getParameter("xml_billing_no"));
         } catch (NumberFormatException e) {
-            MiscUtils.getLogger().error("Billing number invalid for Ch1 Id: " + request.getParameter("xml_billing_no"));
+            MiscUtils.getLogger().error("Billing number invalid for Ch1 Id: {}", LogSanitizer.sanitize(request.getParameter("xml_billing_no")), e);
             return "closeReload";
         }
         BillingONCHeader1 bCh1 = bCh1Dao.find(billingNo);
 
         if (bCh1 == null) {
-            MiscUtils.getLogger().error("No billing object found for Ch1 Id: " + request.getParameter("xml_billing_no"));
+            MiscUtils.getLogger().error("No billing object found for Ch1 Id: {}", LogSanitizer.sanitize(request.getParameter("xml_billing_no")));
             return "closeReload";
         }
 
@@ -285,7 +286,7 @@ public class BillingCorrection2Action extends ActionSupport {
             try {
                 billingDate = DateUtils.parseDate(request.getParameter("xml_appointment_date"), locale);
             } catch (java.text.ParseException e) {
-                MiscUtils.getLogger().error("Invalid billing date:" + request.getParameter("xml_appointment_date"), e);
+                MiscUtils.getLogger().error("Invalid billing date:{}", LogSanitizer.sanitize(request.getParameter("xml_appointment_date")), e);
                 return false;
             }
 
@@ -293,7 +294,7 @@ public class BillingCorrection2Action extends ActionSupport {
             try {
                 visitDate = DateUtils.parseDate(request.getParameter("xml_vdate"), locale);
             } catch (java.text.ParseException e) {
-                MiscUtils.getLogger().warn("Could not parse visit date: " + request.getParameter("xml_vdate"), e);
+                MiscUtils.getLogger().warn("Could not parse visit date: {}", LogSanitizer.sanitize(request.getParameter("xml_vdate")), e);
             }
 
             String manualReview = "";
@@ -346,7 +347,7 @@ public class BillingCorrection2Action extends ActionSupport {
                 if (newProvider != null) {
                     bCh1.setProviderOhipNo(newProvider.getOhipNo());
                 } else {
-                    MiscUtils.getLogger().warn("null providers! can't do the update (" + request.getParameter("provider_no") + ")");
+                    MiscUtils.getLogger().warn("null providers! can't do the update ({})", LogSanitizer.sanitize(request.getParameter("provider_no")));
                 }
             }
         }
@@ -431,7 +432,7 @@ public class BillingCorrection2Action extends ActionSupport {
 
                 //Determine Unit
                 String unit = request.getParameter("billingunit" + i);
-                MiscUtils.getLogger().info("(" + serviceCodeId + ") Unit Amount:" + unit);
+                MiscUtils.getLogger().info("({}) Unit Amount:{}", LogSanitizer.sanitize(serviceCodeId), LogSanitizer.sanitize(unit));
                 if (!unit.matches("\\d+")) {
                     unit = "1";
                 }

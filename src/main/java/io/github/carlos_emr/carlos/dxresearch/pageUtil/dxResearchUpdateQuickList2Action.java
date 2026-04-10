@@ -29,12 +29,9 @@
 
 package io.github.carlos_emr.carlos.dxresearch.pageUtil;
 
-import java.io.IOException;
 import java.util.List;
 
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.AbstractCodeSystemDao;
 import io.github.carlos_emr.carlos.commn.dao.AbstractCodeSystemDaoImpl;
@@ -49,24 +46,31 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action for adding or removing diagnosis research codes from a provider's quick list.
+ * Routes to the appropriate add/remove logic based on the {@code forward} parameter, then
+ * reloads the quick list items view.
+ *
+ * @since 2004-06-03
+ */
 public class dxResearchUpdateQuickList2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
 
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    public String execute() throws ServletException, IOException {
+    @Override
+    public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "w", null)) {
-            throw new RuntimeException("missing required sec object (_dxresearch)");
+            throw new SecurityException("missing required sec object (_dxresearch)");
         }
 
-        //dxResearchUpdateQuickListForm frm = (dxResearchUpdateQuickListForm) form;
-        //String quickListName = frm.getQuickListName();
-        //String forward = frm.getForward();
         String codingSystem = this.getSelectedCodingSystem();
         String curUser = (String) request.getSession().getAttribute("user");
-        String contextPath = request.getContextPath();
         boolean valid = true;
+
+        if (forward == null || quickListName == null || quickListName.isEmpty()) {
+            return "failure";
+        }
 
         if (forward.equals("add")) {
             valid = doAdd(quickListName, codingSystem, curUser);
@@ -75,8 +79,8 @@ public class dxResearchUpdateQuickList2Action extends ActionSupport {
         }
 
         if (!valid) {
-            response.sendRedirect(contextPath + "/oscarResearch/oscarDxResearch/dxResearchEditQuickList.jsp");
-            return NONE;
+            request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
+            return "failure";
         }
 
         return SUCCESS;

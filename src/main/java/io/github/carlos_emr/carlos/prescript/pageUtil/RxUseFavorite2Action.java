@@ -91,8 +91,6 @@ public final class RxUseFavorite2Action extends ActionSupport {
             RxPrescriptionData.Prescription rx =
                     rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), fav);
 
-            bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex()));
-
             bean.setStashIndex(bean.addStashItem(loggedInInfo, rx));
             request.setAttribute("BoxNoFillFirstLoad", "true");
         } catch (Exception e) {
@@ -140,7 +138,6 @@ public final class RxUseFavorite2Action extends ActionSupport {
 
             List<RxPrescriptionData.Prescription> listRxDrugs = new ArrayList();
             if (RxUtil.isRxUniqueInStash(bean, rx)) {
-                bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex()));
                 listRxDrugs.add(rx);
                 int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
                 bean.setStashIndex(rxStashIndex);

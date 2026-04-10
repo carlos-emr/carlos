@@ -95,9 +95,6 @@
 <%@ page import="com.fasterxml.jackson.databind.node.ObjectNode" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao" %>
@@ -142,11 +139,13 @@
 <%@ page import="org.w3c.dom.Document" %>
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
 
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProperties" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -312,8 +311,6 @@ request.setAttribute("missingTests", missingTests);
 
 /********************** Converted to this sport *****************************/
 
-String tickler_no="";
-String tickler_note="";
 Integer demoI = 0;
 Integer numTickler = 0;
 
@@ -334,18 +331,15 @@ SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManage
 TicklerManager ticklerManager= SpringUtils.getBean(TicklerManager.class);
 
 if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && isLinkedToDemographic ) {
-    // Note: tickler_note is intentionally raw HTML. All dynamic values MUST remain encoded using OWASP Encoder methods.
-    String tlinkf="\n <a class=\"alert-link\" href='"+request.getContextPath()+"/tickler/ticklerEdit.jsp?tickler_no=";
-    List<String> notes = new java.util.ArrayList<>();
     List<Tickler> ticklers = ticklerManager.search_tickler(loggedInInfo, demoI, MyDateFormat.getSysDate(strDate));
-
-    for (Tickler t: ticklers) {
+    List<Tickler> pendingTicklers = new java.util.ArrayList<>();
+    for (Tickler t : ticklers) {
         if (t.getMessage() != null && !t.getMessage().trim().isEmpty()) {
-            notes.add(tlinkf + Encode.forUriComponent(String.valueOf(t.getId())) + "' target='_blank'>" + Encode.forHtml(t.getMessage()) + "</a>");
+            pendingTicklers.add(t);
         }
     }
-    numTickler = notes.size();
-    tickler_note = String.join(", ", notes);
+    numTickler = pendingTicklers.size();
+    request.setAttribute("pendingTicklers", pendingTicklers);
 }
 
 // check for errors printing
@@ -358,11 +352,7 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
     }
 
 
-    String annotation_display = CaseManagementNoteLink.DISP_LABTEST;
-    CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
-
 %>
-
 <!DOCTYPE HTML>
 
 <html>
@@ -377,6 +367,15 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
     <script>
         var contextpath = "${pageContext.servletContext.contextPath}";
         const ctx = contextpath;
+
+        <%-- Pre-declare i18n messages used in JavaScript so they can be safely embedded
+        in JavaScript string literals using OWASP ${e:forJavaScript(msgComment)} encoding --%>
+
+        <fmt:message key="oscarMDS.segmentDisplay.msgComment" var="msgComment"/>
+        <fmt:message key="oscarMDS.index.msgConfirmAcknowledge" var="msgAck"/>
+        <fmt:message key="oscarMDS.index.msgConfirmAcknowledgeUnmatched" var="msgAckUnmatched"/>
+        <fmt:message key="oscarMDS.segmentDisplay.msgUnlink" var="msgUnlink"/>
+
     </script>
 
 
@@ -551,8 +550,16 @@ input[id^='acklabel_']{
 #labVersionInfoModal .status {
     font-weight: bold;
 }
+
+/* Macros dropdown — hover to open */
+.macro-dropdown:hover > .dropdown-menu { display: block; }
+.macro-dropdown .dropdown-item:hover, .macro-dropdown .dropdown-item:focus {
+    background-color: var(--carlos-primary, #337ab7) !important;
+    color: #fff !important;
+}
     </style>
 
+    <script type="text/javascript" src="<%=Encode.forHtmlAttribute(request.getContextPath())%>/share/javascript/csrfTokenFetch.js"></script>
     <script>
         var labNo = '<%=Encode.forJavaScript(segmentID)%>';
         var providerNo = '<%=Encode.forJavaScript(providerNo)%>';
@@ -577,7 +584,7 @@ input[id^='acklabel_']{
                     comment = "";
                 }
             }
-            var commentVal = prompt('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.msgComment"/>', comment);
+            var commentVal = prompt('${e:forJavaScript(msgComment)}',comment);
 
             var ackForm = document.forms['acknowledgeForm_' + segmentId];
             if (commentVal == null) {
@@ -655,19 +662,19 @@ input[id^='acklabel_']{
                             console.log("Sending message about lab. Demoid: " + demoid);
                             demoid = json.demoId;
                             if (demoid != null && demoid.length > 0) {
-                                window.popup(700, 960, '${pageContext.request.contextPath}/messenger/SendDemoMessage.do?demographic_no=' + demoid, 'msg');
+                                window.popup(700, 960, '${pageContext.request.contextPath}/messenger/SendDemoMessage.do?demographic_no=' + encodeURIComponent(demoid), 'msg');
                             }
                         } else if (action === 'msgLabRecall') {
                             demoid = json.demoId;
                             if (demoid != null && demoid.length > 0) {
-                                window.popup(700, 980, '${pageContext.request.contextPath}/messenger/SendDemoMessage.do?demographic_no=' + demoid + "&recall", 'msgRecall');
-                                window.popup(450, 600, '${pageContext.request.contextPath}/tickler/ForwardDemographicTickler.do?docType=HL7&docId=' + labid + '&demographic_no=' + demoid + '<%=Encode.forJavaScript(ticklerAssignee)%>&priority=<%=Encode.forJavaScript(recallTicklerPriority)%>&recall', 'ticklerRecall');
+                                window.popup(700, 980, '${pageContext.request.contextPath}/messenger/SendDemoMessage.do?demographic_no=' + encodeURIComponent(demoid) + "&recall", 'msgRecall');
+                                window.popup(450, 600, '${pageContext.request.contextPath}/tickler/ForwardDemographicTickler.do?docType=HL7&docId=' + encodeURIComponent(labid) + '&demographic_no=' + encodeURIComponent(demoid) + '<%=Encode.forJavaScript(ticklerAssignee)%>&priority=<%=Encode.forJavaScript(recallTicklerPriority)%>&recall', 'ticklerRecall');
                             }
                         } else if (action === 'ticklerLab') {
                             console.log("Setting lab Tickler. Labid: " + labid + " Demoid: " + demoid);
                             demoid = json.demoId;
                             if (demoid != null && demoid.length > 0) {
-                                window.popup(450, 600, '${pageContext.request.contextPath}/tickler/ForwardDemographicTickler.do?docType=HL7&docId=' + labid + '&demographic_no=' + demoid, 'tickler')
+                                window.popup(450, 600, '${pageContext.request.contextPath}/tickler/ForwardDemographicTickler.do?docType=HL7&docId=' + encodeURIComponent(labid) + '&demographic_no=' + encodeURIComponent(demoid), 'tickler')
                             }
                         } else if (action === 'addComment') {
                             console.log("Adding comment. Formid: " + formid + " labid: " + labid);
@@ -701,23 +708,23 @@ input[id^='acklabel_']{
 
         function confirmAck() {
             <% if (props.getProperty("confirmAck", "").equals("yes")) { %>
-            return confirm('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgConfirmAcknowledge"/>');
+            return confirm('${e:forJavaScript(msgAck)}');
             <% } else { %>
             return true;
             <% } %>
         }
 
         function confirmCommentUnmatched() {
-            return confirm('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgConfirmAcknowledgeUnmatched"/>');
+            return confirm('${e:forJavaScript(msgAckUnmatched)}');
         }
 
         function confirmAckUnmatched() {
-            return confirm('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgConfirmAcknowledgeUnmatched"/>');
+            return confirm('${e:forJavaScript(msgAckUnmatched)}');
         }
 
         function unlinkDemographic(labNo) {
             var reason = "Incorrect demographic";
-            reason = prompt('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.msgUnlink"/>', reason);
+            reason = prompt('${e:forJavaScript(msgUnlink)}', reason);
 
             //must include reason
             if (reason == null || reason.length === 0) {
@@ -826,9 +833,9 @@ input[id^='acklabel_']{
 
         String ackLabFunc;
         if (skipComment) {
-            ackLabFunc = "handleLab('acknowledgeForm_" + segmentID + "','" + segmentID + "','ackLab');";
+            ackLabFunc = "handleLab('acknowledgeForm_" + Encode.forJavaScriptAttribute(segmentID) + "','" + Encode.forJavaScriptAttribute(segmentID) + "','ackLab');";
         } else {
-            ackLabFunc = "getComment('ackLab', " + segmentID + ");";
+            ackLabFunc = "getComment('ackLab', " + Encode.forJavaScriptAttribute(segmentID) + ");";
         }
 
 %>
@@ -883,7 +890,8 @@ input[id^='acklabel_']{
         fetch(url, {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: data
+            body: data,
+            credentials: 'same-origin'
         })
         .then(function(response) { return response.json(); })
         .then(function(json) {
@@ -903,7 +911,7 @@ input[id^='acklabel_']{
     }
 
     function runMacroInternal(name, formid, closeOnSuccess, demographicNo) {
-        var url = '<%=request.getContextPath()%>' + "/oscarMDS/RunMacro.do?name=" + name + (demographicNo.length > 0 ? "&demographicNo=" + demographicNo : "");
+        var url = '<%=request.getContextPath()%>' + "/oscarMDS/RunMacro.do?name=" + encodeURIComponent(name) + (demographicNo.length > 0 ? "&demographicNo=" + encodeURIComponent(demographicNo) : "");
         var formEl = document.getElementById(formid);
         var params = new URLSearchParams(new FormData(formEl));
         if (!params.has('CSRF-TOKEN')) { params.append('CSRF-TOKEN', getCsrfToken()); }
@@ -911,7 +919,8 @@ input[id^='acklabel_']{
         fetch(url, {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: params.toString()
+            body: params.toString(),
+            credentials: 'same-origin'
         })
         .then(function() {
             if (closeOnSuccess) {
@@ -923,6 +932,9 @@ input[id^='acklabel_']{
             alert('An error occurred while running the macro. Please refresh and try again.');
         });
     }
+
+    // Fetch CSRF token from CSRFGuard servlet and populate hidden inputs
+    fetchCsrfToken('<%=Encode.forJavaScript(request.getContextPath())%>');
 </script>
 
 <div id="lab_<%= Encode.forHtmlAttribute(segmentID) %>">
@@ -938,20 +950,31 @@ input[id^='acklabel_']{
         <input type="hidden" name="selectedProviders" value="">
         <input type="hidden" name="favorites" value="">
         <input type="hidden" name="labType" value="HL7">
-        <input type="hidden" name="labType<%= Encode.forHtmlAttribute(segmentID) %>HL7" value="imNotNull">
+        <%
+            String safeSegmentId = null;
+            String rawSegmentId = StringUtils.trimToEmpty(segmentID);
+
+            if (rawSegmentId.matches("\\d+")) {
+                safeSegmentId = rawSegmentId;
+            }
+        %>
+        <% if (safeSegmentId != null) { %>
+        <input type="hidden" name="labType<%= safeSegmentId %>HL7" value="imNotNull"> <%-- segmentID must remain digits-only here so the generated parameter name stays valid and matches server-side lookup --%>
+        <% } %>
         <input type="hidden" id="providerNo_<%= Encode.forHtmlAttribute(segmentID) %>" name="providerNo"
                value="<%= Encode.forHtmlAttribute(providerNo) %>">
     </form>
 
     <form name="labLabelForm_<%= Encode.forHtmlAttribute(segmentID) %>" method='POST'
           action="<%=request.getContextPath()%>/lab/CA/ALL/createLabLabel.do">
-        <input type="hidden" id="labellabNum_<%= Encode.forHtmlAttribute(segmentID) %>" name="lab_no" value="<%=lab_no%>">
+        <input type="hidden" id="labellabNum_<%= Encode.forHtmlAttribute(segmentID) %>" name="lab_no" value="<%=Encode.forHtmlAttribute(String.valueOf(lab_no))%>">
         <input type="hidden" id="label_<%= Encode.forHtmlAttribute(segmentID) %>" name="label" value="<%= Encode.forHtmlAttribute(label) %>">
     </form>
 
     <form name="acknowledgeForm_<%= Encode.forHtmlAttribute(segmentID) %>"
           id="acknowledgeForm_<%= Encode.forHtmlAttribute(segmentID) %>" method="post" onsubmit="javascript:void(0);"
           action="javascript:void(0);">
+        <input type="hidden" name="CSRF-TOKEN" value="">
 
         <table style="width:100%;">
             <tr>
@@ -982,7 +1005,7 @@ input[id^='acklabel_']{
                                     if (up != null && !StringUtils.isEmpty(up.getValue())) {
 
                                 %>
-                                <div class="dropdown">
+                                <div class="dropdown macro-dropdown" style="display:inline-block;position:relative;">
                                     <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" id="dropdownMenuButton1" data-bs-toggle="dropdown" aria-expanded="false">Macros</button>
                                     <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
                                         <%
@@ -996,7 +1019,7 @@ input[id^='acklabel_']{
                                                         boolean closeOnSuccess = macro.has("closeOnSuccess") && macro.get("closeOnSuccess").asBoolean();
 
                                         %><li><a class="dropdown-item" href="javascript:void(0);"
-                                             onClick="runMacro('<%=Encode.forJavaScript(name)%>','acknowledgeForm_<%=Encode.forJavaScript(segmentID)%>',<%=closeOnSuccess%>)"><%=Encode.forHtml(name)%>
+                                             onClick="runMacro('<%=Encode.forJavaScriptAttribute(name)%>','acknowledgeForm_<%=Encode.forJavaScriptAttribute(segmentID)%>',<%=closeOnSuccess%>)"><%=Encode.forHtml(name)%>
                                     </a></li><%
                                                 }
                                             }
@@ -1009,46 +1032,46 @@ input[id^='acklabel_']{
                                 <% } %>
 
                                 <input type="button" class="btn btn-sm btn-outline-primary"
-                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
-                                       onclick="<%=ackLabFunc%>">
+                                       value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
+                                       onclick="<%=Encode.forHtmlAttribute(ackLabFunc)%>">
                                 <% } %>
-                                <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
-                                       onclick="return getComment('addComment',<%=Encode.forJavaScript(segmentID)%>);">
+                                <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
+                                       onclick="return getComment('addComment',<%=Encode.forJavaScriptAttribute(segmentID)%>);">
                                 <input type="button" class="btn btn-sm btn-outline-secondary"
-                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnForward"/>"
-                                       onClick="ForwardSelectedRows(<%=Encode.forJavaScript(segmentID)%> + ':HL7', '', '')">
-                                <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> "
+                                       value="<fmt:message key="oscarMDS.index.btnForward"/>"
+                                       onClick="ForwardSelectedRows(<%=Encode.forJavaScriptAttribute(segmentID)%> + ':HL7', '', '')">
+                                <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="global.btnClose"/> "
                                        onClick="window.close()">
-                                <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
-                                       onClick="printPDF('<%=Encode.forJavaScript(segmentID)%>')">
+                                <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="global.btnPrint"/> "
+                                       onClick="printPDF('<%=Encode.forJavaScriptAttribute(segmentID)%>')">
 
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="Msg"
-                                       onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','msgLab');">
+                                       onclick="handleLab('','<%=Encode.forJavaScriptAttribute(segmentID)%>','msgLab');">
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="Tickler"
-                                       onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','ticklerLab');">
-                                <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnUnlinkDemo"/>"
-                                       onclick="unlinkDemographic(<%=Encode.forJavaScript(segmentID)%>)">
+                                       onclick="handleLab('','<%=Encode.forJavaScriptAttribute(segmentID)%>','ticklerLab');">
+                                <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:message key="oscarMDS.segmentDisplay.btnUnlinkDemo"/>"
+                                       onclick="unlinkDemographic(<%=Encode.forJavaScriptAttribute(segmentID)%>)">
 
                                 <% if (searchProviderNo != null) { // null if we were called from e-chart%>
-                                <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnEChart"/>"
-                                       onClick="popupStart(360, 680, '<%= request.getContextPath() %>/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScript(segmentID) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'encounter')">
+                                <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/>"
+                                       onClick="popupStart(360, 680, '<%= request.getContextPath() %>/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(segmentID)) %>&name=<%=Encode.forJavaScriptAttribute(java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8))%>', 'encounter')">
                                 <% } %>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="Req# <%=Encode.forHtmlAttribute(reqTableID)%>" title="Link to Requisition"
-                                       onclick="linkreq('<%=Encode.forJavaScript(segmentID)%>','<%=Encode.forJavaScript(reqID)%>');">
+                                       onclick="linkreq('<%=Encode.forJavaScriptAttribute(segmentID)%>','<%=Encode.forJavaScriptAttribute(reqID)%>');">
 
 
                                 <% if (bShortcutForm) { %>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="<%=Encode.forHtmlAttribute(formNameShort)%>"
-                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=formName%>&demographic_no=<%=demographicID%>', '<%=Encode.forJavaScript(formNameShort)%>')">
+                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(formName))%>&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.defaultString(demographicID)))%>', '<%=Encode.forJavaScriptAttribute(formNameShort)%>')">
                                 <% } %>
                                 <% if (bShortcutForm2) { %>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="<%=Encode.forHtmlAttribute(formName2Short)%>"
-                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=formName2%>&demographic_no=<%=demographicID%>', '<%=Encode.forJavaScript(formName2Short)%>')">
+                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(formName2))%>&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.defaultString(demographicID)))%>', '<%=Encode.forJavaScriptAttribute(formName2Short)%>')">
                                 <% } %>
 
                                 <% if (recall) {%>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="Recall"
-                                       onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','msgLabRecall');">
+                                       onclick="handleLab('','<%=Encode.forJavaScriptAttribute(segmentID)%>','msgLabRecall');">
                                 <%}%>
                                 <%
                                     if (remoteLabKey == null || remoteLabKey.isEmpty()) {
@@ -1057,16 +1080,16 @@ input[id^='acklabel_']{
                                 <% if (!label.equals(null) && !label.equals("")) { %>
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="createLabel_<%= Encode.forHtmlAttribute(segmentID) %>"
                                         value="Label"
-                                        onclick="submitLabel(this, '<%=Encode.forJavaScript(segmentID)%>');">Label
+                                        onclick="submitLabel(this, '<%=Encode.forJavaScriptAttribute(segmentID)%>');">Label
                                 </button>
                                 <%} else { %>
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="createLabel_<%= Encode.forHtmlAttribute(segmentID) %>"
                                         value="Label"
-                                        onclick="submitLabel(this, '<%=Encode.forJavaScript(segmentID)%>');">Label
+                                        onclick="submitLabel(this, '<%=Encode.forJavaScriptAttribute(segmentID)%>');">Label
                                 </button>
                                 <%} %>
                                 <input type="hidden" id="labNum_<%=Encode.forHtmlAttribute(segmentID) %>" name="lab_no"
-                                       value="<%=lab_no%>">
+                                       value="<%=Encode.forHtmlAttribute(String.valueOf(lab_no))%>">
                                 <input type="text" class="form-control form-control-sm" style="width: 140px; margin-top: 0px;" id="acklabel_<%= Encode.forHtmlAttribute(segmentID) %>" name="label"
                                        value="">
 
@@ -1108,19 +1131,19 @@ input[id^='acklabel_']{
                                     %>v<%= i + 1 %>&#160;<%
                                 } else {
                                     if (searchProviderNo != null) { // null if we were called from e-chart
-                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= providerNo %>&searchProviderNo=<%= searchProviderNo %>">v<%= i + 1 %>
+                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=Encode.forUriComponent(multiID[i])%>&multiID=<%=Encode.forUriComponent(multiLabId)%>&providerNo=<%= Encode.forUriComponent(providerNo) %>&searchProviderNo=<%= Encode.forUriComponent(searchProviderNo) %>">v<%= i + 1 %>
                                 </a>&#160;<%
                                 } else {
-                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= providerNo %>">v<%= i + 1 %>
+                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=Encode.forUriComponent(multiID[i])%>&multiID=<%=Encode.forUriComponent(multiLabId)%>&providerNo=<%= Encode.forUriComponent(providerNo) %>">v<%= i + 1 %>
                                 </a>&#160;<%
                                             }
                                         }
                                     }
 //                                                if( multiID.length > 1 ) {
                                     if (searchProviderNo != null) { // null if we were called from e-chart
-                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%= Encode.forHtmlAttribute(segmentID) %>&multiID=<%=multiLabId%>&providerNo=<%= providerNo %>&searchProviderNo=<%= searchProviderNo %>&all=true">All</a>&#160;<%
+                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%= Encode.forUriComponent(segmentID) %>&multiID=<%=Encode.forUriComponent(multiLabId)%>&providerNo=<%= Encode.forUriComponent(providerNo) %>&searchProviderNo=<%= Encode.forUriComponent(searchProviderNo) %>&all=true">All</a>&#160;<%
                                 } else {
-                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%= Encode.forHtmlAttribute(segmentID) %>&multiID=<%=multiLabId%>&providerNo=<%= providerNo %>&all=true">All</a>&#160;<%
+                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%= Encode.forUriComponent(segmentID) %>&multiID=<%=Encode.forUriComponent(multiLabId)%>&providerNo=<%= Encode.forUriComponent(providerNo) %>&all=true">All</a>&#160;<%
                                     }
 //                                                }
                                 %>
@@ -1134,12 +1157,12 @@ input[id^='acklabel_']{
                         <tr>
                             <td style="width:66%;"  class="Cell">
                                 <div class="Field2">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDetailResults"/>
+                                    <fmt:message key="oscarMDS.segmentDisplay.formDetailResults"/>
                                 </div>
                             </td>
                             <td style="width:33%;"  class="Cell">
                                 <div class="Field2">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResultsInfo"/>
+                                    <fmt:message key="oscarMDS.segmentDisplay.formResultsInfo"/>
                                 </div>
                             </td>
                         </tr>
@@ -1157,7 +1180,7 @@ input[id^='acklabel_']{
                                                             <tr>
                                                                 <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
-                                                                        <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formPatientName"/>: </strong>
+                                                                        <strong><fmt:message key="oscarMDS.segmentDisplay.formPatientName"/>: </strong>
                                                                     </div>
                                                                 </td>
                                                                 <td style="white-space:nowrap;">
@@ -1165,7 +1188,7 @@ input[id^='acklabel_']{
                                                                         <% if (searchProviderNo == null) { // we were called from e-chart%>
                                                                         <a href="javascript:window.close()">
                                                                                 <% } else { // we were called from lab module%>
-                                                                            <a href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScript(segmentID) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
+                                                                            <a href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(segmentID)) %>&name=<%=Encode.forJavaScriptAttribute(java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8))%>', 'searchPatientWindow')">
                                                                                 <% } %>
                                                                                 <%=Encode.forHtml(handler.getPatientName())%>
                                                                             </a>
@@ -1176,7 +1199,7 @@ input[id^='acklabel_']{
                                                             <tr>
                                                                 <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
-                                                                        <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateBirth"/>: </strong>
+                                                                        <strong><fmt:message key="oscarMDS.segmentDisplay.formDateBirth"/>: </strong>
                                                                     </div>
                                                                 </td>
                                                                 <td style="white-space:nowrap;">
@@ -1189,7 +1212,7 @@ input[id^='acklabel_']{
                                                             <tr>
                                                                 <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
-                                                                        <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong>
+                                                                        <strong><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong>
                                                                     </div>
                                                                 </td>
                                                                 <td style="white-space:nowrap;">
@@ -1203,7 +1226,7 @@ input[id^='acklabel_']{
                                                                 <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
                                                                         <strong>
-                                                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formHealthNumber"/>
+                                                                            <fmt:message key="oscarMDS.segmentDisplay.formHealthNumber"/>
                                                                         </strong>
                                                                     </div>
                                                                 </td>
@@ -1219,7 +1242,7 @@ input[id^='acklabel_']{
                                                                 <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
                                                                         <strong>
-                                                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formNextAppointment"/>
+                                                                            <fmt:message key="oscarMDS.segmentDisplay.formNextAppointment"/>
                                                                         </strong>
                                                                     </div>
                                                                 </td>
@@ -1238,7 +1261,7 @@ input[id^='acklabel_']{
                                                             <tr>
                                                                 <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
-                                                                        <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formHomePhone"/>: </strong>
+                                                                        <strong><fmt:message key="oscarMDS.segmentDisplay.formHomePhone"/>: </strong>
                                                                     </div>
                                                                 </td>
                                                                 <td style="white-space:nowrap;">
@@ -1250,7 +1273,7 @@ input[id^='acklabel_']{
                                                             <tr>
                                                                 <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
-                                                                        <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formWorkPhone"/>: </strong>
+                                                                        <strong><fmt:message key="oscarMDS.segmentDisplay.formWorkPhone"/>: </strong>
                                                                     </div>
                                                                 </td>
                                                                 <td style="white-space:nowrap;">
@@ -1262,7 +1285,7 @@ input[id^='acklabel_']{
                                                             <tr>
                                                                 <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
-                                                                        <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong>
+                                                                        <strong><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong>
                                                                     </div>
                                                                 </td>
                                                                 <td style="text-align:left; white-space:nowrap;">
@@ -1277,7 +1300,7 @@ input[id^='acklabel_']{
                                                                         <% if ("ExcellerisON".equals(handler.getMsgType())) { %>
                                                                         <strong>Reported by:</strong>
                                                                         <% } else { %>
-                                                                        <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formPatientLocation"/>: </strong>
+                                                                        <strong><fmt:message key="oscarMDS.segmentDisplay.formPatientLocation"/>: </strong>
                                                                         <% } %>
                                                                     </div>
                                                                 </td>
@@ -1301,9 +1324,9 @@ input[id^='acklabel_']{
                                         <td>
                                             <div class="FieldData">
                                                 <% if ("CLS".equals(handler.getMsgType())) { %>
-                                                <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateServiceCLS"/>:</strong>
+                                                <strong><fmt:message key="oscarMDS.segmentDisplay.formDateServiceCLS"/>:</strong>
                                                 <% } else { %>
-                                                <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateService"/>:</strong>
+                                                <strong><fmt:message key="oscarMDS.segmentDisplay.formDateService"/>:</strong>
                                                 <% } %>
                                             </div>
                                         </td>
@@ -1345,7 +1368,7 @@ input[id^='acklabel_']{
                                     <tr>
                                         <td>
                                             <div class="FieldData">
-                                                <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateReceivedCLS"/>:</strong>
+                                                <strong><fmt:message key="oscarMDS.segmentDisplay.formDateReceivedCLS"/>:</strong>
 
                                             </div>
                                         </td>
@@ -1358,7 +1381,7 @@ input[id^='acklabel_']{
                                     <tr>
                                         <td>
                                             <div class="FieldData">
-                                                <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formReportStatus"/>:</strong>
+                                                <strong><fmt:message key="oscarMDS.segmentDisplay.formReportStatus"/>:</strong>
                                             </div>
                                         </td>
                                         <td>
@@ -1373,7 +1396,7 @@ input[id^='acklabel_']{
                                     <tr>
                                         <td style="white-space:nowrap;">
                                             <div class="FieldData">
-                                                <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formClientRefer"/>:</strong>
+                                                <strong><fmt:message key="oscarMDS.segmentDisplay.formClientRefer"/>:</strong>
                                             </div>
                                         </td>
                                         <td style="white-space:nowrap;">
@@ -1385,7 +1408,7 @@ input[id^='acklabel_']{
                                     <tr>
                                         <td>
                                             <div class="FieldData">
-                                                <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAccession"/>:</strong>
+                                                <strong><fmt:message key="oscarMDS.segmentDisplay.formAccession"/>:</strong>
                                             </div>
                                         </td>
                                         <td>
@@ -1433,19 +1456,19 @@ input[id^='acklabel_']{
                                     <tr>
                                         <td style="background-color:white;">
                                             <div class="FieldData">
-                                                <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formRequestingClient"/>: </strong>
+                                                <strong><fmt:message key="oscarMDS.segmentDisplay.formRequestingClient"/>: </strong>
                                                 <%=Encode.forHtml(handler.getDocName())%>
                                             </div>
                                         </td>
                                         <%-- <td style="background-color:white;">
                                 <div class="FieldData">
-                                    <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formReportToClient"/>: </strong>
+                                    <strong><fmt:message key="oscarMDS.segmentDisplay.formReportToClient"/>: </strong>
                                         <%= No admitting Doctor for CML messages%>
                                 </div>
                             </td> --%>
                                         <td style="background-color:white; text-align:right">
                                             <div class="FieldData">
-                                                <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formCCClient"/>: </strong>
+                                                <strong><fmt:message key="oscarMDS.segmentDisplay.formCCClient"/>: </strong>
                                                 <%=Encode.forHtml(handler.getCCDocs())%>
 
                                             </div>
@@ -1541,7 +1564,14 @@ input[id^='acklabel_']{
         <table style="width:100%;">
             <tr>
                 <td class="alert alert-info alert-dismissible fade show"><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    <strong>INFO</strong> The following <%=numTickler%> <a class="alert-link" onclick="popup(450, 1200, '<%=request.getContextPath()%>/tickler/ticklerDemoMain.jsp?demoview=<%=Encode.forUriComponent(demographicID)%>', 'openTicklers')">ticklers</a> are marked pending:<%=tickler_note%>
+                    <strong>INFO</strong> The following <%=numTickler%> <a class="alert-link" onclick="popup(450, 1200, '<%=request.getContextPath()%>/tickler/ticklerDemoMain.jsp?demoview=<%=Encode.forUriComponent(demographicID)%>', 'openTicklers')">ticklers</a>
+                    are marked pending:
+                    <c:forEach items="${pendingTicklers}" var="tickler" varStatus="loop">
+                    <c:if test="${not loop.first}">, </c:if>
+                    <a class="alert-link"
+                       href="${pageContext.request.contextPath}/tickler/ticklerEdit.jsp?tickler_no=${e:forUriComponent(tickler.id)}"
+                       target="_blank" rel="noopener noreferrer">${e:forHtml(tickler.message)}</a>
+                    </c:forEach>
                 </td>
             </tr>
          </table>
@@ -1589,22 +1619,18 @@ input[id^='acklabel_']{
                                                     report = ackList.get(i); %>
                                                 <%= Encode.forHtml(report.getProviderName()) %> :
 
-                                                <% String ackStatus = report.getStatus();
-                                                    if (ackStatus.equals("A")) {
-                                                        ackStatus = "Acknowledged";
-                                                    } else if (ackStatus.equals("F")) {
-                                                        ackStatus = "Filed but not Acknowledged";
-                                                    } else {
-                                                        ackStatus = "Not Acknowledged";
-                                                    }
-                                                %>
-                                                <span style="color:red"><%= ackStatus %>
+                                                <% String ackStatusCode = report.getStatus(); %>
+                                                <span style="color:red">
+                                                    <% if (ackStatusCode.equals("A")) { %><fmt:message key="oscarMDS.segmentDisplay.statusAcknowledged"/>
+                                                    <% } else if (ackStatusCode.equals("F")) { %><fmt:message key="oscarMDS.segmentDisplay.statusFiledNotAcknowledged"/>
+                                                    <% } else { %><fmt:message key="oscarMDS.segmentDisplay.statusNotAcknowledged"/>
+                                                    <% } %>
                                                 </span>
-                                                <% if (ackStatus.equals("Acknowledged")) { %>
+                                                <% if (ackStatusCode.equals("A")) { %>
                                                 <%= Encode.forHtml(report.getTimestamp()) %>,
                                                 <% } %>
-                                                <span id="<%=report.getOscarProviderNo() + "_" + segmentID%>commentLabel"><%=report.getComment() == null || report.getComment().equals("") ? "no comment" : "comment : "%></span><span
-                                                    id="<%=report.getOscarProviderNo() + "_" + segmentID%>commentText"><%=report.getComment() == null ? "" : Encode.forHtml(report.getComment())%></span>
+                                                <span id="<%= Encode.forHtmlAttribute(report.getOscarProviderNo() + "_" + segmentID) %>commentLabel"><%=report.getComment() == null || report.getComment().equals("") ? "no comment" : "comment : "%></span><span
+                                                    id="<%= Encode.forHtmlAttribute(report.getOscarProviderNo() + "_" + segmentID) %>commentText"><%=report.getComment() == null ? "" : Encode.forHtml(report.getComment())%></span>
                                                 <br>
                                                 <% }
                                                     if (ackList.size() == 0) {
@@ -1692,17 +1718,17 @@ input[id^='acklabel_']{
 
                         <tr class="Field2">
 
-                            <td style="width:20%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
-                            <td style="width:60%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
+                            <td style="width:20%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
+                            <td style="width:60%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
                             <% if ("CLS".equals(handler.getMsgType())) { %>
-                            <td style="width:20%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompletedCLS"/></td>
+                            <td style="width:20%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompletedCLS"/></td>
                             <% } else { %>
-                            <td style="width:20%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
+                            <td style="width:20%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
                             <% } %>
 
-                            <td style="width:31%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
-                            <td style="width:31%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
-                            <td style="width:31%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
+                            <td style="width:31%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
+                            <td style="width:31%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
+                            <td style="width:31%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
 
                         </tr>
                             <%
@@ -1735,18 +1761,17 @@ input[id^='acklabel_']{
                                 <% }%>
 
                             <tr class="Field2">
-                                <td style="width:25%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
-                                <td style="width:15%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
-                                <td style="width:5%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAbn"/></td>
-                                <td style="width:15%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formReferenceRange"/></td>
-                                <td style="width:10%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formUnits"/></td>
+                                <td style="width:25%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
+                                <td style="width:15%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
+                                <td style="width:5%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formAbn"/></td>
+                                <td style="width:15%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formReferenceRange"/></td>
+                                <td style="width:10%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formUnits"/></td>
                                 <% if ("CLS".equals(handler.getMsgType())) { %>
-                                <td style="width:15%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompletedCLS"/></td>
+                                <td style="width:15%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompletedCLS"/></td>
                                 <% } else { %>
-                                <td style="width:15%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
+                                <td style="width:15%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
                                 <% } %>
-                                <td style="width:6%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
-                                <td style="width:6%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAnnotate"/></td>
+                                <td style="width:6%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
                                 <% if ("ExcellerisON".equals(handler.getMsgType())) { %>
                                 <td style="width:6%;  vertical-align:bottom" class="Cell">License #</td>
                             </tr>
@@ -1842,16 +1867,6 @@ input[id^='acklabel_']{
                     lineClass = "AbnormalRes";
                 }
 
-                boolean isPrevAnnotation = false;
-                CaseManagementNoteLink cml = caseManagementManager.getLatestLinkByTableId(CaseManagementNoteLink.LABTEST, Long.valueOf(segmentID), j + "-" + k);
-                CaseManagementNote p_cmn = null;
-                if (cml != null) {
-                    p_cmn = caseManagementManager.getNote(cml.getNoteId().toString());
-                }
-                if (p_cmn != null) {
-                    isPrevAnnotation = true;
-                }
-
                 String loincCode = null;
                 try {
                     List<MeasurementMap> mmapList = measurementMapDao.getMapsByIdent(handler.getOBXIdentifier(j, k));
@@ -1892,15 +1907,6 @@ input[id^='acklabel_']{
                 </td>
                 <td style="text-align:center"><%=Encode.forHtml(handler.getOBXResultStatus(j, k)) %>
                 </td>
-                <td style="text-align:center; vertical-align:top;  ">
-                    <a href="javascript:void(0);" title="Annotation"
-                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=Encode.forJavaScript(demographicID)%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
-                        <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
-                                                          width="13"/><%} else { %><img
-                            src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"
-                           /> <%} %>
-                    </a>
-                </td>
             </tr>
             <% } else if (handler.getOBXIdentifier(j, k).equals(headers.get(i)) && obxName.equals("")) { %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
@@ -1937,15 +1943,6 @@ input[id^='acklabel_']{
                 <td style="text-align:center"><%=Encode.forHtml(handler.getTimeStamp(j, k)) %>
                 </td>
                 <td style="text-align:center"><%=Encode.forHtml(handler.getOBXResultStatus(j, k)) %>
-                </td>
-                <td style="vertical-align:center; text-align:left;">
-                    <a href="javascript:void(0);" title="Annotation"
-                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=Encode.forJavaScript(demographicID)%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
-                        <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
-                                                          width="13"/><%} else { %><img
-                            src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"
-                           /> <%} %>
-                    </a>
                 </td>
             </tr>
 
@@ -2036,15 +2033,6 @@ input[id^='acklabel_']{
                 <td style="text-align:center"><%=Encode.forHtml(handler.getOBXResultStatus(j, k)) %>
                 </td>
 
-                <td style="vertical-align:top;  text-align:left;">
-                    <a href="javascript:void(0);" title="Annotation"
-                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=Encode.forJavaScript(demographicID)%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
-                        <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
-                                                          width="13"/><%} else { %><img
-                            src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"
-                           /> <%} %>
-                    </a>
-                </td>
             </tr>
 
             <%for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {%>
@@ -2195,7 +2183,7 @@ input[id^='acklabel_']{
 
             %>
             <td style="text-align:<%=align%>"><a
-                    href="<%=request.getContextPath() %>/lab/DownloadEmbeddedDocumentFromLab.do?labNo=<%= Encode.forHtmlAttribute(segmentID) %>&segment=<%=j%>&group=<%=k%><%=legacy%>">PDF
+                    href="<%=request.getContextPath() %>/lab/DownloadEmbeddedDocumentFromLab.do?labNo=<%= Encode.forUriComponent(segmentID) %>&segment=<%=j%>&group=<%=k%><%=legacy%>">PDF
                 Report</a></td>
             <%
             } else {
@@ -2235,13 +2223,6 @@ input[id^='acklabel_']{
                 <%=status %>
 
             </td>
-            <td style="vertical-align:top;  text-align:left;"><a href="javascript:void(0);" title="Annotation"
-                                               onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=Encode.forJavaScript(demographicID)%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
-                <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
-                                                  width="13"/><%} else { %><img
-                    src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"/> <%} %>
-            </a>
-            </td>
 
             <% if ("ExcellerisON".equals(handler.getMsgType())) {
                 lastLicenseNo = currentLicenseNo;
@@ -2279,15 +2260,6 @@ input[id^='acklabel_']{
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;">
                 <td style="vertical-align:top;  text-align:left;" colspan="9">
                     <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getOBXComment(j, k, l).replaceAll("<br />", " "))%></pre>
-                </td>
-                <td style="vertical-align:top;  text-align:left;">
-                    <a href="javascript:void(0);" title="Annotation"
-                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=Encode.forJavaScript(demographicID)%>&amp;other_id=<%=String.valueOf(1) + "-" + String.valueOf(1) %>','anwin','width=400,height=500');">
-                        <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
-                                                          width="13"/><%} else { %><img
-                            src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"
-                           /> <%} %>
-                    </a>
                 </td>
             </tr>
             <%
@@ -2354,11 +2326,11 @@ input[id^='acklabel_']{
                     if (numZDS > 0) {
             %>
             <tr class="Field2">
-                <td width="25%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
-                <td width="15%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
-                <td width="15%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formProvider"/></td>
-                <td width="15%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
-                <td width="6%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
+                <td width="25%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
+                <td width="15%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
+                <td width="15%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formProvider"/></td>
+                <td width="15%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
+                <td width="6%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
             </tr>
             <%
                 }
@@ -2391,27 +2363,27 @@ input[id^='acklabel_']{
             <tr>
                 <td style="text-align:left; width:50%">
                     <% if (!ackFlag) { %>
-                    <input type="button" class="btn btn-sm btn-outline-primary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
-                           onclick="<%=ackLabFunc%>">
+                    <input type="button" class="btn btn-sm btn-outline-primary" value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
+                           onclick="<%=Encode.forHtmlAttribute(ackLabFunc)%>">
                     <% } %>
-                    <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
-                           onclick="return getComment('addComment',<%=Encode.forJavaScript(segmentID)%>);">
-                    <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnForward"/>"
-                           onClick="ForwardSelectedRows(<%=Encode.forJavaScript(segmentID)%> + ':HL7', '', '')">
-                    <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> " onClick="window.close()">
-                    <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
-                           onClick="printPDF('<%=Encode.forJavaScript(segmentID)%>')">
+                    <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
+                           onclick="return getComment('addComment',<%=Encode.forJavaScriptAttribute(segmentID)%>);">
+                    <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:message key="oscarMDS.index.btnForward"/>"
+                           onClick="ForwardSelectedRows(<%=Encode.forJavaScriptAttribute(segmentID)%> + ':HL7', '', '')">
+                    <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="global.btnClose"/> " onClick="window.close()">
+                    <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="global.btnPrint"/> "
+                           onClick="printPDF('<%=Encode.forJavaScriptAttribute(segmentID)%>')">
                     <% if (searchProviderNo != null) { // we were called from e-chart %>
-                    <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
+                    <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
                            onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScript(segmentID) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'encounter')">
 
                     <% } %>
                 </td>
                 <td style="vertical-align:top; text-align:left; width:50%;">
                     <% if ("CLS".equals(handler.getMsgType())) { %>
-                    <span class="Field2"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.msgReportEndCLS"/></i></span>
+                    <span class="Field2"><i><fmt:message key="oscarMDS.segmentDisplay.msgReportEndCLS"/></i></span>
                     <% } else { %>
-                    <span class="Field2"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.msgReportEnd"/></i></span>
+                    <span class="Field2"><i><fmt:message key="oscarMDS.segmentDisplay.msgReportEnd"/></i></span>
                     <% } %>
                 </td>
             </tr>
@@ -2461,6 +2433,8 @@ input[id^='acklabel_']{
 </div>
 <%} %>
 
+<script type="text/javascript"
+        src="${pageContext.servletContext.contextPath}/library/dompurify/purify.min.js"></script>
 <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
 

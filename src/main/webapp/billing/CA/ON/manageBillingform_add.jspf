@@ -31,6 +31,8 @@
 
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <% String errorMessage = request.getParameter("errorMessage"); %>
@@ -106,7 +108,7 @@
 				<tr>
 				    <td class="white">&nbsp;</td>
 					<td width="50%" class="white">			
-					<font color="red" size="2"> <%= errorMessage %>
+					<font color="red" size="2"> <%= Encode.forHtml(StringUtils.noNull(errorMessage)) %>
 					</font></td>
 					
 				</tr>				

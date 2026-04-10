@@ -60,6 +60,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -187,11 +188,11 @@
 
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
 
-        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-        <script src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
+        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
-        <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
         <oscar:customInterface section="editInvoice"/>
@@ -683,15 +684,15 @@
                 <input type="hidden" id="billTotal" value="<%=BillTotal%>"/>
 
                 <div class="col-md-2">
-                    <a href="#" onclick="return sanityCheck('<%=nullToEmpty(billNo)%>', <%=billNoErr%>);"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formInvoiceNo"/></a><br>
-                    <input type="text" id="billing_no" name="billing_no" value="<%=nullToEmpty(billNo)%>" class="col-md-2"
+                    <a href="#" onclick="return sanityCheck('<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(nullToEmpty(billNo))) %>', <%=billNoErr%>);"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formInvoiceNo"/></a><br>
+                    <input type="text" id="billing_no" name="billing_no" value="<%= Encode.forHtmlAttribute(nullToEmpty(billNo)) %>" class="col-md-2"
                            required>
                 </div>
 
 
                 <div class="col-md-2">
                     OHIP Claim No <br>
-                    <input type="text" name="claim_no" value="<%=nullToEmpty(claimNo)%>" class="col-md-2">
+                    <input type="text" name="claim_no" value="<%= Encode.forHtmlAttribute(nullToEmpty(claimNo)) %>" class="col-md-2">
                 </div>
 
                 <div class="col-md-2">
@@ -741,7 +742,7 @@
 
         <form action="<%=request.getContextPath() %>/billing/CA/ON/BillingONCorrection.do" method="post">
             <input type="hidden" name="method" value="updateInvoice"/>
-            <input type="hidden" name="xml_billing_no" value="<%=billNo%>"/>
+            <input type="hidden" name="xml_billing_no" value="<%= Encode.forHtmlAttribute(billNo) %>"/>
             <input type="hidden" name="update_date" value="<%=nullToEmpty(createTimestamp)%>"/>
             <input type="hidden" name="payDate" value="<%=UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss")%>"/>
             <input type="hidden" name="demoNo" value="<%=DemoNo%>"/>
@@ -755,7 +756,7 @@
                         </tr>
                         <tr>
                             <td style="width:54%"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgPatientName"/>: <a href=#
-                                                                                         onclick="popupPage(720,860,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=DemoNo %>&displaymode=edit&dboperation=search_detail');return false;">
+                                                                                         onclick="popupPage(720,860,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=DemoNo %>');return false;">
                                 <%=DemoName%>
                             </a> <input type="hidden" name="demo_name"
                                         value="<%=DemoName%>"></td>
@@ -1253,7 +1254,7 @@
 
                     <%if (billNo != null) {%>
 
-                    <a id="reprintLink" onclick="return sanityCheck('<%=nullToEmpty(billNo)%>', <%=billNoErr%>)" href="billingON3rdInv.jsp?billingNo=<%=billNo%>" class="btn btn-secondary"><i
+                    <a id="reprintLink" onclick="return sanityCheck('<%= Encode.forJavaScriptAttribute(nullToEmpty(billNo)) %>', <%=billNoErr%>)" href="billingON3rdInv.jsp?billingNo=<%= Encode.forUriComponent(billNo) %>" class="btn btn-secondary"><i
                             class="fa-solid fa-print"></i> Reprint</a>
                     <a id="rebillLink"
                        onclick="document.querySelector(&quot;select[name='status']&quot;).value = 'O'; document.getElementsByName(&quot;submit&quot;)[1].click();"
@@ -1358,7 +1359,7 @@
         }, 5000);
 
         function display3rdPartyPayments() {
-            popupPage('800', '860', 'billingON3rdPayments.do?method=listPayments&billingNo=<%= billNo %>');
+            popupPage('800', '860', 'billingON3rdPayments.do?method=listPayments&billingNo=<%= Encode.forJavaScript(Encode.forUriComponent(billNo)) %>');
         }
 
         document.addEventListener('DOMContentLoaded', function () {

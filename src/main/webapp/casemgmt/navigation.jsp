@@ -37,7 +37,7 @@
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementHelper" %>
@@ -209,7 +209,7 @@
 
                     <tr>
                         <td><a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/demographic/demographiccontrol.jsp?demographic_no=<%=bean.demographicNo%>&displaymode=edit&dboperation=search_detail');return false;">Master</a>
+                               onClick="popupPage('<%=bsurl%>/demographic/DemographicEdit.do?demographic_no=<%=bean.demographicNo%>');return false;">Master</a>
                         </td>
                     </tr>
 
@@ -228,7 +228,7 @@
                     <%} else { %>
                     <tr>
                         <td><a href="javascript:void(0)"
-                               onClick="onUnbilled('<%=bsurl%>/billing/CA/<%=province%>/billingDeleteWithoutNo.jsp?appointment_no=<%=bean.appointmentNo%>');return false;">Billing</a>
+                               onClick="onUnbilled('<%=bsurl%>/billing/CA/<%=province%>/BillingDeleteWithoutNo.do?appointment_no=<%=bean.appointmentNo%>');return false;">Billing</a>
                         </td>
                     </tr>
                     <%} %>
@@ -250,7 +250,7 @@
                 </caisirole:SecurityAccess>
 
                 <!-- allergies -->
-                <!-- tr><td><a href="javascript:void(0)" onClick="popupPage('<%=bsurl%>/oscarRx/ShowAllergies.jsp?providerNo=<%=bean.providerNo%>&demographicNo=<%=bean.demographicNo%>');return false;">Allergies</a></td></tr -->
+                <!-- tr><td><a href="javascript:void(0)" onClick="popupPage('<%=bsurl%>/oscarRx/ShowAllergies2.jsp?providerNo=<%=bean.providerNo%>&demographicNo=<%=bean.demographicNo%>');return false;">Allergies</a></td></tr -->
 
 
                 <!-- Consultations -->
@@ -299,13 +299,6 @@
                 <caisirole:SecurityAccess accessName="oscarcomm" accessType="access" providerNo="<%=bean.providerNo%>"
                                           demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
 
-                    <% if (CarlosProperties.getInstance().getProperty("oscarcomm", "").equals("on")) { %>
-                    <tr>
-                        <td><a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/encounter/RemoteAttachments.jsp');return false;">CARLOS Messenger</a>
-                        </td>
-                    </tr>
-                    <% } %>
                 </caisirole:SecurityAccess>
 
                 <!-- Disease Registry -->
@@ -327,7 +320,7 @@
                                       demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
                 <tr>
                     <td><a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/tickler/ticklerAdd.jsp?demographic_no=<%=bean.demographicNo%>&name=<%=StringEscapeUtils.escapeEcmaScript(bean.getPatientLastName() +"," + bean.getPatientFirstName())%>');return false;">Add
+                           onClick="popupPage('<%=bsurl%>/tickler/ticklerAdd.jsp?demographic_no=<%=bean.demographicNo%>&name=<%=Encode.forJavaScript(bean.getPatientLastName() +"," + bean.getPatientFirstName())%>');return false;">Add
                         Tickler</a></td>
                 </tr>
             </caisirole:SecurityAccess>

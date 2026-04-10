@@ -54,8 +54,11 @@ public final class RptReportCreator {
     // select formBCAR.pg1_ethOrig as Ethnic Origin, ...
     public String getSelectField(String recordId) throws SQLException {
         StringBuilder ret = new StringBuilder();
-        String sql = "select * from reportConfig where report_id = " + recordId + " order by order_no";
-        ResultSet rs = DBHelp.searchDBRecord(sql);
+        String sql = "select * from reportConfig where report_id = ? order by order_no";
+        ResultSet rs = DBHelp.searchDBRecord(sql, recordId);
+        if (rs == null) {
+            return ret.toString();
+        }
         while (rs.next()) {
             String caption = DBHelp.getString(rs, "caption");
             ret.append((ret.length() < 8 ? " " : ", ") + DBHelp.getString(rs, "table_name") + "." + DBHelp.getString(rs, "name"));
@@ -70,9 +73,11 @@ public final class RptReportCreator {
     // from formBCAR
     public String getFromTableFirst(String recordId) throws SQLException {
         String ret = "  ";
-        String sql = "select distinct table_name from reportConfig where report_id = " + recordId
-                + " order by table_name desc";
-        ResultSet rs = DBHelp.searchDBRecord(sql);
+        String sql = "select distinct table_name from reportConfig where report_id = ? order by table_name desc";
+        ResultSet rs = DBHelp.searchDBRecord(sql, recordId);
+        if (rs == null) {
+            return ret;
+        }
         if (rs.next()) {
             ret = DBHelp.getString(rs, "table_name");
         }
@@ -84,9 +89,11 @@ public final class RptReportCreator {
     public String getFromTable(String recordId) throws SQLException {
         String ret = "  ";
         Vector vec = new Vector();
-        String sql = "select distinct table_name from reportConfig where report_id = " + recordId
-                + " order by table_name desc";
-        ResultSet rs = DBHelp.searchDBRecord(sql);
+        String sql = "select distinct table_name from reportConfig where report_id = ? order by table_name desc";
+        ResultSet rs = DBHelp.searchDBRecord(sql, recordId);
+        if (rs == null) {
+            return ret;
+        }
         while (rs.next()) {
             vec.add(DBHelp.getString(rs, "table_name"));
         }
@@ -116,6 +123,18 @@ public final class RptReportCreator {
                 if (endIdx > startIdx + 2) {
                     // Found a complete ${...} pattern
                     String replacement = (i < vec.size() && vec.get(i) != null) ? (String) vec.get(i) : "";
+                    // Check if placeholder is inside a quoted string (char before ${ is a single quote)
+                    boolean inQuotedContext = startIdx > 0 && value.charAt(startIdx - 1) == '\'';
+                    if (inQuotedContext) {
+                        // Escape backslashes first (MySQL backslash-escape bypass), then single quotes
+                        replacement = replacement.replace("\\", "\\\\").replace("'", "''");
+                    } else {
+                        // Unquoted numeric context: only allow digits and optional leading minus
+                        if (!replacement.isEmpty() && !replacement.matches("-?\\d+(\\.\\d+)?")) {
+                            MiscUtils.getLogger().warn("Non-numeric value rejected for unquoted SQL placeholder in report template");
+                            replacement = "";
+                        }
+                    }
                     value = value.substring(0, startIdx) + replacement + value.substring(endIdx + 1);
                 } else {
                     ret = value;

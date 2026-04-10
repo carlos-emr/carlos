@@ -576,15 +576,11 @@ public class NotesService extends AbstractServiceImpl {
         }
 
 
-        // Save annotation
-
-        CaseManagementNote annotationNote = null; // (CaseManagementNote) session.getAttribute(attrib_name);
-
         //String ongoing = null; // figure out this
         String lastSavedNoteString = null;
         String user = loggedInInfo.getLoggedInProvider().getProviderNo();
         String remoteAddr = ""; // Not sure how to get this
-        caseMangementNote = caseManagementMgr.saveCaseManagementNote(loggedInInfo, caseMangementNote, issuelist, cpp, ongoing, verify, getLocale(), now, annotationNote, userName, user, remoteAddr, lastSavedNoteString);
+        caseMangementNote = caseManagementMgr.saveCaseManagementNote(loggedInInfo, caseMangementNote, issuelist, cpp, ongoing, verify, getLocale(), now, userName, user, remoteAddr, lastSavedNoteString);
 
         caseManagementMgr.getEditors(caseMangementNote);
 
@@ -621,8 +617,8 @@ public class NotesService extends AbstractServiceImpl {
 			
 			CasemgmtNoteLock casemgmtNoteLock = casemgmtNoteLockDao.find(casemgmtNoteLockSession.getId());
 			//if other window has acquired lock we reject save									
-			if ( !casemgmtNoteLock.getSessionId().equals(casemgmtNoteLockSession.getSessionId()) || !request.getRequestedSessionId().equals(casemgmtNoteLockSession.getSessionId()) ) {
-				logger.info("DO NOT HAVE LOCK FOR " + demo + " PROVIDER " + providerNo + " CONTINUE SAVING LOCAL SESSION " + request.getRequestedSessionId() + " LOCAL IP " + request.getRemoteAddr() + " LOCK SESSION " + casemgmtNoteLockSession.getSessionId() + " LOCK IP " + casemgmtNoteLockSession.getIpAddress());
+			if ( !casemgmtNoteLock.getSessionId().equals(casemgmtNoteLockSession.getSessionId()) || !request.getSession().getId().equals(casemgmtNoteLockSession.getSessionId()) ) {
+				logger.info("DO NOT HAVE LOCK FOR " + demo + " PROVIDER " + providerNo + " CONTINUE SAVING LOCAL SESSION " + request.getSession().getId() + " LOCAL IP " + request.getRemoteAddr() + " LOCK SESSION " + casemgmtNoteLockSession.getSessionId() + " LOCK IP " + casemgmtNoteLockSession.getIpAddress());
 				return -1L;
 			}
 		}
@@ -940,16 +936,12 @@ public class NotesService extends AbstractServiceImpl {
          *
          */
 
-        // Save annotation
-        CaseManagementNote annotationNote = null; // (CaseManagementNote) session.getAttribute(attrib_name);
-        //logger.error(noteIssue.getAnnotation_attrib());
-
         //String ongoing = null; // figure out this
         String lastSavedNoteString = null;
         String user = loggedInInfo.getLoggedInProvider().getProviderNo();
         String remoteAddr = ""; // Not sure how to get this
 
-        //caseMangementNote = caseManagementMgr.saveCaseManagementNote(caseMangementNote, issuelist, cpp, ongoing, verify, loggedInInfo.getLocale(), now, annotationNote, userName, user, remoteAddr, lastSavedNoteString);
+        //caseMangementNote = caseManagementMgr.saveCaseManagementNote(caseMangementNote, issuelist, cpp, ongoing, verify, loggedInInfo.getLocale(), now, userName, user, remoteAddr, lastSavedNoteString);
 
         String savedStr = caseManagementMgr.saveNote(cpp, caseMangementNote, providerNo, userName, null, note.getRoleName());
         caseManagementMgr.saveCPP(cpp, providerNo);

@@ -758,7 +758,7 @@ function addNavElement() {
     let bootstrapStyle = document.createElement("link");
     bootstrapStyle.setAttribute("rel", "stylesheet");
     bootstrapStyle.setAttribute("type", "text/css");
-    bootstrapStyle.setAttribute("href", "../library/bootstrap/5.3.3/css/bootstrap.min.css");
+    bootstrapStyle.setAttribute("href", "../library/bootstrap/5.3.8/css/bootstrap.min.css");
     headelement[0].appendChild(bootstrapStyle);
 
     /*

@@ -50,6 +50,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public final class Frm2Action extends ActionSupport {
 
@@ -96,7 +97,7 @@ public final class Frm2Action extends ActionSupport {
             rec = recorder.factory(formClassName);
             Properties props = new Properties();
 
-            log.info("SUBMIT " + submitType);
+            log.info("SUBMIT {}", LogSanitizer.sanitize(submitType));
 
             //if we are graphing, we need to grab info from db and add it to request object
             if ("graph".equals(submitType)) {
@@ -184,7 +185,7 @@ public final class Frm2Action extends ActionSupport {
 
                 props.setProperty("provider_no", (String) request.getSession().getAttribute("user"));
                 newID = rec.saveFormRecord(props);
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, request
+                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, request // nosemgrep: tainted-session-from-http-request
                         .getParameter("form_class"), "" + newID, request.getRemoteAddr(), request.getParameter("demographic_no"));
             } else if ("autosaveAjax".equals(request.getParameter("submit"))) {
                 quickSaveForm(rec, request, response);
@@ -195,7 +196,7 @@ public final class Frm2Action extends ActionSupport {
                     props.setProperty(name, request.getParameter(name));
                 }
                 props.setProperty("provider_no", (String) request.getSession().getAttribute("user"));
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, request
+                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, request // nosemgrep: tainted-session-from-http-request
                         .getParameter("form_class"), "" + newID, request.getRemoteAddr(), request.getParameter("demographic_no"));
 
                 return null;
@@ -237,14 +238,14 @@ public final class Frm2Action extends ActionSupport {
                 newID = rec.saveFormRecord(props);
 
                 if (newID > 0) {
-                    log.info(formClassName + " new form ID " + newID + " successfully saved.");
+                    log.info("{} new form ID {} successfully saved.", LogSanitizer.sanitize(formClassName), newID);
                     saveSuccess = Boolean.TRUE;
                 } else {
-                    log.info(formClassName + " form ID " + formId + " failed to save.");
+                    log.info("{} form ID {} failed to save.", LogSanitizer.sanitize(formClassName), formId);
                 }
 
                 String ip = request.getRemoteAddr();
-                LogAction.addLog((String) request.getSession().getAttribute("user"),
+                LogAction.addLog((String) request.getSession().getAttribute("user"), // nosemgrep: tainted-session-from-http-request
                         LogConst.ADD,
                         formClassName,
                         "" + newID,
@@ -270,10 +271,10 @@ public final class Frm2Action extends ActionSupport {
 
         } catch (Exception ex) {
             // throw new ServletException(ex);
-            MiscUtils.getLogger().error("Exception for form " + formClassName + " Save failed.", ex);
+            MiscUtils.getLogger().error("Exception for form {} Save failed.", LogSanitizer.sanitize(formClassName), ex);
         }
 
-        log.info("Forwarding form " + formClassName + " to " + actionForward);
+        log.info("Forwarding form {} to {}", LogSanitizer.sanitize(formClassName), LogSanitizer.sanitize(actionForward));
 
         request.setAttribute("saveSuccess", saveSuccess);
 
@@ -289,7 +290,7 @@ public final class Frm2Action extends ActionSupport {
         props.setProperty("provider_no", (String) request.getSession().getAttribute("user"));
         try {
             int newFormId = formRecord.saveFormRecord(props);
-            LogAction.addLog((String) request.getSession().getAttribute("user"),
+            LogAction.addLog((String) request.getSession().getAttribute("user"), // nosemgrep: tainted-session-from-http-request
                     LogConst.ADD, request.getParameter("form_class"), String.valueOf(newFormId),
                     request.getRemoteAddr(), request.getParameter("demographic_no"));
 

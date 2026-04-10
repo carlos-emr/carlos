@@ -170,7 +170,7 @@ if (errorCode.compareTo("") != 0) {
     <%} else {%>
 <table BORDER="0" CELLPADDING="1" CELLSPACING="0" WIDTH="100%"
        BGCOLOR="#C4D9E7">
-    <FORM NAME="serviceform" ACTION="dbINRbilling.jsp" METHOD="POST">
+    <FORM NAME="serviceform" ACTION="DbINRbilling.do" METHOD="POST">
         <tr valign="top">
             <td rowspan="2" ALIGN="right" valign="middle">
                 <div align="center">
@@ -212,7 +212,7 @@ if (errorCode.compareTo("") != 0) {
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="text" name="service_code" size="10" value="<%=Encode.forHtmlAttribute(service_code)%>"
                                     readonly> <input type="text" name="service_amount"
-                                                     size="10" value="<%=service_amount%>" readonly> <input
+                                                     size="10" value="<%=Encode.forHtmlAttribute(service_amount)%>" readonly> <input
                                     type="hidden" name="service_unit" value="1"> </font></td>
                         </tr>
                         <tr>

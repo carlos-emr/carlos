@@ -31,10 +31,12 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.CtlBillingType" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingTypeDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     CtlBillingTypeDao ctlBillingTypeDao = SpringUtils.getBean(CtlBillingTypeDao.class);
@@ -54,9 +56,9 @@
 
 <table width=95%>
     <tr>
-        <td class="black" width="15%"><%=type_id%>
+        <td class="black" width="15%"><%=Encode.forHtml(type_id)%>
         </td>
-        <td class="black" height="30"><%=type_name%>
+        <td class="black" height="30"><%=Encode.forHtml(type_name)%>
         </td>
     </tr>
     <tr>
@@ -65,8 +67,8 @@
             <p>&nbsp;<br>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform_add.formDefaultBillType"/>
                 :<br>
-                <input type="hidden" name="bill_servicetype" value="<%=type_id%>">
-                <input type="hidden" name="billtype_old" value="<%=billtype%>">
+                <input type="hidden" name="bill_servicetype" value="<%=Encode.forHtmlAttribute(type_id)%>">
+                <input type="hidden" name="billtype_old" value="<%=Encode.forHtmlAttribute(billtype)%>">
                 <select name="billtype_new">
                     <option value="no" <%=billtype.equals("no") ? "selected" : ""%>>--
                         no --
@@ -90,7 +92,7 @@
                                  onclick="manageBillType(bill_servicetype.value, billtype_old.value, billtype_new.value);"><br>
             </p>
             <p><input type="button" value="Delete Billing Form"
-                      onclick="onUnbilled('dbManageBillingform_delete.jsp?servicetype=<%=type_id%>');"></p>
+                      onclick="onUnbilled('<%=Encode.forJavaScript(type_id)%>');">
             <p><input type="button" value="Cancel"
                       onclick="showManageType(false);"></p>
         </td>

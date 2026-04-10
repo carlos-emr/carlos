@@ -189,7 +189,7 @@
                     <tr>
                         <td width="0%" valign="top">
                             <div class="DivCCBreadCrumbs">
-                                <a href="<%= request.getContextPath() %>/oscarRx/SearchDrug.jsp">
+                                <a href="<%= request.getContextPath() %>/oscarRx/SearchDrug3.jsp">
                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a>
                                 <b><fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.title"/></b>
                             </div>

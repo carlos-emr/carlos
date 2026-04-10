@@ -36,12 +36,12 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
 import jakarta.servlet.ServletContext;
@@ -61,11 +61,12 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.form.graphic.FrmGraphicFactory;
 import io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphic;
-import io.github.carlos_emr.carlos.form.pdfservlet.FrmPDFPostProcessorRegistry;
+import io.github.carlos_emr.carlos.form.pdfservlet.FrmPDFPostValueProcessor;
+import io.github.carlos_emr.carlos.form.pdfservlet.PostProcessorRegistry;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 import org.openpdf.text.pdf.BaseFont;
 import org.openpdf.text.pdf.ColumnText;
@@ -187,13 +188,13 @@ public class EFormPDFServlet extends HttpServlet {
                 sout.write(buffer, 0, bytesRead);
             }
 
+        } catch (jakarta.servlet.ServletException | java.io.IOException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Error generating eForm PDF", e);
             if (!res.isCommitted()) {
-                res.setContentType("text/html");
-                PrintWriter writer = res.getWriter();
-                writer.println("<p>An error occurred while generating the PDF. Please try again or contact support.</p>");
-                writer.close();
+                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
             }
         } finally {
             if (baosPDF != null) baosPDF.close();
@@ -273,7 +274,7 @@ public class EFormPDFServlet extends HttpServlet {
                 log.debug("Found template at {}", LogSanitizer.sanitize(propFilename));
             } catch (Exception dex) {
                 log.warn("Cannot find template at: {}", LogSanitizer.sanitize(propFilename));
-                throw new IOException("Cannot load PDF template: " + propFilename, dex);
+                throw new IOException("Cannot load PDF template.", dex);
             }
 
             // retrieve the total number of pages
@@ -360,13 +361,13 @@ public class EFormPDFServlet extends HttpServlet {
         
         // Final safety check - ensure no path traversal characters remain
         if (cfgFilename.contains("..") || cfgFilename.contains("/") || cfgFilename.contains("\\")) {
-            log.warn("Potential path traversal attempt blocked: " + cfgFilename);
+            log.warn("Potential path traversal attempt blocked: {}", LogSanitizer.sanitize(cfgFilename));
             return ret;
         }
         
         // Validate filename format - should only be alphanumeric with dots, dashes, underscores
         if (!cfgFilename.matches("^[a-zA-Z0-9._-]+$")) {
-            log.warn("Invalid filename format: " + cfgFilename);
+            log.warn("Invalid filename format: {}", LogSanitizer.sanitize(cfgFilename));
             return ret;
         }
         
@@ -374,15 +375,15 @@ public class EFormPDFServlet extends HttpServlet {
         InputStream is = null;
 
         try {
-            log.debug("1Looking for the prop file! " + propFilename);
+            log.debug("1Looking for the prop file! {}", LogSanitizer.sanitize(propFilename));
             is = new FileInputStream(propFilename); //getServletContext().getResourceAsStream(propFilename);
             if (is != null) {
-                log.debug("2Found the prop file! " + cfgFilename);
+                log.debug("2Found the prop file! {}", LogSanitizer.sanitize(cfgFilename));
                 ret.load(is);
                 is.close();
             }
         } catch (Exception e) {
-            log.warn("Can't find the prop file: " + cfgFilename);
+            log.warn("Can't find the prop file: {}", LogSanitizer.sanitize(cfgFilename));
         } finally {
             if (is != null) try {
                 is.close();
@@ -493,9 +494,18 @@ public class EFormPDFServlet extends HttpServlet {
             props.setProperty(temp.toString(), req.getParameter(temp.toString()));
         }
 
-        String processorName = req.getParameter("postProcessor" + suffix);
-        if (processorName != null) {
-            props = FrmPDFPostProcessorRegistry.apply(processorName, props, log);
+        String postProcessorName = req.getParameter("postProcessor" + suffix);
+        if (postProcessorName != null) {
+            Optional<FrmPDFPostValueProcessor> pp = PostProcessorRegistry.resolve(postProcessorName);
+            if (pp.isPresent()) {
+                try {
+                    props = pp.get().process(props);
+                } catch (Exception e) {
+                    log.warn("Post-processor {} failed during execution - form rendered without post-processing", LogSanitizer.sanitize(postProcessorName), e);
+                }
+            } else {
+                log.warn("Post-processor '{}' is not on the allowlist and will not be applied", LogSanitizer.sanitize(postProcessorName));
+            }
         }
 
         String currentDate = new SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date());
@@ -533,7 +543,7 @@ public class EFormPDFServlet extends HttpServlet {
             //section allows graphing of more than one measurement axis e.g. if top of page is different graph than bottom of page see rourke
             //page is the pdf page it should be plotted on
             if (temp.toString().startsWith("xVal_")) {
-                MiscUtils.getLogger().debug("Processing " + temp.toString());
+                MiscUtils.getLogger().debug("Processing {}", LogSanitizer.sanitize(temp.toString()));
 
                 index = temp.indexOf("_");
                 index2 = temp.indexOf("_", index + 1);
@@ -550,7 +560,7 @@ public class EFormPDFServlet extends HttpServlet {
 
                 //if this is the first measurement of the section init array
                 while (xMeasurementValues.get(page).size() <= section) {
-                    MiscUtils.getLogger().debug("Adding section " + section);
+                    MiscUtils.getLogger().debug("Adding section {}", LogSanitizer.sanitize(section));
                     List<List<String>> list = xMeasurementValues.get(page);
                     list.add(new ArrayList<String>());
                 }
@@ -561,16 +571,16 @@ public class EFormPDFServlet extends HttpServlet {
                 }
 
                 xMeasurementValues.get(page).get(section).add((String) req.getAttribute(temp.toString()));
-                MiscUtils.getLogger().debug("Setting xMeasurementDate to " + (String) req.getAttribute(temp.toString()));
+                MiscUtils.getLogger().debug("Setting xMeasurementDate to {}", LogSanitizer.sanitize((String) req.getAttribute(temp.toString())));
 
                 temp = new StringBuilder("yVal_");
                 temp = temp.append(elementNum);
                 temp = temp.append("_" + section);
                 temp = temp.append("_" + page);
-                MiscUtils.getLogger().debug("Key " + temp);
+                MiscUtils.getLogger().debug("Key {}", LogSanitizer.sanitize(temp.toString()));
                 tempValue = (String) req.getAttribute(temp.toString());
                 yMeasurementValues.get(page).get(section).add(tempValue);
-                MiscUtils.getLogger().debug("Setting yMeasurementValue to " + tempValue);
+                MiscUtils.getLogger().debug("Setting yMeasurementValue to {}", LogSanitizer.sanitize(tempValue));
             } else {
                 props.setProperty(temp.toString(), req.getAttribute(temp.toString()).toString());
             }
@@ -751,8 +761,8 @@ public class EFormPDFServlet extends HttpServlet {
             else if (temp.toString().equals("__className"))
                 className = tempValue;
             else {
-                MiscUtils.getLogger().debug("Adding xDate " + temp.toString() + " VAL: " + props.getProperty(temp.toString()));
-                MiscUtils.getLogger().debug("Adding yHeight " + tempValue + " VAL: " + props.getProperty(tempValue));
+                MiscUtils.getLogger().debug("Adding xDate {} VAL: {}", LogSanitizer.sanitize(temp.toString()), LogSanitizer.sanitize(props.getProperty(temp.toString())));
+                MiscUtils.getLogger().debug("Adding yHeight {} VAL: {}", LogSanitizer.sanitize(tempValue), LogSanitizer.sanitize(props.getProperty(tempValue)));
                 xDate.add(props.getProperty(temp.toString()));
                 yHeight.add(props.getProperty(tempValue));
             }

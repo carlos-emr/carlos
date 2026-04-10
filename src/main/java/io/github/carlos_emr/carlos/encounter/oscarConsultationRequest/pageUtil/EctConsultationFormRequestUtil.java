@@ -48,6 +48,21 @@ import org.owasp.encoder.Encode;
 
 import java.util.*;
 
+/**
+ * Utility bean that aggregates patient, provider, specialist, and consultation data
+ * for the Consultation Request form ({@code ConsultationFormRequest.jsp}).
+ *
+ * <p>Instantiated by the JSP scriptlet and populated through a series of {@code est*()} methods
+ * that query DAOs to fill patient demographics, team lists, specialist details,
+ * and existing consultation data. The populated fields are then read directly by the JSP
+ * and by {@link EctViewRequest2Action#fillFormValues} to transfer values into the Struts form bean.</p>
+ *
+ * <p>This class uses public fields (not getters/setters) for most properties because the JSP
+ * accesses them as scriptlet expressions ({@code consultUtil.fieldName}). This is a legacy
+ * pattern inherited from the original OSCAR codebase.</p>
+ *
+ * @since 2003-09-18
+ */
 public class EctConsultationFormRequestUtil {
 
     public String patientName;
@@ -87,7 +102,14 @@ public class EctConsultationFormRequestUtil {
     public String specFax;
     public String specAddr;
     public String specEmail;
-    public Vector teamVec;
+    /**
+     * Provider team names for the "Send To" dropdown. Initialized to an empty Vector
+     * to prevent NullPointerException in JSP and {@link EctViewRequest2Action#fillFormValues}
+     * when no {@code estTeams*()} method has been called. Populated by
+     * {@link #estActiveTeams()}, {@link #estTeams()}, {@link #estTeamsBySite(String)},
+     * or {@link #estTeamsByTeam(String)}.
+     */
+    public Vector<String> teamVec = new Vector<>();
     public String demoNo;
     public String pwb;
     public String mrp = "";

@@ -60,9 +60,6 @@
             <result name="success">/lab/CA/ALL/testUploader.jsp</result>
             <result name="input">/lab/CA/ALL/testUploader.jsp</result>
         </action>
-        <action name="lab/CA/ALL/oruR01Upload" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.OruR01Upload2Action">
-            <result name="result">/common/genericResultPage.jsp</result>
-        </action>
         <action name="lab/CMLlabUpload" class="io.github.carlos_emr.carlos.lab.ca.on.CML.Upload.LabUpload2Action">
             <result name="success">/lab/CA/ON/uploadComplete.jsp</result>
         </action>

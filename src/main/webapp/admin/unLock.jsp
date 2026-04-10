@@ -40,6 +40,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.login.LoginCheckLogin" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
@@ -80,7 +81,7 @@
             vec.remove(userName);
             cl.unlock(userName);
             LogAction.addLog(curUser_no, "unlock", "adminUnlock", userName, ip);
-            msg = "The login account " + userName + " was unlocked.";
+            msg = "The login account " + Encode.forHtml(userName) + " was unlocked.";
         }
     }
 
@@ -108,7 +109,7 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html>
     <head>
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.unlockAcct"/></title>
         <script type="text/javascript" language="JavaScript">
@@ -138,7 +139,7 @@
             <b><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearchresults.ID"/></b>
             <select name="userName">
                 <% for (int i = 0; i < vec.size(); i++) { %>
-                <option value="<%=(String) vec.get(i) %>"><%=(String) vec.get(i) %>
+                <option value="<%=Encode.forHtmlAttribute((String) vec.get(i))%>"><%=Encode.forHtmlContent((String) vec.get(i))%>
                 </option>
                 <% } %>
             </select> <input type="submit" name="submit" class="btn btn-primary"

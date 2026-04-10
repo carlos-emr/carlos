@@ -28,11 +28,122 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    demographiceditdemographic.jsp - Patient Demographic Edit Form
 
-<%@page import="java.nio.charset.StandardCharsets" %>
-<%@page import="io.github.carlos_emr.carlos.commn.ISO36612" %>
-<%@page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
+    Purpose:
+    The primary form for viewing and editing patient demographic records in CARLOS EMR.
+    Supports both a read-only view mode and a full edit mode with tabbed sections
+    for personal details, contact information, healthcare identifiers, enrolment/roster
+    status, consent, privacy, appointments, and contacts/relationships.
+
+    Features:
+    - View and edit patient personal details (name, DOB, address, phone, email, sex)
+    - Health Insurance Number (HIN) entry and AJAX-based validation
+    - Roster / enrolment status management with confirmation dialogs
+    - Consent (patient consent record) clearing with confirmation dialog
+    - Privacy (extra-sensitive flag) and patient status tracking
+    - Demographic merge/head/tail record navigation
+    - Appointment history tab showing past/future appointments
+    - Patient contacts and relationships tab
+    - Country of birth and language fields (ISO 639-2 / country code lookup)
+    - Provincial ID and other identifier fields
+    - Archive access for historical demographic record versions
+    - CBI reminder on save (configurable via CBI_REMIND_ON_UPDATE_DEMOGRAPHIC property)
+    - Bootstrap 5 dismissible alert container for non-blocking UI messages
+    - All i18n strings pre-computed server-side and safely encoded for JavaScript
+    - Session null check with redirect to logout if session has expired
+
+    Parameters (request):
+    - demographic_no:    Required. Patient demographic number to load (String/Integer)
+    - displaymode:       Optional. "Edit Record" to enter edit mode; view mode otherwise
+    - apptProvider_no:  Optional. Provider number context for appointment display
+    - mode:             Optional. Additional display mode hint
+
+    @since CARLOS EMR 2026
+--%>
+
+<%@ page import="java.util.*" %>
+<%@ page import="java.net.*" %>
+<%@ page import="java.text.DecimalFormat" %>
+<%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.Gender" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.ISO36612" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.OtherIdManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ContactDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.CountryCodeDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicContactDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicCustDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtArchiveDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.WaitingListDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Admission" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicArchive" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicExtArchive" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.CountryCode" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicCust" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.LookupList" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.LookupListItem" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.WaitingListName" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicRelationship" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.ProvinceNames" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
+
+<c:set var="ctx" value="${ pageContext.request.contextPath }"/>
+
+<jsp:useBean id="apptMainBean" class="io.github.carlos_emr.AppointmentMainBean" scope="session"/>
+<jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
+
+
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;
@@ -41,23 +152,6 @@
     <%authed = false; %>
     <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
 </security:oscarSec>
-<%
-    if (!authed) {
-        return;
-    }
-%>
-<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@page import="io.github.carlos_emr.CarlosProperties" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.Gender" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
-<%@page import="java.util.HashSet" %>
-<%@page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<jsp:useBean id="apptMainBean" class="io.github.carlos_emr.AppointmentMainBean" scope="session"/>
 <%
     String demographic$ = request.getParameter("demographic_no");
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -75,26 +169,12 @@
     if (!authed) {
         return;
     }
-
+    if (session.getAttribute("user") == null) {
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        return;
+    }
 %>
-<%@ page
-        import="java.util.*, java.net.*,java.text.DecimalFormat, io.github.carlos_emr.*, io.github.carlos_emr.carlos.demographic.data.ProvinceNames, io.github.carlos_emr.carlos.waitinglist.WaitingList, io.github.carlos_emr.carlos.report.data.DemographicSets,io.github.carlos_emr.carlos.log.*" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.*" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.OtherIdManager" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="org.apache.commons.lang3.StringUtils" %>
+
 
 <%!
 
@@ -126,22 +206,7 @@
     CaseManagementManager cmm = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
     LookupListManager lookupListManager = SpringUtils.getBean(LookupListManager.class);
 %>
-
-<jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
-
-
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
-
-<%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
-
-<c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%
-    if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
-        return;
-    }
-
     String curProvider_no = (String) session.getAttribute("user");
     String demographic_no = request.getParameter("demographic_no");
     String apptProvider = request.getParameter("apptProvider");
@@ -155,8 +220,6 @@
 
     List<CaseManagementNoteLink> cml = cmm.getLinkByTableId(CaseManagementNoteLink.DEMOGRAPHIC, Long.valueOf(demographic_no));
     boolean hasImportExtra = (cml.size() > 0);
-    String annotation_display = CaseManagementNoteLink.DISP_DEMO;
-
     LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_DEMOGRAPHIC, demographic_no, request.getRemoteAddr(), demographic_no);
 
     Boolean isMobileOptimized = session.getAttribute("mobileOptimized") != null;
@@ -230,21 +293,8 @@
 
 %>
 
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicRelationship" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.*" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
-<%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <!DOCTYPE html>
 <html>
-
     <head>
         <%@ include file="/includes/global-head.jspf" %>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.title"/></title>
@@ -281,8 +331,6 @@
         <% if (isMobileOptimized) { %>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/mobile/editdemographicstyle.css">
         <% } %>
-        <script language="javascript" type="text/javascript"
-                src="<%=request.getContextPath()%>/share/javascript/Oscar.js"></script>
 
         <!--popup menu for encounter type -->
         <script src="<c:out value="${ctx}"/>/share/javascript/popupmenu.js"
@@ -293,7 +341,53 @@
         <script type="text/javascript"
                 src="<%=request.getContextPath() %>/demographic/demographiceditdemographic.js.jsp"></script>
 
-        <script language="JavaScript" type="text/javascript">
+        <!-- Pre-computed i18n strings, safely encoded for JavaScript embedding -->
+        <script>
+            var i18n = {
+                msgWrongDOB:                  '<%= Encode.forJavaScript(oscarResources.getString("demographic.search.msgWrongDOB")) %>',
+                msgNameRequired:              '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgNameRequired")) %>',
+                msgWrongDate:                 '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgWrongDate")) %>',
+                msgWrongHIN:                  '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgWrongHIN")) %>',
+                msgBlankRoster:               '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgBlankRoster")) %>',
+                msgForbiddenRosterDate:       '<%= Encode.forJavaScript(oscarResources.getString("demographic.search.msgForbiddenRosterDate")) %>',
+                msgLeaveBlank:                '<%= Encode.forJavaScript(oscarResources.getString("demographic.search.msgLeaveBlank")) %>',
+                msgWrongRosterDate:           '<%= Encode.forJavaScript(oscarResources.getString("demographic.search.msgWrongRosterDate")) %>',
+                msgWrongRosterEnrolledTo:     '<%= Encode.forJavaScript(oscarResources.getString("demographic.search.msgWrongRosterEnrolledTo")) %>',
+                msgWrongRosterTerminationDate:'<%= Encode.forJavaScript(oscarResources.getString("demographic.search.msgWrongRosterTerminationDate")) %>',
+                msgNoTerminationReason:       '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgNoTerminationReason")) %>',
+                msgWrongPatientStatusDate:    '<%= Encode.forJavaScript(oscarResources.getString("demographic.search.msgWrongPatientStatusDate")) %>',
+                msgWrongReferral:             '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgWrongReferral")) %>',
+                msgPromptStatus:              '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgPromptStatus")) %>',
+                msgInvalidEntry:              '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgInvalidEntry")) %>',
+                updateCBIReminder:            '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.updateCBIReminder")) %>',
+                btnCancel:                    '<%= Encode.forJavaScript(oscarResources.getString("global.btnCancel")) %>',
+                btnBack:                      '<%= Encode.forJavaScript(oscarResources.getString("global.btnBack")) %>',
+                msgConfirmClearConsent:       '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgConfirmClearConsent")) %>',
+                msgConfirmEnrolledToMRP:      '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgConfirmEnrolledToMRP")) %>',
+                msgConfirmClearEnrolledTo:    '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgConfirmClearEnrolledTo")) %>',
+                msgAjaxError:                 '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgAjaxError")) %>'
+            };
+
+            function showAlert(message) {
+                var container = document.getElementById('carlos-alert-container');
+                var alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-warning alert-dismissible fade show';
+                alertDiv.setAttribute('role', 'alert');
+                var text = document.createElement('span');
+                text.style.whiteSpace = 'pre-line';
+                text.textContent = String(message).replace(/<br\s*\/?>/gi, '\n');
+                alertDiv.appendChild(text);
+                var closeButton = document.createElement('button');
+                closeButton.type = 'button';
+                closeButton.className = 'btn-close';
+                closeButton.setAttribute('data-bs-dismiss', 'alert');
+                closeButton.setAttribute('aria-label', 'Close');
+                alertDiv.appendChild(closeButton);
+                container.appendChild(alertDiv);
+            }
+        </script>
+
+        <script>
 
             function checkTypeIn() {
                 var dob = document.titlesearch.keyword;
@@ -311,7 +405,7 @@
                         typeInOK = true;
                     }
                     if (dob.value.length != 10) {
-                        alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgWrongDOB"/>");
+                        showAlert(i18n.msgWrongDOB);
                         typeInOK = false;
                     }
 
@@ -326,7 +420,7 @@
                 if (document.updatedelete.last_name.value != "" && document.updatedelete.first_name.value != "" && document.updatedelete.last_name.value != " " && document.updatedelete.first_name.value != " ") {
                     typeInOK = true;
                 } else {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgNameRequired"/>");
+                    showAlert(i18n.msgNameRequired);
                 }
                 return typeInOK;
             }
@@ -355,7 +449,7 @@
                 }
 
                 if (!isValidDate(dd, mm, yyyy) || !typeInOK) {
-                    alert(err_msg + "\n<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgWrongDate"/>");
+                    showAlert(err_msg + '<br>' + i18n.msgWrongDate);
                     typeInOK = false;
                 }
 
@@ -367,7 +461,7 @@
                 var mm = document.updatedelete.month_of_birth.value;
                 var dd = document.updatedelete.date_of_birth.value;
 
-                return checkDate(yyyy, mm, dd, "<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgWrongDOB"/>");
+                return checkDate(yyyy, mm, dd, i18n.msgWrongDOB);
             }
 
             function isValidDate(day, month, year) {
@@ -382,7 +476,7 @@
                 var province = document.updatedelete.hc_type.value;
 
                 if (!isValidHin(hin, province)) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgWrongHIN"/>");
+                    showAlert(i18n.msgWrongHIN);
                     return (false);
                 }
 
@@ -394,7 +488,7 @@
                 if (rosterStatusChanged()) {
 
                     if (document.updatedelete.roster_status.value == "") {
-                        alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgBlankRoster"/>");
+                        showAlert(i18n.msgBlankRoster);
                         document.updatedelete.roster_status.focus();
                         return false;
                     }
@@ -411,7 +505,7 @@
                     dd = document.updatedelete.roster_date_day.value.trim();
 
                     if (yyyy != "" || mm != "" || dd != "") {
-                        alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgForbiddenRosterDate"/>");
+                        showAlert(i18n.msgForbiddenRosterDate);
                         return false;
                     }
                     return true;
@@ -423,10 +517,10 @@
                 yyyy = document.updatedelete.roster_date_year.value.trim();
                 mm = document.updatedelete.roster_date_month.value.trim();
                 dd = document.updatedelete.roster_date_day.value.trim();
-                var errMsg = "<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgWrongRosterDate"/>";
+                var errMsg = i18n.msgWrongRosterDate;
 
                 if (trueIfBlank) {
-                    errMsg += "\n<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgLeaveBlank"/>";
+                    errMsg += '<br>' + i18n.msgLeaveBlank;
                     if (yyyy == "" && mm == "" && dd == "") return true;
                 }
                 return checkDate(yyyy, mm, dd, errMsg);
@@ -435,20 +529,19 @@
 
             function rosterEnrolledToValid(trueIfBlank) {
                 var val = document.updatedelete.roster_enrolled_to.value.trim();
+                var errMsg = '';
 
                 if (trueIfBlank) {
-                    errMsg += "\n<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgLeaveBlank"/>";
+                    errMsg += i18n.msgLeaveBlank;
                     if (val == "") return true;
                 }
 
-                var errMsg = '';
-
                 if (val == "") {
-                    errMsg += "<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgWrongRosterEnrolledTo"/>";
+                    errMsg += i18n.msgWrongRosterEnrolledTo;
                 }
 
                 if (errMsg != '') {
-                    alert(errMsg);
+                    showAlert(errMsg);
                     return false;
                 }
                 return true;
@@ -478,10 +571,10 @@
                 yyyy = document.updatedelete.roster_termination_date_year.value.trim();
                 mm = document.updatedelete.roster_termination_date_month.value.trim();
                 dd = document.updatedelete.roster_termination_date_day.value.trim();
-                var errMsg = "<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgWrongRosterTerminationDate"/>";
+                var errMsg = i18n.msgWrongRosterTerminationDate;
 
                 if (trueIfBlank) {
-                    errMsg += "\n<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgLeaveBlank"/>";
+                    errMsg += '<br>' + i18n.msgLeaveBlank;
                     if (yyyy == "" && mm == "" && dd == "") return true;
                 }
                 return checkDate(yyyy, mm, dd, errMsg);
@@ -489,7 +582,7 @@
 
             function rosterStatusTerminationReasonNotBlank() {
                 if (document.updatedelete.roster_termination_reason.value == "") {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgNoTerminationReason"/>");
+                    showAlert(i18n.msgNoTerminationReason);
                     return false;
                 }
                 return true;
@@ -504,7 +597,7 @@
                 if (trueIfBlank) {
                     if (yyyy == "" && mm == "" && dd == "") return true;
                 }
-                return checkDate(yyyy, mm, dd, "<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgWrongPatientStatusDate"/>");
+                return checkDate(yyyy, mm, dd, i18n.msgWrongPatientStatusDate);
             }
 
 
@@ -515,7 +608,7 @@
 	%>
                 var referralNo = document.updatedelete.r_doctor_ohip.value;
                 if (document.updatedelete.hc_type.value == 'ON' && referralNo.length > 0 && referralNo.length != 6) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgWrongReferral"/>");
+                    showAlert(i18n.msgWrongReferral);
                 }
 
                 <% } %>
@@ -523,31 +616,31 @@
 
 
             function newStatus() {
-                newOpt = prompt("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgPromptStatus"/>:", "");
+                newOpt = prompt(i18n.msgPromptStatus + ':', "");
                 if (newOpt == null) {
                     return;
                 } else if (newOpt != "") {
                     document.updatedelete.patient_status.options[document.updatedelete.patient_status.length] = new Option(newOpt, newOpt);
                     document.updatedelete.patient_status.options[document.updatedelete.patient_status.length - 1].selected = true;
                 } else {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgInvalidEntry"/>");
+                    showAlert(i18n.msgInvalidEntry);
                 }
             }
 
             function newStatus1() {
-                newOpt = prompt("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgPromptStatus"/>:", "");
+                newOpt = prompt(i18n.msgPromptStatus + ':', "");
                 if (newOpt == null) {
                     return;
                 } else if (newOpt != "") {
                     document.updatedelete.roster_status.options[document.updatedelete.roster_status.length] = new Option(newOpt, newOpt);
                     document.updatedelete.roster_status.options[document.updatedelete.roster_status.length - 1].selected = true;
                 } else {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgInvalidEntry"/>");
+                    showAlert(i18n.msgInvalidEntry);
                 }
             }
 
         </script>
-        <script language="JavaScript">
+        <script>
             function showEdit() {
                 document.getElementById('editDemographic').style.display = 'table';
                 document.getElementById('viewDemographics2').style.display = 'none';
@@ -579,8 +672,8 @@
                     showHideItem(sections[i]);
                 }
                 // Change behaviour of cancel button
-                var cancelValue = "<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>";
-                var backValue = "<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>";
+                var cancelValue = i18n.btnCancel;
+                var backValue = i18n.btnBack;
                 var cancelBtn = document.getElementById('cancelButton');
                 if (cancelBtn.value == cancelValue) {
                     cancelBtn.value = backValue;
@@ -626,7 +719,7 @@
 
             <security:oscarSec roleName="<%= roleName$ %>" objectName="_eChart" rights="r" reverse="<%= false %>" >
             var numMenus = 1;
-            var encURL = "<c:out value="${ctx}"/>/encounter/IncomingEncounter.do?providerNo=<%=curProvider_no%>&appointmentNo=&demographicNo=<%=demographic_no%>&curProviderNo=&reason=<%=URLEncoder.encode(noteReason, StandardCharsets.UTF_8)%>&encType=<%=URLEncoder.encode("telephone encounter with client", StandardCharsets.UTF_8)%>&userName=<%=URLEncoder.encode( userfirstname+" "+userlastname, StandardCharsets.UTF_8) %>&curDate=<%=dateString%>&appointmentDate=&startTime=&status=";
+            var encURL = "<c:out value="${ctx}"/>/encounter/IncomingEncounter.do?providerNo=<%= Encode.forJavaScript(curProvider_no) %>&appointmentNo=&demographicNo=<%= Encode.forJavaScript(demographic_no) %>&curProviderNo=&reason=<%=Encode.forJavaScript(URLEncoder.encode(noteReason, StandardCharsets.UTF_8))%>&encType=<%=Encode.forJavaScript(URLEncoder.encode("telephone encounter with client", StandardCharsets.UTF_8))%>&userName=<%=Encode.forJavaScript(URLEncoder.encode( userfirstname+" "+userlastname, StandardCharsets.UTF_8)) %>&curDate=<%= Encode.forJavaScript(dateString) %>&appointmentDate=&startTime=&status=";
 
             function showMenu(menuNumber, eventObj) {
                 var menuId = 'menu' + menuNumber;
@@ -735,7 +828,7 @@
 
             </security:oscarSec>
 
-            var demographicNo = '<%=demographic_no%>';
+            var demographicNo = '<%= Encode.forJavaScript(demographic_no) %>';
 
 
             function checkRosterStatus2() {
@@ -757,7 +850,7 @@
 
 
             function showCbiReminder() {
-                alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.updateCBIReminder"/>');
+                return confirm(i18n.updateCBIReminder);
             }
 
 
@@ -831,7 +924,7 @@
 
             function consentClearBtn(radioBtnName) {
 
-                if (confirm("Proceed to clear all record of this consent?")) {
+                if (confirm(i18n.msgConfirmClearConsent)) {
 
                     //clear out opt-in/opt-out radio buttons
                     var ele = document.getElementsByName(radioBtnName);
@@ -859,11 +952,11 @@
             function updateEnrolledTo() {
                 var rosterSelect = document.getElementById("roster_status");
                 if (rosterSelect.getValue() == "RO") {
-                    if (document.getElementById("enrolledTo").value != document.getElementById("mrp").value && confirm("Enrolment status changed to 'rostered'. Would you like to set the 'Enrolled To' to the MRP?")) {
+                    if (document.getElementById("enrolledTo").value != document.getElementById("mrp").value && confirm(i18n.msgConfirmEnrolledToMRP)) {
                         document.getElementById("enrolledTo").value = document.getElementById("mrp").value;
                     }
                 } else {
-                    if (document.getElementById("enrolledTo").value != "" && confirm("Enrolment status changed to '" + rosterSelect.getValue() + "''. Would you like to clear the 'Enrolled To' field?")) {
+                    if (document.getElementById("enrolledTo").value != "" && confirm(i18n.msgConfirmClearEnrolledTo.replace('{0}', rosterSelect.getValue()))) {
                         document.getElementById("enrolledTo").value = "";
                     }
                 }
@@ -875,15 +968,16 @@
                 const hcType = jQuery("#hcTypeBox").val();
 
                 jQuery.ajax({
-                    type: "GET",
-                    url: '<%=request.getContextPath() %>/ws/rs/patientDetailStatusService/validateHC?hin=' + hin + '&ver=' + ver,
+                    type: "POST",
+                    url: '<%=request.getContextPath() %>/ws/rs/patientDetailStatusService/validateHC',
+                    data: JSON.stringify({hin: hin, ver: ver}),
                     dataType: 'json',
                     contentType: 'application/json',
                     success: function (data) {
-                        alert(data.responseDescription);
+                        showAlert(data.responseDescription);
                     },
                     error: function (data) {
-                        alert('An error occured.');
+                        showAlert(i18n.msgAjaxError);
                     }
                 });
             }
@@ -916,6 +1010,9 @@
     </head>
     <body onLoad="setfocus(); checkONReferralNo(); formatPhoneNum(); checkRosterStatus2();"
           topmargin="0" leftmargin="0" rightmargin="0" id="demographiceditdemographic">
+    <!-- Bootstrap dismissible alert container -->
+    <div id="carlos-alert-container" aria-live="polite"
+         style="position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:9999;min-width:300px;max-width:600px;"></div>
     <%
         Demographic demographic = demographicDao.getDemographic(demographic_no);
         List<DemographicArchive> archives = demographicArchiveDao.findByDemographicNo(Integer.parseInt(demographic_no));
@@ -930,7 +1027,7 @@
         }
         pageContext.setAttribute("demographic", demographic, PageContext.PAGE_SCOPE);
     %>
-    <div id="editDemographicWrapper" style="margin: auto 10px;">
+    <div id="editDemographicWrapper" style="margin: 0 auto;">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <%
                 //----------------------------REFERRAL DOCTOR------------------------------
@@ -997,9 +1094,21 @@
 
                                 %>
                                 <span class="patient-header-name"><%= Encode.forHtml(demographic.getLastName()) %>, <%= Encode.forHtml(demographic.getFirstName()) %></span>
-                                <span class="patient-header-details"><%= Encode.forHtml(Gender.valueOf(demographic.getSex()).getText()) %> &middot; <%= Encode.forHtml(demographic.getAgeAsOf(new Date())) %> &middot; DOB: <%= Encode.forHtml(birthYear) %>-<%= Encode.forHtml(birthMonth) %>-<%= Encode.forHtml(birthDate) %></span>
+                                <%
+                                    String sexCode = demographic.getSex() != null ? demographic.getSex().toUpperCase() : "U";
+                                    String genderI18nKey;
+                                    switch (sexCode) {
+                                        case "M":  genderI18nKey = "global.gender.male";        break;
+                                        case "F":  genderI18nKey = "global.gender.female";      break;
+                                        case "X":  genderI18nKey = "global.gender.intersex";    break;
+                                        case "O":  genderI18nKey = "global.gender.other";       break;
+                                        default:   genderI18nKey = "global.gender.undisclosed"; break;
+                                    }
+                                    String genderDisplayText = oscarResources.getString(genderI18nKey);
+                                %>
+                                <span class="patient-header-details"><%= Encode.forHtml(genderDisplayText) %> &middot; <%= Encode.forHtml(demographic.getAgeAsOf(new Date())) %> &middot; <fmt:message key="demographic.demographiceditdemographic.formDOB"/>: <%= Encode.forHtml(birthYear) %>-<%= Encode.forHtml(birthMonth) %>-<%= Encode.forHtml(birthDate) %></span>
                                 <% if (demographic.getHin() != null && !demographic.getHin().isEmpty()) { %>
-                                <span class="patient-header-hin">HIN: <%= Encode.forHtml(demographic.getHin()) %><% if (demographic.getVer() != null && !demographic.getVer().isEmpty()) { %> <%= Encode.forHtml(demographic.getVer()) %><% } %></span>
+                                <span class="patient-header-hin"><fmt:message key="demographic.patient.context.hin"/>: <%= Encode.forHtml(demographic.getHin()) %><% if (demographic.getVer() != null && !demographic.getVer().isEmpty()) { %> <%= Encode.forHtml(demographic.getVer()) %><% } %></span>
                                 <% } %>
                                 <span class="patient-header-appt"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgNextAppt"/>: <oscar:nextAppt demographicNo='<%=demographic.getDemographicNo().toString()%>'/></span>
 
@@ -1016,7 +1125,7 @@
                         </tr>
                         <tr id="appt_hx">
                             <td><a
-                                    href='<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=demographic.getDemographicNo()%>&last_name=<%=URLEncoder.encode(demographic.getLastName(), StandardCharsets.UTF_8)%>&first_name=<%=URLEncoder.encode(demographic.getFirstName(), StandardCharsets.UTF_8)%>&orderby=appttime&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnApptHist"/></a>
+                                    href='<%= request.getContextPath() %>/demographic/DemographicApptHistory.do?demographic_no=<%=Encode.forUriComponent(String.valueOf(demographic.getDemographicNo()))%>&orderby=appttime&dboperation=appt_history&limit1=0&limit2=25'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnApptHist"/></a>
                             </td>
                         </tr>
 
@@ -1030,7 +1139,7 @@
                         %>
                         <tr>
                             <td><a
-                                    href="<%= request.getContextPath() %>/oscarWaitingList/SetupDisplayPatientWaitingList.do?demographic_no=<%=demographic.getDemographicNo()%>">
+                                    href="<%= request.getContextPath() %>/waitinglist/SetupDisplayPatientWaitingList.do?demographic_no=<%=demographic.getDemographicNo()%>">
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgWaitList"/></a>
                             </td>
                         </tr>
@@ -1044,13 +1153,7 @@
                             <tr>
                                 <td>
                                     <%
-                                        if ("CLINICAID".equals(prov)) {
-                                    %>
-                                    <a href="<%= request.getContextPath() %>/billing.do?billRegion=CLINICAID&action=invoice_reports" target="_blank">
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgInvoiceList"/>
-                                    </a>
-                                    <%
-                                    } else if ("ON".equals(prov)) {
+                                        if ("ON".equals(prov)) {
                                     %>
                                     <a href="javascript: function myFunction() {return false; }"
                                        onClick="popupPage(500,800,'<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/billing/CA/ON/billingONHistory.jsp?demographic_no=" + Encode.forUriComponent(String.valueOf(demographic.getDemographicNo()))) %>')">
@@ -1100,7 +1203,7 @@
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupOscarRx(700,1027,'<%= request.getContextPath() %>/oscarRx/choosePatient.do?providerNo=<%=curProvider_no%>&demographicNo=<%=demographic_no%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.prescriptions"/></a>
+                                    onClick="popupOscarRx(700,1027,'<%= request.getContextPath() %>/oscarRx/choosePatient.do?providerNo=<%= Encode.forJavaScriptAttribute(curProvider_no) %>&demographicNo=<%= Encode.forJavaScriptAttribute(demographic_no) %>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.prescriptions"/></a>
                             </td>
                         </tr>
 
@@ -1118,7 +1221,7 @@
                                 <td><a
                                         href="javascript: function myFunction() {return false; }"
                                         onClick="popupPage(700,960,'<c:out
-                                                value="${ctx}"/>/oscarPrevention/index.jsp?demographic_no=<%=demographic_no%>');return false;">
+                                                value="${ctx}"/>/oscarPrevention/index.jsp?demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>');return false;">
                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.LeftNavBar.Prevent"/></a></td>
                             </tr>
                         </security:oscarSec>
@@ -1126,7 +1229,7 @@
                             <td>
                                 <a
                                         href="javascript: function myFunction() {return false; }"
-                                        onClick="popupPage(700,1000,'<%= request.getContextPath() %>/tickler/ticklerMain.jsp?demoview=<%=demographic_no%>');return false;">
+                                        onClick="popupPage(700,1000,'<%= request.getContextPath() %>/tickler/ticklerMain.jsp?demoview=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>');return false;">
                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/></a>
                             </td>
                         </tr>
@@ -1137,13 +1240,13 @@
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(700,1000,'<%=request.getContextPath()%>/form/forwardshortcutname.do?formname=AR1&demographic_no=<%=request.getParameter("demographic_no")%>');">AR1</a>
+                                    onClick="popupPage(700,1000,'<%=request.getContextPath()%>/form/forwardshortcutname.do?formname=AR1&demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>');">AR1</a>
                             </td>
                         </tr>
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(700,1000,'<%=request.getContextPath()%>/form/forwardshortcutname.do?formname=AR2&demographic_no=<%=request.getParameter("demographic_no")%>');">AR2</a>
+                                    onClick="popupPage(700,1000,'<%=request.getContextPath()%>/form/forwardshortcutname.do?formname=AR2&demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>');">AR2</a>
                             </td>
                         </tr>
                         <% } %>
@@ -1155,7 +1258,7 @@
                                 <td>
 
                                     <a href="#"
-                                       onClick="window.open('<%=request.getContextPath()%>/mod/docmgmtComp/DocList.do?method=list&&demographic_no=<%=demographic_no %>','_blank','resizable=yes,status=yes,scrollbars=yes');return false;">Inbox
+                                       onClick="window.open('<%=request.getContextPath()%>/mod/docmgmtComp/DocList.do?method=list&&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>','_blank','resizable=yes,status=yes,scrollbars=yes');return false;">Inbox
                                         Manager</a><br>
                                 </td>
                             </tr>
@@ -1178,7 +1281,7 @@
                         </special:SpecialPlugin>
                         <tr>
                             <td><a
-                                    href="<%= request.getContextPath() %>/eform/efmpatientformlist.jsp?demographic_no=<%=demographic_no%>&apptProvider=<%=apptProvider%>&appointment=<%=appointment%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnEForm"/></a></td>
+                                    href="<%= request.getContextPath() %>/eform/efmpatientformlist.jsp?demographic_no=<%= Encode.forUriComponent(demographic_no) %>&apptProvider=<%= Encode.forUriComponent(apptProvider != null ? apptProvider : "") %>&appointment=<%= Encode.forUriComponent(appointment != null ? appointment : "") %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnEForm"/></a></td>
                         </tr>
 
                     </table>
@@ -1219,7 +1322,7 @@
                         <tr>
                             <td>
                                 <form method="post" name="updatedelete" id="updatedelete"
-                                      action="demographic/demographiccontrol.jsp"
+                                      action="<%=request.getContextPath()%>/demographic/DemographicUpdate.do"
                                       onSubmit="return checkTypeInEdit();" autocomplete="off">
                                     <input type="hidden" name="demographic_no"
                                            value="<%=demographic.getDemographicNo()%>">
@@ -1234,13 +1337,13 @@
                                             <td>
                                                 <div class="demo-toolbar">
                                                     <span class="demo-toolbar-id">
-                                                        <a href="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%= Encode.forUriComponent(head) %>&displaymode=edit&dboperation=<%= Encode.forUriComponent(dboperation) %>">#<%= Encode.forHtml(head) %></a>
+                                                        <a href="<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%= Encode.forUriComponent(head) %>">#<%= Encode.forHtml(head) %></a>
                                                         <%
                                                             for (int i = 0; i < records.size(); i++) {
                                                                 if (((String) records.get(i)).equals(demographic_no)) {
                                                         %>, #<%= Encode.forHtml(demographic_no) %><%
                                                                 } else {
-                                                        %>, <a href="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%= Encode.forUriComponent(String.valueOf(records.get(i))) %>&displaymode=edit&dboperation=<%= Encode.forUriComponent(dboperation) %>">#<%= Encode.forHtml(String.valueOf(records.get(i))) %></a><%
+                                                        %>, <a href="<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%= Encode.forUriComponent(String.valueOf(records.get(i))) %>">#<%= Encode.forHtml(String.valueOf(records.get(i))) %></a><%
                                                                 }
                                                             }
                                                         %>
@@ -1414,7 +1517,7 @@
                                                                         if (key.endsWith("_id")) {
                                                                 %>
                                                                 <input type="hidden" name="<%= key %>"
-                                                                       value="<%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demoExt.get(key)))%>"/>
+                                                                       value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get(key)))%>"/>
                                                                 <%
                                                                         }
                                                                     }
@@ -1433,14 +1536,13 @@
                                                                         <span class="info"><%=Encode.forHtmlContent(demographic.getFirstName())%></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formMiddleNames"/>:</span>
-                                                                        <span class="info"> <c:out
-                                                                                value="<%=Encode.forHtmlContent(demographic.getMiddleNames())%>"/></span>
+                                                                        <span class="info"> <%=Encode.forHtmlContent(demographic.getMiddleNames())%></span>
                                                                     </li>
                                                                     <li>
 														<span class="label" style="color:red;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formNameUsed"/>:
 														</span>
                                                                         <span class="info" style="color:red;">
-															<c:out value="<%=Encode.forHtml(demographic.getAlias())%>"/>
+															<%= Encode.forHtml(demographic.getAlias()) %>
 														</span>
                                                                     </li>
 
@@ -1448,7 +1550,17 @@
                                                                         <span class="info"><%=Encode.forHtmlContent(StringUtils.trimToEmpty(demographic.getPronoun()))%></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formSex"/>:</span>
-                                                                        <span class="info"><%=Gender.valueOf(demographic.getSex()).getText()%></span>
+                                                                        <span class="info"><%
+                                                                            String viewSexCode = demographic.getSex() != null ? demographic.getSex().toUpperCase() : "U";
+                                                                            String viewGenderKey;
+                                                                            switch (viewSexCode) {
+                                                                                case "M":  viewGenderKey = "global.gender.male";        break;
+                                                                                case "F":  viewGenderKey = "global.gender.female";      break;
+                                                                                case "X":  viewGenderKey = "global.gender.intersex";    break;
+                                                                                case "O":  viewGenderKey = "global.gender.other";       break;
+                                                                                default:   viewGenderKey = "global.gender.undisclosed"; break;
+                                                                            }
+                                                                        %><%= Encode.forHtml(oscarResources.getString(viewGenderKey)) %></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formGender"/>:</span>
                                                                         <span class="info"><%=Encode.forHtmlContent(StringUtils.trimToEmpty(demographic.getGender()))%></span>
@@ -1512,7 +1624,7 @@
                                                                     %>
                                                                     <jsp:include page="<%=fieldJSP%>">
                                                                         <jsp:param name="demo"
-                                                                                   value="<%=demographic_no%>"/>
+                                                                                   value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
                                                                     </jsp:include>
                                                                     <%}%>
 
@@ -1542,7 +1654,7 @@
                                                                             String formattedCellPhone = (cellPhone != null && cellPhone.length() > 0 && !cellPhone.equals("null")) ? "  C:" + cellPhone : "";
                                                                             String sdb = relHash.get("subDecisionMaker") == null ? "" : ((Boolean) relHash.get("subDecisionMaker")).booleanValue() ? "<span title=\"SDM\" >/SDM</span>" : "";
                                                                             String ec = relHash.get("emergencyContact") == null ? "" : ((Boolean) relHash.get("emergencyContact")).booleanValue() ? "<span title=\"Emergency Contact\">/EC</span>" : "";
-                                                                            String masterLink = "<a target=\"demographic" + dNo + "\" href=\"" + request.getContextPath() + "/demographic/demographiccontrol.jsp?demographic_no=" + dNo + "&displaymode=edit&dboperation=search_detail\">M</a>";
+                                                                            String masterLink = "<a target=\"demographic" + dNo + "\" href=\"" + request.getContextPath() + "/demographic/DemographicEdit.do?demographic_no=" + dNo + "\">M</a>";
                                                                             String encounterLink = "<a target=\"encounter" + dNo + "\" href=\"javascript: function myFunction() {return false; }\" onClick=\"popupEChart(710,1024,'" + request.getContextPath() + "/encounter/IncomingEncounter.do?demographicNo=" + dNo + "&providerNo=" + loggedInInfo.getLoggedInProviderNo() + "&appointmentNo=&curProviderNo=&reason=&appointmentDate=&startTime=&status=&userName=" + URLEncoder.encode(userfirstname + " " + userlastname, StandardCharsets.UTF_8) + "&curDate=" + dateString + "');return false;\">E</a>";
                                                                     %>
                                                                     <li><span
@@ -1574,7 +1686,7 @@
                                                                             String ec = (dContact.getEc() != null && dContact.getEc().equals("true")) ? "<span title=\"Emergency Contact\" >/EC</span>" : "";
                                                                             String masterLink = null;
                                                                             if (DemographicContact.CATEGORY_PERSONAL.equals(dContact.getCategory()) && DemographicContact.TYPE_DEMOGRAPHIC == dContact.getType()) {
-                                                                                masterLink = "<a target=\"demographic" + dContact.getContactId() + "\" href=\"" + request.getContextPath() + "/demographic/demographiccontrol.jsp?demographic_no=" + dContact.getContactId() + "&displaymode=edit&dboperation=search_detail\">M</a>";
+                                                                                masterLink = "<a target=\"demographic" + dContact.getContactId() + "\" href=\"" + request.getContextPath() + "/demographic/DemographicEdit.do?demographic_no=" + dContact.getContactId() + "\">M</a>";
                                                                             }
                                                                             if (DemographicContact.CATEGORY_PERSONAL.equals(dContact.getCategory()) && DemographicContact.TYPE_CONTACT == dContact.getType()) {
                                                                                 masterLink = "<a target=\"_blank\" href=\"" + request.getContextPath() + "/demographic/Contact.do?method=viewContact&contact.id=" + dContact.getContactId() + "\">details</a>";
@@ -1928,16 +2040,16 @@
                                                                         <span class="info"><%=StringUtils.trimToEmpty(demoExt.get("demo_cell"))%></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formPhoneComment"/>:</span>
-                                                                        <span class="info"><%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%></span>
+                                                                        <span class="info"><%=Encode.forHtml(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formAddr"/>(<span
                                                                             class="popup"
                                                                             onmouseover="nhpup.popup(addressHistory);"
                                                                             title="Address History">History</span>):</span>
-                                                                        <span class="info"><%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getAddress()))%></span>
+                                                                        <span class="info"><%=Encode.forHtml(StringUtils.trimToEmpty(demographic.getAddress()))%></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formCity"/>:</span>
-                                                                        <span class="info"><%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getCity()))%></span>
+                                                                        <span class="info"><%=Encode.forHtml(StringUtils.trimToEmpty(demographic.getCity()))%></span>
                                                                     </li>
                                                                     <li><span class="label">
 							<% if (oscarProps.getProperty("demographicLabelProvince") == null) { %>
@@ -1956,10 +2068,10 @@
 
 
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResidentialAddr"/>:</span>
-                                                                        <span class="info"><%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getResidentialAddress()))%></span>
+                                                                        <span class="info"><%=Encode.forHtml(StringUtils.trimToEmpty(demographic.getResidentialAddress()))%></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResidentialCity"/>:</span>
-                                                                        <span class="info"><%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getResidentialCity()))%></span>
+                                                                        <span class="info"><%=Encode.forHtml(StringUtils.trimToEmpty(demographic.getResidentialCity()))%></span>
                                                                     </li>
                                                                     <li><span class="label">
 														<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResidentialProvince"/>:</span>
@@ -2006,7 +2118,7 @@
                                                                     <jsp:include page="./displayFirstNationsModule.jsp"
                                                                                  flush="false">
                                                                         <jsp:param name="demo"
-                                                                                   value="<%= demographic_no %>"/>
+                                                                                   value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
                                                                         <jsp:param name="fncommunity"
                                                                                    value="${fncommunity}"/>
                                                                     </jsp:include>
@@ -2399,7 +2511,7 @@
                                                                     value="true">
                                                                 <jsp:include page="displayHealthCareTeam.jsp">
                                                                     <jsp:param name="demographicNo"
-                                                                               value="<%= demographic_no %>"/>
+                                                                               value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
                                                                 </jsp:include>
                                                             </oscar:oscarPropertiesCheck>
                                                                 <%-- TOGGLE OFF PATIENT CLINIC STATUS --%>
@@ -2450,17 +2562,7 @@
                                                             <div class="demographicSection" id="notes">
                                                                 <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formNotes"/></h3>
 
-                                                                <%=StringEscapeUtils.escapeHtml4(notes)%>&nbsp;
-                                                                <%if (hasImportExtra) { %>
-                                                                <a href="javascript:void(0);"
-                                                                   title="Extra data from Import"
-                                                                   onclick="window.open('<%= request.getContextPath() %>/annotation/importExtra.jsp?display=<%=annotation_display %>&amp;table_id=<%=demographic_no %>&amp;demo=<%=demographic_no %>','anwin','width=400,height=250');">
-                                                                    <img src="<%= request.getContextPath() %>/images/notes.gif" align="right"
-                                                                         alt="Extra data from Import" height="16"
-                                                                         width="13" border="0"> </a>
-                                                                <%} %>
-
-
+                                                                <%=Encode.forHtml(notes)%>&nbsp;
                                                             </div>
 
                                                                 <%-- TOGGLED OFF PROGRAM ADMISSIONS --%>
@@ -2502,14 +2604,14 @@
                                                         <td align="left"><input type="text"
                                                                                 name="last_name" <%=getDisabled("last_name")%>
                                                                                 size="30"
-                                                                                value="<%=StringEscapeUtils.escapeHtml4(demographic.getLastName())%>"
+                                                                                value="<%=Encode.forHtmlAttribute(demographic.getLastName())%>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                         <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formFirstName"/>:
                                                         </b></td>
                                                         <td align="left"><input type="text"
                                                                                 name="first_name" <%=getDisabled("first_name")%>
                                                                                 size="30"
-                                                                                value="<%=StringEscapeUtils.escapeHtml4(demographic.getFirstName())%>"
+                                                                                value="<%=Encode.forHtmlAttribute(demographic.getFirstName())%>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                     </tr>
                                                     <tr>
@@ -2518,7 +2620,7 @@
                                                         <td align="left"><input type="text"
                                                                                 name="middleNames" <%=getDisabled("middleNames")%>
                                                                                 size="30"
-                                                                                value="<%=StringEscapeUtils.escapeHtml4(demographic.getMiddleNames())%>"
+                                                                                value="<%=Encode.forHtmlAttribute(demographic.getMiddleNames())%>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                         <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgDemoTitle"/>: </b>
                                                         </td>
@@ -2596,7 +2698,7 @@
                                                         <td align="left"><input type="text"
                                                                                 name="nameUsed" <%=getDisabled("nameUsed")%>
                                                                                 size="30"
-                                                                                value="<c:out value="<%=Encode.forHtmlAttribute(demographic.getAlias())%>" />"
+                                                                                value="<%= Encode.forHtmlAttribute(demographic.getAlias()) %>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                         <td style="text-align: right;">
                                                             <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formPronouns"/></strong>
@@ -2644,13 +2746,13 @@
                                                         <td align="left"><input type="text"
                                                                                 name="address" <%=getDisabled("address")%>
                                                                                 size="30"
-                                                                                value="<%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getAddress()))%>">
+                                                                                value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getAddress()))%>">
                                                         </td>
                                                         <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formCity"/>: </b>
                                                         </td>
                                                         <td align="left"><input type="text" name="city"
                                                                                 size="30" <%=getDisabled("city")%>
-                                                                                value="<%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getCity()))%>">
+                                                                                value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getCity()))%>">
                                                         </td>
                                                     </tr>
 
@@ -2919,13 +3021,13 @@
                                                         <td align="left"><input type="text"
                                                                                 name="residentialAddress" <%=getDisabled("residentialAddress")%>
                                                                                 size="30"
-                                                                                value="<%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getResidentialAddress()))%>">
+                                                                                value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getResidentialAddress()))%>">
                                                         </td>
                                                         <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResidentialCity"/>: </b>
                                                         </td>
                                                         <td align="left"><input type="text" name="residentialCity"
                                                                                 size="30" <%=getDisabled("residentialCity")%>
-                                                                                value="<%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getResidentialCity()))%>">
+                                                                                value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getResidentialCity()))%>">
                                                         </td>
                                                     </tr>
 
@@ -3236,9 +3338,9 @@
                                                         </td>
                                                         <td align="left" colspan="3">
                                                             <input type="hidden" name="phoneCommentOrig"
-                                                                   value="<%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%>"/>
+                                                                   value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%>"/>
                                                             <textarea rows="2" cols="30"
-                                                                      name="phoneComment"><%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%></textarea>
+                                                                      name="phoneComment"><%=Encode.forHtml(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%></textarea>
                                                         </td>
                                                     </tr>
                                                     <tr valign="top">
@@ -3341,9 +3443,9 @@
                                                                 <%} %>
                                                             </select>
 
-                                                            <label for="age">Age:</label>
+                                                            <label for="age"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgDemoAge"/>:</label>
                                                             <input type="text" name="age" id="age"
-                                                                   value="<%=demographic.getAgeAsOf(new Date())%>"
+                                                                   value="<%=Encode.forHtmlAttribute(demographic.getAgeAsOf(new Date()))%>"
                                                                    readonly>
 
                                                         </td>
@@ -3351,8 +3453,17 @@
                                                         </td>
                                                         <td><select name="sex" id="sex">
                                                             <option value=""></option>
-                                                            <% for (Gender gn : Gender.values()) { %>
-                                                            <option value=<%=gn.name()%> <%=((demographic.getSex().toUpperCase().equals(gn.name())) ? " selected=\"selected\" " : "") %>><%=gn.getText()%>
+                                                            <% for (Gender gn : Gender.values()) {
+                                                                String gnI18nKey;
+                                                                switch (gn.name()) {
+                                                                    case "M":  gnI18nKey = "global.gender.male";        break;
+                                                                    case "F":  gnI18nKey = "global.gender.female";      break;
+                                                                    case "X":  gnI18nKey = "global.gender.intersex";    break;
+                                                                    case "O":  gnI18nKey = "global.gender.other";       break;
+                                                                    default:   gnI18nKey = "global.gender.undisclosed"; break;
+                                                                }
+                                                            %>
+                                                            <option value="<%= Encode.forHtmlAttribute(gn.name()) %>" <%=(StringUtils.equalsIgnoreCase(demographic.getSex(), gn.name()) ? " selected=\"selected\" " : "") %>><%= Encode.forHtml(oscarResources.getString(gnI18nKey)) %>
                                                             </option>
                                                             <% } %>
                                                         </select>
@@ -3723,7 +3834,7 @@
                                                             <td colspan="8">
                                                                 <jsp:include page="manageFirstNationsModule.jsp">
                                                                     <jsp:param name="demo"
-                                                                               value="<%= demographic_no %>"/>
+                                                                               value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
                                                                 </jsp:include>
                                                             </td>
                                                         </tr>
@@ -4562,7 +4673,7 @@
                                                     <tr>
                                                         <td colspan="4">
                                                             <jsp:include page="<%=fieldJSP%>">
-                                                                <jsp:param name="demo" value="<%=demographic_no%>"/>
+                                                                <jsp:param name="demo" value="<%= demographic_no %>"/>
                                                             </jsp:include>
                                                         </td>
                                                     </tr>
@@ -4668,7 +4779,7 @@
                                                             <td colspan="4">
                                                                 <jsp:include page="manageHealthCareTeam.jsp">
                                                                     <jsp:param name="demographicNo"
-                                                                               value="<%= demographic_no %>"/>
+                                                                               value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
                                                                 </jsp:include>
                                                             </td>
                                                         </tr>
@@ -4845,7 +4956,7 @@
                                                                 <%
                                                                     boolean showCbiReminder = oscarProps.getBooleanProperty("CBI_REMIND_ON_UPDATE_DEMOGRAPHIC", "true");
                                                                 %>
-                                                                <input type="submit" class="btn-toolbar-update" <%=(showCbiReminder?"onclick='showCbiReminder()'":"")%>
+                                                                <input type="submit" class="btn-toolbar-update" <%=(showCbiReminder?"onclick='return showCbiReminder()'":"")%>
                                                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnUpdate"/>">
                                                             </security:oscarSec>
                                                         </span>
@@ -4854,19 +4965,6 @@
                                                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgExport"/>"
                                                                    onclick="window.open('<%= request.getContextPath() %>/demographic/demographicExport.jsp?demographicNo=<%=demographic.getDemographicNo()%>');"/>
                                                         </security:oscarSec>
-                                                        <oscar:oscarPropertiesCheck value="BC" property="billregion">
-                                                            <security:oscarSec roleName="<%=roleName$%>" objectName="_careconnect" rights="r">
-                                                                <c:set value="${ CarlosProperties.getInstance()['BC_CARECONNECT_URL'] }" var="url" scope="page"/>
-                                                                <c:if test="${ not empty url }">
-                                                                    <script type="text/javascript" src="${ctx}/careconnect/careconnect.js"></script>
-                                                                    <input type="button" class="btn-toolbar-secondary"
-                                                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCareConnect"/>"
-                                                                           onclick="callCareConnect('<%= Encode.forJavaScriptAttribute((String) pageContext.getAttribute("url")) %>', '<%= Encode.forJavaScriptAttribute(demographic.getHin()) %>', '<%= Encode.forJavaScriptAttribute(demographic.getFirstName()) %>',
-                                                                                   '<%= Encode.forJavaScriptAttribute(demographic.getLastName()) %>', '<%= Encode.forJavaScriptAttribute(demographic.getFormattedDob()) %>', '<%= Encode.forJavaScriptAttribute(demographic.getSex()) %>',
-                                                                                   '<%= Encode.forJavaScriptAttribute(CarlosProperties.getInstance().getProperty("BC_CARECONNECT_REGION", "")) %>' )"/>
-                                                                </c:if>
-                                                            </security:oscarSec>
-                                                        </oscar:oscarPropertiesCheck>
                                                         <input type="button" class="btn-toolbar-secondary"
                                                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnAuditInfo"/>"
                                                                onclick="window.open('<%= Encode.forJavaScriptAttribute(request.getContextPath()) %>/demographic/demographicAudit.jsp?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic.getDemographicNo().toString())) %>');"/>
@@ -4946,7 +5044,7 @@
 
         function callEligibilityWebService(url, id) {
             var ran_number = Math.round(Math.random() * 1000000);
-            var params = "demographic=<%=demographic_no%>&method=checkElig&rand=" + ran_number;  //hack to get around ie caching the page
+            var params = "demographic=<%= Encode.forJavaScript(Encode.forUriComponent(demographic_no)) %>&method=checkElig&rand=" + ran_number;  //hack to get around ie caching the page
             fetch(url + '?' + params, {
                 method: 'GET',
                 credentials: 'same-origin',
@@ -4963,7 +5061,7 @@
         
         function checkInsuranceEligibility() {
             let params = {};
-            params.demographic =<%=demographic_no%>;
+            params.demographic = '<%= Encode.forJavaScript(demographic_no) %>';
             params.method = 'checkElig';
             params.rand = Math.round(Math.random()*1000000);  //hack to get around ie caching the page
             let url = '${ctx}/billing/CA/BC/ManageTeleplan.do';

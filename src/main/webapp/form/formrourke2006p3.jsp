@@ -51,6 +51,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.data.FrmData" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRourke2006Record" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
@@ -109,18 +110,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/mouseover.js"></script>
 
         <!--Text Area text max limit code -->
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/javascript/txtCounter/x_core.js"></script>
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/javascript/txtCounter/x_dom.js"></script>
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/javascript/txtCounter/x_event.js"></script>
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/javascript/txtCounter/ylib.js"></script>
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/javascript/txtCounter/y_TextCounter.js"></script>
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/javascript/txtCounter/y_util.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/js/carlosTextCounter.js"></script>
 
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
@@ -349,7 +339,7 @@
         <input type="hidden" name="ID"
                value="<%= props.getProperty("ID", "0") %>"/>
         <input type="hidden" name="provider_no"
-               value=<%=request.getParameter("provNo")%>/>
+               value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provNo"))) %>"/>
         <input type="hidden" name="formCreated"
                value="<%= props.getProperty("formCreated", "") %>"/>
         <input type="hidden" name="form_class" value="<%=formClass%>"/>

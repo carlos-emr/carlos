@@ -324,7 +324,12 @@
 	        if (id === "showVersion") {
 		        return;
 	        }
-	        let url = context + "/Scratch.do?method=showVersion&id=" + encodeURIComponent(id);
+	        let numId = parseInt(id, 10);
+	        if (isNaN(numId) || numId <= 0) {
+		        console.warn('showVersion: invalid or non-numeric id, ignoring.');
+		        return;
+	        }
+	        let url = context + "/Scratch.do?method=showVersion&id=" + numId;
 	        let win = window.open(url, "scratchPadVersion", "width=" +window.innerWidth+ ",height=" +window.innerHeight+ ",toolbar=no, scrollbars=yes");
 	        if (win) {
 		        win.focus();

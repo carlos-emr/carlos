@@ -37,7 +37,6 @@ import java.util.List;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
@@ -55,9 +54,15 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action for adding a new measuring instruction to an existing measurement type.
+ * Validates the instruction text, checks for duplicates against the specified type display name,
+ * and persists a new {@link MeasurementType} record with the instruction.
+ *
+ * @since 2004-02-23
+ */
 public class EctAddMeasuringInstruction2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
 
 
     private MeasurementTypeDao dao = SpringUtils.getBean(MeasurementTypeDao.class);
@@ -74,12 +79,17 @@ public class EctAddMeasuringInstruction2Action extends ActionSupport {
             String measuringInstrc = this.getMeasuringInstrc();
             String validation = this.getValidation();
 
+            if (typeDisplayName == null || typeDisplayName.isEmpty() || measuringInstrc == null || measuringInstrc.isEmpty()) {
+                addActionError(getText("errors.invalid", new String[]{"Display name and measuring instruction are required"}));
+                request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
+                return "failure";
+            }
+
             boolean isValid = true;
 
             EctValidation validate = new EctValidation();
             String regExp = validate.getRegCharacterExp();
             String errorField = "The measuring instruction " + measuringInstrc;
-            String contextPath = request.getContextPath();
             if (!validate.matchRegExp(regExp, measuringInstrc)) {
                 addActionError(getText("errors.invalid", new String[]{errorField}));
                 isValid = false;
@@ -89,34 +99,38 @@ public class EctAddMeasuringInstruction2Action extends ActionSupport {
                 isValid = false;
             }
             if (!isValid) {
-                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/AddMeasuringInstruction.jsp");
-                return NONE;
+                request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
+                return "failure";
             }
 
             List<MeasurementType> mts = dao.findByMeasuringInstructionAndTypeDisplayName(measuringInstrc, typeDisplayName);
             if (mts.size() > 0) {
                 addActionError(getText("error.encounter.Measurements.duplicateTypeName"));
-                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/AddMeasuringInstruction.jsp");
-                return NONE;
+                request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
+                return "failure";
             }
 
             mts = dao.findByTypeDisplayName(typeDisplayName);
-            if (mts.size() > 0) {
-                MeasurementType mt = mts.get(0);
-                String type = mt.getType();
-                String typeDesc = mt.getTypeDescription();
-
-                MeasurementType m = new MeasurementType();
-                m.setType(type);
-                m.setTypeDisplayName(typeDisplayName);
-                m.setTypeDescription(typeDesc);
-                m.setMeasuringInstruction(measuringInstrc);
-                m.setValidation(validation);
-
-                dao.persist(m);
-
-                requestId = m.getId().toString();
+            if (mts.isEmpty()) {
+                addActionError(getText("errors.invalid", new String[]{"The display name " + typeDisplayName + " (no matching measurement type found)"}));
+                request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
+                return "failure";
             }
+
+            MeasurementType mt = mts.get(0);
+            String type = mt.getType();
+            String typeDesc = mt.getTypeDescription();
+
+            MeasurementType m = new MeasurementType();
+            m.setType(type);
+            m.setTypeDisplayName(typeDisplayName);
+            m.setTypeDescription(typeDesc);
+            m.setMeasuringInstruction(measuringInstrc);
+            m.setValidation(validation);
+
+            dao.persist(m);
+
+            requestId = m.getId().toString();
 
             String msg = getText("encounter.oscarMeasurements.AddMeasuringInstruction.successful", "!");
             messages.add(msg);

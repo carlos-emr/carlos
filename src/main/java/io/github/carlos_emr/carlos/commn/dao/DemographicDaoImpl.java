@@ -36,7 +36,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -85,6 +84,7 @@ import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  *
@@ -93,6 +93,11 @@ import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 public class DemographicDaoImpl extends AbstractHibernateDao implements ApplicationEventPublisherAware, DemographicDao {
 
     private static final int MAX_SELECT_SIZE = 500;
+
+    /** Parameter keys whose values contain PHI and must not appear in logs. */
+    private static final Set<String> PHI_PARAM_KEYS = Set.of(
+        "fnLike", "lnLike", "fnSoundex", "lnSoundex", "hin", "ver", "dob", "yob", "mob", "dayob"
+    );
 
     static Logger log = MiscUtils.getLogger();
 
@@ -251,15 +256,17 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     public Set getArchiveDemographicByProgramOptimized(int programId, Date dt, Date defdt) {
         Set<Demographic> archivedClients = new java.util.LinkedHashSet<Demographic>();
 
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        String sqlQuery = "select distinct d.demographic_no,d.first_name,d.last_name,(select count(*) from admission a where client_id=d.demographic_no and admission_status='current' and program_id="
-            + programId + " and admission_date<='" + sdf.format(dt)
-            + "') as is_active from admission a,demographic d where a.client_id=d.demographic_no and (d.patient_status='AC' or d.patient_status='' or d.patient_status=null) and program_id="
-            + programId
+        String sqlQuery = "select distinct d.demographic_no,d.first_name,d.last_name,"
+            + "(select count(*) from admission a2 where a2.client_id=d.demographic_no and a2.admission_status='current' and a2.program_id=:programId and a2.admission_date<=:admissionDate)"
+            + " as is_active from admission a,demographic d where a.client_id=d.demographic_no"
+            + " and (d.patient_status='AC' or d.patient_status='' or d.patient_status is null)"
+            + " and a.program_id=:programId"
             + " and (d.anonymous is null or d.anonymous != 'one-time-anonymous') ORDER BY d.last_name,d.first_name";
         Session session = currentSession();
 
         NativeQuery q = session.createNativeQuery(sqlQuery);
+        q.setParameter("programId", programId);
+        q.setParameter("admissionDate", dt);
         q.addScalar("d.demographic_no");
         q.addScalar("d.first_name");
         q.addScalar("d.last_name");
@@ -2411,10 +2418,20 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             return q.list();
     }
 
+    /** Allowlisted HQL field names for {@link #findByField}. */
+    private static final java.util.Set<String> VALID_FIND_BY_FIELDS = java.util.Set.of(
+        "DemographicNo", "LastName", "FirstName", "ChartNo", "Sex", "YearOfBirth", "PatientStatus"
+    );
+
     @SuppressWarnings("unchecked")
     @Override
     public List<Demographic> findByField(String fieldName, Object fieldValue, String orderBy, int offset) {
         boolean isFieldValueEmpty = fieldValue == null || fieldValue.equals("");
+
+        // Validate fieldName against allowlist to prevent HQL injection
+        if (fieldName != null && !VALID_FIND_BY_FIELDS.contains(fieldName)) {
+            fieldName = "LastName";
+        }
 
         String sql = "FROM Demographic d WHERE d." + fieldName + " LIKE :fieldValue";
         if (isFieldValueEmpty) {
@@ -2422,6 +2439,10 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         }
 
         if (orderBy != null && !orderBy.isEmpty()) {
+            // Validate orderBy against allowlist to prevent HQL injection
+            if (!VALID_FIND_BY_FIELDS.contains(orderBy)) {
+                orderBy = "LastName";
+            }
             sql = sql + " ORDER BY d." + orderBy;
         }
 
@@ -2467,12 +2488,15 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             + "and (patient_status = 'AC' or patient_status = 'UHIP') "
             + "and (roster_status='RO' or roster_status='NR' or roster_status='FS' or roster_status='RF' or roster_status='PL')";
         if (providerNo != null && !providerNo.equals("-1")) {
-            sql = sql + " and provider_no = '" + providerNo + "' ";
+            sql = sql + " and provider_no = :providerNo ";
         }
         sql = sql + " order by last_name ";
 
         Session session = currentSession();
             NativeQuery sqlQuery = session.createNativeQuery(sql);
+            if (providerNo != null && !providerNo.equals("-1")) {
+                sqlQuery.setParameter("providerNo", providerNo);
+            }
             return sqlQuery.list();
     }
 
@@ -2660,13 +2684,14 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
         String demographicQuery = generateDemographicSearchQuery(loggedInInfo, searchRequest, params, "count(*)");
 
-        MiscUtils.getLogger().warn(demographicQuery);
+        MiscUtils.getLogger().debug("demographicQuery: {}", LogSanitizer.sanitize(demographicQuery, 1000));
 
         Session session = currentSession();
             NativeQuery sqlQuery = session.createNativeQuery(demographicQuery);
             for (String key : params.keySet()) {
                 sqlQuery.setParameter(key, params.get(key));
-                MiscUtils.getLogger().warn(key + "=" + params.get(key));
+                MiscUtils.getLogger().debug("query param: {}={}", LogSanitizer.sanitize(key),
+                    PHI_PARAM_KEYS.contains(key) ? "[REDACTED]" : LogSanitizer.sanitize(String.valueOf(params.get(key))));
             }
             Integer result = ((Number) sqlQuery.uniqueResult()).intValue();
             return result;

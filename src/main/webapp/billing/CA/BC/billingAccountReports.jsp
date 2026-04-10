@@ -24,6 +24,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     ReportProviderDao reportProviderDao = SpringUtils.getBean(ReportProviderDao.class);
@@ -289,7 +290,7 @@
                                         <a href="javascript: function myFunction() {return false; }"
                                            id="hlSDate">Start Date :</a> </font></td>
                                     <td><input type="text" name="xml_vdate" id="xml_vdate"
-                                               value="<%=xml_vdate%>" readonly="true"> <a
+                                               value="<%= Encode.forHtmlAttribute(xml_vdate) %>" readonly="true"> <a
                                             href="javascript: clearField('xml_vdate')">clear</a></td>
                                 </tr>
                                 <tr>
@@ -297,7 +298,7 @@
                                         <a href="javascript: function myFunction() {return false; }"
                                            id="hlADate">End Date :</a> </font></td>
                                     <td><input type="text" name="xml_appointment_date"
-                                               id="xml_appointment_date" value="<%=xml_appointment_date%>"
+                                               id="xml_appointment_date" value="<%= Encode.forHtmlAttribute(xml_appointment_date) %>"
                                                readonly="true"> <a
                                             href="javascript: clearField('xml_appointment_date')">clear</a></td>
                                 </tr>

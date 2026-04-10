@@ -47,6 +47,7 @@ import org.owasp.encoder.Encode;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * Struts2 action that handles the E-Chart button functionality in lab display pages.
@@ -118,8 +119,7 @@ public class SearchPatient2Action extends ActionSupport {
 
         // Validate required parameters (name is optional, only used for keyword search)
         if (labNo == null || labType == null) {
-            MiscUtils.getLogger().error("Missing required parameters in SearchPatient2Action: labNo=" + labNo +
-                    ", labType=" + labType);
+            MiscUtils.getLogger().error("Missing required parameters in SearchPatient2Action: labNo={}, labType={}", LogSanitizer.sanitize(labNo), LogSanitizer.sanitize(labType));
             response.sendRedirect(contextPath + PATIENT_SEARCH_URL);
             return NONE;
         }

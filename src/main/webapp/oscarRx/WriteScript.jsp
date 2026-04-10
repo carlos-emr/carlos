@@ -86,7 +86,7 @@
             </c:if>
 
             <c:if test="${bean.stashIndex == -1}">
-                <c:redirect url="SearchDrug.jsp"/>
+                <c:redirect url="SearchDrug3.jsp"/>
             </c:if>
         </c:if>
 
@@ -99,10 +99,6 @@
             boolean isCustom = true;
             String atcCode = null;
             String regionalIdentifier = "";
-            String annotation_display = CaseManagementNoteLink.DISP_PRESCRIP;
-            Long now = new Date().getTime();
-            String annotation_attrib = "";// = "anno"+now;
-
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         %>
         <fmt:message key="WriteScript.msgQtyMitte" var="msgQtyMitte"/>
@@ -857,7 +853,6 @@
         if (thisForm != null) {
             if (bean.getStashIndex() > -1) { //new way
                 RxPrescriptionData.Prescription rx = bean.getStashItem(bean.getStashIndex());
-                annotation_attrib = rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex());
                 RxDrugData drugData = new RxDrugData();
                 thisForm.setDemographicNo(bean.getDemographicNo());
                 thisForm.setRxDate(RxUtil.DateToString(rx.getRxDate(), "yyyy-MM-dd"));
@@ -919,7 +914,6 @@
             String drugId = thisForm.getGCN_SEQNO();
         }
     %>
-    <input type="hidden" name="annotation_attrib" value="<%=annotation_attrib%>"/>
     <!--
 DemographicNo:   <%= thisForm.getDemographicNo() %><br>
 RxDate:          <%= thisForm.getRxDate() %><br>
@@ -1018,7 +1012,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                     <tr>
                         <td width="0%" valign="top">
                             <div class="DivCCBreadCrumbs">
-                                <a href="<%= request.getContextPath() %>/oscarRx/SearchDrug.jsp"> <fmt:message key="SearchDrug.title"/></a> >
+                                <a href="<%= request.getContextPath() %>/oscarRx/SearchDrug3.jsp"> <fmt:message key="SearchDrug.title"/></a> >
                                 <fmt:message key="ChooseDrug.title"/> >
                                 <b><fmt:message key="WriteScript.title"/></b>
                             </div>
@@ -1326,8 +1320,6 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                     <td colspan=4>
                                         <fmt:message key="WriteScript.msgLongTermMedication"/>:
                                         <input type="checkbox" name="longTerm" onchange="javascript:writeScriptDisplay();"/>&nbsp;&nbsp;
-                                        <fmt:message key="WriteScript.msgDispenseInternal"/>:
-                                        <input type="checkbox" name="dispenseInternal" onchange="javascript:writeScriptDisplay();"/>&nbsp;&nbsp;
                                         <fmt:message key="WriteScript.msgPastMedication"/>:
                                         <input type="checkbox" name="pastMed" onchange="javascript:writeScriptDisplay();"/>&nbsp;&nbsp;
                                         <fmt:message key="WriteScript.msgPatientCompliance"/>:
@@ -1439,12 +1431,6 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                         <input type=button class="ControlPushButton" style="width: 200px"
                                                onclick="submitForm('updateAndPrint');"
                                                value="<fmt:message key="WriteScript.msgUpdatePrintAndSave"/>"/>
-                                    </td>
-                                    <td align="right">
-                                        <input type=button class="ControlPushButton" style="width: 100px"
-                                               onclick="window.open('<c:out
-                                                       value="${pageContext.request.contextPath}"/>/annotation/annotation.jsp?atbname=<%=annotation_attrib%>&demo=<%=bean.getDemographicNo()%>&display=<%=annotation_display%>','anwin','width=400,height=500');"
-                                               value="<fmt:message key="WriteScript.msgAnnotation"/>"/>
                                     </td>
                                 </tr>
                             </table>

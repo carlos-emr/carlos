@@ -51,18 +51,26 @@
 <%@page import="java.text.*, java.util.*, io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.entities.*" %>
 <%@ page import="io.github.carlos_emr.carlos.entities.WCB" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@taglib uri="jakarta.tags.core" prefix="c" %>
 <%@taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     String demographicNo = request.getParameter("demographicNo");
     String wcbid = request.getParameter("wcbid");
     String billingcode = request.getParameter("billingcode");
+
+    // Pre-compute commonly used encoded values
+    String encodedDemoNo = Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demographicNo)));
+    String encodedDemoNoJs = Encode.forJavaScriptAttribute(StringUtils.noNull(demographicNo));
+    String encodedProvNo = Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull((String) session.getAttribute("user"))));
+    String encodedBillingCode = Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(billingcode)));
 %>
 
 <div>
     <div>
         <label> WCB Forms available to attach.</label> <a
-            onclick="popup(700,960,'viewformwcb.do?demographic_no=<%=demographicNo%>&formId=0&provNo=999998&parentAjaxId=forms&hideToBill=true','<%=demographicNo%>NEWWCB'); return false;"
+            onclick="popup(700,960,'viewformwcb.do?demographic_no=<%= encodedDemoNo %>&formId=0&provNo=999998&parentAjaxId=forms&hideToBill=true','<%= encodedDemoNoJs %>NEWWCB'); return false;"
             href="javascript:void(0);">New WCB Form</a> <br>
     </div>
     <table class="table table-striped table-sm">
@@ -84,15 +92,15 @@
         <tr>
             <td><input type="radio" name="WCBid" value="<%=wcb.getId()%>" <%=checked(wcbid, wcb.getId())%> /></td>
             <td><a href="javascript:void(0);"
-                   onclick="checkifSet('<%=wcb.getW_icd9()%>','<%= wcb.getW_feeitem()%>','<%= wcb.getW_extrafeeitem()%>');">Populate</a>
+                   onclick="checkifSet('<%= Encode.forJavaScriptAttribute(StringUtils.noNull(wcb.getW_icd9())) %>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(wcb.getW_feeitem())) %>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(wcb.getW_extrafeeitem())) %>');">Populate</a>
             </td>
             <td align="middle">
-                <a onclick="popup(700,960,'viewformwcb.do?demographic_no=<%=demographicNo%>&formId=<%=wcb.getId()%>&provNo=<%=session.getAttribute("user")%>&parentAjaxId=forms&billingcode=<%=billingcode%>&hideToBill=true','<%=demographicNo%>NEWWCB'); return false;"
+                <a onclick="popup(700,960,'viewformwcb.do?demographic_no=<%= encodedDemoNo %>&formId=<%=wcb.getId()%>&provNo=<%= encodedProvNo %>&parentAjaxId=forms&billingcode=<%= encodedBillingCode %>&hideToBill=true','<%= encodedDemoNoJs %>NEWWCB'); return false;"
                    href="javascript:void(0);"><fmt:formatDate pattern="yyyy-MM-dd" value="${wcb.w_doi}"/></a>
 
             </td>
             <td><fmt:formatDate pattern="yyyy-MM-dd HH:mm" value="${wcb.formCreated}"/></td>
-            <td><%=wcb.getW_diagnosis()%>&nbsp;</td>
+            <td><%= Encode.forHtml(StringUtils.noNull(wcb.getW_diagnosis())) %>&nbsp;</td>
 
 
             <%
@@ -128,12 +136,14 @@
 
 <%!
     String checked(String s, int i) {
+        if (s == null || s.isEmpty()) return "";
         try {
             int b = Integer.parseInt(s);
             if (b == i) {
                 return "checked";
             }
-        } catch (Exception e) {
+        } catch (NumberFormatException e) {
+            // wcbid parameter is not a valid integer -- default to unchecked
         }
         return "";
     }
