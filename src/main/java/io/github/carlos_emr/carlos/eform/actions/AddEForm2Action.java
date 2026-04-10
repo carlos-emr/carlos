@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.match.IMatchManager;
 import io.github.carlos_emr.carlos.match.MatchManager;
 import io.github.carlos_emr.carlos.match.MatchManagerException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -63,6 +64,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.regex.Pattern;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -72,18 +74,36 @@ public class AddEForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    /**
-     * Regex pattern that a valid {@code eform_link} session-key must match.
-     * Format: {@code providerNo_demographicNo_fid_fieldName} (for example,
-     * {@code 1_100_5_fieldName} or {@code 1_100_5_m$bp#sys}).
-     * The field-name segment allows word characters plus {@code $} and {@code #}
-     * to support measurement AP field names (e.g. {@code m$bloodpressure#systolic}).
-     * Prevents session-key injection by rejecting arbitrary attacker-controlled attribute names.
-     * Package-private so the pattern can be referenced directly in unit tests.
-     */
-    static final String EFORM_LINK_PATTERN = "\\d+_\\d+_\\d+_[A-Za-z0-9_$#]+";
-
     private static final Logger logger = MiscUtils.getLogger();
+
+    /**
+     * Validates the eform_link parameter format to prevent session attribute injection (CWE-501).
+     * Expected format: {providerNo}_{demographicNo}_{fid}_{fieldName}
+     * Example: "999998_12345_67_referralForm"
+     *
+     * <p>Demographic number allows {@code -1} for admin-view eform linking
+     * (see {@link io.github.carlos_emr.carlos.eform.EFormLoader#getOpenEform}).</p>
+     */
+    static final Pattern EFORM_LINK_PATTERN = Pattern.compile(
+            "^[a-zA-Z0-9]{1,6}_(-1|\\d{1,10})_\\d{1,10}_[a-zA-Z0-9_.-]{1,50}$");
+
+    /**
+     * Validates an eform_link value against the expected key format.
+     *
+     * <p>Returns the value unchanged if it matches the expected format, or {@code null}
+     * if the value is invalid or null. Non-null invalid values are logged at WARN level.</p>
+     *
+     * @param eformLink the raw eform_link parameter value (may be null)
+     * @return the validated eform_link, or null if invalid
+     */
+    static String validateEformLink(String eformLink) {
+        if (eformLink != null && !EFORM_LINK_PATTERN.matcher(eformLink).matches()) {
+            logger.warn("Invalid eform_link parameter rejected: {}", LogSanitizer.sanitize(eformLink));
+            return null;
+        }
+        return eformLink;
+    }
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private EformDataManager eformDataManager = SpringUtils.getBean(EformDataManager.class);
     private DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
@@ -120,7 +140,8 @@ public class AddEForm2Action extends ActionSupport {
         ArrayList<String> paramValues = new ArrayList<String>(); //holds "myval, ...."
         String fid = request.getParameter("efmfid");
         String demographic_no = request.getParameter("efmdemographic_no");
-        String eform_link = request.getParameter("eform_link");
+        String eform_link = validateEformLink(request.getParameter("eform_link"));
+
         String subject = request.getParameter("subject");
 
         /*
@@ -170,9 +191,14 @@ public class AddEForm2Action extends ActionSupport {
         ArrayList<String> openerValues = new ArrayList<String>();
         for (String name : openerNames) {
             String lnk = providerNo + "_" + demographic_no + "_" + fid + "_" + name;
-            String val = (String) se.getAttribute(lnk);
+            // Validate constructed key before session access (CWE-501 read-path)
+            if (validateEformLink(lnk) == null) {
+                openerValues.add(null);
+                continue;
+            }
+            String val = (String) se.getAttribute(lnk); // nosemgrep: tainted-session-from-http-request -- key is validated by validateEformLink()
             openerValues.add(val);
-            if (val != null) se.removeAttribute(lnk);
+            if (val != null) se.removeAttribute(lnk); // nosemgrep: tainted-session-from-http-request -- session cleanup
         }
 
         //----names parsed
@@ -223,12 +249,15 @@ public class AddEForm2Action extends ActionSupport {
             attachToEForm(loggedInInfo, attachedEForms, attachedDocuments, attachedLabs, attachedHRMDocuments, attachedForms, fdid, demographic_no, providerNo);
 
             //post fdid to {eform_link} attribute
-            // Validate eform_link matches expected pattern before using as session key.
-            // An unvalidated session key allows an attacker to overwrite arbitrary session
-            // attributes (e.g., "user", "userrole") by crafting the eform_link parameter
-            // (CWE-501 Trust Boundary Violation).
-            if (eform_link != null && eform_link.matches(EFORM_LINK_PATTERN)) {
-                se.setAttribute(eform_link, fdid);
+            if (eform_link != null) {
+                // Validate eform_link against expected prefix to prevent session key injection (CWE-501).
+                // The expected key format is: providerNo_demographicNo_fid_openerName
+                String expectedPrefix = providerNo + "_" + demographic_no + "_" + fid + "_";
+                if (eform_link.startsWith(expectedPrefix) && eform_link.length() <= 100) {
+                    se.setAttribute(eform_link, fdid);
+                } else {
+                    logger.warn("Invalid eform_link rejected: {}", LogSanitizer.sanitize(eform_link)); // nosemgrep: crlf-injection-logs-deepsemgrep -- sanitized via LogSanitizer (OWASP Encode.forJava)
+                }
             }
 
             request.setAttribute("fdid", fdid);
@@ -473,12 +502,18 @@ public class AddEForm2Action extends ActionSupport {
      * Stores email attachment data in session for use after redirect.
      * Session attributes survive redirects, unlike request attributes.
      *
-     * <p>All numeric IDs (fdid, demographicId, and attached-* arrays) are validated
-     * by parsing through {@code Integer.parseInt} before session storage to prevent
-     * CWE-501 Trust Boundary Violation (unsanitized HTTP request data in HttpSession).</p>
+     * <p>All numeric IDs ({@code fdid}, {@code demographicId}, and attached-* arrays) are
+     * validated by parsing through {@link #validateIntId} and {@link #validateIntIdArray}
+     * before session storage to break the CodeQL taint chain (CWE-501 Trust Boundary Violation).
+     * Boolean values are pre-validated via {@code "true".equals()} in
+     * {@link io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings#of}.
+     * String values (email fields) are sanitized before storage.</p>
      *
-     * @param request HTTP request
+     * <p>Package-private for unit testing via {@code AddEForm2ActionTest}.</p>
+     *
+     * @param request  HTTP request
      * @param settings EmailAttachmentSettings containing all attachment configuration
+     * @since 2026-04-07
      */
     void addEmailAttachmentsToSession(HttpServletRequest request, EmailAttachmentSettings settings) {
         HttpSession session = request.getSession();
