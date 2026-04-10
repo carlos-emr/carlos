@@ -238,7 +238,7 @@ public class NavBarDisplayDAO {
     }
 
     public int numPopUpMenuItems() {
-        return popUpMenuConfigs.isEmpty() ? PopUpMenuURLS.size() : popUpMenuConfigs.size();
+        return PopUpMenuURLS.size();
     }
 
     // --- Structured popup configuration methods (defense-in-depth, issue #1386) ---
@@ -300,6 +300,7 @@ public class NavBarDisplayDAO {
      */
     public void addPopUpMenu(int width, int height, String windowName, String url) {
         popUpMenuConfigs.add(new PopupConfig(width, height, windowName, url));
+        PopUpMenuURLS.add(url);
     }
 
     /**
