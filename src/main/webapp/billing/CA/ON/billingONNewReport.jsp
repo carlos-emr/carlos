@@ -95,12 +95,12 @@
         vecHeader.add("DESCRIPTION");
         vecHeader.add("COMMENTS");
 
-        sql = "select * from appointment where provider_no='" + providerview + "' and appointment_date >='" + xml_vdate
-                + "' and appointment_date<='" + xml_appointment_date
-                + "' and (BINARY status NOT LIKE 'B%' AND BINARY status NOT LIKE 'C%' AND BINARY status NOT LIKE 'N%')"
+        sql = "select * from appointment where provider_no=? and appointment_date >=?"
+                + " and appointment_date<=?"
+                + " and (BINARY status NOT LIKE 'B%' AND BINARY status NOT LIKE 'C%' AND BINARY status NOT LIKE 'N%')"
                 + " and demographic_no != 0 order by appointment_date , start_time ";
 
-        rs = dbObj.searchDBRecord(sql);
+        rs = dbObj.searchDBRecord(sql, providerview, xml_vdate, xml_appointment_date);
         while (rs.next()) {
             if (bMultisites) {
                 // skip record if location does not match the selected site, blank location always gets displayed for backward-compatibility
@@ -132,10 +132,10 @@
         vecHeader.add("PATIENT");
         vecHeader.add("DESCRIPTION");
         vecHeader.add("ACCOUNT");
-        sql = "select * from billing_on_cheader1 where provider_no='" + providerview + "' and billing_date >='" + xml_vdate
-                + "' and billing_date<='" + xml_appointment_date + "' and (status<>'D' and status<>'S' and status<>'B')"
+        sql = "select * from billing_on_cheader1 where provider_no=? and billing_date >=?"
+                + " and billing_date<=? and (status<>'D' and status<>'S' and status<>'B')"
                 + " order by billing_date , billing_time ";
-        rs = dbObj.searchDBRecord(sql);
+        rs = dbObj.searchDBRecord(sql, providerview, xml_vdate, xml_appointment_date);
         while (rs.next()) {
             if (bMultisites) {
                 // skip record if clinic is not match the selected site, blank clinic always gets displayed for backward compatible
@@ -193,13 +193,13 @@
         // get billing no in the date range
         Vector vecBillingNo = new Vector();
         Properties propTotal = new Properties();
-        sql = "select billing_no,total from billing where provider_no='" + providerview
-                + "' and billing_date>='" + xml_vdate + "' and billing_date<='" + xml_appointment_date
-                + "' and status ='S' order by billing_date, billing_time";
+        sql = "select billing_no,total from billing where provider_no=?"
+                + " and billing_date>=? and billing_date<=?"
+                + " and status ='S' order by billing_date, billing_time";
 
         // change 'S' to 'O' for testing
 
-        rs = dbObj.searchDBRecord(sql);
+        rs = dbObj.searchDBRecord(sql, providerview, xml_vdate, xml_appointment_date);
         while (rs.next()) {
             vecBillingNo.add("" + rs.getInt("billing_no"));
             propTotal.setProperty("" + rs.getInt("billing_no"), rs.getString("total"));
@@ -291,11 +291,11 @@
         float fTotalClaim = 0.00f;
         String sAmountclaim = "";
 
-        sql = "select * from billing where provider_no='" + providerview + "' and billing_date >='" + xml_vdate
-                + "' and billing_date<='" + xml_appointment_date + "' and (status<>'D' and status<>'S')"
+        sql = "select * from billing where provider_no=? and billing_date >=?"
+                + " and billing_date<=? and (status<>'D' and status<>'S')"
                 + " order by billing_date , billing_time ";
         int nNo = 0;
-        rs = dbObj.searchDBRecord(sql);
+        rs = dbObj.searchDBRecord(sql, providerview, xml_vdate, xml_appointment_date);
         while (rs.next()) {
             prop = new Properties();
             nNo++;

@@ -3,7 +3,7 @@
 # a script file for CARLOS EMR that installs and tweaks the necessary files
 #====================================================================
 # Copyright Peter Hutten-Czapski 2012-2026 released under the GPL v2+
-# v 0.2
+# v 0.3
 #====================================================================
 
 #set -e
@@ -21,19 +21,22 @@ REVISION=1~1
 db_name=oscar_15
 buildDateTime="March 14, 2026"
 
- if [ -f /usr/share/tomcat11/bin/version.sh ] ; then
-         TOMCAT=tomcat11
-         TOMCAT_USER=tomcat
-     else
-     if [ -f /usr/share/tomcat10/bin/version.sh ] ; then
-             TOMCAT=tomcat10
-             TOMCAT_USER=tomcat
-      fi
-  fi
+# Pick the tomcat where carlos lives, otherwise for new installs, the highest tomcat
+if [ -f /var/lib/tomcat11/webapps/carlos.war ] ; then
+        TOMCAT=tomcat11       
+elif [ -f /var/lib/tomcat10/webapps/carlos.war ] ; then
+        TOMCAT=tomcat10
+elif [ -f /usr/share/tomcat11/bin/version.sh ] ; then
+        TOMCAT=tomcat11
+elif [ -f /usr/share/tomcat10/bin/version.sh ] ; then
+        TOMCAT=tomcat10
+fi
 if [ -z "${TOMCAT}" ]; then
-    echo "ERROR: Neither tomcat10 nor tomcat11 found. Installation cannot proceed." >&2
+    echo "ERROR: Neither tomcat10 nor tomcat11 found. Please install one of them." >&2
     exit 1
 fi
+
+TOMCAT_USER=tomcat
 
 C_HOME=/usr/share/${TOMCAT}/
 C_BASE=/var/lib/${TOMCAT}/
@@ -661,7 +664,7 @@ else
             if [ -r "$jdir/bin/java" ] ; then
                     JVER=$($jdir/bin/java -version 2>&1 | awk -F '"' '/version/ {print $2}')
                     JVER=$(echo $JVER | sed -e 's/^1\.\([0-9]*\)\(.*\)/\1/; 1q' | sed -e 's/\([0-9]*\)\(.*\)/\1/; 1q' )
-                    if [ "${JVER}" -eq 21 ] || [ "${JVER}" -eq 25 ] ; then 
+                    if [ "${JVER}" -ge 21 ]  ; then 
                             JAVA_HOME="$jdir"
                     fi
             fi

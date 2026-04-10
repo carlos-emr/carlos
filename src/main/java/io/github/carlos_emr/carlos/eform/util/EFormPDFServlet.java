@@ -36,7 +36,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -189,13 +188,13 @@ public class EFormPDFServlet extends HttpServlet {
                 sout.write(buffer, 0, bytesRead);
             }
 
+        } catch (jakarta.servlet.ServletException | java.io.IOException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Error generating eForm PDF", e);
             if (!res.isCommitted()) {
-                res.setContentType("text/html");
-                PrintWriter writer = res.getWriter();
-                writer.println("<p>An error occurred while generating the PDF. Please try again or contact support.</p>");
-                writer.close();
+                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
             }
         } finally {
             if (baosPDF != null) baosPDF.close();

@@ -15,6 +15,7 @@
 
 --%>
 <%@page import="java.nio.charset.StandardCharsets" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%@ page import="java.util.*,io.github.carlos_emr.*,java.io.*,java.net.*,io.github.carlos_emr.carlos.util.*,org.apache.commons.io.FileUtils,java.text.SimpleDateFormat,io.github.carlos_emr.carlos.billing.CA.ON.util.EDTFolder,io.github.carlos_emr.carlos.utility.MiscUtils,io.github.carlos_emr.carlos.utility.PathValidationUtils"%>
 <%@ page import="io.github.carlos_emr.carlos.util.FileSortByDate" %>
 <%@ page import="io.github.carlos_emr.carlos.util.zip" %>

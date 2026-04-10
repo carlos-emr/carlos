@@ -158,12 +158,15 @@ public class Logout2Action extends ActionSupport {
      *   <li>Clear all browser cookies by setting maxAge to 0</li>
      * </ol>
      *
-     * <p>Cookie cleanup:
+     * <p>Cookie cleanup creates fresh deletion cookies (empty value, maxAge=0) for each
+     * cookie name found in the request, avoiding reflection of attacker-controlled cookie
+     * values into Set-Cookie response headers:
      * <ul>
-     *   <li>Iterates through all cookies from request</li>
-     *   <li>Sets each cookie's maxAge to 0 (immediate expiration)</li>
-     *   <li>Sets cookie path to "/" to ensure deletion across entire application</li>
-     *   <li>Adds expired cookie to response to overwrite browser's stored cookie</li>
+     *   <li>Creates a new Cookie per name with an empty value</li>
+     *   <li>Copies only identity attributes (path, domain) from the original cookie</li>
+     *   <li>Sets maxAge to 0 for immediate browser deletion</li>
+     *   <li>Sets Secure (conditional on HTTPS), HttpOnly, and SameSite=Strict</li>
+     *   <li>Adds the fresh deletion cookie to the response</li>
      * </ul>
      *
      * <p>Audit logging:
@@ -172,9 +175,6 @@ public class Logout2Action extends ActionSupport {
      *   <li>Records user ID, action type (LOGOUT), context (LOGIN), and IP address</li>
      *   <li>Provides PHI-compliant audit trail for security and compliance</li>
      * </ul>
-     *
-     * <p>NOTE: The method currently retrieves login, errorMessage, and nameId parameters
-     * but does not use them. These may be legacy parameters from removed SSO functionality.
      *
      * @return String Struts2 result name (always SUCCESS, redirects to logout.jsp)
      * @see HttpSession#invalidate() for session cleanup
@@ -185,10 +185,6 @@ public class Logout2Action extends ActionSupport {
 
         // Retrieve existing session without creating new one
         HttpSession session = request.getSession(false);
-        // Legacy parameters (unused, may be from removed SSO functionality)
-        String login = request.getParameter("login");
-        String errorMessage = request.getParameter("errorMessage");
-        String nameId = request.getParameter("nameId");
 
         // Invalidate session and log logout event if session exists
         if (session != null) {
@@ -205,16 +201,18 @@ public class Logout2Action extends ActionSupport {
         Cookie[] cookies = request.getCookies();
         if (cookies != null) {
             for (Cookie cookie : cookies) {
-                // Set maxAge to 0 to delete cookie immediately
-                cookie.setMaxAge(0);
-                // Set path to "/" to ensure cookie is deleted across entire application
-                cookie.setPath("/");
-                // Security flags: HTTPS-only, no JavaScript access, CSRF protection
-                cookie.setSecure(true);
-                cookie.setHttpOnly(true);
-                cookie.setAttribute("SameSite", "Lax");
-                // Add expired cookie to response to overwrite browser's stored cookie
-                response.addCookie(cookie);
+                // Create a fresh deletion cookie to avoid reflecting attacker-controlled values
+                Cookie deletion = new Cookie(cookie.getName(), "");
+                deletion.setMaxAge(0);
+                deletion.setPath("/");
+                // Preserve domain if it was set on the original cookie
+                if (cookie.getDomain() != null) {
+                    deletion.setDomain(cookie.getDomain());
+                }
+                deletion.setSecure(request.isSecure());
+                deletion.setHttpOnly(true);
+                deletion.setAttribute("SameSite", "Strict");
+                response.addCookie(deletion);
             }
         }
         return SUCCESS;

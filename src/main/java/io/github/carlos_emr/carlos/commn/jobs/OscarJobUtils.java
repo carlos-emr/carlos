@@ -36,12 +36,26 @@ import io.github.carlos_emr.carlos.commn.model.OscarJob;
 import io.github.carlos_emr.carlos.commn.model.OscarJobType;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.ReflectionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
 
 public class OscarJobUtils {
 
+    /**
+     * Allowed package prefix for job class instantiation via reflection.
+     *
+     * <p>Only classes whose fully-qualified name begins with this prefix may be loaded
+     * by {@link #isJobTypeCurrentlyValid(OscarJobType)} and {@link #scheduleJob(OscarJob)}.
+     * Job class names are stored in the database and this prevents a compromised row
+     * from loading arbitrary JVM classes (CWE-470).</p>
+     *
+     * @see ReflectionConstants#CARLOS_PACKAGE_PREFIX
+     */
+    private static final String ALLOWED_JOB_PACKAGE_PREFIX = ReflectionConstants.CARLOS_PACKAGE_PREFIX;
 
     public static boolean isJobTypeCurrentlyValid(OscarJobType oscarJobType) {
 
@@ -49,9 +63,16 @@ public class OscarJobUtils {
             return false;
         }
 
+        String className = oscarJobType.getClassName().trim();
+        if (!className.startsWith(ALLOWED_JOB_PACKAGE_PREFIX)) {
+            MiscUtils.getLogger().warn("Rejected job class outside allowed package: {}",
+                    LogSanitizer.sanitize(className));
+            return false;
+        }
+
         try {
-            Class clazz = Class.forName(oscarJobType.getClassName());
-            for (Class i : clazz.getInterfaces()) {
+            Class<?> clazz = Class.forName(className); // nosemgrep: unsafe-reflection — className is validated against ALLOWED_JOB_PACKAGE_PREFIX above
+            for (Class<?> i : clazz.getInterfaces()) {
                 if (i.getName().equals("io.github.carlos_emr.carlos.commn.jobs.OscarRunnable")) {
                     return true;
                 }
@@ -119,7 +140,15 @@ public class OscarJobUtils {
 
         CronTrigger trigger = new CronTrigger(job.getCronExpression());
 
-        OscarRunnable oscarRunnableInstance = (OscarRunnable) Class.forName(job.getOscarJobType().getClassName()).newInstance();
+        String jobClassName = job.getOscarJobType().getClassName().trim();
+        if (!jobClassName.startsWith(ALLOWED_JOB_PACKAGE_PREFIX)) {
+            throw new SecurityException("Job class outside allowed package: "
+                    + LogSanitizer.sanitize(jobClassName));
+        }
+        OscarRunnable oscarRunnableInstance = Class.forName(jobClassName) // nosemgrep: unsafe-reflection — jobClassName is validated against ALLOWED_JOB_PACKAGE_PREFIX above
+                .asSubclass(OscarRunnable.class)
+                .getDeclaredConstructor()
+                .newInstance();
 
         Security security = new Security();
         security.setSecurityNo(0);

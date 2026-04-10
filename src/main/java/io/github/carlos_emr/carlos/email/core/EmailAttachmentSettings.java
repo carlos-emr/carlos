@@ -31,9 +31,6 @@ package io.github.carlos_emr.carlos.email.core;
 
 import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.Set;
-import java.util.regex.Pattern;
-
 import java.util.Arrays;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -154,6 +151,20 @@ public record EmailAttachmentSettings(
             return null;
         }
         return email;
+    }
+
+    /**
+     * Validates a patient chart option against the known {@link ChartDisplayOption} values.
+     * Returns null (fall back to default) if the option is invalid or null.
+     *
+     * @param option the raw chart option from user input
+     * @return the option if valid, or null if invalid/null
+     */
+    static String validateChartOption(String option) {
+        if (option == null || !VALID_CHART_OPTIONS.contains(option)) {
+            return null;
+        }
+        return option;
     }
 
     /**

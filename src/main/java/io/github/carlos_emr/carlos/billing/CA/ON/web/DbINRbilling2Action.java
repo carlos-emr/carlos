@@ -30,7 +30,6 @@
 package io.github.carlos_emr.carlos.billing.CA.ON.web;
 
 import java.util.Date;
-import java.util.Objects;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -96,18 +95,18 @@ public class DbINRbilling2Action extends ActionSupport {
 
         BillingInr bi = new BillingInr();
         bi.setDemographicNo(demoIdInt);
-        bi.setDemographicName(Objects.toString(request.getParameter("demo_name"), ""));
-        bi.setHin(Objects.toString(request.getParameter("demo_hin"), ""));
-        bi.setDob(Objects.toString(request.getParameter("demo_dob"), ""));
-        bi.setProviderNo(Objects.toString(request.getParameter("provider_no"), ""));
-        bi.setProviderOhipNo(Objects.toString(request.getParameter("provider_ohip_no"), ""));
-        bi.setProviderRmaNo(Objects.toString(request.getParameter("provider_rma_no"), ""));
-        bi.setCreator(Objects.toString(request.getParameter("doccreator"), ""));
-        bi.setDiagnosticCode(Objects.toString(request.getParameter("diag_code"), ""));
-        bi.setServiceCode(Objects.toString(request.getParameter("service_code"), ""));
-        bi.setServiceDesc(Objects.toString(request.getParameter("service_desc"), ""));
-        bi.setBillingAmount(Objects.toString(request.getParameter("service_amount"), ""));
-        bi.setBillingUnit(Objects.toString(request.getParameter("service_unit"), ""));
+        bi.setDemographicName(cap(request.getParameter("demo_name"), 60));
+        bi.setHin(cap(request.getParameter("demo_hin"), 12));
+        bi.setDob(cap(request.getParameter("demo_dob"), 8));
+        bi.setProviderNo(cap(request.getParameter("provider_no"), 10));
+        bi.setProviderOhipNo(cap(request.getParameter("provider_ohip_no"), 20));
+        bi.setProviderRmaNo(cap(request.getParameter("provider_rma_no"), 20));
+        bi.setCreator(cap(request.getParameter("doccreator"), 6));
+        bi.setDiagnosticCode(cap(request.getParameter("diag_code"), 3));
+        bi.setServiceCode(cap(request.getParameter("service_code"), 6));
+        bi.setServiceDesc(cap(request.getParameter("service_desc"), 255));
+        bi.setBillingAmount(cap(request.getParameter("service_amount"), 6));
+        bi.setBillingUnit(cap(request.getParameter("service_unit"), 1));
         bi.setCreateDateTime(new Date());
         bi.setStatus("N");
 
@@ -115,5 +114,12 @@ public class DbINRbilling2Action extends ActionSupport {
 
         request.setAttribute("billSaved", true);
         return SUCCESS;
+    }
+
+    private static String cap(String value, int maxLen) {
+        if (value == null) {
+            return "";
+        }
+        return value.length() > maxLen ? value.substring(0, maxLen) : value;
     }
 }

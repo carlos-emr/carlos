@@ -36,7 +36,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -257,15 +256,17 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     public Set getArchiveDemographicByProgramOptimized(int programId, Date dt, Date defdt) {
         Set<Demographic> archivedClients = new java.util.LinkedHashSet<Demographic>();
 
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        String sqlQuery = "select distinct d.demographic_no,d.first_name,d.last_name,(select count(*) from admission a where client_id=d.demographic_no and admission_status='current' and program_id="
-            + programId + " and admission_date<='" + sdf.format(dt)
-            + "') as is_active from admission a,demographic d where a.client_id=d.demographic_no and (d.patient_status='AC' or d.patient_status='' or d.patient_status=null) and program_id="
-            + programId
+        String sqlQuery = "select distinct d.demographic_no,d.first_name,d.last_name,"
+            + "(select count(*) from admission a2 where a2.client_id=d.demographic_no and a2.admission_status='current' and a2.program_id=:programId and a2.admission_date<=:admissionDate)"
+            + " as is_active from admission a,demographic d where a.client_id=d.demographic_no"
+            + " and (d.patient_status='AC' or d.patient_status='' or d.patient_status is null)"
+            + " and a.program_id=:programId"
             + " and (d.anonymous is null or d.anonymous != 'one-time-anonymous') ORDER BY d.last_name,d.first_name";
         Session session = currentSession();
 
         NativeQuery q = session.createNativeQuery(sqlQuery);
+        q.setParameter("programId", programId);
+        q.setParameter("admissionDate", dt);
         q.addScalar("d.demographic_no");
         q.addScalar("d.first_name");
         q.addScalar("d.last_name");

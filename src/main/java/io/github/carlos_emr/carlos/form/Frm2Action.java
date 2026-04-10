@@ -183,9 +183,9 @@ public final class Frm2Action extends ActionSupport {
                     props.setProperty(name, request.getParameter(name));
                 }
 
-                props.setProperty("provider_no", (String) request.getSession().getAttribute("user"));
+                props.setProperty("provider_no", loggedInInfo.getLoggedInProviderNo());
                 newID = rec.saveFormRecord(props);
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, request // nosemgrep: tainted-session-from-http-request
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, request
                         .getParameter("form_class"), "" + newID, request.getRemoteAddr(), request.getParameter("demographic_no"));
             } else if ("autosaveAjax".equals(request.getParameter("submit"))) {
                 quickSaveForm(rec, request, response);
@@ -195,8 +195,8 @@ public final class Frm2Action extends ActionSupport {
                     String name = (String) varEnum.nextElement();
                     props.setProperty(name, request.getParameter(name));
                 }
-                props.setProperty("provider_no", (String) request.getSession().getAttribute("user"));
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, request // nosemgrep: tainted-session-from-http-request
+                props.setProperty("provider_no", loggedInInfo.getLoggedInProviderNo());
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, request
                         .getParameter("form_class"), "" + newID, request.getRemoteAddr(), request.getParameter("demographic_no"));
 
                 return null;
@@ -234,7 +234,7 @@ public final class Frm2Action extends ActionSupport {
                     props.setProperty(name, request.getParameter(name));
                 }
 
-                props.setProperty("provider_no", (String) request.getSession().getAttribute("user"));
+                props.setProperty("provider_no", loggedInInfo.getLoggedInProviderNo());
                 newID = rec.saveFormRecord(props);
 
                 if (newID > 0) {
@@ -245,7 +245,7 @@ public final class Frm2Action extends ActionSupport {
                 }
 
                 String ip = request.getRemoteAddr();
-                LogAction.addLog((String) request.getSession().getAttribute("user"), // nosemgrep: tainted-session-from-http-request
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(),
                         LogConst.ADD,
                         formClassName,
                         "" + newID,
@@ -287,10 +287,10 @@ public final class Frm2Action extends ActionSupport {
             String name = varEnum.nextElement();
             props.setProperty(name, request.getParameter(name));
         }
-        props.setProperty("provider_no", (String) request.getSession().getAttribute("user"));
+        props.setProperty("provider_no", LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
         try {
             int newFormId = formRecord.saveFormRecord(props);
-            LogAction.addLog((String) request.getSession().getAttribute("user"), // nosemgrep: tainted-session-from-http-request
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(),
                     LogConst.ADD, request.getParameter("form_class"), String.valueOf(newFormId),
                     request.getRemoteAddr(), request.getParameter("demographic_no"));
 

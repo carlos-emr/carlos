@@ -445,8 +445,8 @@ public final class Login2Action extends ActionSupport {
                 } else {
                     // set current facility - validate format and verify the authenticated user has access
                     String facilityIdString = request.getParameter(SELECTED_FACILITY_ID);
-                    // Validate format: must be non-null positive integer (max 10 digits)
-                    if (facilityIdString == null || !facilityIdString.matches("\\d{1,10}")) {
+                    // Validate format: must be non-null positive integer (max 9 digits to stay within Integer range)
+                    if (facilityIdString == null || !facilityIdString.matches("\\d{1,9}")) {
                         logger.warn("Invalid or missing facility ID in facility selection request");
                         response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
                         return NONE;

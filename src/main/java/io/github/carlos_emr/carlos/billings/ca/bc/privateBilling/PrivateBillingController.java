@@ -248,25 +248,33 @@ public class PrivateBillingController extends HttpServlet {
      * @param response HttpServletResponse the servlet response for forwarding to the appropriate view
      * @throws ServletException if request forwarding fails
      * @throws IOException if an I/O error occurs during request processing
-     * @throws NullPointerException if the action parameter is null (caught and handled internally)
      */
-    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException, NullPointerException {
-        String forward = "";
-        String action = request.getParameter("action");
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         try {
+            String forward = "";
+            String action = request.getParameter("action");
+            if (action == null) {
+                // action is not provided, by default forward to LIST_PRIVATE_BILLS
+                listPrivateBills(request, response, forward);
+                return;
+            }
             if (action.equalsIgnoreCase("listPrivateBills")) {
                 listPrivateBills(request, response, forward);
             } else if (action.equalsIgnoreCase("printPreviewBills")) {
                 printPreviewBills(request, response, forward);
             } else {
-                // missing 'billIds' parameters, go back to default action 'LIST_PRIVATE_BILLS'
+                // unrecognized action value, fall back to default action 'LIST_PRIVATE_BILLS'
                 listPrivateBills(request, response, forward);
             }
-        } catch (NullPointerException e) {
-            // action is not provided, by default forward to LIST_PRIVATE_BILLS
-            listPrivateBills(request, response, forward);
-        } catch (ServletException e) {
-            log.error("Servlet error while processing private billing request", e);
+        } catch (ServletException | IOException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error in PrivateBillingController", e);
+            if (!response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
+            }
         }
     }
 
