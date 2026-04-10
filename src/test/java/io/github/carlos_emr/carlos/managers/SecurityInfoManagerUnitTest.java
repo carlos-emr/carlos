@@ -669,6 +669,76 @@ public class SecurityInfoManagerUnitTest extends CarlosUnitTestBase {
             }
 
             @Test
+            @DisplayName("should grant read access for legacy only-read token '|or|' (not lock account)")
+            void shouldGrantReadAccess_forLegacyOnlyReadToken() {
+                // DemographicMerged.java stores "|or|" for read-only patient eChart access.
+                // The "or" (only-read) token must grant READ and never lock the account.
+                String patientObjName = TEST_OBJECT_NAME + "$" + TEST_DEMOGRAPHIC_NO;
+                when(mockSecObjPrivilegeDao.findByObjectNames(any())).thenAnswer(inv -> {
+                    Collection<String> names = inv.getArgument(0);
+                    if (names.contains(patientObjName)) {
+                        return Collections.singletonList(
+                            createPrivilege(ROLE_DOCTOR, patientObjName, "|or|", 0));
+                    }
+                    return Collections.emptyList();
+                });
+
+                boolean result = securityInfoManager.hasPrivilege(
+                    mockLoggedInInfo, TEST_OBJECT_NAME, SecurityInfoManager.READ,
+                    String.valueOf(TEST_DEMOGRAPHIC_NO));
+
+                assertThat(result).isTrue();
+                verify(mockSession, never()).setAttribute("accountLocked", true);
+            }
+
+            @Test
+            @DisplayName("should not grant write access for legacy only-read token '|or|'")
+            void shouldNotGrantWriteAccess_forLegacyOnlyReadToken() {
+                // "or" (only-read) must not escalate to WRITE.
+                String patientObjName = TEST_OBJECT_NAME + "$" + TEST_DEMOGRAPHIC_NO;
+                when(mockSecObjPrivilegeDao.findByObjectNames(any())).thenAnswer(inv -> {
+                    Collection<String> names = inv.getArgument(0);
+                    if (names.contains(patientObjName)) {
+                        return Collections.singletonList(
+                            createPrivilege(ROLE_DOCTOR, patientObjName, "|or|", 0));
+                    }
+                    return Collections.emptyList();
+                });
+
+                boolean result = securityInfoManager.hasPrivilege(
+                    mockLoggedInInfo, TEST_OBJECT_NAME, SecurityInfoManager.WRITE,
+                    String.valueOf(TEST_DEMOGRAPHIC_NO));
+
+                assertThat(result).isFalse();
+                verify(mockSession, never()).setAttribute("accountLocked", true);
+            }
+
+            @Test
+            @DisplayName("should not lock account for legacy only-read token when NORIGHTS is checked")
+            void shouldNotLockAccount_forLegacyOnlyReadTokenWhenCheckingNorights() {
+                // "or" (only-read) must NOT be treated as NORIGHTS ("o").
+                // This is the core regression: "or".startsWith("o") must NOT trigger account lock.
+                String patientObjName = TEST_OBJECT_NAME + "$" + TEST_DEMOGRAPHIC_NO;
+                when(mockSecObjPrivilegeDao.findByObjectNames(any())).thenAnswer(inv -> {
+                    Collection<String> names = inv.getArgument(0);
+                    if (names.contains(patientObjName)) {
+                        return Collections.singletonList(
+                            createPrivilege(ROLE_DOCTOR, patientObjName, "|or|", 0));
+                    }
+                    return Collections.emptyList();
+                });
+
+                // NORIGHTS check is performed internally by hasPrivilege when demographicNo is set.
+                // Re-verify via READ: if account were locked, it would return false AND set the flag.
+                boolean result = securityInfoManager.hasPrivilege(
+                    mockLoggedInInfo, TEST_OBJECT_NAME, SecurityInfoManager.READ,
+                    String.valueOf(TEST_DEMOGRAPHIC_NO));
+
+                assertThat(result).isTrue();
+                verify(mockSession, never()).setAttribute("accountLocked", true);
+            }
+
+            @Test
             @DisplayName("should lock account and deny access for patient-specific NORIGHTS")
             void shouldLockAccountAndDenyAccess_forPatientSpecificNoRights() {
                 // Patient-specific has NORIGHTS for doctor

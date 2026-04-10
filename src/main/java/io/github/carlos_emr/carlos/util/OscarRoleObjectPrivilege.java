@@ -170,19 +170,35 @@ public class OscarRoleObjectPrivilege {
     }
 
     private static boolean[] checkRights(String privilege, String rights1) {
-        boolean[] ret = {false, false}; // (gotRights, break/continue)
+        boolean[] ret = {false, false}; // (gotRights, onlyPrivilege-break)
+
+        // Null safety: no rights granted if either side is missing.
+        if (privilege == null || rights1 == null) {
+            return ret;
+        }
+
         String rightsLower = rights1.toLowerCase(Locale.ROOT);
         String privilegeLower = privilege.toLowerCase(Locale.ROOT);
+
+        // Handle legacy "o<right>" tokens (e.g., "or", "ou", "ow") — the "only" prefix.
+        // DemographicMerged stores "|or|" for patient-specific read-only eChart access;
+        // after getPrivilege() parses it, "or" reaches here. The leading "o" means:
+        // "match at this privilege level, then stop checking other roles" (ret[1]=true).
+        boolean onlyFlag = privilegeLower.length() > 1 && privilegeLower.charAt(0) == 'o';
+        if (onlyFlag) {
+            privilegeLower = privilegeLower.substring(1); // strip the "only" prefix
+        }
+
         if ("o".equals(rightsLower)) {
-            // NORIGHTS check: only an explicit "o" privilege matches, so that "r", "u", "w"
-            // privileges do not incorrectly trigger account locking.
-            ret[0] = "o".equals(privilegeLower);
+            // NORIGHTS check: only a bare "o" privilege locks the account.
+            // "o<right>" tokens do NOT satisfy this — they grant level-limited access.
+            ret[0] = !onlyFlag && "o".equals(privilegeLower);
         } else if ("x".equals(privilegeLower)) {
             // Full access matches any non-NORIGHTS check.
             ret[0] = true;
         } else {
             // Hierarchy r < u < w (see PRIVILEGE_HIERARCHY).
-            // indexOf returns -1 for anything not in the hierarchy (e.g. "d" or "o"),
+            // indexOf returns -1 for anything not in the hierarchy (e.g. "d"),
             // which causes the condition to be false and falls through to exact match.
             int privLevel = PRIVILEGE_HIERARCHY.indexOf(privilegeLower);
             int requiredLevel = PRIVILEGE_HIERARCHY.indexOf(rightsLower);
@@ -194,6 +210,13 @@ public class OscarRoleObjectPrivilege {
                 ret[0] = privilegeLower.equals(rightsLower);
             }
         }
+
+        // For "only" tokens (o-prefix), signal the caller to break after this privilege
+        // so that higher-priority roles are not consulted for this patient.
+        if (onlyFlag) {
+            ret[1] = true;
+        }
+
         return ret;
     }
 
