@@ -29,6 +29,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <div class="indicatorPanelContainer">
 
@@ -42,11 +43,11 @@
     <div class="row indicatorData">
         <div class="col-md-12">
 
-            <input type="hidden" id="graphPlots_${indicatorPanel.id}" value="${ indicatorPanel.stringArrayPlots }"/>
+            <input type="hidden" id="graphPlots_${indicatorPanel.id}" value="${e:forHtmlAttribute(indicatorPanel.stringArrayPlots)}"/>
             <input type="hidden" id="graphLabels_${indicatorPanel.id}"
-                   value="${ indicatorPanel.stringArrayTooltips }"/>
+                   value="${e:forHtmlAttribute(indicatorPanel.stringArrayTooltips)}"/>
             <div class="indicatorGraph" id="graphContainer_${indicatorPanel.id}">
-                <canvas id="graphCanvas_${indicatorPanel.id}" role="img" aria-label="Indicator chart"></canvas>
+                <canvas id="graphCanvas_${indicatorPanel.id}" role="img" aria-label="${e:forHtmlAttribute(indicatorPanel.name)} chart"></canvas>
             </div>
         </div>
     </div>
@@ -79,12 +80,12 @@
 
 
     <!-- modal panel for displaying this indicators details -->
-    <div id="indicatorInfo_${ indicatorPanel.id }" class="modal fade" tabindex="-1" aria-labelledby="indicatorTitle_${ indicatorPanel.id }">
+    <div id="indicatorInfo_${indicatorPanel.id}" class="modal fade" tabindex="-1" aria-labelledby="indicatorTitle_${indicatorPanel.id}">
         <div class="modal-dialog">
 
             <div class="modal-content">
                 <div class="modal-header">
-                    <h4 class="modal-title" id="indicatorTitle_${ indicatorPanel.id }">
+                    <h4 class="modal-title" id="indicatorTitle_${indicatorPanel.id}">
                         <c:out value="${ indicatorPanel.name }"/>
                     </h4>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>

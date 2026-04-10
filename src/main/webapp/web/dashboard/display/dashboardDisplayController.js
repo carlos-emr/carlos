@@ -103,14 +103,20 @@ function buildIndicatorPanel(html, target, id) {
             console.error('Graph plot data not found for indicator ' + id);
             return;
         }
-        data = JSON.parse("[" + plotVal.replace(/'/g, '"') + "]");
+        // plotVal is a valid JSON array serialised by IndicatorQueryHandler.plotsToStringArray()
+        data = JSON.parse(plotVal);
     } catch (e) {
         console.error('Error rendering indicator panel ' + id + ':', e);
         $("#" + target + "_" + id).html('<p style="color:red">Unable to render indicator panel.</p>');
         return;
     }
 
-    // data is [[['label1', val1], ['label2', val2]], ...] — use first series
+    // data is [[[label1, val1], [label2, val2]], ...] — one array per SQL result row (series).
+    // Pie charts always use the first (and typically only) series.
+    // If the query returns multiple rows each becomes a separate series; warn so it is visible.
+    if (Array.isArray(data) && data.length > 1) {
+        console.warn('Indicator ' + id + ' returned ' + data.length + ' series; only the first will be rendered as a pie chart.');
+    }
     var seriesData = (Array.isArray(data) && Array.isArray(data[0])) ? data[0] : [];
     if (seriesData.length === 0) {
         console.error('No chart data available for indicator ' + id);
@@ -122,6 +128,12 @@ function buildIndicatorPanel(html, target, id) {
     var canvas = document.getElementById('graphCanvas_' + id);
     if (!canvas) {
         console.error('Canvas element not found for indicator ' + id);
+        return;
+    }
+
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is required but not loaded. Indicator chart blocked for indicator ' + id + '.');
+        $("#" + target + "_" + id).html('<p style="color:red">Unable to display chart. Please reload the page.</p>');
         return;
     }
 
@@ -143,6 +155,19 @@ function buildIndicatorPanel(html, target, id) {
                 },
                 title: {
                     display: false
+                },
+                // Show value and percentage in tooltip since Chart.js has no built-in on-slice labels
+                // (jqPlot previously rendered values directly on slices via showDataLabels: true).
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            var label = context.label || '';
+                            var value = context.raw;
+                            var total = context.dataset.data.reduce(function (a, b) { return a + b; }, 0);
+                            var pct = total > 0 ? Math.round((value / total) * 100) : 0;
+                            return label + ': ' + value + ' (' + pct + '%)';
+                        }
+                    }
                 }
             }
         }

@@ -348,29 +348,50 @@ function renderGraph() {
     })
 
 
+    var messageEl = document.getElementById('chartNoDataMessage');
+    var canvasEl = document.getElementById('chartCanvas');
+
     if (!line || !Array.isArray(line) || line.length === 0) {
-        $("#chartModal .modal-body").html("<h5>The Frailty Index has not been calculated for this encounter. Please click Calculate Frailty Index.</h5>")
-        return
+        // Show message without destroying the canvas so subsequent calls with data still work
+        if (messageEl) {
+            messageEl.textContent = 'The Frailty Index has not been calculated for this encounter. Please click Calculate Frailty Index.';
+            messageEl.style.display = 'block';
+        }
+        if (canvasEl) {
+            canvasEl.style.display = 'none';
+        }
+        return;
     }
 
-    var labels = line.map(function (point) {
-        var d = new Date(point[0]);
-        return d.toLocaleDateString();
+    // Restore canvas visibility if it was hidden by a previous no-data render
+    if (messageEl) {
+        messageEl.style.display = 'none';
+    }
+    if (canvasEl) {
+        canvasEl.style.display = '';
+    }
+
+    // Use {x: epochMs, y: score} point format so the linear x-scale preserves actual time spacing
+    // between encounters rather than treating all points as equally spaced categories.
+    var pointData = line.map(function (point) {
+        return { x: point[0], y: point[1] };
     });
-    var values = line.map(function (point) { return point[1]; });
 
     if (efiChartInstance) {
         efiChartInstance.destroy();
     }
 
-    var canvas = document.getElementById('chartCanvas');
-    efiChartInstance = new Chart(canvas, {
+    if (!canvasEl) {
+        console.error('chartCanvas element not found');
+        return;
+    }
+
+    efiChartInstance = new Chart(canvasEl, {
         type: 'line',
         data: {
-            labels: labels,
             datasets: [{
                 label: 'Frailty Index',
-                data: values,
+                data: pointData,
                 borderWidth: 4,
                 pointStyle: 'circle',
                 pointRadius: 5,
@@ -392,9 +413,20 @@ function renderGraph() {
             },
             scales: {
                 x: {
+                    type: 'linear',
                     title: {
                         display: true,
                         text: 'Date'
+                    },
+                    ticks: {
+                        // Format epoch milliseconds as YYYY-MM-DD for stable, locale-independent labels
+                        callback: function (value) {
+                            var d = new Date(value);
+                            var year = d.getFullYear();
+                            var month = String(d.getMonth() + 1).padStart(2, '0');
+                            var day = String(d.getDate()).padStart(2, '0');
+                            return year + '-' + month + '-' + day;
+                        }
                     }
                 },
                 y: {
