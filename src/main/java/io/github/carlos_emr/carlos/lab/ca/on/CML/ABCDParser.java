@@ -172,9 +172,10 @@ public class ABCDParser {
                         + " month_of_birth like ? and "
                         + " date_of_birth like ? and "
                         + " sex like ? ";
+                String lastNamePrefix = (lastName != null && !lastName.isEmpty()) ? lastName.substring(0, 1) + "%" : "%";
+                String firstNamePrefix = (firstName != null && !firstName.isEmpty()) ? firstName.substring(0, 1) + "%" : "%";
                 demo = executePatientLookup(conn, sql, countHolder,
-                        hinMod, lastName.substring(0, 1) + "%",
-                        firstName.substring(0, 1) + "%",
+                        hinMod, lastNamePrefix, firstNamePrefix,
                         dobYear, dobMonth, dobDay, sex + "%");
             }
             count = countHolder[0];
@@ -224,7 +225,6 @@ public class ABCDParser {
         try {
             String sql = "select provider_no, ohip_no from provider where ohip_no != '' ";
             PreparedStatement pstmt = conn.prepareStatement(sql);
-            pstmt.executeQuery();
             ResultSet rs = pstmt.executeQuery();
 
             while (rs.next()) {

@@ -229,11 +229,16 @@ public class BillingmasterDAO {
                 + "b.visittype,"
                 + "bm.billingmaster_no "
                 + "from billing b, "
-                + " billingmaster bm where b.billing_no= bm.billing_no and bm.billingstatus = :statusType");
+                + " billingmaster bm where b.billing_no= bm.billing_no");
 
+        boolean hasStatusType = statusType != null && !statusType.trim().isEmpty();
         boolean hasProviderNo = providerNo != null && !providerNo.trim().equalsIgnoreCase("all");
         boolean hasStartDate = startDate != null && !startDate.trim().isEmpty();
         boolean hasEndDate = endDate != null && !endDate.trim().isEmpty();
+
+        if (hasStatusType) {
+            sb.append(" and bm.billingstatus = :statusType");
+        }
 
         if (hasProviderNo) {
             sb.append(" and b.provider_no = :providerNo");
@@ -247,9 +252,11 @@ public class BillingmasterDAO {
             sb.append(" and ( to_days(service_date) < to_days(:endDate)) ");
         }
 
-        String normalizedStatusType = statusType == null ? null : statusType.trim();
         Query query = entityManager.createNativeQuery(sb.toString());
-        query.setParameter("statusType", normalizedStatusType);
+
+        if (hasStatusType) {
+            query.setParameter("statusType", statusType.trim());
+        }
 
         if (hasProviderNo) {
             query.setParameter("providerNo", providerNo.trim());

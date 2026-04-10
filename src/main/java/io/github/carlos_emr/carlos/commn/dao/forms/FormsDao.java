@@ -80,7 +80,7 @@ public class FormsDao {
         try {
             query.setParameter("demoNo", Integer.parseInt(demographicNo));
         } catch (NumberFormatException e) {
-            MiscUtils.getLogger().warn("Invalid demographicNo for formLabReq07 query: not a number");
+            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in formLabReq07 query, returning empty result");
             return new ArrayList<>();
         }
         return query.getResultList();
@@ -96,7 +96,7 @@ public class FormsDao {
         try {
             query.setParameter("demoNo", Integer.parseInt(demographicNo));
         } catch (NumberFormatException e) {
-            MiscUtils.getLogger().warn("Invalid demographicNo for formLabReq10 query: not a number");
+            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in formLabReq10 query, returning empty result");
             return new ArrayList<>();
         }
         return query.getResultList();
@@ -164,7 +164,7 @@ public class FormsDao {
             throw new IllegalArgumentException("Parameters must be provided in name-value pairs");
         }
 
-        // nosemgrep: jpa-sqli — this utility method binds named parameters below; callers provide parameterized SQL
+        // nosemgrep: jpa-sqli — this utility binds named parameters below; the SQL string itself must already use parameter placeholders (callers' responsibility)
         Query query = entityManager.createNativeQuery(sql);
 
         for (int i = 0; i < params.length; i += 2) {
@@ -186,7 +186,7 @@ public class FormsDao {
      */
     @SuppressWarnings("rawtypes")
     public List<Object[]> runParameterizedNativeQuery(String sql, Map<String, Object> params) {
-        // nosemgrep: jpa-sqli — this utility method binds named parameters below; callers provide parameterized SQL
+        // nosemgrep: jpa-sqli — this utility binds named parameters below; the SQL string itself must already use parameter placeholders (callers' responsibility)
         Query query = entityManager.createNativeQuery(sql);
 
         if (params != null) {

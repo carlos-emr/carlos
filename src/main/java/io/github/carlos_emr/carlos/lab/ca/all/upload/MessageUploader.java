@@ -364,6 +364,8 @@ public final class MessageUploader {
             String normalized = search_on.trim().toLowerCase(java.util.Locale.ROOT);
             if (VALID_SEARCH_COLUMNS.contains(normalized)) {
                 sqlSearchOn = normalized;
+            } else {
+                MiscUtils.getLogger().warn("providerRouteReport: rejected invalid search column, using default 'ohip_no'");
             }
         }
 
