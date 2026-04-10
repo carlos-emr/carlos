@@ -123,17 +123,22 @@ public class GeneratePatientLetters2Action extends ActionSupport {
 
         ArrayList<Object> fullPatientlist = new ArrayList<Object>();
 
+        if (demos == null || demos.length == 0) {
+            return null;
+        }
+
+        File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         //for each demographic generate a letter for that patient
         for (int i = 0; i < demos.length; i++) {
             //fill the map with patient info
             if (log.isTraceEnabled()) {
-                log.trace("Getting demographic info for " + demos[i]);
+                log.trace("Getting demographic info for {}", demos[i]);
             }
 
             HashMap parameters = new HashMap();
             if (reportParams != null) {
                 for (int p = 0; p < reportParams.length; p++) {
-                    MiscUtils.getLogger().debug("demo = " + demos[i]);
+                    MiscUtils.getLogger().debug("demo = {}", demos[i]);
                     parameters.put(reportParams[p], apExe.execute(reportParams[p], demos[i]));
                 }
             }
@@ -141,7 +146,7 @@ public class GeneratePatientLetters2Action extends ActionSupport {
             try {
 
                 if (log.isTraceEnabled()) {
-                    log.trace("Filling report for " + demos[i]);
+                    log.trace("Filling report for {}", demos[i]);
                 }
                 JasperPrint print = JasperFillManager.fillReport(jasperReport, parameters, new JREmptyDataSource());
 
@@ -167,7 +172,6 @@ public class GeneratePatientLetters2Action extends ActionSupport {
                 }
 
                 fileName = newDoc.getFileName();
-                File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
                 File safeFile = PathValidationUtils.validatePath(fileName, documentDir);
                 String savePath = safeFile.getAbsolutePath();
                 if (log.isTraceEnabled()) {
@@ -175,12 +179,14 @@ public class GeneratePatientLetters2Action extends ActionSupport {
                 }
                 JasperExportManager.exportReportToPdfFile(print, savePath);
                 if (log.isTraceEnabled()) {
-                    log.trace("Saving reference to database for" + demos[i]);
+                    log.trace("Saving reference to database for {}", demos[i]);
                 }
                 EDocUtil.addDocumentSQL(newDoc);
 
                 fullPatientlist.add(savePath);
 
+            } catch (SecurityException secEx) {
+                MiscUtils.getLogger().error("Security violation generating letter for demo {}: {}", demos[i], secEx.getMessage());
             } catch (Exception jpException) {
                 MiscUtils.getLogger().error("Error", jpException);
             }
