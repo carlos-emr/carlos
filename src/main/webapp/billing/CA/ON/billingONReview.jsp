@@ -44,7 +44,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*, java.util.Properties" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -570,7 +570,7 @@
 
 <body onload="showtotal(),calculatePayment()">
 
-<form method="post" name="titlesearch" action="billingONSave.jsp" onsubmit="return onSave();">
+<form method="post" name="titlesearch" action="<%= request.getContextPath() %>/billing/CA/ON/BillingONSave.do" onsubmit="return onSave();">
     <input type="hidden" name="url_back" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("url_back"))) %>">
     <input type="hidden" name="billNo_old" id="billNo_old" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("billNo_old"))) %>"/>
     <input type="hidden" name="billStatus_old" id="billStatus_old" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("billStatus_old"))) %>"/>
@@ -637,7 +637,7 @@
                                    class="myGreen">
                                 <tr>
                                     <td style="white-space:nowrap;width:30%"><b>Billing Physician</b></td>
-                                    <td style="width:20%"><%=Encode.forHtml(providerBean.getProperty(request.getParameter("xml_provider") != null && request.getParameter("xml_provider").contains("|") ? request.getParameter("xml_provider").substring(0, request.getParameter("xml_provider").indexOf("|")) : "", ""))%>
+                                    <td style="width:20%"><%=Encode.forHtml(providerBean.getProperty(request.getParameter("xml_provider") != null ? request.getParameter("xml_provider").substring(0, request.getParameter("xml_provider").indexOf("|")) : "", ""))%>
                                     </td>
                                     <td style="white-space:nowrap; width:30%"><b>MRP</b></td>
                                     <td style="width:20%"><%=assgProvider_no == null ? "N/A" : Encode.forHtml(providerBean.getProperty(assgProvider_no, ""))%>
@@ -1249,7 +1249,7 @@
                     String temp = e.nextElement().toString();
             %>
             <input type="hidden" name="<%= Encode.forHtmlAttribute(temp) %>"
-                   value="<%=Encode.forHtmlAttribute(request.getParameter(temp))%>"/>
+                   value="<%=Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter(temp)))%>"/>
             <%
                 }
 

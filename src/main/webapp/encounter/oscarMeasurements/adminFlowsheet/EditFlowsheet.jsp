@@ -241,11 +241,11 @@
     String demographicStr = new String();
     String demoStash = new String();
     if (demographic != null) {
-        demographicStr = "&demographic=" + demographic;
+        demographicStr = "&demographic=" + Encode.forUriComponent(demographic);
         session.setAttribute("demoNo" + session.getAttribute("user"), demographic);
     } else {
         String demoNo = (String) session.getAttribute("demoNo" + session.getAttribute("user"));
-        if (demoNo != null) demoStash = "&demographic=" + demoNo;
+        if (demoNo != null) demoStash = "&demographic=" + Encode.forUriComponent(demoNo);
     }
 
     XMLOutputter outp = new XMLOutputter();

@@ -79,11 +79,11 @@
     Properties propName = new Properties();
     // select providers list
     if (isSiteAccessPrivacy) {
-        sql = "select p.* from provider p INNER JOIN providersite s ON p.provider_no = s.provider_no WHERE s.site_id IN (SELECT site_id from providersite where provider_no=" + curUser_no + ") order by p.first_name, p.last_name";
+        sql = "select p.* from provider p INNER JOIN providersite s ON p.provider_no = s.provider_no WHERE s.site_id IN (SELECT site_id from providersite where provider_no=?) order by p.first_name, p.last_name";
     } else {
         sql = "select * from provider p order by p.first_name, p.last_name ";
     }
-    ResultSet rs = dbObj.queryResults(sql);
+    ResultSet rs = isSiteAccessPrivacy ? dbObj.queryResults(sql, new String[]{curUser_no}) : dbObj.queryResults(sql);
 
     while (rs.next()) {
         propName.setProperty(Misc.getString(rs, "provider_no"), Misc.getString(rs, "first_name") + " " + Misc.getString(rs, "last_name"));
@@ -226,24 +226,36 @@
             if ("".equals(sDate) || sDate == null) sDate = "1900-01-01";
             if ("".equals(eDate) || eDate == null) eDate = "2999-01-01";
 
-            DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[2];
-            params[0] = new DBPreparedHandlerParam(MyDateFormat.getSysDateEX(eDate, 1));
-            params[1] = new DBPreparedHandlerParam(MyDateFormat.getSysDate(sDate));
-
-            sql = "select * from log force index (datetime) where provider_no='" + providerNo + "' and dateTime <= ?";
-            sql += " and dateTime >= ? and content like '" + content + "' order by dateTime desc ";
+            DBPreparedHandlerParam[] params;
 
             if ("*".equals(providerNo)) {
                 bAll = true;
                 if (isSiteAccessPrivacy) {
                     sql = "select * from log force index (datetime) where dateTime <= ?";
-                    sql += " and dateTime >= ? and content like '" + content + "' ";
-                    sql += "and provider_no IN (SELECT provider_no FROM providersite WHERE site_id IN (SELECT site_id from providersite where provider_no= " + curUser_no + ") )";
+                    sql += " and dateTime >= ? and content like ? ";
+                    sql += "and provider_no IN (SELECT provider_no FROM providersite WHERE site_id IN (SELECT site_id from providersite where provider_no=?) )";
                     sql += " order by dateTime desc ";
+                    params = new DBPreparedHandlerParam[4];
+                    params[0] = new DBPreparedHandlerParam(MyDateFormat.getSysDateEX(eDate, 1));
+                    params[1] = new DBPreparedHandlerParam(MyDateFormat.getSysDate(sDate));
+                    params[2] = new DBPreparedHandlerParam(content);
+                    params[3] = new DBPreparedHandlerParam(curUser_no);
                 } else {
                     sql = "select * from log force index (datetime) where dateTime <= ?";
-                    sql += " and dateTime >= ? and content like '" + content + "' order by dateTime desc ";
+                    sql += " and dateTime >= ? and content like ? order by dateTime desc ";
+                    params = new DBPreparedHandlerParam[3];
+                    params[0] = new DBPreparedHandlerParam(MyDateFormat.getSysDateEX(eDate, 1));
+                    params[1] = new DBPreparedHandlerParam(MyDateFormat.getSysDate(sDate));
+                    params[2] = new DBPreparedHandlerParam(content);
                 }
+            } else {
+                sql = "select * from log force index (datetime) where provider_no=? and dateTime <= ?";
+                sql += " and dateTime >= ? and content like ? order by dateTime desc ";
+                params = new DBPreparedHandlerParam[4];
+                params[0] = new DBPreparedHandlerParam(providerNo);
+                params[1] = new DBPreparedHandlerParam(MyDateFormat.getSysDateEX(eDate, 1));
+                params[2] = new DBPreparedHandlerParam(MyDateFormat.getSysDate(sDate));
+                params[3] = new DBPreparedHandlerParam(content);
             }
             rs = dbObj.queryResults(sql, params);
             while (rs.next()) {

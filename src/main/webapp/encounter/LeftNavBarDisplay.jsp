@@ -65,6 +65,12 @@
     int maxColumnHeight = 40;  //break into columns after maxColumnHeight items reached
     int menuWidth = 125;
 
+    // Compute navbarName once for consistent use across the JSP body.
+    // navbarName is a server-set attribute (e.g. "measurements", "allergies") — not user input.
+    String navbarName = (String) request.getAttribute("navbarName");
+    if (navbarName == null) navbarName = "";
+    String htmlNavbarName = Encode.forHtmlAttribute(navbarName);
+
     // Render auto-complete items with OWASP encoding (defense-in-depth, issue #1386)
     java.util.List<NavBarDisplayDAO.AutoCompleteItem> acItems = dao.getAutoCompleteItems();
     if (!acItems.isEmpty()) {
@@ -169,12 +175,11 @@ autoCompleted['<%= Encode.forJavaScript(acItem.key()) %>'] = "<%= Encode.forJava
 <%      } %>
     </div>
 </div>
-<ul id="<%=request.getAttribute("navbarName")%>list">
+<ul id="<%=htmlNavbarName%>list">
     <%
         //now we display the actual items of the module
         String manageItems = "";
-        String div = (String) request.getAttribute("navbarName");
-        div = div.trim();
+        String div = navbarName.trim();
         int numItems = dao.numItems();
         String rawReloadURL = request.getParameter("reloadURL");
         if (rawReloadURL == null) rawReloadURL = "";
@@ -236,7 +241,7 @@ autoCompleted['<%= Encode.forJavaScript(acItem.key()) %>'] = "<%= Encode.forJava
         }
     %>
 </ul>
-<input type="hidden" id="<%=request.getAttribute("navbarName")%>num"
+<input type="hidden" id="<%=htmlNavbarName%>num"
        value="<%=numDisplayed%>"/>
 <%
     out.println("<script type=\"text/javascript\">" + jscode.toString() + "</script>");
@@ -256,6 +261,13 @@ autoCompleted['<%= Encode.forJavaScript(acItem.key()) %>'] = "<%= Encode.forJava
         String dateFormat = "dd-MMM-yyyy";
         Pattern pattern = Pattern.compile("'([^']*)'");
 
+        // navbarName is a server-set attribute (e.g. "measurements", "allergies") — not user input.
+        // Encode for defense-in-depth when used in JS string literals and HTML attributes.
+        String navbarName = (String) request.getAttribute("navbarName");
+        if (navbarName == null) navbarName = "";
+        String jsNavbarName = Encode.forJavaScript(navbarName);
+        String safeReloadUrl = reloadUrl == null ? "" : reloadUrl;
+        String jsReloadUrl = Encode.forJavaScript(safeReloadUrl);
 
         String divReloadInfo;
         numToDisplay -= numDisplayed;
@@ -277,22 +289,22 @@ autoCompleted['<%= Encode.forJavaScript(acItem.key()) %>'] = "<%= Encode.forJava
             out.println("<li " + stripe + ">");
 
             if (curNum == 0 && xpanded) {
-                imgName = "img" + request.getAttribute("navbarName") + curNum;
-                out.println("<a href='#' onclick=\"return false;\" style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + imgName + "' src='" + request.getContextPath() + "/messenger/img/collapse.gif'/>&nbsp;&nbsp;</a>");
-                js.append("imgfunc['" + imgName + "'] = clickListDisplay.bindAsEventListener(obj,'" + request.getAttribute("navbarName") + "', '" + displayThreshold + "');");
-                js.append("Element.observe($('" + imgName + "'), 'click', imgfunc['" + imgName + "']);");
+                imgName = "img" + navbarName + curNum;
+                out.println("<a href='#' onclick=\"return false;\" style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + Encode.forHtmlAttribute(imgName) + "' src='" + request.getContextPath() + "/messenger/img/collapse.gif'/>&nbsp;&nbsp;</a>");
+                js.append("imgfunc['" + Encode.forJavaScript(imgName) + "'] = clickListDisplay.bindAsEventListener(obj,'" + jsNavbarName + "', '" + displayThreshold + "');");
+                js.append("Element.observe($('" + Encode.forJavaScript(imgName) + "'), 'click', imgfunc['" + Encode.forJavaScript(imgName) + "']);");
             } else if (j == (numToDisplay - 1) && xpanded) {
-                imgName = "img" + request.getAttribute("navbarName") + curNum;
-                out.println("<a href='#' onclick=\"return false;\" style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + imgName + "' src='" + request.getContextPath() + "/messenger/img/collapse.gif'/>&nbsp;&nbsp;</a>");
-                js.append("imgfunc['" + imgName + "'] = clickListDisplay.bindAsEventListener(obj,'" + request.getAttribute("navbarName") + "', '" + displayThreshold + "');");
-                js.append("Element.observe($('" + imgName + "'), 'click', imgfunc['" + imgName + "']);");
+                imgName = "img" + navbarName + curNum;
+                out.println("<a href='#' onclick=\"return false;\" style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + Encode.forHtmlAttribute(imgName) + "' src='" + request.getContextPath() + "/messenger/img/collapse.gif'/>&nbsp;&nbsp;</a>");
+                js.append("imgfunc['" + Encode.forJavaScript(imgName) + "'] = clickListDisplay.bindAsEventListener(obj,'" + jsNavbarName + "', '" + displayThreshold + "');");
+                js.append("Element.observe($('" + Encode.forJavaScript(imgName) + "'), 'click', imgfunc['" + Encode.forJavaScript(imgName) + "']);");
             } else if (j == (numToDisplay - 1) && numItems > (curNum + 1)) {
-                imgName = "img" + request.getAttribute("navbarName") + curNum;
-                out.println("<a href='#' onclick=\"return false;\" title='" + String.valueOf(numItems - j - 1) + " more items' style=' text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + imgName + "' src='" + request.getContextPath() + "/encounter/graphics/expand.gif'/>&nbsp;&nbsp;</a>");
-                js.append("imgfunc['" + imgName + "'] = clickLoadDiv.bindAsEventListener(obj,'" + Encode.forJavaScript(String.valueOf(request.getAttribute("navbarName"))) + "','" + Encode.forJavaScript(reloadUrl) + "');");
-                js.append("Element.observe($('" + imgName + "'), 'click', imgfunc['" + imgName + "']);");
+                imgName = "img" + navbarName + curNum;
+                out.println("<a href='#' onclick=\"return false;\" title='" + String.valueOf(numItems - j - 1) + " more items' style=' text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + Encode.forHtmlAttribute(imgName) + "' src='" + request.getContextPath() + "/encounter/graphics/expand.gif'/>&nbsp;&nbsp;</a>");
+                js.append("imgfunc['" + Encode.forJavaScript(imgName) + "'] = clickLoadDiv.bindAsEventListener(obj,'" + jsNavbarName + "','" + jsReloadUrl + "');");
+                js.append("Element.observe($('" + Encode.forJavaScript(imgName) + "'), 'click', imgfunc['" + Encode.forJavaScript(imgName) + "']);");
             } else {
-                out.println("<a border=0 style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img  id='img" + request.getAttribute("navbarName") + curNum + "' src='" + request.getContextPath() + "/images/clear.gif'/>&nbsp;&nbsp;</a>");
+                out.println("<a border=0 style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img  id='" + Encode.forHtmlAttribute("img" + navbarName + curNum) + "' src='" + request.getContextPath() + "/images/clear.gif'/>&nbsp;&nbsp;</a>");
             }
             ++curNum;
 

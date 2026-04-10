@@ -29,7 +29,11 @@
 
 --%>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) {
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        return;
+    }
+    response.setHeader("X-Content-Type-Options", "nosniff");
 %>
 <%@page contentType="text/xml; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@page

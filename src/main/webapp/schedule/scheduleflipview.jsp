@@ -85,6 +85,10 @@
     String mygroupno = providerPreference.getMyGroupNo();
 
     String curProvider_no = request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "174";
+    if (!curProvider_no.matches("^[a-zA-Z0-9._-]+$")) {
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid provider_no");
+        return;
+    }
     String curDemoNo = request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "";
     String curDemoName = request.getParameter("demographic_name") != null ? request.getParameter("demographic_name") : "";
     String[] param = new String[3];

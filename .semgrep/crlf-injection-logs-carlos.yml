@@ -1,0 +1,84 @@
+# Custom Semgrep Taint-Mode Rule: CRLF Injection in Logs
+#
+# Replaces three built-in Semgrep rules that produce false positives because
+# they do not recognize LogSanitizer.sanitize() as a valid CRLF neutralizer:
+#
+#   - java.servlets.security.crlf-injection-logs-deepsemgrep.crlf-injection-logs-deepsemgrep
+#   - java.servlets.security.crlf-injection-logs.crlf-injection-logs
+#   - java.lang.security.audit.crlf-injection-logs.crlf-injection-logs
+#
+# Those built-in rules must be disabled in Semgrep Cloud policy (app.semgrep.dev)
+# so that only this custom rule runs for CRLF log injection detection.
+#
+# See: https://github.com/carlos-emr/carlos/issues/1432
+
+rules:
+  - id: carlos.crlf-injection-logs
+    message: >
+      When data from an untrusted source is put into a logger and not
+      neutralized correctly, an attacker could forge log entries or
+      include malicious content. Use LogSanitizer.sanitize() to escape
+      control characters before logging user-supplied values.
+    severity: ERROR
+    languages: [java]
+    mode: taint
+    metadata:
+      category: security
+      technology: [java]
+      cwe:
+        - "CWE-117: Improper Output Neutralization for Logs"
+      owasp:
+        - "A09:2021 - Security Logging and Monitoring Failures"
+      confidence: HIGH
+      references:
+        - https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/
+        - https://cwe.mitre.org/data/definitions/117.html
+    pattern-sources:
+      - patterns:
+          - pattern: (HttpServletRequest $REQ).$METHOD(...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(getParameter|getQueryString|getHeader|getRequestURI|getRequestURL|getPathInfo|getCookies|getRemoteAddr|getRemoteHost)$
+    pattern-sanitizers:
+      # Project sanitizer — delegates to OWASP Encode.forJava() which escapes
+      # CR, LF, and all other control characters.
+      - pattern: LogSanitizer.sanitize(...)
+      - pattern: io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(...)
+      - patterns:
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize;
+              ...
+          - pattern: sanitize(...)
+      - patterns:
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.LogSanitizer.*;
+              ...
+          - pattern: sanitize(...)
+      # OWASP Encoder direct usage also neutralizes CRLF.
+      - pattern: Encode.forJava(...)
+      - pattern: org.owasp.encoder.Encode.forJava(...)
+    pattern-sinks:
+      # Log4j 2
+      - patterns:
+          - pattern: (org.apache.logging.log4j.Logger $LOG).$METHOD(...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(trace|debug|info|warn|error|fatal|log)$
+      # SLF4J
+      - patterns:
+          - pattern: (org.slf4j.Logger $LOG).$METHOD(...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(trace|debug|info|warn|error)$
+      # Log4j 1.x (legacy — still used in some integration classes)
+      - patterns:
+          - pattern: (org.apache.log4j.Logger $LOG).$METHOD(...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(trace|debug|info|warn|error|fatal)$
+      # java.util.logging (JUL)
+      - patterns:
+          - pattern: (java.util.logging.Logger $LOG).$METHOD(...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(info|warning|severe|fine|finer|finest|config|log)$

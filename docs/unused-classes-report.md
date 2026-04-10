@@ -101,7 +101,7 @@ These `*MergedDemographicDaoImpl` classes extend parent DAOs that have NO `@Repo
 | `ConsultationRequestMergedDemographicDaoImpl` | `consultationRequestDao` | `ConsultationRequestDao` | `EFormUtil`, `ConsultationAttach`, `EctConsultationFormRequest2Action` |
 | `DocumentResultsMergedDemographicDaoImpl` | `documentResultsDao` | `DocumentResultsDao` | `CommonLabResultData`, `InboxManagerImpl` |
 | `DrugMergedDemographicDaoImpl` | `drugDao` | `DrugDao` | `CaisiIntegratorUpdateTask`, `CaseManagementManagerImpl` |
-| `PreventionMergedDemographicDaoImpl` | `preventionDaoImpl` | `PreventionDao` | `CaisiIntegratorUpdateTask`, `OscarChartPrinter`, `CihiExport2Action`, `PreventionData`, `AddPrevention2Action` |
+| `PreventionMergedDemographicDaoImpl` | `preventionDaoImpl` | `PreventionDao` | `CaisiIntegratorUpdateTask`, `OscarChartPrinter`, `PreventionData`, `AddPrevention2Action` |
 
 ---
 

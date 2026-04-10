@@ -96,6 +96,36 @@ a:hover {
     box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--carlos-primary) 25%, transparent);
 }
 
+/* Bootstrap 5.3 checkbox/radio checked state — retheme to CARLOS blue.
+   Bootstrap renders checked checkboxes and radios via background-color AND
+   an inline SVG background-image that bakes in the color. Both must be
+   overridden. Uses !important to win over Bootstrap's specificity. */
+.form-check-input:checked {
+    background-color: #337ab7 !important;
+    border-color: #337ab7 !important;
+}
+
+.form-check-input:checked[type="checkbox"] {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e") !important;
+}
+
+.form-check-input:checked[type="radio"] {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='2' fill='%23fff'/%3e%3c/svg%3e") !important;
+}
+
+/* Bootstrap form-select (dropdown) focus */
+.form-select:focus {
+    border-color: var(--carlos-primary);
+}
+
+/* Bootstrap range input */
+.form-range::-webkit-slider-thumb {
+    background-color: var(--carlos-primary);
+}
+.form-range::-moz-range-thumb {
+    background-color: var(--carlos-primary);
+}
+
 /* Base resets */
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
@@ -116,6 +146,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    font-size: 14px !important;
 }
 
 .page-header-bar--flex {
@@ -126,12 +157,21 @@ body {
     gap: 10px;
 }
 
-.page-header-title {
+.page-header-bar .page-header-title {
     margin: 0;
-    font-size: 18px;
+    font-size: 18px !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
     line-height: 1.4;
     display: inline-block;
     white-space: nowrap;
+}
+
+/* Ensure header bar child elements aren't overridden by legacy * { font-size: small !important } */
+.page-header-bar * {
+    font-size: inherit;
+}
+.page-header-bar .btn {
+    font-size: 14px !important;
 }
 
 .page-header-icon {

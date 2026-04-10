@@ -226,7 +226,7 @@ $(document).ready(function () {
     // --> Number the Drilldown rows with static numbers.
     drilldownTable.on('order.dt search.dt', function () {
         drilldownTable.column(0, {search: 'applied', order: 'applied'}).nodes().each(function (cell, i) {
-            cell.innerHTML = i + 1;
+            cell.textContent = String(i + 1);
         });
     }).draw();
 

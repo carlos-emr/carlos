@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.waitinglist.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
@@ -64,7 +65,7 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
             throws Exception {
 
 
-        log.debug("\n\nWLSetupDisplayWaitingList2Action/execute(): just entering.");
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): just entering.");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -78,8 +79,8 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
         String groupNo = "";
         String providerNo = "";
 
-        log.debug("\n\nWLSetupDisplayWaitingList2Action/execute(): update = " + update);
-        log.debug("\n\nWLSetupDisplayWaitingList2Action/execute(): remove = " + remove);
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): update = {}", LogSanitizer.sanitize(update));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): remove = {}", LogSanitizer.sanitize(remove));
 
         //LazyValidatorForm wlForm = (LazyValidatorForm) form;
         log.debug("WLSetupDisplayWaitingList2Action/execute(): after  (LazyValidatorForm)form ");
@@ -89,9 +90,9 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
         String wlNoteSelected = request.getParameter("wlNoteSelected");
         String onListSinceSelected = request.getParameter("onListSinceSelected");
 
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): demographicNumSelected = " + demographicNumSelected);
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): wlNoteSelected = " + wlNoteSelected);
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): onListSinceSelected = " + onListSinceSelected);
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): demographicNumSelected = {}", LogSanitizer.sanitize(demographicNumSelected));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): wlNoteSelected = {}", LogSanitizer.sanitize(wlNoteSelected));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): onListSinceSelected = {}", LogSanitizer.sanitize(onListSinceSelected));
 
 
         String rawWaitingListId = request.getParameter("waitingListId");
@@ -101,14 +102,14 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
                 if (parsedId > 0) {
                     waitingListId = String.valueOf(parsedId);
                 } else {
-                    log.warn("WLSetupDisplayWaitingList2Action/execute(): invalid waitingListId '{}': must be a positive integer", rawWaitingListId);
+                    log.warn("WLSetupDisplayWaitingList2Action/execute(): invalid waitingListId '{}': must be a positive integer", LogSanitizer.sanitize(rawWaitingListId));
                 }
             } catch (NumberFormatException e) {
-                log.warn("WLSetupDisplayWaitingList2Action/execute(): invalid waitingListId '{}': not a valid integer", rawWaitingListId);
+                log.warn("WLSetupDisplayWaitingList2Action/execute(): invalid waitingListId '{}': not a valid integer", LogSanitizer.sanitize(rawWaitingListId));
             }
         }
 
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListId = " + waitingListId);
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListId = {}", LogSanitizer.sanitize(waitingListId));
         if (update != null && update.equalsIgnoreCase("Y")) {
 
             demographicNo = request.getParameter(demographicNumSelected);
@@ -133,7 +134,7 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
                     }
 
                 } catch (Exception ex) {
-                    log.error("WLUpdateDisplayWaitingListAction/execute(): Exception: " + ex);
+                    log.error("WLSetupDisplayWaitingList2Action/execute(): Exception: ", ex);
                     return "failure";
                 }
             }
@@ -152,13 +153,13 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
         }
         providerNo = (String) session.getAttribute("user");
 
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): providerNo = " + providerNo);
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): groupno = " + groupNo);
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): providerNo = {}", LogSanitizer.sanitize(providerNo));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): groupno = {}", LogSanitizer.sanitize(groupNo));
 
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListId = " + waitingListId);
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): demographicNo = " + demographicNo);
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListNote = " + waitingListNote);
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): onListSince = " + onListSince);
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListId = {}", LogSanitizer.sanitize(waitingListId));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): demographicNo = {}", LogSanitizer.sanitize(demographicNo));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListNote = {}", LogSanitizer.sanitize(waitingListNote));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): onListSince = {}", LogSanitizer.sanitize(onListSince));
 
         WLWaitingListBeanHandler hd = null;
         WLWaitingListNameBeanHandler wlNameHd = null;
@@ -188,7 +189,7 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
                 ProviderNameBean pNameBean = new ProviderNameBean(p.getFormattedName(), p.getProviderNo());
                 allProviders.add(pNameBean);
             }
-            log.debug("WLSetupDisplayWaitingList2Action/execute(): allProviders.size() = " + allProviders.size());
+            log.debug("WLSetupDisplayWaitingList2Action/execute(): allProviders.size() = {}", allProviders.size());
             if (allProviders.size() <= 0) {
                 ProviderData proData = new ProviderData();
                 proData.getProvider(groupNo);

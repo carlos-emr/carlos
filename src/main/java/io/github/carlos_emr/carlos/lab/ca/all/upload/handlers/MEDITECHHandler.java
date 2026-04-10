@@ -228,7 +228,7 @@ public class MEDITECHHandler implements MessageHandler {
         // Check if the file is within the allowed base directory or temp directory
         boolean isValidPath = false;
         try {
-            PathValidationUtils.validateExistingPath(file, basePath.toFile());
+            file = PathValidationUtils.validateExistingPath(file, basePath.toFile());
             isValidPath = true;
         } catch (SecurityException e) {
             // Try allowed temp directories as fallback

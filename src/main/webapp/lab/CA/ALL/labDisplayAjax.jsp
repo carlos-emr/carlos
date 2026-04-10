@@ -87,6 +87,11 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     CarlosProperties props = CarlosProperties.getInstance();
     String segmentID = request.getParameter("segmentID");
+    if (segmentID == null || segmentID.trim().isEmpty() || !segmentID.trim().matches("\\d+")) {
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid segmentID");
+        return;
+    }
+    segmentID = segmentID.trim();
     String providerNo = request.getParameter("providerNo");
     String searchProviderNo = request.getParameter("searchProviderNo");
     String patientMatched = request.getParameter("patientMatched");
@@ -390,7 +395,7 @@
         <input type="hidden" name="flaggedLabs" value="<%= Encode.forHtmlAttribute(segmentID) %>"/>
         <input type="hidden" name="selectedProviders" value=""/>
         <input type="hidden" name="labType" value="HL7"/>
-        <input type="hidden" name="labType<%=segmentID%>HL7" value="imNotNull"/> <%-- segmentID is a numeric DB key; encoding would break server-side getParameter lookup --%>
+        <input type="hidden" name="labType<%= Encode.forHtmlAttribute(segmentID) %>HL7" value="imNotNull"/> <%-- segmentID is validated as numeric at the top of this JSP --%>
         <input type="hidden" name="providerNo" id="providerNo" value="<%= Encode.forHtmlAttribute(providerNo) %>"/>
         <input type="hidden" name="ajax" value="yes"/>
     </form>

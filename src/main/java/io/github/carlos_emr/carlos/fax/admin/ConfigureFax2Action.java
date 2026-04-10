@@ -62,7 +62,8 @@ public class ConfigureFax2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
-    private static final String PASSWORD_BLANKET = "**********";
+    /** Sentinel value sent by the UI to indicate a stored password should not be overwritten. */
+    public static final String PASSWORD_MASK_SENTINEL = "**********";
     private static final String DEFAULT_ERROR_MESSAGE = "There was a problem saving your configuration. Check the logs for details.";
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -165,7 +166,7 @@ public class ConfigureFax2Action extends ActionSupport {
                         throw new IllegalArgumentException("Invalid configuration ID for account row " + (idx + 1) + ".");
                     }
                     FaxConfig.ProviderType providerType = resolveProviderType(providerTypes, idx, id);
-                    validateConfigRow(providerType, faxUrl, siteUser, faxUsers, faxPasswds, faxNumbers, senderEmails, inboxQueues, idx, id);
+                    validateConfigRow(providerType, faxUrl, siteUser, sitePasswd, faxUsers, faxPasswds, faxNumbers, senderEmails, inboxQueues, idx, id);
 
                     // SRFax always uses the fixed API URL; middleware uses the user-provided URL
                     String resolvedFaxUrl = providerType == FaxConfig.ProviderType.SRFAX
@@ -181,14 +182,18 @@ public class ConfigureFax2Action extends ActionSupport {
                         savedFaxConfig.setUrl(resolvedFaxUrl);
                         savedFaxConfig.setSiteUser(siteUser);
 
-                        if (sitePasswd != null && !PASSWORD_BLANKET.equals(sitePasswd)) {
+                        if (sitePasswd != null && !isPasswordUnchanged(sitePasswd)) {
                             savedFaxConfig.setPasswd(sitePasswd.trim());
                         }
 
                         savedFaxConfig.setFaxUser(faxUsers[idx]);
 
-                        if (faxPasswds != null && idx < faxPasswds.length && faxPasswds[idx] != null && !PASSWORD_BLANKET.equals(faxPasswds[idx])) {
+                        if (faxPasswds != null && idx < faxPasswds.length && faxPasswds[idx] != null && !isPasswordUnchanged(faxPasswds[idx])) {
                             savedFaxConfig.setFaxPasswd(faxPasswds[idx].trim());
+                        }
+                        // Clear per-row fax password after use (covers both updated and sentinel cases)
+                        if (faxPasswds != null && idx < faxPasswds.length) {
+                            faxPasswds[idx] = null;
                         }
 
                         String faxNumber = faxNumbers[idx];
@@ -207,15 +212,19 @@ public class ConfigureFax2Action extends ActionSupport {
                         faxConfig.setId(null);
                         faxConfig.setSiteUser(siteUser);
 
-                        if (sitePasswd != null && !PASSWORD_BLANKET.equals(sitePasswd)) {
+                        if (sitePasswd != null && !isPasswordUnchanged(sitePasswd)) {
                             faxConfig.setPasswd(sitePasswd.trim());
                         }
 
                         faxConfig.setUrl(resolvedFaxUrl);
                         faxConfig.setFaxUser(faxUsers[idx]);
 
-                        if (faxPasswds != null && idx < faxPasswds.length && faxPasswds[idx] != null && !PASSWORD_BLANKET.equals(faxPasswds[idx])) {
+                        if (faxPasswds != null && idx < faxPasswds.length && faxPasswds[idx] != null && !isPasswordUnchanged(faxPasswds[idx])) {
                             faxConfig.setFaxPasswd(faxPasswds[idx].trim());
+                        }
+                        // Clear per-row fax password after use (covers both updated and sentinel cases)
+                        if (faxPasswds != null && idx < faxPasswds.length) {
+                            faxPasswds[idx] = null;
                         }
 
                         String newFaxNumber = faxNumbers[idx];
@@ -254,12 +263,15 @@ public class ConfigureFax2Action extends ActionSupport {
                 faxConfig.setUrl(faxUrl);
                 faxConfig.setSiteUser(siteUser);
 
-                if (sitePasswd != null && !PASSWORD_BLANKET.equals(sitePasswd)) {
+                if (sitePasswd != null && !isPasswordUnchanged(sitePasswd)) {
                     faxConfig.setPasswd(sitePasswd.trim());
                 }
                 faxConfig.setProviderType(FaxConfig.ProviderType.MIDDLEWARE);
                 faxConfigDao.saveEntity(faxConfig);
             }
+
+            // Clear site password from memory after all configuration rows are processed
+            sitePasswd = null;
 
             jsonObject = objectMapper.createObjectNode();
             jsonObject.put("success", true);
@@ -299,6 +311,32 @@ public class ConfigureFax2Action extends ActionSupport {
         MiscUtils.getLogger().debug("Fax configuration response: success={}", jsonObject.get("success"));
         JSONUtil.jsonResponse(response, jsonObject);
         return null;
+    }
+
+    /**
+     * Returns {@code true} when the submitted password value is the UI mask sentinel,
+     * indicating that the admin left the password field unchanged and the stored
+     * credential should be preserved as-is.
+     *
+     * @param password the submitted password string from the request
+     * @return true if the value is the placeholder mask, false if it is a real credential update
+     */
+    private boolean isPasswordUnchanged(String password) {
+        return PASSWORD_MASK_SENTINEL.equals(password);
+    }
+
+    /**
+     * Returns {@link #PASSWORD_MASK_SENTINEL} when the stored password is non-empty,
+     * or an empty string when no password has been stored yet.
+     *
+     * <p>Use this helper in view templates to populate password input fields without
+     * revealing the actual credential to the browser.</p>
+     *
+     * @param storedPassword the stored (encrypted) password value read from the database
+     * @return mask sentinel string or empty string
+     */
+    public static String maskPasswordForDisplay(String storedPassword) {
+        return (storedPassword != null && !storedPassword.isEmpty()) ? PASSWORD_MASK_SENTINEL : "";
     }
 
     /**
@@ -349,6 +387,7 @@ public class ConfigureFax2Action extends ActionSupport {
      * @param providerType provider selected for the account row
      * @param faxUrl shared fax endpoint URL
      * @param siteUser shared fax endpoint username
+     * @param sitePasswd shared fax endpoint password (already retrieved from request by caller)
      * @param faxUsers per-row fax usernames
      * @param faxPasswds per-row fax passwords
      * @param faxNumbers per-row sender fax numbers
@@ -358,7 +397,7 @@ public class ConfigureFax2Action extends ActionSupport {
      * @param faxConfigId persisted identifier used to distinguish new vs existing rows
      * @throws IllegalArgumentException when required values are missing or malformed
      */
-    private void validateConfigRow(FaxConfig.ProviderType providerType, String faxUrl, String siteUser,
+    private void validateConfigRow(FaxConfig.ProviderType providerType, String faxUrl, String siteUser, String sitePasswd,
                                    String[] faxUsers, String[] faxPasswds, String[] faxNumbers, String[] senderEmails,
                                    String[] inboxQueues, int idx, Integer faxConfigId) {
         // Middleware mode requires URL and credentials; SRFax mode can use default URL
@@ -370,9 +409,8 @@ public class ConfigureFax2Action extends ActionSupport {
                 throw new IllegalArgumentException("Middleware server username is required for Middleware mode.");
             }
             // For new middleware configs, site password is required for Basic auth
-            String passwd = request.getParameter("sitePasswd");
             boolean isNewConfig = faxConfigId == null || faxConfigId <= 0;
-            if (isNewConfig && StringUtils.isBlank(passwd)) {
+            if (isNewConfig && StringUtils.isBlank(sitePasswd)) {
                 throw new IllegalArgumentException("Middleware site password is required for new Middleware accounts.");
             }
         }
