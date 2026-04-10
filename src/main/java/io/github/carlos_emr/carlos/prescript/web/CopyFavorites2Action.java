@@ -93,7 +93,7 @@ public class CopyFavorites2Action extends ActionSupport {
         //String providerNo = lazyForm.get("userProviderNo").toString();
         
         String providerNo = request.getParameter("providerNo");
-        //if ( lazyForm.get("ddl_provider") == null || lazyForm.get("ddl_provider")"".equals(.toString()))
+        //if ( lazyForm.get("ddl_provider") == null || "".equals(lazyForm.get("ddl_provider").toString()))
         if (request.getParameter("ddl_provider") == null || request.getParameter("ddl_provider").equals(""))
             return SUCCESS;
 
