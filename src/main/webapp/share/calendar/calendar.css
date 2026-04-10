@@ -1,0 +1,22 @@
+/**
+ * jscalendar → Flatpickr CSS compatibility shim.
+ *
+ * This file replaces the original jscalendar calendar.css. It imports
+ * Flatpickr's stylesheet so that pages including this path automatically
+ * get the correct date-picker styles.
+ *
+ * @see https://github.com/carlos-emr/carlos/issues/1355
+ * @since 2026-04-08
+ */
+@import url("../../library/flatpickr/flatpickr.min.css");
+
+/*
+ * Hide the old jscalendar trigger icons. Legacy trigger elements use IDs
+ * ending with "_cal" and may be <img>, <span>, or <button> elements.
+ * Flatpickr opens on input click/focus, making the separate trigger icons
+ * unnecessary. Pages that still need an explicit open button can override
+ * this rule.
+ */
+[id$="_cal"] {
+    display: none;
+}
