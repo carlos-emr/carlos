@@ -293,6 +293,30 @@ class ResponseSanitizationFilterUnitTest {
 
             assertThat(response.getContentAsString()).isEmpty();
         }
+
+        @Test
+        @DisplayName("should pass through binary response written via getOutputStream() unchanged")
+        void shouldPassThrough_binaryResponseViaOutputStream() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/report.pdf");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            // Non-text bytes including values that could corrupt if decoded as text
+            byte[] binaryBody = new byte[]{0x00, 0x01, 0x02, 0x0F, 0x10, 0x1F,
+                    0x20, 0x7F, (byte) 0x80, (byte) 0xFF};
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(200);
+                httpRes.setContentType("application/pdf");
+                res.getOutputStream().write(binaryBody);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            // Binary content must reach the client unchanged — no buffering, no corruption
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getContentType()).isEqualTo("application/pdf");
+            assertThat(response.getContentAsByteArray()).isEqualTo(binaryBody);
+        }
     }
 
     // -------------------------------------------------------------------------

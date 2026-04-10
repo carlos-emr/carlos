@@ -38,6 +38,7 @@ import jakarta.servlet.http.HttpServletResponseWrapper;
 import java.io.CharArrayWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -48,8 +49,9 @@ import java.util.regex.Pattern;
  *
  * <p>When an error response (HTTP 4xx or 5xx) is detected that contains stack trace markers,
  * the body is replaced with a generic error page that includes only the HTTP status code and
- * a correlation ID. The full original body is logged server-side with the same correlation ID
- * so operators can diagnose issues without exposing sensitive information to clients.</p>
+ * a correlation ID. A sanitized excerpt (up to 200 characters) is logged server-side with the
+ * same correlation ID so operators can diagnose issues without exposing sensitive information
+ * to clients.</p>
  *
  * <h3>Detection</h3>
  * <p>Stack trace detection uses a {@link Pattern} that matches common Java stack trace markers:
@@ -96,6 +98,13 @@ public class ResponseSanitizationFilter implements Filter {
      * Default: {@code true} (enabled).
      */
     static final String ENABLED_PROPERTY = "response.sanitization.enabled";
+
+    /**
+     * Maximum number of characters to buffer per response before switching to pass-through mode.
+     * Responses larger than this cannot contain a stack trace header; skipping inspection
+     * avoids unbounded heap growth for large encounter notes, lab reports, etc.
+     */
+    static final int MAX_CAPTURE_CHARS = 512 * 1024;
 
     /**
      * Regex that matches Java stack trace markers commonly found in unhandled error responses.
@@ -178,16 +187,29 @@ public class ResponseSanitizationFilter implements Filter {
         try {
             chain.doFilter(request, wrapper);
         } catch (IOException | ServletException | RuntimeException e) {
-            // An exception escaped the entire filter chain before any response was written.
-            // Sanitize to ensure the container's fallback error page is never seen by the client.
-            if (!httpResponse.isCommitted()) {
-                String correlationId = generateCorrelationId();
-                LOGGER.error("Uncaught exception escaped filter chain [correlationId={}]",
-                        correlationId, e);
+            // An exception escaped the entire filter chain.
+            // Always log for operational visibility and auditability, even when the response
+            // is already committed, so failures are never silently swallowed.
+            String correlationId = generateCorrelationId();
+            String requestUri = ((HttpServletRequest) request).getRequestURI();
+            boolean committed = httpResponse.isCommitted();
+            LOGGER.error(
+                    "Uncaught exception escaped filter chain [uri={} correlationId={} committed={}]",
+                    requestUri, correlationId, committed, e);
+            if (!committed) {
                 sendSanitizedError(httpResponse, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                         correlationId);
+                return;
             }
-            return;
+            // Response already committed — rethrow so the container can handle the broken
+            // connection correctly rather than treating the request as successfully completed.
+            if (e instanceof IOException) {
+                throw (IOException) e;
+            } else if (e instanceof ServletException) {
+                throw (ServletException) e;
+            } else {
+                throw (RuntimeException) e;
+            }
         }
 
         // Response was committed by sendError() or sendRedirect() inside the chain.
@@ -206,13 +228,20 @@ public class ResponseSanitizationFilter implements Filter {
             return;
         }
 
+        // Response exceeded the capture limit — content already written directly to the real
+        // response by CapturingSwitchingWriter. Large responses cannot contain stack traces;
+        // skip inspection.
+        if (wrapper.isCaptureLimitExceeded()) {
+            return;
+        }
+
         int status = wrapper.getStatus();
         String capturedBody = wrapper.getCapturedContent();
 
         if (status >= 400 && containsStackTrace(capturedBody)) {
             // Stack trace detected: log only a sanitized excerpt and send a sanitized replacement.
             String correlationId = generateCorrelationId();
-            String sanitizedExcerpt = LogSanitizer.sanitize(capturedBody, 1000);
+            String sanitizedExcerpt = LogSanitizer.sanitize(capturedBody, 200);
             LOGGER.error("Stack trace detected in error response "
                     + "[status={} uri={} correlationId={} excerpt={}]",
                     status,
@@ -284,10 +313,23 @@ public class ResponseSanitizationFilter implements Filter {
         response.setStatus(status);
         response.setContentType("text/html;charset=UTF-8");
         String body = buildSanitizedErrorPage(status, correlationId);
-        response.setContentLength(body.getBytes(StandardCharsets.UTF_8).length);
-        PrintWriter writer = response.getWriter();
-        writer.write(body);
-        writer.flush();
+        // Content-Length is intentionally not set — the container handles chunked encoding.
+        // Setting it risks byte-count mismatches if the response charset is not UTF-8,
+        // consistent with CsrfGuardScriptInjectionFilter which avoids setContentLength
+        // for writer-based responses for the same reason.
+        try {
+            PrintWriter writer = response.getWriter();
+            writer.write(body);
+            writer.flush();
+        } catch (IllegalStateException ex) {
+            // Response is in output-stream mode (e.g. a binary download threw mid-write).
+            // Fall back to byte stream so the sanitized error page still reaches the client.
+            LOGGER.debug("sendSanitizedError: getWriter() failed (stream mode active)"
+                    + " [correlationId={}]: {}", correlationId, ex.getMessage());
+            byte[] bodyBytes = body.getBytes(StandardCharsets.UTF_8);
+            response.getOutputStream().write(bodyBytes);
+            response.getOutputStream().flush();
+        }
     }
 
     /**
@@ -331,8 +373,9 @@ public class ResponseSanitizationFilter implements Filter {
                     e.getMessage());
         }
         try {
-            response.getWriter().write(content);
-            response.getWriter().flush();
+            PrintWriter out = response.getWriter();
+            out.write(content);
+            out.flush();
         } catch (IllegalStateException e) {
             // getWriter() failed because getOutputStream() was already called on the real response.
             // Fall back to byte-stream output.
@@ -366,7 +409,7 @@ public class ResponseSanitizationFilter implements Filter {
      */
     private static class CapturingResponseWrapper extends HttpServletResponseWrapper {
 
-        private CharArrayWriter captureWriter;
+        private CapturingSwitchingWriter switchingWriter;
         private PrintWriter writer;
         private boolean usingWriter;
         private boolean usingOutputStream;
@@ -397,8 +440,10 @@ public class ResponseSanitizationFilter implements Filter {
             }
             usingWriter = true;
             if (writer == null) {
-                captureWriter = new CharArrayWriter();
-                writer = new PrintWriter(captureWriter);
+                CharArrayWriter buffer = new CharArrayWriter();
+                switchingWriter = new CapturingSwitchingWriter(buffer,
+                        (HttpServletResponse) getResponse(), MAX_CAPTURE_CHARS);
+                writer = new PrintWriter(switchingWriter);
             }
             return writer;
         }
@@ -520,6 +565,18 @@ public class ResponseSanitizationFilter implements Filter {
         }
 
         /**
+         * Returns {@code true} if the captured response body exceeded
+         * {@link ResponseSanitizationFilter#MAX_CAPTURE_CHARS} and content was written
+         * directly to the real response by the {@link CapturingSwitchingWriter}.
+         * In this case no further inspection or write-back is needed in the outer filter.
+         *
+         * @return boolean {@code true} if the capture limit was exceeded
+         */
+        public boolean isCaptureLimitExceeded() {
+            return switchingWriter != null && switchingWriter.isLimitExceeded();
+        }
+
+        /**
          * Returns the content captured so far from the in-memory writer.
          * Flushes the writer before returning to ensure all buffered content is included.
          *
@@ -530,7 +587,133 @@ public class ResponseSanitizationFilter implements Filter {
             if (writer != null) {
                 writer.flush();
             }
-            return captureWriter != null ? captureWriter.toString() : "";
+            return switchingWriter != null ? switchingWriter.getCaptured() : "";
+        }
+    }
+
+    /**
+     * A {@link Writer} that buffers writes into a {@link CharArrayWriter} up to
+     * {@code maxChars} characters, then switches to direct pass-through via the real
+     * response {@link PrintWriter} to prevent unbounded heap growth for large responses.
+     *
+     * <p>When the limit is exceeded the buffered content is flushed to the real writer
+     * before subsequent writes go directly there. Callers can test
+     * {@link #isLimitExceeded()} to determine whether content was captured in the buffer
+     * or written directly to the real response (in which case no write-back is needed).</p>
+     */
+    private static class CapturingSwitchingWriter extends Writer {
+
+        private final CharArrayWriter buffer;
+        private final HttpServletResponse realResponse;
+        private final int maxChars;
+        private PrintWriter passthroughWriter;
+        private boolean limitExceeded;
+
+        /**
+         * Constructs a new writer that buffers into {@code buffer} up to {@code maxChars}
+         * characters, then switches to writing directly to {@code realResponse}.
+         *
+         * @param buffer       CharArrayWriter the in-memory buffer for capture mode
+         * @param realResponse HttpServletResponse the real servlet response for passthrough mode
+         * @param maxChars     int the maximum number of characters to buffer before switching
+         */
+        CapturingSwitchingWriter(CharArrayWriter buffer, HttpServletResponse realResponse,
+                int maxChars) {
+            this.buffer = buffer;
+            this.realResponse = realResponse;
+            this.maxChars = maxChars;
+        }
+
+        @Override
+        public void write(char[] cbuf, int off, int len) throws IOException {
+            if (!limitExceeded && buffer.size() + len > maxChars) {
+                switchToPassthrough();
+            }
+            if (limitExceeded) {
+                passthroughWriter.write(cbuf, off, len);
+            } else {
+                buffer.write(cbuf, off, len);
+            }
+        }
+
+        @Override
+        public void write(int c) throws IOException {
+            if (!limitExceeded && buffer.size() + 1 > maxChars) {
+                switchToPassthrough();
+            }
+            if (limitExceeded) {
+                passthroughWriter.write(c);
+            } else {
+                buffer.write(c);
+            }
+        }
+
+        @Override
+        public void write(String str, int off, int len) throws IOException {
+            if (!limitExceeded && buffer.size() + len > maxChars) {
+                switchToPassthrough();
+            }
+            if (limitExceeded) {
+                passthroughWriter.write(str, off, len);
+            } else {
+                buffer.write(str, off, len);
+            }
+        }
+
+        @Override
+        public void flush() throws IOException {
+            if (limitExceeded && passthroughWriter != null) {
+                passthroughWriter.flush();
+            }
+        }
+
+        @Override
+        public void close() throws IOException {
+            flush();
+        }
+
+        /**
+         * Returns {@code true} if the capture limit was exceeded and subsequent content
+         * was written directly to the real response.
+         *
+         * @return boolean {@code true} if limit exceeded
+         */
+        boolean isLimitExceeded() {
+            return limitExceeded;
+        }
+
+        /**
+         * Returns the buffered content if the capture limit was not exceeded, or an empty
+         * string if the limit was exceeded (content was written directly to the real response).
+         *
+         * @return String the captured content, or {@code ""} if limit was exceeded
+         */
+        String getCaptured() {
+            if (limitExceeded) {
+                return "";
+            }
+            return buffer.toString();
+        }
+
+        /**
+         * Flushes the in-memory buffer to the real response writer and switches to
+         * direct pass-through mode for all subsequent writes.
+         *
+         * @throws IOException if the real response writer cannot be obtained or written to
+         */
+        private void switchToPassthrough() throws IOException {
+            if (limitExceeded) {
+                return;
+            }
+            limitExceeded = true;
+            LOGGER.debug("ResponseSanitizationFilter: capture limit exceeded ({} chars)"
+                    + " — switching to passthrough mode", maxChars);
+            passthroughWriter = realResponse.getWriter();
+            char[] captured = buffer.toCharArray();
+            if (captured.length > 0) {
+                passthroughWriter.write(captured);
+            }
+            buffer.reset();
         }
     }
 }
