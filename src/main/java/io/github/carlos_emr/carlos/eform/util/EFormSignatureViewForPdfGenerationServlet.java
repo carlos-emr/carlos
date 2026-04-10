@@ -50,9 +50,14 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
         // https://127.0.0.1:8443/oscar/eform/efmshowform_data.jsp?fdid=2&parentAjaxId=eforms
         try {
             // get image
+            String signatureIdParam = request.getParameter("digitalSignatureId");
+            if (signatureIdParam == null || !signatureIdParam.matches("\\d+")) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid digitalSignatureId");
+                return;
+            }
 			DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
 			DigitalSignature digitalSignature = digitalSignatureManager
-					.getDigitalSignature(Integer.parseInt(request.getParameter("digitalSignatureId")));
+					.getDigitalSignature(Integer.parseInt(signatureIdParam));
             if (digitalSignature != null) {
                 //renderImage(response, digitalSignature.getSignatureImage(), "jpeg");
 

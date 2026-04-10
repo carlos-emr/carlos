@@ -82,7 +82,7 @@ public final class ContentRenderingServlet extends HttpServlet {
                 os.write(content.data);
                 os.flush();
             } else {
-                response.sendError(HttpServletResponse.SC_NOT_FOUND, Encode.forHtml(request.getRequestURI()));
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Resource not found");
             }
         } catch (Exception e) {
             if (e.getCause() instanceof SocketException) {
@@ -90,7 +90,7 @@ public final class ContentRenderingServlet extends HttpServlet {
             } else {
                 logger.error("Unexpected error. qs=" + LogSanitizer.sanitize(request.getQueryString()), e);
                 if (!response.isCommitted()) {
-                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, Encode.forHtml(request.getRequestURI()));
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal Server Error");
                 }
             }
         }

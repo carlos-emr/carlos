@@ -30,7 +30,6 @@ package io.github.carlos_emr.carlos.util;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.Set;
 
 import jakarta.servlet.ServletOutputStream;
@@ -51,27 +50,28 @@ public class OscarDownload extends GenericDownload {
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
         try {
             HttpSession session = req.getSession(true);
-            String filename = req.getParameter("filename") != null ? req.getParameter("filename") : "null";
+            String rawFilename = req.getParameter("filename");
+            String filename = rawFilename == null ? null : MiscUtils.sanitizeFileName(rawFilename);
             String homepath = req.getParameter("homepath");
 
+            if (filename == null || filename.isBlank()) {
+                res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required filename parameter.");
+                return;
+            }
             if (homepath == null || !ALLOWED_HOMEPATH_KEYS.contains(homepath)) {
                 log.warn("OscarDownload rejected invalid homepath key from {}", req.getRemoteAddr());
-                res.setContentType("text/html");
-                PrintWriter out = res.getWriter();
-                out.println("<html><body>Invalid download path key.</body></html>");
+                res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download path key.");
                 return;
             }
 
             String backupfilepath = (String) session.getAttribute(homepath);
-            if (filename != null && backupfilepath != null
+            if (backupfilepath != null
                     && !backupfilepath.isEmpty()
                     && ((String) session.getAttribute("user")) != null) {
                 File downloadDir = new File(backupfilepath).getCanonicalFile();
                 if (!downloadDir.isDirectory()) {
                     log.warn("OscarDownload rejected non-directory path from {}", req.getRemoteAddr());
-                    res.setContentType("text/html");
-                    PrintWriter out = res.getWriter();
-                    out.println("<html><body>Invalid download directory.</body></html>");
+                    res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download directory.");
                     return;
                 }
                 // Path traversal protection is enforced by GenericDownload.transferFile() via PathValidationUtils.validatePath(filename, directory)
@@ -79,12 +79,7 @@ public class OscarDownload extends GenericDownload {
                 transferFile(res, stream, backupfilepath, filename);
                 stream.close();
             } else {
-                res.setContentType("text/html");
-                PrintWriter out = res.getWriter();
-                out.println("<html>");
-                out.println("<head><body>You have no right to download the file(s).");
-                out.println("</body>");
-                out.println("</html>");
+                res.sendError(HttpServletResponse.SC_FORBIDDEN, "You have no right to download the file(s).");
             }
         } catch (IOException e) {
             throw e;

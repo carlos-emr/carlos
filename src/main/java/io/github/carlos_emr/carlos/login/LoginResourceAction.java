@@ -74,7 +74,7 @@ public class LoginResourceAction extends HttpServlet {
 
             if (logoImage != null) {
                 // Decode the path and extract just the filename without any directory components
-                String decodedPath = URLDecoder.decode(logoImage, "UTF-8");
+                String decodedPath = URLDecoder.decode(logoImage, java.nio.charset.StandardCharsets.UTF_8);
                 
                 // Remove leading slash if present
                 if (decodedPath.startsWith("/")) {
@@ -118,7 +118,7 @@ public class LoginResourceAction extends HttpServlet {
 
             response.reset();
             response.setContentType(contentType);
-            response.setHeader("Content-Length", String.valueOf(image.length()));
+            response.setContentLengthLong(image.length());
 
             // Write image content to response.
             Files.copy(image.toPath(), response.getOutputStream());

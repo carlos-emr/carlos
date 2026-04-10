@@ -75,6 +75,11 @@ public class GenericDownload extends HttpServlet {
             download(bDo, res, dir, filename, contentType);
         } catch (IOException e) {
             throw e;
+        } catch (SecurityException e) {
+            log.warn("SecurityException in GenericDownload: " + e.getMessage());
+            if (!res.isCommitted()) {
+                res.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied");
+            }
         } catch (Exception e) {
             log.error("Unexpected error in GenericDownload", e);
             if (!res.isCommitted()) {

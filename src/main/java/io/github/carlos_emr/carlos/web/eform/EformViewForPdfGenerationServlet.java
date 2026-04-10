@@ -54,7 +54,7 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
             // ensure it's a local machine request... no one else should be calling this servlet.
             String remoteAddress = request.getRemoteAddr();
             logger.debug("EformPdfServlet request from : " + remoteAddress);
-            if (!"127.0.0.1".equals(remoteAddress)) {
+            if (!"127.0.0.1".equals(remoteAddress) && !"0:0:0:0:0:0:0:1".equals(remoteAddress) && !"::1".equals(remoteAddress)) {
                 logger.warn("Unauthorised request made to EformPdfServlet from address : " + remoteAddress);
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return;
