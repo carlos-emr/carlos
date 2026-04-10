@@ -213,27 +213,28 @@ public class BatchBill2Action extends ActionSupport {
         BatchBillingDAO batchBillingDAO = (BatchBillingDAO) SpringUtils.getBean(BatchBillingDAO.class);
         String demographicNoParam = request.getParameter("demographic_no");
         if (demographicNoParam == null || demographicNoParam.trim().isEmpty()) {
-            addActionError("Missing required parameter: demographic_no");
+            request.setAttribute("error", "Missing required parameter: demographic_no");
             return "error";
         }
         int demographicNo;
         try {
             demographicNo = Integer.parseInt(demographicNoParam.trim());
         } catch (NumberFormatException e) {
-            addActionError("Invalid demographic_no format");
+            request.setAttribute("error", "Invalid demographic_no format");
             return "error";
         }
         String providersParam = request.getParameter("providers");
         String billingProviderNo = providersParam != null ? providersParam.trim() : "";
         String creatorParam = request.getParameter("creator");
         String creatorProviderNo = creatorParam != null ? creatorParam.trim() : "";
-        // service_code may be absent for bulk batch billing entries; validated downstream by DAO
-        String service_code = request.getParameter("xml_other1") != null ? request.getParameter("xml_other1") : "";
+        // service_code may be absent for bulk batch billing entries; passed through as-is, no downstream validation
+        String serviceCodeParam = request.getParameter("xml_other1");
+        String service_code = serviceCodeParam != null ? serviceCodeParam.trim() : null;
         String dxcodeRaw = request.getParameter("xml_diagnostic_detail");
         String dxcode = dxcodeRaw != null ? dxcodeRaw : "";
         String createdDate = request.getParameter("createdate");
         if (createdDate == null || createdDate.trim().isEmpty()) {
-            addActionError("Missing required parameter: createdate");
+            request.setAttribute("error", "Missing required parameter: createdate");
             return "error";
         }
         final String createdDateFormat = "yyyy/MM/dd HH:mm:ss";
@@ -241,7 +242,7 @@ public class BatchBill2Action extends ActionSupport {
         try {
             date = DateUtils.parseDate(createdDate, new String[]{createdDateFormat});
         } catch (ParseException e) {
-            addActionError("Invalid date format for createdate. Expected format: " + createdDateFormat);
+            request.setAttribute("error", "Invalid date format for createdate. Expected format: " + createdDateFormat);
             return "error";
         }
         Timestamp created = new Timestamp(date.getTime());
