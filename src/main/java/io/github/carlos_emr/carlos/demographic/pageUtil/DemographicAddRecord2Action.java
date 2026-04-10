@@ -54,7 +54,6 @@ import org.apache.struts2.ServletActionContext;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -129,9 +128,9 @@ public class DemographicAddRecord2Action extends ActionSupport {
 
         // --- Build Demographic entity ---
         Demographic demographic = new Demographic();
-        demographic.setLastName(request.getParameter("last_name").trim());
-        demographic.setFirstName(request.getParameter("first_name").trim());
-        demographic.setMiddleNames(request.getParameter("middleNames").trim());
+        demographic.setLastName(StringUtils.trimToEmpty(request.getParameter("last_name")));
+        demographic.setFirstName(StringUtils.trimToEmpty(request.getParameter("first_name")));
+        demographic.setMiddleNames(StringUtils.trimToEmpty(request.getParameter("middleNames")));
         demographic.setAlias(request.getParameter("nameUsed"));
         demographic.setPrefName(request.getParameter("nameUsed"));
         demographic.setAddress(request.getParameter("address"));
@@ -283,7 +282,13 @@ public class DemographicAddRecord2Action extends ActionSupport {
                 String type = consentType.getType();
                 String consentRecord = request.getParameter(type);
                 if (consentRecord != null) {
-                    boolean optOut = Integer.parseInt(consentRecord) == 1;
+                    boolean optOut;
+                    try {
+                        optOut = Integer.parseInt(consentRecord) == 1;
+                    } catch (NumberFormatException e) {
+                        logger.warn("DemographicAddRecord2Action: invalid consent value={}, defaulting to false", consentRecord);
+                        optOut = false;
+                    }
                     patientConsentManager.addEditConsentRecord(loggedInInfo, demographic.getDemographicNo(),
                             consentType.getId(), explicitConsent, optOut);
                 }
@@ -332,7 +337,7 @@ public class DemographicAddRecord2Action extends ActionSupport {
 
         // --- Archive the initial record ---
         Long archiveId = demographicArchiveDao.archiveRecord(demographicDao.getDemographic(dem));
-        List<DemographicExt> extensions = demographicExtDao.getDemographicExtByDemographicNo(Integer.parseInt(dem));
+        List<DemographicExt> extensions = demographicExtDao.getDemographicExtByDemographicNo(demographic.getDemographicNo());
         for (DemographicExt extension : extensions) {
             DemographicExtArchive archive = new DemographicExtArchive(extension);
             archive.setArchiveId(archiveId);
@@ -344,29 +349,28 @@ public class DemographicAddRecord2Action extends ActionSupport {
         io.github.carlos_emr.carlos.waitinglist.WaitingList wL = io.github.carlos_emr.carlos.waitinglist.WaitingList.getInstance();
         if (wL.getFound() && CarlosProperties.getInstance().getBooleanProperty("DEMOGRAPHIC_WAITING_LIST", "true")) {
             String listId = request.getParameter("list_id");
-            if (listId != null && !listId.isEmpty()) {
-                List<Long> positionList = new ArrayList<>();
-                List<io.github.carlos_emr.carlos.commn.model.WaitingList> waitingListList =
-                        waitingListDao.findByWaitingListId(1);
-                if (waitingListList != null) {
-                    for (io.github.carlos_emr.carlos.commn.model.WaitingList wlEntry : waitingListList) {
-                        positionList.add(wlEntry.getPosition());
+            if (listId != null && !listId.isEmpty() && !listId.equals("0")) {
+                try {
+                    int listIdInt = Integer.parseInt(listId);
+                    Integer maxPosition = waitingListDao.getMaxPosition(listIdInt);
+                    if (maxPosition == null) {
+                        maxPosition = 0;
                     }
-                    Long maxPosition = 0L;
-                    if (!positionList.isEmpty()) {
-                        maxPosition = Collections.max(positionList);
+                    io.github.carlos_emr.carlos.commn.model.WaitingList waitingList =
+                            new io.github.carlos_emr.carlos.commn.model.WaitingList();
+                    waitingList.setListId(listIdInt);
+                    waitingList.setDemographicNo(demographic.getDemographicNo());
+                    waitingList.setNote(request.getParameter("waiting_list_note"));
+                    waitingList.setPosition((long) maxPosition + 1L);
+                    Date referralDate = MyDateFormat.getSysDate(request.getParameter("waiting_list_referral_date"));
+                    if (referralDate == null) {
+                        referralDate = new Date();
                     }
-                    if (!listId.isEmpty() && !listId.equals("0")) {
-                        io.github.carlos_emr.carlos.commn.model.WaitingList waitingList =
-                                new io.github.carlos_emr.carlos.commn.model.WaitingList();
-                        waitingList.setListId(Integer.parseInt(listId));
-                        waitingList.setDemographicNo(demographic.getDemographicNo());
-                        waitingList.setNote(request.getParameter("waiting_list_note"));
-                        waitingList.setPosition(maxPosition + 1);
-                        waitingList.setOnListSince(MyDateFormat.getSysDate(request.getParameter("waiting_list_referral_date")));
-                        waitingList.setIsHistory("N");
-                        waitingListDao.persist(waitingList);
-                    }
+                    waitingList.setOnListSince(referralDate);
+                    waitingList.setIsHistory("N");
+                    waitingListDao.persist(waitingList);
+                } catch (NumberFormatException e) {
+                    logger.warn("DemographicAddRecord2Action: invalid list_id={}, skipping waiting list entry", listId, e);
                 }
             }
         }

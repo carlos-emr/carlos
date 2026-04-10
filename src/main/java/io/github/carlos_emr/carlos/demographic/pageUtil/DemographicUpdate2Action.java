@@ -117,7 +117,18 @@ public class DemographicUpdate2Action extends ActionSupport {
 
         String proNo = (String) request.getSession().getAttribute("user");
         String demoNo = request.getParameter("demographic_no");
-        int demographicNo = Integer.parseInt(demoNo);
+        if (demoNo == null || demoNo.trim().isEmpty()) {
+            addActionError("Missing patient record identifier");
+            return ERROR;
+        }
+        int demographicNo;
+        try {
+            demographicNo = Integer.parseInt(demoNo);
+        } catch (NumberFormatException e) {
+            logger.warn("DemographicUpdate2Action: invalid demographic_no={}", demoNo);
+            addActionError("Invalid patient record identifier");
+            return ERROR;
+        }
 
         Demographic demographic = demographicDao.getDemographic(demoNo);
         if (demographic == null) {
@@ -126,9 +137,9 @@ public class DemographicUpdate2Action extends ActionSupport {
             return ERROR;
         }
 
-        demographic.setLastName(request.getParameter("last_name").trim());
-        demographic.setFirstName(request.getParameter("first_name").trim());
-        demographic.setMiddleNames(request.getParameter("middleNames").trim());
+        demographic.setLastName(org.apache.commons.lang3.StringUtils.trimToEmpty(request.getParameter("last_name")));
+        demographic.setFirstName(org.apache.commons.lang3.StringUtils.trimToEmpty(request.getParameter("first_name")));
+        demographic.setMiddleNames(org.apache.commons.lang3.StringUtils.trimToEmpty(request.getParameter("middleNames")));
         demographic.setAlias(request.getParameter("nameUsed"));
         demographic.setPrefName(request.getParameter("nameUsed"));
         demographic.setAddress(request.getParameter("address"));
@@ -259,7 +270,13 @@ public class DemographicUpdate2Action extends ActionSupport {
                     deleteme = Integer.parseInt(request.getParameter("deleteConsent_" + type));
                 }
                 if (consentRecord != null) {
-                    boolean optOut = Integer.parseInt(consentRecord) == 1;
+                    boolean optOut;
+                    try {
+                        optOut = Integer.parseInt(consentRecord) == 1;
+                    } catch (NumberFormatException e) {
+                        logger.warn("DemographicUpdate2Action: invalid consent record value={}, defaulting to false", consentRecord);
+                        optOut = false;
+                    }
                     patientConsentManager.addEditConsentRecord(loggedInInfo, demographic.getDemographicNo(),
                             consentType.getId(), explicitConsent, optOut);
                 } else if (deleteme == 1) {
@@ -308,12 +325,7 @@ public class DemographicUpdate2Action extends ActionSupport {
             }
         }
 
-        for (DemographicExt extension : extensions) {
-            demographicExtDao.saveEntity(extension);
-        }
-
-        OtherIdManager.saveIdDemographic(demographicNo, "meditech_id", request.getParameter("meditech_id"));
-
+        // --- HIN duplicate check must run before any persistence to prevent partial updates ---
         boolean hinDupCheckException = false;
         String hcType = request.getParameter("hc_type");
         String ver = request.getParameter("ver");
@@ -335,6 +347,12 @@ public class DemographicUpdate2Action extends ActionSupport {
                 }
             }
         }
+
+        for (DemographicExt extension : extensions) {
+            demographicExtDao.saveEntity(extension);
+        }
+
+        OtherIdManager.saveIdDemographic(demographicNo, "meditech_id", request.getParameter("meditech_id"));
 
         Long archiveId = demographicArchiveDao.archiveRecord(demographic);
         for (DemographicExt extension : extensions) {
@@ -385,9 +403,17 @@ public class DemographicUpdate2Action extends ActionSupport {
                     demoNo, request.getParameter("waiting_list_referral_date"));
 
             String listId = request.getParameter("list_id");
-            if (!"0".equalsIgnoreCase(listId)) {
+            if (listId != null && !listId.isEmpty() && !"0".equalsIgnoreCase(listId)) {
+                int listIdInt;
+                try {
+                    listIdInt = Integer.parseInt(listId);
+                } catch (NumberFormatException e) {
+                    logger.warn("DemographicUpdate2Action: invalid list_id={}, treating as 0", listId);
+                    response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit.do?demographic_no=" + demographicNo);
+                    return null;
+                }
                 List<WaitingList> waitingListList = waitingListDao.findByWaitingListIdAndDemographicId(
-                        Integer.valueOf(listId), Integer.valueOf(demoNo));
+                        listIdInt, demographicNo);
                 if (waitingListList.isEmpty()) {
                     List<Appointment> apptList = appointmentDao.findNonCancelledFutureAppointments(demographicNo);
                     request.setAttribute("demographicNo", demoNo);
@@ -399,15 +425,15 @@ public class DemographicUpdate2Action extends ActionSupport {
                     request.setAttribute("needsWlConfirm", Boolean.valueOf(!apptList.isEmpty()));
                     return SUCCESS;
                 } else {
-                    response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit.do?demographic_no=" + demoNo);
+                    response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit.do?demographic_no=" + demographicNo);
                     return null;
                 }
             } else {
-                response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit.do?demographic_no=" + demoNo);
+                response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit.do?demographic_no=" + demographicNo);
                 return null;
             }
         } else {
-            response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit.do?demographic_no=" + demoNo);
+            response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit.do?demographic_no=" + demographicNo);
             return null;
         }
     }

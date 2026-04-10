@@ -46,7 +46,8 @@
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
         <tr bgcolor="#486ebd">
             <th align="CENTER"><font face="Helvetica" color="#FFFFFF">
-                UPDATE demographic RECORD</font></th>
+                <fmt:setBundle basename="oscarResources"/>
+                <fmt:message key="demographic.demographicupdatearecord.title"/></font></th>
         </tr>
     </table>
 
@@ -108,12 +109,11 @@
 
     <% } else { %>
     <%-- Normal success display (non-WL path shouldn't reach here due to redirect, but kept for safety) --%>
-    <h2>Update a Patient Record Successfully!
-        <p>
-            <a href="DemographicEdit.do?demographic_no=<%= Encode.forUriComponent(demographicNo != null ? demographicNo : "") %>">
-                <%= Encode.forHtml(demographicNo != null ? demographicNo : "") %></a>
-        </p>
-    </h2>
+    <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicupdatearecord.msgSuccessful"/></h2>
+    <p>
+        <a href="DemographicEdit.do?demographic_no=<%= Encode.forUriComponent(demographicNo != null ? demographicNo : "") %>">
+            <%= Encode.forHtml(demographicNo != null ? demographicNo : "") %></a>
+    </p>
     <% } %>
 
 </center>
