@@ -54,14 +54,13 @@ permissions:
 
 env:
   PMD_VERSION: '7.13.0'
+  PMD_HOME: 'pmd-bin-7.13.0'
 
 jobs:
   pmd:
     name: PMD Static Analysis
     runs-on: ubuntu-latest
     if: github.actor != 'dependabot[bot]'
-    env:
-      PMD_HOME: pmd-bin-${{ env.PMD_VERSION }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
