@@ -51,8 +51,6 @@
           href="${ pageContext.request.contextPath }/library/bootstrap/5.3.8/css/bootstrap.min.css"/>
     <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/css/fontawesome-all.min.css"/>
     <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/web/css/Dashboard.css"/>
-    <link rel="stylesheet" type="text/css"
-          href="${ pageContext.request.contextPath }/js/jqplot/jquery.jqplot2.min.css"/>
     <script>var ctx = "${pageContext.request.contextPath}"</script>
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/dompurify/purify.min.js"></script>
@@ -62,12 +60,9 @@
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript"
+            src="${ pageContext.request.contextPath }/library/chartjs/chart.umd.min.js"></script>
+    <script type="text/javascript"
             src="${ pageContext.request.contextPath }/web/dashboard/display/dashboardDisplayController.js"></script>
-    <script type="text/javascript" src="${ pageContext.request.contextPath }/js/jqplot/jquery.jqplot2.min.js"></script>
-    <script type="text/javascript"
-            src="${ pageContext.request.contextPath }/js/jqplot/plugins/jqplot.pieRenderer.js"></script>
-    <script type="text/javascript"
-            src="${ pageContext.request.contextPath }/js/jqplot/plugins/jqplot.json2.js"></script>
 </head>
 
 <body>

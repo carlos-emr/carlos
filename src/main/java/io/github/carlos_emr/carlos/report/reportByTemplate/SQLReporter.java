@@ -123,14 +123,10 @@ public class SQLReporter implements Reporter {
             sql = parameterizedResult[0];
             sqlParams = extractParams(parameterizedResult);
         } else {
-            MiscUtils.getLogger().warn("Report template {} uses legacy non-parameterized SQL path", templateId);
-            sql = curReport.getPreparedSQL(parameterMap);
-            if (sql == null || sql.trim().isEmpty()) {
-                request.setAttribute("errormsg", "Error: Cannot find all parameters for the query.  Check the template.");
-                request.setAttribute("templateid", templateId);
-                return false;
-            }
-            sqlParams = null;
+            MiscUtils.getLogger().error("Report template {} uses unsupported legacy non-parameterized report type. Refusing to execute.", templateId);
+            request.setAttribute("errormsg", "Error: This report template uses a legacy format that is no longer supported. Please contact your administrator to update the template.");
+            request.setAttribute("templateid", templateId);
+            return false;
         }
 
         String[] result = executeQuery(sql, sqlParams, false);
@@ -142,7 +138,7 @@ public class SQLReporter implements Reporter {
             csv = "";
         }
 
-        request.getSession().setAttribute("csv", csv);
+        request.getSession().setAttribute("csv", csv); // nosemgrep: tainted-session-from-http-request -- csv is generated from executeQuery() results for a validated report template, not copied directly from request parameters
         request.setAttribute("csv", csv);
         request.setAttribute("sql", sql);
         request.setAttribute("reportobject", curReport);
@@ -183,20 +179,10 @@ public class SQLReporter implements Reporter {
                 x++;
             }
         } else {
-            MiscUtils.getLogger().warn("Report template {} uses legacy non-parameterized SQL path (sequenced)", templateId);
-            String sql = null;
-            while ((sql = curReport.getPreparedSQL(x, parameterMap)) != null) {
-                if (sql.isEmpty()) {
-                    request.setAttribute("errormsg", "Error: Cannot find all parameters for the query.  Check the template.");
-                    request.setAttribute("templateid", templateId);
-                    return false;
-                }
-                String[] result = executeQuery(sql, null, true);
-                request.setAttribute("csv-" + x, result[1]);
-                request.setAttribute("sql-" + x, sql);
-                request.setAttribute("resultsethtml-" + x, result[0]);
-                x++;
-            }
+            MiscUtils.getLogger().error("Report template {} uses unsupported legacy non-parameterized report type (sequenced). Refusing to execute.", templateId);
+            request.setAttribute("errormsg", "Error: This report template uses a legacy format that is no longer supported. Please contact your administrator to update the template.");
+            request.setAttribute("templateid", templateId);
+            return false;
         }
 
         request.setAttribute("sequenceLength", x);
@@ -209,7 +195,7 @@ public class SQLReporter implements Reporter {
      * Executes a SQL query and returns the HTML and CSV representations.
      *
      * @param sql         the SQL query to execute
-     * @param sqlParams   JDBC parameters (null to use the legacy non-parameterized path)
+     * @param sqlParams   JDBC parameters for the parameterized query
      * @param showSqlOnEmpty if true, prefix the "no results" message with the SQL text
      * @return {@code String[2]} where {@code [0]} is the HTML result and {@code [1]} is the CSV
      */
@@ -217,9 +203,7 @@ public class SQLReporter implements Reporter {
         String rsHtml = "An SQL query error has occured ";
         String csv = "";
         try (StringWriter swr = new StringWriter();
-             ResultSet rs = (sqlParams != null)
-                     ? DBHandler.GetPreSQL(sql, sqlParams)
-                     : DBHandler.GetSQL(sql)) {
+             ResultSet rs = DBHandler.GetPreSQL(sql, sqlParams)) {
             if (!rs.isBeforeFirst()) {
                 rsHtml = showSqlOnEmpty
                         ? (Encode.forHtml(sql) + "<br/>The query returned no results.")

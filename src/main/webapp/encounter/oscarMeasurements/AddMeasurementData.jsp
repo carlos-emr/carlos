@@ -211,7 +211,7 @@
             }
 
             function masterDateFill(v) {
-                var x =<%=measurements.length%>;
+                var x =<%= (int) measurements.length %>; <%-- measurements.length is a server-side int — no XSS risk --%>
 
 
                 for (i = 0; i <= x; i++) {
@@ -414,7 +414,7 @@
                 <!-- END of Master Calendar Input -->
 
                 <form action="${pageContext.request.contextPath}/<%=saveAction%>" id="measurementForm" method="post">
-                    <input type="hidden" name="numType" value="<%=measurements.length%>"/>
+                    <input type="hidden" name="numType" value="<%= (int) measurements.length %>"/> <%-- measurements.length is a server-side int — no XSS risk --%>
                     <input type="hidden" name="groupName" value=""/>
                     <input type="hidden" name="css" value=""/>
                     <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>

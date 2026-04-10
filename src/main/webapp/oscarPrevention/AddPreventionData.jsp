@@ -65,7 +65,6 @@
 <%@ page import="java.text.ParseException" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CVCMappingDao" %>
@@ -622,7 +621,7 @@
                 <table class="TopStatusBar" style="width: 100%">
                     <tr>
                         <td style="background-color:silver;">
-                            <%=StringEscapeUtils.escapeHtml4(nameage)%>
+                            <%=Encode.forHtml(nameage)%>
                         </td>
                         <td style="background-color:silver;">&nbsp;
 
@@ -1528,7 +1527,7 @@
         } else if (second != null) {
             ret = second;
         }
-        return StringEscapeUtils.escapeHtml4(ret);
+        return Encode.forHtml(ret);
     }
 
     String checked(String first, String second) {

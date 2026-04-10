@@ -137,7 +137,7 @@ public class DrugPriceLookup {
 		if (fileName != null && !fileName.isEmpty()) {
 			java.io.File formularyFile = new java.io.File(fileName);
 			try {
-				PathValidationUtils.validateExistingPath(formularyFile, formularyFile.getParentFile());
+				formularyFile = PathValidationUtils.validateExistingPath(formularyFile, formularyFile.getParentFile());
 				log.info("loading odb file from property {}", fileName);
 				return new BufferedInputStream(new FileInputStream(formularyFile));
 			} catch (SecurityException e) {

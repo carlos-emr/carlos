@@ -300,7 +300,7 @@ public class DocumentPreview2Action extends ActionSupport {
                     java.io.File baseDir = new java.io.File(basePath);
                     if (baseDir.exists()) {
                         try {
-                            PathValidationUtils.validateExistingPath(canonicalPdfPath.toFile(), baseDir);
+                            canonicalPdfPath = PathValidationUtils.validateExistingPath(canonicalPdfPath.toFile(), baseDir).toPath();
                             isValidPath = true;
                             break;
                         } catch (SecurityException e) {
@@ -423,7 +423,8 @@ public class DocumentPreview2Action extends ActionSupport {
         ObjectNode json = objectMapper.createObjectNode();
         String base64Data = documentAttachmentManager.convertPDFToBase64(pdfPath);
         json.put("base64Data", base64Data);
-        response.setContentType("text/javascript");
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         try {
             response.getWriter().write(json.toString());
         } catch (IOException e) {
@@ -444,7 +445,8 @@ public class DocumentPreview2Action extends ActionSupport {
     private void generateResponse(HttpServletResponse response, String errorMessage) {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("errorMessage", errorMessage);
-        response.setContentType("text/javascript");
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         try {
             response.getWriter().write(json.toString());
         } catch (IOException e) {

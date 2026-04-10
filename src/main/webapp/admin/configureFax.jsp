@@ -76,6 +76,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.fax.provider.SRFaxProviderClient" %>
+<%@ page import="io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action" %>
 
 <%
     // Declare Java variables at page scope before any HTML/JavaScript
@@ -438,7 +439,7 @@
                             FaxConfig faxCfg = faxConfigList.isEmpty() ? null : faxConfigList.get(0);
                             String configId = faxCfg != null ? String.valueOf(faxCfg.getId()) : "-1";
                             String faxUser = faxCfg != null ? faxCfg.getFaxUser() : "";
-                            String faxPassword = (faxCfg != null && faxCfg.getFaxPasswd() != null && !faxCfg.getFaxPasswd().isEmpty()) ? "**********" : "";
+                            String faxPassword = faxCfg != null ? ConfigureFax2Action.maskPasswordForDisplay(faxCfg.getFaxPasswd()) : "";
                             String faxNumber = faxCfg != null ? faxCfg.getFaxNumber() : "";
                             String senderEmail = faxCfg != null ? faxCfg.getSenderEmail() : "";
                             String accountName = faxCfg != null ? faxCfg.getAccountName() : "";
@@ -448,7 +449,7 @@
                             boolean isDownload = faxCfg != null && faxCfg.isDownload();
                             String faxUrl = faxCfg != null ? faxCfg.getUrl() : "";
                             String siteUser = faxCfg != null ? faxCfg.getSiteUser() : "";
-                            String sitePasswd = (faxCfg != null && faxCfg.getPasswd() != null && !faxCfg.getPasswd().isEmpty()) ? "**********" : "";
+                            String sitePasswd = faxCfg != null ? ConfigureFax2Action.maskPasswordForDisplay(faxCfg.getPasswd()) : "";
                         %>
 
                         <!-- Provider Type Selection -->

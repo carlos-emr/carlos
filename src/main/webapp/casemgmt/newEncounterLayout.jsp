@@ -32,7 +32,7 @@
 
 <%@ include file="/casemgmt/taglibs.jsp" %>
 
-<%@page import="java.util.Enumeration, org.apache.commons.text.StringEscapeUtils" %>
+<%@page import="java.util.Enumeration" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
@@ -45,7 +45,6 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 
 
 <%

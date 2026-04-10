@@ -950,7 +950,17 @@ input[id^='acklabel_']{
         <input type="hidden" name="selectedProviders" value="">
         <input type="hidden" name="favorites" value="">
         <input type="hidden" name="labType" value="HL7">
-        <input type="hidden" name="labType<%= Encode.forHtmlAttribute(segmentID) %>HL7" value="imNotNull">
+        <%
+            String safeSegmentId = null;
+            String rawSegmentId = StringUtils.trimToEmpty(segmentID);
+
+            if (rawSegmentId.matches("\\d+")) {
+                safeSegmentId = rawSegmentId;
+            }
+        %>
+        <% if (safeSegmentId != null) { %>
+        <input type="hidden" name="labType<%= safeSegmentId %>HL7" value="imNotNull"> <%-- segmentID must remain digits-only here so the generated parameter name stays valid and matches server-side lookup --%>
+        <% } %>
         <input type="hidden" id="providerNo_<%= Encode.forHtmlAttribute(segmentID) %>" name="providerNo"
                value="<%= Encode.forHtmlAttribute(providerNo) %>">
     </form>

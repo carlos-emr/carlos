@@ -1,0 +1,110 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ *
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+package io.github.carlos_emr.carlos.appointment.pageUtil;
+
+import java.io.IOException;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+
+import io.github.carlos_emr.carlos.appt.ApptUtil;
+import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+/**
+ * Struts 2 action that handles appointment cut/move (migrated from appointmentcutrecord.jsp).
+ * Copies appointment data into session for later paste, then archives and removes the appointment.
+ * Requires {@code _appointment} delete privileges.
+ * This action adds the previously missing role-based authorization check.
+ *
+ * @since 2026-04-05
+ */
+public final class AppointmentCutRecord2Action extends ActionSupport {
+
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
+    private final AppointmentArchiveDao appointmentArchiveDao = SpringUtils.getBean(AppointmentArchiveDao.class);
+
+    @Override
+    public String execute() throws IOException {
+        HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
+
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "d", null)) {
+            throw new SecurityException("missing required sec object (_appointment)");
+        }
+
+        String apptNoParam = request.getParameter("appointment_no");
+        if (StringUtils.isEmpty(apptNoParam)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "appointment_no required");
+            return NONE;
+        }
+
+        Appointment appt;
+        try {
+            appt = appointmentDao.find(Integer.parseInt(apptNoParam));
+        } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid appointment_no");
+            return NONE;
+        }
+        if (appt == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Appointment not found");
+            return NONE;
+        }
+
+        // Copy appointment into session AFTER validation to avoid corrupting session state on bad input
+        ApptUtil.copyAppointmentIntoSession(request);
+
+        if (appt.getLastUpdateUser() == null || appt.getLastUpdateUser().isEmpty()) {
+            appt.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
+        }
+        appointmentArchiveDao.archiveAppointment(appt);
+
+        LogAction.addLogSynchronous(loggedInInfo, "Appointment.cut", "id=" + appt.getId());
+        appointmentDao.remove(appt.getId());
+
+        request.setAttribute("success", true);
+        return SUCCESS;
+    }
+}
