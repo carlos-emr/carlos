@@ -74,15 +74,31 @@ jobs:
         uses: actions/cache@v4
         with:
           path: pmd-bin-${{ env.PMD_VERSION }}
-          key: pmd-${{ env.PMD_VERSION }}
+          key: pmd-${{ runner.os }}-${{ runner.arch }}-${{ env.PMD_VERSION }}
+          restore-keys: |
+            pmd-${{ runner.os }}-${{ runner.arch }}-
+            pmd-${{ runner.os }}-
 
       - name: Download PMD
         run: |
+          set -euo pipefail
           if [ ! -d "pmd-bin-${PMD_VERSION}" ]; then
             echo "Downloading PMD ${PMD_VERSION}..."
-            wget -q "https://github.com/pmd/pmd/releases/download/pmd_releases%2F${PMD_VERSION}/pmd-dist-${PMD_VERSION}-bin.zip"
-            unzip -q "pmd-dist-${PMD_VERSION}-bin.zip"
-            rm -f "pmd-dist-${PMD_VERSION}-bin.zip"
+            PMD_ZIP="pmd-dist-${PMD_VERSION}-bin.zip"
+            PMD_BASE_URL="https://github.com/pmd/pmd/releases/download/pmd_releases%2F${PMD_VERSION}"
+            wget -q "${PMD_BASE_URL}/${PMD_ZIP}"
+            EXPECTED_SHA256="$(wget -qO- "${PMD_BASE_URL}/${PMD_ZIP}.sha256" | awk '{print $1}' | tr -d '\r\n')"
+            ACTUAL_SHA256="$(sha256sum "${PMD_ZIP}" | awk '{print $1}')"
+            if [ -z "${EXPECTED_SHA256}" ] || [ "${ACTUAL_SHA256}" != "${EXPECTED_SHA256}" ]; then
+              echo "Checksum verification failed for ${PMD_ZIP}" >&2
+              echo "Expected: ${EXPECTED_SHA256:-<empty>}" >&2
+              echo "Actual:   ${ACTUAL_SHA256}" >&2
+              rm -f "${PMD_ZIP}"
+              exit 1
+            fi
+            echo "Checksum verification passed for ${PMD_ZIP}"
+            unzip -q "${PMD_ZIP}"
+            rm -f "${PMD_ZIP}"
           else
             echo "PMD ${PMD_VERSION} already cached"
           fi
@@ -105,15 +121,7 @@ jobs:
             echo "violations=0" >> "$GITHUB_OUTPUT"
             echo "No PMD violations found."
           elif [ "$PMD_EXIT" -eq 4 ]; then
-            COUNT=$(python3 -c "
-          import json, sys
-          try:
-              with open('pmd-report.sarif') as f:
-                  data = json.load(f)
-              print(sum(len(run.get('results', [])) for run in data.get('runs', [])))
-          except Exception:
-              print('unknown')
-          ")
+            COUNT=$(python3 -c "import json; data=json.load(open('pmd-report.sarif')); print(sum(len(run.get('results', [])) for run in data.get('runs', [])))" 2>/dev/null || echo "unknown")
             echo "violations=${COUNT}" >> "$GITHUB_OUTPUT"
             echo "PMD found ${COUNT} violation(s)."
           else
