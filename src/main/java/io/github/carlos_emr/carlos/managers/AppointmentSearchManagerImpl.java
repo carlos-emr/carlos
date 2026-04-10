@@ -171,7 +171,7 @@ public class AppointmentSearchManagerImpl implements AppointmentSearchManager {
                 if (filterClassNames != null) {
                     for (FilterDefinition className : filterClassNames) {
                         String filterClassName = className.getFilterClassName();
-                        if (!ALLOWED_FILTER_CLASSES.contains(filterClassName)) {
+                        if (filterClassName == null || !ALLOWED_FILTER_CLASSES.contains(filterClassName)) {
                             logger.warn("Rejected unauthorized appointment filter class: {}",
                                     LogSanitizer.sanitize(filterClassName));
                             throw new SecurityException("Unauthorized appointment filter class");
