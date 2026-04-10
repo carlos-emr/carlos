@@ -134,30 +134,50 @@ var cfg_sepstyle = 'width:6px;height:24px;border: solid 2px #ccccff; background-
  */
 function sanitizeEditorHtml(html) {
     if (typeof html !== 'string') return '';
-    var doc = new DOMParser().parseFromString(html, 'text/html');
-    // Remove dangerous elements
-    var dangerous = doc.querySelectorAll('script, iframe, object, embed, applet, form, base, link[rel="import"]');
-    for (var i = 0; i < dangerous.length; i++) {
-        dangerous[i].parentNode.removeChild(dangerous[i]);
-    }
-    // Remove event handler attributes from all elements
-    var allElements = doc.body.querySelectorAll('*');
-    for (var j = 0; j < allElements.length; j++) {
-        var attrs = allElements[j].attributes;
-        for (var k = attrs.length - 1; k >= 0; k--) {
-            if (attrs[k].name.toLowerCase().indexOf('on') === 0) {
-                allElements[j].removeAttribute(attrs[k].name);
+    try {
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        if (!doc || !doc.body) return '';
+        // Remove dangerous elements (meta included: <meta http-equiv="refresh"> can redirect)
+        var dangerous = doc.querySelectorAll('script, iframe, object, embed, applet, form, base, meta, link[rel="import"]');
+        for (var i = 0; i < dangerous.length; i++) {
+            dangerous[i].parentNode.removeChild(dangerous[i]);
+        }
+        // Remove event handler attributes from all elements
+        var allElements = doc.body.querySelectorAll('*');
+        // Allowlist of safe URL schemes (blocks javascript:, vbscript:, data:text/html, etc.)
+        var safeScheme = /^(https?:|mailto:|tel:|#|\/)/i;
+        for (var j = 0; j < allElements.length; j++) {
+            var attrs = allElements[j].attributes;
+            for (var k = attrs.length - 1; k >= 0; k--) {
+                if (attrs[k].name.toLowerCase().indexOf('on') === 0) {
+                    allElements[j].removeAttribute(attrs[k].name);
+                }
+            }
+            // Strip control chars before scheme check (prevents bypass via embedded \x00-\x1f)
+            ['href', 'action', 'formaction'].forEach(function(attr) {
+                var val = allElements[j].getAttribute(attr);
+                if (val && !safeScheme.test(val.replace(/[\x00-\x20]/g, ''))) {
+                    allElements[j].removeAttribute(attr);
+                }
+            });
+            // For src: also allow data:image/ for embedded images
+            var srcVal = allElements[j].getAttribute('src');
+            if (srcVal) {
+                var cleanSrc = srcVal.replace(/[\x00-\x20]/g, '');
+                if (!safeScheme.test(cleanSrc) && !/^data:image\//i.test(cleanSrc)) {
+                    allElements[j].removeAttribute('src');
+                }
+            }
+            // For object data attribute: only allow http/https
+            var dataVal = allElements[j].getAttribute('data');
+            if (dataVal && !safeScheme.test(dataVal.replace(/[\x00-\x20]/g, ''))) {
+                allElements[j].removeAttribute('data');
             }
         }
-        // Remove javascript: URLs in href/src/action
-        ['href', 'src', 'action', 'formaction', 'data'].forEach(function(attr) {
-            var val = allElements[j].getAttribute(attr);
-            if (val && val.trim().toLowerCase().indexOf('javascript:') === 0) {
-                allElements[j].removeAttribute(attr);
-            }
-        });
+        return doc.body.innerHTML;
+    } catch (e) {
+        return '';
     }
-    return doc.body.innerHTML;
 }
 
 function insertEditControl() {
@@ -637,7 +657,8 @@ function viewsource(source) {
 	} else {
 		// Read the raw HTML source text that was being edited in source view
 		var sourceText = document.getElementById(cfg_editorname).contentWindow.document.body.textContent;
-		var convertedHtml = jQuery().convertImagePaths(sourceText);
+		// Sanitize before re-inserting as HTML to prevent event handlers typed in source view from executing
+		var convertedHtml = sanitizeEditorHtml(jQuery().convertImagePaths(sourceText));
 		// Use DOMParser to reconstruct the DOM from the source view HTML, preventing
 		// DOM text from being reinterpreted as HTML without going through a parser context
 		var parser = new DOMParser();
