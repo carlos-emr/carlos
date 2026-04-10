@@ -1049,7 +1049,7 @@ public class ProgramManager2Action extends ActionSupport {
             }
 
             //Call Match Manager
-            //TODO do the testing
+            // Testing to be completed
             try {
                 matchManager.processEvent(vacancy, IMatchManager.Event.VACANCY_CREATED);
             } catch (MatchManagerException e) {
