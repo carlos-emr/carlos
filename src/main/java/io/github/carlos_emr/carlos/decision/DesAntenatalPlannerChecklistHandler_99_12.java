@@ -178,6 +178,7 @@ public class DesAntenatalPlannerChecklistHandler_99_12 extends DefaultHandler {
      * @param atts Attributes associated with the element
      * @throws SAXException if XML processing error occurs
      */
+    @SuppressWarnings("PMD.ExcessiveMethodLength")
     public void startElement(String namespaceURI, String localName, String rawName, Attributes atts) throws SAXException {
         // Process recommendations element - main checklist container
         if (rawName.equals("recommendations")) {
@@ -290,6 +291,7 @@ public class DesAntenatalPlannerChecklistHandler_99_12 extends DefaultHandler {
      * @param rawName String qualified name of the element
      * @throws SAXException if XML processing error occurs
      */
+    @SuppressWarnings("PMD.ExcessiveMethodLength")
     public void endElement(String namespaceURI, String localName, String rawName) throws SAXException {
         if (rawName.equals("recommendations")) {
             results += "</td></tr></table></center>\n";

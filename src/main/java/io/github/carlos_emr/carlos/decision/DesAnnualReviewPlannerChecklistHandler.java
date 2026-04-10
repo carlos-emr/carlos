@@ -187,6 +187,7 @@ public class DesAnnualReviewPlannerChecklistHandler extends DefaultHandler {
      * @param atts Attributes associated with the element
      * @throws SAXException if XML processing error occurs
      */
+    @SuppressWarnings("PMD.ExcessiveMethodLength")
     public void startElement(String namespaceURI, String localName, String rawName, Attributes atts)
             throws SAXException {
         MiscUtils.getLogger().debug("Processing element - localName: " + localName + ", rawName: " + rawName);
@@ -291,6 +292,7 @@ public class DesAnnualReviewPlannerChecklistHandler extends DefaultHandler {
      * @param rawName String qualified name of the element
      * @throws SAXException if XML processing error occurs
      */
+    @SuppressWarnings("PMD.ExcessiveMethodLength")
     public void endElement(String namespaceURI, String localName, String rawName) throws SAXException {
         if (rawName.equals("section")) {
             results += "</table></center><br>\n";

@@ -143,6 +143,7 @@ public class OBRisksHandler_99_12 extends DefaultHandler {
 
     }
 
+    @SuppressWarnings("PMD.ExcessiveMethodLength")
     public void startElement(String namespaceURI, String localName, String rawName, Attributes atts) throws SAXException {
         if (rawName.equals("section_title")) {
             if (interiortable == 1) { //close content table
