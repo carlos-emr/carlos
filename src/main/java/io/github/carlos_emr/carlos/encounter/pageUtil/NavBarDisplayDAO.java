@@ -91,6 +91,13 @@ public class NavBarDisplayDAO {
     private final ArrayList<AutoCompleteItem> autoCompleteItems = new ArrayList<>();
 
     /**
+     * Optional JavaScript function name to invoke after each popup menu item opens.
+     * When set, the JSP appends {@code fnName(windowName)} to the onclick handler.
+     * Used by the measurements module to register opened windows for reload-on-close tracking.
+     */
+    private String menuCallback = null;
+
+    /**
      * Creates a new instance of NavBarDisplayDAO
      */
     public NavBarDisplayDAO() {
@@ -293,6 +300,29 @@ public class NavBarDisplayDAO {
      */
     public void addPopUpMenu(int width, int height, String windowName, String url) {
         popUpMenuConfigs.add(new PopupConfig(width, height, windowName, url));
+    }
+
+    /**
+     * Sets a JavaScript function name to be called after each popup menu item opens.
+     * The JSP appends {@code fnName(windowName)} to the popup menu onclick handler,
+     * using {@code Encode.forJavaScriptAttribute()} on both the function name and the
+     * window name. Use this to register opened windows (e.g. measurement groups) for
+     * reload-on-close tracking.
+     *
+     * @param fnName JavaScript function name to call (e.g. {@code "measurementLoaded"})
+     */
+    public void setMenuCallback(String fnName) {
+        this.menuCallback = fnName;
+    }
+
+    /**
+     * Returns the JavaScript function name to invoke after each popup menu item opens,
+     * or {@code null} if no callback is registered.
+     *
+     * @return callback function name, or null
+     */
+    public String getMenuCallback() {
+        return menuCallback;
     }
 
     /**

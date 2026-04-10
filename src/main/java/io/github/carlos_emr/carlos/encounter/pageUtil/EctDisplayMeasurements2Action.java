@@ -82,6 +82,7 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
             //we're going to display a pop up menu of measurement groups
             Dao.setRightHeadingID(menuId);
             Dao.setMenuHeader(getText("encounter.LeftNavBar.InputGrps"));
+            Dao.setMenuCallback("measurementLoaded");
             Dao.setRightURL("return !showMenu('" + menuId + "', event);");
 
             SecurityManager securityMgr = new SecurityManager();

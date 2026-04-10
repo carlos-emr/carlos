@@ -121,6 +121,7 @@ autoCompleted['<%= Encode.forJavaScript(acItem.key()) %>'] = "<%= Encode.forJava
         <h3 style='text-align: center'><%=Encode.forHtml(dao.getMenuHeader())%>
         </h3>
         <%
+            String menuCallback = dao.getMenuCallback();
             for (int idx = 0; idx < num; ++idx) {
                 if (columns) {
                     style = idx % 2 == 0 ? "menuItemleft" : "menuItemright";
@@ -131,8 +132,17 @@ autoCompleted['<%= Encode.forJavaScript(acItem.key()) %>'] = "<%= Encode.forJava
            onmouseover='this.style.color="black"'
            onmouseout='this.style.color="white"'
 <%         NavBarDisplayDAO.PopupConfig popCfg = dao.getPopUpConfig(idx);
-           if (popCfg != null) { %>
-           onclick="popupPage(<%=popCfg.width()%>,<%=popCfg.height()%>,'<%=Encode.forJavaScriptAttribute(popCfg.windowName())%>','<%=Encode.forJavaScriptAttribute(popCfg.url())%>'); return false;"><%=Encode.forHtml(dao.getPopUpText(idx))%>
+           if (popCfg != null) {
+               String popupOnclick = "popupPage(" + popCfg.width() + "," + popCfg.height()
+                   + ",'" + Encode.forJavaScriptAttribute(popCfg.windowName())
+                   + "','" + Encode.forJavaScriptAttribute(popCfg.url()) + "');";
+               if (menuCallback != null) {
+                   popupOnclick += Encode.forJavaScriptAttribute(menuCallback)
+                       + "('" + Encode.forJavaScriptAttribute(popCfg.windowName()) + "');";
+               }
+               popupOnclick += " return false;";
+%>
+           onclick="<%=popupOnclick%>"><%=Encode.forHtml(dao.getPopUpText(idx))%>
 <%         } else { %>
            onclick="<%=Encode.forHtmlAttribute(dao.getPopUpUrl(idx) + "; return false;")%>"><%=Encode.forHtml(dao.getPopUpText(idx))%>
 <%         } %>
