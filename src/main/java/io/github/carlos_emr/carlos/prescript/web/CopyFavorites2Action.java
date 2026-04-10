@@ -93,7 +93,8 @@ public class CopyFavorites2Action extends ActionSupport {
         //String providerNo = lazyForm.get("userProviderNo").toString();
         
         String providerNo = request.getParameter("providerNo");
-        if (request.getParameter("ddl_provider") == null || "".equals(request.getParameter("ddl_provider")))
+        //if ( lazyForm.get("ddl_provider") == null || lazyForm.get("ddl_provider")"".equals(.toString()))
+        if (request.getParameter("ddl_provider") == null || request.getParameter("ddl_provider").equals(""))
             return SUCCESS;
 
         //int count = Integer.parseInt(lazyForm.get("countFavorites").toString());

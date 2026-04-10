@@ -152,7 +152,7 @@ public class OBChecklistHandler_99_12 extends DefaultHandler {
 
         if (localName.equals("week")) {
             for (int i = 0; i < atts.getLength(); i++) {
-                if ("number".equals(atts.getLocalName(i))) {
+                if (atts.getLocalName(i) == "number") {
                     count = Integer.parseInt(atts.getValue(i));
                 }
             }
@@ -284,7 +284,7 @@ public class OBChecklistHandler_99_12 extends DefaultHandler {
         try {
             now.setTime(df.parse(savedar1params.getProperty("finalEDB")));
         } catch (java.text.ParseException pe) {
-            MiscUtils.getLogger().error("Error parsing date in OBChecklistHandler_99_12");
+            MiscUtils.getLogger().error("Error parsing date in OBChecklistHandler_99_12", pe);
         }
         now.add(Calendar.DATE, -280);
     }

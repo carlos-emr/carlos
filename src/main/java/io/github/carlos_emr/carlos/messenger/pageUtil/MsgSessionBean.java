@@ -195,7 +195,8 @@ public class MsgSessionBean implements java.io.Serializable {
             currentAtt = this.getPDFAttachment();
         }
 
-        if (binStr != null && !binStr.isEmpty()) {
+        // Note: String comparison should use .equals(), not !=
+        if (!"".equals(binStr) && binStr != null) {
             this.setPDFAttachment(currentAtt + " " + getPDFStartTag() + getStatusTag("OK") + getPDFTitleTag(pdfTitle) + getContentTag(binStr) + getPDFEndTag());
         } else {
             this.setPDFAttachment(currentAtt + " " + getPDFStartTag() + getStatusTag("BAD") + getPDFTitleTag(pdfTitle + " (N/A)") + getContentTag(binStr) + getPDFEndTag());

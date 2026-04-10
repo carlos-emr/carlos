@@ -410,7 +410,7 @@ public class ProgramManager2Action extends ActionSupport {
             request.setAttribute("vacancyOrTemplateId", getVacancyOrTemplateId());
 
 
-        if (StringUtils.isNotEmpty(id)) {
+        if (id != null && !"".equals(id)) {
             Program program = programManager.getProgram(id);
 
             if (program == null) {
@@ -436,7 +436,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, id);
 
-        if (StringUtils.isNotEmpty(id)) {
+        if (id != null && !"".equals(id)) {
             request.setAttribute("service_restrictions", clientRestrictionManager.getActiveRestrictionsForProgram(Integer.valueOf(id), new Date()));
             request.setAttribute("disabled_service_restrictions", clientRestrictionManager.getDisabledRestrictionsForProgram(Integer.valueOf(id), new Date()));
         }
@@ -1311,7 +1311,7 @@ public class ProgramManager2Action extends ActionSupport {
     private void setEditAttributes(HttpServletRequest request, String programId) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (StringUtils.isNotEmpty(programId)) {
+        if (programId != null && !"".equals(programId)) {
             request.setAttribute("id", programId);
             request.setAttribute("programName", programManager.getProgram(programId).getName());
             request.setAttribute("providers", programManager.getProgramProviders(programId));
