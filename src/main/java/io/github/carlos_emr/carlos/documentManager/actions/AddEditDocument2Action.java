@@ -187,30 +187,35 @@ public class AddEditDocument2Action extends ActionSupport {
         // add to queuelinkdocument
         String queueId = request.getParameter("queue");
 
-        if (queueId != null && !queueId.trim().equals("-1")) {
-            Integer qid;
-            try {
-                qid = Integer.parseInt(queueId.trim());
-            } catch (NumberFormatException e) {
-                MiscUtils.getLogger().warn("Non-numeric queue ID rejected");
-                qid = null;
-            }
-            if (qid != null && qid > 0) {
-                WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-                QueueDao queueDao = (QueueDao) ctx.getBean(QueueDao.class);
-                String queueName = queueDao.getQueueName(qid);
-                if (queueName != null && !queueName.isEmpty()) {
-                    QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
-                    queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, docNoInt);
-                    request.getSession().setAttribute("preferredQueue", String.valueOf(qid));
+        if (queueId != null) {
+            String trimmedQueueId = queueId.trim();
+            if (!trimmedQueueId.equals("-1")) {
+                Integer qid;
+                try {
+                    qid = Integer.parseInt(trimmedQueueId);
+                } catch (NumberFormatException e) {
+                    MiscUtils.getLogger().warn("Non-numeric queue ID rejected");
+                    qid = null;
+                }
+                if (qid != null && qid > 0) {
+                    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
+                    QueueDao queueDao = (QueueDao) ctx.getBean(QueueDao.class);
+                    String queueName = queueDao.getQueueName(qid);
+                    if (queueName != null && !queueName.isEmpty()) {
+                        QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
+                        queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, docNoInt);
+                        request.getSession().setAttribute("preferredQueue", String.valueOf(qid));
+                    } else {
+                        MiscUtils.getLogger().warn("Queue ID does not exist, rejected");
+                        request.getSession().removeAttribute("preferredQueue");
+                    }
                 } else {
-                    MiscUtils.getLogger().warn("Queue ID does not exist, rejected");
+                    if (qid != null) {
+                        MiscUtils.getLogger().warn("Non-positive queue ID rejected: " + qid);
+                    }
                     request.getSession().removeAttribute("preferredQueue");
                 }
             } else {
-                if (qid != null) {
-                    MiscUtils.getLogger().warn("Non-positive queue ID rejected");
-                }
                 request.getSession().removeAttribute("preferredQueue");
             }
         } else {
