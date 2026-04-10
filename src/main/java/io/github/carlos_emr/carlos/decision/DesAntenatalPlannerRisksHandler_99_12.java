@@ -155,7 +155,6 @@ public class DesAntenatalPlannerRisksHandler_99_12 extends DefaultHandler {
      * @param atts Attributes associated with the element
      * @throws SAXException if XML processing error occurs
      */
-    @SuppressWarnings("PMD.ExcessiveMethodLength")
     public void startElement(String namespaceURI, String localName, String rawName, Attributes atts) throws SAXException {
         if (rawName.equals("section_title")) {
             if (interiortable == 1) { //close content table

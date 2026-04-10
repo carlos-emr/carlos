@@ -145,7 +145,6 @@ public class OBChecklistHandler_99_12 extends DefaultHandler {
 
     }
 
-    @SuppressWarnings("PMD.ExcessiveMethodLength")
     public void startElement(String namespaceURI, String localName, String rawName, Attributes atts) throws SAXException {
         if (localName.equals("recommendations")) {
             results += "<center><table border=0 cellspacing=1 cellpadding=1 width=\"100%\">\n\n";
@@ -231,7 +230,6 @@ public class OBChecklistHandler_99_12 extends DefaultHandler {
         }
     }
 
-    @SuppressWarnings("PMD.ExcessiveMethodLength")
     public void endElement(String namespaceURI, String localName, String rawName) throws SAXException {
         if (localName.equals("recommendations")) {
             results += "</td></tr></table></center>\n";
