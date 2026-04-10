@@ -42,11 +42,23 @@
            WAF_ENABLED=true               (request inspection: SQLi, XSS, traversal, bots)
     -->
 
+    <!-- XforwardHeaderFilter: resolves real client IP from X-Forwarded-For header when behind a
+         reverse proxy. Mapped first in the WAF layer so that all subsequent filters (including
+         RateLimitFilter) use the actual client IP rather than the proxy's address. -->
+    <filter>
+        <filter-name>XforwardHeader</filter-name>
+        <filter-class>io.github.carlos_emr.carlos.app.XforwardHeaderFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>XforwardHeader</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
     <!-- Rate limiting: configurable per-path rate tiers with detect/enforce mode.
          Controlled by WAF_RATE_LIMIT_ENABLED in carlos.properties.
          Configuration via WAF_RATE_LIMIT_* keys in carlos.properties.
-         When behind a reverse proxy, ensure RemoteIpFilter or XforwardHeaderFilter
-         is mapped before this filter so rate limiting uses the real client IP. -->
+         XforwardHeaderFilter is mapped immediately above so rate limiting uses the real client
+         IP even when the application is deployed behind a reverse proxy. -->
     <filter>
         <filter-name>RateLimitFilter</filter-name>
         <filter-class>io.github.carlos_emr.carlos.app.RateLimitFilter</filter-class>
@@ -314,15 +326,8 @@
 	</servlet-mapping>
 
     <!-- Security headers (X-Frame-Options, Permissions-Policy, etc.) are set by ResponseDefaultsFilter -->
-
-	<filter>
-		<filter-name>XforwardHeader</filter-name>
-		<filter-class>io.github.carlos_emr.carlos.app.XforwardHeaderFilter</filter-class>
-	</filter>
-	<filter-mapping>
-		<filter-name>XforwardHeader</filter-name>
-		<url-pattern>/*</url-pattern>
-	</filter-mapping>
+    <!-- XforwardHeaderFilter declaration and mapping are in the WAF layer section above,
+         before RateLimitFilter, so real client IP is resolved for all WAF and application filters. -->
 
 	<servlet>
 		<servlet-name>UploadDocument</servlet-name>

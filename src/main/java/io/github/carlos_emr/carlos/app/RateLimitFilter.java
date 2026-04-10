@@ -165,7 +165,16 @@ public final class RateLimitFilter implements Filter {
         if (mode == null || mode.isEmpty()) {
             mode = "detect";
         }
-        enforcing = !"detect".equalsIgnoreCase(mode.trim());
+        String normalizedMode = mode.trim();
+        if ("enforce".equalsIgnoreCase(normalizedMode)) {
+            enforcing = true;
+        } else if ("detect".equalsIgnoreCase(normalizedMode)) {
+            enforcing = false;
+        } else {
+            enforcing = false;
+            logger.warn("Rate limit filter: unrecognized WAF_RATE_LIMIT_MODE '{}'; defaulting to detect mode",
+                    normalizedMode);
+        }
 
         defaultRequests = getIntProperty(props, "WAF_RATE_LIMIT_DEFAULT_REQUESTS", 100);
         defaultWindowSeconds = getIntProperty(props, "WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS", 60);
@@ -174,6 +183,8 @@ public final class RateLimitFilter implements Filter {
         pathRates = parsePathRates(pathsConfig != null ? pathsConfig : "");
 
         String exemptConfig = props.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS");
+        // Both ::1 and 0:0:0:0:0:0:0:1 represent IPv6 loopback — both are included because
+        // different JVMs/platforms may return either compressed or full form from getRemoteAddr().
         exemptIps = parseCsv(exemptConfig != null ? exemptConfig : "127.0.0.1,::1,0:0:0:0:0:0:0:1");
 
         int cleanupInterval = getIntProperty(props, "WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS", 300);
@@ -199,8 +210,9 @@ public final class RateLimitFilter implements Filter {
      *   <li>If disabled, pass through immediately.</li>
      *   <li>Extract client IP from {@code request.getRemoteAddr()}.</li>
      *   <li>If IP is in the exempt list, pass through.</li>
-     *   <li>Determine effective rate: check path-specific tiers first, then global default.</li>
-     *   <li>Increment counter(s); if limit exceeded, log and (in enforce mode) send 429.</li>
+     *   <li>Increment the global counter first and, if a path-specific rule matches, increment
+     *       that counter as well (defense-in-depth — both are always checked); if either limit
+     *       is exceeded, log and (in enforce mode) send 429.</li>
      * </ol>
      *
      * <p>PHI-safe logging: only IP, URI, and rule name are logged — never parameter values.</p>
@@ -253,8 +265,10 @@ public final class RateLimitFilter implements Filter {
             long retryAfterSeconds = globalCounter.retryAfterSeconds();
             if (enforcing) {
                 logger.warn("RATE BLOCK: ip={} uri={} rule=rate-limit-global", clientIp, requestUri);
-                httpResponse.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
-                httpResponse.sendError(429, "Too Many Requests");
+                if (!httpResponse.isCommitted()) {
+                    httpResponse.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
+                    httpResponse.sendError(429, "Too Many Requests");
+                }
                 return;
             } else {
                 logger.warn("RATE DETECT: ip={} uri={} rule=rate-limit-global", clientIp, requestUri);
@@ -276,8 +290,10 @@ public final class RateLimitFilter implements Filter {
                 long retryAfterSeconds = pathCounter.retryAfterSeconds();
                 if (enforcing) {
                     logger.warn("RATE BLOCK: ip={} uri={} rule=rate-limit-path:{}", clientIp, requestUri, matchedPath);
-                    httpResponse.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
-                    httpResponse.sendError(429, "Too Many Requests");
+                    if (!httpResponse.isCommitted()) {
+                        httpResponse.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
+                        httpResponse.sendError(429, "Too Many Requests");
+                    }
                     return;
                 } else {
                     logger.warn("RATE DETECT: ip={} uri={} rule=rate-limit-path:{}", clientIp, requestUri, matchedPath);
@@ -402,6 +418,14 @@ public final class RateLimitFilter implements Filter {
                 continue;
             }
             String pathPrefix = entry.substring(0, eqIdx).trim();
+            // Warn if prefix lacks a path terminator — startsWith matching can hit unintended paths
+            // (e.g. /login also matches /loginRedirect.do, /login-recovery)
+            if (!pathPrefix.endsWith("/") && !pathPrefix.contains(".")) {
+                logger.warn("Rate limit: path prefix '{}' does not end with '/' or a file extension; " +
+                        "it will match all paths starting with this prefix (e.g., '{}foo', '{}bar'). " +
+                        "Consider adding a trailing '/' or extension to avoid unintended matches.",
+                        pathPrefix, pathPrefix, pathPrefix);
+            }
             String rateStr = entry.substring(eqIdx + 1).trim();
             int slashIdx = rateStr.indexOf('/');
             if (slashIdx <= 0 || slashIdx == rateStr.length() - 1) {

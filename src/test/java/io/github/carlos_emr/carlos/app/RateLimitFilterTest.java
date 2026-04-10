@@ -96,6 +96,8 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
 
     @AfterEach
     void tearDown() {
+        // Always destroy the filter to shut down the ScheduledExecutorService started by init()
+        filter.destroy();
         if (carlosPropertiesMock != null) {
             carlosPropertiesMock.close();
         }
@@ -146,6 +148,83 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
 
             verify(chain).doFilter(request, response);
             verify(response, never()).sendError(anyInt(), anyString());
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Mode configuration
+    // -------------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("Mode configuration")
+    class ModeConfiguration {
+
+        @Test
+        @DisplayName("should default to detect mode when mode value is unrecognized typo")
+        void shouldDefaultToDetectMode_whenModeIsUnrecognizedTypo() throws Exception {
+            // "enforced" (not "enforce") should NOT activate blocking — must default to detect
+            when(mockProperties.isPropertyActive("WAF_RATE_LIMIT_ENABLED")).thenReturn(true);
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("enforced");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("1");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
+            filter.init(mock(FilterConfig.class));
+
+            assertThat(filter.isEnforcing()).isFalse();
+        }
+
+        @Test
+        @DisplayName("should default to detect mode when mode is arbitrary garbage value")
+        void shouldDefaultToDetectMode_whenModeIsGarbageValue() throws Exception {
+            when(mockProperties.isPropertyActive("WAF_RATE_LIMIT_ENABLED")).thenReturn(true);
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("BLOCKER");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("5");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
+            filter.init(mock(FilterConfig.class));
+
+            // With detect mode (due to unrecognized value), requests over limit are logged but not blocked
+            for (int i = 0; i < 6; i++) {
+                filter.doFilter(request, response, chain);
+            }
+
+            verify(chain, org.mockito.Mockito.times(6)).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @Test
+        @DisplayName("should activate enforce mode only when mode is explicitly 'enforce'")
+        void shouldActivateEnforceMode_whenModeIsExplicitlyEnforce() throws Exception {
+            when(mockProperties.isPropertyActive("WAF_RATE_LIMIT_ENABLED")).thenReturn(true);
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("ENFORCE");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("1");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
+            filter.init(mock(FilterConfig.class));
+
+            assertThat(filter.isEnforcing()).isTrue();
+        }
+
+        @Test
+        @DisplayName("should pass through non-HTTP requests without rate limiting")
+        void shouldPassThrough_forNonHttpRequests() throws Exception {
+            initFilter(true, 1, 60); // enforce mode, very tight limit
+
+            // Pass a raw ServletRequest (not HttpServletRequest) — should bypass rate limiting entirely
+            jakarta.servlet.ServletRequest rawRequest = mock(jakarta.servlet.ServletRequest.class);
+            jakarta.servlet.ServletResponse rawResponse = mock(jakarta.servlet.ServletResponse.class);
+
+            filter.doFilter(rawRequest, rawResponse, chain);
+
+            verify(chain).doFilter(rawRequest, rawResponse);
+            // No HTTP interaction attempted
+            verify(rawResponse, never()).getClass(); // response type not checked
         }
     }
 
