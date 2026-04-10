@@ -21,10 +21,20 @@
  */
 package io.github.carlos_emr.carlos.eform.actions;
 
+import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings;
+import io.github.carlos_emr.carlos.managers.EformDataManager;
+import io.github.carlos_emr.carlos.managers.EmailManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import org.junit.jupiter.api.*;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.eq;
 
 /**
  * Unit tests for trust-boundary-violation fixes in {@link AddEForm2Action}.
@@ -62,6 +72,13 @@ class AddEForm2ActionTest extends CarlosUnitTestBase {
         @DisplayName("should accept eform_link with underscore in suffix segment")
         void shouldAccept_eformLinkWithUnderscoreInSuffix() {
             assertThat("12_34_56_my_field".matches(AddEForm2Action.EFORM_LINK_PATTERN)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should accept eform_link with measurement AP field name using dollar and hash")
+        void shouldAccept_measurementApFieldName() {
+            // Measurement AP field names use the form m$type#field (e.g., m$bloodpressure#systolic)
+            assertThat("1_100_5_m$bp#sys".matches(AddEForm2Action.EFORM_LINK_PATTERN)).isTrue();
         }
 
         @Test
@@ -160,9 +177,10 @@ class AddEForm2ActionTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should return canonical string for negative integer")
-        void shouldReturnCanonicalString_forNegativeInteger() {
-            assertThat(AddEForm2Action.validateIntId("-1")).isEqualTo("-1");
+        @DisplayName("should return null for negative integer")
+        void shouldReturnNull_forNegativeInteger() {
+            // Entity IDs are auto-increment PKs — negative values are never valid
+            assertThat(AddEForm2Action.validateIntId("-1")).isNull();
         }
 
         @Test
@@ -224,6 +242,108 @@ class AddEForm2ActionTest extends CarlosUnitTestBase {
             // "007" -> "7" (canonical integer string)
             String[] result = AddEForm2Action.validateIntIdArray(new String[]{"007", "100"});
             assertThat(result).containsExactly("7", "100");
+        }
+
+        @Test
+        @DisplayName("should filter out negative integer IDs as invalid")
+        void shouldFilterNegativeIds_asInvalid() {
+            // Negative values are not valid auto-increment PKs
+            String[] result = AddEForm2Action.validateIntIdArray(new String[]{"1", "-5", "3"});
+            assertThat(result).containsExactly("1", "3");
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Session sink — addEmailAttachmentsToSession
+    // -------------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("addEmailAttachmentsToSession — session sink validation")
+    class AddEmailAttachmentsToSessionTests {
+
+        private HttpSession mockSession;
+        private HttpServletRequest mockRequest;
+        private AddEForm2Action action;
+
+        @BeforeEach
+        void setUpActionWithMocks() {
+            // Register all Spring beans used in AddEForm2Action field initializers
+            registerMock(SecurityInfoManager.class, Mockito.mock(SecurityInfoManager.class));
+            registerMock(EformDataManager.class, Mockito.mock(EformDataManager.class));
+            registerMock(DocumentAttachmentManager.class, Mockito.mock(DocumentAttachmentManager.class));
+            registerMock(EmailManager.class, Mockito.mock(EmailManager.class));
+
+            // Create action (ServletActionContext returns null for request/response outside Struts2,
+            // but addEmailAttachmentsToSession takes request as a parameter so this.request is unused)
+            action = new AddEForm2Action();
+
+            mockSession = Mockito.mock(HttpSession.class);
+            mockRequest = Mockito.mock(HttpServletRequest.class);
+            Mockito.when(mockRequest.getSession()).thenReturn(mockSession);
+        }
+
+        @Test
+        @DisplayName("should store canonicalized fdid when fdid has leading zeros")
+        void shouldStoreCanonicalized_whenFdidHasLeadingZeros() {
+            EmailAttachmentSettings settings = minimalSettings("007", "100");
+            action.addEmailAttachmentsToSession(mockRequest, settings);
+            // "007" must be stored as canonical "7", not the raw input
+            Mockito.verify(mockSession).setAttribute("fdid", "7");
+        }
+
+        @Test
+        @DisplayName("should store null for fdid when fdid is a negative integer")
+        void shouldStoreNull_whenFdidIsNegative() {
+            EmailAttachmentSettings settings = minimalSettings("-1", "100");
+            action.addEmailAttachmentsToSession(mockRequest, settings);
+            Mockito.verify(mockSession).setAttribute("fdid", null);
+        }
+
+        @Test
+        @DisplayName("should store empty array for attachedEForms when all values are non-integer")
+        void shouldStoreEmptyArray_whenAllAttachedEFormsAreInvalid() {
+            EmailAttachmentSettings settings = new EmailAttachmentSettings(
+                "100", "200",
+                new String[]{"abc", "1 DROP TABLE"}, // invalid
+                new String[0], new String[0], new String[0], new String[0],
+                false, false, false, false, false, false,
+                null, null, null, null, null, null, null
+            );
+            action.addEmailAttachmentsToSession(mockRequest, settings);
+
+            ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+            Mockito.verify(mockSession).setAttribute(eq("attachedEForms"), captor.capture());
+            assertThat((String[]) captor.getValue()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should store only valid IDs when attachedEForms array contains mixed values")
+        void shouldStoreOnlyValidIds_whenAttachedEFormsAreMixed() {
+            EmailAttachmentSettings settings = new EmailAttachmentSettings(
+                "100", "200",
+                new String[]{"5", "abc", "007", "-3"}, // mixed: 2 valid, 2 invalid
+                new String[0], new String[0], new String[0], new String[0],
+                false, false, false, false, false, false,
+                null, null, null, null, null, null, null
+            );
+            action.addEmailAttachmentsToSession(mockRequest, settings);
+
+            ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+            Mockito.verify(mockSession).setAttribute(eq("attachedEForms"), captor.capture());
+            assertThat((String[]) captor.getValue()).containsExactly("5", "7");
+        }
+
+        /**
+         * Creates a minimal EmailAttachmentSettings with only fdid and demographicNo set;
+         * all arrays are empty and all flags/strings are false/null.
+         */
+        private EmailAttachmentSettings minimalSettings(String fdid, String demographicNo) {
+            return new EmailAttachmentSettings(
+                fdid, demographicNo,
+                new String[0], new String[0], new String[0], new String[0], new String[0],
+                false, false, false, false, false, false,
+                null, null, null, null, null, null, null
+            );
         }
     }
 }

@@ -74,11 +74,14 @@ public class AddEForm2Action extends ActionSupport {
 
     /**
      * Regex pattern that a valid {@code eform_link} session-key must match.
-     * Format: {@code providerNo_demographicNo_fid_fieldName} (e.g., {@code 1_100_5_fieldName}).
+     * Format: {@code providerNo_demographicNo_fid_fieldName} (for example,
+     * {@code 1_100_5_fieldName} or {@code 1_100_5_m$bp#sys}).
+     * The field-name segment allows word characters plus {@code $} and {@code #}
+     * to support measurement AP field names (e.g. {@code m$bloodpressure#systolic}).
      * Prevents session-key injection by rejecting arbitrary attacker-controlled attribute names.
      * Package-private so the pattern can be referenced directly in unit tests.
      */
-    static final String EFORM_LINK_PATTERN = "\\d+_\\d+_\\d+_\\w+";
+    static final String EFORM_LINK_PATTERN = "\\d+_\\d+_\\d+_[A-Za-z0-9_$#]+";
 
     private static final Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -477,7 +480,7 @@ public class AddEForm2Action extends ActionSupport {
      * @param request HTTP request
      * @param settings EmailAttachmentSettings containing all attachment configuration
      */
-    private void addEmailAttachmentsToSession(HttpServletRequest request, EmailAttachmentSettings settings) {
+    void addEmailAttachmentsToSession(HttpServletRequest request, EmailAttachmentSettings settings) {
         HttpSession session = request.getSession();
         session.setAttribute("deleteEFormAfterEmail", settings.deleteEFormAfterEmail());
         session.setAttribute("isEmailEncrypted", settings.isEmailEncrypted());
@@ -506,38 +509,54 @@ public class AddEForm2Action extends ActionSupport {
      * Parses a string ID as an integer and returns its canonical string form,
      * breaking the CodeQL taint chain for CWE-501 (Trust Boundary Violation).
      *
+     * <p>Only non-negative integers are accepted, since all entity IDs stored here
+     * are auto-increment database primary keys. Negative values and non-integer
+     * strings both return {@code null}.</p>
+     *
      * <p>Package-private for unit testing.</p>
      *
      * @param id the string representation of a numeric identifier
      * @return the canonical integer string (e.g., "42"), or {@code null} if the input
-     *         is {@code null} or not a valid integer
+     *         is {@code null}, not a valid integer, or a negative number
      */
     static String validateIntId(String id) {
         if (id == null) return null;
         try {
-            return String.valueOf(Integer.parseInt(id));
+            int parsed = Integer.parseInt(id);
+            return parsed >= 0 ? Integer.toString(parsed) : null;
         } catch (NumberFormatException e) {
-            logger.warn("Rejected non-integer ID from session storage (trust boundary enforcement)");
             return null;
         }
     }
 
     /**
-     * Filters a string array to only integer-parseable elements and returns their
-     * canonical string forms, breaking the CodeQL taint chain for CWE-501.
+     * Filters a string array to only non-negative integer-parseable elements and returns
+     * their canonical string forms, breaking the CodeQL taint chain for CWE-501.
+     *
+     * <p>Rejected entries (non-integers and negative values) are counted and a single
+     * aggregate WARN is emitted per call when at least one entry is rejected, preventing
+     * log spam from crafted requests with many invalid values.</p>
      *
      * <p>Package-private for unit testing.</p>
      *
      * @param ids array of string IDs; may be {@code null}
-     * @return a new array containing only the valid integer IDs (empty array if none pass),
+     * @return a new array containing only the valid non-negative integer IDs (empty array if none pass),
      *         or an empty array if the input is {@code null}
      */
     static String[] validateIntIdArray(String[] ids) {
         if (ids == null) return new String[0];
         List<String> validated = new ArrayList<>();
+        int rejected = 0;
         for (String id : ids) {
             String v = validateIntId(id);
-            if (v != null) validated.add(v);
+            if (v != null) {
+                validated.add(v);
+            } else {
+                rejected++;
+            }
+        }
+        if (rejected > 0) {
+            logger.warn("Rejected {} non-integer or negative ID(s) from session storage (trust boundary enforcement)", rejected);
         }
         return validated.toArray(new String[0]);
     }
