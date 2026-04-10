@@ -119,7 +119,7 @@ public final class AppointmentAddRecord2Action extends ActionSupport {
         a.setBilling(request.getParameter("billing"));
         a.setStatus(request.getParameter("status"));
         a.setCreateDateTime(ConversionUtils.fromTimestampString(createDateTime));
-        a.setCreator(request.getParameter("creator"));
+        a.setCreator(loggedInInfo.getLoggedInProviderNo());
         a.setRemarks(request.getParameter("remarks"));
         a.setDemographicNo(demographicNo);
         String programIdStr = (String) request.getSession().getAttribute("programId_oscarView");
@@ -132,24 +132,14 @@ public final class AppointmentAddRecord2Action extends ActionSupport {
         a.setUrgency(request.getParameter("urgency") != null ? request.getParameter("urgency") : "");
         String rc = request.getParameter("reasonCode");
         if (!StringUtils.isEmpty(rc)) {
-            a.setReasonCode(Integer.parseInt(rc));
+            a.setReasonCode(ConversionUtils.fromIntString(rc));
         }
 
         appointmentDao.persist(a);
 
-        // Look up the newly created appointment for events and mc number
-        Appointment aa = appointmentDao.search_appt_no(
-                request.getParameter("provider_no"),
-                ConversionUtils.fromDateString(request.getParameter("appointment_date")),
-                ConversionUtils.fromTimeStringNoSeconds(request.getParameter("start_time")),
-                ConversionUtils.fromTimeStringNoSeconds(request.getParameter("end_time")),
-                ConversionUtils.fromTimestampString(createDateTime),
-                request.getParameter("creator"),
-                demographicNo);
-
-        int apptId = 0;
-        if (aa != null) {
-            apptId = aa.getId();
+        // Use the persisted ID directly; avoids a secondary lookup and prevents race conditions
+        int apptId = a.getId();
+        if (apptId > 0) {
             String mcNumber = request.getParameter("appt_mc_number");
             OtherIdManager.saveIdAppointment(apptId, "appt_mc_number", mcNumber);
             eventService.appointmentCreated(this, String.valueOf(apptId), request.getParameter("provider_no"));
@@ -173,7 +163,7 @@ public final class AppointmentAddRecord2Action extends ActionSupport {
                             (io.github.carlos_emr.carlos.commn.model.WaitingList) wlEntries.get(0)[1];
                     request.setAttribute("waitingListName", wln.getName());
                     request.setAttribute("waitingListId", wl1.getListId());
-                    request.setAttribute("waitingListDemographicNo", request.getParameter("demographic_no"));
+                    request.setAttribute("waitingListDemographicNo", demographicNoStr);
                 }
             }
         }

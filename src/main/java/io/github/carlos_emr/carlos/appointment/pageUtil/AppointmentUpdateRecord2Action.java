@@ -50,7 +50,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Struts 2 action that handles appointment updates (migrated from appointmentupdatearecord.jsp).
- * Requires {@code _appointment} update privileges.
+ * Requires {@code _appointment} write privileges.
  *
  * @since 2026-04-05
  */
@@ -72,7 +72,7 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "u", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {
             throw new SecurityException("missing required sec object (_appointment)");
         }
 
@@ -97,7 +97,6 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
         appointmentArchiveDao.archiveAppointment(appt);
 
         String changedStatus = null;
-        int rowsAffected = 0;
 
         if (request.getParameter("buttoncancel") != null
                 && (request.getParameter("buttoncancel").equals("Cancel Appt")
@@ -106,16 +105,11 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
             appt.setStatus(changedStatus);
             appt.setLastUpdateUser(updateuser);
             appointmentDao.merge(appt);
-            rowsAffected = 1;
         } else {
-            if (!appt.getStatus().equals(request.getParameter("status"))) {
+            if (!StringUtils.equals(appt.getStatus(), request.getParameter("status"))) {
                 changedStatus = request.getParameter("status");
             }
-            if (!StringUtils.isEmpty(request.getParameter("demographic_no"))) {
-                appt.setDemographicNo(Integer.parseInt(request.getParameter("demographic_no")));
-            } else {
-                appt.setDemographicNo(0);
-            }
+            appt.setDemographicNo(ConversionUtils.fromIntString(request.getParameter("demographic_no")));
             appt.setAppointmentDate(ConversionUtils.fromDateString(request.getParameter("appointment_date")));
             appt.setStartTime(ConversionUtils.fromTimeString(
                     MyDateFormat.getTimeXX_XX_XX(request.getParameter("start_time"))));
@@ -136,23 +130,20 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
             appt.setUrgency(request.getParameter("urgency") != null ? request.getParameter("urgency") : "");
             String rc = request.getParameter("reasonCode");
             if (!StringUtils.isEmpty(rc)) {
-                appt.setReasonCode(Integer.parseInt(rc));
+                appt.setReasonCode(ConversionUtils.fromIntString(rc));
             }
             appointmentDao.merge(appt);
-            rowsAffected = 1;
         }
 
-        if (rowsAffected == 1) {
-            String mcNumber = request.getParameter("appt_mc_number");
-            OtherIdManager.saveIdAppointment(apptNoStr, "appt_mc_number", mcNumber);
+        String mcNumber = request.getParameter("appt_mc_number");
+        OtherIdManager.saveIdAppointment(apptNoStr, "appt_mc_number", mcNumber);
 
-            if (changedStatus != null) {
-                eventService.appointmentStatusChanged(this, apptNoStr, appt.getProviderNo(), changedStatus);
-            }
+        if (changedStatus != null) {
+            eventService.appointmentStatusChanged(this, apptNoStr, appt.getProviderNo(), changedStatus);
         }
 
         boolean printReceipt = "1".equals(request.getParameter("printReceipt"));
-        request.setAttribute("success", rowsAffected == 1);
+        request.setAttribute("success", true);
         request.setAttribute("appointmentNo", apptNoStr);
         request.setAttribute("printReceipt", printReceipt);
 

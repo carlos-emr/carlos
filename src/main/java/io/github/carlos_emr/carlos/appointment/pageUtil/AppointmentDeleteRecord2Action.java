@@ -47,7 +47,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Struts 2 action that handles appointment deletion (migrated from appointmentdeletearecord.jsp).
- * Requires {@code _appointment} write privileges.
+ * Requires {@code _appointment} delete privileges.
  * This action adds the previously missing role-based authorization check.
  *
  * @since 2026-04-05
@@ -69,7 +69,7 @@ public final class AppointmentDeleteRecord2Action extends ActionSupport {
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "d", null)) {
             throw new SecurityException("missing required sec object (_appointment)");
         }
 

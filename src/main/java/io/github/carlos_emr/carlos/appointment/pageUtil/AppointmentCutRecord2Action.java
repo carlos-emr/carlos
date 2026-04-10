@@ -41,14 +41,15 @@ import io.github.carlos_emr.carlos.appt.ApptUtil;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Struts 2 action that handles appointment cut/move (migrated from appointmentcutrecord.jsp).
- * Copies appointment data into session for later paste, then removes the appointment.
- * Requires {@code _appointment} write privileges.
+ * Copies appointment data into session for later paste, then archives and removes the appointment.
+ * Requires {@code _appointment} delete privileges.
  * This action adds the previously missing role-based authorization check.
  *
  * @since 2026-04-05
@@ -70,11 +71,9 @@ public final class AppointmentCutRecord2Action extends ActionSupport {
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "d", null)) {
             throw new SecurityException("missing required sec object (_appointment)");
         }
-
-        ApptUtil.copyAppointmentIntoSession(request);
 
         String apptNoParam = request.getParameter("appointment_no");
         if (StringUtils.isEmpty(apptNoParam)) {
@@ -93,8 +92,16 @@ public final class AppointmentCutRecord2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "Appointment not found");
             return NONE;
         }
+
+        // Copy appointment into session AFTER validation to avoid corrupting session state on bad input
+        ApptUtil.copyAppointmentIntoSession(request);
+
+        if (appt.getLastUpdateUser() == null || appt.getLastUpdateUser().isEmpty()) {
+            appt.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
+        }
         appointmentArchiveDao.archiveAppointment(appt);
 
+        LogAction.addLogSynchronous(loggedInInfo, "Appointment.cut", "id=" + appt.getId());
         appointmentDao.remove(appt.getId());
 
         request.setAttribute("success", true);

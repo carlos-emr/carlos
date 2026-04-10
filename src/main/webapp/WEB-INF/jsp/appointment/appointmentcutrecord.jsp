@@ -49,14 +49,14 @@
         <table border="0" cellspacing="0" cellpadding="0" width="90%">
             <tr bgcolor="#486ebd">
                 <th align="CENTER"><font face="Helvetica" color="#FFFFFF">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentupdatearecord.msgMainLabel"/></font></th>
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentdeletearecord.msgLabel"/></font></th>
             </tr>
         </table>
 
         <c:choose>
             <c:when test="${success}">
                 <p>
-                <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentupdatearecord.msgUpdateSuccess"/></h1>
+                <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentdeletearecord.msgDeleteSuccess"/></h1>
                 <script language="JavaScript">
                     self.opener.refresh();
                     self.close();
@@ -64,7 +64,7 @@
             </c:when>
             <c:otherwise>
                 <p>
-                <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentupdatearecord.msgUpdateFailure"/></h1>
+                <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentdeletearecord.msgDeleteFailure"/></h1>
             </c:otherwise>
         </c:choose>
 
