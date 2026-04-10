@@ -86,16 +86,24 @@ jobs:
             echo "Downloading PMD ${PMD_VERSION}..."
             PMD_ZIP="pmd-dist-${PMD_VERSION}-bin.zip"
             PMD_BASE_URL="https://github.com/pmd/pmd/releases/download/pmd_releases%2F${PMD_VERSION}"
+            CHECKSUM_FILE="${PMD_ZIP}.sha256"
             wget -q "${PMD_BASE_URL}/${PMD_ZIP}"
-            if ! EXPECTED_SHA256="$(wget -O- "${PMD_BASE_URL}/${PMD_ZIP}.sha256" | awk '{print $1}' | tr -d '\r\n')"; then
+            if ! wget -O "${CHECKSUM_FILE}" "${PMD_BASE_URL}/${PMD_ZIP}.sha256"; then
               echo "Failed to download checksum file for ${PMD_ZIP}" >&2
+              rm -f "${PMD_ZIP}" "${CHECKSUM_FILE}"
+              exit 1
+            fi
+            EXPECTED_SHA256="$(awk '{print $1}' "${CHECKSUM_FILE}" | tr -d '\r\n')"
+            rm -f "${CHECKSUM_FILE}"
+            if [ -z "${EXPECTED_SHA256}" ]; then
+              echo "Downloaded checksum file for ${PMD_ZIP} is empty or malformed" >&2
               rm -f "${PMD_ZIP}"
               exit 1
             fi
             ACTUAL_SHA256="$(sha256sum "${PMD_ZIP}" | awk '{print $1}')"
-            if [ -z "${EXPECTED_SHA256}" ] || [ "${ACTUAL_SHA256}" != "${EXPECTED_SHA256}" ]; then
+            if [ "${ACTUAL_SHA256}" != "${EXPECTED_SHA256}" ]; then
               echo "Checksum verification failed for ${PMD_ZIP}" >&2
-              echo "Expected: ${EXPECTED_SHA256:-<empty>}" >&2
+              echo "Expected: ${EXPECTED_SHA256}" >&2
               echo "Actual:   ${ACTUAL_SHA256}" >&2
               rm -f "${PMD_ZIP}"
               exit 1
@@ -125,7 +133,7 @@ jobs:
             echo "violations=0" >> "$GITHUB_OUTPUT"
             echo "No PMD violations found."
           elif [ "$PMD_EXIT" -eq 4 ]; then
-            COUNT=$(python3 -c "import json; data=json.load(open('pmd-report.sarif')); print(sum(len(run.get('results', [])) for run in data.get('runs', [])))" 2>/dev/null || echo "unknown")
+            COUNT=$(python3 -c "import json; data=json.load(open('pmd-report.sarif')); print(sum(len(run.get('results', [])) for run in data.get('runs', [])))" || echo "unknown")
             echo "violations=${COUNT}" >> "$GITHUB_OUTPUT"
             echo "PMD found ${COUNT} violation(s)."
           else
