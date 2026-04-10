@@ -1067,14 +1067,15 @@
                                                             <input type="text" id="dob"
                                                                    name="dob"
                                                                    placeholder="yyyy-mm-dd"
+                                                                   pattern="\d{4}-\d{2}-\d{2}"
                                                                    autocomplete="off"
                                                                    value="<%=Encode.forHtmlAttribute(dobDisplay)%>"
                                                                    <%=getDisabled("year_of_birth")%>>
                                                             <img src="<%= request.getContextPath() %>/images/cal.gif" id="dob_cal" alt="calendar">
                                                             <%-- Hidden part-fields consumed by the server --%>
-                                                            <input type="hidden" name="year_of_birth"  id="year_of_birth"  value="<%=birthYear%>">
-                                                            <input type="hidden" name="month_of_birth" id="month_of_birth" value="<%=birthMonth%>">
-                                                            <input type="hidden" name="date_of_birth"  id="date_of_birth"  value="<%=birthDate%>">
+                                                            <input type="hidden" name="year_of_birth"  id="year_of_birth"  value="<%= Encode.forHtmlAttribute(StringUtils.defaultString(birthYear)) %>">
+                                                            <input type="hidden" name="month_of_birth" id="month_of_birth" value="<%= Encode.forHtmlAttribute(StringUtils.defaultString(birthMonth)) %>">
+                                                            <input type="hidden" name="date_of_birth"  id="date_of_birth"  value="<%= Encode.forHtmlAttribute(StringUtils.defaultString(birthDate)) %>">
 
                                                             <label for="age"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgDemoAge"/>:</label>
                                                             <input type="text" name="age" id="age"

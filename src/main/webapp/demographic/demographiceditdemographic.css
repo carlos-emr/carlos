@@ -502,14 +502,6 @@ table#editDemographic tr td input#dob {
     vertical-align: middle;
 }
 
-table#editDemographic tr td select#month_of_birth,
-table#editDemographic tr td select#date_of_birth {
-    display: inline-block;
-    width: auto;
-    padding: 4px 6px;
-    vertical-align: middle;
-}
-
 /* Keep calendar-picker date input and cal.gif icon on the same line */
 table#editDemographic tr td input#paper_chart_archived_date,
 table#editDemographic tr td input#waiting_list_referral_date {
