@@ -229,7 +229,7 @@ public class ReportManager {
     @SuppressWarnings("unchecked")
     public String loadInReports() {
         String xml = getTemplateXml("1");
-        if (xml == "") return "Error: Could not save the template file in the database.";
+        if ("".equals(xml)) return "Error: Could not save the template file in the database.";
         try {
             SAXBuilder parser = XmlUtils.createSecureSAXBuilder(); // NOSONAR java:S2755 — XXE protection applied via XmlUtils.createSecureSAXBuilder()
             xml = UtilXML.escapeXML(xml); //escapes anomalies such as "date >= {mydate}" the '>' character

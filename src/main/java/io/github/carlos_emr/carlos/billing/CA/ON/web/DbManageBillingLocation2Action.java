@@ -48,7 +48,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * {@link ClinicLocation} for each pair where both the location code is non-null/non-empty
  * and the description is non-empty.
  *
- * <p><strong>Bug fix:</strong> The original JSP used {@code location1 != ""} (reference
+ * <p><strong>Bug fix:</strong> The original JSP used {@code !"".equals(location1)} (reference
  * comparison) which never evaluates correctly in Java. This action uses
  * {@code !location1.isEmpty()} instead.
  *

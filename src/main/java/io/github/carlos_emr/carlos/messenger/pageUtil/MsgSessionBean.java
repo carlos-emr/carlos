@@ -196,7 +196,7 @@ public class MsgSessionBean implements java.io.Serializable {
         }
 
         // Note: String comparison should use .equals(), not !=
-        if (binStr != "" && binStr != null) {
+        if (!"".equals(binStr) && binStr != null) {
             this.setPDFAttachment(currentAtt + " " + getPDFStartTag() + getStatusTag("OK") + getPDFTitleTag(pdfTitle) + getContentTag(binStr) + getPDFEndTag());
         } else {
             this.setPDFAttachment(currentAtt + " " + getPDFStartTag() + getStatusTag("BAD") + getPDFTitleTag(pdfTitle + " (N/A)") + getContentTag(binStr) + getPDFEndTag());

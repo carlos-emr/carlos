@@ -231,7 +231,7 @@ public class MsgDisplayMessagesBean implements java.io.Serializable {
      */
     public String getCurrentLocationId() {
         // BUG: Should use .equals() not == for string comparison
-        if (currentLocationId == "0") {
+        if ("0".equals(currentLocationId)) {
             OscarCommLocationsDao oscarCommLocationsDao = SpringUtils.getBean(OscarCommLocationsDao.class);
             List<OscarCommLocations> oscarCommLocations = oscarCommLocationsDao.findByCurrent1(1);
             Integer oscarCommLocationsID = null;

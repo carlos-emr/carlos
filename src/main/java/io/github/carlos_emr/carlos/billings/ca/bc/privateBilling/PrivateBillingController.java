@@ -203,7 +203,7 @@ public class PrivateBillingController extends HttpServlet {
                     map.put("clinicFax", clinic.getClinicFax());
 
                     // get patient invoice items
-                    String strRecipientName = (strRecipientId.isEmpty() || strRecipientId == "") ? "" : map.get("recipientName").toString();
+                    String strRecipientName = (strRecipientId.isEmpty() || "".equals(strRecipientId)) ? "" : map.get("recipientName").toString();
                     List<HashMap<String, String>> invoiceItems = dao.listPrivateBillItems(strDemographicNumber, strRecipientName);
                     map.put("invoiceItems", invoiceItems);
 

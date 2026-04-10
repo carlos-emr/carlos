@@ -121,7 +121,7 @@ public class FrmConsultantRecord extends FrmRecord {
         if (rs.next()) {
             docno = Misc.getString(rs, "family_doctor");
             refdocno = docno.substring(8, docno.indexOf("</rdohip>"));
-            if (refdocno != "") {
+            if (!"".equals(refdocno)) {
                 props.setProperty("refdocno", refdocno);
             }
         }

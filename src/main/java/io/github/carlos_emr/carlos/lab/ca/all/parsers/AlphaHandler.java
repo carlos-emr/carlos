@@ -548,7 +548,7 @@ public class AlphaHandler extends DefaultGenericHandler implements MessageHandle
 
             // if accessionNum can't be found in the OBR record of the first observation,
             //  look for it in subsequent observation records
-            if (accessionNum != "") {
+            if (!"".equals(accessionNum)) {
                 return (accessionNum);
             }
 
@@ -558,7 +558,7 @@ public class AlphaHandler extends DefaultGenericHandler implements MessageHandle
                 } else {
                     accessionNum = getString(msg23.getRESPONSE().getORDER_OBSERVATION(j).getOBR().getFillerOrderNumber().getEntityIdentifier().getValue());
                 }
-                if (accessionNum != "") {
+                if (!"".equals(accessionNum)) {
                     return (accessionNum);
                 }
             }

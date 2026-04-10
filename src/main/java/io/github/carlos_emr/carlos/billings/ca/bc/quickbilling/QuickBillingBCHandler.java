@@ -277,7 +277,7 @@ public class QuickBillingBCHandler {
         }
 
         if ((billingEntry.has("halfBilling")) &&
-                (billingEntry.get("halfBilling").asText() != "")
+                (!"".equals(billingEntry.get("halfBilling").asText()))
         ) {
             // unit is set as 1.0 in default.
             unit = billingEntry.get("halfBilling").asText();

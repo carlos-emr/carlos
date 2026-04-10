@@ -513,7 +513,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             if (attachedDocumentList != null) {
                 for (EDoc documentItem : attachedDocumentList) {
                     String description = documentItem.getDescription();
-                    if (description == null || description == "") {
+                    if (description == null || "".equals(description)) {
                         description = documentItem.getFileName();
                     }
                     documents.add(description);
