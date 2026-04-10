@@ -55,6 +55,7 @@ import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.DocumentExtraReviewerDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentStorageDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.commn.dao.SecRoleDao;
 import io.github.carlos_emr.carlos.commn.model.DocumentExtraReviewer;
@@ -186,7 +187,7 @@ public class AddEditDocument2Action extends ActionSupport {
         // add to queuelinkdocument
         String queueId = request.getParameter("queue");
 
-        if (queueId != null && !queueId.equals("-1")) {
+        if (queueId != null && !queueId.trim().equals("-1")) {
             Integer qid;
             try {
                 qid = Integer.parseInt(queueId.trim());
@@ -194,11 +195,23 @@ public class AddEditDocument2Action extends ActionSupport {
                 MiscUtils.getLogger().warn("Non-numeric queue ID rejected");
                 qid = null;
             }
-            if (qid != null) {
+            if (qid != null && qid > 0) {
                 WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-                QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
-                queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, docNoInt);
-                request.getSession().setAttribute("preferredQueue", String.valueOf(qid));
+                QueueDao queueDao = (QueueDao) ctx.getBean(QueueDao.class);
+                String queueName = queueDao.getQueueName(qid);
+                if (queueName != null && !queueName.isEmpty()) {
+                    QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
+                    queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, docNoInt);
+                    request.getSession().setAttribute("preferredQueue", String.valueOf(qid));
+                } else {
+                    MiscUtils.getLogger().warn("Queue ID does not exist, rejected");
+                    request.getSession().removeAttribute("preferredQueue");
+                }
+            } else {
+                if (qid != null) {
+                    MiscUtils.getLogger().warn("Non-positive queue ID rejected");
+                }
+                request.getSession().removeAttribute("preferredQueue");
             }
         } else {
             request.getSession().removeAttribute("preferredQueue");
