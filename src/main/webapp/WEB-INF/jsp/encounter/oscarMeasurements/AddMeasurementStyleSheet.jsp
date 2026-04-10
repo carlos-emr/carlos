@@ -35,6 +35,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
 
 <html>
@@ -84,7 +85,7 @@
                                             <c:if test="${not empty messages}">
                                                 <tr>
                                                 <c:forEach var="msg" items="${messages}">
-                                                    <td><c:out value="${msg}"/></td>
+                                                    <td>${e:forHtml(msg)}</td>
                                                     </c:forEach>
                                                 </tr>
                                             </c:if>

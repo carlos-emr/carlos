@@ -62,7 +62,6 @@
 <%
     long startTime = System.currentTimeMillis();
     NavBarDisplayDAO dao = (NavBarDisplayDAO) request.getAttribute("DAO");
-    String js = dao.getJavaScript();
     int maxColumnHeight = 40;  //break into columns after maxColumnHeight items reached
     int menuWidth = 125;
 
@@ -72,12 +71,20 @@
     if (navbarName == null) navbarName = "";
     String htmlNavbarName = Encode.forHtmlAttribute(navbarName);
 
-
-    //Is there java script to insert in page?  Then do it
-    if (js != null) {
+    // Render auto-complete items with OWASP encoding (defense-in-depth, issue #1386)
+    java.util.List<NavBarDisplayDAO.AutoCompleteItem> acItems = dao.getAutoCompleteItems();
+    if (!acItems.isEmpty()) {
 %>
-<%=js%>
+<script type="text/javascript">
+<% for (NavBarDisplayDAO.AutoCompleteItem acItem : acItems) { %>
+itemColours['<%= Encode.forJavaScript(acItem.key()) %>'] = '<%= Encode.forJavaScript(acItem.bgColour()) %>';
+autoCompList.push('<%= Encode.forJavaScript(acItem.key()) %>');
+autoCompleted['<%= Encode.forJavaScript(acItem.key()) %>'] = "<%= Encode.forJavaScript(acItem.jsExpression()) %>";
 <% } %>
+</script>
+<%
+    }
+%>
 <input type=hidden name="reloadUrl" value="<%=Encode.forHtmlAttribute(dao.getReloadUrl())%>"/>
 <%
     //Do we have a '+' command to display on the right of the module header?
@@ -89,8 +96,13 @@
 %>
 <div class="nav-menu-heading" style="<%=getBackgroundColor(dao)%>">
     <div class="nav-menu-add-button" id='menuTitle<%=rh%>'>
-        <h3><a href="javascript:void(0);" <%=dao.numPopUpMenuItems() > 0 ? "onmouseover" : "onclick"%>=
-            "<%=dao.getRightURL()%>">&#43;</a></h3>
+<%      NavBarDisplayDAO.PopupConfig rightCfg = dao.getRightPopup();
+        String rightEvent = dao.numPopUpMenuItems() > 0 ? "onmouseover" : "onclick";
+        if (rightCfg != null) { %>
+        <h3><a href="javascript:void(0);" <%=rightEvent%>="popupPage(<%=rightCfg.width()%>,<%=rightCfg.height()%>,'<%=Encode.forJavaScriptAttribute(rightCfg.windowName())%>','<%=Encode.forJavaScriptAttribute(rightCfg.url())%>'); return false;">&#43;</a></h3>
+<%      } else { %>
+        <h3><a href="javascript:void(0);" <%=rightEvent%>="<%=Encode.forHtmlAttribute(dao.getRightURL())%>">&#43;</a></h3>
+<%      } %>
     </div>
     <%
         int num;
@@ -109,6 +121,7 @@
         <h3 style='text-align: center'><%=Encode.forHtml(dao.getMenuHeader())%>
         </h3>
         <%
+            String menuCallback = dao.getMenuCallback();
             for (int idx = 0; idx < num; ++idx) {
                 if (columns) {
                     style = idx % 2 == 0 ? "menuItemleft" : "menuItemright";
@@ -118,7 +131,21 @@
         <a href="javascript:void(0)" class="<%=style%>"
            onmouseover='this.style.color="black"'
            onmouseout='this.style.color="white"'
-           onclick="<%=dao.getPopUpUrl(idx) + ";"%> return false;"><%=Encode.forHtml(dao.getPopUpText(idx))%>
+<%         NavBarDisplayDAO.PopupConfig popCfg = dao.getPopUpConfig(idx);
+           if (popCfg != null) {
+               String popupOnclick = "popupPage(" + popCfg.width() + "," + popCfg.height()
+                   + ",'" + Encode.forJavaScriptAttribute(popCfg.windowName())
+                   + "','" + Encode.forJavaScriptAttribute(popCfg.url()) + "');";
+               if (menuCallback != null) {
+                   popupOnclick += Encode.forJavaScriptAttribute(menuCallback)
+                       + "('" + Encode.forJavaScriptAttribute(popCfg.windowName()) + "');";
+               }
+               popupOnclick += " return false;";
+%>
+           onclick="<%=popupOnclick%>"><%=Encode.forHtml(dao.getPopUpText(idx))%>
+<%         } else { %>
+           onclick="<%=Encode.forHtmlAttribute(dao.getPopUpUrl(idx) + "; return false;")%>"><%=Encode.forHtml(dao.getPopUpText(idx))%>
+<%         } %>
         </a>
         <%
             if (columns && idx % 2 == 1) {
@@ -148,8 +175,14 @@
         //left hand module header comes last as it's displayed as a block
     %>
     <div class="nav-menu-title">
-        <h3 onclick="<%=dao.getLeftURL() + ";"%> return false;"><a href="javascript:void(0)"><%=Encode.forHtml(dao.getLeftHeading())%>
+<%      NavBarDisplayDAO.PopupConfig leftCfg = dao.getLeftPopup();
+        if (leftCfg != null) { %>
+        <h3 onclick="popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,'<%=Encode.forJavaScriptAttribute(leftCfg.windowName())%>','<%=Encode.forJavaScriptAttribute(leftCfg.url())%>'); return false;"><a href="javascript:void(0)"><%=Encode.forHtml(dao.getLeftHeading())%>
         </a></h3>
+<%      } else { %>
+        <h3 onclick="<%=Encode.forHtmlAttribute(dao.getLeftURL() + "; return false;")%>"><a href="javascript:void(0)"><%=Encode.forHtml(dao.getLeftHeading())%>
+        </a></h3>
+<%      } %>
     </div>
 </div>
 <ul id="<%=htmlNavbarName%>list">
@@ -158,7 +191,9 @@
         String manageItems = "";
         String div = navbarName.trim();
         int numItems = dao.numItems();
-        StringBuilder reloadURL = new StringBuilder(request.getParameter("reloadURL") + "&reloadURL=" + request.getParameter("reloadURL"));
+        String rawReloadURL = request.getParameter("reloadURL");
+        if (rawReloadURL == null) rawReloadURL = "";
+        StringBuilder reloadURL = new StringBuilder(rawReloadURL + "&reloadURL=" + rawReloadURL);
         String strToDisplay = request.getParameter("numToDisplay");
         int numToDisplay;
         boolean xpanded = false;
@@ -168,7 +203,7 @@
             numToDisplay = Integer.parseInt(strToDisplay);
             reloadURL.append("&numToDisplay=" + strToDisplay);
             if (numItems > numToDisplay) {
-                String xpandUrl = request.getParameter("reloadURL") + "&reloadURL=" + request.getParameter("reloadURL") + "&cmd=" + div;
+                String xpandUrl = rawReloadURL + "&reloadURL=" + rawReloadURL + "&cmd=" + div;
                 manageItems = xpandUrl;
             }
         } else {

@@ -36,6 +36,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
 <html>
     <head>
@@ -95,7 +96,7 @@
                                     </tr>
                                     <c:forEach var="styleSheet" items="${styleSheets.styleSheetNameVector}" varStatus="ctr">
                                     <tr class="data">
-                                        <td width="300"><c:out value="${styleSheet.styleSheetName}"/></td>
+                                        <td width="300">${e:forHtml(styleSheet.styleSheetName)}</td>
                                         <td width="10">
                                             <input type="checkbox" name="deleteCheckbox" value="${styleSheet.cssId}"/>
                                         </td>

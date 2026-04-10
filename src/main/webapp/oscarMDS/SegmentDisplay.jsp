@@ -211,11 +211,11 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                             } else {
                                 if (request.getParameter("searchProviderNo") != null) { // null if we were called from e-chart
                             %><a
-                                    href="SegmentDisplay.jsp?segmentID=<%=Encode.forUriComponent(multiID[i])%>&multiID=<%=Encode.forUriComponent(multiLabId)%>&providerNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))) %>&searchProviderNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("searchProviderNo"))) %>&status=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("status"))) %>">v<%= i + 1 %>
+                                    href="SegmentDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))) %>&searchProviderNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("searchProviderNo"))) %>&status=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("status"))) %>">v<%= i + 1 %>
                             </a>&#160;<%
                             } else {
                             %><a
-                                    href="SegmentDisplay.jsp?segmentID=<%=Encode.forUriComponent(multiID[i])%>&multiID=<%=Encode.forUriComponent(multiLabId)%>&providerNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))) %>&status=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("status"))) %>">v<%= i + 1 %>
+                                    href="SegmentDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))) %>&status=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("status"))) %>">v<%= i + 1 %>
                             </a>&#160;<%
                                         }
                                     }
