@@ -36,7 +36,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 
 import jakarta.servlet.ServletContext;
@@ -51,7 +50,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.carlos.form.FrmRecord;
 import io.github.carlos_emr.carlos.form.FrmRecordFactory;
@@ -111,14 +109,6 @@ import org.openpdf.text.pdf.PdfWriter;
 public class FrmPDFServlet extends HttpServlet {
 
     Logger log = MiscUtils.getLogger();
-
-    /**
-     * Allowlist of valid post-processor short names mapped to their concrete classes.
-     * Only processors explicitly registered here may be instantiated via the {@code postProcessor}
-     * request parameter. This prevents reflective instantiation of arbitrary classes.
-     * To add a new processor, implement {@link FrmPDFPostValueProcessor} and add an entry here.
-     */
-    private static final Map<String, Class<? extends FrmPDFPostValueProcessor>> ALLOWED_PROCESSORS = Map.of();
 
     /**
      * Default constructor required by the servlet container.
@@ -354,17 +344,7 @@ public class FrmPDFServlet extends HttpServlet {
 
             String processorName = req.getParameter("postProcessor" + suffix);
             if (processorName != null) {
-                Class<? extends FrmPDFPostValueProcessor> clazz = ALLOWED_PROCESSORS.get(processorName);
-                if (clazz != null) {
-                    try {
-                        FrmPDFPostValueProcessor pp = clazz.getConstructor().newInstance();
-                        props = pp.process(props);
-                    } catch (Exception e) {
-                        log.warn("Post-processor '{}' failed during execution - form rendered without post-processing", Encode.forJava(processorName), e);
-                    }
-                } else {
-                    log.warn("Post-processor '{}' is not in the allowlist and will not be executed", Encode.forJava(processorName));
-                }
+                props = FrmPDFPostProcessorRegistry.apply(processorName, props, log);
             }
 
             String currentDate = new SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date());
