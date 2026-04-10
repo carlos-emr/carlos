@@ -1,0 +1,50 @@
+#!/bin/bash
+# gemini-browser - Captures OAuth URLs for Gemini CLI in devcontainer environments
+#
+# Gemini CLI uses the 'open' npm package which calls xdg-open on Linux,
+# ignoring the $BROWSER env var. We install this as both /scripts/gemini-browser
+# AND symlinked as /usr/local/bin/xdg-open to intercept those calls.
+#
+# When the URL is a Google OAuth URL, it prints it cleanly for copy-paste.
+# For non-OAuth URLs, it attempts VS Code's browser helper as fallback.
+
+URL="$1"
+
+if [ -z "$URL" ]; then
+    exit 0
+fi
+
+# Check if this is a Google OAuth URL (Gemini auth flow)
+case "$URL" in
+    *accounts.google.com/o/oauth2*|*accounts.google.com/signin*)
+        # Log to file for retrieval if terminal scrolls
+        echo "$URL" > "$HOME/gemini_auth_url.txt"
+
+        echo "" >&2
+        echo "==========================================================" >&2
+        echo "  GEMINI OAuth - Copy this URL to your desktop browser:" >&2
+        echo "==========================================================" >&2
+        echo "" >&2
+        echo "$URL" >&2
+        echo "" >&2
+        echo "==========================================================" >&2
+        echo "  After signing in, the browser redirects to" >&2
+        echo "  localhost:${OAUTH_CALLBACK_PORT:-13579} which VS Code" >&2
+        echo "  forwards back to this container automatically." >&2
+        echo "" >&2
+        echo "  URL also saved to: ~/gemini_auth_url.txt" >&2
+        echo "==========================================================" >&2
+        echo "" >&2
+        exit 0
+        ;;
+    *)
+        # For non-OAuth URLs, try VS Code's browser helper if available
+        VSCODE_BROWSER=$(find /vscode -name "browser.sh" 2>/dev/null | head -1)
+        if [ -n "$VSCODE_BROWSER" ] && [ -x "$VSCODE_BROWSER" ]; then
+            exec "$VSCODE_BROWSER" "$URL"
+        fi
+        # Fallback: just print it
+        echo "Open in browser: $URL" >&2
+        exit 0
+        ;;
+esac

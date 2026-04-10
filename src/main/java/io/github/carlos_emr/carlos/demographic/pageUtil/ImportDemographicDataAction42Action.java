@@ -241,7 +241,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         // Validate the paths using PathValidationUtils
         File safeDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir"); // Use a safe directory
         try {
-            PathValidationUtils.validateExistingPath(filePath.toFile(), safeDir);
+            filePath = PathValidationUtils.validateExistingPath(filePath.toFile(), safeDir).toPath();
         } catch (SecurityException e) {
             throw new IllegalArgumentException("Invalid file path: Access outside the allowed directory is not permitted.");
         }

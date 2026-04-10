@@ -532,7 +532,7 @@ document.location.reload();
 
 // Listen for refresh requests from billing pages opened in tabs.
 // popupTab() (Oscar.js) sets opener=null for security, so opener.refresh() fails.
-// Producers: billingONSave.jsp, billingDeleteWithoutNo.jsp (ON, BC).
+// Producers: BillingONSave2Action, BillingDeleteWithoutNo2Action (ON, BC).
 // Channel name 'carlos_schedule_refresh' must match across all producers.
 try {
     var scheduleRefreshChannel = new BroadcastChannel('carlos_schedule_refresh');

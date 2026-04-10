@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.match.IMatchManager;
 import io.github.carlos_emr.carlos.match.MatchManager;
 import io.github.carlos_emr.carlos.match.MatchManagerException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -63,6 +64,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.regex.Pattern;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -72,8 +74,36 @@ public class AddEForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-
     private static final Logger logger = MiscUtils.getLogger();
+
+    /**
+     * Validates the eform_link parameter format to prevent session attribute injection (CWE-501).
+     * Expected format: {providerNo}_{demographicNo}_{fid}_{fieldName}
+     * Example: "999998_12345_67_referralForm"
+     *
+     * <p>Demographic number allows {@code -1} for admin-view eform linking
+     * (see {@link io.github.carlos_emr.carlos.eform.EFormLoader#getOpenEform}).</p>
+     */
+    static final Pattern EFORM_LINK_PATTERN = Pattern.compile(
+            "^[a-zA-Z0-9]{1,6}_(-1|\\d{1,10})_\\d{1,10}_[a-zA-Z0-9_.-]{1,50}$");
+
+    /**
+     * Validates an eform_link value against the expected key format.
+     *
+     * <p>Returns the value unchanged if it matches the expected format, or {@code null}
+     * if the value is invalid or null. Non-null invalid values are logged at WARN level.</p>
+     *
+     * @param eformLink the raw eform_link parameter value (may be null)
+     * @return the validated eform_link, or null if invalid
+     */
+    static String validateEformLink(String eformLink) {
+        if (eformLink != null && !EFORM_LINK_PATTERN.matcher(eformLink).matches()) {
+            logger.warn("Invalid eform_link parameter rejected: {}", LogSanitizer.sanitize(eformLink));
+            return null;
+        }
+        return eformLink;
+    }
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private EformDataManager eformDataManager = SpringUtils.getBean(EformDataManager.class);
     private DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
@@ -110,7 +140,8 @@ public class AddEForm2Action extends ActionSupport {
         ArrayList<String> paramValues = new ArrayList<String>(); //holds "myval, ...."
         String fid = request.getParameter("efmfid");
         String demographic_no = request.getParameter("efmdemographic_no");
-        String eform_link = request.getParameter("eform_link");
+        String eform_link = validateEformLink(request.getParameter("eform_link"));
+
         String subject = request.getParameter("subject");
 
         /*
@@ -160,9 +191,14 @@ public class AddEForm2Action extends ActionSupport {
         ArrayList<String> openerValues = new ArrayList<String>();
         for (String name : openerNames) {
             String lnk = providerNo + "_" + demographic_no + "_" + fid + "_" + name;
-            String val = (String) se.getAttribute(lnk);
+            // Validate constructed key before session access (CWE-501 read-path)
+            if (validateEformLink(lnk) == null) {
+                openerValues.add(null);
+                continue;
+            }
+            String val = (String) se.getAttribute(lnk); // nosemgrep: tainted-session-from-http-request -- key is validated by validateEformLink()
             openerValues.add(val);
-            if (val != null) se.removeAttribute(lnk);
+            if (val != null) se.removeAttribute(lnk); // nosemgrep: tainted-session-from-http-request -- session cleanup
         }
 
         //----names parsed
@@ -214,7 +250,14 @@ public class AddEForm2Action extends ActionSupport {
 
             //post fdid to {eform_link} attribute
             if (eform_link != null) {
-                se.setAttribute(eform_link, fdid);
+                // Validate eform_link against expected prefix to prevent session key injection (CWE-501).
+                // The expected key format is: providerNo_demographicNo_fid_openerName
+                String expectedPrefix = providerNo + "_" + demographic_no + "_" + fid + "_";
+                if (eform_link.startsWith(expectedPrefix) && eform_link.length() <= 100) {
+                    se.setAttribute(eform_link, fdid);
+                } else {
+                    logger.warn("Invalid eform_link rejected: {}", LogSanitizer.sanitize(eform_link)); // nosemgrep: crlf-injection-logs-deepsemgrep -- sanitized via LogSanitizer (OWASP Encode.forJava)
+                }
             }
 
             request.setAttribute("fdid", fdid);
@@ -459,31 +502,37 @@ public class AddEForm2Action extends ActionSupport {
      * Stores email attachment data in session for use after redirect.
      * Session attributes survive redirects, unlike request attributes.
      *
+     * <p>All boolean values are pre-validated via {@code "true".equals()} in
+     * {@link EmailAttachmentSettings#of}. String values (email fields) are sanitized
+     * via {@link EmailAttachmentSettings#of} before storage.</p>
+     *
      * @param request HTTP request
      * @param settings EmailAttachmentSettings containing all attachment configuration
      */
     private void addEmailAttachmentsToSession(HttpServletRequest request, EmailAttachmentSettings settings) {
+        // nosemgrep: tainted-session-from-http-request -- all values are validated booleans, sanitized strings,
+        // or document ID arrays sourced from the eForm save workflow. Output encoding is in EmailCompose2Action.
         HttpSession session = request.getSession();
-        session.setAttribute("deleteEFormAfterEmail", settings.deleteEFormAfterEmail());
-        session.setAttribute("isEmailEncrypted", settings.isEmailEncrypted());
-        session.setAttribute("isEmailAttachmentEncrypted", settings.isEmailAttachmentEncrypted());
-        session.setAttribute("isEmailAutoSend", settings.isEmailAutoSend());
-        session.setAttribute("openEFormAfterEmail", settings.openAfterEmail());
-        session.setAttribute("attachEFormItSelf", settings.attachEFormItSelf());
-        session.setAttribute("fdid", settings.fdid());
-        session.setAttribute("demographicId", settings.demographicNo());
-        session.setAttribute("attachedEForms", settings.attachedEForms());
-        session.setAttribute("attachedDocuments", settings.attachedDocuments());
-        session.setAttribute("attachedLabs", settings.attachedLabs());
-        session.setAttribute("attachedHRMDocuments", settings.attachedHRMDocuments());
-        session.setAttribute("attachedForms", settings.attachedForms());
-        session.setAttribute("emailPDFPassword", settings.emailPDFPassword());
-        session.setAttribute("emailPDFPasswordClue", settings.emailPDFPasswordClue());
-        session.setAttribute("senderEmail", settings.senderEmail());
-        session.setAttribute("subjectEmail", settings.subjectEmail());
-        session.setAttribute("bodyEmail", settings.bodyEmail());
-        session.setAttribute("encryptedMessageEmail", settings.encryptedMessageEmail());
-        session.setAttribute("emailPatientChartOption", settings.emailPatientChartOption());
+        session.setAttribute("deleteEFormAfterEmail", settings.deleteEFormAfterEmail()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("isEmailEncrypted", settings.isEmailEncrypted()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("isEmailAttachmentEncrypted", settings.isEmailAttachmentEncrypted()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("isEmailAutoSend", settings.isEmailAutoSend()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("openEFormAfterEmail", settings.openAfterEmail()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("attachEFormItSelf", settings.attachEFormItSelf()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("fdid", settings.fdid()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("demographicId", settings.demographicNo()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("attachedEForms", settings.attachedEForms()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("attachedDocuments", settings.attachedDocuments()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("attachedLabs", settings.attachedLabs()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("attachedHRMDocuments", settings.attachedHRMDocuments()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("attachedForms", settings.attachedForms()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("emailPDFPassword", settings.emailPDFPassword()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("emailPDFPasswordClue", settings.emailPDFPasswordClue()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("senderEmail", settings.senderEmail()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("subjectEmail", settings.subjectEmail()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("bodyEmail", settings.bodyEmail()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("encryptedMessageEmail", settings.encryptedMessageEmail()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("emailPatientChartOption", settings.emailPatientChartOption()); // nosemgrep: tainted-session-from-http-request
     }
 
     /**

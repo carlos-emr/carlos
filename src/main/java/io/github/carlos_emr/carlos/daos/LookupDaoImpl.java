@@ -194,7 +194,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         ArrayList<LookupCodeValue> list = new ArrayList<LookupCodeValue>();
 
         try {
-            ResultSet rs = db.queryResults(sSQL, pars);
+            ResultSet rs = db.queryResults(sSQL, pars); // nosemgrep: formatted-sql-string — table/column names from internal LookupTableDef config, values bound via DBPreparedHandler
             while (rs.next()) {
                 LookupCodeValue lv = new LookupCodeValue();
                 lv.setPrefix(tableId);

@@ -186,6 +186,7 @@ public class RptTableFieldNameCaption {
             return ret;
         }
 
+        // nosemgrep: formatted-sql-string — tableName is validated against the encounterForm whitelist above
         String sql = "select * from " + tableName + " limit 1";
         Connection conn = null;
         PreparedStatement ps = null;

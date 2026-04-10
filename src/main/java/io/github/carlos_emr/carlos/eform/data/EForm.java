@@ -376,14 +376,14 @@ public class EForm extends EFormBase {
 
     public void setFdid(String fdid) {
         if (this.formHtml != null && this.fdidMarker != null && fdid != null) {
-            this.formHtml = this.formHtml.replace(fdidMarker, fdid);
+            this.formHtml = this.formHtml.replace(fdidMarker, Encode.forHtmlAttribute(fdid));
         }
     }
 
     public void setSource(String source) {
         if (StringUtils.isBlank(source)) source = "";
 
-        this.formHtml = this.formHtml.replace(sourceMarker, source);
+        this.formHtml = this.formHtml.replace(sourceMarker, Encode.forHtmlAttribute(source));
     }
 
 
@@ -900,16 +900,25 @@ public class EForm extends EFormBase {
                 }
             }
 
+            // Encode dynamic values for safe embedding into JavaScript string literals
+            String jsSignatureRequestId = Encode.forJavaScript(signatureRequestId);
+            String jsImageUrl = Encode.forJavaScript(imageUrl);
+            String jsStoredImgUrl = Encode.forJavaScript(storedImgUrl);
+            String jsContextPath = Encode.forJavaScript(contextPath);
+            String jsSignatureRequestIdKey = Encode.forJavaScript(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY);
+            String jsBrowserType = Encode.forJavaScript(browserType);
+            String jsDemographicNo = Encode.forJavaScript(demographicNo);
+
             String signatureCode = "<script type='text/javascript' src='oscar/library/jquery/jquery-3.7.1.min.js'></script>" +
                     "<script type='text/javascript' src='${oscar_javascript_path}signature.js'></script>" +
                     "<script type='text/javascript'>\n" +
-                    "var _signatureRequestId = '" + signatureRequestId + "';\n" +
-                    "var _imageUrl = '" + imageUrl + "';\n" +
-                    "var _storedImgUrl = '" + storedImgUrl + "';\n" +
-                    "var _contextPath = '" + contextPath + "';\n" +
-                    "var _digitalSignatureRequestIdKey = '" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "';\n" +
-                    "var _browserType = '" + browserType + "';\n" +
-                    "var _demographicNo = '" + demographicNo + "';\n" +
+                    "var _signatureRequestId = '" + jsSignatureRequestId + "';\n" +
+                    "var _imageUrl = '" + jsImageUrl + "';\n" +
+                    "var _storedImgUrl = '" + jsStoredImgUrl + "';\n" +
+                    "var _contextPath = '" + jsContextPath + "';\n" +
+                    "var _digitalSignatureRequestIdKey = '" + jsSignatureRequestIdKey + "';\n" +
+                    "var _browserType = '" + jsBrowserType + "';\n" +
+                    "var _demographicNo = '" + jsDemographicNo + "';\n" +
                     "</script>";
 
 

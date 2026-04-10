@@ -90,8 +90,10 @@ public final class ImageRenderingServlet extends HttpServlet {
             if (e.getCause() instanceof SocketException) {
                 logger.warn("An error we can't handle that's expected infrequently. " + e.getMessage());
             } else {
-                logger.error("Unexpected error. qs=" + request.getQueryString(), e);
-                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                logger.error("Unexpected error. qs=" + LogSanitizer.sanitize(request.getQueryString()), e);
+                if (!response.isCommitted()) {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                }
             }
         }
     }

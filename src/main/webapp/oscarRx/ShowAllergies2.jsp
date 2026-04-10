@@ -41,9 +41,7 @@
 
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@page import="org.owasp.encoder.Encode" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
@@ -86,7 +84,6 @@
     %>
 </c:if>
 <%
-    String annotation_display = CaseManagementNoteLink.DISP_ALLERGY;
     RxPatientData.Patient patient = (RxPatientData.Patient) session.getAttribute("Patient");
     request.setAttribute("patient", patient);
     SecurityManager securityManager = new SecurityManager();
@@ -493,7 +490,7 @@
         if (strView.equals(navArray[i])) {
             out.print(" <span class='view_selected'>" + navArray[i] + "</span>");
         } else {
-            out.print("<span class='view_menu'><a href='ShowAllergies2.jsp?demographicNo=" + demoNo + "&view=" + navArray[i] + "'>");
+            out.print("<span class='view_menu'><a href='ShowAllergies2.jsp?demographicNo=" + Encode.forUriComponent(demoNo) + "&view=" + Encode.forUriComponent(navArray[i]) + "'>");
             out.print(navArray[i]);
             out.print("</a></span>");
          }
@@ -537,8 +534,6 @@
 							<td><b>Start Date</b></td>
 							<td><b>Life Stage</b></td>
 							<td><b>Age Of Onset</b></td>
-              <td><b><img src="<%= request.getContextPath() %>/images/notes.gif" border="0" width="10" height="12"
-                          alt="Annotation"></b></td>
 							<td><b>Action</b></td>
 						</tr>
                                             <%
@@ -633,20 +628,6 @@
                                                 <td><%=Encode.forHtml(allergy.getLifeStageDesc()) %>
                                                 </td>
                                                 <td><%=allergy.getAgeOfOnset() == null ? "" : Encode.forHtml(String.valueOf(allergy.getAgeOfOnset()))%>
-                                                </td>
-                                                <%
-                                                    CaseManagementManager cmm = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
-                                                    @SuppressWarnings("unchecked")
-                                                    List<CaseManagementNoteLink> existingAnnots = cmm.getLinkByTableId(CaseManagementNoteLink.ALLERGIES, Long.valueOf(allergy.getAllergyId()));
-                                                %>
-                                                <td>
-                                                    <a href="#" title="Annotation" onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=annotation_display%>&table_id=<%=String.valueOf(allergy.getAllergyId())%>&demo=${patient.getDemographicNo()}','anwin','width=400,height=500');">
-                                                        <% if (existingAnnots.size() > 0) {%>
-                                                        <img src="<%= request.getContextPath() %>/images/filledNotes.gif" border="0"/>
-                                                        <% } else { %>
-                                                        <img src="<%= request.getContextPath() %>/images/notes.gif" border="0">
-                                                        <% } %>
-                                                    </a>
                                                 </td>
                                                 <td>
                                                     <%

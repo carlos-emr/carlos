@@ -143,6 +143,7 @@ public class MsgViewMessageByPosition2Action extends ActionSupport {
         // The returned value is always a safe, hard-coded SQL fragment (never the raw user input).
         String safeOrderBy = displayMsgBean.getOrderBy(orderBy);
 
+        // nosemgrep: formatted-sql-string — safeOrderBy is resolved from an allowlist in MsgDisplayMessagesBean.getOrderBy(), never raw user input
         String sql = "select m.messageid "
                 + "from messagetbl m, msgDemoMap mapp where mapp.demographic_no = :demographic_no "
                 + "and m.messageid = mapp.messageID order by " + safeOrderBy;

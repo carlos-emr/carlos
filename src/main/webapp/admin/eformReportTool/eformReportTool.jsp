@@ -75,7 +75,7 @@
 
         <script src="<%=request.getContextPath()%>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
         <script src="<%=request.getContextPath()%>/library/flatpickr/flatpickr.min.js"></script>
-        <script src="<%=request.getContextPath()%>/library/jquery/jquery.validate.min.js"></script>
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery.validate-1.21.0.min.js"></script>
 
         <script src="<%=request.getContextPath()%>/share/javascript/Oscar.js"></script>
 

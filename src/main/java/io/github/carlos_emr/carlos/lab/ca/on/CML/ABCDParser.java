@@ -154,33 +154,31 @@ public class ABCDParser {
 
         int count = 0;
         try {
+            int[] countHolder = new int[] { 0 };
 
             if (CarlosProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes")) {
-                sql = "select demographic_no from demographic where hin='" + hinMod + "' and " +
-                        " year_of_birth like '" + dobYear + "' and " +
-                        " month_of_birth like '" + dobMonth + "' and " +
-                        " date_of_birth like '" + dobDay + "' and " +
-                        " sex like '" + sex + "%' ";
+                sql = "select demographic_no from demographic where hin=? and "
+                        + " year_of_birth like ? and "
+                        + " month_of_birth like ? and "
+                        + " date_of_birth like ? and "
+                        + " sex like ? ";
+                demo = executePatientLookup(conn, sql, countHolder,
+                        hinMod, dobYear, dobMonth, dobDay, sex + "%");
             } else {
-                sql = "select demographic_no from demographic where hin='" + hinMod + "' and " +
-                        " last_name like '" + lastName.substring(0, 1) + "%' and " +
-                        " first_name like '" + firstName.substring(0, 1) + "%' and " +
-                        " year_of_birth like '" + dobYear + "' and " +
-                        " month_of_birth like '" + dobMonth + "' and " +
-                        " date_of_birth like '" + dobDay + "' and " +
-                        " sex like '" + sex + "%' ";
+                sql = "select demographic_no from demographic where hin=? and "
+                        + " last_name like ? and "
+                        + " first_name like ? and "
+                        + " year_of_birth like ? and "
+                        + " month_of_birth like ? and "
+                        + " date_of_birth like ? and "
+                        + " sex like ? ";
+                String lastNamePrefix = (lastName != null && !lastName.isEmpty()) ? lastName.substring(0, 1) + "%" : "%";
+                String firstNamePrefix = (firstName != null && !firstName.isEmpty()) ? firstName.substring(0, 1) + "%" : "%";
+                demo = executePatientLookup(conn, sql, countHolder,
+                        hinMod, lastNamePrefix, firstNamePrefix,
+                        dobYear, dobMonth, dobDay, sex + "%");
             }
-
-
-            MiscUtils.getLogger().debug(sql);
-            PreparedStatement pstmt = conn.prepareStatement(sql);
-            ResultSet rs = pstmt.executeQuery();
-            while (rs.next()) {
-                count++;
-                demo = Misc.getString(rs, "demographic_no");
-            }
-            rs.close();
-            pstmt.close();
+            count = countHolder[0];
         } catch (SQLException sqlE) {
             MiscUtils.getLogger().error("Error", sqlE);
         }
@@ -200,6 +198,26 @@ public class ABCDParser {
     }
     /////
 
+    /**
+     * Executes a parameterized patient lookup query and returns the demographic_no.
+     * Counts matching rows via the provided countHolder array (single-element int array).
+     */
+    private static String executePatientLookup(Connection conn, String sql, int[] countHolder, String... params) throws SQLException {
+        String demo = "0";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            for (int i = 0; i < params.length; i++) {
+                pstmt.setString(i + 1, params[i]);
+            }
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    countHolder[0]++;
+                    demo = Misc.getString(rs, "demographic_no");
+                }
+            }
+        }
+        return demo;
+    }
+
 
     private HashMap<String, String> getProviderHash(Connection conn) {
         logger.info("Init - provider Hash table");
@@ -207,7 +225,6 @@ public class ABCDParser {
         try {
             String sql = "select provider_no, ohip_no from provider where ohip_no != '' ";
             PreparedStatement pstmt = conn.prepareStatement(sql);
-            pstmt.executeQuery();
             ResultSet rs = pstmt.executeQuery();
 
             while (rs.next()) {

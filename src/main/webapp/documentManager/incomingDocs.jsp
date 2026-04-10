@@ -69,6 +69,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.PathValidationUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <jsp:useBean id="LastPatientsBean" class="java.util.ArrayList" scope="session"/>
 
@@ -91,6 +92,22 @@
         background-color: #ffa;
         text-decoration: underline;
     }
+
+    /* Constrain the left panel so fields don't extend off-page */
+    #incoming-docs-wrapper > table { width: 100%; table-layout: fixed; }
+    #incoming-docs-wrapper > table > tbody > tr > td:first-child { width: 380px; overflow: hidden; }
+    #incoming-docs-wrapper > table > tbody > tr > td:first-child table { width: 100% !important; }
+    #incoming-docs-wrapper > table > tbody > tr > td:first-child input[type="text"],
+    #incoming-docs-wrapper > table > tbody > tr > td:first-child select {
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    #incoming-docs-wrapper fieldset { border: 1px solid #ddd; border-radius: 4px; padding: 8px; margin-bottom: 8px; }
+    #incoming-docs-wrapper legend { font-size: 12px; font-weight: bold; padding: 0 4px; width: auto; float: none; }
+    #incoming-docs-wrapper fieldset input[type="button"] {
+        font-size: 11px; padding: 2px 6px; margin: 1px;
+    }
+
 
     .multiPage {
         background-color: RED;
@@ -220,15 +237,18 @@
     ArrayList pdfListModifiedDate = myIncomingDocUtil.getPdfListModifiedDate();
 
     pdfNo = request.getParameter("pdfNo") == null ? "1" : request.getParameter("pdfNo");
-    if (Integer.parseInt(pdfNo) <= 0) {
-        pdfNo = "1";
+    int pdfNoInt;
+    try { pdfNoInt = Integer.parseInt(pdfNo); } catch (NumberFormatException e) { pdfNoInt = 1; }
+    if (pdfNoInt <= 0) {
+        pdfNoInt = 1;
     }
 
-    if (pdfList.size() < Integer.parseInt(pdfNo)) {
-        pdfNo = (new Integer(pdfList.size())).toString();
+    if (pdfList.size() < pdfNoInt) {
+        pdfNoInt = pdfList.size();
     }
+    pdfNo = String.valueOf(pdfNoInt);
 
-    int PdfIndex = Integer.parseInt(pdfNo) - 1;
+    int PdfIndex = pdfNoInt - 1;
     if (pdfList.size() >= 1 && PdfIndex <= (pdfList.size() - 1)) {
         pdfName = (String) pdfList.get(PdfIndex);
     } else {
@@ -250,8 +270,13 @@
     }
 %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/global.css"/>
+    <link href="<%= request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
     <!-- main calendar program -->
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
     <!-- language for the calendar -->
@@ -266,17 +291,14 @@
     <script language="javascript" type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
     <!-- Prototype.js/effects.js/controls.js removed — using vanilla JS (Phase 1c migration) -->
 
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/yahoo-dom-event.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/connection-min.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/animation-min.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/datasource-min.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/autocomplete-min.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.css"/>
 
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/demographicProviderAutocomplete.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/js/carlosAutocomplete.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/documentDescriptionTypeahead.js"></script>
 
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/yui/css/fonts-min.css"/>
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/yui/css/autocomplete.css"/>
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/demographicProviderAutocomplete.css"/>
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/autocomplete.css"/>
     <script type="text/javascript">
@@ -826,12 +848,16 @@
     </script>
 </head>
 <body>
-<div id="incoming-docs-wrapper" class="container">
+<div class="page-header-bar">
+    <h4 class="page-header-title"><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.incomingDocs"/></h4>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="window.close();">Back</button>
+</div>
+<div id="incoming-docs-wrapper" class="container-fluid">
     <table>
         <tr style="display: flex;">
             <td align="left" valign="top">
                 <form method="post" name="PdfInfoForm" action="incomingDocs.jsp">
-                    <input type="hidden" name="pdfNo" value="<%=pdfNo%>">
+                    <input type="hidden" name="pdfNo" value="<%=Encode.forHtmlAttribute(pdfNo)%>">
                     <input type="hidden" name="pdfDir" value="<%=Encode.forHtmlAttribute(pdfDir)%>">
                     <input type="hidden" name="pdfName" value="<%=Encode.forHtmlAttribute(pdfName)%>">
                     <input type="hidden" name="pdfAction" value="">
@@ -843,13 +869,12 @@
                     <table width="350">
                         <%if (errorMessage.length() > 0) {%>
                         <tr>
-                            <td><b><font color="red"><%=Encode.forHtml(errorMessage)%>
-                            </font></b></td>
+                            <td><div class="alert alert-danger py-1 px-2 mb-1" role="alert"><%=Encode.forHtml(errorMessage)%></div></td>
                         </tr>
                         <%}%>
                         <tr>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.queue"/>:
-                                <select id="queueList" name="queueList" onchange="setQueue();">
+                                <select id="queueList" name="queueList" onchange="setQueue();" class="form-select form-select-sm" style="display:inline-block;width:auto;">
                                     <%
                                         for (Hashtable ht : queues) {
                                             int id = (Integer) ht.get("id");
@@ -862,22 +887,20 @@
                             </td>
                         </tr>
                         <tr>
-                            <td><input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.fax"/>"
-                                       onclick="loadPdf('1','Fax');">
-                                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.mail"/>"
-                                       onclick="loadPdf('1','Mail');">
-                                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.file"/>"
-                                       onclick="loadPdf('1','File');">
-                                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.refile"/>"
-                                       onclick="loadPdf('1','Refile');">
-
+                            <td>
+                                <div class="d-flex gap-1 flex-wrap">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','Fax');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.fax"/></button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','Mail');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.mail"/></button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','File');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.file"/></button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','Refile');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.refile"/></button>
+                                </div>
                             </td>
                         </tr>
                         <tr>
                             <td>
                                 <fieldset>
-                                    <legend>[<%=Encode.forHtml(pdfDir)%>]: <% if (Integer.parseInt(pdfNo) <= 0) {%><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.noFile"/><% } else {%> <%=pdfNo%>/ <%=pdfList.size()%>
-                                        <b><%=Encode.forHtml(String.valueOf(pdfList.get(Integer.parseInt(pdfNo) - 1)))%>
+                                    <legend>[<%=Encode.forHtml(pdfDir)%>]: <% if (pdfNoInt <= 0) {%><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.noFile"/><% } else {%> <%=Encode.forHtml(pdfNo)%>/ <%=pdfList.size()%>
+                                        <b><%=Encode.forHtml(String.valueOf(pdfList.get(pdfNoInt - 1)))%>
                                         </b> <%}%></legend>
                                     <table>
                                         <tr>
@@ -897,26 +920,21 @@
                                                 </select></td>
                                         </tr>
                                         <tr>
-                                            <td><input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.first"/>"
-                                                       onclick="loadPdf('1','<%= Encode.forJavaScriptAttribute(pdfDir) %>');">
-                                                <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.previous"/>"
-                                                       onclick="loadPdf('<%=Integer.parseInt(pdfNo) - 1%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>');">
-                                                <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.next"/>"
-                                                       onclick="loadPdf('<%=Integer.parseInt(pdfNo) + 1%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>');">
-                                                <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.last"/>"
-                                                       onclick="loadPdf('<%=pdfList.size()%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>');">
+                                            <td>
+                                                <div class="d-flex gap-1 flex-wrap mb-1">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','<%= Encode.forJavaScriptAttribute(pdfDir) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.first"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('<%=Integer.parseInt(pdfNo) - 1%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.previous"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('<%=Integer.parseInt(pdfNo) + 1%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.next"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('<%=pdfList.size()%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.last"/></button>
+                                                </div>
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td><input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
-                                                       onClick="printPdf('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
-                                                <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.deletePDF"/>"
-                                                       onclick="deletePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
+                                            <td>
+                                                <div class="d-flex gap-1 flex-wrap mb-1">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="printPdf('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/></button>
+                                                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="deletePdf('<%= Encode.forJavaScriptAttribute(pdfNo) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.deletePDF"/></button>
+                                                </div>
                                             </td>
                                         </tr>
                                     </table>
@@ -940,48 +958,41 @@
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td><input type="button" id="firstP"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.first"/>"
-                                                       onclick="firstPage('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
-                                                <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.previous"/>"
-                                                       onclick="prevPage('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
-                                                <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.next"/>"
-                                                       onclick="nextPage('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
-                                                <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.last"/>"
-                                                       onclick="lastPage('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
-
+                                            <td>
+                                                <div class="d-flex gap-1 flex-wrap mb-1">
+                                                    <button type="button" id="firstP" class="btn btn-outline-secondary btn-sm" onclick="firstPage('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.first"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="prevPage('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.previous"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="nextPage('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.next"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="lastPage('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.last"/></button>
+                                                </div>
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.rotateThisPage"/>:<input
-                                                    type="button" value="180"
-                                                    onclick="rotatePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','180');">
-                                                <input type="button" value="+90"
-                                                       onclick="rotatePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','90');">
-                                                <input type="button" value="-90"
-                                                       onclick="rotatePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','M90');">
+                                            <td>
+                                                <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.rotateThisPage"/>:</small>
+                                                <div class="d-flex gap-1 flex-wrap mb-1">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotatePdf('<%= Encode.forJavaScriptAttribute(pdfNo) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','180');">180</button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotatePdf('<%= Encode.forJavaScriptAttribute(pdfNo) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','90');">+90</button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotatePdf('<%= Encode.forJavaScriptAttribute(pdfNo) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','M90');">-90</button>
+                                                </div>
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.rotateAllPages"/>:<input
-                                                    type="button" value="180"
-                                                    onclick="rotateAllPagePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','180');">
-                                                <input type="button" value="+90"
-                                                       onclick="rotateAllPagePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','90');">
-                                                <input type="button" value="-90"
-                                                       onclick="rotateAllPagePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','M90');">
+                                            <td>
+                                                <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.rotateAllPages"/>:</small>
+                                                <div class="d-flex gap-1 flex-wrap mb-1">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotateAllPagePdf('<%= Encode.forJavaScriptAttribute(pdfNo) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','180');">180</button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotateAllPagePdf('<%= Encode.forJavaScriptAttribute(pdfNo) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','90');">+90</button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotateAllPagePdf('<%= Encode.forJavaScriptAttribute(pdfNo) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','M90');">-90</button>
+                                                </div>
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td><input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.extractPage"/>"
-                                                       onclick="extractPagePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
-                                                <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.deletePage"/>"
-                                                       onclick="deletePagePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
+                                            <td>
+                                                <div class="d-flex gap-1 flex-wrap">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="extractPagePdf('<%= Encode.forJavaScriptAttribute(pdfNo) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.extractPage"/></button>
+                                                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="deletePagePdf('<%= Encode.forJavaScriptAttribute(pdfNo) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.deletePage"/></button>
+                                                </div>
                                             </td>
                                         </tr>
                                     </table>
@@ -1003,7 +1014,7 @@
                         <input type="hidden" name="pdfDir" value="<%=Encode.forHtmlAttribute(pdfDir)%>">
                         <input type="hidden" name="pdfName" value="<%=Encode.forHtmlAttribute(pdfName)%>">
                         <input type="hidden" name="queueId" value="<%= Encode.forHtmlAttribute(queueIdStr) %>">
-                        <input type="hidden" name="pdfNo" value="<%=pdfNo%>">
+                        <input type="hidden" name="pdfNo" value="<%=Encode.forHtmlAttribute(pdfNo)%>">
                         <input type="hidden" name="queue" value="1">
                         <input type="hidden" name="pdfAction" value="">
                         <input type="hidden" name="lastdemographic_no" id="lastdemographic_no" value="">
@@ -1124,7 +1135,7 @@
                                     <input id="saved" type="hidden" name="saved" value="false"/>
                                     <input type="hidden" name="demog" value="-1" id="demofind"/>
                                     <input tabIndex="<%=tabIndex++%>" type="text" id="autocompletedemo"
-                                           onchange="checkSave('')" name="demographicKeyword"/>
+                                           onchange="checkSave('')" name="demographicKeyword" style="width:100%;"/>
                                     <div id="autocomplete_choices" class="autocomplete"></div>
                                 </td>
                             </tr>
@@ -1187,15 +1198,15 @@
                                     }%>
 
                                     <input tabIndex="<%=tabIndex++%>" type="text" id="autocompleteprov"
-                                           name="ProvKeyword"/>
+                                           name="ProvKeyword" style="width:100%;"/>
                                     <div id="autocomplete_choicesprov" class="autocomplete"></div>
                                     <div id="providerList"></div>
                                 </td>
                             </tr>
                             <tr>
                                 <td colspan="2" align="left"><p>
-                                    <p><input type="submit" onclick="return checkDocument();" name="save"
-                                              tabIndex="<%=tabIndex++%>" id="save" disabled value="Save & Next"/></td>
+                                    <p><button type="submit" onclick="return checkDocument();" name="save"
+                                              tabIndex="<%=tabIndex++%>" id="save" disabled class="btn btn-primary btn-sm">Save & Next</button></td>
                             </tr>
                         </table>
                     </form>
@@ -1216,133 +1227,42 @@
             </td>
         </tr>
         <script type="text/javascript">
-            YAHOO.example.BasicRemote = function () {
-                var url = "<%= request.getContextPath()%>/provider/SearchProvider.do";
-                var oDS = new YAHOO.util.XHRDataSource(url, {
-                    connMethodPost: true,
-                    connXhrMode: 'ignoreStaleResponses'
+            initProviderAutocomplete("#autocompleteprov", "<%= request.getContextPath()%>",
+                function (providerNo, firstName, lastName) {
+                    document.getElementById('provfind').value = providerNo;
+                    addflagprovider(firstName, lastName, providerNo);
+                    document.getElementById('autocompleteprov').value = '';
                 });
-                oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;// Set the responseType
-
-                // Define the schema of the delimited results
-                oDS.responseSchema = {
-                    resultsList: "results",
-                    fields: ["providerNo", "firstName", "lastName"]
-                };
-
-                // Enable caching
-                oDS.maxCacheEntries = 0;
-
-                // Instantiate the AutoComplete
-                var oAC = new YAHOO.widget.AutoComplete("autocompleteprov", "autocomplete_choicesprov", oDS);
-                oAC.queryMatchSubset = true;
-                oAC.minQueryLength = 3;
-                oAC.maxResultsDisplayed = 25;
-                oAC.formatResult = resultFormatter3;
-
-                oAC.queryMatchContains = true;
-
-                oAC.itemSelectEvent.subscribe(function (type, args) {
-
-                    var myAC = args[0];
-                    var str = myAC.getInputEl().id.replace("autocompleteprov", "provfind");
-                    var oData = args[2];
-                    document.getElementById(str).value = args[2][0];
-                    myAC.getInputEl().value = args[2][2] + "," + args[2][1];
-
-                    addflagprovider(oData[2], oData[1], oData[0]);
-
-                    myAC.getInputEl().value = '';
-
-                });
-
-
-                return {
-                    oDS: oDS,
-                    oAC: oAC
-                };
-            }();
 
             function addflagprovider(pfirstname, plastname, provider_no) {
-                //enable Save button whenever a selection is made
-                var bdoc;
-                if (navigator.appName == "Microsoft Internet Explorer") {
+                var link = document.createElement('a');
+                link.id = "removeProv";
+                link.onclick = function () { removeThisProv(this); };
+                link.appendChild(document.createTextNode(" -remove- "));
 
-                    var bdoc = document.createElement('<a id="removeProv" onclick="removeThisProv(this)" >');
+                var wrapper = document.createElement('div');
+                wrapper.appendChild(document.createTextNode(pfirstname + " " + plastname));
 
-                } else {
-                    var bdoc = document.createElement('a');
-                    bdoc.setAttribute("id", "removeProv");
-                    bdoc.setAttribute("onclick", "removeThisProv(this);");
-                }
+                var hidden = document.createElement('input');
+                hidden.type = "hidden";
+                hidden.name = "flagproviders";
+                hidden.value = provider_no;
 
-                bdoc.appendChild(document.createTextNode(" -remove- "));
-
-
-                var adoc = document.createElement('div');
-                adoc.appendChild(document.createTextNode(pfirstname + " " + plastname));
-
-                var idoc;
-                if (navigator.appName == "Microsoft Internet Explorer") {
-                    idoc = document.createElement('<input type="hidden" name=flagproviders   value="' + provider_no + '" >');
-                } else {
-                    idoc = document.createElement('input');
-                    idoc.setAttribute("type", "hidden");
-                    idoc.setAttribute("name", "flagproviders");
-                    idoc.setAttribute("value", provider_no);
-                }
-
-                adoc.appendChild(idoc);
-
-                adoc.appendChild(bdoc);
-                var providerList = document.getElementById('providerList');
-
-                providerList.appendChild(adoc);
-
+                wrapper.appendChild(hidden);
+                wrapper.appendChild(link);
+                document.getElementById('providerList').appendChild(wrapper);
             }
 
-            YAHOO.example.BasicRemote = function () {
-                if (document.getElementById("autocompletedemo") && document.getElementById("autocomplete_choices")) {
+            if (document.getElementById("autocompletedemo") && document.getElementById("autocomplete_choices")) {
+                initDemographicAutocomplete("#autocompletedemo", "<%=request.getContextPath()%>",
+                    function (demographicNo, formattedName, formattedDob, status, item) {
+                        document.getElementById('demofind').value = demographicNo;
+                        document.getElementById('MRPNo').value = item.providerNo || '';
+                        document.getElementById('MRPName').value = item.providerName || '';
 
-                    var url = "<%=request.getContextPath()%>/demographic/SearchDemographic.do";
-                    var oDS = new YAHOO.util.XHRDataSource(url, {
-                        connMethodPost: true,
-                        connXhrMode: 'ignoreStaleResponses'
-                    });
-                    oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;// Set the responseType
+                        document.getElementById('autocompletedemo').value = formattedName + " (" + formattedDob + ")";
+                        selectedDemos.push(document.getElementById('autocompletedemo').value);
 
-                    // Define the schema of the delimited results
-                    oDS.responseSchema = {
-                        resultsList: "results",
-                        fields: ["formattedName", "fomattedDob", "demographicNo", "status", "providerNo", "providerName"]
-                    };
-
-                    // Enable caching
-                    oDS.maxCacheEntries = 0;
-
-                    var oAC = new YAHOO.widget.AutoComplete("autocompletedemo", "autocomplete_choices", oDS);
-
-                    oAC.queryMatchSubset = true;
-                    oAC.minQueryLength = 3;
-                    oAC.maxResultsDisplayed = 25;
-                    oAC.formatResult = resultFormatter2;
-                    oAC.queryMatchContains = true;
-
-                    oAC.itemSelectEvent.subscribe(function (type, args) {
-
-                        var str = args[0].getInputEl().id.replace("autocompletedemo", "demofind");
-
-
-                        document.getElementById('MRPNo').value = args[2][4];
-                        document.getElementById('MRPName').value = args[2][5];
-
-                        document.getElementById(str).value = args[2][2];
-
-                        args[0].getInputEl().value = args[2][0] + " (" + args[2][1] + ")";
-
-                        selectedDemos.push(args[0].getInputEl().value);
-
-                        //enable Save button whenever a selection is made
                         document.getElementById('save').disabled = false;
 
                         if (document.PdfInfoForm.pdfDir.value != "File") {
@@ -1353,14 +1273,7 @@
                             }
                         }
                     });
-
-
-                    return {
-                        oDS: oDS,
-                        oAC: oAC
-                    };
-                }
-            }();
+            }
         </script>
     </table>
 </div>

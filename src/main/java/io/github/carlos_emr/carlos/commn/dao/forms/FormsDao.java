@@ -37,6 +37,7 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.NativeSql;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -74,8 +75,14 @@ public class FormsDao {
         if (demographicNo == null) {
             return findIdFormCreatedAndPatientNameFromFormLabReq07();
         }
-        String sql = "SELECT ID, formCreated, patientName FROM formLabReq07 where demographic_no = " + Integer.parseInt(demographicNo);
+        String sql = "SELECT ID, formCreated, patientName FROM formLabReq07 where demographic_no = :demoNo";
         Query query = entityManager.createNativeQuery(sql);
+        try {
+            query.setParameter("demoNo", Integer.parseInt(demographicNo));
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in formLabReq07 query, returning empty result");
+            return new ArrayList<>();
+        }
         return query.getResultList();
     }
 
@@ -84,8 +91,14 @@ public class FormsDao {
         if (demographicNo == null) {
             return findIdFormCreatedAndPatientNameFromFormLabReq10();
         }
-        String sql = "SELECT ID, formCreated, patientName FROM formLabReq10 where demographic_no = " + Integer.parseInt(demographicNo);
+        String sql = "SELECT ID, formCreated, patientName FROM formLabReq10 where demographic_no = :demoNo";
         Query query = entityManager.createNativeQuery(sql);
+        try {
+            query.setParameter("demoNo", Integer.parseInt(demographicNo));
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in formLabReq10 query, returning empty result");
+            return new ArrayList<>();
+        }
         return query.getResultList();
     }
 
@@ -151,6 +164,7 @@ public class FormsDao {
             throw new IllegalArgumentException("Parameters must be provided in name-value pairs");
         }
 
+        // nosemgrep: jpa-sqli — this utility binds named parameters below; the SQL string itself must already use parameter placeholders (callers' responsibility)
         Query query = entityManager.createNativeQuery(sql);
 
         for (int i = 0; i < params.length; i += 2) {
@@ -172,6 +186,7 @@ public class FormsDao {
      */
     @SuppressWarnings("rawtypes")
     public List<Object[]> runParameterizedNativeQuery(String sql, Map<String, Object> params) {
+        // nosemgrep: jpa-sqli — this utility binds named parameters below; the SQL string itself must already use parameter placeholders (callers' responsibility)
         Query query = entityManager.createNativeQuery(sql);
 
         if (params != null) {

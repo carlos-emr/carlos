@@ -59,7 +59,7 @@
 
     try {
         InputStream is = application.getResource("/WEB-INF/measurements.xml").openStream();
-        SAXBuilder parser = new SAXBuilder();
+        SAXBuilder parser = io.github.carlos_emr.carlos.utility.XmlUtils.createSecureSAXBuilder();
         Document doc = parser.build(is);
         is.close();
 

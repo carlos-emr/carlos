@@ -53,11 +53,33 @@
     if (request.getParameter("limit1") != null) strOffset = request.getParameter("limit1");
     if (request.getParameter("limit2") != null) strLimit = request.getParameter("limit2");
 
-    int limit = Integer.parseInt(strLimit);
-    int offset = Integer.parseInt(strOffset);
+    int limit;
+    try {
+        limit = Integer.parseInt(strLimit);
+    } catch (NumberFormatException e) {
+        limit = 10;
+    }
+    int offset;
+    try {
+        offset = Integer.parseInt(strOffset);
+    } catch (NumberFormatException e) {
+        offset = 0;
+    }
+    // Sanitize: replace raw request strings with parsed integer values to prevent XSS
+    strLimit = String.valueOf(limit);
+    strOffset = String.valueOf(offset);
 
     boolean caisi = Boolean.valueOf(request.getParameter("caisi")).booleanValue();
 
+    // Validate originalpage to prevent open redirect: must be a relative URL.
+    // Note: getParameter() auto-decodes URL-encoded values, so %2F%2F decodes to // and is
+    // caught by startsWith("//"). Backslash bypass (/\) is also rejected explicitly.
+    String originalpage = request.getParameter("originalpage");
+    if (originalpage == null || originalpage.isEmpty() || !originalpage.startsWith("/") || originalpage.startsWith("//") || originalpage.startsWith("/\\")) {
+        originalpage = request.getContextPath() + "/appointment/addappointment.jsp";
+    }
+    // Choose ? or & depending on whether originalpage already has a query string
+    String originalPageSeparator = originalpage.contains("?") ? "&" : "?";
 
 %>
 
@@ -157,7 +179,7 @@
 
     function addName(demographic_no, lastname, firstname, chartno, messageID, doctorNo) {
         fullname = lastname + "," + firstname;
-        document.addform.action = "<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("originalpage"))) %>&demographicNoParam=" + demographic_no + "&demographic_no=" + demographic_no + "&firstNameParam=" + firstname + "&lastNameParam=" + lastname + "&chart_no=" + chartno;
+        document.addform.action = "<%= Encode.forJavaScript(originalpage) %><%= originalPageSeparator %>demographicNoParam=" + demographic_no + "&demographic_no=" + demographic_no + "&firstNameParam=" + firstname + "&lastNameParam=" + lastname + "&chart_no=" + chartno;
         document.addform.submit();
         return true;
     }
@@ -288,12 +310,12 @@
     <script language="JavaScript">
         <!--
         function last() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp?originalpage=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("originalpage")))) %>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp?originalpage=<%= Encode.forJavaScript(Encode.forUriComponent(originalpage)) %>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>";
             //document.nextform.submit();
         }
 
         function next() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp?originalpage=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("originalpage")))) %>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp?originalpage=<%= Encode.forJavaScript(Encode.forUriComponent(originalpage)) %>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>";
             //document.nextform.submit();
         }
 

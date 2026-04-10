@@ -230,11 +230,11 @@ public class EctSaveEncounter2Action extends ActionSupport {
                 EChartDao dao = SpringUtils.getBean(EChartDao.class);
                 dao.persist(e);
                 sessionbean.eChartId = String.valueOf(e.getId());
-                httpservletrequest.getSession().setAttribute("eChartID", sessionbean.eChartId);
+                httpservletrequest.getSession().setAttribute("eChartID", sessionbean.eChartId); // nosemgrep: tainted-session-from-http-request
 
                 // add log here
                 String ip = httpservletrequest.getRemoteAddr();
-                LogAction.addLog((String) httpservletrequest.getSession().getAttribute(
+                LogAction.addLog((String) httpservletrequest.getSession().getAttribute( // nosemgrep: tainted-session-from-http-request
                                 "user"), LogConst.ADD, LogConst.CON_ECHART,
                         sessionbean.demographicNo, ip);
 
@@ -302,11 +302,18 @@ public class EctSaveEncounter2Action extends ActionSupport {
             }
             bean.setBillForm(formBill);
             bean.setPatientNo(sessionbean.demographicNo);
-            bean.setApptNo(httpservletrequest.getParameter("appointment_no"));
+            String apptNoParam = httpservletrequest.getParameter("appointment_no");
+            if ("null".equalsIgnoreCase(apptNoParam) || (apptNoParam != null && apptNoParam.isEmpty())) {
+                apptNoParam = null;
+            } else if (apptNoParam != null && !apptNoParam.matches("\\d{1,9}")) {
+                log.warn("Invalid appointment_no rejected");
+                return "failure";
+            }
+            bean.setApptNo(apptNoParam);
             bean.setApptDate(sessionbean.appointmentDate);
             bean.setApptStatus(httpservletrequest.getParameter("status"));
             httpservletrequest.setAttribute("encounter", "true");
-            httpservletrequest.getSession().setAttribute("billingSessionBean", bean);
+            httpservletrequest.getSession().setAttribute("billingSessionBean", bean); // nosemgrep: tainted-session-from-http-request
             forward = "bill";
         } else if (httpservletrequest.getParameter("btnPressed").equals("Sign,Save and Exit")) {
             forward = "success";

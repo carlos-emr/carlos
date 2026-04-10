@@ -72,7 +72,7 @@
         <script src="<%=request.getContextPath() %>/library/DataTables/datatables.min.js"></script>
         <!-- DataTables 1.13.4 -->
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
-        <script src="<%=request.getContextPath() %>/js/jquery.validate.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery.validate-1.21.0.min.js"></script>
         <script src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
         <script src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
 

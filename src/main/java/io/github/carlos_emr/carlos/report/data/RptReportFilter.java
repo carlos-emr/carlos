@@ -97,8 +97,8 @@ public class RptReportFilter {
     public Vector getNameList(int n) throws SQLException {
         Vector ret = new Vector();
         String[] str = null;
-        String sql = "select * from reportFilter where status = " + n + " order by order_no";
-        ResultSet rs = DBHelp.searchDBRecord(sql);
+        String sql = "select * from reportFilter where status = ? order by order_no";
+        ResultSet rs = DBHelp.searchDBRecord(sql, n);
         while (rs.next()) {
             str = new String[6];
             str[0] = DBHelp.getString(rs, "description");
@@ -116,9 +116,15 @@ public class RptReportFilter {
     public Vector getNameList(String recordId, int n) throws SQLException {
         Vector ret = new Vector();
         String[] str = null;
-        String sql = "select * from reportFilter where report_id=" + recordId + " and status = " + n
+        String sql = "select * from reportFilter where report_id=? and status = ?"
                 + " order by order_no";
-        ResultSet rs = DBHelp.searchDBRecord(sql);
+        int parsedRecordId;
+        try {
+            parsedRecordId = Integer.parseInt(recordId);
+        } catch (NumberFormatException e) {
+            throw new SQLException("Invalid recordId: " + recordId, e);
+        }
+        ResultSet rs = DBHelp.searchDBRecord(sql, parsedRecordId, n);
         while (rs.next()) {
             str = new String[6];
             str[0] = DBHelp.getString(rs, "description");
