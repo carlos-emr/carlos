@@ -33,7 +33,6 @@ package io.github.carlos_emr.carlos.util;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.Set;
 
 import jakarta.servlet.ServletOutputStream;
@@ -42,29 +41,22 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
-import org.apache.logging.log4j.Logger;
-
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * @author Jay Gallagher
  */
 public class GenericDownload extends HttpServlet {
-    private static final Logger logger = MiscUtils.getLogger();
 
-    /**
-     * Allowlist of CarlosProperties keys that are permitted as download directory roots.
-     * Adding a key here allows clients to use it as a dir_property parameter.
-     * Do not add keys that point to sensitive system directories.
-     */
+    private static final Logger log = MiscUtils.getLogger();
+
+    /** Allowlist of permitted CarlosProperties keys that may serve as download roots. */
     private static final Set<String> ALLOWED_DIR_PROPERTIES = Set.of(
-        "oscar_document_dir",
-        "DOCUMENT_DIR",
-        "BASE_DOCUMENT_DIR",
-        "eform_image_dir",
-        "fax_document_dir"
+        "oscar_document_dir", "BASE_DOCUMENT_DIR", "eform_image_dir",
+        "fax_document_dir", "DOCUMENT_DIR"
     );
 
     public GenericDownload() {
@@ -72,36 +64,38 @@ public class GenericDownload extends HttpServlet {
 
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
         try {
-            HttpSession session = req.getSession(false);
+            HttpSession session = req.getSession(true);
 
             CarlosProperties oscarProps = CarlosProperties.getInstance();
 
             String filename = req.getParameter("filename");
             String dir_property = req.getParameter("dir_property");
             String contentType = req.getParameter("contentType");
-            String user = session != null ? (String) session.getAttribute("user") : null;
-
-            // Validate dir_property against allowlist to prevent arbitrary filesystem root selection
-            String dir = null;
-            if (dir_property != null && ALLOWED_DIR_PROPERTIES.contains(dir_property)) {
-                dir = oscarProps.getProperty(dir_property);
-            }
+            // Only resolve directory for allowlisted property keys (prevents client-controlled filesystem root)
+            String dir = (dir_property != null && ALLOWED_DIR_PROPERTIES.contains(dir_property))
+                ? oscarProps.getProperty(dir_property) : null;
+            String user = (String) session.getAttribute("user");
 
             boolean bDo = false;
-            if (filename != null && dir != null && user != null) {
+            if (filename != null && dir_property != null && dir != null && user != null) {
                 bDo = true;
             }
             download(bDo, res, dir, filename, contentType);
-        } catch (Exception e) {
-            logger.error("Error processing download request for {}", req.getRequestURI(), e);
+        } catch (IOException e) {
+            throw e;
+        } catch (SecurityException e) {
+            log.warn("SecurityException in GenericDownload: {}", e.getMessage());
             if (!res.isCommitted()) {
-                try {
-                    res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred processing your request.");
-                } catch (IOException ioe) {
-                    logger.error("Failed to send error response", ioe);
-                }
+                res.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied");
+            }
+        } catch (Exception e) {
+            log.error("Unexpected error in GenericDownload", e);
+            if (!res.isCommitted()) {
+                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
             }
         }
+
     }
 
     public void download(boolean bDownload, HttpServletResponse res, String dir, String filename, String contentType)
@@ -111,12 +105,7 @@ public class GenericDownload extends HttpServlet {
             transferFile(res, stream, dir, filename, contentType);
             stream.close();
         } else {
-            res.setContentType("text/html");
-            PrintWriter out = res.getWriter();
-            out.println("<html>");
-            out.println("<head><body>You have no right to download the file(s).");
-            out.println("</body>");
-            out.println("</html>");
+            res.sendError(HttpServletResponse.SC_FORBIDDEN, "You have no right to download the file(s).");
         }
     }
 

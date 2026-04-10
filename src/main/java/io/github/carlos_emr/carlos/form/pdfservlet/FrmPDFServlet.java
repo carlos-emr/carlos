@@ -29,13 +29,13 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
 import jakarta.servlet.ServletContext;
@@ -46,6 +46,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -71,6 +72,7 @@ import org.openpdf.text.pdf.PdfContentByte;
 import org.openpdf.text.pdf.PdfImportedPage;
 import org.openpdf.text.pdf.PdfReader;
 import org.openpdf.text.pdf.PdfWriter;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * Servlet that generates PDF renditions of standard medical forms (Rourke growth charts,
@@ -119,18 +121,7 @@ public class FrmPDFServlet extends HttpServlet {
     /** Delegates all GET requests to {@link #doPost(HttpServletRequest, HttpServletResponse)}. */
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException,
             java.io.IOException {
-        try {
-            doPost(req, res);
-        } catch (Exception e) {
-            log.error("Error processing GET request for {}", req.getRequestURI(), e);
-            if (!res.isCommitted()) {
-                try {
-                    res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred processing your request.");
-                } catch (java.io.IOException ioe) {
-                    log.error("Failed to send error response", ioe);
-                }
-            }
-        }
+        doPost(req, res);
     }
 
     /**
@@ -217,22 +208,18 @@ public class FrmPDFServlet extends HttpServlet {
             LogAction.addLogSynchronous(loggedInInfo, "FrmPDFServlet", "formID=" + req.getParameter("formId") + ",form_class=" + req.getParameter("form_class"));
 
         } catch (DocumentException dex) {
-            log.error("PDF document error in FrmPDFServlet for {}", req.getRequestURI(), dex);
+            log.error("Document error generating form PDF", dex);
             if (!res.isCommitted()) {
-                try {
-                    res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred generating the PDF.");
-                } catch (java.io.IOException ioe) {
-                    log.error("Failed to send error response", ioe);
-                }
+                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
             }
+        } catch (java.io.IOException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("Unexpected error in FrmPDFServlet for {}", req.getRequestURI(), e);
+            log.error("Unexpected error in FrmPDFServlet", e);
             if (!res.isCommitted()) {
-                try {
-                    res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred processing your request.");
-                } catch (java.io.IOException ioe) {
-                    log.error("Failed to send error response", ioe);
-                }
+                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
             }
         } finally {
             if (baosPDF != null) {
@@ -363,13 +350,17 @@ public class FrmPDFServlet extends HttpServlet {
                 props.setProperty(temp.toString(), req.getParameter(temp.toString()));
             }
 
-            if (req.getParameter("postProcessor" + suffix) != null) {
-                String className = "io.github.carlos_emr.carlos.form.pdfservlet." + req.getParameter("postProcessor" + suffix);
-                try {
-                    FrmPDFPostValueProcessor pp = (FrmPDFPostValueProcessor) Class.forName(className).newInstance();
-                    props = pp.process(props);
-                } catch (Exception e) {
-                    log.warn("Post-processor {} could not be loaded or failed during execution - form rendered without post-processing", className, e);
+            String postProcessorName = req.getParameter("postProcessor" + suffix);
+            if (postProcessorName != null) {
+                Optional<FrmPDFPostValueProcessor> pp = PostProcessorRegistry.resolve(postProcessorName);
+                if (pp.isPresent()) {
+                    try {
+                        props = pp.get().process(props);
+                    } catch (Exception e) {
+                        log.warn("Post-processor {} failed during execution - form rendered without post-processing", Encode.forJava(postProcessorName), e);
+                    }
+                } else {
+                    log.warn("Post-processor '{}' is not on the allowlist and will not be applied", Encode.forJava(postProcessorName));
                 }
             }
 
@@ -483,11 +474,11 @@ public class FrmPDFServlet extends HttpServlet {
             int n;
             try {
                 reader = new PdfReader(propFilename);
-                log.info("Found template at " + propFilename);
+                log.info("Found template at {}", LogSanitizer.sanitize(propFilename));
             } catch (Exception dex) {
-                log.debug("change path to inside oscar from :" + propFilename);
+                log.debug("change path to inside oscar from: {}", LogSanitizer.sanitize(propFilename));
                 reader = new PdfReader("/oscar/form/prop/" + template);
-                log.debug("Found template at /oscar/form/prop/" + template);
+                log.debug("Found template at /oscar/form/prop/{}", LogSanitizer.sanitize(template));
             }
 
             // retrieve the total number of pages
@@ -882,7 +873,7 @@ public class FrmPDFServlet extends HttpServlet {
         // Step 1: Extract just the filename, removing any directory paths
         String baseFilename = org.apache.commons.io.FilenameUtils.getName(cfgFilename);
         if (baseFilename == null || baseFilename.isEmpty()) {
-            log.warn("Invalid config filename after sanitization: " + cfgFilename);
+            log.warn("Invalid config filename after sanitization: {}", LogSanitizer.sanitize(cfgFilename));
             return ret;
         }
         

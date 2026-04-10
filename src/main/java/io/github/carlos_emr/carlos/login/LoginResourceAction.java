@@ -56,7 +56,7 @@ import io.github.carlos_emr.CarlosProperties;
  */
 public class LoginResourceAction extends HttpServlet {
 
-    private static final Logger logger = MiscUtils.getLogger();
+    private static final Logger log = MiscUtils.getLogger();
     private String images;
 
     public void init() throws ServletException {
@@ -74,7 +74,7 @@ public class LoginResourceAction extends HttpServlet {
 
             if (logoImage != null) {
                 // Decode the path and extract just the filename without any directory components
-                String decodedPath = URLDecoder.decode(logoImage, "UTF-8");
+                String decodedPath = URLDecoder.decode(logoImage, java.nio.charset.StandardCharsets.UTF_8);
                 
                 // Remove leading slash if present
                 if (decodedPath.startsWith("/")) {
@@ -97,48 +97,45 @@ public class LoginResourceAction extends HttpServlet {
                     File imagesDir = new File(images);
                     image = PathValidationUtils.validatePath(sanitizedFilename, imagesDir);
                 } catch (SecurityException e) {
+                    log.warn("Path validation rejected for filename: {}", sanitizedFilename);
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "Invalid resource path");
                     return;
                 }
             }
 
+            // Send 404 if no valid image path was provided or file doesn't exist
             if (image == null || !image.exists()) {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
 
-            // Get content type by filename.
+            // Get content type by filename
             contentType = getServletContext().getMimeType(image.getName());
 
             if (contentType == null || !contentType.startsWith("image")) {
-                response.sendError(HttpServletResponse.SC_UNSUPPORTED_MEDIA_TYPE);
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
 
             response.reset();
             response.setContentType(contentType);
-            response.setHeader("Content-Length", String.valueOf(image.length()));
+            response.setContentLengthLong(image.length());
 
             // Write image content to response.
             Files.copy(image.toPath(), response.getOutputStream());
+        } catch (IOException e) {
+            throw e;
         } catch (Exception e) {
-            logger.error("Error processing login resource request for {}", request.getRequestURI(), e);
+            log.error("Unexpected error in LoginResourceAction", e);
             if (!response.isCommitted()) {
-                try {
-                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred processing your request.");
-                } catch (IOException ioe) {
-                    logger.error("Failed to send error response", ioe);
-                }
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
             }
         }
     }
 
-    /**
-     * This servlet serves static login resources for GET requests only.
-     * POST requests are not supported and are silently ignored.
-     */
     protected final void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        // This servlet only serves static resources via GET; POST requests are not supported.
+        return;
     }
 
 }

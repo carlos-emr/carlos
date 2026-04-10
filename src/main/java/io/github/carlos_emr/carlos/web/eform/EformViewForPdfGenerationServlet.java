@@ -54,7 +54,7 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
             // ensure it's a local machine request... no one else should be calling this servlet.
             String remoteAddress = request.getRemoteAddr();
             logger.debug("EformPdfServlet request from : " + remoteAddress);
-            if (!"127.0.0.1".equals(remoteAddress)) {
+            if (!"127.0.0.1".equals(remoteAddress) && !"0:0:0:0:0:0:0:1".equals(remoteAddress) && !"::1".equals(remoteAddress)) {
                 logger.warn("Unauthorised request made to EformPdfServlet from address : " + remoteAddress);
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return;
@@ -63,14 +63,13 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
             // https://127.0.0.1:8443/oscar/eform/efmshowform_data.jsp?fdid=2&parentAjaxId=eforms
             RequestDispatcher requestDispatcher = request.getRequestDispatcher("/eform/efmshowform_data.jsp");
             requestDispatcher.forward(request, response);
+        } catch (ServletException | IOException e) {
+            throw e;
         } catch (Exception e) {
-            logger.error("Error processing request for {}", request.getRequestURI(), e);
+            logger.error("Unexpected error in EformViewForPdfGenerationServlet", e);
             if (!response.isCommitted()) {
-                try {
-                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred processing your request.");
-                } catch (IOException ioe) {
-                    logger.error("Failed to send error response", ioe);
-                }
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
             }
         }
     }

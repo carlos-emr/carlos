@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -28,7 +28,9 @@
  */
 package io.github.carlos_emr.carlos.util;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.Set;
 
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
@@ -39,30 +41,53 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 public class OscarDownload extends GenericDownload {
-    private static final Logger logger = MiscUtils.getLogger();
+    private static final Logger log = MiscUtils.getLogger();
+
+    private static final Set<String> ALLOWED_HOMEPATH_KEYS = Set.of(
+            "homepath", "ohipdownload", "obecdownload"
+    );
 
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
         try {
-            HttpSession session = req.getSession(false);
-            String filename = req.getParameter("filename");
+            HttpSession session = req.getSession(true);
+            String rawFilename = req.getParameter("filename");
+            String filename = rawFilename == null ? null : MiscUtils.sanitizeFileName(rawFilename);
             String homepath = req.getParameter("homepath");
 
-            String backupfilepath = (session != null && homepath != null) ? (String) session.getAttribute(homepath) : null;
-            if (session != null && filename != null && !filename.isEmpty() && backupfilepath != null && session.getAttribute("user") != null) {
+            if (filename == null || filename.isBlank()) {
+                res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required filename parameter.");
+                return;
+            }
+            if (homepath == null || !ALLOWED_HOMEPATH_KEYS.contains(homepath)) {
+                log.warn("OscarDownload rejected invalid homepath key from {}", req.getRemoteAddr());
+                res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download path key.");
+                return;
+            }
+
+            String backupfilepath = (String) session.getAttribute(homepath);
+            if (backupfilepath != null
+                    && !backupfilepath.isEmpty()
+                    && ((String) session.getAttribute("user")) != null) {
+                File downloadDir = new File(backupfilepath).getCanonicalFile();
+                if (!downloadDir.isDirectory()) {
+                    log.warn("OscarDownload rejected non-directory path from {}", req.getRemoteAddr());
+                    res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download directory.");
+                    return;
+                }
+                // Path traversal protection is enforced by GenericDownload.transferFile() via PathValidationUtils.validatePath(filename, directory)
                 ServletOutputStream stream = res.getOutputStream();
                 transferFile(res, stream, backupfilepath, filename);
                 stream.close();
             } else {
-                res.sendError(HttpServletResponse.SC_FORBIDDEN);
+                res.sendError(HttpServletResponse.SC_FORBIDDEN, "You have no right to download the file(s).");
             }
+        } catch (IOException e) {
+            throw e;
         } catch (Exception e) {
-            logger.error("Error processing download request for {}", req.getRequestURI(), e);
+            log.error("Unexpected error in OscarDownload", e);
             if (!res.isCommitted()) {
-                try {
-                    res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred processing your request.");
-                } catch (IOException ioe) {
-                    logger.error("Failed to send error response", ioe);
-                }
+                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
             }
         }
     }

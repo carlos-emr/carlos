@@ -5,7 +5,7 @@
  * GNU General Public License, Version 2, 1991 (GPLv2).
  * License details are available via "indivica.ca/gplv2"
  * and "gnu.org/licenses/gpl-2.0.html".
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -33,28 +33,27 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
 
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        // ensure it's a local machine request... no one else should be calling this servlet.
+        String remoteAddress = request.getRemoteAddr();
+        logger.debug("EFormImageViewForPdfGenerationServlet request from : {}", remoteAddress);
+
+        if (!"127.0.0.1".equals(remoteAddress) && !"0:0:0:0:0:0:0:1".equals(remoteAddress) && !"::1".equals(remoteAddress)) {
+            logger.warn("Unauthorised request made to EFormImageViewForPdfGenerationServlet from address : {}", remoteAddress);
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+
         try {
-            // ensure it's a local machine request... no one else should be calling this servlet.
-            String remoteAddress = request.getRemoteAddr();
-            logger.debug("EformPdfServlet request from : " + remoteAddress);
-
-            if (!"127.0.0.1".equals(remoteAddress)) {
-                logger.warn("Unauthorised request made to EFormImageViewForPdfGenerationServlet from address : " + remoteAddress);
-                response.sendError(HttpServletResponse.SC_FORBIDDEN);
-                return;
-            }
-
             request.setAttribute("prepareForFax", true);
             RequestDispatcher requestDispatcher = request.getRequestDispatcher("/eform/displayImage.do");
             requestDispatcher.forward(request, response);
+        } catch (ServletException | IOException e) {
+            throw e;
         } catch (Exception e) {
-            logger.error("Error processing request for {}", request.getRequestURI(), e);
+            logger.error("Unexpected error in EFormImageViewForPdfGenerationServlet", e);
             if (!response.isCommitted()) {
-                try {
-                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred processing your request.");
-                } catch (IOException ioe) {
-                    logger.error("Failed to send error response", ioe);
-                }
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
             }
         }
     }

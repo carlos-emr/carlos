@@ -20,11 +20,11 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * HTTP servlet controller for managing private billing operations in British Columbia.
@@ -54,7 +54,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * @since 2026-01-23
  */
 public class PrivateBillingController extends HttpServlet {
-    private static final Logger logger = MiscUtils.getLogger();
+    private static final Logger log = MiscUtils.getLogger();
+
     private static String LIST_PRIVATE_BILLS = "billing/CA/BC/privateBilling/viewStatement.jsp";
     private static String PRINT_PREVIEW_BILLS = "billing/CA/BC/privateBilling/printPreview.jsp";
     private PrivateBillingDAO dao;
@@ -110,9 +111,9 @@ public class PrivateBillingController extends HttpServlet {
             RequestDispatcher view = request.getRequestDispatcher(forward);
             view.forward(request, response);
         } catch (ServletException e) {
-            throw e;
+            log.error("Failed to forward to private bills list view", e);
         } catch (IOException e) {
-            throw e;
+            log.error("I/O error while listing private bills", e);
         }
     }
 
@@ -223,9 +224,9 @@ public class PrivateBillingController extends HttpServlet {
             RequestDispatcher view = request.getRequestDispatcher(forward);
             view.forward(request, response);
         } catch (ServletException e) {
-            throw e;
+            log.error("Failed to forward to print preview view", e);
         } catch (IOException e) {
-            throw e;
+            log.error("I/O error while generating print preview", e);
         }
     }
 
@@ -248,24 +249,31 @@ public class PrivateBillingController extends HttpServlet {
      * @throws ServletException if request forwarding fails
      * @throws IOException if an I/O error occurs during request processing
      */
+    @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        String forward = "";
-        String action = request.getParameter("action");
         try {
-            if ("printPreviewBills".equalsIgnoreCase(action)) {
+            String forward = "";
+            String action = request.getParameter("action");
+            if (action == null) {
+                // action is not provided, by default forward to LIST_PRIVATE_BILLS
+                listPrivateBills(request, response, forward);
+                return;
+            }
+            if (action.equalsIgnoreCase("listPrivateBills")) {
+                listPrivateBills(request, response, forward);
+            } else if (action.equalsIgnoreCase("printPreviewBills")) {
                 printPreviewBills(request, response, forward);
             } else {
-                // Default action (listPrivateBills) handles null, "listPrivateBills", and any unknown action value
+                // unrecognized action value, fall back to default action 'LIST_PRIVATE_BILLS'
                 listPrivateBills(request, response, forward);
             }
+        } catch (ServletException | IOException e) {
+            throw e;
         } catch (Exception e) {
-            logger.error("Error processing private billing request for {}", request.getRequestURI(), e);
+            log.error("Unexpected error in PrivateBillingController", e);
             if (!response.isCommitted()) {
-                try {
-                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred processing your request.");
-                } catch (IOException ioe) {
-                    logger.error("Failed to send error response", ioe);
-                }
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
             }
         }
     }

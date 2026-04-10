@@ -43,10 +43,10 @@ import io.github.carlos_emr.carlos.commn.dao.SecObjPrivilegeDao;
 import io.github.carlos_emr.carlos.commn.model.SecObjPrivilege;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-
 import org.apache.logging.log4j.Logger;
+
 public class BackupDownload extends GenericDownload {
-    private static final Logger logger = MiscUtils.getLogger();
+    private static final Logger log = MiscUtils.getLogger();
 
     @SuppressWarnings("unchecked")
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
@@ -55,7 +55,11 @@ public class BackupDownload extends GenericDownload {
 
             // check the rights - sanitize filename to prevent XSS and path traversal
             String rawFilename = req.getParameter("filename");
-            String filename = (rawFilename == null || rawFilename.isBlank()) ? null : MiscUtils.sanitizeFileName(rawFilename);
+            String filename = rawFilename == null ? null : MiscUtils.sanitizeFileName(rawFilename);
+            if (filename == null || filename.isBlank()) {
+                res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required filename parameter.");
+                return;
+            }
             String dir = (String) session.getAttribute("backupfilepath") == null ? "/home/mysql/" : (String) session.getAttribute("backupfilepath");
 
             boolean adminPrivs = false;
@@ -67,18 +71,17 @@ public class BackupDownload extends GenericDownload {
             }
 
             boolean bDownload = false;
-            if (filename != null && !filename.isBlank() && adminPrivs) {
+            if (filename != null && adminPrivs) {
                 bDownload = true;
             }
             download(bDownload, res, dir, filename, null);
+        } catch (IOException e) {
+            throw e;
         } catch (Exception e) {
-            logger.error("Error processing backup download request for {}", req.getRequestURI(), e);
+            log.error("Unexpected error in BackupDownload", e);
             if (!res.isCommitted()) {
-                try {
-                    res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred processing your request.");
-                } catch (IOException ioe) {
-                    logger.error("Failed to send error response", ioe);
-                }
+                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
             }
         }
     }
