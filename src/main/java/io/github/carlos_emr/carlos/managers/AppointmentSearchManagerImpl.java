@@ -136,7 +136,7 @@ public class AppointmentSearchManagerImpl implements AppointmentSearchManager {
     }
 
     @Override
-    public List<TimeSlot> findAppointment(LoggedInInfo loggedInInfo, SearchConfig config, Integer demographicNo, Long appointmentTypeId, Calendar startDate) throws java.lang.ReflectiveOperationException {
+    public List<TimeSlot> findAppointment(LoggedInInfo loggedInInfo, SearchConfig config, Integer demographicNo, Long appointmentTypeId, Calendar startDate) {
         List<TimeSlot> appointments = new ArrayList<TimeSlot>();
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
         String mrp = demographic.getProviderNo();
@@ -176,10 +176,15 @@ public class AppointmentSearchManagerImpl implements AppointmentSearchManager {
                                     LogSanitizer.sanitize(filterClassName));
                             throw new SecurityException("Unauthorized appointment filter class");
                         }
-                        @SuppressWarnings("unchecked")
-                        Class<AvailableTimeSlotFilter> filterClass = (Class<AvailableTimeSlotFilter>) Class.forName(filterClassName);
-                        logger.debug("filter class null? " + filterClass.getName());
-                        AvailableTimeSlotFilter filterClassInstance = filterClass.getDeclaredConstructor().newInstance();
+                        AvailableTimeSlotFilter filterClassInstance;
+                        try {
+                            @SuppressWarnings("unchecked")
+                            Class<AvailableTimeSlotFilter> filterClass = (Class<AvailableTimeSlotFilter>) Class.forName(filterClassName); // nosemgrep: unsafe-reflection — filterClassName is validated against ALLOWED_FILTER_CLASSES whitelist above
+                            logger.debug("filter class null? " + filterClass.getName());
+                            filterClassInstance = filterClass.getDeclaredConstructor().newInstance();
+                        } catch (ReflectiveOperationException e) {
+                            throw new AppointmentSearchManager.AppointmentSearchException("Failed to instantiate appointment filter", e);
+                        }
                         providerAppointments = filterClassInstance.filterAvailableTimeSlots(config, mrp, provider.getProviderNo(), appointmentTypeId, dayWorkSchedule, providerAppointments, calDayToSearch, className.getParams());
                         /// keep? or change ? recordFilterForSearchedProvider(doc,searchedProviderRecord,dayWorkScheduleTransfer,filterClassInstance.getClass().getSimpleName(), providerAppointments);
                         if (providerAppointments.size() == 0) {

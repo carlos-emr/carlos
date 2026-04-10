@@ -50,7 +50,21 @@ public interface AppointmentSearchManager {
 
     public SearchConfig getProviderSearchConfig(String providerNo);
 
-    public List<TimeSlot> findAppointment(LoggedInInfo loggedInInfo, SearchConfig config, Integer demographicNo, Long appointmentTypeId, Calendar startDate) throws java.lang.ReflectiveOperationException;
+    public List<TimeSlot> findAppointment(LoggedInInfo loggedInInfo, SearchConfig config, Integer demographicNo, Long appointmentTypeId, Calendar startDate);
+
+    /**
+     * Thrown when appointment search filter instantiation fails due to
+     * misconfiguration or an unauthorized filter class name.
+     */
+    public static class AppointmentSearchException extends RuntimeException {
+        public AppointmentSearchException(String message) {
+            super(message);
+        }
+
+        public AppointmentSearchException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
 
     public static List<TimeSlot> getAllowedTimesByType(DayWorkSchedule dayWorkSchedule, Character[] codes, String providerNo) {
         ArrayList<TimeSlot> allowedTimesFilteredByType = new ArrayList<TimeSlot>();

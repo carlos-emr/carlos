@@ -60,7 +60,7 @@ public class OscarJobUtils {
             return false;
         }
 
-        String className = oscarJobType.getClassName();
+        String className = oscarJobType.getClassName().trim();
         if (!className.startsWith(ALLOWED_JOB_PACKAGE_PREFIX)) {
             MiscUtils.getLogger().warn("Rejected job class outside allowed package: {}",
                     LogSanitizer.sanitize(className));
@@ -68,7 +68,7 @@ public class OscarJobUtils {
         }
 
         try {
-            Class clazz = Class.forName(className);
+            Class clazz = Class.forName(className); // nosemgrep: unsafe-reflection — className is validated against ALLOWED_JOB_PACKAGE_PREFIX above
             for (Class i : clazz.getInterfaces()) {
                 if (i.getName().equals("io.github.carlos_emr.carlos.commn.jobs.OscarRunnable")) {
                     return true;
@@ -137,12 +137,12 @@ public class OscarJobUtils {
 
         CronTrigger trigger = new CronTrigger(job.getCronExpression());
 
-        String jobClassName = job.getOscarJobType().getClassName();
+        String jobClassName = job.getOscarJobType().getClassName().trim();
         if (!jobClassName.startsWith(ALLOWED_JOB_PACKAGE_PREFIX)) {
             throw new SecurityException("Job class outside allowed package: "
                     + LogSanitizer.sanitize(jobClassName));
         }
-        OscarRunnable oscarRunnableInstance = Class.forName(jobClassName)
+        OscarRunnable oscarRunnableInstance = Class.forName(jobClassName) // nosemgrep: unsafe-reflection — jobClassName is validated against ALLOWED_JOB_PACKAGE_PREFIX above
                 .asSubclass(OscarRunnable.class)
                 .getDeclaredConstructor()
                 .newInstance();

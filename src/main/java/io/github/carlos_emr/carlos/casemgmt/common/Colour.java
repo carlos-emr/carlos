@@ -63,7 +63,7 @@ public class Colour {
                             LogSanitizer.sanitize(colourClass));
                     return new Colour();
                 }
-                Class<?> clazz = Class.forName(colourClass);
+                Class<?> clazz = Class.forName(colourClass); // nosemgrep: unsafe-reflection — colourClass is validated against ALLOWED_PACKAGE_PREFIX above
                 if (!Colour.class.isAssignableFrom(clazz)) {
                     MiscUtils.getLogger().error("Rejected Colour class not assignable to Colour: {}",
                             LogSanitizer.sanitize(colourClass));
