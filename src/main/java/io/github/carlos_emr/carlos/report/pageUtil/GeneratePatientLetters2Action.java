@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.report.pageUtil;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -63,8 +64,6 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.eform.APExecute;
 import io.github.carlos_emr.carlos.prevention.reports.FollowupManagement;
 import io.github.carlos_emr.carlos.report.data.ManageLetters;
-
-import java.io.File;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
@@ -136,6 +135,11 @@ public class GeneratePatientLetters2Action extends ActionSupport {
 
         ArrayList<Object> fullPatientlist = new ArrayList<Object>();
 
+        if (demos == null || demos.length == 0) {
+            return null;
+        }
+
+        File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         //for each demographic generate a letter for that patient
         for (int i = 0; i < demos.length; i++) {
             //fill the map with patient info
@@ -180,12 +184,11 @@ public class GeneratePatientLetters2Action extends ActionSupport {
                 }
 
                 fileName = newDoc.getFileName();
-                File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
                 File validatedFile = PathValidationUtils.validatePath(fileName, documentDir);
                 // Sync the EDoc filename with the validated (sanitized) name so the DB
                 // record matches the actual file on disk.
                 newDoc.setFileName(validatedFile.getName());
-                String savePath = validatedFile.getPath();
+                String savePath = validatedFile.getAbsolutePath();
                 if (log.isTraceEnabled()) {
                     log.trace("writing report to disk for file {}", LogSanitizer.sanitize(fileName));
                 }
@@ -197,6 +200,8 @@ public class GeneratePatientLetters2Action extends ActionSupport {
 
                 fullPatientlist.add(savePath);
 
+            } catch (SecurityException secEx) {
+                MiscUtils.getLogger().error("Security violation generating letter for demo {}: {}", LogSanitizer.sanitize(demos[i]), secEx.getMessage());
             } catch (Exception jpException) {
                 MiscUtils.getLogger().error("Error", jpException);
             }
