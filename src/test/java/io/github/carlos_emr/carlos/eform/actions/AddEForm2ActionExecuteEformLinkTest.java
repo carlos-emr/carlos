@@ -36,6 +36,7 @@ import jakarta.servlet.http.HttpSession;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.*;
 import org.mockito.*;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -99,7 +100,7 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
 
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
-        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any()))
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
             .thenReturn(mockLoggedInInfo);
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("doc1");
 
