@@ -148,12 +148,12 @@ public class LogReport2Action extends ActionSupport {
             String providerNo = request.getParameter("providerNo");
             boolean bAll = "*".equals(providerNo);
 
-            // Allowlist the content parameter — only "login" passes through literally;
-            // everything else (including the "admin" sentinel) becomes a wildcard.
+            // Allowlist the content parameter — only known values pass through literally;
+            // everything else becomes a wildcard.
             String contentParam = request.getParameter("content");
             String content;
-            if ("login".equals(contentParam)) {
-                content = "login";
+            if ("login".equals(contentParam) || "admin".equals(contentParam)) {
+                content = contentParam;
             } else {
                 content = "%";
             }
