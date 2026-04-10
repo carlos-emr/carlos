@@ -264,7 +264,7 @@ public class PrivateBillingController extends HttpServlet {
             } else if (action.equalsIgnoreCase("printPreviewBills")) {
                 printPreviewBills(request, response, forward);
             } else {
-                // missing 'billIds' parameters, go back to default action 'LIST_PRIVATE_BILLS'
+                // unrecognized action value, fall back to default action 'LIST_PRIVATE_BILLS'
                 listPrivateBills(request, response, forward);
             }
         } catch (ServletException | IOException e) {

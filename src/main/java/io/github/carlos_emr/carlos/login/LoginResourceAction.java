@@ -97,6 +97,7 @@ public class LoginResourceAction extends HttpServlet {
                     File imagesDir = new File(images);
                     image = PathValidationUtils.validatePath(sanitizedFilename, imagesDir);
                 } catch (SecurityException e) {
+                    log.warn("Path validation rejected for filename: {}", sanitizedFilename);
                     response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid resource path");
                     return;
                 }
@@ -122,7 +123,7 @@ public class LoginResourceAction extends HttpServlet {
 
             // Write image content to response.
             Files.copy(image.toPath(), response.getOutputStream());
-        } catch (ServletException | IOException e) {
+        } catch (IOException e) {
             throw e;
         } catch (Exception e) {
             log.error("Unexpected error in LoginResourceAction", e);

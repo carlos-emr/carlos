@@ -45,9 +45,9 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         try {
             // ensure it's a local machine request... no one else should be calling this servlet.
             String remoteAddress = request.getRemoteAddr();
-            logger.debug("EformPdfServlet request from : " + remoteAddress);
-            if (!"127.0.0.1".equals(remoteAddress)) {
-                logger.warn("Unauthorised request made to EFormViewForPdfGenerationServlet from address : " + remoteAddress);
+            logger.debug("EFormViewForPdfGenerationServlet request from : {}", remoteAddress);
+            if (!"127.0.0.1".equals(remoteAddress) && !"0:0:0:0:0:0:0:1".equals(remoteAddress) && !"::1".equals(remoteAddress)) {
+                logger.warn("Unauthorised request made to EFormViewForPdfGenerationServlet from address : {}", remoteAddress);
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return; // Critical: stop execution for non-localhost requests
             }
@@ -119,7 +119,7 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
 
             response.setContentType("text/html;charset=UTF-8");
             response.getOutputStream().write(eForm.getFormHtml().getBytes(Charset.forName("UTF-8")));
-        } catch (ServletException | IOException e) {
+        } catch (IOException e) {
             throw e;
         } catch (Exception e) {
             logger.error("Unexpected error in EFormViewForPdfGenerationServlet", e);

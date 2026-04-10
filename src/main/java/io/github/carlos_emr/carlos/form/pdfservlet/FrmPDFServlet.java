@@ -213,7 +213,7 @@ public class FrmPDFServlet extends HttpServlet {
                 res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "An internal error occurred. Please try again or contact your system administrator.");
             }
-        } catch (ServletException | IOException e) {
+        } catch (java.io.IOException e) {
             throw e;
         } catch (Exception e) {
             log.error("Unexpected error in FrmPDFServlet", e);

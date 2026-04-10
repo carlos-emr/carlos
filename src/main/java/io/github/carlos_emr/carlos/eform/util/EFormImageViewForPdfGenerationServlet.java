@@ -35,7 +35,7 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         // ensure it's a local machine request... no one else should be calling this servlet.
         String remoteAddress = request.getRemoteAddr();
-        logger.debug("EformPdfServlet request from : {}", remoteAddress);
+        logger.debug("EFormImageViewForPdfGenerationServlet request from : {}", remoteAddress);
 
         if (!"127.0.0.1".equals(remoteAddress) && !"0:0:0:0:0:0:0:1".equals(remoteAddress) && !"::1".equals(remoteAddress)) {
             logger.warn("Unauthorised request made to EFormImageViewForPdfGenerationServlet from address : {}", remoteAddress);

@@ -33,7 +33,7 @@ package io.github.carlos_emr.carlos.util;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.PrintWriter;
+
 
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServlet;
@@ -76,7 +76,7 @@ public class GenericDownload extends HttpServlet {
         } catch (IOException e) {
             throw e;
         } catch (SecurityException e) {
-            log.warn("SecurityException in GenericDownload: " + e.getMessage());
+            log.warn("SecurityException in GenericDownload: {}", e.getMessage());
             if (!res.isCommitted()) {
                 res.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied");
             }
@@ -97,12 +97,7 @@ public class GenericDownload extends HttpServlet {
             transferFile(res, stream, dir, filename, contentType);
             stream.close();
         } else {
-            res.setContentType("text/html");
-            PrintWriter out = res.getWriter();
-            out.println("<html>");
-            out.println("<head><body>You have no right to download the file(s).");
-            out.println("</body>");
-            out.println("</html>");
+            res.sendError(HttpServletResponse.SC_FORBIDDEN, "You have no right to download the file(s).");
         }
     }
 
