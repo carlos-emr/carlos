@@ -238,6 +238,29 @@ and other liscences (MIT, LGPL etc) as indicated
             return /^\w+$/.test(str);
         }
 
+        function htmlEncode(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function escapeJsStringInHtml(str) {
+            return String(str)
+                .replace(/\\/g, '\\\\')        // backslash — MUST be first to avoid double-escaping
+                .replace(/&/g, '\\x26')
+                .replace(/"/g, '\\"')
+                .replace(/'/g, "\\'")
+                .replace(/\r/g, '\\r')
+                .replace(/\n/g, '\\n')
+                .replace(/\u2028/g, '\\u2028') // line separator
+                .replace(/\u2029/g, '\\u2029') // paragraph separator
+                .replace(/</g, '\\x3c')
+                .replace(/>/g, '\\x3e');
+        }
+
         function getCheckedValue(radioObj) {
             if (!radioObj)
                 return "";
@@ -791,7 +814,7 @@ and other liscences (MIT, LGPL etc) as indicated
             textTop = "&lt;!DOCTYPE html&gt;\n&lt;html&gt;\n&lt;head&gt;\n"
             textTop += "&lt;META http-equiv=&quot;Content-Type&quot; content=&quot;text/html; charset=UTF-8&quot;&gt;\n";
             textTop += "&lt;title&gt;"
-            textTop += document.getElementById('eFormName').value;
+            textTop += htmlEncode(htmlEncode(document.getElementById('eFormName').value));
             textTop += "&lt;/title&gt;\n";
             // first style that is there for all media
             textTop += "&lt;style&gt;\n";
@@ -1033,7 +1056,7 @@ and other liscences (MIT, LGPL etc) as indicated
                 textTop += "&lt;script language=&quot;javascript&quot;&gt;\n"
                 textTop += "function setFaxNo(){\n"
                 textTop += "\tsetTimeout('document.getElementById(&quot;otherFaxInput&quot;).value=&quot;"
-                textTop += document.getElementById('faxno').value
+                textTop += escapeJsStringInHtml(document.getElementById('faxno').value)
                 textTop += "&quot;',1000);\n"
                 textTop += "} \n"
                 textTop += "&lt;/script&gt;\n\n"
@@ -1174,8 +1197,8 @@ and other liscences (MIT, LGPL etc) as indicated
                 textTop += "//autoloading signature images\n"
                 textTop += "ImgArray.push(\n\t&quot;anonymous|BNK.png&quot;"
                 for (i = 0; i < List.length; i++) {
-                    // Use textContent instead of innerHTML to prevent potential XSS
-                    textTop += ",\n\t&quot;" + List[i].textContent.trim() + "&quot;"
+                    // Escape for JavaScript string context within generated HTML to prevent XSS
+                    textTop += ",\n\t&quot;" + escapeJsStringInHtml(List[i].textContent.trim()) + "&quot;"
                 }
                 textTop += "\n\t);\n\n"
                 textTop += "function SignForm(){\n"
@@ -1309,11 +1332,11 @@ and other liscences (MIT, LGPL etc) as indicated
                 var inputValue = P[13];
                 var inputClassValue = P[14] + P[15];
                 m = "&lt;input name=&quot;"
-                m += inputName
+                m += htmlEncode(htmlEncode(inputName))
                 m += "&quot; id=&quot;"
-                m += inputName
+                m += htmlEncode(htmlEncode(inputName))
                 m += "&quot; type=&quot;text&quot; class=&quot;"
-                m += inputClassValue
+                m += htmlEncode(htmlEncode(inputClassValue))
                 m += "noborder&quot; style=&quot;position:absolute; left:"
                 m += x0
                 m += "px; top:"
@@ -1374,11 +1397,11 @@ and other liscences (MIT, LGPL etc) as indicated
                 var inputValue = P[13];
                 var inputClassValue = P[14] + P[15];
                 m = "&lt;textarea name=&quot;"
-                m += inputName
+                m += htmlEncode(htmlEncode(inputName))
                 m += "&quot; id=&quot;"
-                m += inputName
+                m += htmlEncode(htmlEncode(inputName))
                 m += "&quot; type=&quot;text&quot; class=&quot;"
-                m += inputClassValue
+                m += htmlEncode(htmlEncode(inputClassValue))
                 m += " noborder&quot; style=&quot;position:absolute; left:"
                 m += x0
                 m += "px; top:"
@@ -1430,11 +1453,11 @@ and other liscences (MIT, LGPL etc) as indicated
                 var preCheck = P[4];
                 var inputClassValue = P[5] + P[6];
                 m = "&lt;input name=&quot;"
-                m += inputName
+                m += htmlEncode(htmlEncode(inputName))
                 m += "&quot; id=&quot;"
-                m += inputName
+                m += htmlEncode(htmlEncode(inputName))
                 m += "&quot; class=&quot;"
-                m += inputClassValue
+                m += htmlEncode(htmlEncode(inputClassValue))
                 m += "&quot; type=&quot;checkbox&quot;"
                 if (document.getElementById('ScaleCheckmark').checked) {
                     m += " class=&quot;largerCheckbox&quot;"
@@ -1470,11 +1493,11 @@ and other liscences (MIT, LGPL etc) as indicated
                     inputClassValue += " Xbox";
                 }
                 m = "&lt;input name=&quot;"
-                m += inputName
+                m += htmlEncode(htmlEncode(inputName))
                 m += "&quot; id=&quot;"
-                m += inputName
+                m += htmlEncode(htmlEncode(inputName))
                 m += "&quot; type=&quot;text&quot; class=&quot;"
-                m += inputClassValue
+                m += htmlEncode(htmlEncode(inputClassValue))
                 m += "&quot; style=&quot;position:absolute; left:"
                 m += x0;
                 m += "px; top:";
@@ -1597,7 +1620,7 @@ and other liscences (MIT, LGPL etc) as indicated
                 }
                 textBottom += "&lt;input id=&quot;tickler_priority&quot; type=&quot;hidden&quot; value=&quot;" + document.getElementById('tickler_priority').value + "&quot;&gt;\n"
                 if (document.getElementById('tickler_message').value.length > 0) {
-                    textBottom += "&lt;input id=&quot;tickler_message&quot; type=&quot;hidden&quot; value=&quot;" + document.getElementById('tickler_message').value + "&quot;&gt;\n"
+                    textBottom += "&lt;input id=&quot;tickler_message&quot; type=&quot;hidden&quot; value=&quot;" + htmlEncode(htmlEncode(document.getElementById('tickler_message').value)) + "&quot;&gt;\n"
                 }
             }
 
@@ -2710,7 +2733,7 @@ and other liscences (MIT, LGPL etc) as indicated
                 canvas.setFont("sans-serif", "10px", Font.BOLD);
                 var xt = x0 + StrokeThickness
                 var yt = y0 + StrokeThickness
-                canvas.drawString(inputName, xt, y0);
+                canvas.drawString(htmlEncode(inputName), xt, y0);
                 canvas.paint();
                 canvas.setColor(StrokeColor);
             }
@@ -2738,7 +2761,7 @@ and other liscences (MIT, LGPL etc) as indicated
                 canvas.setFont("sans-serif", "10px", Font.BOLD);
                 var xt = x0 + StrokeThickness
                 var yt = y0 + StrokeThickness
-                canvas.drawString(inputName, xt, y0);
+                canvas.drawString(htmlEncode(inputName), xt, y0);
                 canvas.paint();
                 canvas.setColor(StrokeColor);
             }
@@ -2765,7 +2788,7 @@ and other liscences (MIT, LGPL etc) as indicated
                 canvas.setFont("sans-serif", "10px", Font.BOLD);
                 var xt = x0 + StrokeThickness
                 var yt = y0 + StrokeThickness
-                canvas.drawString(inputName, xt, y0);
+                canvas.drawString(htmlEncode(inputName), xt, y0);
                 canvas.paint();
                 canvas.setColor(StrokeColor);
             }
@@ -2798,7 +2821,7 @@ and other liscences (MIT, LGPL etc) as indicated
                 canvas.setFont("sans-serif", "10px", Font.BOLD);
                 var xt = x0 + StrokeThickness
                 var yt = y0 + StrokeThickness
-                canvas.drawString(inputName, xt, y0);
+                canvas.drawString(htmlEncode(inputName), xt, y0);
                 canvas.paint();
                 canvas.setColor(StrokeColor);
             }
@@ -2859,7 +2882,7 @@ and other liscences (MIT, LGPL etc) as indicated
             canvas.setFont("sans-serif", "10px", Font.BOLD);
             var xt = x0 + StrokeThickness
             var yt = y0 + StrokeThickness
-            canvas.drawString(inputName, xt, y0);
+            canvas.drawString(htmlEncode(inputName), xt, y0);
             canvas.paint();
             canvas.setColor(StrokeColor);
         }
@@ -2887,7 +2910,7 @@ and other liscences (MIT, LGPL etc) as indicated
             canvas.setFont("sans-serif", "10px", Font.BOLD);
             var xt = x0 + StrokeThickness
             var yt = y0 + StrokeThickness
-            canvas.drawString(inputName, xt, y0);
+            canvas.drawString(htmlEncode(inputName), xt, y0);
             canvas.paint();
             canvas.setColor(StrokeColor);
         }
@@ -2959,7 +2982,12 @@ and other liscences (MIT, LGPL etc) as indicated
             if (document.getElementById('ExportMeasurementList').value) {
                 inputName = "m$" + document.getElementById('ExportMeasurementList').value + "#" + document.getElementById('ExportMeasurementField').value;
             } else if (document.getElementById('ExportMeasurementCustom').value) {
-                inputName = "m$" + document.getElementById('ExportMeasurementCustom').value + "#" + document.getElementById('ExportMeasurementField').value;
+                var customMeasurement = document.getElementById('ExportMeasurementCustom').value;
+                if (!isValid(customMeasurement)) {
+                    alert("The custom measurement name can only contain\n letters A-Z a-z numbers 0-9 and underline _");
+                    return false;
+                }
+                inputName = "m$" + customMeasurement + "#" + document.getElementById('ExportMeasurementField').value;
             }
         } else if (inputNameType == "Auto") {
             if (oscarDB) {
@@ -2976,7 +3004,12 @@ and other liscences (MIT, LGPL etc) as indicated
                     inputName = inputName + j;
                 }
             } else {
-                inputName = document.getElementById('AutoNamePrefix').value + inputCounter;
+                var autoPrefix = document.getElementById('AutoNamePrefix').value;
+                if (!isValid(autoPrefix)) {
+                    alert("The auto-name prefix can only contain\n letters A-Z a-z numbers 0-9 and underline _");
+                    return false;
+                }
+                inputName = autoPrefix + inputCounter;
                 ++inputCounter;
             }
         }
