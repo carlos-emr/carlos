@@ -190,11 +190,11 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             }
 
             bean.providerNo = request.getParameter("providerNo");
-            if (bean.providerNo != null && !bean.providerNo.matches("[a-zA-Z0-9]{1,6}")) {
+            if (bean.providerNo != null && !bean.providerNo.isEmpty() && !bean.providerNo.matches("[a-zA-Z0-9]{1,6}")) {
                 log.warn("Invalid providerNo: {}", LogSanitizer.sanitize(bean.providerNo));
                 return "failure";
             }
-            if (bean.providerNo == null) {
+            if (bean.providerNo == null || bean.providerNo.isEmpty()) {
                 bean.providerNo = (String) request.getSession().getAttribute("user");
             }
 
@@ -212,7 +212,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             }
 
             bean.curProviderNo = request.getParameter("curProviderNo");
-            if (bean.curProviderNo != null && !bean.curProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
+            if (bean.curProviderNo != null && !bean.curProviderNo.isEmpty() && !bean.curProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
                 log.warn("Invalid curProviderNo: {}", LogSanitizer.sanitize(bean.curProviderNo));
                 return "failure";
             }
