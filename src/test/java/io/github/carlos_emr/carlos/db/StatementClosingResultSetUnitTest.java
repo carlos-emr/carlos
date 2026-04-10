@@ -176,6 +176,28 @@ class StatementClosingResultSetUnitTest {
     }
 
     /**
+     * When only Statement.close() throws (ResultSet.close() succeeds), the statement
+     * exception must be propagated to the caller. This exercises the else-branch where
+     * rsThrowable is null but stmtThrowable is non-null.
+     */
+    @Test
+    @DisplayName("should propagate statement exception when only statement close throws")
+    void shouldPropagateStatementException_whenOnlyStatementCloseThrows() throws SQLException {
+        // Given
+        ResultSet mockRs = Mockito.mock(ResultSet.class);
+        Statement mockStmt = Mockito.mock(Statement.class);
+        doThrow(new SQLException("stmt close error")).when(mockStmt).close();
+        ResultSet wrapped = StatementClosingResultSet.wrap(mockRs, mockStmt);
+
+        // When / Then — the SQLException from stmt.close() is propagated…
+        assertThatThrownBy(wrapped::close)
+            .isInstanceOf(SQLException.class)
+            .hasMessage("stmt close error");
+        // …and rs.close() was still called
+        verify(mockRs).close();
+    }
+
+    /**
      * When both close() calls throw, the statement exception must be
      * attached as a suppressed exception on the result-set exception.
      */

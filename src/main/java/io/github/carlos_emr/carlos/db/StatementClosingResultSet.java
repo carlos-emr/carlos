@@ -94,7 +94,7 @@ final class StatementClosingResultSet implements InvocationHandler {
             throw new IllegalArgumentException("Statement must not be null");
         }
         return (ResultSet) Proxy.newProxyInstance(
-            ResultSet.class.getClassLoader(),
+            rs.getClass().getClassLoader(),
             new Class<?>[] { ResultSet.class },
             new StatementClosingResultSet(rs, stmt)
         );
