@@ -95,9 +95,14 @@ public final class DBHandler {
 	}
 
 	public static ResultSet GetPreSQL(String sql, Object... params) throws SQLException {
+		return GetPreSQL(sql, false, params);
+	}
+
+	public static ResultSet GetPreSQL(String sql, boolean updatable, Object... params) throws SQLException {
 		PreparedStatement ps = DbConnectionFilter
 			.getThreadLocalDbConnection()
-			.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
+			.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE,
+				updatable ? ResultSet.CONCUR_UPDATABLE : ResultSet.CONCUR_READ_ONLY);
 		bindParams(ps, params);
 		return ps.executeQuery();
 	}

@@ -1169,8 +1169,8 @@ public class MSPReconcile {
 
                 // WCB SECTION ---------------------------------------------------------
                 if (b.isWCB()) {
-                    String wcbQry = "select bill_amount, w_feeitem, w_icd9 from wcb where billing_no = '" + b.billing_no + "'";
-                    String[] wcbRow = SqlUtils.getRow(wcbQry);
+                    String wcbQry = "select bill_amount, w_feeitem, w_icd9 from wcb where billing_no = ?";
+                    String[] wcbRow = SqlUtils.getRow(wcbQry, b.billing_no);
                     if (wcbRow != null) {
                         b.amount = wcbRow[0];
                         b.code = wcbRow[1];
@@ -1622,7 +1622,7 @@ public class MSPReconcile {
         }
         if (providerNo != null && !providerNo.trim().equalsIgnoreCase("all")) {
             if (MSPReconcile.REP_PAYREF.equals(repType)) {
-                String[] row = SqlUtils.getRow("select ohip_no from provider where provider_no = " + providerNo);
+                String[] row = SqlUtils.getRow("select ohip_no from provider where provider_no = ?", providerNo);
                 if (row != null && row.length > 0) {
                     String ohip_no = row[0];
                     criteriaQry += " and t_practitionerno = '" + ohip_no + "'";

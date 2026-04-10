@@ -138,6 +138,10 @@ public class CategoryData {
 	private String hrmViewed = "";
 	private String hrmSignedOff = "";
 
+    private final List<Object> labDateParams = new ArrayList<>();
+    private final List<Object> documentDateParams = new ArrayList<>();
+    private final java.util.Map<String, Object> hrmParams = new java.util.LinkedHashMap<>();
+
     public CategoryData(String patientLastName, String patientFirstName, String patientHealthNumber, boolean patientSearch,
                         boolean providerSearch, String searchProviderNo, String status, String abnormalStatus,
                         String startDate, String endDate) {
@@ -163,26 +167,36 @@ public class CategoryData {
 
         if (startDate != null && !startDate.equals("")) {
             if (dateSearchType.equals("receivedCreated")) {
-                documentDateSql += "AND doc.contentdatetime >= '" + startDate + " 00:00:00' ";
-                labDateSql += "AND message.created >= '" + startDate + " 00:00:00' ";
+                documentDateSql += "AND doc.contentdatetime >= ? ";
+                documentDateParams.add(startDate + " 00:00:00");
+                labDateSql += "AND message.created >= ? ";
+                labDateParams.add(startDate + " 00:00:00");
             } else {
-                documentDateSql += "AND doc.observationdate >= '" + startDate + " 00:00:00' ";
-                labDateSql += "AND info.obr_date >= '" + startDate + " 00:00:00' ";
+                documentDateSql += "AND doc.observationdate >= ? ";
+                documentDateParams.add(startDate + " 00:00:00");
+                labDateSql += "AND info.obr_date >= ? ";
+                labDateParams.add(startDate + " 00:00:00");
             }
 
-            hrmDateSql += "AND h.timeReceived >= '" + startDate + " 00:00:00' ";
+            hrmDateSql += "AND h.timeReceived >= :hrmStartDate ";
+            hrmParams.put("hrmStartDate", startDate + " 00:00:00");
         }
 
         if (endDate != null && !endDate.equals("")) {
             if (dateSearchType.equals("receivedCreated")) {
-                documentDateSql += "AND doc.contentdatetime <= '" + endDate + " 23:59:59' ";
-                labDateSql += "AND message.created <= '" + endDate + " 23:59:59' ";
+                documentDateSql += "AND doc.contentdatetime <= ? ";
+                documentDateParams.add(endDate + " 23:59:59");
+                labDateSql += "AND message.created <= ? ";
+                labDateParams.add(endDate + " 23:59:59");
             } else {
-                documentDateSql += "AND doc.observationdate <= '" + endDate + " 23:59:59' ";
-                labDateSql += "AND info.obr_date <= '" + endDate + " 23:59:59' ";
+                documentDateSql += "AND doc.observationdate <= ? ";
+                documentDateParams.add(endDate + " 23:59:59");
+                labDateSql += "AND info.obr_date <= ? ";
+                labDateParams.add(endDate + " 23:59:59");
             }
 
-            hrmDateSql += "AND h.timeReceived <= '" + endDate + " 23:59:59' ";
+            hrmDateSql += "AND h.timeReceived <= :hrmEndDate ";
+            hrmParams.put("hrmEndDate", endDate + " 23:59:59");
         }
 
         if (abnormalStatus != null && !abnormalStatus.equals("all")) {
@@ -203,7 +217,8 @@ public class CategoryData {
             if (searchProviderNo.equals("0")) {
                 hrmProviderSql += " AND hp.providerNo ='-1'";
             } else {
-                hrmProviderSql += " AND hp.providerNo ='" + searchProviderNo + "' ";
+                hrmProviderSql += " AND hp.providerNo = :hrmProviderNo ";
+                hrmParams.put("hrmProviderNo", searchProviderNo);
             }
         }
 
@@ -305,6 +320,7 @@ public class CategoryData {
         int paramIndex = 1;
         if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
         if (!"".equals(status)) ps.setString(paramIndex++, status);
+        for (Object p : labDateParams) ps.setString(paramIndex++, (String) p);
 
         ResultSet rs = ps.executeQuery();
 
@@ -379,6 +395,7 @@ public class CategoryData {
         int paramIndex = 1;
         if (!"".equals(status)) ps.setString(paramIndex++, status);
         if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
+        for (Object p : documentDateParams) ps.setString(paramIndex++, (String) p);
         ResultSet rs = ps.executeQuery();
 
         return (rs.next() ? rs.getInt("count") : 0);
@@ -414,6 +431,7 @@ public class CategoryData {
         if (!StringUtils.isEmpty(patientHealthNumber)) ps.setString(paramIndex++, "%" + patientHealthNumber + "%");
         if (!"".equals(status)) ps.setString(paramIndex++, status);
         if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
+        for (Object p : labDateParams) ps.setString(paramIndex++, (String) p);
         ResultSet rs = ps.executeQuery();
 
         int totalCount = 0;
@@ -516,6 +534,7 @@ public class CategoryData {
         if (!StringUtils.isEmpty(patientFirstName)) ps.setString(paramIndex++, "%" + patientFirstName + "%");
         if (!"".equals(status)) ps.setString(paramIndex++, status);
         if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
+        for (Object p : documentDateParams) ps.setString(paramIndex++, (String) p);
 
         ResultSet rs = ps.executeQuery();
 
@@ -559,6 +578,7 @@ public class CategoryData {
         if (StringUtils.isNotEmpty(patientFirstName)) {
             query.setParameter("patientFirstName", "%" + patientFirstName + "%");
         }
+        hrmParams.forEach(query::setParameter);
 
         // Executing the query and processing the results
 		List<Tuple> results = query.getResultList();
@@ -602,6 +622,7 @@ public class CategoryData {
 
 		// Create a native query using the entity manager
 		Query query = entityManager.createNativeQuery(sql.toString(), Tuple.class);
+		hrmParams.forEach(query::setParameter);
 
 		// Execute the query and retrieve the results
 		List<Tuple> results = query.getResultList();

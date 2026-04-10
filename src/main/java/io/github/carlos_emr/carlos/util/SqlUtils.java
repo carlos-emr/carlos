@@ -55,13 +55,28 @@ public class SqlUtils {
      * @return List - The List of String[] results or null if no results were yielded
      */
     public static List<String[]> getQueryResultsList(String qry) {
+        return getQueryResultsList(qry, new Object[0]);
+    }
+
+    /**
+     * Returns a List of String[] which contain the results of the specified parameterized query.
+     *
+     * @param qry    the SQL query with {@code ?} placeholders
+     * @param params the parameter values to bind
+     * @return the List of String[] results or null if no results were yielded
+     */
+    public static List<String[]> getQueryResultsList(String qry, Object... params) {
         ArrayList<String[]> records = null;
         ResultSet rs = null;
 
         try {
             records = new ArrayList<String[]>();
 
-            rs = DBHandler.GetSQL(qry);
+            if (params != null && params.length > 0) {
+                rs = DBHandler.GetPreSQL(qry, params);
+            } else {
+                rs = DBHandler.GetSQL(qry);
+            }
             int cols = rs.getMetaData().getColumnCount();
             while (rs.next()) {
                 String[] record = new String[cols];
@@ -86,6 +101,22 @@ public class SqlUtils {
             records = records.isEmpty() ? null : records;
         }
         return records;
+    }
+
+    /**
+     * Returns a single row from a parameterized query result.
+     *
+     * @param qry    the SQL query with {@code ?} placeholders
+     * @param params the parameter values to bind
+     * @return String[] the first result row, or null if no results
+     */
+    public static String[] getRow(String qry, Object... params) {
+        String ret[] = null;
+        List<String[]> list = getQueryResultsList(qry, params);
+        if (list != null) {
+            ret = list.get(0);
+        }
+        return ret;
     }
 
     /**

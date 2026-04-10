@@ -81,8 +81,8 @@ public class EctPatientData {
         Patient p = null;
         ResultSet rs = null;
         try {
-            rs = DBHandler.GetSQL("SELECT demographic_no, last_name, first_name, sex, year_of_birth, month_of_birth, date_of_birth, address, city, postal, phone, roster_status FROM demographic WHERE demographic_no = "
-                    + demographicNo);
+            rs = DBHandler.GetPreSQL("SELECT demographic_no, last_name, first_name, sex, year_of_birth, month_of_birth, date_of_birth, address, city, postal, phone, roster_status FROM demographic WHERE demographic_no = ?",
+                    demographicNo);
             if (rs.next())
                 p = new Patient(rs.getInt("demographic_no"), Misc.getString(rs, "last_name"), Misc.getString(rs, "first_name"),
                         Misc.getString(rs, "sex"), UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), rs

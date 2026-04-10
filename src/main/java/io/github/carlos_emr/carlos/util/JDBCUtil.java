@@ -126,16 +126,17 @@ public class JDBCUtil {
 
 
             //check if the data existed in the database already...
-            String sql = "SELECT * FROM " + formName + " WHERE demographic_no='"
-                    + demographicNo + "' AND formEdited='" + timeStamp + "'";
+            if (!formName.matches("[a-zA-Z][a-zA-Z0-9_]*")) {
+                throw new IllegalArgumentException("Invalid form table name: " + formName);
+            }
+            String sql = "SELECT * FROM " + formName + " WHERE demographic_no=? AND formEdited=?";
             MiscUtils.getLogger().debug(sql);
-            ResultSet rs = DBHandler.GetSQL(sql);
+            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo, timeStamp);
             if (!rs.first()) {
                 rs.close();
-                sql = "SELECT * FROM " + formName + " WHERE demographic_no='"
-                        + demographicNo + "' AND ID='0'";
+                sql = "SELECT * FROM " + formName + " WHERE demographic_no=? AND ID='0'";
                 MiscUtils.getLogger().debug("sql: " + sql);
-                rs = DBHandler.GetSQL(sql, true);
+                rs = DBHandler.GetPreSQL(sql, true, demographicNo);
                 rs.moveToInsertRow();
                 // setValidating(true) was removed — incompatible with disallow-doctype-decl which rejects all DOCTYPEs
                 DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
