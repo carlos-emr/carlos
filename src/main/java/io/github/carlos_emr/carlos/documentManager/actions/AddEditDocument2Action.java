@@ -463,13 +463,14 @@ public class AddEditDocument2Action extends ActionSupport {
             String reviewDateTime = filled(this.getReviewDateTime()) ? this.getReviewDateTime() : "";
 
             if (!filled(reviewerId) && this.getReviewDoc()) {
-                reviewerId = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+                LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+                reviewerId = loggedInInfo.getLoggedInProviderNo();
                 reviewDateTime = UtilDateUtilities.DateToString(new Date(), EDocUtil.REVIEW_DATETIME_FORMAT);
                 if (this.getFunction() != null && this.getFunction().equals("demographic")) {
-                    LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(),
+                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(),
 request.getRemoteAddr(), this.getFunctionId());
                 } else {
-                    LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(),
+                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(),
 request.getRemoteAddr());
                 }
             }

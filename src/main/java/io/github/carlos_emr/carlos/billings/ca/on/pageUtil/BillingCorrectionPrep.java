@@ -124,7 +124,8 @@ public class BillingCorrectionPrep {
                     .getProviderObj(requestData.getParameter("provider_no"));
             ch1Obj.setProvider_ohip_no(otemp.getOhipNo());
             ch1Obj.setProvider_rma_no(otemp.getRmaNo());
-            ch1Obj.setCreator(LoggedInInfo.getLoggedInInfoFromSession(requestData).getLoggedInProviderNo());
+            LoggedInInfo liCreator = LoggedInInfo.getLoggedInInfoFromSession(requestData);
+            ch1Obj.setCreator(liCreator != null ? liCreator.getLoggedInProviderNo() : null);
 
             ch1Obj.setClinic(requestData.getParameter("site"));
 
@@ -183,8 +184,9 @@ public class BillingCorrectionPrep {
             // add transaction log refer to https://github.com/oscaremr/oscar/issues/233
             BillingOnTransactionDao billTransDao = (BillingOnTransactionDao) SpringUtils
                     .getBean(BillingOnTransactionDao.class);
+            LoggedInInfo liTrans = LoggedInInfo.getLoggedInInfoFromSession(requestData);
             BillingOnTransaction billTrans = billTransDao.getUpdateCheader1TransTemplate(ch1Obj,
-                    LoggedInInfo.getLoggedInInfoFromSession(requestData).getLoggedInProviderNo());
+                    liTrans != null ? liTrans.getLoggedInProviderNo() : null);
             billTransDao.persist(billTrans);
         }
 
@@ -237,7 +239,8 @@ public class BillingCorrectionPrep {
         // _logger.info("updateBillingItem(old value = ");
 
         BillingClaimHeader1Data ch1Obj = (BillingClaimHeader1Data) lItemObj.get(0);
-        String updateProviderNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+        LoggedInInfo liUpdate = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String updateProviderNo = liUpdate != null ? liUpdate.getLoggedInProviderNo() : null;
         lItemObj.remove(0);
 
         Vector<String> vecName = new Vector<String>();

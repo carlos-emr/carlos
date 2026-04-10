@@ -141,7 +141,8 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         documentDescriptionTemplate.setId(id);
         documentDescriptionTemplate.setProviderNo(providerNo);
         this.documentDescriptionTemplateDao.merge(documentDescriptionTemplate);
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSanitizer.sanitize(providerNo), request.getRemoteAddr(), null, LogSanitizer.sanitize(ids) + " [" + LogSanitizer.sanitize(docType) + "] " + LogSanitizer.sanitize(descriptionShortcut) + " | " + LogSanitizer.sanitize(description));
+        LoggedInInfo loggedInInfoUpdate = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LogAction.addLog(loggedInInfoUpdate != null ? loggedInInfoUpdate.getLoggedInProviderNo() : null, LogConst.UPDATE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSanitizer.sanitize(providerNo), request.getRemoteAddr(), null, LogSanitizer.sanitize(ids) + " [" + LogSanitizer.sanitize(docType) + "] " + LogSanitizer.sanitize(descriptionShortcut) + " | " + LogSanitizer.sanitize(description));
         return null;
     }
 
@@ -149,7 +150,8 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         String ids = request.getParameter("id");
         Integer id = Integer.valueOf(ids);
         this.documentDescriptionTemplateDao.remove(id);
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSanitizer.sanitize(ids), request.getRemoteAddr());
+        LoggedInInfo loggedInInfoDelete = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LogAction.addLog(loggedInInfoDelete != null ? loggedInInfoDelete.getLoggedInProviderNo() : null, LogConst.DELETE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSanitizer.sanitize(ids), request.getRemoteAddr());
         return null;
     }
 
@@ -160,7 +162,8 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         if (DocumentDescriptionShorcut == null || !DocumentDescriptionShorcut.equals(UserProperty.USER)) {
             DocumentDescriptionShorcut = UserProperty.CLINIC;
         }
-        String provider = (String) request.getSession().getAttribute("user");
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String provider = loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null;
         UserProperty uProperty = userPropertyDAO.getProp(provider, UserProperty.DOCUMENT_DESCRIPTION_TEMPLATE);
         if (uProperty == null) {
             uProperty = new UserProperty();
