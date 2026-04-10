@@ -106,7 +106,7 @@
                             face="Verdana" color="#0000FF"><b><i><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.search.formSearchCriteria"/></i></b></font></td>
                     <td nowrap><font size="1" face="Verdana" color="#0000FF">
                         <input type="radio"
-                                <%=request.getParameter("search_mode").equals("search_prev")?"checked":""%>
+                                <%="search_prev".equals(request.getParameter("search_mode"))?"checked":""%>
                                name="search_mode" value="search_prev"
                                onclick="document.forms['searchlotnr'].keyword.focus();"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearch.prevention"/></font></td>
                     <td valign="middle" rowspan="2" ALIGN="left"><input type="text"
@@ -155,10 +155,10 @@
                         nItems++;
                 %>
                 <tr bgcolor="<%=bodd?"white":weakcolor%>">
-                    <td><%=pRec.getPreventionType()%>
+                    <td><%=Encode.forHtml(pRec.getPreventionType())%>
                     </td>
                     <td><a
-                     href="${pageContext.request.contextPath}/admin/lotnrdeleterecordhtm.jsp?prevention=<%=pRec.getPreventionType()%>&lotnr=<%=URLEncoder.encode(pRec.getLotNr(), StandardCharsets.UTF_8)%>"><%= pRec.getLotNr()%>
+                     href="${pageContext.request.contextPath}/admin/lotnrdeleterecordhtm.jsp?prevention=<%=Encode.forUriComponent(pRec.getPreventionType())%>&lotnr=<%=URLEncoder.encode(pRec.getLotNr(), StandardCharsets.UTF_8)%>"><%=Encode.forHtml(pRec.getLotNr())%>
                     </a></td>
                 </tr>
                 <% }

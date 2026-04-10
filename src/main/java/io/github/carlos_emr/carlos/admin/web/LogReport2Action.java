@@ -215,20 +215,19 @@ public class LogReport2Action extends ActionSupport {
             while (logRs.next()) {
                 Properties prop = new Properties();
                 prop.setProperty("dateTime", "" + logRs.getTimestamp("dateTime"));
-                prop.setProperty("action",
-                        Encode.forHtmlContent(Misc.getString(logRs, "action")));
-                prop.setProperty("content",
-                        Encode.forHtmlContent(Misc.getString(logRs, "content")));
-                prop.setProperty("contentId",
-                        Encode.forHtmlContent(Misc.getString(logRs, "contentId")));
+                // Do not pre-encode these string fields — the JSP uses <c:out> which encodes on output.
+                // Pre-encoding here would cause double-encoding (e.g. "<" → "&amp;lt;").
+                prop.setProperty("action", Misc.getString(logRs, "action"));
+                prop.setProperty("content", Misc.getString(logRs, "content"));
+                prop.setProperty("contentId", Misc.getString(logRs, "contentId"));
                 prop.setProperty("ip", Misc.getString(logRs, "ip"));
-                prop.setProperty("provider_no",
-                        Encode.forHtmlContent(Misc.getString(logRs, "provider_no")));
-                prop.setProperty("demographic_no",
-                        Encode.forHtmlContent(Misc.getString(logRs, "demographic_no")));
+                prop.setProperty("provider_no", Misc.getString(logRs, "provider_no"));
+                prop.setProperty("demographic_no", Misc.getString(logRs, "demographic_no"));
+                // For 'data' we inject <br/> line-break tags, so we must encode HTML-special chars
+                // first and then add the <br/> tags. The JSP outputs this field raw (not via <c:out>)
+                // to preserve the injected markup.
                 prop.setProperty("data",
-                        Encode.forHtmlContent(Misc.getString(logRs, "data"))
-                                .replaceAll("\n", "\n<br/>"));
+                        Encode.forHtml(Misc.getString(logRs, "data")).replaceAll("\n", "<br/>"));
                 vec.add(prop);
             }
 

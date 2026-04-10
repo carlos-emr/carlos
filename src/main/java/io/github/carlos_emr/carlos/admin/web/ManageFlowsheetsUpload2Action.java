@@ -31,8 +31,6 @@ package io.github.carlos_emr.carlos.admin.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.commn.dao.FlowsheetDao;
-import io.github.carlos_emr.carlos.commn.model.Flowsheet;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -56,7 +54,6 @@ public class ManageFlowsheetsUpload2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private FlowsheetDao flowsheetDao = SpringUtils.getBean(FlowsheetDao.class);
 
     @Override
     public String execute() throws Exception {

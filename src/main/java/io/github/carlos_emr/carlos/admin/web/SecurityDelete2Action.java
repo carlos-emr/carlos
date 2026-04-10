@@ -74,7 +74,7 @@ public class SecurityDelete2Action extends ActionSupport {
             return NONE;
         }
 
-        String securityNoStr = request.getParameter("security_no");
+        String securityNoStr = request.getParameter("keyword");
         if (securityNoStr != null && !securityNoStr.isEmpty()) {
             try {
                 int securityNo = Integer.parseInt(securityNoStr);
@@ -86,7 +86,7 @@ public class SecurityDelete2Action extends ActionSupport {
                     LogAction.addLog(
                         loggedInInfo.getLoggedInProviderNo(),
                         LogConst.DELETE,
-                        LogConst.CON_PRIVILEGE,
+                        LogConst.CON_SECURITY,
                         securityNoStr,
                         request.getRemoteAddr()
                     );

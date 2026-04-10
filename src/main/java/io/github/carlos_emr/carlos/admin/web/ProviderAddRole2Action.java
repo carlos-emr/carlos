@@ -56,16 +56,20 @@ public class ProviderAddRole2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
-            return NONE;
-        }
-
+        // Auth check must always come before method enforcement.
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "r", null)) {
             throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
+        }
+
+        // Only the Save mutation requires POST; initial form display (GET) is allowed.
+        String submit = request.getParameter("submit");
+        boolean isSave = "Save".equals(submit);
+        if (isSave && !"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
         }
 
         return SUCCESS;

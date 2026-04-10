@@ -48,24 +48,7 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-
-<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogAction,io.github.carlos_emr.carlos.log.LogConst" %>
-<%@ page import="io.github.carlos_emr.carlos.log.*, io.github.carlos_emr.carlos.db.*" %>
-
-<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
-<%
-    if (!"POST".equalsIgnoreCase(request.getMethod())) {
-        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
-        return;
-    }
-    PreventionsLotNrsDao PreventionsLotNrsDao = (PreventionsLotNrsDao) SpringUtils.getBean(PreventionsLotNrsDao.class);
-%>
+<%@ page import="org.owasp.encoder.Encode" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -83,52 +66,19 @@
             </tr>
         </table>
         <%
-            String curUser_no = (String) session.getAttribute("user");
-            String prevention = request.getParameter("prevention");
-            String lotnr = request.getParameter("lotnr");
-            List<String> currentLotnrs = PreventionsLotNrsDao.findLotNrs(prevention, false);
-            List<String> deletedLotnrs = PreventionsLotNrsDao.findLotNrs(prevention, true);
-
-            if (deletedLotnrs.contains(lotnr)) {
-                PreventionsLotNrs p = PreventionsLotNrsDao.findByName(prevention, lotnr, true);
-                if (p != null) {
-                    p.setDeleted(false);
-                    PreventionsLotNrsDao.merge(p);
+            // All business logic (duplicate check, insert/restore) is handled by LotNrAddRecord2Action.
+            // This JSP only displays the outcome and navigation links.
+            String resultMsg = (String) request.getAttribute("resultMsg");
+            String prevention = (String) request.getAttribute("prevention");
+            if (prevention == null) prevention = "";
         %>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotaddrecord.msgAdditionSuccess"/>
-        <%
-            }
-        } else if (currentLotnrs.contains(lotnr)) {
-        %>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotaddrecord.msgDuplicateLotnr"/>
-        <%
-        } else {
-            PreventionsLotNrs p = new PreventionsLotNrs();
-            p.setPreventionType(prevention);
-            p.setLotNr(lotnr);
-            p.setProviderNo((String) session.getAttribute("user"));
-            p.setCreationDate(new java.util.Date());
-            p.setDeleted(false);
-
-            PreventionsLotNrsDao.persist(p);
-
-            if (p.getId() != null) {
-        %>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotaddrecord.msgAdditionSuccess"/>
-        <%
-        } else {
-        %>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotaddrecord.msgAdditionFailure"/>
-        <%
-                }
-            }
-        %>
+        <%= resultMsg != null ? Encode.forHtml(resultMsg) : "" %>
         <br/>
         <a href="${pageContext.request.contextPath}/admin/lotnraddrecordhtm.jsp?prevention=<%=URLEncoder.encode(prevention,"UTF-8")%>">Add Another Lot #
-            to <%=prevention %>
+            to <%=Encode.forHtml(prevention)%>
         </a> <br/>
         <a href="${pageContext.request.contextPath}/admin/LotNrSearchResults.do?search_mode=search_prev&keyword=<%=URLEncoder.encode(prevention,"UTF-8")%>&orderby=prevention_type&dboperation=lotnr_search_prevention&limit1=0&limit2=10&button=submit">View
-            Lots for <%=prevention %>
+            Lots for <%=Encode.forHtml(prevention)%>
         </a>
     </center>
     </body>

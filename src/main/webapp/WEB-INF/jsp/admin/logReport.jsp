@@ -40,8 +40,6 @@
 
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    String curUser_no = (String) session.getAttribute("user");
-    boolean isSiteAccessPrivacy = false;
     boolean authed = true;
 %>
 
@@ -56,49 +54,23 @@
 %>
 
 
-<security:oscarSec objectName="_site_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false">
-    <%isSiteAccessPrivacy = true; %>
-</security:oscarSec>
-
-
 <%
     String tdTitleColor = "#CCCC99";
     String tdSubtitleColor = "#CCFF99";
     String tdInterlColor = "white";
     String startDate = request.getParameter("startDate");
     String endDate = request.getParameter("endDate");
-    Vector vecProvider = new Vector();
     Properties prop = null;
-    String providerName = "";
-    String sql = "";
-//providers name list, date, action, create button
-%>
-
-<%
-    DBPreparedHandler dbObj = new DBPreparedHandler();
-    Properties propName = new Properties();
-    // select providers list
-    if (isSiteAccessPrivacy) {
-        sql = "select p.* from provider p INNER JOIN providersite s ON p.provider_no = s.provider_no WHERE s.site_id IN (SELECT site_id from providersite where provider_no=" + curUser_no + ") order by p.first_name, p.last_name";
-    } else {
-        sql = "select * from provider p order by p.first_name, p.last_name ";
-    }
-    ResultSet rs = dbObj.queryResults(sql);
-
-    while (rs.next()) {
-        propName.setProperty(Misc.getString(rs, "provider_no"), Misc.getString(rs, "first_name") + " " + Misc.getString(rs, "last_name"));
-        prop = new Properties();
-
-        prop.setProperty("providerNo", Misc.getString(rs, "provider_no"));
-        prop.setProperty("name", Misc.getString(rs, "first_name") + " " + Misc.getString(rs, "last_name"));
-        vecProvider.add(prop);
-    }
+    // Provider list and name map are populated by LogReport2Action using parameterized SQL.
+    @SuppressWarnings("unchecked")
+    java.util.Vector<Properties> vecProvider = (java.util.Vector<Properties>) request.getAttribute("vecProvider");
+    Properties propName = (Properties) request.getAttribute("propName");
+    if (vecProvider == null) vecProvider = new java.util.Vector<>();
+    if (propName == null) propName = new Properties();
 %>
 
 <%@page import="io.github.carlos_emr.Misc" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandler" %>
-<%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandlerParam" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <html>
     <head>
@@ -214,6 +186,7 @@
         Boolean bAllAttr = (Boolean) request.getAttribute("bAll");
         boolean bAll = bAllAttr != null && bAllAttr;
         String providerNo = (String) request.getAttribute("providerNo");
+        if (providerNo == null) providerNo = "";
         if (vec == null) vec = new Vector<Properties>();
     %>
     <h4><%
@@ -262,7 +235,7 @@ for (int i = 0; i < vec.size(); i++) {
             <td><c:out value='<%=propName.getProperty(prop.getProperty("provider_no"), "")%>'/></td>
             <% } %>
             <td><c:out value='<%=prop.getProperty("demographic_no")%>'/></td>
-            <td><c:out value='<%=prop.getProperty("data") %>'/></td>
+            <td><%=prop.getProperty("data") %></td>
         </tr>
 
                 <% } %>
