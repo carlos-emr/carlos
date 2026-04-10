@@ -706,21 +706,30 @@ public class EForm extends EFormBase {
     }
 
     public String replaceAllFields(String sql) {
-        sql = DatabaseAP.parserReplace("demographic", demographicNo, sql);
-        sql = DatabaseAP.parserReplace("provider", providerNo, sql);
-        sql = DatabaseAP.parserReplace("providers", providerNo, sql);
-        sql = DatabaseAP.parserReplace("appt_no", appointment_no, sql);
+        sql = DatabaseAP.parserReplace("demographic", escapeSqlValue(demographicNo), sql);
+        sql = DatabaseAP.parserReplace("provider", escapeSqlValue(providerNo), sql);
+        sql = DatabaseAP.parserReplace("providers", escapeSqlValue(providerNo), sql);
+        sql = DatabaseAP.parserReplace("appt_no", escapeSqlValue(appointment_no), sql);
 
-        sql = DatabaseAP.parserReplace(EFORM_DEMOGRAPHIC, getSqlParams(EFORM_DEMOGRAPHIC), sql);
-        sql = DatabaseAP.parserReplace(REF_FID, getSqlParams(REF_FID), sql);
-        sql = DatabaseAP.parserReplace(VAR_NAME, getSqlParams(VAR_NAME), sql);
-        sql = DatabaseAP.parserReplace(VAR_VALUE, getSqlParams(VAR_VALUE), sql);
-        sql = DatabaseAP.parserReplace(REF_VAR_NAME, getSqlParams(REF_VAR_NAME), sql);
-        sql = DatabaseAP.parserReplace(REF_VAR_VALUE, getSqlParams(REF_VAR_VALUE), sql);
-        sql = DatabaseAP.parserReplace(TABLE_NAME, getSqlParams(TABLE_NAME), sql);
-        sql = DatabaseAP.parserReplace(TABLE_ID, getSqlParams(TABLE_ID), sql);
-        sql = DatabaseAP.parserReplace(OTHER_KEY, getSqlParams(OTHER_KEY), sql);
+        sql = DatabaseAP.parserReplace(EFORM_DEMOGRAPHIC, escapeSqlValue(getSqlParams(EFORM_DEMOGRAPHIC)), sql);
+        sql = DatabaseAP.parserReplace(REF_FID, escapeSqlValue(getSqlParams(REF_FID)), sql);
+        sql = DatabaseAP.parserReplace(VAR_NAME, escapeSqlValue(getSqlParams(VAR_NAME)), sql);
+        sql = DatabaseAP.parserReplace(VAR_VALUE, escapeSqlValue(getSqlParams(VAR_VALUE)), sql);
+        sql = DatabaseAP.parserReplace(REF_VAR_NAME, escapeSqlValue(getSqlParams(REF_VAR_NAME)), sql);
+        sql = DatabaseAP.parserReplace(REF_VAR_VALUE, escapeSqlValue(getSqlParams(REF_VAR_VALUE)), sql);
+        sql = DatabaseAP.parserReplace(TABLE_NAME, escapeSqlValue(getSqlParams(TABLE_NAME)), sql);
+        sql = DatabaseAP.parserReplace(TABLE_ID, escapeSqlValue(getSqlParams(TABLE_ID)), sql);
+        sql = DatabaseAP.parserReplace(OTHER_KEY, escapeSqlValue(getSqlParams(OTHER_KEY)), sql);
         return sql;
+    }
+
+    /**
+     * Escapes single quotes in a value to prevent SQL injection
+     * when the value is substituted into a SQL template.
+     */
+    private static String escapeSqlValue(String value) {
+        if (value == null) return null;
+        return value.replace("'", "''");
     }
 
     private String getSqlParams(String key) {

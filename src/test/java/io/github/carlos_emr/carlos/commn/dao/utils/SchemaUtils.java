@@ -393,13 +393,13 @@ public class SchemaUtils {
                     String tableName = rs.getString("TABLE_NAME");
 
                     Statement stmt2 = c.createStatement();
-                    ResultSet rs2 = stmt2.executeQuery("show create table " + tableName + ";");
+                    ResultSet rs2 = stmt2.executeQuery("show create table " + tableName + ";"); // codeql[java/sql-injection] — test-only DDL utility; tableName from DB metadata
                     if (rs2.next()) {
                         String sql = rs2.getString(2);
                         createTableStatements.put(tableName, sql);
 
                         Statement stmt = c.createStatement();
-                        stmt.executeUpdate("alter table " + tableName + " rename to " + tableName + "_maventest");
+                        stmt.executeUpdate("alter table " + tableName + " rename to " + tableName + "_maventest"); // codeql[java/sql-injection] — test-only DDL utility; tableName from DB metadata
                         stmt.close();
                     }
                     rs2.close();
@@ -421,7 +421,7 @@ public class SchemaUtils {
                     if (!tableName.endsWith("_maventest"))
                         continue;
                     Statement stmt2 = c.createStatement();
-                    ResultSet rs2 = stmt2.executeQuery("show create table " + tableName + ";");
+                    ResultSet rs2 = stmt2.executeQuery("show create table " + tableName + ";"); // codeql[java/sql-injection] — test-only DDL utility; tableName from DB metadata
                     if (rs2.next()) {
                         String sql = rs2.getString(2).replaceAll(tableName, tableName.substring(0, tableName.length() - 10));
                         createTableStatements.put(tableName.substring(0, tableName.length() - 10), sql);

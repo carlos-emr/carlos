@@ -293,7 +293,7 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
             return connection.prepareStatement(sql, resultSetType, resultSetConcurrency, resultSetHoldability);
         }
 
-        public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
+        public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException { // nosemgrep: hibernate-sqli — JDBC connection wrapper delegates to underlying connection; not the source of SQL construction
             return connection.prepareStatement(sql, resultSetType, resultSetConcurrency);
         }
 
@@ -309,7 +309,7 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
             return connection.prepareStatement(sql, columnNames);
         }
 
-        public PreparedStatement prepareStatement(String sql) throws SQLException {
+        public PreparedStatement prepareStatement(String sql) throws SQLException { // nosemgrep: hibernate-sqli — JDBC connection wrapper delegates to underlying connection; not the source of SQL construction
             return connection.prepareStatement(sql);
         }
 

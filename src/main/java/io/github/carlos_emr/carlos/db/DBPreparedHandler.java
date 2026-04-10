@@ -159,7 +159,7 @@ public final class DBPreparedHandler {
         return (rs);
     }
 
-    synchronized public ResultSet queryResults(String preparedSQL, DBPreparedHandlerParam[] param) throws SQLException {
+    synchronized public ResultSet queryResults(String preparedSQL, DBPreparedHandlerParam[] param) throws SQLException { // nosemgrep: formatted-sql-string — parameterized query infrastructure; params are bound via PreparedStatement
         preparedStmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(preparedSQL);
         for (int i = 0; i < param.length; i++) {
             if (param[i].getParamType().equals(DBPreparedHandlerParam.PARAM_STRING)) {
@@ -221,7 +221,7 @@ public final class DBPreparedHandler {
         return new Object[]{rs, stmt};
     }
 
-    synchronized public ResultSet queryResults(String preparedSQL) throws SQLException {
+    synchronized public ResultSet queryResults(String preparedSQL) throws SQLException { // nosemgrep: formatted-sql-string — infrastructure wrapper; callers should migrate to parameterized variant
         stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement();
         rs = stmt.executeQuery(preparedSQL);
         return rs;

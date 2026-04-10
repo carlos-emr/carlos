@@ -123,6 +123,8 @@ public final class RptReportCreator {
                 if (endIdx > startIdx + 2) {
                     // Found a complete ${...} pattern
                     String replacement = (i < vec.size() && vec.get(i) != null) ? (String) vec.get(i) : "";
+                    // Escape single quotes in replacement values to prevent SQL injection
+                    replacement = replacement.replace("'", "''");
                     value = value.substring(0, startIdx) + replacement + value.substring(endIdx + 1);
                 } else {
                     ret = value;

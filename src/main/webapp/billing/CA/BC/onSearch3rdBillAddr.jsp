@@ -67,21 +67,35 @@
                 .getParameter("search_mode");
         String orderBy = request.getParameter("orderby") == null ? "company_name" : request
                 .getParameter("orderby");
+
+        // Validate orderBy against allowlist to prevent SQL injection
+        java.util.Set<String> VALID_COLUMNS = java.util.Set.of("company_name", "attention", "address", "city", "province", "postcode", "telephone", "fax", "id");
+        if (!VALID_COLUMNS.contains(orderBy)) {
+            orderBy = "company_name";
+        }
+
         String where = "";
+        java.util.List<String> params = new java.util.ArrayList<>();
         if ("search_name".equals(search_mode)) {
             String[] temp = keyword.split("\\,\\p{Space}*");
             if (temp.length > 1) {
-                where = "company_name like '" + temp[0] + "%' and company_name like '"
-                        + temp[1] + "%'";
+                where = "company_name like ? and company_name like ?";
+                params.add(temp[0] + "%");
+                params.add(temp[1] + "%");
             } else {
-                where = "company_name like '" + temp[0] + "%'";
+                where = "company_name like ?";
+                params.add(temp[0] + "%");
             }
         } else {
-            where = search_mode + " like '" + keyword + "%'";
+            // Validate search_mode column name
+            if (!VALID_COLUMNS.contains(search_mode)) {
+                search_mode = "company_name";
+            }
+            where = search_mode + " like ?";
+            params.add(keyword + "%");
         }
-        String sql = "select * from billing_on_3rdPartyAddress where " + where + " order by " + orderBy;// + " limit "
-//						+ strLimit1 + "," + strLimit2;
-        ResultSet rs = dbObj.queryResults_paged(sql, Integer.parseInt(strLimit1));
+        String sql = "select * from billing_on_3rdPartyAddress where " + where + " order by " + orderBy;
+        ResultSet rs = dbObj.queryResults_paged(sql, params.toArray(new String[0]), Integer.parseInt(strLimit1));
         int idx = 0;
         while (rs.next() && idx < Integer.parseInt(strLimit2)) {
             prop = new Properties();
