@@ -233,7 +233,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 fwd = "viewScript";
                 String ip = request.getRemoteAddr();
                 request.setAttribute("scriptId", scriptId);
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString()); // nosemgrep: tainted-session-from-http-request
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString());
             }
         }
         return fwd;
@@ -1330,13 +1330,13 @@ public final class RxWriteScript2Action extends ActionSupport {
             drugDao.merge(drug);
 
             //log that this med is being re-prescribed
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.REPRESCRIBE, LogConst.CON_MEDICATION, "drugid=" + item, ip, "" + bean.getDemographicNo(), auditStr.toString()); // nosemgrep: tainted-session-from-http-request
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.REPRESCRIBE, LogConst.CON_MEDICATION, "drugid=" + item, ip, "" + bean.getDemographicNo(), auditStr.toString());
 
             //log that the med is being discontinued buy the system
             LogAction.addLog("-1", LogConst.DISCONTINUE, LogConst.CON_MEDICATION, "drugid=" + item, "", "" + bean.getDemographicNo(), auditStr.toString());
 
         }
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString()); // nosemgrep: tainted-session-from-http-request
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString());
 
         return;
     }
@@ -1495,7 +1495,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         drugReasonDao.addNewDrugReason(dr);
 
         String ip = request.getRemoteAddr();
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DRUGREASON, "" + dr.getId(), ip, demographicNo, dr.getAuditString()); // nosemgrep: tainted-session-from-http-request
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DRUGREASON, "" + dr.getId(), ip, demographicNo, dr.getAuditString());
 
     }
 

@@ -230,7 +230,7 @@ public class ManageDocument2Action extends ActionSupport {
             return;
         }
 
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, documentId, request.getRemoteAddr(), demog); // nosemgrep: tainted-session-from-http-request
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, documentId, request.getRemoteAddr(), demog);
 
         String[] flagproviders = request.getParameterValues("flagproviders");
         // String demoLink=request.getParameter("demoLink");
@@ -442,7 +442,7 @@ public class ManageDocument2Action extends ActionSupport {
             return "error";
         }
 
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, documentId, request.getRemoteAddr()); // nosemgrep: tainted-session-from-http-request
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, documentId, request.getRemoteAddr());
 
         String demog = request.getParameter("demog");
 
@@ -752,7 +752,7 @@ public class ManageDocument2Action extends ActionSupport {
 
         String doc_no = request.getParameter("doc_no");
         log.debug("Document No :{}", LogSanitizer.sanitize(doc_no));
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr()); // nosemgrep: tainted-session-from-http-request
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
         Document d = documentDao.getDocument(doc_no);
 
         log.debug("Document Name :{}", LogSanitizer.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
@@ -790,7 +790,7 @@ public class ManageDocument2Action extends ActionSupport {
         }
         Integer pn = Integer.parseInt(pageNum);
         log.debug("Document No :{}", LogSanitizer.sanitize(doc_no));
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr()); // nosemgrep: tainted-session-from-http-request
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
 
         Document d = documentDao.getDocument(doc_no);
         if (d == null) {
@@ -891,9 +891,9 @@ public class ManageDocument2Action extends ActionSupport {
 
         CtlDocument ctld = ctlDocumentDao.getCtrlDocument(Integer.parseInt(doc_no));
         if (ctld.isDemographicDocument()) {
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr(), "" + ctld.getId().getModuleId()); // nosemgrep: tainted-session-from-http-request
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr(), "" + ctld.getId().getModuleId());
         } else {
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr()); // nosemgrep: tainted-session-from-http-request
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
         }
 
         Document d = documentDao.getDocument(doc_no);
@@ -1180,7 +1180,7 @@ public class ManageDocument2Action extends ActionSupport {
             }
             newDoc.setNumberOfPages(numberOfPages);
             doc_no = EDocUtil.addDocumentSQL(newDoc);
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr()); // nosemgrep: tainted-session-from-http-request
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
 
 
             if (flagproviders != null && flagproviders.length > 0) {
@@ -1704,7 +1704,7 @@ public class ManageDocument2Action extends ActionSupport {
 
         List<String> descriptions = documentDao.findDocumentDescriptions(keyword);
 
-        LogAction.addLogSynchronous((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, "document_description_lookup", request.getRemoteAddr()); // nosemgrep: tainted-session-from-http-request
+        LogAction.addLogSynchronous(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_DOCUMENT, "document_description_lookup", request.getRemoteAddr());
 
         com.fasterxml.jackson.databind.node.ArrayNode jsonArray = objectMapper.createArrayNode();
         for (String desc : descriptions) {

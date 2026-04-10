@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 public class DocumentDescriptionTemplate2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -120,7 +121,7 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         documentDescriptionTemplate.setDocType(docType);
         documentDescriptionTemplate.setProviderNo(providerNo);
         this.documentDescriptionTemplateDao.persist(documentDescriptionTemplate);
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSanitizer.sanitize(providerNo), request.getRemoteAddr(), null, "[" + LogSanitizer.sanitize(docType) + "] " + LogSanitizer.sanitize(descriptionShortcut) + " | " + LogSanitizer.sanitize(description)); // nosemgrep: tainted-session-from-http-request
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSanitizer.sanitize(providerNo), request.getRemoteAddr(), null, "[" + LogSanitizer.sanitize(docType) + "] " + LogSanitizer.sanitize(descriptionShortcut) + " | " + LogSanitizer.sanitize(description));
         return null;
     }
 
@@ -139,7 +140,7 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         documentDescriptionTemplate.setId(id);
         documentDescriptionTemplate.setProviderNo(providerNo);
         this.documentDescriptionTemplateDao.merge(documentDescriptionTemplate);
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSanitizer.sanitize(providerNo), request.getRemoteAddr(), null, LogSanitizer.sanitize(ids) + " [" + LogSanitizer.sanitize(docType) + "] " + LogSanitizer.sanitize(descriptionShortcut) + " | " + LogSanitizer.sanitize(description)); // nosemgrep: tainted-session-from-http-request
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSanitizer.sanitize(providerNo), request.getRemoteAddr(), null, LogSanitizer.sanitize(ids) + " [" + LogSanitizer.sanitize(docType) + "] " + LogSanitizer.sanitize(descriptionShortcut) + " | " + LogSanitizer.sanitize(description));
         return null;
     }
 
@@ -147,7 +148,7 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         String ids = request.getParameter("id");
         Integer id = Integer.valueOf(ids);
         this.documentDescriptionTemplateDao.remove(id);
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSanitizer.sanitize(ids), request.getRemoteAddr()); // nosemgrep: tainted-session-from-http-request
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSanitizer.sanitize(ids), request.getRemoteAddr());
         return null;
     }
 

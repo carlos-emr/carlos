@@ -60,6 +60,8 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+
 public final class BillingView2Action
         extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -129,7 +131,7 @@ public final class BillingView2Action
             bean.setPatientHCType(demo.getHcType());
             bean.setPatientAge(demo.getAge());
             this.setBillingNo(bean.getBillingNo());
-            log.debug("End Demo Call billing No" + request.getParameter("billing_no"));
+            log.debug("End Demo Call billing No{}", LogSanitizer.sanitize(request.getParameter("billing_no")));
             //Loading bill Recipient Data
             List<BillRecipient> billRecipList = bean.getBillRecipient(request.getParameter("billing_no"));
             if (!billRecipList.isEmpty()) {

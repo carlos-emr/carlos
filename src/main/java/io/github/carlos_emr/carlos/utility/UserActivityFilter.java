@@ -80,7 +80,7 @@ public final class UserActivityFilter implements Filter {
                     lastActivity = now; // set new last activity
                 }
                 if (now - lastActivity > session.getMaxInactiveInterval() * 1000L) {
-                    LogAction.addLog((String) session.getAttribute("user"), LogConst.LOGOUT, LogConst.CON_LOGIN, "logged out due to inactivity", request.getRemoteAddr());
+                    LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.LOGOUT, LogConst.CON_LOGIN, "logged out due to inactivity", request.getRemoteAddr());
                     logger.warn("User providerNo=" + loggedInInfo.getLoggedInProviderNo() + " logged out due to inactivity");
                     redirectToLogout = true;
                 } else if (isUserRequest(httpRequest)) {

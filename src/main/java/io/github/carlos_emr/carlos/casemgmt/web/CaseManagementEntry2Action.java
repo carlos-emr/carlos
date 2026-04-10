@@ -483,7 +483,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         logger.debug("The End of Edit " + String.valueOf(current - beginning));
         start = current;
 
-        LogAction.addLog((String) session.getAttribute("user"), LogConst.EDIT, LogConst.CON_CME_NOTE, String.valueOf(note.getId()), request.getRemoteAddr(), demono, note.getAuditString());
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.EDIT, LogConst.CON_CME_NOTE, String.valueOf(note.getId()), request.getRemoteAddr(), demono, note.getAuditString());
 
         //check to see if someone else is editing note in this chart
         String ipAddress = request.getRemoteAddr();
@@ -1248,7 +1248,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             logAction = LogConst.UPDATE;
         }
 
-        LogAction.addLog((String) session.getAttribute("user"), logAction, LogConst.CON_CME_NOTE, String.valueOf(note.getId()), request.getRemoteAddr(), demo, note.getAuditString());
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), logAction, LogConst.CON_CME_NOTE, String.valueOf(note.getId()), request.getRemoteAddr(), demo, note.getAuditString());
 
         String f = request.getParameter("forward");
         if (f != null && f.equals("none")) {
@@ -1481,7 +1481,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         note = caseManagementMgr.saveCaseManagementNote(
                 loggedInInfo, note, issuelist, cpp, ongoing, verify, request.getLocale(), now,
-                userName, (String) session.getAttribute("user"), request.getRemoteAddr(), lastSavedNoteString);
+                userName, LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), request.getRemoteAddr(), lastSavedNoteString);
         caseManagementMgr.getEditors(note);
         this.setCaseNote(note);
 
@@ -1862,7 +1862,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             logAction = LogConst.UPDATE;
         }
 
-        LogAction.addLog((String) session.getAttribute("user"), logAction, LogConst.CON_CME_NOTE, String.valueOf(note.getId()), request.getRemoteAddr(), demo, note.getAuditString());
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), logAction, LogConst.CON_CME_NOTE, String.valueOf(note.getId()), request.getRemoteAddr(), demo, note.getAuditString());
 
         return "issueList_ajax";
     }
@@ -2673,7 +2673,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         this.setCaseNote_history(note.getHistory());
 
-        LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_CME_NOTE, noteid, request.getRemoteAddr(), note.getAuditString());
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_CME_NOTE, noteid, request.getRemoteAddr(), note.getAuditString());
 
         return "historyview";
     }

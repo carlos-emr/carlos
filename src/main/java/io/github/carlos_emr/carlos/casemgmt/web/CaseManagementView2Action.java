@@ -2012,7 +2012,7 @@ public class CaseManagementView2Action extends ActionSupport {
             throw new IllegalArgumentException("Invalid providerNo");
         }
         if (providerNo == null)
-            providerNo = (String) request.getSession().getAttribute("user"); // nosemgrep: tainted-session-from-http-request
+            providerNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
         return providerNo;
     }
 }

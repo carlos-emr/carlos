@@ -115,7 +115,7 @@ public final class Billing2Action extends ActionSupport {
                 
                 try {
                     _log.debug("Start of billing rules");
-                    List<DSConsequence> list = BillingGuidelines.getInstance().evaluateAndGetConsequences(loggedInInfo, demoNo, (String) request.getSession().getAttribute("user")); // nosemgrep: tainted-session-from-http-request
+                    List<DSConsequence> list = BillingGuidelines.getInstance().evaluateAndGetConsequences(loggedInInfo, demoNo, LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
 
                     for (DSConsequence dscon : list) {
                         _log.debug("DSTEXT " + dscon.getText());

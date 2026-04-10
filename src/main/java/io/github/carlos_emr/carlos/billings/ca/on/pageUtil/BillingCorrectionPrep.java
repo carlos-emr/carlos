@@ -60,6 +60,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 public class BillingCorrectionPrep {
     private static final Logger _logger = MiscUtils.getLogger();
@@ -184,7 +185,7 @@ public class BillingCorrectionPrep {
             BillingOnTransactionDao billTransDao = (BillingOnTransactionDao) SpringUtils
                     .getBean(BillingOnTransactionDao.class);
             BillingOnTransaction billTrans = billTransDao.getUpdateCheader1TransTemplate(ch1Obj,
-                    (String) requestData.getSession().getAttribute("user")); // nosemgrep: tainted-session-from-http-request
+                    LoggedInInfo.getLoggedInInfoFromSession(requestData).getLoggedInProviderNo());
             billTransDao.persist(billTrans);
         }
 

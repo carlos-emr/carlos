@@ -60,6 +60,8 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+
 public class BillingCreateBilling2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -159,7 +161,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
             }
 
         }
-        log.debug("Ignore warnings ? " + request.getParameter("ignoreWarn"));
+        log.debug("Ignore warnings ? {}", LogSanitizer.sanitize(request.getParameter("ignoreWarn")));
         if (request.getParameter("ignoreWarn") == null) {
             validateServiceCodeList(billItem, demo, errors);
             validateDxCodeList(bean, errors);

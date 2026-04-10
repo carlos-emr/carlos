@@ -118,7 +118,7 @@ public class dxResearchUpdate2Action extends ActionSupport {
 
         String ip = request.getRemoteAddr();
         String contentId = (research != null) ? String.valueOf(research.getId()) : did;
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, "DX", contentId, ip, ""); // nosemgrep: tainted-session-from-http-request
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, "DX", contentId, ip, "");
 
 
         response.sendRedirect(forward.toString());
