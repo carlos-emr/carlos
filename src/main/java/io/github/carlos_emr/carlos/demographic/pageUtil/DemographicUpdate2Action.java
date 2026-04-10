@@ -266,8 +266,13 @@ public class DemographicUpdate2Action extends ActionSupport {
                 String type = consentType.getType();
                 String consentRecord = request.getParameter(type);
                 int deleteme = 0;
-                if (!org.apache.commons.lang3.StringUtils.isEmpty(request.getParameter("deleteConsent_" + type))) {
-                    deleteme = Integer.parseInt(request.getParameter("deleteConsent_" + type));
+                String deleteConsentParam = request.getParameter("deleteConsent_" + type);
+                if (!org.apache.commons.lang3.StringUtils.isEmpty(deleteConsentParam)) {
+                    try {
+                        deleteme = Integer.parseInt(deleteConsentParam);
+                    } catch (NumberFormatException e) {
+                        logger.warn("DemographicUpdate2Action: invalid deleteConsent_{} value={}, defaulting to 0", type, deleteConsentParam);
+                    }
                 }
                 if (consentRecord != null) {
                     boolean optOut;
