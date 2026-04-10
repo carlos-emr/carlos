@@ -92,7 +92,6 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(EformDataManager.class, mockEformDataManager);
         registerMock(DocumentAttachmentManager.class, mockDocumentAttachmentManager);
-        registerMock(EmailManager.class, mockEmailManager);
 
         // Mock static contexts
         servletActionContextMock = mockStatic(ServletActionContext.class);
