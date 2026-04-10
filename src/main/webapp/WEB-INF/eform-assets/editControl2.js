@@ -1283,7 +1283,7 @@ function collapseFooter() {
          */
         function consultantSearch(term) {
             if (term.length < 2) {
-                document.getElementById('tempBin').innerHTML = "You must enter at least 2 characters of a patients name!";
+                document.getElementById('tempBin').textContent = "You must enter at least 2 characters of a patient's name!";
                 return false;
             }
 
@@ -1384,7 +1384,7 @@ function collapseFooter() {
                 document.getElementById("tempBin").style.display = 'block';
             } else if (a === 0 && searchDropDownFlag === false) {
                 document.getElementById("tempBin").style.display = 'none';
-                document.getElementById("tempBin").innerHTML = "You must enter at least 2 characters of a patients name!";
+                document.getElementById("tempBin").textContent = "You must enter at least 2 characters of a patient's name!";
             }
         }
 
