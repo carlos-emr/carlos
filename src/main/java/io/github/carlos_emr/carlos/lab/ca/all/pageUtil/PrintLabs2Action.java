@@ -82,7 +82,7 @@ public class PrintLabs2Action extends ActionSupport {
             return "error";
         }
 
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr(), ""); // nosemgrep: tainted-session-from-http-request - segmentID validated as numeric above
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr(), "");
 
         try {
             MessageHandler handler = Factory.getHandler(segmentID);

@@ -234,8 +234,7 @@ public class EctSaveEncounter2Action extends ActionSupport {
 
                 // add log here
                 String ip = httpservletrequest.getRemoteAddr();
-                LogAction.addLog((String) httpservletrequest.getSession().getAttribute( // nosemgrep: tainted-session-from-http-request
-                                "user"), LogConst.ADD, LogConst.CON_ECHART,
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(httpservletrequest).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_ECHART,
                         sessionbean.demographicNo, ip);
 
                 //change the appt status

@@ -94,7 +94,7 @@ public class ReportStatusUpdate2Action extends ActionSupport {
 
         if (status == 'A') {
             String demographicID = getDemographicIdFromLab(lab_type, labNo);
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ACK, LogConst.CON_HL7_LAB, "" + labNo, request.getRemoteAddr(), demographicID); // nosemgrep: tainted-session-from-http-request
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ACK, LogConst.CON_HL7_LAB, "" + labNo, request.getRemoteAddr(), demographicID);
         }
 
         try {

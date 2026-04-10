@@ -2011,8 +2011,10 @@ public class CaseManagementView2Action extends ActionSupport {
         if (providerNo != null && !providerNo.matches("[a-zA-Z0-9]{1,6}")) {
             throw new IllegalArgumentException("Invalid providerNo");
         }
-        if (providerNo == null)
-            providerNo = (String) request.getSession().getAttribute("user"); // nosemgrep: tainted-session-from-http-request
+        if (providerNo == null) {
+            LoggedInInfo li = LoggedInInfo.getLoggedInInfoFromSession(request);
+            providerNo = (li != null) ? li.getLoggedInProviderNo() : null;
+        }
         return providerNo;
     }
 }
