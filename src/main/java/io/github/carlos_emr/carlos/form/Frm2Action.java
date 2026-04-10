@@ -183,7 +183,7 @@ public final class Frm2Action extends ActionSupport {
                     props.setProperty(name, request.getParameter(name));
                 }
 
-                props.setProperty("provider_no", (String) request.getSession().getAttribute("user"));
+                props.setProperty("provider_no", loggedInInfo.getLoggedInProviderNo());
                 newID = rec.saveFormRecord(props);
                 LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, request
                         .getParameter("form_class"), "" + newID, request.getRemoteAddr(), request.getParameter("demographic_no"));
@@ -195,7 +195,7 @@ public final class Frm2Action extends ActionSupport {
                     String name = (String) varEnum.nextElement();
                     props.setProperty(name, request.getParameter(name));
                 }
-                props.setProperty("provider_no", (String) request.getSession().getAttribute("user"));
+                props.setProperty("provider_no", loggedInInfo.getLoggedInProviderNo());
                 LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, request
                         .getParameter("form_class"), "" + newID, request.getRemoteAddr(), request.getParameter("demographic_no"));
 
@@ -234,7 +234,7 @@ public final class Frm2Action extends ActionSupport {
                     props.setProperty(name, request.getParameter(name));
                 }
 
-                props.setProperty("provider_no", (String) request.getSession().getAttribute("user"));
+                props.setProperty("provider_no", loggedInInfo.getLoggedInProviderNo());
                 newID = rec.saveFormRecord(props);
 
                 if (newID > 0) {
@@ -287,7 +287,7 @@ public final class Frm2Action extends ActionSupport {
             String name = varEnum.nextElement();
             props.setProperty(name, request.getParameter(name));
         }
-        props.setProperty("provider_no", (String) request.getSession().getAttribute("user"));
+        props.setProperty("provider_no", LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
         try {
             int newFormId = formRecord.saveFormRecord(props);
             LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(),

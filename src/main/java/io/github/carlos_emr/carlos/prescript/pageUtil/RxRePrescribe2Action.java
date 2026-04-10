@@ -293,8 +293,8 @@ public String saveDigitalSignature() throws IOException {
     
     // Log the action for audit trail
     // Note: Using REPRINT constant as this is related to prescription printing/signing workflow
-    LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(),
-                      LogConst.REPRINT, 
+    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(),
+                      LogConst.REPRINT,
                       LogConst.CON_PRESCRIPTION, 
                       scriptId, 
                       ip, 

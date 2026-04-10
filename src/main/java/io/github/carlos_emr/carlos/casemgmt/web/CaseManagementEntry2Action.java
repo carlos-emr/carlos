@@ -1248,7 +1248,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             logAction = LogConst.UPDATE;
         }
 
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), logAction, LogConst.CON_CME_NOTE, String.valueOf(note.getId()), request.getRemoteAddr(), demo, note.getAuditString());
+        LogAction.addLog(providerNo, logAction, LogConst.CON_CME_NOTE, String.valueOf(note.getId()), request.getRemoteAddr(), demo, note.getAuditString());
 
         String f = request.getParameter("forward");
         if (f != null && f.equals("none")) {
@@ -1481,7 +1481,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         note = caseManagementMgr.saveCaseManagementNote(
                 loggedInInfo, note, issuelist, cpp, ongoing, verify, request.getLocale(), now,
-                userName, LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), request.getRemoteAddr(), lastSavedNoteString);
+                userName, providerNo, request.getRemoteAddr(), lastSavedNoteString);
         caseManagementMgr.getEditors(note);
         this.setCaseNote(note);
 

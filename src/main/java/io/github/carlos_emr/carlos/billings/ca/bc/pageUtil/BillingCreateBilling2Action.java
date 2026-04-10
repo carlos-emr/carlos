@@ -194,7 +194,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
         }
 
         if (request.getParameter("WCBid") != null) {
-            MiscUtils.getLogger().debug("WCB id is not null " + request.getParameter("WCBid"));
+            MiscUtils.getLogger().debug("WCB id is not null {}", LogSanitizer.sanitize(request.getParameter("WCBid")));
             List<String> errs = null;
             WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
             BillingmasterDAO billingmasterDAO = (BillingmasterDAO) ctx.getBean(BillingmasterDAO.class);

@@ -124,8 +124,7 @@ public class BillingCorrectionPrep {
                     .getProviderObj(requestData.getParameter("provider_no"));
             ch1Obj.setProvider_ohip_no(otemp.getOhipNo());
             ch1Obj.setProvider_rma_no(otemp.getRmaNo());
-            ch1Obj.setCreator((String) requestData.getSession().getAttribute(
-                    "user"));
+            ch1Obj.setCreator(LoggedInInfo.getLoggedInInfoFromSession(requestData).getLoggedInProviderNo());
 
             ch1Obj.setClinic(requestData.getParameter("site"));
 
@@ -238,7 +237,7 @@ public class BillingCorrectionPrep {
         // _logger.info("updateBillingItem(old value = ");
 
         BillingClaimHeader1Data ch1Obj = (BillingClaimHeader1Data) lItemObj.get(0);
-        String updateProviderNo = (String) request.getSession().getAttribute("user");
+        String updateProviderNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
         lItemObj.remove(0);
 
         Vector<String> vecName = new Vector<String>();

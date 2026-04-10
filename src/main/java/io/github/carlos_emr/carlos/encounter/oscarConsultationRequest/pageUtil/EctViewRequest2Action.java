@@ -80,7 +80,7 @@ public class EctViewRequest2Action extends ActionSupport {
 
         request.setAttribute("id", this.getRequestId());
 
-        logger.debug("Id:" + this.getRequestId());
+        logger.debug("Id:{}", LogSanitizer.sanitize(this.getRequestId()));
         logger.debug("SegmentId:{}", LogSanitizer.sanitize(request.getParameter("segmentId")));
 
         return SUCCESS;

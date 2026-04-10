@@ -233,7 +233,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 fwd = "viewScript";
                 String ip = request.getRemoteAddr();
                 request.setAttribute("scriptId", scriptId);
-                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString());
+                LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString());
             }
         }
         return fwd;

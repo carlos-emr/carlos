@@ -178,7 +178,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             }
             newDoc.setNumberOfPages(numberOfPages);
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
-            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+            LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
 
             String providerId = request.getParameter("providers");
             if (providerId != null) {

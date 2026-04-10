@@ -115,7 +115,7 @@ public final class Billing2Action extends ActionSupport {
                 
                 try {
                     _log.debug("Start of billing rules");
-                    List<DSConsequence> list = BillingGuidelines.getInstance().evaluateAndGetConsequences(loggedInInfo, demoNo, LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
+                    List<DSConsequence> list = BillingGuidelines.getInstance().evaluateAndGetConsequences(loggedInInfo, demoNo, loggedInInfo.getLoggedInProviderNo());
 
                     for (DSConsequence dscon : list) {
                         _log.debug("DSTEXT " + dscon.getText());

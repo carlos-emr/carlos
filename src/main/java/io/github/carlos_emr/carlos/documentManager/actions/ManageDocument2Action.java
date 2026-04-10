@@ -752,7 +752,8 @@ public class ManageDocument2Action extends ActionSupport {
 
         String doc_no = request.getParameter("doc_no");
         log.debug("Document No :{}", LogSanitizer.sanitize(doc_no));
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+        LoggedInInfo liPage = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LogAction.addLog(liPage != null ? liPage.getLoggedInProviderNo() : null, LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
         Document d = documentDao.getDocument(doc_no);
 
         log.debug("Document Name :{}", LogSanitizer.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs

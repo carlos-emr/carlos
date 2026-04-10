@@ -104,7 +104,8 @@ public class SecurityAddSecurityHelper {
 
         securityDao.persist(s);
 
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(pageContext.getSession()).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_SECURITY, request.getParameter("user_name"), request.getRemoteAddr());
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(pageContext.getSession());
+        LogAction.addLog(loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null, LogConst.ADD, LogConst.CON_SECURITY, request.getParameter("user_name"), request.getRemoteAddr());
 
         return "admin.securityaddsecurity.msgAdditionSuccess";
     }
