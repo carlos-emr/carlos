@@ -108,7 +108,10 @@
         String segmentIdParamBCP = StringUtils.noNull(request.getParameter("segmentID")).trim();
         try {
             if (!segmentIdParamBCP.isEmpty()) {
-                safeSegmentIdBCP = Long.toString(Long.parseLong(segmentIdParamBCP));
+                long parsedIdBCP = Long.parseLong(segmentIdParamBCP);
+                if (parsedIdBCP >= 0) {
+                    safeSegmentIdBCP = Long.toString(parsedIdBCP);
+                }
             }
         } catch (NumberFormatException e) {
             safeSegmentIdBCP = null;
