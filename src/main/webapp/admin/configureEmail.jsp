@@ -20,7 +20,7 @@
     <title>Configure Email</title>
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <c:set var="ctx" value="${ pageContext.request.contextPath }" scope="page"/>
-    <link href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css"/>
+    <link href="${ctx}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css"/>
 </head>
 <body>
 <div class="container mt-5">

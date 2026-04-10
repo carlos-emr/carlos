@@ -61,8 +61,21 @@
     if (request.getParameter("limit2") != null)
         strLimit = request.getParameter("limit2");
 
-    int offset = Integer.parseInt(strOffset);
-    int limit = Integer.parseInt(strLimit);
+    int offset;
+    try {
+        offset = Integer.parseInt(strOffset);
+    } catch (NumberFormatException e) {
+        offset = 0;
+    }
+    int limit;
+    try {
+        limit = Integer.parseInt(strLimit);
+    } catch (NumberFormatException e) {
+        limit = 10;
+    }
+    // Sanitize: replace raw request strings with parsed integer values to prevent XSS
+    strOffset = String.valueOf(offset);
+    strLimit = String.valueOf(limit);
 
     String outcome = request.getParameter("outcome");
     boolean mergedSearch = false;
@@ -133,7 +146,7 @@
 <html>
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mergeRec"/></title>
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     <script language="JavaScript">
         function setfocus() {
             document.titlesearch.keyword.focus();

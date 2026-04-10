@@ -190,9 +190,9 @@
     </script>
 
     <link rel="stylesheet" type="text/css"
-          href="<%= request.getContextPath() %>/js/jquery_css/smoothness/jquery-ui-1.10.2.custom.min.css"/>
+          href="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.css"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/jquery-ui-1.10.2.custom.min.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
 
 
     <script>
@@ -254,7 +254,7 @@
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgAcknowledgedLabReportsFor"/> <%} else {%>
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgAllLabReportsFor"/> <%}%>&nbsp;
 				<% if (searchProviderNo.equals("")) {%> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgAllPhysicians"/> <%} else if (searchProviderNo.equals("0")) {%>
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgUnclaimed"/> <%} else {%> <%=ProviderData.getProviderName(searchProviderNo)%>
+				<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgUnclaimed"/> <%} else {%> <%= Encode.forHtml(ProviderData.getProviderName(searchProviderNo)) %>
 				<%}%> &nbsp;&nbsp;&nbsp; Page : <%=pageNum%> </span> <% } %>
                         </td>
                         <td align="right" valign="center" width="30%"><a

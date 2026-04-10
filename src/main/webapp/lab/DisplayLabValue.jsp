@@ -76,24 +76,26 @@
     <%
         for (int k = 0; k < list.size(); k++) {
             HashMap hMap = (HashMap) list.get(k);
+            String labNo = String.valueOf(hMap.get("lab_no"));
+            String providerNo = String.valueOf(session.getAttribute("user"));
             String labDisplayLink = "";
             if (labType.equals(LabResultData.MDS)) {
-                labDisplayLink = request.getContextPath() + "/oscarMDS/SegmentDisplay.jsp?segmentID=" + hMap.get("lab_no") + "&providerNo=" + session.getAttribute("user");
+                labDisplayLink = request.getContextPath() + "/oscarMDS/SegmentDisplay.jsp?segmentID=" + java.net.URLEncoder.encode(labNo, java.nio.charset.StandardCharsets.UTF_8) + "&providerNo=" + java.net.URLEncoder.encode(providerNo, java.nio.charset.StandardCharsets.UTF_8);
             } else if (labType.equals(LabResultData.CML)) {
-                labDisplayLink = request.getContextPath() + "/lab/CA/ON/CMLDisplay.jsp?segmentID=" + hMap.get("lab_no") + "&providerNo=" + session.getAttribute("user");
+                labDisplayLink = request.getContextPath() + "/lab/CA/ON/CMLDisplay.jsp?segmentID=" + java.net.URLEncoder.encode(labNo, java.nio.charset.StandardCharsets.UTF_8) + "&providerNo=" + java.net.URLEncoder.encode(providerNo, java.nio.charset.StandardCharsets.UTF_8);
             } else if (labType.equals(LabResultData.HL7TEXT)) {
-                labDisplayLink = request.getContextPath() + "/lab/CA/ALL/labDisplay.jsp?segmentID=" + hMap.get("lab_no") + "&providerNo=" + session.getAttribute("user");
+                labDisplayLink = request.getContextPath() + "/lab/CA/ALL/labDisplay.jsp?segmentID=" + java.net.URLEncoder.encode(labNo, java.nio.charset.StandardCharsets.UTF_8) + "&providerNo=" + java.net.URLEncoder.encode(providerNo, java.nio.charset.StandardCharsets.UTF_8);
             } else if (labType.equals(LabResultData.EXCELLERIS)) {
-                labDisplayLink = request.getContextPath() + "/lab/CA/BC/labDisplay.jsp?segmentID=" + hMap.get("lab_no") + "&providerNo=" + session.getAttribute("user");
+                labDisplayLink = request.getContextPath() + "/lab/CA/BC/labDisplay.jsp?segmentID=" + java.net.URLEncoder.encode(labNo, java.nio.charset.StandardCharsets.UTF_8) + "&providerNo=" + java.net.URLEncoder.encode(providerNo, java.nio.charset.StandardCharsets.UTF_8);
             }
 
     %>
     <div style="text-align: justify;"
-         title="fade=[on] header=[<%=hMap.get("result")%>] body=[<%=hMap.get("units")%> <%=hMap.get("range")%>]"
+         title="fade=[on] header=[<%=Encode.forHtmlAttribute(String.valueOf(hMap.get("result")))%>] body=[<%=Encode.forHtmlAttribute(String.valueOf(hMap.get("units")))%> <%=Encode.forHtmlAttribute(String.valueOf(hMap.get("range")))%>]"
          class="preventionProcedure" id="preventionProcedure<%=""+k+""+ran%>"
-         onclick="javascript:popup(660,960,'<%= labDisplayLink %>','labReport')">
-        <p <%=r(hMap.get("abn"))%>><%=hMap.get("result")%>
-            &nbsp;&nbsp;&nbsp; <%=hMap.get("collDate")%>
+         onclick="javascript:popup(660,960,'<%= Encode.forJavaScriptAttribute(labDisplayLink) %>','labReport')">
+        <p <%=r(hMap.get("abn"))%>><%=Encode.forHtml(String.valueOf(hMap.get("result")))%>
+            &nbsp;&nbsp;&nbsp; <%=Encode.forHtml(String.valueOf(hMap.get("collDate")))%>
         </p>
     </div>
     <%}%>

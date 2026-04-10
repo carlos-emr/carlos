@@ -207,7 +207,7 @@
                     <td class="Header"
                         style="padding-left:2px;padding-right:2px;border-right:2px solid #003399;text-align:left;font-size:80%;font-weight:bold;width:100%;"
                         NOWRAP>
-                        <%=last_name %>, <%=first_name%> <%=sex%> <%=age%>
+                        <%=Encode.forHtml(last_name)%>, <%=Encode.forHtml(first_name)%> <%=Encode.forHtml(sex)%> <%=Encode.forHtml(age)%>
                     </td>
                     <td>
                     </td>
@@ -278,7 +278,7 @@
                                        id="chkSet<%=i%>"/>
                                 <a href=#
                                    onclick="javascript:showSetName('tblSet<%=i%>', 'chkSet<%=i%>');" <%=fontStyle%> >
-                                    <%= set.getAttribute("name") %>
+                                    <%=Encode.forHtml(set.getAttribute("name"))%>
                                 </a>
                                 &nbsp;&nbsp;
 
@@ -316,7 +316,7 @@
                                     <%
                                         for (int j = 0; j < columns.getLength(); j++) {
                                             Element column = (Element) columns.item(j);%>
-                                    <td class="head"><%= column.getAttribute("name") %>&nbsp;</td>
+                                    <td class="head"><%=Encode.forHtml(column.getAttribute("name"))%>&nbsp;</td>
                                     <%
                                             colCount = j + 2;
                                         }
@@ -341,7 +341,7 @@
                                             <%   }else{%>
 
                                 <tr>
-                                    <td class="head"><%= sName %>
+                                    <td class="head"><%=Encode.forHtml(sName)%>
                                     </td>
                                     <% }
 
@@ -429,10 +429,10 @@
 
                                 s += "<span id='" + id + "_label' style='font-size:8pt;width:75px'>";
                                 if (givenDate.length() > 0) {
-                                    s += givenDate;
+                                    s += Encode.forHtml(givenDate);
                                 } else {
                                     if (refusedDate.length() > 0) {
-                                        s += "Refused " + refusedDate;
+                                        s += "Refused " + Encode.forHtml(refusedDate);
                                     } else {
                                         s += "&nbsp;";
                                     }

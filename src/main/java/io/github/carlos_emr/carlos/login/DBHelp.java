@@ -63,6 +63,23 @@ public final class DBHelp {
         return ret;
     }
 
+    /**
+     * Executes a parameterized query and returns a ResultSet.
+     *
+     * @param sql    the SQL query with {@code ?} placeholders
+     * @param params the parameter values to bind
+     * @return the ResultSet, or {@code null} on error
+     */
+    public static ResultSet searchDBRecord(String sql, Object... params) {
+        ResultSet ret = null;
+        try {
+            ret = DBHandler.GetPreSQL(sql, params);
+        } catch (SQLException e) {
+            logger.error("Error", e);
+        }
+        return ret;
+    }
+
     public static String getString(ResultSet rs, String columnName) throws SQLException {
         return Misc.getString(rs, columnName);
     }

@@ -34,10 +34,10 @@
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.endYearStatement"/></title>
 
-    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
@@ -53,11 +53,11 @@
         function demographicSearch() {
             var search_param = document.getElementById('nameForlooksOnly').value;
             var url = '<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp';
-            url += '?originalpage=' + escape('<%=request.getContextPath()%>/billing/CA/ON/endYearStatement.do?demosearch=true');
+            url += '?originalpage=' + encodeURIComponent('<%=request.getContextPath()%>/billing/CA/ON/endYearStatement.do?demosearch=true');
             url += '&search_mode=search_name';
             url += '&orderby=last_name, first_name';
             url += '&limit1=0&limit2=5';
-            url += '&keyword=' + search_param;
+            url += '&keyword=' + encodeURIComponent(search_param);
             popupPage(700, 1000, url, 'master');
             return false;
         }
@@ -65,7 +65,7 @@
         function refresh() {
             var u = self.location.href;
             if (u.lastIndexOf("view=1") > 0) {
-                self.location.href = u.substring(0, u.lastIndexOf("view=1")) + "view=0" + u.substring(eval(u.lastIndexOf("view=1") + 6));
+                self.location.href = u.substring(0, u.lastIndexOf("view=1")) + "view=0" + u.substring(u.lastIndexOf("view=1") + 6);
             } else {
                 history.go(0);
             }
@@ -119,7 +119,7 @@
             <div class="col-md-5">
                 Patient Name: <br>
                 <div class="input-group">
-                    <input class="form-control" id="nameForlooksOnly" type="text" value="<%=name%>">
+                    <input class="form-control" id="nameForlooksOnly" type="text" value="<%=Encode.forHtmlAttribute(name)%>">
                     <button class="btn btn-primary" type="button" value="Search" onclick="demographicSearch()"><i
                             class="fa-solid fa-magnifying-glass"></i></button>
                 </div>
@@ -133,7 +133,7 @@
                 <label>Start Date:</label>
                 <div class="input-group">
                     <input type="text" class="form-control" style="width:90px" name="fromDateParam" id="fromDateParam"
-                           value="<%= request.getAttribute("fromDateParam") != null ? request.getAttribute("fromDateParam") : "" %>"
+                           value="<%= Encode.forHtmlAttribute(request.getAttribute("fromDateParam") != null ? (String)request.getAttribute("fromDateParam") : "") %>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -144,7 +144,7 @@
                 <label>End Date:</label>
                 <div class="input-group">
                     <input type="text" class="form-control" style="width:90px" name="toDateParam" id="toDateParam"
-                           value="<%= request.getAttribute("toDateParam") != null ? request.getAttribute("toDateParam") : "" %>"
+                           value="<%= Encode.forHtmlAttribute(request.getAttribute("toDateParam") != null ? (String)request.getAttribute("toDateParam") : "") %>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -170,7 +170,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><%= Encode.forHtml(error) %></li>
             <% } %>
         </ul>
     </div>

@@ -155,10 +155,10 @@
                         nItems++;
                 %>
                 <tr bgcolor="<%=bodd?"white":weakcolor%>">
-                    <td><%=pRec.getPreventionType()%>
+                    <td><%=Encode.forHtmlContent(pRec.getPreventionType())%>
                     </td>
                     <td><a
-                            href="lotnrdeleterecordhtm.jsp?prevention=<%=pRec.getPreventionType()%>&lotnr=<%=URLEncoder.encode(pRec.getLotNr(), StandardCharsets.UTF_8)%>"><%= pRec.getLotNr()%>
+                            href="lotnrdeleterecordhtm.jsp?prevention=<%=URLEncoder.encode(pRec.getPreventionType(), StandardCharsets.UTF_8)%>&lotnr=<%=URLEncoder.encode(pRec.getLotNr(), StandardCharsets.UTF_8)%>"><%= Encode.forHtmlContent(pRec.getLotNr())%>
                     </a></td>
                 </tr>
                 <% }
@@ -171,15 +171,17 @@
                 String strLimit1 = request.getParameter("limit1");
                 String strLimit2 = request.getParameter("limit2");
 
-                nNextPage = Integer.parseInt(strLimit2) + Integer.parseInt(strLimit1);
-                nLastPage = Integer.parseInt(strLimit1) - Integer.parseInt(strLimit2);
+                int limit1 = Integer.parseInt(strLimit1);
+                int limit2 = Integer.parseInt(strLimit2);
+                nNextPage = limit2 + limit1;
+                nLastPage = limit1 - limit2;
                 if (nLastPage >= 0) {
             %> <a
-                href="lotnrsearchresults.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchresults.btnLastPage"/></a> | <%
+                href="lotnrsearchresults.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&limit1=<%=nLastPage%>&limit2=<%=limit2%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchresults.btnLastPage"/></a> | <%
             }
-            if (nItems == Integer.parseInt(strLimit2)) {
+            if (nItems == limit2) {
         %> <a
-                href="lotnrsearchresults.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchresults.btnNextPage"/></a> <%
+                href="lotnrsearchresults.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&limit1=<%=nNextPage%>&limit2=<%=limit2%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchresults.btnNextPage"/></a> <%
             }
         %>
             <p><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchresults.msgClickForEditing"/></p>

@@ -140,10 +140,6 @@
         }
     </style>
     <script>
-        function openAnnotation() {
-            ///annotation/annotation.jsp?display=Prescriptions&table_id=173&demo=185&drugSpecial=HYZAAR%2012.5MG/100MG%20take%201%20OD%20for%2030%20days%20Qty:30%20Repeats:0
-
-        }
 
         function updateForm() {
             popup(250, 500, '<%=request.getContextPath()%>/oscarRx/updateForm.jsp?id=<%=drugId%>', '<%=drugId%>');
@@ -501,10 +497,6 @@
             </table>
 
             <br/>
-
-            <input type="button" value="Annotation" title="Annotation" class="ControlPushButton"
-                   onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink.DISP_PRESCRIP%>&table_id=<%=drug.getId()%>&demo=<%=drug.getDemographicId()%>','anwin','width=400,height=500');">
-
 
             <%--
             Unused Items

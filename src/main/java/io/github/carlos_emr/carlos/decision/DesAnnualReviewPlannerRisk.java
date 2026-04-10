@@ -38,6 +38,7 @@ import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
@@ -91,7 +92,7 @@ public class DesAnnualReviewPlannerRisk {
      */
     public String doStuff(String uri) {
         try {
-            SAXParserFactory factory = SAXParserFactory.newInstance();
+            SAXParserFactory factory = XmlUtils.createSecureSAXParserFactory();
             SAXParser saxParser = factory.newSAXParser();
             ContentHandler contentHandler = new DesAnnualReviewPlannerRiskHandler();
             saxParser.parse(uri, (DefaultHandler) contentHandler);
@@ -129,7 +130,7 @@ public class DesAnnualReviewPlannerRisk {
      */
     public Properties getRiskName(String uri) {
         try {
-            SAXParserFactory factory = SAXParserFactory.newInstance();
+            SAXParserFactory factory = XmlUtils.createSecureSAXParserFactory();
             SAXParser saxParser = factory.newSAXParser();
             ContentHandler contentHandler = new DesAnnualReviewPlannerRiskHandler();
             saxParser.parse(uri, (DefaultHandler) contentHandler);

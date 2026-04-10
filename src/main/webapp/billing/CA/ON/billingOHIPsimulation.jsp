@@ -314,8 +314,8 @@
             <input type="hidden" name="submit" value="Create Report">
 
             Bill Center:
-            <input type="hidden" name="billcenter" value="<%=billCenter%>">
-            <%=healthOffice%>
+            <input type="hidden" name="billcenter" value="<%=Encode.forHtmlAttribute(billCenter)%>">
+            <%=Encode.forHtml(healthOffice)%>
 
             <button type='button' name='print' value='Print' class="btn float-end" onClick='window.print()'><i
                     class="fa-solid fa-print"></i> Print
@@ -330,10 +330,10 @@
             %>
 
 
-            <input type="hidden" name="monthCode" value="<%=monthCode%>">
+            <input type="hidden" name="monthCode" value="<%=Encode.forHtmlAttribute(monthCode)%>">
             <input type="hidden" name="verCode" value="V03">
-            <input type="hidden" name="curUser" value="<%=user_no%>">
-            <input type="hidden" name="curDate" value="<%=nowDate%>">
+            <input type="hidden" name="curUser" value="<%=Encode.forHtmlAttribute(user_no)%>">
+            <input type="hidden" name="curDate" value="<%=Encode.forHtmlAttribute(nowDate)%>">
 
 
             <div class="col-md-12" style="margin:4px;">
@@ -363,10 +363,10 @@
                             for (int i = 0; i < providerStr.size(); i++) {
                                 String temp[] = ((String) providerStr.get(i)).split("\\|");
                         %>
-                        <option value="<%=temp[0]%>"
-                                <%=providerview.equals(temp[0]) ? "selected" : (providerStr.size() == 1 ? "selected" : "")%>><%=temp[1]%>
+                        <option value="<%=Encode.forHtmlAttribute(temp[0])%>"
+                                <%=providerview.equals(temp[0]) ? "selected" : (providerStr.size() == 1 ? "selected" : "")%>><%=Encode.forHtml(temp[1])%>
                             ,
-                            <%=temp[2]%>
+                            <%=Encode.forHtml(temp[2])%>
                         </option>
                         <%
                             }

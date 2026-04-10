@@ -291,7 +291,7 @@
 
                 </td>
                 <td><br>
-                    <b><%=provider_name%>
+                    <b><%=Encode.forHtml(provider_name)%>
                     </b> &nbsp; &nbsp; <font size="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.schedulecreatedate.msgEffective"/>&nbsp;<b>(<%=scheduleRscheduleBean.sdate + " - " + scheduleRscheduleBean.edate%>
                         )</b></font>
                     <center>

@@ -88,7 +88,7 @@
 <html>
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.simulateSubFile2"/></title>
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
     <script language="JavaScript">
 
@@ -147,7 +147,7 @@
 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.simulateSubFile2"/></h3>
 <div class="container-fluid card card-body bg-body-tertiary noprint">
 
-    <h4>Simulate Teleplan Report - <%=thisyear%>
+    <h4>Simulate Teleplan Report - <%=Encode.forHtml(thisyear)%>
     </h4>
     <c:if test="${!empty error}"><c:out value="${error}"/></c:if>
 
@@ -163,8 +163,8 @@
                     String provNo = (String) list.get(i);
                     ProviderData provider = new ProviderData(provNo);
             %>
-            <option value="<%=provider.getOhip_no()%>">
-                <%=Encode.forHtmlContent(provider.getLast_name())%>,<%=Encode.forHtmlContent(provider.getFirst_name())%>
+            <option value="<%=Encode.forHtmlAttribute(provider.getOhip_no())%>">
+                <%=Encode.forHtml(provider.getLast_name())%>,<%=Encode.forHtml(provider.getFirst_name())%>
             </option>
             <%}%>
         </select>

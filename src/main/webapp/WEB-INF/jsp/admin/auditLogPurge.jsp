@@ -66,11 +66,11 @@
     <head>
         <title>Audit Log Purge Tool</title>
 
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" type="text/css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" type="text/css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" type="text/css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" type="text/css">
 
-        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
         <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
 

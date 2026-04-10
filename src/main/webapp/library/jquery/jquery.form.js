@@ -798,7 +798,7 @@
 					// log('response detected');
 					var docRoot = doc.body ? doc.body : doc.documentElement;
 
-					xhr.responseText = docRoot ? docRoot.innerHTML : null;
+					xhr.responseText = docRoot ? (docRoot.textContent !== undefined ? docRoot.textContent : docRoot.innerText) : null;
 					xhr.responseXML = doc.XMLDocument ? doc.XMLDocument : doc;
 					if (isXml) {
 						s.dataType = 'xml';

@@ -403,6 +403,13 @@ Prototype.Browser = {
 // Used by .update() and CarlosAjax.updater().
 // NOTE: <script src="..."> tags are stripped but NOT loaded. Response fragments
 // for this use case must use only inline scripts (same as original Prototype behavior).
+//
+// SECURITY ASSUMPTION: This function only processes trusted same-origin server
+// responses (OWASP-encoded JSP output from internal CARLOS EMR endpoints).
+// The <script> regex extraction is intentional Prototype.js compatibility behavior
+// for AJAX-loaded page fragments — it is NOT a security sanitizer.
+// CodeQL flags this as js/bad-tag-filter; this is a known false positive.
+// See: docs/prototype-to-vanilla-js-migration-plan.md (evalScripts behavior)
 window.carlosExtractAndExecScripts = function (element, html) {
     var scriptPattern = /<script[\s\S]*?>([\s\S]*?)<\/\s*script\s*>/gi;
     var scripts = [];

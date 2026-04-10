@@ -52,9 +52,8 @@
 
     <title>Community Comprehensive Geriatric Assessment Form</title>
     <meta name="viewport" content="width=device-width, user-scalable=false;">
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css">
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css">
     <link rel="stylesheet" href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css">
-    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/js/jqplot/jquery.jqplot.min.css">
     <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/form/eCARES/eCARES_v1.css">
 </head>
 
@@ -314,7 +313,10 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div id="chart" style="width:90%;margin:auto"></div>
+                <div id="chart" style="width:90%;margin:auto">
+                    <p id="chartNoDataMessage" class="text-muted text-center" style="display:none"></p>
+                    <canvas id="chartCanvas" role="img" aria-label="Frailty Index trend chart"></canvas>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -342,7 +344,7 @@
 <script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
 <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
 <script type="text/javascript"
-        src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+        src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 <script type="text/javascript"
         src="https://cdnjs.cloudflare.com/ajax/libs/jquery.serializeJSON/3.2.1/jquery.serializejson.min.js"
         integrity="sha512-Br5bdkAjeKASBYCbM5qNfb5DB7tGLX3OSwYlDQxKKPNPWmKEcChhEpk7kIEhFLUjTxw0FdGkB/uJNEzbfYFxWkA=="
@@ -350,13 +352,9 @@
 <script type="text/javascript"
         src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
 
-<!--jqplot js includes-->
-<script class="include" type="text/javascript"
-        src="${pageContext.request.contextPath}/js/jqplot/jquery.jqplot.min.js"></script>
-<script class="include" type="text/javascript"
-        src="${pageContext.request.contextPath}/js/jqplot/plugins/jqplot.highlighter.min.js"></script>
-<script class="include" type="text/javascript"
-        src="${pageContext.request.contextPath}/js/jqplot/jqplot.dateAxisRenderer.min.js"></script>
+<!--Chart.js-->
+<script type="text/javascript"
+        src="${pageContext.request.contextPath}/library/chartjs/chart.umd.min.js"></script>
 <script type="text/javascript" src="${pageContext.request.contextPath}/form/eCARES/dictionary.js"></script>
 <script type="text/javascript" src="${pageContext.request.contextPath}/form/eCARES/eCARES_v1.js"></script>
 

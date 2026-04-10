@@ -32,6 +32,9 @@ import java.util.List;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.commn.model.Site;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This class contains Appointment related presentation layer helper methods.
@@ -40,30 +43,52 @@ import io.github.carlos_emr.carlos.commn.model.Site;
  */
 public class ApptUtil {
 
+    private static final Logger logger = LoggerFactory.getLogger(ApptUtil.class);
     private static final String SESSION_APPT_BEAN = "apptBean";
+    private static final int MAX_FIELD_LEN = 255;
+    private static final int MAX_NOTES_LEN = 2000;
+
+    private static String cap(String value, int maxLen) {
+        if (value == null) {
+            return null;
+        }
+        return value.length() > maxLen ? value.substring(0, maxLen) : value;
+    }
 
     public static void copyAppointmentIntoSession(HttpServletRequest request) {
+        // Validate numeric ID fields at trust boundary (CWE-501)
+        String demoNoParam = request.getParameter("demographic_no");
+        if (demoNoParam != null && !demoNoParam.isEmpty() && !demoNoParam.matches("\\d+")) {
+            logger.warn("Invalid non-numeric demographic_no: {}", LogSanitizer.sanitize(demoNoParam));
+            return;
+        }
+        String chartNo = request.getParameter("chart_no");
+        if (chartNo != null && !chartNo.isEmpty() && !chartNo.matches("\\d+")) {
+            logger.warn("Invalid non-numeric chart_no: {}", LogSanitizer.sanitize(chartNo));
+            return;
+        }
+
         ApptData obj = new ApptData();
-        obj.setAppointment_date(request.getParameter("appointment_date"));
-        obj.setStart_time(request.getParameter("start_time"));
-        obj.setEnd_time(request.getParameter("end_time"));
-        obj.setName(request.getParameter("keyword"));
-        obj.setDemographic_no(request.getParameter("demographic_no"));
-        obj.setNotes(request.getParameter("notes"));
-        obj.setReason(request.getParameter("reason"));
-        obj.setLocation(request.getParameter("location"));
-        obj.setResources(request.getParameter("resources"));
-        obj.setType(request.getParameter("type"));
-        obj.setStyle(request.getParameter("style"));
-        obj.setBilling(request.getParameter("billing"));
-        obj.setStatus(request.getParameter("status"));
-        obj.setRemarks(request.getParameter("remarks"));
-        obj.setDuration(request.getParameter("duration"));
-        obj.setChart_no(request.getParameter("chart_no"));
-        obj.setUrgency(request.getParameter("urgency"));
-        obj.setReasonCode(request.getParameter("reasonCode"));
-        // set up session bean
-        request.getSession().setAttribute(SESSION_APPT_BEAN, obj);
+        obj.setAppointment_date(cap(request.getParameter("appointment_date"), MAX_FIELD_LEN));
+        obj.setStart_time(cap(request.getParameter("start_time"), MAX_FIELD_LEN));
+        obj.setEnd_time(cap(request.getParameter("end_time"), MAX_FIELD_LEN));
+        obj.setName(cap(request.getParameter("keyword"), MAX_FIELD_LEN));
+        obj.setDemographic_no(demoNoParam);
+        obj.setNotes(cap(request.getParameter("notes"), MAX_NOTES_LEN));
+        obj.setReason(cap(request.getParameter("reason"), MAX_FIELD_LEN));
+        obj.setLocation(cap(request.getParameter("location"), MAX_FIELD_LEN));
+        obj.setResources(cap(request.getParameter("resources"), MAX_FIELD_LEN));
+        obj.setType(cap(request.getParameter("type"), MAX_FIELD_LEN));
+        obj.setStyle(cap(request.getParameter("style"), MAX_FIELD_LEN));
+        obj.setBilling(cap(request.getParameter("billing"), MAX_FIELD_LEN));
+        obj.setStatus(cap(request.getParameter("status"), MAX_FIELD_LEN));
+        obj.setRemarks(cap(request.getParameter("remarks"), MAX_FIELD_LEN));
+        obj.setDuration(cap(request.getParameter("duration"), MAX_FIELD_LEN));
+        obj.setChart_no(chartNo);
+        obj.setUrgency(cap(request.getParameter("urgency"), MAX_FIELD_LEN));
+        obj.setReasonCode(cap(request.getParameter("reasonCode"), MAX_FIELD_LEN));
+        // numeric ID fields validated above; display strings length-capped to prevent oversized session storage
+        request.getSession().setAttribute(SESSION_APPT_BEAN, obj); // nosemgrep: tainted-session-from-http-request
     }
 
     public static ApptData getAppointmentFromSession(HttpServletRequest request) {

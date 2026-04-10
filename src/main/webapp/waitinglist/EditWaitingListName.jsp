@@ -43,7 +43,7 @@
     <head>
         <script src="${pageContext.request.contextPath}/js/global.js"></script>
         <!-- Bootstrap -->
-        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
         <title>Change Waiting List Name</title>
 

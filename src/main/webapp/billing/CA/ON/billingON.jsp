@@ -159,7 +159,7 @@
 
         for (DSConsequence dscon : list) {
             if (dscon.getConsequenceStrength().equals(DSConsequence.ConsequenceStrength.warning)) {
-                billingRecomendations.append(dscon.getText()).append("<br/>");
+                billingRecomendations.append(Encode.forHtml(dscon.getText())).append("<br/>");
             }
         }
     } catch (Exception e) {
@@ -607,7 +607,7 @@
     <title><fmt:message key="oscar.billing.ca.on.billingON.title"/></title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <link href="${ pageContext.request.contextPath }/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <link href="${ pageContext.request.contextPath }/css/fontawesome-all.min.css" rel="stylesheet" type="text/css">
 
 
@@ -1575,7 +1575,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
 
 
                                     %> <input type="checkbox" name="rfcheck" value="checked"
-                                            <%=checkRefBox%> onclick="onClickRefDoc()"/><br/>
+                                            <%= "checked".equals(checkRefBox) ? "checked" : "" %> onclick="onClickRefDoc()"/><br/>
                                         <input
                                                 type="text" name="referralCode" class="form-control form-control-sm d-inline-block w-auto" maxlength="6"
                                                 placeholder="<fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.referralNo"/>"
@@ -1716,9 +1716,9 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
 
                                     </td>
                                     <td style="white-space:nowrap; width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.assignedPhysician"/></b></td>
-                                    <td style="width: 20%"><%=providerBean.getProperty(assgProvider_no, "").length() > 15
+                                    <td style="width: 20%"><%= Encode.forHtml(providerBean.getProperty(assgProvider_no, "").length() > 15
                                             ? providerBean.getProperty(assgProvider_no, "").substring(0, 14)
-                                            : providerBean.getProperty(assgProvider_no, "")%>
+                                            : providerBean.getProperty(assgProvider_no, "")) %>
                                     </td>
                                 </tr>
                                 <tr>

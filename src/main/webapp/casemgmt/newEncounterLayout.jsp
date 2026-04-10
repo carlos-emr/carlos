@@ -32,7 +32,7 @@
 
 <%@ include file="/casemgmt/taglibs.jsp" %>
 
-<%@page import="java.util.Enumeration, org.apache.commons.text.StringEscapeUtils" %>
+<%@page import="java.util.Enumeration" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
@@ -45,7 +45,6 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 
 
 <%
@@ -195,7 +194,8 @@
                      paramValue = request.getParameter(paramName);
 
                  %>
-                params += "&<%=paramName%>=<%=Encode.forJavaScript(paramValue)%>";
+                params += "&" + encodeURIComponent("<%=Encode.forJavaScript(paramName)%>")
+                        + "=" + encodeURIComponent("<%=Encode.forJavaScript(paramValue)%>");
                 <%
 
                  }
@@ -620,7 +620,7 @@
             <input type="hidden" id="containerDiv" name="containerDiv" value="">
             <input type="hidden" id="issueChange" name="issueChange" value="">
             <input type="hidden" id="archived" name="archived" value="false">
-            <input type="hidden" id="annotation_attrib" name="annotation_attrib">
+
             <h3 id="winTitle"></h3>
 
             <textarea cols="50" rows="15" id="noteEditTxt"
@@ -728,11 +728,7 @@
                         type="image"
                         src="<c:out value="${ctx}/encounter/graphics/copy.png"/>"
                         title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnCopy"/>'
-                        onclick="copyCppToCurrentNote(); return false;"> <input
-                    type="image"
-                    src="<c:out value="${ctx}/encounter/graphics/annotation.png"/>"
-                    title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnAnnotation"/>'
-                    id="anno" style="padding-right: 10px;"> <input type="image"
+                        onclick="copyCppToCurrentNote(); return false;"> <input type="image"
                                                                    src="<c:out value="${ctx}/encounter/graphics/edit-cut.png"/>"
                                                                    title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnArchive"/>'
                                                                    onclick="$('archived').value='true';"

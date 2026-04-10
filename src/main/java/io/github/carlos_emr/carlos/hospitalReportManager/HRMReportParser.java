@@ -60,6 +60,9 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProv
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.sax.SAXSource;
 
 import org.springframework.core.io.ClassPathResource;
 
@@ -125,8 +128,8 @@ public class HRMReportParser {
                 }
 
                 // Load and compile the XSD schema
-                SchemaFactory factory = SchemaFactory
-                    .newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+                SchemaFactory factory = XmlUtils.createSecureSchemaFactory(
+                    XMLConstants.W3C_XML_SCHEMA_NS_URI);
                 File schemaFile = new ClassPathResource("/xsd/hrm/1.1.2/ontariomd_hrm.xsd").getFile();
                 Source schemaSource = new StreamSource(schemaFile);
                 Schema schema = factory.newSchema(schemaSource);
@@ -136,14 +139,15 @@ public class HRMReportParser {
                 Unmarshaller u = jc.createUnmarshaller();
                 u.setSchema(schema);
                 try (FileInputStream fileInputStream = new FileInputStream(tmpXMLholder)) {
-                    root = (OmdCds) u.unmarshal(fileInputStream);
+                    SAXSource secureSource = XmlUtils.createSecureJaxbSource(fileInputStream);
+                    root = (OmdCds) u.unmarshal(secureSource);
                 }
 
                 tmpXMLholder = null;
             } catch (FileNotFoundException e) {
                 logger.error("File Not Found " + e);
                 if (errors != null) errors.add(e);
-            } catch (SAXException e) {
+            } catch (SAXException | ParserConfigurationException e) {
                 logger.error("SAX ERROR PARSING XML " + e);
                 if (errors != null) errors.add(e);
             } catch (JAXBException e) {

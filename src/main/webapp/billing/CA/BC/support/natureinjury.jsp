@@ -28,6 +28,8 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.WcbNoiCode" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.WcbNoiCodeDao" %>
@@ -53,9 +55,14 @@
     %>
     <script language="JavaScript">
     function posttoText(index){
+    <%if (form == null || form.isEmpty() || field == null || field.isEmpty()) {%>
+    alert("Error: Missing form configuration. Cannot transfer the selected code.");
+    return;
+    <%} else {%>
     self.close();
-    opener.document.<%=form%>.<%=field%>.value = index;
+    opener.document["<%= Encode.forJavaScript(form) %>"]["<%= Encode.forJavaScript(field) %>"].value = index;
     opener.document.focus();
+    <%}%>
     }
     </script>
     <body bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0">
@@ -86,12 +93,12 @@
     <tr <%=((color) ? "bgcolor=\"#F6F6F6\"" : "")%> align="left"
     valign="top">
     <td class="SmallerText"><a href=#
-    onClick="posttoText('<%=c.getCode()%>');"><%=c.getCode()%></a>
+    onClick="posttoText('<%= Encode.forJavaScriptAttribute(StringUtils.noNull(c.getCode())) %>');"><%= Encode.forHtml(StringUtils.noNull(c.getCode())) %></a>
     </td>
-    <td class="SmallerText"><%=c.getLevel1()%></td>
-    <td class="SmallerText"><%=c.getLevel2()%></td>
-    <td class="SmallerText"><%=c.getLevel3()%></td>
-    <td class="SmallerText"><%=c.getUsagenote()%></td>
+    <td class="SmallerText"><%= Encode.forHtml(StringUtils.noNull(c.getLevel1())) %></td>
+    <td class="SmallerText"><%= Encode.forHtml(StringUtils.noNull(c.getLevel2())) %></td>
+    <td class="SmallerText"><%= Encode.forHtml(StringUtils.noNull(c.getLevel3())) %></td>
+    <td class="SmallerText"><%= Encode.forHtml(c.getUsagenote() != null ? new String(c.getUsagenote()) : "") %></td>
     </tr>
     <%
             color = !(color);

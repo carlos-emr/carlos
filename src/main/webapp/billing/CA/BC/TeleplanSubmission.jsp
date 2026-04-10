@@ -53,6 +53,7 @@
 <%@ page
         import="java.util.*, java.sql.*, io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.providers.data.ProviderData,io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.entities.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillActivityDAO" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -92,7 +93,7 @@
 <html>
 <head>
     <title>Billing Report</title>
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
     <script language="JavaScript">
         var checkSubmitFlg = false;
@@ -168,7 +169,7 @@
             <% for (String year : yearArray) { %>
             <tr>
                 <td align='CENTER'><a
-                        href="TeleplanSubmission.jsp?year=<%=year%>">YEAR <%=year%>
+                        href="TeleplanSubmission.jsp?year=<%=Encode.forUriComponent(year)%>">YEAR <%=Encode.forHtml(year)%>
                 </a></td>
             </tr>
             <% } %>
@@ -186,7 +187,7 @@
     </div>
 
 
-    <h4>Teleplan Group Report - <%=thisyear%>
+    <h4>Teleplan Group Report - <%=Encode.forHtml(thisyear)%>
     </h4>
     <c:if test="${!empty error}"><c:out value="${error}"/></c:if>
 
@@ -202,7 +203,7 @@
                 for (String provNo : list) {
                     ProviderData provider = new ProviderData(provNo);
             %>
-            <option value="<%=provider.getOhip_no()%>"><%=provider.getLast_name()%>,<%=provider.getFirst_name()%>
+            <option value="<%=Encode.forHtmlAttribute(provider.getOhip_no())%>"><%=Encode.forHtml(provider.getLast_name())%>,<%=Encode.forHtml(provider.getFirst_name())%>
             </option>
             <%}%>
         </select>

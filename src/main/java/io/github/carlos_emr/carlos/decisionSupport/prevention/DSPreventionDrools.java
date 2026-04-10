@@ -36,6 +36,7 @@ import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.DSCondition;
@@ -173,8 +174,7 @@ public class DSPreventionDrools {
         RuleBaseCreator rbc = new RuleBaseCreator();
         ResourceBundle oscarResource = ResourceBundle.getBundle("oscarResources");
 
-        SAXBuilder parser = new SAXBuilder();
-        parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
         Document doc = parser.build(new ByteArrayInputStream(ruleSet));
         Element root = doc.getRootElement();
         // Global counter across all recommendations to ensure unique rule names

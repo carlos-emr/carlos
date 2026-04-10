@@ -751,7 +751,7 @@
 </div>
 
 
-<form method="post" name="titlesearch" action="billingShortcutPg2.jsp"
+<form method="post" name="titlesearch" action="<%= request.getContextPath() %>/billing/CA/ON/BillingShortcutPg2Save.do"
       onsubmit="return onNext();">
     <table border="0" cellpadding="0" cellspacing="2" width="100%"
            bgcolor="#CCCCFF">
@@ -897,7 +897,7 @@
                                         %>
                                     </select></td>
                                     <td nowrap width="30%" align="center"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.hospitalBilling.frmAssgnPhysician"/></b></td>
-                                    <td width="20%"><%=providerBean.getProperty(assgProvider_no, "")%>
+                                    <td width="20%"><%= Encode.forHtml(providerBean.getProperty(assgProvider_no, "")) %>
                                     </td>
                                 </tr>
                                 <tr>

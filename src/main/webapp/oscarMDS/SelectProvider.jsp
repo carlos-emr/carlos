@@ -42,13 +42,12 @@
 <head>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.selectProvider.title"/></title>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/share/yui/js/yahoo-dom-event.js"></script>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/share/yui/js/connection-min.js"></script>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/share/yui/js/animation-min.js"></script>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/share/yui/js/datasource-min.js"></script>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/share/yui/js/autocomplete-min.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.css"/>
     <script type="text/javascript"
             src="${pageContext.request.contextPath}/js/demographicProviderAutocomplete.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/carlosAutocomplete.js"></script>
 
 </head>
 
@@ -168,56 +167,18 @@
     </div>
 </form>
 <script type="text/javascript">
-    YAHOO.example.BasicRemote = function () {
-        var url = "<%= request.getContextPath() %>/provider/SearchProvider.do";
-        var oDS = new YAHOO.util.XHRDataSource(url, {connMethodPost: true, connXhrMode: 'ignoreStaleResponses'});
-        oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;// Set the responseType
-        // Define the schema of the delimited resultsTEST, PATIENT(1985-06-15)
-        oDS.responseSchema = {
-            resultsList: "results",
-            fields: ["providerNo", "firstName", "lastName"]
-        };
-        // Enable caching
-        oDS.maxCacheEntries = 0;
-
-        // Instantiate the AutoComplete
-        var oAC = new YAHOO.widget.AutoComplete("autocompleteprov", "autocomplete_choicesprov", oDS);
-        oAC.queryMatchSubset = true;
-        oAC.minQueryLength = 3;
-        oAC.maxResultsDisplayed = 25;
-        oAC.formatResult = resultFormatter3;
-        //oAC.typeAhead = true;
-        oAC.queryMatchContains = true;
-
-        oAC.itemSelectEvent.subscribe(function (type, args) {
-            var autocompleteEl = document.getElementById("autocompleteprov");
-            if (autocompleteEl) autocompleteEl.value = "";
-            var name = args[2][2] + ", " + args[2][1];
-            var id = args[2][0];
-
+    initProviderAutocomplete("#autocompleteprov", "<%= request.getContextPath() %>",
+        function (providerNo, firstName, lastName) {
+            document.getElementById("autocompleteprov").value = "";
             var selectObj = document.getElementById("fwdProviders");
             if (selectObj) {
                 var option = document.createElement("option");
-                option.text = name;
-                option.value = id;
-                option.id = id;
-
-                try {
-                    // for IE earlier than version 8
-                    selectObj.add(option, selectObj.options[null]);
-                } catch (e) {
-                    selectObj.add(option, null);
-                }
+                option.text = lastName + ", " + firstName;
+                option.value = providerNo;
+                option.id = providerNo;
+                selectObj.add(option, null);
             }
-
         });
-
-
-        return {
-            oDS: oDS,
-            oAC: oAC
-        };
-    }();
 
     var autocompleteprovEl = document.getElementById("autocompleteprov");
     if (autocompleteprovEl) autocompleteprovEl.focus();

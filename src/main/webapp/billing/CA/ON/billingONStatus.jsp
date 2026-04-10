@@ -223,15 +223,15 @@
             <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.invoiceRpts"/>
         </title>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-        <script src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
+        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
         <script src="<%=request.getContextPath() %>/js/table-export.js"></script>
         <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script><!-- 1.13.4 -->
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
-        <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
               rel="stylesheet">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css">
+        <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 flatpickr("#xml_vdate", {dateFormat: "Y-m-d", allowInput: true});
@@ -560,7 +560,7 @@
                         <% } %>
                         <label>
                             OHIP No.:
-                            <input type="text" class="form-control form-control-sm d-inline-block w-auto" name="provider_ohipNo" readonly value="<%=ohipNo%>"></label>
+                            <input type="text" class="form-control form-control-sm d-inline-block w-auto" name="provider_ohipNo" readonly value="<%= Encode.forHtmlAttribute(StringUtils.noNull(ohipNo)) %>"></label>
                     </div>
                     <div class="col-md-6">
                         <label for="xml_vdate">Start:</label>

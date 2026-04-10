@@ -46,8 +46,8 @@
     <title><fmt:message key="loginApplication.title"/></title>
 
     <c:set var="ctx" value="${ pageContext.request.contextPath }" scope="page"/>
-    <link rel="stylesheet" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css" type="text/css"/>
-    <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="${ctx}/library/bootstrap/5.3.8/css/bootstrap.min.css" type="text/css"/>
+    <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
 </head>
 <body class="bg-light">

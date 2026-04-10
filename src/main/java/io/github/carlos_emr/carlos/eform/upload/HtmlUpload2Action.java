@@ -68,7 +68,8 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
             throw new SecurityException("missing required sec object (_eform)");
         }
         try {
-            String formHtmlStr = new String(Files.readAllBytes(formHtml.toPath()));
+            File validatedFormHtml = PathValidationUtils.validateUpload(formHtml);
+            String formHtmlStr = new String(Files.readAllBytes(validatedFormHtml.toPath()));
             formHtmlStr = formHtmlStr.replaceAll("\\\\n", "\\\\\\\\n");
             String fileName = formHtmlFileName != null ? formHtmlFileName : formHtml.getName();
             EFormUtil.saveEForm(formName, subject, fileName, formHtmlStr, showLatestFormOnly, patientIndependent, roleType);

@@ -46,6 +46,7 @@ import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.carlos.decisionSupport.model.conditionValue.DSValue;
 import io.github.carlos_emr.carlos.decisionSupport.model.impl.drools.DSGuidelineDrools;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 /**
  * Factory class for creating and parsing clinical decision support guidelines from XML configuration.
@@ -113,8 +114,7 @@ public class DSGuidelineFactory {
      */
     public DSGuideline createGuidelineFromXml(String xml) throws DecisionSupportParseException {
         if (xml == null || xml.equals("")) throw new DecisionSupportParseException("Xml not set");
-        SAXBuilder parser = new SAXBuilder();
-        parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
         Document doc;
         try {
             doc = parser.build(new StringReader(xml));

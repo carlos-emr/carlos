@@ -79,11 +79,11 @@
     Properties propName = new Properties();
     // select providers list
     if (isSiteAccessPrivacy) {
-        sql = "select p.* from provider p INNER JOIN providersite s ON p.provider_no = s.provider_no WHERE s.site_id IN (SELECT site_id from providersite where provider_no=" + curUser_no + ") order by p.first_name, p.last_name";
+        sql = "select p.* from provider p INNER JOIN providersite s ON p.provider_no = s.provider_no WHERE s.site_id IN (SELECT site_id from providersite where provider_no=?) order by p.first_name, p.last_name";
     } else {
         sql = "select * from provider p order by p.first_name, p.last_name ";
     }
-    ResultSet rs = dbObj.queryResults(sql);
+    ResultSet rs = isSiteAccessPrivacy ? dbObj.queryResults(sql, new String[]{curUser_no}) : dbObj.queryResults(sql);
 
     while (rs.next()) {
         propName.setProperty(Misc.getString(rs, "provider_no"), Misc.getString(rs, "first_name") + " " + Misc.getString(rs, "last_name"));
@@ -106,11 +106,11 @@
 
         <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
-        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
         <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
         <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
 
@@ -162,7 +162,7 @@
                             String prov = ((Properties) vecProvider.get(i)).getProperty("providerNo", "");
                             String selected = request.getParameter("providerNo");
                     %>
-                    <option value="<%=prov %>"
+                    <option value="<%=Encode.forHtmlAttribute(prov) %>"
                             <% if ((selected != null) && (selected.equals(prov))) { %> selected
                             <% } %>><%= Encode.forHtmlContent(((Properties) vecProvider.get(i)).getProperty("name", "")) %>
                     </option>
@@ -183,7 +183,7 @@
             <div class="col-md-4">
                 <label>Start Date: </label>
                 <div class="input-group">
-                    <input type="text" name="startDate" id="startDate1" value="<%=startDate!=null?startDate:""%>"
+                    <input type="text" name="startDate" id="startDate1" value="<%=Encode.forHtmlAttribute(startDate!=null?startDate:"")%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -192,7 +192,7 @@
             <div class="col-md-4">
                 <label>End Date: </label>
                 <div class="input-group">
-                    <input type="text" name="endDate" id="endDate1" value="<%=endDate!=null?endDate:""%>"
+                    <input type="text" name="endDate" id="endDate1" value="<%=Encode.forHtmlAttribute(endDate!=null?endDate:"")%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -226,24 +226,36 @@
             if ("".equals(sDate) || sDate == null) sDate = "1900-01-01";
             if ("".equals(eDate) || eDate == null) eDate = "2999-01-01";
 
-            DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[2];
-            params[0] = new DBPreparedHandlerParam(MyDateFormat.getSysDateEX(eDate, 1));
-            params[1] = new DBPreparedHandlerParam(MyDateFormat.getSysDate(sDate));
-
-            sql = "select * from log force index (datetime) where provider_no='" + providerNo + "' and dateTime <= ?";
-            sql += " and dateTime >= ? and content like '" + content + "' order by dateTime desc ";
+            DBPreparedHandlerParam[] params;
 
             if ("*".equals(providerNo)) {
                 bAll = true;
                 if (isSiteAccessPrivacy) {
                     sql = "select * from log force index (datetime) where dateTime <= ?";
-                    sql += " and dateTime >= ? and content like '" + content + "' ";
-                    sql += "and provider_no IN (SELECT provider_no FROM providersite WHERE site_id IN (SELECT site_id from providersite where provider_no= " + curUser_no + ") )";
+                    sql += " and dateTime >= ? and content like ? ";
+                    sql += "and provider_no IN (SELECT provider_no FROM providersite WHERE site_id IN (SELECT site_id from providersite where provider_no=?) )";
                     sql += " order by dateTime desc ";
+                    params = new DBPreparedHandlerParam[4];
+                    params[0] = new DBPreparedHandlerParam(MyDateFormat.getSysDateEX(eDate, 1));
+                    params[1] = new DBPreparedHandlerParam(MyDateFormat.getSysDate(sDate));
+                    params[2] = new DBPreparedHandlerParam(content);
+                    params[3] = new DBPreparedHandlerParam(curUser_no);
                 } else {
                     sql = "select * from log force index (datetime) where dateTime <= ?";
-                    sql += " and dateTime >= ? and content like '" + content + "' order by dateTime desc ";
+                    sql += " and dateTime >= ? and content like ? order by dateTime desc ";
+                    params = new DBPreparedHandlerParam[3];
+                    params[0] = new DBPreparedHandlerParam(MyDateFormat.getSysDateEX(eDate, 1));
+                    params[1] = new DBPreparedHandlerParam(MyDateFormat.getSysDate(sDate));
+                    params[2] = new DBPreparedHandlerParam(content);
                 }
+            } else {
+                sql = "select * from log force index (datetime) where provider_no=? and dateTime <= ?";
+                sql += " and dateTime >= ? and content like ? order by dateTime desc ";
+                params = new DBPreparedHandlerParam[4];
+                params[0] = new DBPreparedHandlerParam(providerNo);
+                params[1] = new DBPreparedHandlerParam(MyDateFormat.getSysDateEX(eDate, 1));
+                params[2] = new DBPreparedHandlerParam(MyDateFormat.getSysDate(sDate));
+                params[3] = new DBPreparedHandlerParam(content);
             }
             rs = dbObj.queryResults(sql, params);
             while (rs.next()) {
@@ -267,7 +279,7 @@
         if (propName.getProperty(providerNo, "").equals("")) {
             out.print("All");
         } else {
-            out.print(propName.getProperty(providerNo, ""));
+            out.print(Encode.forHtml(propName.getProperty(providerNo, "")));
         }
     %> - Log Report</h4>
 
@@ -276,7 +288,7 @@
     </button>
 
 
-    <p>Period: ( <%= startDate == null ? "" : startDate %> ~ <%= endDate == null ? "" : endDate %>)</p>
+    <p>Period: ( <%= Encode.forHtml(startDate == null ? "" : startDate) %> ~ <%= Encode.forHtml(endDate == null ? "" : endDate) %>)</p>
     <table class="table table-bordered table-striped table-hover table-sm">
         <tr bgcolor="<%=tdTitleColor%>">
             <TH>Time</TH>

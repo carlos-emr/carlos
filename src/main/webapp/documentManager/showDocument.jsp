@@ -143,7 +143,6 @@
 <%@ page import="java.time.LocalDate" %>
 <%@ page import="java.time.format.DateTimeFormatter" %>
 <%@ page import="java.util.*" %>
-<%@ page import="org.apache.commons.lang3.StringEscapeUtils"%>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="org.owasp.encoder.Encode"%>
 <%@ page import="org.springframework.web.context.WebApplicationContext"%>
@@ -323,15 +322,6 @@
 
         <script type="text/javascript">
 
-            function getCsrfToken() {
-                var el = document.querySelector('input[name="CSRF-TOKEN"]');
-                if (!el) {
-                    console.warn('CSRF-TOKEN hidden input not found. POST requests will be rejected.');
-                    return '';
-                }
-                return el.value;
-            }
-
             function renderCalendar(id, inputFieldId) {
                 Calendar.setup({inputField: inputFieldId, ifFormat: "%Y-%m-%d", showsTime: false, button: id});
 
@@ -401,7 +391,7 @@
                 loc = loc + "/oscarMDS/Split.jsp?document=";
                 loc = loc + id;
                 loc = loc + "&queueID=";
-                loc = loc + "<%=inQueue%>";
+                loc = loc + "<%=Encode.forJavaScript(Encode.forUriComponent(StringUtils.defaultString(inQueue)))%>";
                 loc = loc + "&demoName=" + encodeURIComponent(demoName);
                 popupStart(1400, 1400, loc, "Splitter");
             }
@@ -414,7 +404,7 @@
 </c:if>
 <script type="text/javascript">
     var _in_window = <%=( "true".equals(request.getParameter("inWindow")) ? "true" : "false" )%>;
-    var contextpath = "<%=request.getContextPath()%>";
+    var contextpath = "<%=Encode.forJavaScript(request.getContextPath())%>";
 </script>
 <div id="labdoc_<%=docId%>" class="content">
     <%
@@ -443,7 +433,7 @@
     %>
     <form name="acknowledgeForm_<%=docId%>" id="acknowledgeForm_<%=docId%>" onsubmit="<%=Encode.forHtmlAttribute(ackFunc)%>" method="post"
           action="javascript:void(0);">
-
+        <input type="hidden" name="CSRF-TOKEN" value="">
         <input type="hidden" name="segmentID" value="<%=Encode.forHtmlAttribute(docId)%>">
         <input type="hidden" name="multiID" value="<%=Encode.forHtmlAttribute(docId)%>">
         <input type="hidden" name="providerNo" value="<%=Encode.forHtmlAttribute(providerNo)%>">
@@ -454,7 +444,7 @@
         <%
             if (labMacroProp != null && !StringUtils.isEmpty(labMacroProp.getValue())) {
         %>
-        <div class="dropdown d-inline-block">
+        <div class="dropdown macro-dropdown d-inline-block" style="position:relative;">
             <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button"
                     data-bs-toggle="dropdown" aria-expanded="false"><fmt:message key="showDocument.btnMacros"/></button>
             <ul class="dropdown-menu">
@@ -487,10 +477,10 @@
 
         <%}%>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="fwdBtn_<%=docId%>" value="<fmt:message key="oscarMDS.index.btnForward"/>"
-               onClick="ForwardSelectedRows(<%=docId%> + ':DOC', null, null);">
+               onClick="ForwardSelectedRows(<%=Encode.forJavaScriptAttribute(docId)%> + ':DOC', null, null);">
         <%if (!ackedOrFiled) { %>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="fileBtn_<%=docId%>" value="<fmt:message key="oscarMDS.index.btnFile"/>"
-               onclick="fileDoc('<%=docId%>');">
+               onclick="fileDoc('<%=Encode.forJavaScriptAttribute(docId)%>');">
         <%} %>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="closeBtn_<%=docId%>" value=" <fmt:message key="global.btnClose"/> "
                onClick="window.close()">
@@ -506,8 +496,8 @@
         <input type="button" class="btn btn-outline-secondary btn-sm" id="msgBtn_<%=docId%>" value="<fmt:message key="showDocument.btnMsg"/>"
                onclick="popupPatient(700,960,'${pageContext.servletContext.contextPath}/messenger/SendDemoMessage.do?demographic_no=','msg', '<%=Encode.forJavaScriptAttribute(docId)%>')" <%=btnDisabled %>>
 
-        <!--input type="button" class="btn btn-outline-secondary btn-sm" id="ticklerBtn_<%=docId%>" value="Tickler" onclick="handleDocSave('<%=docId%>','addTickler')"/-->
-        <input type="button" class="btn btn-outline-secondary btn-sm" id="mainTickler_<%=docId%>" value="<fmt:message key="showDocument.btnTickler"/>" onClick="popupPatientTickler(710, 1024,'${pageContext.servletContext.contextPath}/tickler/ticklerAdd.jsp?', 'Tickler','<%=docId%>')" <%=btnDisabled %>>
+        <!--input type="button" class="btn btn-outline-secondary btn-sm" id="ticklerBtn_<%=Encode.forHtmlAttribute(docId)%>" value="Tickler" onclick="handleDocSave('<%=Encode.forJavaScriptAttribute(docId)%>','addTickler')"/-->
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="mainTickler_<%=Encode.forHtmlAttribute(docId)%>" value="<fmt:message key="showDocument.btnTickler"/>" onClick="popupPatientTickler(710, 1024,'${pageContext.servletContext.contextPath}/tickler/ticklerAdd.jsp?', 'Tickler','<%=Encode.forJavaScriptAttribute(docId)%>')" <%=btnDisabled %>>
         <%
                                                             String refileBtnVisibility = "";
                                                             for (Hashtable ht : queues) {
@@ -525,18 +515,18 @@
 
         <input type="button" class="btn btn-outline-secondary btn-sm" id="mainEchart_<%=docId%>"
                value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
-               onClick="popupPatient(710, 1024,'${pageContext.servletContext.contextPath}/encounter/IncomingEncounter.do?reason=<fmt:message key="oscarMDS.segmentDisplay.labResults"/>&curDate=<%=currentDate%>&appointmentNo=&appointmentDate=&startTime=&status=&demographicNo=', 'encounter', '<%=docId%>')" <%=btnDisabled %>>
+               onClick="popupPatient(710, 1024,'${pageContext.servletContext.contextPath}/encounter/IncomingEncounter.do?reason=<fmt:message key="oscarMDS.segmentDisplay.labResults"/>&curDate=<%=currentDate%>&appointmentNo=&appointmentDate=&startTime=&status=&demographicNo=', 'encounter', '<%=Encode.forJavaScriptAttribute(docId)%>')" <%=btnDisabled %>>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="mainMaster_<%=docId%>" value=" <fmt:message key="oscarMDS.segmentDisplay.btnMaster"/>"
-               onClick="popupPatient(710,1024,'${pageContext.servletContext.contextPath}/demographic/DemographicEdit.do?demographic_no=','master','<%=docId%>')" <%=btnDisabled %>>
+               onClick="popupPatient(710,1024,'${pageContext.servletContext.contextPath}/demographic/DemographicEdit.do?demographic_no=','master','<%=Encode.forJavaScriptAttribute(docId)%>')" <%=btnDisabled %>>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="mainApptHistory_<%=docId%>"
                value=" <fmt:message key="oscarMDS.segmentDisplay.btnApptHist"/>"
-               onClick="popupPatient(710,1024,'${pageContext.servletContext.contextPath}/demographic/DemographicApptHistory.do?orderby=appttime&dboperation=appt_history&limit1=0&limit2=25&demographic_no=','ApptHist','<%=docId%>')" <%=btnDisabled %>>
+               onClick="popupPatient(710,1024,'${pageContext.servletContext.contextPath}/demographic/DemographicApptHistory.do?orderby=appttime&dboperation=appt_history&limit1=0&limit2=25&demographic_no=','ApptHist','<%=Encode.forJavaScriptAttribute(docId)%>')" <%=btnDisabled %>>
 
         <input type="button" class="btn btn-outline-secondary btn-sm" id="refileDoc_<%=docId%>"
-               value="<fmt:message key="encounter.noteBrowser.msgRefile"/>" onclick="refileDoc('<%=docId%>');" <%=refileBtnVisibility%> >
+               value="<fmt:message key="encounter.noteBrowser.msgRefile"/>" onclick="refileDoc('<%=Encode.forJavaScriptAttribute(docId)%>');" <%=refileBtnVisibility%> >
 
         <select id="queueList_<%=docId%>" class="btn btn-outline-secondary btn-sm" name="queueList"
-                onchange="handleQueueListChange(this, document.getElementById('refileDoc_<%=docId%>'), '<%=docCurrentFiledQueue%>')">
+                onchange="handleQueueListChange(this, document.getElementById('refileDoc_<%=Encode.forJavaScriptAttribute(docId)%>'), '<%=Encode.forJavaScriptAttribute(String.valueOf(docCurrentFiledQueue))%>')">
             <%
                 for (Hashtable ht : queues) {
                     int id = (Integer) ht.get("id");
@@ -567,30 +557,30 @@
             <td class="pdfPreviewColumn" style="vertical-align: top;">
                 <div style="text-align: right;font-weight: bold">
                     <% if (numOfPage > 1 && displayDocumentAs.equals(UserProperty.IMAGE)) {%>
-                    <a id="firstP_<%=docId%>" style="display: none;" href="javascript:void(0);"
-                       onclick="firstPage('<%=docId%>','<%=cp%>');"><fmt:message key="dms.incomingDocs.first"/></a>
-                    <a id="prevP_<%=docId%>" style="display: none;" href="javascript:void(0);"
-                       onclick="prevPage('<%=docId%>','<%=cp%>');"><fmt:message key="dms.incomingDocs.previous"/></a>
-                    <a id="nextP_<%=docId%>" href="javascript:void(0);"
-                       onclick="nextPage('<%=docId%>','<%=cp%>');"><fmt:message key="dms.incomingDocs.next"/></a>
-                    <a id="lastP_<%=docId%>" href="javascript:void(0);"
-                       onclick="lastPage('<%=docId%>','<%=cp%>');"><fmt:message key="dms.incomingDocs.last"/></a>
+                    <a id="firstP_<%=Encode.forHtmlAttribute(docId)%>" style="display: none;" href="javascript:void(0);"
+                       onclick="firstPage('<%=Encode.forJavaScriptAttribute(docId)%>','<%=Encode.forJavaScriptAttribute(cp)%>');"><fmt:message key="dms.incomingDocs.first"/></a>
+                    <a id="prevP_<%=Encode.forHtmlAttribute(docId)%>" style="display: none;" href="javascript:void(0);"
+                       onclick="prevPage('<%=Encode.forJavaScriptAttribute(docId)%>','<%=Encode.forJavaScriptAttribute(cp)%>');"><fmt:message key="dms.incomingDocs.previous"/></a>
+                    <a id="nextP_<%=Encode.forHtmlAttribute(docId)%>" href="javascript:void(0);"
+                       onclick="nextPage('<%=Encode.forJavaScriptAttribute(docId)%>','<%=Encode.forJavaScriptAttribute(cp)%>');"><fmt:message key="dms.incomingDocs.next"/></a>
+                    <a id="lastP_<%=Encode.forHtmlAttribute(docId)%>" href="javascript:void(0);"
+                       onclick="lastPage('<%=Encode.forJavaScriptAttribute(docId)%>','<%=Encode.forJavaScriptAttribute(cp)%>');"><fmt:message key="dms.incomingDocs.last"/></a>
                     <%} %>
                 </div>
                 <% if (displayDocumentAs.equals(UserProperty.IMAGE)) { %>
                 <a href="<%=url2%>" target="_blank"><img alt="document" id="docImg_<%=docId%>" src="<%=url%>"
-                                                         onerror="this.src='<%=request.getContextPath()%>/images/icon_alert.gif'"/></a>
+                                                         onerror="this.src='<%=Encode.forJavaScriptAttribute(request.getContextPath())%>/images/icon_alert.gif'"/></a>
                 <%} else {%>
                 <div id="docDispPDF_<%=docId%>"></div>
                 <%}%>
                 <div style="text-align: right;font-weight: bold">
                     <% if (numOfPage > 1 && displayDocumentAs.equals(UserProperty.IMAGE)) {%>
-                    <a id="firstP2_<%=docId%>" style="display: none;" href="javascript:void(0);"
-                       onclick="firstPage('<%=docId%>','<%=cp%>');"><fmt:message key="dms.incomingDocs.first"/></a>
-                    <a id="prevP2_<%=docId%>" style="display: none;" href="javascript:void(0);"
-                       onclick="prevPage('<%=docId%>','<%=cp%>');"><fmt:message key="dms.incomingDocs.previous"/></a>
-                    <a id="nextP2_<%=docId%>" href="javascript:void(0);" onclick="nextPage('<%=docId%>','<%=cp%>');"><fmt:message key="dms.incomingDocs.next"/></a>
-                    <a id="lastP2_<%=docId%>" href="javascript:void(0);" onclick="lastPage('<%=docId%>','<%=cp%>');"><fmt:message key="dms.incomingDocs.last"/></a>
+                    <a id="firstP2_<%=Encode.forHtmlAttribute(docId)%>" style="display: none;" href="javascript:void(0);"
+                       onclick="firstPage('<%=Encode.forJavaScriptAttribute(docId)%>','<%=Encode.forJavaScriptAttribute(cp)%>');"><fmt:message key="dms.incomingDocs.first"/></a>
+                    <a id="prevP2_<%=Encode.forHtmlAttribute(docId)%>" style="display: none;" href="javascript:void(0);"
+                       onclick="prevPage('<%=Encode.forJavaScriptAttribute(docId)%>','<%=Encode.forJavaScriptAttribute(cp)%>');"><fmt:message key="dms.incomingDocs.previous"/></a>
+                    <a id="nextP2_<%=Encode.forHtmlAttribute(docId)%>" href="javascript:void(0);" onclick="nextPage('<%=Encode.forJavaScriptAttribute(docId)%>','<%=Encode.forJavaScriptAttribute(cp)%>');"><fmt:message key="dms.incomingDocs.next"/></a>
+                    <a id="lastP2_<%=Encode.forHtmlAttribute(docId)%>" href="javascript:void(0);" onclick="lastPage('<%=Encode.forJavaScriptAttribute(docId)%>','<%=Encode.forJavaScriptAttribute(cp)%>');"><fmt:message key="dms.incomingDocs.last"/></a>
                     <%} %>
                 </div>
             </td>
@@ -636,16 +626,16 @@
                                     %>
                                 </oscar:oscarPropertiesCheck>
                                 <div style="<%=updatableContent==true?"":"visibility: hidden"%>">
-                                    <input onclick="split('<%=docId%>','${e:forJavaScript(demoName)}')"
+                                    <input onclick="split('<%=Encode.forJavaScriptAttribute(docId)%>','${e:forJavaScript(demoName)}')"
                                            type="button" class=" btn btn-light btn-sm" value="<fmt:message key="inboxmanager.document.split"/>">
-                                    <input id="rotate180btn_<%=docId %>" onclick="rotate180('<%=docId %>')"
+                                    <input id="rotate180btn_<%=Encode.forHtmlAttribute(docId)%>" onclick="rotate180('<%=Encode.forJavaScriptAttribute(docId)%>')"
                                            type="button" class=" btn btn-light btn-sm"
                                            value="<fmt:message key="inboxmanager.document.rotate180"/>">
-                                    <input id="rotate90btn_<%=docId %>" onclick="rotate90('<%=docId %>')"
+                                    <input id="rotate90btn_<%=Encode.forHtmlAttribute(docId)%>" onclick="rotate90('<%=Encode.forJavaScriptAttribute(docId)%>')"
                                             type="button" class=" btn btn-light btn-sm"
                                            value="<fmt:message key="inboxmanager.document.rotate90"/>">
-                                    <% if (numOfPage > 1) { %><input id="removeFirstPagebtn_<%=docId %>"
-                                            onclick="removeFirstPage('<%=docId %>')"
+                                    <% if (numOfPage > 1) { %><input id="removeFirstPagebtn_<%=Encode.forHtmlAttribute(docId)%>"
+                                            onclick="removeFirstPage('<%=Encode.forJavaScriptAttribute(docId)%>')"
                                             type="button" class=" btn btn-light btn-sm"
                                             value="<fmt:message key="inboxmanager.document.removeFirstPage"/>"><% } %>
                                 </div>
@@ -654,10 +644,10 @@
 
                     </table>
 
-                    <form id="forms_<%=docId%>" method="post" onsubmit="return updateDocument('forms_<%=docId%>');">
+                    <form id="forms_<%=Encode.forHtmlAttribute(docId)%>" method="post" onsubmit="return updateDocument('forms_<%=Encode.forJavaScriptAttribute(docId)%>');">
                         <input type="hidden" name="method" value="documentUpdateAjax">
-                        <input type="hidden" name="documentId" value="<%=docId%>">
-                        <input type="hidden" name="providerNo" value="<%= providerNo%>">
+                        <input type="hidden" name="documentId" value="<%=Encode.forHtmlAttribute(docId)%>">
+                        <input type="hidden" name="providerNo" value="<%= Encode.forHtmlAttribute(providerNo)%>">
                         <input type="hidden" name="curPage_<%=docId%>" id="curPage_<%=docId%>" value="1">
                         <input type="hidden" name="totalPage_<%=docId%>" id="totalPage_<%=docId%>"
                                value="<%=numOfPage%>">
@@ -757,15 +747,15 @@
                                 <td style="width: 30%; text-align: left;"><a id="saveSucessMsg_<%=docId%>"
                                                                             style="display:none;color:blue;"><fmt:message key="inboxmanager.document.SuccessfullySavedMsg"/></a></td>
                                 <td style="width: 30%; text-align: left;"><%if(demographicID.equals("-1")){%>
-                                    <input type="submit" class=" btn btn-primary btn-sm" name="save" disabled id="save<%=docId%>" value="<fmt:message key="global.btnSave"/>">
-                                    <input type="button" class=" btn btn-light btn-sm" name="save" id="saveNext<%=docId%>"
-                                           onclick="saveNext(<%=docId%>)" disabled
+                                    <input type="submit" class=" btn btn-primary btn-sm" name="save" disabled id="save<%=Encode.forHtmlAttribute(docId)%>" value="<fmt:message key="global.btnSave"/>">
+                                    <input type="button" class=" btn btn-light btn-sm" name="save" id="saveNext<%=Encode.forHtmlAttribute(docId)%>"
+                                           onclick="saveNext(<%=Encode.forJavaScriptAttribute(docId)%>)" disabled
                                            value='<fmt:message key="inboxmanager.document.SaveAndNext"/>'>
                                         <%}
             else{%>
-                                    <input type="submit" class=" btn btn-primary btn-sm" name="save" id="save<%=docId%>" value="<fmt:message key="global.btnSave"/>">
-                                    <input type="button" class=" btn btn-light btn-sm" name="save" onclick="saveNext(<%=docId%>)"
-                                           id="saveNext<%=docId%>"
+                                    <input type="submit" class=" btn btn-primary btn-sm" name="save" id="save<%=Encode.forHtmlAttribute(docId)%>" value="<fmt:message key="global.btnSave"/>">
+                                    <input type="button" class=" btn btn-light btn-sm" name="save" onclick="saveNext(<%=Encode.forJavaScriptAttribute(docId)%>)"
+                                           id="saveNext<%=Encode.forHtmlAttribute(docId)%>"
                                            value='<fmt:message key="inboxmanager.document.SaveAndNext"/>'>
 
                                         <%}%>
@@ -919,8 +909,11 @@
 </div>
 
 <script type="text/javascript"
+        src="${pageContext.servletContext.contextPath}/library/dompurify/purify.min.js"></script>
+<script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
 <script type="text/javascript" src="showDocument.js"></script>
+<script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/csrfTokenFetch.js"></script>
 <script type="text/javascript">
     /**
      * Override removeLink for the single-document popup view.
@@ -1123,7 +1116,7 @@
 
     // Macro support: check if document is linked to patient, then apply macro
     function runDocMacro(name, formid, closeOnSuccess) {
-        var url = '<%=request.getContextPath()%>/documentManager/inboxManage.do';
+        var url = '<%=Encode.forJavaScript(request.getContextPath())%>/documentManager/inboxManage.do';
         var data = 'method=isDocumentLinkedToDemographic&docId=<%= Encode.forJavaScript(docId) %>&CSRF-TOKEN=' + encodeURIComponent(getCsrfToken());
         fetch(url, {
             method: 'POST',
@@ -1144,7 +1137,7 @@
     }
 
     function runDocMacroInternal(name, formid, closeOnSuccess, demographicNo) {
-        var url = '<%=request.getContextPath()%>' + '/oscarMDS/RunMacro.do?name=' + encodeURIComponent(name) + (demographicNo.length > 0 ? '&demographicNo=' + encodeURIComponent(demographicNo) : '');
+        var url = '<%=Encode.forJavaScript(request.getContextPath())%>' + '/oscarMDS/RunMacro.do?name=' + encodeURIComponent(name) + (demographicNo.length > 0 ? '&demographicNo=' + encodeURIComponent(demographicNo) : '');
         var formEl = document.getElementById(formid);
         var params = new URLSearchParams(new FormData(formEl));
         if (!params.has('CSRF-TOKEN')) { params.append('CSRF-TOKEN', getCsrfToken()); }
@@ -1169,6 +1162,8 @@
         });
     }
 
+    // Fetch CSRF token from CSRFGuard servlet and populate hidden inputs
+    fetchCsrfToken('<%=Encode.forJavaScript(request.getContextPath())%>');
 
 </script>
 <jsp:include page="/images/spinner.jsp"/>
