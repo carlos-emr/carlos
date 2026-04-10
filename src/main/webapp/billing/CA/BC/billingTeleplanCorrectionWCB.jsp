@@ -713,7 +713,7 @@
         <table width="100%">
             <tr>
                 <td colspan="2" align="center" class="SectionHead"><a
-                        href="billingTeleplanCorrectionWCB.jsp?billing_no=<%=Encode.forUriComponent(StringUtils.noNull(form.getBillingNo()))%>">Refresh</a>
+                        href="billingTeleplanCorrectionWCB.jsp?billing_no=<%=Encode.forUriComponent(StringUtils.noNull(form.getId()))%>">Refresh</a>
                     | <input type="button" name="Button" value="Close"
                              onClick="window.close();"> | <input type="button"
                                                                  name="Button" value="Print" onClick="window.print();">
