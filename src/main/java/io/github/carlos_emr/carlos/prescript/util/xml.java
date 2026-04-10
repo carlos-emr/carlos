@@ -33,13 +33,12 @@ package io.github.carlos_emr.carlos.prescript.util;
 import java.io.StringReader;
 import java.io.StringWriter;
 
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -49,11 +48,11 @@ public class xml {
 
     public static Document newDocument() {
         try {
-            Document document = DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument();
+            Document document = XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().newDocument();
             return document;
         } catch (Exception e) {
-            Document document1 = null;
-            return document1;
+            MiscUtils.getLogger().error("Failed to create new XML document", e);
+            return null;
         }
     }
 
@@ -77,7 +76,7 @@ public class xml {
         DOMSource src = new DOMSource(xmlDoc);
         StreamResult rslt = new StreamResult(ret);
         try {
-            Transformer trans = TransformerFactory.newInstance().newTransformer();
+            Transformer trans = XmlUtils.createSecureTransformerFactory().newTransformer();
             trans.transform(src, rslt);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -86,16 +85,13 @@ public class xml {
     }
 
     public static Document parseXML(String xmlInput) {
-        Document document;
         try {
             InputSource is = new InputSource(new StringReader(xmlInput));
-            Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(is);
-            Document document1 = doc;
-            return document1;
+            return XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(is);
         } catch (Exception e) {
-            document = null;
+            MiscUtils.getLogger().error("Failed to parse XML input", e);
+            return null;
         }
-        return document;
     }
 
     public static String getText(Node node) {

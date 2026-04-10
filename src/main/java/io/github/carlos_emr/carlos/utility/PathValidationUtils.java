@@ -233,7 +233,7 @@ public final class PathValidationUtils {
             return canonicalFile;
         }
 
-        logger.error("Invalid upload source path: {}", canonicalFile.getPath());
+        logger.error("Invalid upload source path: {}", LogSanitizer.sanitize(canonicalFile.getPath(), 1024));
         throw new SecurityException("Invalid upload source");
     }
 
@@ -266,13 +266,13 @@ public final class PathValidationUtils {
 
         // Reject hidden files (starting with .)
         if (baseName.startsWith(".")) {
-            logger.warn("Hidden filenames not allowed: {}", fileName);
+            logger.warn("Hidden filenames not allowed: {}", LogSanitizer.sanitize(fileName));
             throw new SecurityException("Invalid filename: hidden files not allowed");
         }
 
         // Ensure the result is not empty
         if (baseName.trim().isEmpty()) {
-            logger.warn("Filename became empty after sanitization: {}", fileName);
+            logger.warn("Filename became empty after sanitization: {}", LogSanitizer.sanitize(fileName));
             throw new SecurityException("Invalid filename");
         }
 

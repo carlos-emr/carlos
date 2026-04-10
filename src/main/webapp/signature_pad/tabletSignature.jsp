@@ -54,9 +54,10 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
     String imageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + Encode.forUriComponent(requestIdKey);
     String storedImageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_stored.name() + "&digitalSignatureId=";
     boolean saveToDB = "true".equals(request.getParameter("saveToDB"));
+    boolean inWindow = "true".equals(request.getParameter("inWindow"));
 %>
 <script type="text/javascript">
-    var _in_window = <%= "true".equals(request.getParameter("inWindow"))%>;
+    var _in_window = <%= inWindow %>;
 
     var requestIdKey = "<%= Encode.forJavaScript(requestIdKey) %>";
 

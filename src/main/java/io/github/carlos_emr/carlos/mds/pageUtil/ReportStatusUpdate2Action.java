@@ -94,7 +94,7 @@ public class ReportStatusUpdate2Action extends ActionSupport {
 
         if (status == 'A') {
             String demographicID = getDemographicIdFromLab(lab_type, labNo);
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ACK, LogConst.CON_HL7_LAB, "" + labNo, request.getRemoteAddr(), demographicID);
+            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ACK, LogConst.CON_HL7_LAB, "" + labNo, request.getRemoteAddr(), demographicID); // nosemgrep: tainted-session-from-http-request
         }
 
         try {
@@ -121,6 +121,9 @@ public class ReportStatusUpdate2Action extends ActionSupport {
     }
 
     public String addComment() {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
+            throw new SecurityException("missing required sec object (_lab)");
+        }
         int labNo = Integer.parseInt(request.getParameter("segmentID"));
         String providerNo = request.getParameter("providerNo");
         char status = request.getParameter("status").charAt(0);

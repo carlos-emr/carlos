@@ -18,7 +18,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -78,7 +78,7 @@ public class CreateLabLabel2Action extends ActionSupport {
         }
 
         logger.info("Label =" + label);
-        label = StringEscapeUtils.escapeEcmaScript(label);
+        label = Encode.forJavaScript(label);
         if (ajaxcall != null && !"null".equalsIgnoreCase(ajaxcall)) {
             return null;
         }

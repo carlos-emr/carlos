@@ -794,6 +794,8 @@
 </div> <!--  end wrapper  -->
 
 <script type="text/javascript"
+        src="${pageContext.servletContext.contextPath}/library/dompurify/purify.min.js"></script>
+<script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
 <div id="dialog"></div>
 

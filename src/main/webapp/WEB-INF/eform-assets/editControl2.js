@@ -962,7 +962,22 @@ function submitFaxButton() {
 			$.ajax({
 				url : "efmformrtl_templates.jsp",
 				success : function(data) {
-					$("#template").html(data);
+					if (typeof DOMPurify !== 'undefined') {
+						// DOMPurify config: only allow <option> elements with value/selected attributes.
+						$("#template").html(DOMPurify.sanitize(data, {ALLOWED_TAGS: ['option'], ALLOWED_ATTR: ['value', 'selected']}));
+					} else {
+						// DOMPurify not available in eForm context — fallback safely constructs <option> elements
+						var parser = new DOMParser();
+						var doc = parser.parseFromString(data, 'text/html');
+						var templateSelect = $("#template").empty();
+						doc.querySelectorAll('option').forEach(function(opt) {
+							var safeOpt = document.createElement('option');
+							safeOpt.value = opt.value;
+							safeOpt.textContent = opt.textContent;
+							if (opt.selected) safeOpt.selected = true;
+							templateSelect.append(safeOpt);
+						});
+					}
 					loadDefaultTemplate();
 				},
 				error : function(xhr, status, error) {
@@ -1229,7 +1244,7 @@ function collapseFooter() {
          */
         function consultantSearch(term) {
             if (term.length < 2) {
-                document.getElementById('tempBin').innerHTML = "You must enter at least 2 characters of a patients name!";
+                document.getElementById('tempBin').textContent = "You must enter at least 2 characters of a patient's name!";
                 return false;
             }
 
@@ -1330,7 +1345,7 @@ function collapseFooter() {
                 document.getElementById("tempBin").style.display = 'block';
             } else if (a === 0 && searchDropDownFlag === false) {
                 document.getElementById("tempBin").style.display = 'none';
-                document.getElementById("tempBin").innerHTML = "You must enter at least 2 characters of a patients name!";
+                document.getElementById("tempBin").textContent = "You must enter at least 2 characters of a patient's name!";
             }
         }
 

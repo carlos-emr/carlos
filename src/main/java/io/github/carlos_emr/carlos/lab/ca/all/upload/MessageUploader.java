@@ -343,6 +343,10 @@ public final class MessageUploader {
         return index;
     }
 
+    // Allowed column names for provider search to prevent SQL injection
+    private static final java.util.Set<String> VALID_SEARCH_COLUMNS = java.util.Set.of(
+            "ohip_no", "provider_no", "last_name", "first_name", "practitioner_no");
+
     /**
      * Attempt to match the doctors from the lab to a providers
      */
@@ -356,11 +360,17 @@ public final class MessageUploader {
         String sqlSearchOn = "ohip_no";
 
         if (search_on != null && search_on.length() > 0) {
-            sqlSearchOn = search_on;
+            // Whitelist column name to prevent SQL injection (normalize before checking)
+            String normalized = search_on.trim().toLowerCase(java.util.Locale.ROOT);
+            if (VALID_SEARCH_COLUMNS.contains(normalized)) {
+                sqlSearchOn = normalized;
+            } else {
+                MiscUtils.getLogger().warn("providerRouteReport: rejected invalid search column, using default 'ohip_no'");
+            }
         }
 
         if (limit != null && limit.intValue() > 0) {
-            sqlLimit = " limit " + limit.toString();
+            sqlLimit = " limit " + limit.intValue(); // nosemgrep: formatted-sql-string — integer value, not user string
         }
 
         if (orderByLength) {
@@ -378,11 +388,11 @@ public final class MessageUploader {
                                 practitionerNum.insert(0, "0");
                             }
                         }
-                        sql = "select provider_no from provider where " + sqlSearchOn + " = ?" + sqlOrderByLength + sqlLimit;
+                        sql = "select provider_no from provider where " + sqlSearchOn + " = ?" + sqlOrderByLength + sqlLimit; // nosemgrep: formatted-sql-string — sqlSearchOn is whitelisted above
                         pstmt = conn.prepareStatement(sql);
                         pstmt.setString(1, practitionerNum.toString());
                     } else {
-                        sql = "select provider_no from provider where " + sqlSearchOn + " LIKE ?" + sqlOrderByLength + sqlLimit;
+                        sql = "select provider_no from provider where " + sqlSearchOn + " LIKE ?" + sqlOrderByLength + sqlLimit; // nosemgrep: formatted-sql-string — sqlSearchOn is whitelisted above
                         pstmt = conn.prepareStatement(sql);
                         pstmt.setString(1, (String) docNums.get(i));
                     }

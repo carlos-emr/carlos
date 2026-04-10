@@ -83,6 +83,7 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -128,7 +129,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
         String method = request.getParameter("method");
 
-        log.debug("Creating graph for demo " + demographicNo + " type1 :" + typeIdName + " type2 :" + typeIdName2);
+        log.debug("Creating graph for demo {} type1: {} type2: {}", LogSanitizer.sanitize(demographicNo), LogSanitizer.sanitize(typeIdName), LogSanitizer.sanitize(typeIdName2));
         JFreeChart chart = null;
         if (method == null) {
             log.debug("Calling DefaultChart");
@@ -298,7 +299,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         plot.getDomainAxis().setAutoRange(true);
 
 
-        log.debug("LEN " + plot.getDomainAxis().getLowerBound() + " ddd " + plot.getDomainAxis().getUpperMargin() + " eee " + plot.getDomainAxis().getLowerMargin());
         //plot.getDomainAxis().setUpperMargin(plot.getDomainAxis().getUpperMargin()*6);
         //plot.getDomainAxis().setLowerMargin(plot.getDomainAxis().getLowerMargin()*6);
         // plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin()*1.7);
@@ -382,7 +382,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         plot.getDomainAxis().setAutoRange(true);
 
 
-        log.debug("LEN " + plot.getDomainAxis().getLowerBound() + " ddd " + plot.getDomainAxis().getUpperMargin() + " eee " + plot.getDomainAxis().getLowerMargin());
         //plot.getDomainAxis().setUpperMargin(plot.getDomainAxis().getUpperMargin()*6);
         //plot.getDomainAxis().setLowerMargin(plot.getDomainAxis().getLowerMargin()*6);
         // plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin()*1.7);
@@ -509,7 +508,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         plot.getDomainAxis().setAutoRange(true);
 
 
-        log.debug("LEN " + plot.getDomainAxis().getLowerBound() + " ddd " + plot.getDomainAxis().getUpperMargin() + " eee " + plot.getDomainAxis().getLowerMargin());
         plot.getDomainAxis().setUpperMargin(plot.getDomainAxis().getUpperMargin() * 6);
         plot.getDomainAxis().setLowerMargin(plot.getDomainAxis().getLowerMargin() * 6);
         plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin() * 1.7);
@@ -578,7 +576,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                     }
                 }
             }
-            log.debug("RANGE " + mdb.get("range"));
 
             if (mdb.get("range") != null) {
                 String range = (String) mdb.get("range");
@@ -609,7 +606,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         plot.getDomainAxis().setAutoRange(true);
 
 
-        log.debug("LEN " + plot.getDomainAxis().getLowerBound() + " ddd " + plot.getDomainAxis().getUpperMargin() + " eee " + plot.getDomainAxis().getLowerMargin());
         plot.getDomainAxis().setUpperMargin(plot.getDomainAxis().getUpperMargin() * 6);
         plot.getDomainAxis().setLowerMargin(plot.getDomainAxis().getLowerMargin() * 6);
         plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin() * 1.7);
@@ -724,7 +720,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                 }
             }
 
-            log.debug("RANGE " + mdb.get("range"));
 
             if (mdb.get("range") != null) {
                 String range = (String) mdb.get("range");
@@ -755,7 +750,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         plot.getDomainAxis().setAutoRange(true);
 
 
-        log.debug("LEN " + plot.getDomainAxis().getLowerBound() + " ddd " + plot.getDomainAxis().getUpperMargin() + " eee " + plot.getDomainAxis().getLowerMargin());
         plot.getDomainAxis().setUpperMargin(plot.getDomainAxis().getUpperMargin() * 6);
         plot.getDomainAxis().setLowerMargin(plot.getDomainAxis().getLowerMargin() * 6);
         plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin() * 1.7);
@@ -904,7 +898,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         plot.getDomainAxis().setAutoRange(true);
 
 
-        log.debug("LEN " + plot.getDomainAxis().getLowerBound() + " ddd " + plot.getDomainAxis().getUpperMargin() + " eee " + plot.getDomainAxis().getLowerMargin());
         plot.getDomainAxis().setUpperMargin(plot.getDomainAxis().getUpperMargin() * 6);
         plot.getDomainAxis().setLowerMargin(plot.getDomainAxis().getLowerMargin() * 6);
         plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin() * 1.7);
@@ -967,7 +960,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                     systolic.addOrUpdate(new Day(mdb.getDateObservedAsDate()), Double.parseDouble(str[0]));
                     diastolic.addOrUpdate(new Day(mdb.getDateObservedAsDate()), Double.parseDouble(str[1]));
                 } else {
-                    log.debug("Error passing measurement value to chart. DataField is empty for ID:" + mdb.getId());
+                    log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSanitizer.sanitize(mdb.getId()));
                 }
             }
             dataset.addSeries(diastolic);
@@ -990,7 +983,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                                 Double.parseDouble(result));
                     }
                 } else {
-                    log.debug("Error passing measurement value to chart. DataField is empty for ID:" + mdb.getId());
+                    log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSanitizer.sanitize(mdb.getId()));
                 }
             }
             dataset.addSeries(newSeries);
@@ -999,12 +992,11 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         JFreeChart chart = ChartFactory.createTimeSeriesChart(chartTitle, "Days", typeYAxisName, dataset, true, true, true);
 
         if (typeIdName2 != null) {
-            log.debug("type id name 2" + typeIdName2);
+            log.debug("type id name 2: {}", LogSanitizer.sanitize(typeIdName2));
 
             ArrayList<EctMeasurementsDataBean> list2 = getList(demographicNo, typeIdName2);
             org.jfree.data.time.TimeSeriesCollection dataset2 = new org.jfree.data.time.TimeSeriesCollection();
 
-            log.debug("list2 " + list2);
 
             EctMeasurementsDataBean sampleLine2 = list2.get(0);
             String typeLegendName = sampleLine2.getTypeDisplayName();
@@ -1020,7 +1012,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                                 Double.parseDouble(result));
                     }
                 } else {
-                    log.debug("Error passing measurement value to chart. DataField is empty for ID:" + mdb.getId());
+                    log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSanitizer.sanitize(mdb.getId()));
                 }
             }
             dataset2.addSeries(newSeries);

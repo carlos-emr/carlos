@@ -15,7 +15,7 @@
 
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
@@ -96,7 +96,7 @@ public class EctDisplayHRM2Action extends EctDisplayAction {
                 item.setLinkTitle(displayHRMName + serviceDateStr);
                 item.setTitle(labRead + displayHRMName + labRead);
                 key = StringUtils.maxLenString((String) hrmDocument.get("report_type"), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + "(" + serviceDateStr + ")";
-                key = StringEscapeUtils.escapeEcmaScript(key);
+                key = Encode.forJavaScript(key);
 
 
                 js = "itemColours['" + key + "'] = '" + BGCOLOUR + "'; autoCompleted['" + key + "'] = \"" + url + "\"; autoCompList.push('" + key + "');";

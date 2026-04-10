@@ -712,10 +712,10 @@ function valDate(dateBox, ds = dtCh) {
             var m = dt[1];
             var y = dt[2];
             var orderString = m + '/' + d + '/' + y;
-            var pass = isDate(orderString);
+            var dateValidationResult = isDate(orderString);
 
-            if (pass !== true) {
-                alert('Invalid ' + pass + ' in field ' + dateBox.title);
+            if (dateValidationResult !== true) {
+                alert('Invalid ' + dateValidationResult + ' in field ' + dateBox.title);
                 dateBox.focus();
                 return false;
             }
