@@ -60,6 +60,8 @@ jobs:
     name: PMD Static Analysis
     runs-on: ubuntu-latest
     if: github.actor != 'dependabot[bot]'
+    env:
+      PMD_HOME: pmd-bin-${{ env.PMD_VERSION }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -73,7 +75,7 @@ jobs:
       - name: Cache PMD installation
         uses: actions/cache@v4
         with:
-          path: pmd-bin-${{ env.PMD_VERSION }}
+          path: ${{ env.PMD_HOME }}
           key: pmd-${{ runner.os }}-${{ runner.arch }}-${{ env.PMD_VERSION }}
           restore-keys: |
             pmd-${{ runner.os }}-${{ runner.arch }}-
@@ -82,7 +84,7 @@ jobs:
       - name: Download PMD
         run: |
           set -euo pipefail
-          if [ ! -d "pmd-bin-${PMD_VERSION}" ]; then
+          if [ ! -d "${PMD_HOME}" ]; then
             echo "Downloading PMD ${PMD_VERSION}..."
             PMD_ZIP="pmd-dist-${PMD_VERSION}-bin.zip"
             PMD_BASE_URL="https://github.com/pmd/pmd/releases/download/pmd_releases%2F${PMD_VERSION}"
@@ -119,7 +121,7 @@ jobs:
         id: pmd
         run: |
           set +e
-          ./pmd-bin-${PMD_VERSION}/bin/pmd check \
+          "${PMD_HOME}/bin/pmd" check \
             --dir src/main/java \
             -R .github/pmd/carlos-ruleset.xml \
             --format sarif \
@@ -151,10 +153,11 @@ jobs:
 
       - name: Report summary
         if: always()
+        env:
+          VIOLATIONS: ${{ steps.pmd.outputs.violations }}
         run: |
           echo "### PMD Analysis Results" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          VIOLATIONS="${{ steps.pmd.outputs.violations }}"
           if [ "$VIOLATIONS" = "0" ]; then
             echo "No violations detected." >> "$GITHUB_STEP_SUMMARY"
           elif [ -n "$VIOLATIONS" ] && [ "$VIOLATIONS" != "error" ]; then
