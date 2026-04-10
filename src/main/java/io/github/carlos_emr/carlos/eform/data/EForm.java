@@ -706,32 +706,54 @@ public class EForm extends EFormBase {
     }
 
     public String replaceAllFields(String sql) {
-        sql = DatabaseAP.parserReplace("demographic", escapeSqlValue(demographicNo), sql);
+        // Numeric ID fields: validate digits-only to prevent injection in unquoted SQL contexts
+        sql = DatabaseAP.parserReplace("demographic", requireDigitsOnly("demographic", demographicNo), sql);
+        sql = DatabaseAP.parserReplace("appt_no", requireDigitsOnly("appt_no", appointment_no), sql);
+        sql = DatabaseAP.parserReplace(EFORM_DEMOGRAPHIC, requireDigitsOnly(EFORM_DEMOGRAPHIC, getSqlParams(EFORM_DEMOGRAPHIC)), sql);
+        sql = DatabaseAP.parserReplace(REF_FID, requireDigitsOnly(REF_FID, getSqlParams(REF_FID)), sql);
+        sql = DatabaseAP.parserReplace(TABLE_ID, requireDigitsOnly(TABLE_ID, getSqlParams(TABLE_ID)), sql);
+
+        // String fields: escape backslashes and single quotes for use in quoted SQL literals
         sql = DatabaseAP.parserReplace("provider", escapeSqlValue(providerNo), sql);
         sql = DatabaseAP.parserReplace("providers", escapeSqlValue(providerNo), sql);
-        sql = DatabaseAP.parserReplace("appt_no", escapeSqlValue(appointment_no), sql);
-
-        sql = DatabaseAP.parserReplace(EFORM_DEMOGRAPHIC, escapeSqlValue(getSqlParams(EFORM_DEMOGRAPHIC)), sql);
-        sql = DatabaseAP.parserReplace(REF_FID, escapeSqlValue(getSqlParams(REF_FID)), sql);
         sql = DatabaseAP.parserReplace(VAR_NAME, escapeSqlValue(getSqlParams(VAR_NAME)), sql);
         sql = DatabaseAP.parserReplace(VAR_VALUE, escapeSqlValue(getSqlParams(VAR_VALUE)), sql);
         sql = DatabaseAP.parserReplace(REF_VAR_NAME, escapeSqlValue(getSqlParams(REF_VAR_NAME)), sql);
         sql = DatabaseAP.parserReplace(REF_VAR_VALUE, escapeSqlValue(getSqlParams(REF_VAR_VALUE)), sql);
         sql = DatabaseAP.parserReplace(TABLE_NAME, escapeSqlValue(getSqlParams(TABLE_NAME)), sql);
-        sql = DatabaseAP.parserReplace(TABLE_ID, escapeSqlValue(getSqlParams(TABLE_ID)), sql);
         sql = DatabaseAP.parserReplace(OTHER_KEY, escapeSqlValue(getSqlParams(OTHER_KEY)), sql);
         return sql;
     }
 
     /**
-     * Escapes single quotes in a value to prevent SQL injection
-     * when the value is substituted into a DatabaseAP SQL template.
-     * Only handles single-quote escaping because DatabaseAP templates
-     * use single-quoted string literals in SQL WHERE clauses.
+     * Escapes backslashes and single quotes in a value for safe substitution into a
+     * single-quoted SQL string literal in a DatabaseAP template.
+     * Backslashes are escaped first to prevent MySQL's backslash-escape bypass
+     * (e.g., a backslash followed by a quote would otherwise consume the doubled quote).
      */
     private static String escapeSqlValue(String value) {
         if (value == null) return null;
-        return value.replace("'", "''");
+        // Escape backslashes before single quotes to prevent MySQL backslash-escape bypass
+        return value.replace("\\", "\\\\").replace("'", "''");
+    }
+
+    /**
+     * Validates that a value intended for an unquoted numeric SQL placeholder
+     * contains only digits (with optional leading minus sign for negative IDs).
+     * Throws {@link IllegalArgumentException} if the value is non-numeric and non-empty,
+     * preventing injection in unquoted contexts like {@code WHERE id = ${placeholder}}.
+     *
+     * @param placeholderName the name of the placeholder (for error messages)
+     * @param value           the value to validate
+     * @return the original value if valid
+     * @throws IllegalArgumentException if the value contains non-numeric characters
+     */
+    private static String requireDigitsOnly(String placeholderName, String value) {
+        if (value == null || value.isEmpty()) return value;
+        if (!value.matches("-?\\d+")) {
+            throw new IllegalArgumentException("Non-numeric value for placeholder: " + placeholderName);
+        }
+        return value;
     }
 
     private String getSqlParams(String key) {

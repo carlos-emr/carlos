@@ -113,7 +113,7 @@ public class SqlUtils {
     public static String[] getRow(String qry, Object... params) {
         String ret[] = null;
         List<String[]> list = getQueryResultsList(qry, params);
-        if (list != null) {
+        if (list != null && !list.isEmpty()) {
             ret = list.get(0);
         }
         return ret;
@@ -128,7 +128,7 @@ public class SqlUtils {
     public static String[] getRow(String qry) {
         String ret[] = null;
         List<String[]> list = getQueryResultsList(qry);
-        if (list != null) {
+        if (list != null && !list.isEmpty()) {
             ret = list.get(0);
         }
         return ret;

@@ -79,7 +79,7 @@ public final class DBHandler {
 			stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement(ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
 		}
 
-		ResultSet rs = stmt.executeQuery(SQLStatement); // nosemgrep: formatted-sql-string — deprecated infrastructure wrapper; callers are being migrated to GetPreSQL
+		ResultSet rs = stmt.executeQuery(SQLStatement); // nosemgrep: formatted-sql-string — deprecated infrastructure wrapper; callers are being migrated to GetPreSQL // codeql[java/sql-injection]
 		return rs;
 	}
 

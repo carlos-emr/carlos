@@ -56,7 +56,7 @@
     Properties prop = null;
     String param = request.getParameter("param") == null ? "" : request.getParameter("param");
     String param2 = request.getParameter("param2") == null ? "" : request.getParameter("param2");
-    String keyword = request.getParameter("keyword");
+    String keyword = request.getParameter("keyword") == null ? "" : request.getParameter("keyword");
 
     if (request.getParameter("submit") != null
             && (request.getParameter("submit").equals("Search")

@@ -138,9 +138,9 @@ public class CategoryData {
 	private String hrmViewed = "";
 	private String hrmSignedOff = "";
 
-    private final List<Object> labDateParams = new ArrayList<>();
-    private final List<Object> documentDateParams = new ArrayList<>();
-    private final java.util.Map<String, Object> hrmParams = new java.util.LinkedHashMap<>();
+    private final List<String> labDateParams = new ArrayList<>();
+    private final List<String> documentDateParams = new ArrayList<>();
+    private final java.util.Map<String, String> hrmParams = new java.util.LinkedHashMap<>();
 
     public CategoryData(String patientLastName, String patientFirstName, String patientHealthNumber, boolean patientSearch,
                         boolean providerSearch, String searchProviderNo, String status, String abnormalStatus,
@@ -320,7 +320,7 @@ public class CategoryData {
         int paramIndex = 1;
         if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
         if (!"".equals(status)) ps.setString(paramIndex++, status);
-        for (Object p : labDateParams) ps.setString(paramIndex++, (String) p);
+        for (String p : labDateParams) ps.setString(paramIndex++, p);
 
         ResultSet rs = ps.executeQuery();
 
@@ -395,7 +395,7 @@ public class CategoryData {
         int paramIndex = 1;
         if (!"".equals(status)) ps.setString(paramIndex++, status);
         if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
-        for (Object p : documentDateParams) ps.setString(paramIndex++, (String) p);
+        for (String p : documentDateParams) ps.setString(paramIndex++, p);
         ResultSet rs = ps.executeQuery();
 
         return (rs.next() ? rs.getInt("count") : 0);
@@ -431,7 +431,7 @@ public class CategoryData {
         if (!StringUtils.isEmpty(patientHealthNumber)) ps.setString(paramIndex++, "%" + patientHealthNumber + "%");
         if (!"".equals(status)) ps.setString(paramIndex++, status);
         if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
-        for (Object p : labDateParams) ps.setString(paramIndex++, (String) p);
+        for (String p : labDateParams) ps.setString(paramIndex++, p);
         ResultSet rs = ps.executeQuery();
 
         int totalCount = 0;
@@ -534,7 +534,7 @@ public class CategoryData {
         if (!StringUtils.isEmpty(patientFirstName)) ps.setString(paramIndex++, "%" + patientFirstName + "%");
         if (!"".equals(status)) ps.setString(paramIndex++, status);
         if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
-        for (Object p : documentDateParams) ps.setString(paramIndex++, (String) p);
+        for (String p : documentDateParams) ps.setString(paramIndex++, p);
 
         ResultSet rs = ps.executeQuery();
 

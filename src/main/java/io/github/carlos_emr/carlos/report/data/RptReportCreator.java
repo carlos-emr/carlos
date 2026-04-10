@@ -123,8 +123,18 @@ public final class RptReportCreator {
                 if (endIdx > startIdx + 2) {
                     // Found a complete ${...} pattern
                     String replacement = (i < vec.size() && vec.get(i) != null) ? (String) vec.get(i) : "";
-                    // Escape single quotes in replacement values to prevent SQL injection
-                    replacement = replacement.replace("'", "''");
+                    // Check if placeholder is inside a quoted string (char before ${ is a single quote)
+                    boolean inQuotedContext = startIdx > 0 && value.charAt(startIdx - 1) == '\'';
+                    if (inQuotedContext) {
+                        // Escape backslashes first (MySQL backslash-escape bypass), then single quotes
+                        replacement = replacement.replace("\\", "\\\\").replace("'", "''");
+                    } else {
+                        // Unquoted numeric context: only allow digits and optional leading minus
+                        if (!replacement.isEmpty() && !replacement.matches("-?\\d+(\\.\\d+)?")) {
+                            MiscUtils.getLogger().warn("Non-numeric value rejected for unquoted SQL placeholder in report template");
+                            replacement = "";
+                        }
+                    }
                     value = value.substring(0, startIdx) + replacement + value.substring(endIdx + 1);
                 } else {
                     ret = value;
