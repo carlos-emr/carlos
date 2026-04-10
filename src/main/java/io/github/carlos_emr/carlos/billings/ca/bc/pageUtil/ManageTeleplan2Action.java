@@ -407,7 +407,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         File f = PathValidationUtils.validatePath(filename, homeDir);
 
 
-        if (f != null && log.isDebugEnabled()) {
+        if (log.isDebugEnabled()) {
             log.debug("File is Readable: " + f.canRead());
             log.debug("File exists: " + f.exists());
             log.debug("File Path " + f.getCanonicalPath());

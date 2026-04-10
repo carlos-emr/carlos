@@ -62,6 +62,9 @@ public class GenerateTraceabilityUtil {
         HttpSession session = request.getSession();
         ServletContext servletContext = session.getServletContext();
         String realPath = servletContext.getRealPath("/");
+        if (realPath == null) {
+            throw new SecurityException("Cannot resolve webapp directory path");
+        }
         File webappDir = new File(realPath);
         // Defense-in-depth: verify the webapp directory exists and is actually a directory
         if (!webappDir.exists() || !webappDir.isDirectory()) {

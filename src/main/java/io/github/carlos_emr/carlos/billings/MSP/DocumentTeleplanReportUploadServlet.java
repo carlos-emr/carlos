@@ -77,14 +77,13 @@ public class DocumentTeleplanReportUploadServlet extends HttpServlet {
 
 
         //   File pFile = new File(userHomePath, "oscar_sfhc.properties");
-        FileInputStream pStream = new FileInputStream(pFile);
-
         Properties ap = new Properties();
-        ap.load(pStream);
+        try (FileInputStream pStream = new FileInputStream(pFile)) {
+            ap.load(pStream);
+        }
 
         forwardTo = ap.getProperty("TA_FORWARD");
         foldername = ap.getProperty("DOCUMENT_DIR");
-        pStream.close();
 
 
         // function = request.getParameter("function");

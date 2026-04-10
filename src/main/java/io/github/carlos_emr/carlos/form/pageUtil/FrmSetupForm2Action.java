@@ -163,7 +163,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
             }
             File formDir = new File(formDirPath);
             File validatedForm = PathValidationUtils.validatePath(formName + ".xml", formDir);
-            InputStream is = new FileInputStream(validatedForm);
+            try (InputStream is = new FileInputStream(validatedForm)) {
             Vector measurementTypes = EctFindMeasurementTypeUtil.checkMeasurmentTypes(is, formName);
             EctMeasurementTypesBean mt;
 
@@ -195,7 +195,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
                 }
 
             }
-            is.close();
+            } // end try-with-resources (InputStream is)
         }
 		/*
 		catch (SQLException e) {

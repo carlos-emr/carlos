@@ -190,6 +190,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                 // Defense-in-depth: verify temp file is in an allowed temp directory
                 if (!PathValidationUtils.isInAllowedTempDirectory(tempLabPDF)) {
                     logger.error("Temp file not in allowed temp directory: {}", tempLabPDF.getAbsolutePath());
+                    tempLabPDF.delete();
                     throw new SecurityException("Temp file created outside allowed temp directory");
                 }
 

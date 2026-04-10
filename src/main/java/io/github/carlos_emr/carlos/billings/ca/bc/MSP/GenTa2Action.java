@@ -101,8 +101,7 @@ public class GenTa2Action extends ActionSupport {
         File docDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         File validatedFile = PathValidationUtils.validatePath(filename, docDir);
 
-        FileInputStream file = new FileInputStream(validatedFile);
-        BufferedReader input = new BufferedReader(new InputStreamReader(file));
+        try (BufferedReader input = new BufferedReader(new InputStreamReader(new FileInputStream(validatedFile)))) {
         String nextline;
 
         while ((nextline = input.readLine()) != null) {
@@ -476,6 +475,7 @@ public class GenTa2Action extends ActionSupport {
 
             }
         }
+        } // end try-with-resources
         return forwardPage;
     }
 }
