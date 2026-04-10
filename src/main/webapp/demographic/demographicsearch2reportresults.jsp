@@ -65,8 +65,11 @@
     if (originalpage == null || originalpage.isEmpty() || !originalpage.startsWith("/") || originalpage.startsWith("//") || originalpage.startsWith("/\\")) {
         originalpage = request.getContextPath() + "/appointment/addappointment.jsp";
     }
-    // Choose ? or & depending on whether originalpage already has a query string
-    String originalPageSeparator = originalpage.contains("?") ? "&" : "?";
+    // Normalize originalpage so downstream code that appends parameters starting
+    // with '&' still produces a valid query string when no query is present yet.
+    if (!originalpage.contains("?")) {
+        originalpage = originalpage + "?";
+    }
 
 %>
 
