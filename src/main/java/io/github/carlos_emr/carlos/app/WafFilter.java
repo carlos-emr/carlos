@@ -115,9 +115,9 @@ public class WafFilter implements Filter {
                     + "|['\"]\\w+['\"]\\s*=\\s*['\"]\\w+['\"]"       // string:  OR 'x'='x, OR 'admin'='admin'
                     + ")");
 
-    /** Stacked queries: '; DROP TABLE, ; DELETE FROM, ; INSERT INTO, ; TRUNCATE */
+    /** Stacked queries: '; DROP TABLE, ; DELETE FROM, ; INSERT INTO, ; TRUNCATE, ; UPDATE table */
     private static final Pattern SQLI_STACKED =
-            Pattern.compile("(?i);\\s*(drop|truncate|delete\\s+from|insert\\s+into|update\\s+\\w)\\b");
+            Pattern.compile("(?i);\\s*(drop|truncate|delete\\s+from|insert\\s+into|update\\s+\\w+)\\b");
 
     /** Time-based blind injection: SLEEP(), WAITFOR DELAY, BENCHMARK() */
     private static final Pattern SQLI_TIME_BASED =
@@ -664,8 +664,14 @@ public class WafFilter implements Filter {
 
     private static boolean isRelaxedPath(String path) {
         for (String prefix : RELAXED_PREFIXES) {
-            if (path.equals(prefix) || path.startsWith(prefix)) {
-                return true;
+            if (prefix.endsWith("/")) {
+                if (path.startsWith(prefix)) {
+                    return true;
+                }
+            } else {
+                if (path.equals(prefix)) {
+                    return true;
+                }
             }
         }
         return false;
@@ -673,8 +679,14 @@ public class WafFilter implements Filter {
 
     private static boolean isHardenedPath(String path) {
         for (String prefix : HARDENED_PREFIXES) {
-            if (path.equals(prefix) || path.startsWith(prefix)) {
-                return true;
+            if (prefix.endsWith("/")) {
+                if (path.startsWith(prefix)) {
+                    return true;
+                }
+            } else {
+                if (path.equals(prefix)) {
+                    return true;
+                }
             }
         }
         return false;
