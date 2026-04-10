@@ -36,7 +36,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
-import org.owasp.encoder.Encode;
+
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -82,14 +82,16 @@ public final class ContentRenderingServlet extends HttpServlet {
                 os.write(content.data);
                 os.flush();
             } else {
-                response.sendError(HttpServletResponse.SC_NOT_FOUND, Encode.forHtml(request.getRequestURI()));
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Resource not found");
             }
         } catch (Exception e) {
             if (e.getCause() instanceof SocketException) {
                 logger.warn("An error we can't handle that's expected infrequently. " + e.getMessage());
             } else {
                 logger.error("Unexpected error. qs=" + LogSanitizer.sanitize(request.getQueryString()), e);
-                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, Encode.forHtml(request.getRequestURI()));
+                if (!response.isCommitted()) {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal Server Error");
+                }
             }
         }
     }

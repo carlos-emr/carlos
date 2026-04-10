@@ -5,7 +5,7 @@
  * GNU General Public License, Version 2, 1991 (GPLv2).
  * License details are available via "indivica.ca/gplv2"
  * and "gnu.org/licenses/gpl-2.0.html".
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -38,37 +38,50 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         // ensure it's a local machine request... no one else should be calling this servlet.
         String remoteAddress = request.getRemoteAddr();
-        logger.debug("EformPdfServlet request from : " + remoteAddress);
+        logger.debug("EFormSignatureViewForPdfGenerationServlet request from : {}", remoteAddress);
 
-        if (!"127.0.0.1".equals(remoteAddress)) {
-            logger.warn("Unauthorised request made to EFormSignatureViewForPdfGenerationServlet from address : " + remoteAddress);
+        if (!"127.0.0.1".equals(remoteAddress) && !"0:0:0:0:0:0:0:1".equals(remoteAddress) && !"::1".equals(remoteAddress)) {
+            logger.warn("Unauthorised request made to EFormSignatureViewForPdfGenerationServlet from address : {}", remoteAddress);
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 
 
-        // https://127.0.0.1:8443/oscar/eform/efmshowform_data.jsp?fdid=2&parentAjaxId=eforms
         try {
-            // get image
+            // get signature image by digitalSignatureId
+            String signatureIdParam = request.getParameter("digitalSignatureId");
+            if (signatureIdParam == null || !signatureIdParam.matches("\\d+")) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid digitalSignatureId");
+                return;
+            }
 			DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
 			DigitalSignature digitalSignature = digitalSignatureManager
-					.getDigitalSignature(Integer.parseInt(request.getParameter("digitalSignatureId")));
+					.getDigitalSignature(Integer.parseInt(signatureIdParam));
             if (digitalSignature != null) {
                 //renderImage(response, digitalSignature.getSignatureImage(), "jpeg");
 
                 byte[] image = digitalSignature.getSignatureImage();
+                if (image == null) {
+                    response.sendError(HttpServletResponse.SC_NOT_FOUND, "Signature image data is missing");
+                    return;
+                }
                 String imageType = "jpeg";
                 response.setContentType("image/" + imageType);
-                if (image != null)
-                    response.setContentLength(image.length);
+                response.setContentLength(image.length);
                 BufferedOutputStream bos = new BufferedOutputStream(response.getOutputStream());
                 bos.write(image);
                 bos.flush();
 
                 return;
             }
+        } catch (IOException e) {
+            throw e;
         } catch (Exception e) {
-            logger.error("Unexpected error.", e);
+            logger.error("Unexpected error in EFormSignatureViewForPdfGenerationServlet", e);
+            if (!response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
+            }
         }
     }
 }
