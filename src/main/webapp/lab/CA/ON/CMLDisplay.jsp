@@ -146,10 +146,21 @@
         value="<%= Encode.forHtmlAttribute(segmentID) %>"/> <input
         type="hidden" name="selectedProviders" value=""/>
     <input type="hidden" name="favorites" value=""/>
-    <input type="hidden" name="labType" value="CML"/> <input type="hidden"
-                                                             name="labType<%= Encode.forHtmlAttribute(segmentID) %>CML"
-                                                             value="imNotNull"/> <input type="hidden" name="providerNo"
-                                                                                        value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>"/>
+    <input type="hidden" name="labType" value="CML"/>
+    <%
+        String safeSegmentId = null;
+        try {
+            safeSegmentId = Integer.toString(Integer.parseInt(StringUtils.noNull(segmentID)));
+        } catch (NumberFormatException e) {
+            safeSegmentId = null;
+        }
+    %>
+    <% if (safeSegmentId != null) { %>
+    <input type="hidden" name="labType<%= safeSegmentId %>CML"
+           value="imNotNull"/> <%-- segmentID must remain digits-only here so the generated parameter name stays valid and matches server-side lookup --%>
+    <% } %>
+    <input type="hidden" name="providerNo"
+           value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>"/>
 </form>
 <form name="acknowledgeForm" method="post"
       action="<%=request.getContextPath()%>/oscarMDS/UpdateStatus.do">
