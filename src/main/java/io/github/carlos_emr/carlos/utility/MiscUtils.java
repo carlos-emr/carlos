@@ -87,6 +87,15 @@ public final class MiscUtils {
     private static boolean shutdownSignaled = false;
     private static Thread shutdownHookThread = null;
 
+    /** Maximum deserialization object graph depth to prevent stack-overflow bombs. */
+    private static final int MAX_DESER_DEPTH = 20;
+    /** Maximum object reference count to prevent reference-expansion bombs. */
+    private static final long MAX_DESER_REFS = 100_000L;
+    /** Maximum stream byte count (10 MB) to prevent oversized payload bombs. */
+    private static final long MAX_DESER_BYTES = 10_000_000L;
+    /** Maximum array length to prevent large-array allocation bombs. */
+    private static final int MAX_DESER_ARRAY = 10_000;
+
     /**
      * Restricts ObjectInputStream deserialization to safe classes only.
      * Allows standard Java types and CARLOS domain objects; rejects everything else
@@ -94,12 +103,17 @@ public final class MiscUtils {
      *
      * <p>Also enforces resource bounds (depth, references, stream bytes, array length)
      * to mitigate deserialization bomb (DoS) attacks.
+     *
+     * <p>Array types are restricted to primitive arrays and object arrays whose
+     * component package is already on the allowlist. Multi-dimensional arrays
+     * ({@code name.startsWith("[[")}) are permitted at the descriptor level because
+     * the filter is also invoked for each element's class, providing defence-in-depth.
      */
     private static final ObjectInputFilter DESERIALIZATION_FILTER = filterInfo -> {
-        if (filterInfo.depth() > 20 ||
-            filterInfo.references() > 100_000L ||
-            filterInfo.streamBytes() > 10_000_000L ||
-            (filterInfo.arrayLength() >= 0 && filterInfo.arrayLength() > 10_000)) {
+        if (filterInfo.depth() > MAX_DESER_DEPTH ||
+            filterInfo.references() > MAX_DESER_REFS ||
+            filterInfo.streamBytes() > MAX_DESER_BYTES ||
+            (filterInfo.arrayLength() >= 0 && filterInfo.arrayLength() > MAX_DESER_ARRAY)) {
             return ObjectInputFilter.Status.REJECTED;
         }
         if (filterInfo.serialClass() != null) {
@@ -108,7 +122,16 @@ public final class MiscUtils {
                 name.startsWith("java.util.") ||
                 name.startsWith("java.io.") ||
                 name.startsWith("java.math.") ||
-                name.startsWith("[") ||
+                // Primitive array types: [B=byte[], [I=int[], [J=long[], [F=float[],
+                // [D=double[], [Z=boolean[], [C=char[], [S=short[]
+                name.equals("[B") || name.equals("[I") || name.equals("[J") || name.equals("[F") ||
+                name.equals("[D") || name.equals("[Z") || name.equals("[C") || name.equals("[S") ||
+                // Object arrays restricted to the same allowed package prefixes
+                name.startsWith("[Ljava.lang.") || name.startsWith("[Ljava.util.") ||
+                name.startsWith("[Ljava.io.") || name.startsWith("[Ljava.math.") ||
+                name.startsWith("[Lio.github.carlos_emr.carlos.") ||
+                // Multi-dimensional arrays; element classes are still checked individually
+                name.startsWith("[[") ||
                 name.startsWith("io.github.carlos_emr.carlos.")) {
                 return ObjectInputFilter.Status.ALLOWED;
             }
@@ -185,8 +208,9 @@ public final class MiscUtils {
 
     public static byte[] serialize(Serializable s) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ObjectOutputStream oos = new ObjectOutputStream(baos);
-        oos.writeObject(s);
+        try (ObjectOutputStream oos = new ObjectOutputStream(baos)) {
+            oos.writeObject(s);
+        }
         return baos.toByteArray();
     }
 
@@ -207,12 +231,14 @@ public final class MiscUtils {
     }
 
     public static Serializable deserializeFromFile(String filename) throws IOException, ClassNotFoundException {
-        InputStream is = MiscUtils.class.getResourceAsStream(filename);
-        if (is == null) {
-            is = new FileInputStream(filename);
+        InputStream rawIs = MiscUtils.class.getResourceAsStream(filename);
+        if (rawIs == null) {
+            rawIs = new FileInputStream(filename);
         }
-
-        try (ObjectInputStream ois = new ObjectInputStream(is)) {
+        // Include rawIs in try-with-resources so it is closed even if
+        // ObjectInputStream construction throws (e.g. StreamCorruptedException).
+        try (InputStream is = rawIs;
+             ObjectInputStream ois = new ObjectInputStream(is)) {
             ois.setObjectInputFilter(DESERIALIZATION_FILTER);
             return (Serializable) ois.readObject();
         }
