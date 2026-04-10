@@ -53,6 +53,40 @@
 			<dispatcher>ASYNC</dispatcher>
         </filter-mapping>
 
+    <!-- ==================== WAF Layer (runs before all application filters) ====================
+         All WAF components are disabled by default — enable via carlos.properties:
+           WAF_RATE_LIMIT_ENABLED=true    (per-IP rate limiting with path tiers)
+           WAF_GEOIP_ENABLED=true         (GeoIP country filtering)
+           WAF_DROP_LIST_ENABLED=true     (Spamhaus DROP list, requires WAF_GEOIP_ENABLED)
+           WAF_ENABLED=true               (request inspection: SQLi, XSS, traversal, bots)
+    -->
+
+    <!-- XforwardHeaderFilter: resolves real client IP from X-Forwarded-For header when behind a
+         reverse proxy. Mapped first in the WAF layer so that all subsequent filters (including
+         RateLimitFilter) use the actual client IP rather than the proxy's address. -->
+    <filter>
+        <filter-name>XforwardHeader</filter-name>
+        <filter-class>io.github.carlos_emr.carlos.app.XforwardHeaderFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>XforwardHeader</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
+    <!-- Rate limiting: configurable per-path rate tiers with detect/enforce mode.
+         Controlled by WAF_RATE_LIMIT_ENABLED in carlos.properties.
+         Configuration via WAF_RATE_LIMIT_* keys in carlos.properties.
+         XforwardHeaderFilter is mapped immediately above so rate limiting uses the real client
+         IP even when the application is deployed behind a reverse proxy. -->
+    <filter>
+        <filter-name>RateLimitFilter</filter-name>
+        <filter-class>io.github.carlos_emr.carlos.app.RateLimitFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>RateLimitFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
     <!-- ResponseDefaultsFilter MUST be ordered before struts2. Struts2's StrutsPrepareAndExecuteFilter
          does not call chain.doFilter() for requests it handles, so any filter after it in the
          chain is never invoked for Struts action responses. Ensuring this filter runs before
@@ -70,6 +104,16 @@
 		<url-pattern>/*</url-pattern>
 	</filter-mapping>
 
+    <!-- WafFilter: application-layer request inspection (SQLi, XSS, path traversal,
+          command injection, CRLF, scanner detection, request limits, protocol enforcement).
+          Runs before CSRFGuard so malformed/malicious requests are rejected before token
+          validation. Disabled by default; activate via WAF_ENABLED=true in carlos.properties.
+          PHI-safe: logs IP + URI + rule category only — never logs parameter values.
+          See WAF_* properties in carlos.properties and waf-rules.properties for OWASP CRS mapping. -->
+    <filter-mapping>
+        <filter-name>WafFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
     <!-- CSRFGuard, CsrfGuardScriptInjectionFilter, and LogoutBroadcastFilter MUST be ordered
          before struts2. StrutsPrepareAndExecuteFilter does not call chain.doFilter() for
          requests it handles, so filters placed after it in the chain are never invoked for
@@ -84,16 +128,6 @@
               (e.g. Inboxhub.do, DisplayMessages.do)
          Filter declarations remain in their respective sections below;
          only filter-mapping order determines chain position. -->
-    <!-- WafFilter: application-layer request inspection (SQLi, XSS, path traversal,
-          command injection, CRLF, scanner detection, request limits, protocol enforcement).
-          Runs before CSRFGuard so malformed/malicious requests are rejected before token
-          validation. Disabled by default; activate via WAF_ENABLED=true in carlos.properties.
-          PHI-safe: logs IP + URI + rule category only — never logs parameter values.
-          See WAF_* properties in carlos.properties and waf-rules.properties for OWASP CRS mapping. -->
-    <filter-mapping>
-        <filter-name>WafFilter</filter-name>
-        <url-pattern>/*</url-pattern>
-    </filter-mapping>
     <filter-mapping>
         <filter-name>CSRFGuard</filter-name>
         <url-pattern>/*</url-pattern>
@@ -327,15 +361,8 @@
 	</servlet-mapping>
 
     <!-- Security headers (X-Frame-Options, Permissions-Policy, etc.) are set by ResponseDefaultsFilter -->
-
-	<filter>
-		<filter-name>XforwardHeader</filter-name>
-		<filter-class>io.github.carlos_emr.carlos.app.XforwardHeaderFilter</filter-class>
-	</filter>
-	<filter-mapping>
-		<filter-name>XforwardHeader</filter-name>
-		<url-pattern>/*</url-pattern>
-	</filter-mapping>
+    <!-- XforwardHeaderFilter declaration and mapping are in the WAF layer section above,
+         before RateLimitFilter, so real client IP is resolved for all WAF and application filters. -->
 
 	<servlet>
 		<servlet-name>UploadDocument</servlet-name>
