@@ -120,7 +120,7 @@
                                 <div align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduledatepopup.formTemplate"/>:
                                 </div>
                             </td>
-                            <td><!--input type="text" name="hour1" <%=Encode.forHtml(strHour)%> --> <select
+                            <td><!--input type="text" name="hour1" <%=strHour%> --> <select
                                     name="hour">
                                 <%
 

@@ -52,6 +52,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@page import="java.util.*, io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.entities.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingreferralDao" %>
@@ -2061,7 +2062,7 @@
                                                         </oscar:oscarPropertiesCheck>
                                                         <c:forEach var="codeSystem" items="${dxCodeSystemList.codingSystems}">
                                                             <option value="${codeSystem}">
-                                                                <c:out value="${codeSystem}"/>
+                                                                ${e:forHtml(codeSystem)}
                                                             </option>
                                                         </c:forEach>
                                                     </select>

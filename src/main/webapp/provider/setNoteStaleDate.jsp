@@ -30,6 +30,7 @@
 --%>
 
 <%@ include file="/casemgmt/taglibs.jsp" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <%
     if (session.getAttribute("user") == null)
@@ -54,7 +55,7 @@
               href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
-              href="<c:out value="${ctx}"/>/share/calendar/calendar.css"
+              href="${e:forHtmlAttribute(ctx)}/share/calendar/calendar.css"
               title="win2k-cold-1">
 
         <script type="text/javascript">

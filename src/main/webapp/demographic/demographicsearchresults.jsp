@@ -115,9 +115,6 @@
     } catch (NumberFormatException e) {
         limit = 18;
     }
-    // Sanitize: replace raw request strings with parsed integer values to prevent XSS
-    strOffset = String.valueOf(offset);
-    strLimit = String.valueOf(limit);
 
     String displayMode = request.getParameter("displaymode");
     String dboperation = request.getParameter("dboperation");
