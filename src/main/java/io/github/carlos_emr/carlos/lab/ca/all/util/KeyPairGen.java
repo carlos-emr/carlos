@@ -62,10 +62,10 @@ public final class KeyPairGen {
         byte[] privKey;
         Base64 base64 = new Base64();
 
-        // Generate an RSA key
+        // Generate an RSA key (2048-bit minimum per NIST SP 800-131A)
         try {
             KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
-            keyGen.initialize(1024);
+            keyGen.initialize(2048);
             KeyPair key = keyGen.generateKeyPair();
 
             pubKey = base64.encode(key.getPublic().getEncoded());

@@ -29,7 +29,6 @@
 
 --%>
 
-<%@page import="org.apache.commons.text.StringEscapeUtils"%>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils"%>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay"%>
 <%  long start = System.currentTimeMillis(); %>
@@ -153,7 +152,7 @@
             }
 
             String noteTxt = note.getNote().replaceAll("\"", "");
-            noteTxt = org.apache.commons.text.StringEscapeUtils.escapeEcmaScript(noteTxt);
+            noteTxt = Encode.forJavaScript(noteTxt);
 
             Set<CaseManagementIssue> setIssues = note.getIssues();
             StringBuffer strNoteIssues = new StringBuffer();
@@ -162,7 +161,7 @@
                 CaseManagementIssue iss = iter.next();
                 strNoteIssues.append(iss.getIssue_id()).append(";")
                              .append(iss.getIssue().getCode()).append(";")
-                             .append(org.apache.commons.text.StringEscapeUtils.escapeEcmaScript(iss.getIssue().getDescription()));
+                             .append(Encode.forJavaScript(iss.getIssue().getDescription()));
                 if (iter.hasNext()) {
                     strNoteIssues.append(";");
                 }
@@ -177,7 +176,7 @@
                    title="Rev:<%= note.getRevision() %> - <%= note.getUpdate_date() %>&#10;<%= Encode.forHtmlAttribute(note.getNote()) %>"
                    id="listNote<%= note.getId() %>"
                    href="javascript:void(0)"
-                   onclick="showEdit(event,'<fmt:setBundle basename="oscarResources"/><fmt:message key="${param.title}" />','<%= note.getId() %>','<%= StringEscapeUtils.escapeEcmaScript(editors.toString()) %>','<%= note.getObservation_date() %>','<%= note.getRevision() %>','<%= noteTxt %>', '<%= Encode.forJavaScriptAttribute((String) request.getAttribute("addUrl")) %><%= note.getId() %>', '<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("cmd"))) %>','<%= Encode.forJavaScriptAttribute((String) request.getAttribute("identUrl")) %>','<%= Encode.forJavaScriptAttribute(strNoteIssues.toString()) %>','<%= Encode.forJavaScriptAttribute(strNoteExts) %>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("demographicNo"))) %>');return false;">
+                   onclick="showEdit(event,'<fmt:setBundle basename="oscarResources"/><fmt:message key="${param.title}" />','<%= note.getId() %>','<%= Encode.forJavaScript(editors.toString()) %>','<%= note.getObservation_date() %>','<%= note.getRevision() %>','<%= noteTxt %>', '<%= Encode.forJavaScriptAttribute((String) request.getAttribute("addUrl")) %><%= note.getId() %>', '<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("cmd"))) %>','<%= Encode.forJavaScriptAttribute((String) request.getAttribute("identUrl")) %>','<%= Encode.forJavaScriptAttribute(strNoteIssues.toString()) %>','<%= Encode.forJavaScriptAttribute(strNoteExts) %>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("demographicNo"))) %>');return false;">
             </c:when>
             <c:otherwise>
                 <a class="topLinks"
@@ -186,7 +185,7 @@
                    title="Rev:<%= note.getRevision() %> - <%= note.getUpdate_date() %>&#10;<%= Encode.forHtmlAttribute(note.getNote()) %>"
                    id="listNote<%= note.getId() %>"
                    href="javascript:void(0)"
-                   onclick="showEdit(event,'<fmt:setBundle basename="oscarResources"/><fmt:message key="${param.title}" />','<%= note.getId() %>','<%= StringEscapeUtils.escapeEcmaScript(editors.toString()) %>','<%= note.getObservation_date() %>','<%= note.getRevision() %>','<%= noteTxt %>', '<%= Encode.forJavaScriptAttribute((String) request.getAttribute("addUrl")) %><%= note.getId() %>', '<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("cmd"))) %>','<%= Encode.forJavaScriptAttribute((String) request.getAttribute("identUrl")) %>','<%= Encode.forJavaScriptAttribute(strNoteIssues.toString()) %>','<%= Encode.forJavaScriptAttribute(strNoteExts) %>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("demographicNo"))) %>');return false;">
+                   onclick="showEdit(event,'<fmt:setBundle basename="oscarResources"/><fmt:message key="${param.title}" />','<%= note.getId() %>','<%= Encode.forJavaScript(editors.toString()) %>','<%= note.getObservation_date() %>','<%= note.getRevision() %>','<%= noteTxt %>', '<%= Encode.forJavaScriptAttribute((String) request.getAttribute("addUrl")) %><%= note.getId() %>', '<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("cmd"))) %>','<%= Encode.forJavaScriptAttribute((String) request.getAttribute("identUrl")) %>','<%= Encode.forJavaScriptAttribute(strNoteIssues.toString()) %>','<%= Encode.forJavaScriptAttribute(strNoteExts) %>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("demographicNo"))) %>');return false;">
             </c:otherwise>
         </c:choose>
 
@@ -212,7 +211,7 @@
 		if (key.contains(" Date")) {
 		    val = readPartialDate(cme);
 		} else {
-		    val = org.apache.commons.text.StringEscapeUtils.escapeEcmaScript(cme.getValue());
+		    val = Encode.forJavaScript(cme.getValue());
 		}
 		if (strcme.length()>0) strcme.append(";");
 		strcme.append(key + ";" + val);

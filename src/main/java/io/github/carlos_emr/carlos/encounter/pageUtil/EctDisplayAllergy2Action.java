@@ -61,13 +61,12 @@ public class EctDisplayAllergy2Action extends EctDisplayAction {
 
             // set lefthand module heading and link
             String winName = "Allergy" + bean.demographicNo;
-            String url = "popupPage(580,900,'" + winName + "','" + request.getContextPath() + "/oscarRx/showAllergy.do?demographicNo=" + bean.demographicNo + "')";
+            String allergyPath = request.getContextPath() + "/oscarRx/showAllergy.do?demographicNo=" + bean.demographicNo;
             Dao.setLeftHeading(getText("encounter.NavBar.Allergy"));
-            Dao.setLeftURL(url);
+            Dao.setLeftPopup(580, 900, winName, allergyPath);
 
             // set righthand link to same as left so we have visual consistency with other modules
-            url += "; return false;";
-            Dao.setRightURL(url);
+            Dao.setRightPopup(580, 900, winName, allergyPath);
             Dao.setRightHeadingID(cmd); // no menu so set div id to unique id for this action
 
             // grab all of the diseases associated with patient and add a list item for each

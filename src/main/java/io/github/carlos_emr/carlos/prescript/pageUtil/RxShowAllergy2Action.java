@@ -52,6 +52,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import org.owasp.encoder.Encode;
 
 /**
  * Struts 2 action for displaying and managing patient allergies.
@@ -92,14 +93,19 @@ public final class RxShowAllergy2Action extends ActionSupport {
      * @throws RuntimeException if redirect fails
      */
     public String reorder() {
+        String demoNoParam = request.getParameter("demographicNo");
+        if (demoNoParam == null || !demoNoParam.matches("\\d{1,9}")) {
+            return "failure";
+        }
         reorder(request);
         try {
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-            RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, request.getParameter("demographicNo"));
+            RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, demoNoParam);
             if (patient != null) {
-                request.getSession().setAttribute("Patient", patient);
+                // demoNoParam validated as numeric at method entry
+                request.getSession().setAttribute("Patient", patient); // nosemgrep: tainted-session-from-http-request
             }
-            response.sendRedirect(request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + request.getParameter("demographicNo"));
+            response.sendRedirect(request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + Encode.forUriComponent(demoNoParam));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -160,6 +166,9 @@ public final class RxShowAllergy2Action extends ActionSupport {
         if (demo_no == null) {
             return "failure";
         }
+        if (!demo_no.matches("\\d{1,9}")) {
+            return "failure";
+        }
         // Setup bean
         RxSessionBean bean;
 
@@ -180,13 +189,14 @@ public final class RxShowAllergy2Action extends ActionSupport {
             bean.setView(view);
         }
 
-        request.getSession().setAttribute("RxSessionBean", bean);
+        // demographicNo validated via Integer.parseInt(); bean setters use validated values
+        request.getSession().setAttribute("RxSessionBean", bean); // nosemgrep: tainted-session-from-http-request
 
         RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, bean.getDemographicNo());
 
-        String forward = request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + demo_no;
+        String forward = request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + Encode.forUriComponent(demo_no);
         if (patient != null) {
-            request.getSession().setAttribute("Patient", patient);
+            request.getSession().setAttribute("Patient", patient); // nosemgrep: tainted-session-from-http-request
             response.sendRedirect(forward);
         } else {//no records found
             response.sendRedirect("error.html");
@@ -296,8 +306,30 @@ public final class RxShowAllergy2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         String direction = request.getParameter("direction");
+        if (direction == null || (!"up".equals(direction) && !"down".equals(direction))) {
+            MiscUtils.getLogger().warn("Invalid direction parameter for allergy reorder");
+            return;
+        }
         String demographicNo = request.getParameter("demographicNo");
-        int allergyId = Integer.parseInt(request.getParameter("allergyId"));
+        if (demographicNo == null || !demographicNo.matches("\\d{1,9}")) {
+            MiscUtils.getLogger().warn("Invalid demographicNo for allergy reorder");
+            return;
+        }
+        String allergyIdParam = request.getParameter("allergyId");
+        if (allergyIdParam == null || !allergyIdParam.matches("\\d{1,9}")) {
+            MiscUtils.getLogger().warn("Invalid allergyId for allergy reorder");
+            return;
+        }
+        int allergyId;
+        try {
+            long parsedAllergyId = Long.parseLong(allergyIdParam);
+            if (parsedAllergyId > Integer.MAX_VALUE) {
+                throw new IllegalArgumentException("Invalid allergyId");
+            }
+            allergyId = (int) parsedAllergyId;
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid allergyId", e);
+        }
         try {
             Allergy[] allergies = RxPatientData.getPatient(loggedInInfo, demographicNo).getActiveAllergies();
             for (int x = 0; x < allergies.length; x++) {

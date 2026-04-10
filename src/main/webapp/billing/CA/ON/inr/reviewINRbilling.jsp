@@ -170,7 +170,7 @@ if (errorCode.compareTo("") != 0) {
     <%} else {%>
 <table BORDER="0" CELLPADDING="1" CELLSPACING="0" WIDTH="100%"
        BGCOLOR="#C4D9E7">
-    <FORM NAME="serviceform" ACTION="dbINRbilling.jsp" METHOD="POST">
+    <FORM NAME="serviceform" ACTION="DbINRbilling.do" METHOD="POST">
         <tr valign="top">
             <td rowspan="2" ALIGN="right" valign="middle">
                 <div align="center">

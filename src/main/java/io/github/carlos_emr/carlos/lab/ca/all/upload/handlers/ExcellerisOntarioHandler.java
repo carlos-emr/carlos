@@ -39,6 +39,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -110,19 +111,7 @@ public class ExcellerisOntarioHandler implements MessageHandler {
                 return null;
             }
             
-            DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
-            // Disable external entity processing to prevent XXE attacks
-            docFactory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            docFactory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            docFactory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            docFactory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-            
-            // Disable XInclude
-            docFactory.setXIncludeAware(false);
-            
-            // Disabled expansion of entity references
-            docFactory.setExpandEntityReferences(false);
-            
+            DocumentBuilderFactory docFactory = XmlUtils.createSecureDocumentBuilderFactory();
             DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
             // Use the validated file object - safe after all validation checks
             doc = docBuilder.parse(file);

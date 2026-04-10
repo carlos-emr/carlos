@@ -32,7 +32,7 @@
 <%@ page errorPage="/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.sql.*" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 
 <%@ page import="io.github.carlos_emr.carlos.login.*" %>

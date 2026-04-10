@@ -67,8 +67,14 @@ import org.xml.sax.XMLReader;
  * Static utility methods for XML parsing, serialization, and DOM manipulation.
  *
  * <p>Provides secure XML parser construction via {@link #createSecureSAXBuilder()},
- * DOM document building, node-to-string conversion, and element helper methods
- * used across CARLOS EMR for clinical data exchange (HL7, FHIR, e-forms).</p>
+ * {@link #createSecureDocumentBuilderFactory()}, {@link #createSecureSAXParserFactory()},
+ * {@link #createSecureTransformerFactory()}, {@link #createSecureSchemaFactory(String)},
+ * {@link #createSecureValidator(javax.xml.validation.Schema)},
+ * and {@link #createSecureJaxbSource(InputStream)}. All factory methods restrict external
+ * resource access to prevent XXE attacks (CWE-611).
+ *
+ * <p>Also includes DOM document building, node-to-string conversion, and element helper
+ * methods used across CARLOS EMR for clinical data exchange (HL7, FHIR, e-forms).</p>
  *
  * @since 2012-01-12
  */
@@ -100,14 +106,26 @@ public final class XmlUtils {
         } catch (Exception ex) {
             throw new IllegalStateException("Failed to enable required XXE protection (disallow-doctype-decl)", ex);
         }
-        // Defense-in-depth features — warn if unavailable but still return the parser
+        // Defense-in-depth features — warn individually if unavailable
         try {
             parser.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        } catch (Exception ex) {
+            logger.warn("Could not disable external-general-entities on SAXBuilder", ex);
+        }
+        try {
             parser.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        } catch (Exception ex) {
+            logger.warn("Could not disable external-parameter-entities on SAXBuilder", ex);
+        }
+        try {
             parser.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        } catch (Exception ex) {
+            logger.warn("Could not disable load-external-dtd on SAXBuilder", ex);
+        }
+        try {
             parser.setExpandEntities(false);
         } catch (Exception ex) {
-            logger.warn("Could not configure optional SAXBuilder security features", ex);
+            logger.warn("Could not disable entity expansion on SAXBuilder", ex);
         }
         return parser;
     }
@@ -118,15 +136,34 @@ public final class XmlUtils {
      * <p>Disables DOCTYPE declarations and external entity resolution. Use this factory
      * method instead of {@code DocumentBuilderFactory.newInstance()} throughout the codebase.
      *
+     * <p>The critical {@code disallow-doctype-decl} feature is required — a
+     * {@link ParserConfigurationException} is thrown if it cannot be applied so that callers
+     * never receive an unprotected factory. The remaining defense-in-depth features are
+     * applied on a best-effort basis; a warning is logged if any of them cannot be set.
+     *
      * @return DocumentBuilderFactory configured with XXE protections
-     * @throws ParserConfigurationException if the critical disallow-doctype-decl feature cannot be set
+     * @throws ParserConfigurationException if the critical disallow-doctype-decl protection cannot be enabled
      */
     public static DocumentBuilderFactory createSecureDocumentBuilderFactory() throws ParserConfigurationException {
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        // Critical protection — fail closed if it cannot be applied
         dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
-        dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-        dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        // Defense-in-depth features — warn individually if unavailable
+        try {
+            dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        } catch (ParserConfigurationException ex) {
+            logger.warn("Could not disable external-general-entities on DocumentBuilderFactory", ex);
+        }
+        try {
+            dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        } catch (ParserConfigurationException ex) {
+            logger.warn("Could not disable external-parameter-entities on DocumentBuilderFactory", ex);
+        }
+        try {
+            dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        } catch (ParserConfigurationException ex) {
+            logger.warn("Could not disable load-external-dtd on DocumentBuilderFactory", ex);
+        }
         dbf.setXIncludeAware(false);
         dbf.setExpandEntityReferences(false);
         return dbf;
@@ -138,17 +175,127 @@ public final class XmlUtils {
      * <p>Sets {@code ACCESS_EXTERNAL_DTD} and {@code ACCESS_EXTERNAL_STYLESHEET} to empty strings
      * so that no external DTD or stylesheet resources can be loaded during transformation.
      *
+     * <p>The critical {@code ACCESS_EXTERNAL_DTD} attribute is required — an
+     * {@link IllegalArgumentException} is propagated if it cannot be applied so that callers
+     * never receive an unprotected factory. The {@code ACCESS_EXTERNAL_STYLESHEET} attribute
+     * is applied on a best-effort basis; a warning is logged if it cannot be set.
+     *
      * @return TransformerFactory configured with external-access restrictions
+     * @throws IllegalArgumentException if the critical ACCESS_EXTERNAL_DTD attribute cannot be set
      */
     public static TransformerFactory createSecureTransformerFactory() {
         TransformerFactory tf = TransformerFactory.newInstance();
+        // Critical protection — fail closed if it cannot be applied
+        tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        // Defense-in-depth — warn if unavailable
         try {
-            tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
             tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
         } catch (IllegalArgumentException ex) {
-            logger.warn("Could not set TransformerFactory security attributes", ex);
+            logger.warn("Could not restrict ACCESS_EXTERNAL_STYLESHEET on TransformerFactory", ex);
         }
         return tf;
+    }
+
+    /**
+     * Creates a {@link SAXParserFactory} with XXE protections enabled.
+     *
+     * <p>Disables DOCTYPE declarations and external entity resolution. Use this factory
+     * method instead of {@code SAXParserFactory.newInstance()} throughout the codebase.
+     *
+     * <p>The critical {@code disallow-doctype-decl} feature is required — an exception
+     * is thrown if it cannot be applied so that callers never receive an unprotected factory.
+     * The remaining defense-in-depth features are applied on a best-effort basis; a warning
+     * is logged if any of them cannot be set.
+     *
+     * @return SAXParserFactory configured with XXE protections
+     * @throws ParserConfigurationException if the critical disallow-doctype-decl protection cannot be enabled
+     * @throws SAXException if the critical disallow-doctype-decl protection cannot be enabled
+     */
+    public static SAXParserFactory createSecureSAXParserFactory() throws ParserConfigurationException, SAXException {
+        SAXParserFactory spf = SAXParserFactory.newInstance();
+        // Critical protection — fail closed if it cannot be applied
+        spf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        // Defense-in-depth features — warn individually if unavailable
+        try {
+            spf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        } catch (ParserConfigurationException | SAXException ex) {
+            logger.warn("Could not disable external-general-entities on SAXParserFactory", ex);
+        }
+        try {
+            spf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        } catch (ParserConfigurationException | SAXException ex) {
+            logger.warn("Could not disable external-parameter-entities on SAXParserFactory", ex);
+        }
+        try {
+            spf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        } catch (ParserConfigurationException | SAXException ex) {
+            logger.warn("Could not enable FEATURE_SECURE_PROCESSING on SAXParserFactory", ex);
+        }
+        try {
+            spf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        } catch (ParserConfigurationException | SAXException ex) {
+            logger.warn("Could not disable load-external-dtd on SAXParserFactory", ex);
+        }
+        spf.setXIncludeAware(false);
+        return spf;
+    }
+
+    /**
+     * Creates a {@link SchemaFactory} with external access disabled.
+     *
+     * <p>Sets {@code ACCESS_EXTERNAL_DTD} and {@code ACCESS_EXTERNAL_SCHEMA} to empty strings
+     * so that no external DTD or schema resources can be loaded during schema compilation.
+     * Use this factory method instead of {@code SchemaFactory.newInstance()} throughout the codebase.
+     *
+     * <p>The critical {@code ACCESS_EXTERNAL_DTD} property is required — a
+     * {@link SAXException} is thrown if it cannot be applied so that callers
+     * never receive an unprotected factory. The {@code ACCESS_EXTERNAL_SCHEMA} property
+     * is applied on a best-effort basis; a warning is logged if it cannot be set.
+     *
+     * @param schemaLanguage the schema language URI (e.g. {@link XMLConstants#W3C_XML_SCHEMA_NS_URI})
+     * @return SchemaFactory configured with external-access restrictions
+     * @throws SAXException if the critical ACCESS_EXTERNAL_DTD property cannot be set
+     */
+    public static javax.xml.validation.SchemaFactory createSecureSchemaFactory(String schemaLanguage) throws SAXException {
+        javax.xml.validation.SchemaFactory sf = javax.xml.validation.SchemaFactory.newInstance(schemaLanguage);
+        // Critical protection — fail closed if it cannot be applied
+        sf.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        // Defense-in-depth — warn if unavailable
+        try {
+            sf.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+        } catch (SAXException ex) {
+            logger.warn("Could not restrict ACCESS_EXTERNAL_SCHEMA on SchemaFactory", ex);
+        }
+        return sf;
+    }
+
+    /**
+     * Creates a {@link javax.xml.validation.Validator} with external access disabled.
+     *
+     * <p>Sets {@code ACCESS_EXTERNAL_DTD} and {@code ACCESS_EXTERNAL_SCHEMA} to empty strings
+     * so that no external DTD or schema resources can be loaded during validation.
+     * Use this factory method instead of {@code schema.newValidator()} throughout the codebase.
+     *
+     * <p>The critical {@code ACCESS_EXTERNAL_DTD} property is required — a
+     * {@link SAXException} is thrown if it cannot be applied so that callers
+     * never receive an unprotected validator. The {@code ACCESS_EXTERNAL_SCHEMA} property
+     * is applied on a best-effort basis; a warning is logged if it cannot be set.
+     *
+     * @param schema the compiled {@link javax.xml.validation.Schema} to create the validator from
+     * @return Validator configured with external-access restrictions
+     * @throws SAXException if the critical ACCESS_EXTERNAL_DTD property cannot be set
+     */
+    public static javax.xml.validation.Validator createSecureValidator(javax.xml.validation.Schema schema) throws SAXException {
+        javax.xml.validation.Validator validator = schema.newValidator();
+        // Critical protection — fail closed if it cannot be applied
+        validator.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        // Defense-in-depth — warn if unavailable
+        try {
+            validator.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+        } catch (SAXException ex) {
+            logger.warn("Could not restrict ACCESS_EXTERNAL_SCHEMA on Validator", ex);
+        }
+        return validator;
     }
 
     /**
@@ -163,11 +310,7 @@ public final class XmlUtils {
      * @throws SAXException if the XMLReader cannot be obtained
      */
     public static SAXSource createSecureJaxbSource(InputStream inputStream) throws ParserConfigurationException, SAXException {
-        SAXParserFactory spf = SAXParserFactory.newInstance();
-        spf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        spf.setFeature("http://xml.org/sax/features/external-general-entities", false);
-        spf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-        spf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        SAXParserFactory spf = createSecureSAXParserFactory();
         spf.setNamespaceAware(true);
         XMLReader xr = spf.newSAXParser().getXMLReader();
         return new SAXSource(xr, new InputSource(inputStream));

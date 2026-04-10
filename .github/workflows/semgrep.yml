@@ -1,0 +1,60 @@
+# GitHub Workflow: Semgrep Security Scan
+#
+# Description:
+# Runs Semgrep SAST analysis connected to Semgrep Cloud (app.semgrep.dev).
+# Results appear in both the Semgrep Cloud dashboard and the GitHub Security tab.
+#
+# Usage:
+# - Triggered on pushes to develop/main branches
+# - Triggered on pull requests targeting develop
+# - Scheduled weekly full scan
+# - Manual dispatch available
+#
+# Requirements:
+# - SEMGREP_APP_TOKEN secret must be configured in repository settings
+#   (Create at: https://semgrep.dev → Settings → Tokens)
+# - .semgrepignore in repo root controls file exclusions
+#
+# License:
+# This GitHub Workflow file is part of the Carlos EMR project and is subject
+# to the licensing terms outlined in the repository's LICENSE file.
+
+name: Semgrep Security Scan
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop]
+  workflow_dispatch: {}
+  schedule:
+    - cron: '23 4 * * 1'  # Monday 4:23 UTC (weekly full scan)
+
+permissions:
+  security-events: write
+  actions: read
+  contents: read
+
+jobs:
+  semgrep:
+    name: Semgrep SAST Analysis
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    if: github.actor != 'dependabot[bot]'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep CI
+        id: run_semgrep
+        if: env.SEMGREP_APP_TOKEN != ''
+        run: semgrep ci --sarif --output semgrep.sarif
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Upload SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+        if: steps.run_semgrep.outcome == 'success' && hashFiles('semgrep.sarif') != ''
