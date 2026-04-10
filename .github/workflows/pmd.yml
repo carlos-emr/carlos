@@ -134,7 +134,7 @@ jobs:
             echo "violations=0" >> "$GITHUB_OUTPUT"
             echo "No PMD violations found."
           elif [ "$PMD_EXIT" -eq 4 ]; then
-            COUNT=$(python3 -c "import json; data=json.load(open('pmd-report.sarif')); print(sum(len(run.get('results', [])) for run in data.get('runs', [])))" || echo "unknown")
+            COUNT=$(python3 -c "import json; data=json.load(open('pmd-report.sarif')); print(sum(len(run.get('results', [])) for run in data.get('runs', [])))" || echo "error")
             echo "violations=${COUNT}" >> "$GITHUB_OUTPUT"
             echo "PMD found ${COUNT} violation(s)."
           else
