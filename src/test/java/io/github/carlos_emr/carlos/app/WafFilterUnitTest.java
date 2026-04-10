@@ -221,6 +221,19 @@ class WafFilterUnitTest {
         }
 
         @Test
+        @DisplayName("should detect SQLi when stacked UPDATE table is present")
+        void shouldDetectSqli_whenStackedUpdateTable() throws Exception {
+            when(request.getParameterNames()).thenReturn(
+                    Collections.enumeration(java.util.List.of("id")));
+            when(request.getParameterValues("id")).thenReturn(new String[]{"1; UPDATE users SET password='hacked'"});
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
         @DisplayName("should detect SQLi when time-based SLEEP() is present")
         void shouldDetectSqli_whenTimeBased() throws Exception {
             when(request.getParameterNames()).thenReturn(
@@ -895,6 +908,52 @@ class WafFilterUnitTest {
 
             verify(response).sendError(anyInt(), anyString());
             verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should not treat path with .do suffix as relaxed when only prefix matches via startsWith")
+        void shouldNotRelax_forPathWithDotDoSuffix() throws Exception {
+            // /SaveNote.doAdmin must NOT be treated as a relaxed path — only exact /SaveNote.do
+            // should be relaxed. This verifies the equals-for-non-slash-terminated fix.
+            when(request.getRequestURI()).thenReturn("/carlos/SaveNote.doAdmin");
+            when(request.getMethod()).thenReturn("POST");
+            when(request.getQueryString()).thenReturn(null);
+            when(request.getParameterNames()).thenReturn(
+                    Collections.enumeration(java.util.List.of("q")));
+            // Payload that would be caught on a normal path but skipped on a relaxed POST
+            when(request.getParameterValues("q")).thenReturn(
+                    new String[]{"1 UNION SELECT * FROM users"});
+
+            filter.doFilter(request, response, chain);
+
+            // /SaveNote.doAdmin is NOT relaxed — injection check runs and blocks
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should not apply hardened limits for path that only shares .do prefix with hardened entry")
+        void shouldNotHarden_forPathWithDotDoSuffix() throws Exception {
+            // /login.doSomething must NOT inherit hardened limits — only exact /login.do should.
+            // Hardened limit is 10 params; default is 100. Send 15 params — should pass on a
+            // non-hardened path but would be blocked on a hardened one.
+            when(request.getRequestURI()).thenReturn("/carlos/login.doSomething");
+            when(request.getMethod()).thenReturn("POST");
+            when(request.getQueryString()).thenReturn(null);
+            java.util.List<String> paramNames = new java.util.ArrayList<>();
+            for (int i = 0; i < 15; i++) {
+                paramNames.add("p" + i);
+            }
+            when(request.getParameterNames()).thenReturn(Collections.enumeration(paramNames));
+            for (String pName : paramNames) {
+                when(request.getParameterValues(pName)).thenReturn(new String[]{"safevalue"});
+            }
+
+            filter.doFilter(request, response, chain);
+
+            // /login.doSomething is NOT hardened — 15 params within the default limit of 100
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
         }
     }
 
