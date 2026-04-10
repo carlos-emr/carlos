@@ -383,14 +383,6 @@ public class CarlosProperties extends Properties {
         return getProperty("hl7_a04_build_dir");
     }
 
-    public String getHL7A04SentDirectory() {
-        return getProperty("hl7_a04_sent_dir");
-    }
-
-    public String getHL7A04FailDirectory() {
-        return getProperty("hl7_a04_fail_dir");
-    }
-
     public String getHL7SendingApplication() {
         return getProperty("HL7_SENDING_APPLICATION");
     }
@@ -409,19 +401,6 @@ public class CarlosProperties extends Properties {
 
     public boolean isHL7A04GenerationEnabled() {
         return isPropertyActive("HL7_A04_GENERATION");
-    }
-
-    public boolean isEmeraldHL7A04TransportTaskEnabled() {
-        return isPropertyActive("EMERALD_HL7_A04_TRANSPORT_TASK");
-    }
-
-    public String getEmeraldHL7A04TransportAddr() {
-        return getProperty("EMERALD_HL7_A04_TRANSPORT_ADDR");
-    }
-
-    public int getEmeraldHL7A04TransportPort() {
-        String prop = getProperty("EMERALD_HL7_A04_TRANSPORT_PORT", "3987"); // default to port 3987
-        return Integer.parseInt(prop);
     }
 
     public static String getIntakeProgramAccessServiceId() {

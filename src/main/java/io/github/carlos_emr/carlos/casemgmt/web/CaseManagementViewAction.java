@@ -29,7 +29,7 @@ package io.github.carlos_emr.carlos.casemgmt.web;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
 import io.github.carlos_emr.carlos.casemgmt.common.Colour;
@@ -466,7 +466,7 @@ public class CaseManagementViewAction {
                 if (key.contains(" Date")) {
                     val = UtilDateUtilities.DateToString(cme.getDateValue(), "yyyy-MM-dd");
                 } else {
-                    val = StringEscapeUtils.escapeEcmaScript(cme.getValue());
+                    val = Encode.forJavaScript(cme.getValue());
                 }
                 return val;
             }

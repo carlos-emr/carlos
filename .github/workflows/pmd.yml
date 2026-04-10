@@ -1,0 +1,90 @@
+# GitHub Workflow: PMD Static Analysis
+#
+# Description:
+# Runs PMD static analysis on CARLOS EMR Java source code to detect
+# common programming flaws, potential bugs, and security issues.
+# Results appear as PR annotations and in the GitHub Security tab (SARIF).
+#
+# Ruleset:
+# Uses a project-specific ruleset (.github/pmd/carlos-ruleset.xml) focused on
+# error-prone patterns, security issues, and best practices. Style/naming rules
+# are intentionally excluded to avoid noise on legacy code.
+#
+# Usage:
+# - Triggered on pull requests targeting develop, main, experimental
+# - Scheduled weekly full scan (Monday 5:00 UTC)
+# - Manual dispatch available
+#
+# License:
+# This GitHub Workflow file is part of the Carlos EMR project and is subject
+# to the licensing terms outlined in the repository's LICENSE file.
+#
+# Last Updated:
+# April 2026
+
+name: PMD Analysis
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+      - experimental
+    paths:
+      - '**.java'
+      - '.github/pmd/**'
+      - '.github/workflows/pmd.yml'
+  push:
+    branches: [develop]
+    paths:
+      - '**.java'
+      - '.github/pmd/**'
+      - '.github/workflows/pmd.yml'
+  workflow_dispatch: {}
+  schedule:
+    - cron: '0 5 * * 1'  # Monday 5:00 UTC (weekly full scan)
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  pmd:
+    name: PMD Static Analysis
+    runs-on: ubuntu-latest
+    if: github.actor != 'dependabot[bot]'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run PMD
+        id: pmd
+        uses: pmd/pmd-github-action@v2
+        with:
+          version: '7.13.0'
+          sourcePath: 'src/main/java'
+          rulesets: '.github/pmd/carlos-ruleset.xml'
+          analyzeModifiedFilesOnly: false
+          createGitHubAnnotations: true
+
+      - name: Upload SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles('pmd-report.sarif') != ''
+        with:
+          sarif_file: pmd-report.sarif
+          category: pmd
+
+      - name: Report summary
+        if: always()
+        run: |
+          echo "### PMD Analysis Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Violations found**: ${{ steps.pmd.outputs.violations }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.pmd.outputs.violations }}" -gt 0 ] 2>/dev/null; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "See the **Security** tab or PR annotations for details." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "No violations detected." >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -28,7 +28,7 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest.conversion;
 
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.OtnEconsult;
@@ -41,7 +41,7 @@ public class OtnEconsultConverter extends AbstractConverter<Document, OtnEconsul
     public Document getAsDomainObject(LoggedInInfo loggedInInfo, OtnEconsult t) throws ConversionException {
         Document document = new Document();
 
-        String description = StringEscapeUtils.escapeHtml4(t.getDocDescription());
+        String description = Encode.forHtml(t.getDocDescription());
         document.setDocdesc(description);
         document.setContentdatetime(t.getImportDate());
         document.setContenttype(t.getContentType());

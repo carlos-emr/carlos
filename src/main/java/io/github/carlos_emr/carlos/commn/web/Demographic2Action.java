@@ -124,6 +124,8 @@ public class Demographic2Action extends ActionSupport {
             }
         }
 
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().write(results.toString());
 
         return null;
@@ -176,6 +178,8 @@ public class Demographic2Action extends ActionSupport {
             }
         }
 
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().write(results.toString());
 
         return null;
@@ -257,6 +261,8 @@ public class Demographic2Action extends ActionSupport {
 
             ObjectMapper mapper = new ObjectMapper();
             String json = mapper.writeValueAsString(items);
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
             response.getWriter().print(json);
         }
 

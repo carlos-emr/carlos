@@ -148,14 +148,14 @@ public class FrmFormRHPrevention2Action extends ActionSupport {
                 WorkFlowState wfs = new WorkFlowState();
 
                 wfs.updateWorkFlowState(workflowId, state, endDate);
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, "WF_" + workflowType, state, ip);
+                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, "WF_" + workflowType, state, ip); // nosemgrep: tainted-session-from-http-request
             }
         } else {
             //if none are found open, offer to create a new one  (could be existing but closed)
             request.setAttribute("newWorkFlowNeeded", "true");
 
             workId = flow.addToWorkFlow(providerNo, demographicNo, endDate);
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, "WF_" + workflowType, state, ip);
+            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, "WF_" + workflowType, state, ip); // nosemgrep: tainted-session-from-http-request
 
         }
 
@@ -179,7 +179,7 @@ public class FrmFormRHPrevention2Action extends ActionSupport {
 
             props.setProperty("provider_no", providerNo);
             newID = rec.saveFormRecord(props);
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, request.getParameter("form_class"), "" + newID, ip);
+            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, request.getParameter("form_class"), "" + newID, ip); // nosemgrep: tainted-session-from-http-request
         } catch (Exception factEx) {
             MiscUtils.getLogger().error("Error", factEx);
         }

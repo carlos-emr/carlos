@@ -58,15 +58,18 @@ RUN apt-get update && apt-get install -y golang-go
 RUN go install github.com/dburkart/javadoc2md/cmd/javadoc2md@latest
 
 # Install Claude Code CLI (native binary) and Docusaurus
+ENV PATH="${PATH}:/root/.local/bin"
 RUN curl -fsSL https://claude.ai/install.sh | bash \
     && which npm && npm install -g @docusaurus/core @docusaurus/preset-classic
-ENV PATH="${PATH}:/root/.local/bin"
 
 # Install Gemini CLI.
-RUN npm install -g @google/gemini-cli
+# The gemini-browser script intercepts xdg-open so OAuth URLs display cleanly
+# in the terminal for copy-paste (containers can't open desktop browsers).
+RUN npm install -g @google/gemini-cli \
+    && ln -sf /scripts/gemini-browser /usr/local/bin/xdg-open
 
 # Install GitHub Copilot CLI (standalone coding agent with model selection)
-RUN npm install -g @github/copilot@0.0.113 && \
+RUN npm install -g @github/copilot && \
     echo "✅ GitHub Copilot CLI installed: $(copilot --version)"
 
 # Install Playwright globally first to ensure it's available

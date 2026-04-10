@@ -187,14 +187,14 @@
                     if (nLastPage >= 0) {
             %>
             <a
-                    href="formlist.jsp?demographic_no=<%= Encode.forUriComponent(demoNo) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formlist.formLastpage"/></a>
+                    href="formlist.jsp?demographic_no=<%= Encode.forUriComponent(demoNo) %>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formlist.formLastpage"/></a>
             |
             <%
                 }
                 if (nItems == intLimit2) {
             %>
             <a
-                    href="formlist.jsp?demographic_no=<%= Encode.forUriComponent(demoNo) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>">
+                    href="formlist.jsp?demographic_no=<%= Encode.forUriComponent(demoNo) %>&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formlist.formNextPage"/></a>
             </td>
             </tr>

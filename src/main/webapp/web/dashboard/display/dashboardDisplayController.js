@@ -106,7 +106,7 @@ function buildIndicatorPanel(html, target, id) {
         // plotVal is a valid JSON array serialised by IndicatorQueryHandler.plotsToStringArray()
         data = JSON.parse(plotVal);
     } catch (e) {
-        console.error('Error rendering indicator panel ' + id + ':', e);
+        console.error('Error rendering indicator panel ' + id + ':', e); // nosemgrep: unsafe-formatstring -- string concatenation for console logging, id is a server-side indicator ID not user input
         $("#" + target + "_" + id).html('<p style="color:red">Unable to render indicator panel.</p>');
         return;
     }

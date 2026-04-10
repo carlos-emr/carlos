@@ -57,7 +57,7 @@
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.CdsFormOption" %>
 <%@page import="io.github.carlos_emr.carlos.web.Cds4ReportUIBean" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     ProviderManager2 providerManager = (ProviderManager2) SpringUtils.getBean(ProviderManager2.class);
@@ -115,14 +115,14 @@
 <%
     if (providerIdList != null) {
 %>
-<span style="font-weight:bold">Providers : </span><%=StringEscapeUtils.escapeHtml4(providerNamesList.toString())%>
+<span style="font-weight:bold">Providers : </span><%=Encode.forHtml(providerNamesList.toString())%>
 <br/>
 <%
     }
 
     if (programIds != null) {
 %>
-<span style="font-weight:bold">Programs : </span><%=StringEscapeUtils.escapeHtml4(programNamesList.toString())%>
+<span style="font-weight:bold">Programs : </span><%=Encode.forHtml(programNamesList.toString())%>
 <br/>
 <%
     }
@@ -151,9 +151,9 @@
             int[] dataRow = cds4ReportUIBean.getDataRow(cdsFormOption);
     %>
     <tr>
-        <td><%=StringEscapeUtils.escapeHtml4(cdsFormOption.getCdsDataCategory())%>
+        <td><%=Encode.forHtml(cdsFormOption.getCdsDataCategory())%>
         </td>
-        <td><%=StringEscapeUtils.escapeHtml4(cdsFormOption.getCdsDataCategoryName())%>
+        <td><%=Encode.forHtml(cdsFormOption.getCdsDataCategoryName())%>
         </td>
         <%
             for (int dataElement : dataRow) {

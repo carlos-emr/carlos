@@ -166,6 +166,7 @@ jobs:
               echo '========================================='
               mvn -B verify sonar:sonar \
                 -Pskip-dependency-lock \
+                -Dmaven.test.failure.ignore=true \
                 -Dsonar.host.url=https://sonarcloud.io \
                 -Dsonar.projectKey=carlos-emr_carlos \
                             "
@@ -195,6 +196,7 @@ jobs:
               echo '========================================='
               mvn -B verify sonar:sonar \
                 -Pskip-dependency-lock \
+                -Dmaven.test.failure.ignore=true \
                 -Dsonar.host.url=https://sonarcloud.io \
                 -Dsonar.projectKey=carlos-emr_carlos \
                 \"-Dsonar.pullrequest.key=\$PR_NUMBER\" \

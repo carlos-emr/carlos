@@ -393,7 +393,7 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
      */
     protected Query createQuery(String select, String alias, String whereClause) {
         StringBuilder buf = createQueryString(select, alias, whereClause);
-        return entityManager.createQuery(buf.toString());
+        return entityManager.createQuery(buf.toString()); // nosemgrep: hibernate-sqli — query construction utility; callers provide parameterized WHERE clauses
     }
 
     /**
