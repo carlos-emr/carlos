@@ -10,7 +10,7 @@ services:
     volumes:
       - m2-volume:/root/.m2
       - gemini-config:/root/.gemini
-      - ..:/workspace:cached
+      - ..:/workspace
       - ../.devcontainer/db/db_data/:/db-data/
     env_file:
       - ./development/config/shared/local.env

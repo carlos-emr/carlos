@@ -40,7 +40,7 @@
     "portsAttributes": {
         "13579": {
             "label": "Gemini OAuth Callback",
-            "onAutoForward": "notify"
+            "onAutoForward": "silent"
         }
     },
     "containerUser": "root",
