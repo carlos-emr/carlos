@@ -49,7 +49,6 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
@@ -855,8 +854,8 @@
             </c:if>
         </form>
 
-        <form name="ticklerform" method="post" action="dbTicklerMain.jsp">
-            <input type="hidden" name="parentAjaxId" value="${e:forHtmlAttribute(param.parentAjaxId)}"/>
+        <form name="ticklerform" method="post" action="DbTicklerMain.do">
+            <input type="hidden" name="parentAjaxId" value="<c:out value='${param.parentAjaxId}' />"/>
             <table id="ticklerResults" class="table table-striped table-sm" style="width:100%">
                 <thead>
                 <tr>

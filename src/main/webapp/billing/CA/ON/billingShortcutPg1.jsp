@@ -58,7 +58,6 @@
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page errorPage="/errorpage.jsp" %>
 <%@ page import="java.util.*,java.net.*, java.sql.*, io.github.carlos_emr.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -422,7 +421,7 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
     <!-- language for the calendar -->
     <script type="text/javascript"
-            src="${e:forHtmlAttribute(ctx)}/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+            src="<c:out value="${ctx}"/>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
     <!-- the following script defines the Calendar.setup helper function, which makes
            adding a calendar a matter of 1 or 2 lines of code. -->
     <script type="text/javascript"
@@ -752,7 +751,7 @@
 </div>
 
 
-<form method="post" name="titlesearch" action="billingShortcutPg2.jsp"
+<form method="post" name="titlesearch" action="<%= request.getContextPath() %>/billing/CA/ON/BillingShortcutPg2Save.do"
       onsubmit="return onNext();">
     <table border="0" cellpadding="0" cellspacing="2" width="100%"
            bgcolor="#CCCCFF">

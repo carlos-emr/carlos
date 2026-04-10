@@ -51,7 +51,6 @@
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DataExport" %>
 <%@include file="/casemgmt/taglibs.jsp" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <%
     DemographicSets ds = new DemographicSets();
@@ -60,7 +59,7 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
 <head>
-    <title>CIHI Export</title>
+    <title>Rourke Export</title>
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
@@ -181,7 +180,7 @@
                 <td><%=DateFormatUtils.format(dataExport.getDaterun().getTime(), DateFormatUtils.ISO_DATETIME_FORMAT.getPattern()) %>
                 </td>
                 <td>
-                    <a href='${e:forHtmlAttribute(ctx)}/demographic/eRourkeExport.do?method=getFile&zipFile=<%=file%>'><%=file %>
+                    <a href='<c:out value="${ctx}/demographic/eRourkeExport.do"></c:out>?method=getFile&zipFile=<%=file%>'><%=file %>
                     </a></td>
                 <td><%=dataExport.getUser()%>
                 <td><%=dataExport.getType()%>

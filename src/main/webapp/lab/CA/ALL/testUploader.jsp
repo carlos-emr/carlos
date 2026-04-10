@@ -1,4 +1,5 @@
-<%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.LabType" %><%--
+<%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.LabType" %>
+<%@ page import="org.owasp.encoder.Encode" %><%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -61,13 +62,14 @@
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="lab.ca.all.testUploader.labUploadUtility"/></title>
 
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" type="text/css" href="<%=request.getContextPath() %>/share/css/global.css"/>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css">
 
     <style>
         body {
-            margin: 30px !important;
+            margin: 0 !important;
         }
 
         .file-item {
@@ -246,8 +248,11 @@
 </head>
 
 <body>
-
-<h3>HL7 Lab Upload</h3>
+<div class="container">
+<div class="page-header-bar">
+    <h4 class="page-header-title">HL7 Lab Upload</h4>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="window.close();">Back</button>
+</div>
 <div class="loading-screen">
     <div class="loading-bar progress" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
         <div class="progress-bar" style="width: 100%;"></div>
@@ -285,7 +290,7 @@
         </div>
         <span title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"
               style="vertical-align:middle;font-family:arial;font-size:20px;font-weight:bold;color:#ABABAB;cursor:pointer"><img
-                alt="alert" src="<%= request.getContextPath() %>/images/icon_alertsml.gif"/></span>
+                alt="alert" src="<%= Encode.forHtmlAttribute(request.getContextPath()) %>/images/icon_alertsml.gif"/></span>
 
         <br><br>
         <label for="type"><fmt:setBundle basename="oscarResources"/><fmt:message key="lab.ca.all.testUploader.labType"/></label><br>
@@ -317,6 +322,7 @@
         </c:forEach>
     </form>
 </div>
+</div><%-- close container --%>
 </body>
 
 </html>

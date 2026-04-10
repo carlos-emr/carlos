@@ -54,7 +54,6 @@
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%!
     /**
      * Represents a customization inherited from a higher scope level.
@@ -242,11 +241,11 @@
     String demographicStr = new String();
     String demoStash = new String();
     if (demographic != null) {
-        demographicStr = "&demographic=" + demographic;
+        demographicStr = "&demographic=" + Encode.forUriComponent(demographic);
         session.setAttribute("demoNo" + session.getAttribute("user"), demographic);
     } else {
         String demoNo = (String) session.getAttribute("demoNo" + session.getAttribute("user"));
-        if (demoNo != null) demoStash = "&demographic=" + demoNo;
+        if (demoNo != null) demoStash = "&demographic=" + Encode.forUriComponent(demoNo);
     }
 
     XMLOutputter outp = new XMLOutputter();
@@ -400,7 +399,7 @@
 
             <%}%>
 
-Flowsheet: <span style="font-weight:normal">${e:forHtml(requestScope.displayName ? requestScope.displayName : param.displayName)}(<%=Encode.forHtml(flowsheet)%>)</span>
+Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.displayName ? requestScope.displayName : param.displayName}" />(<%=Encode.forHtml(flowsheet)%>)</span>
         </h4>
         <span class="mode-toggle">
 		  	<% if (scope == null) {
