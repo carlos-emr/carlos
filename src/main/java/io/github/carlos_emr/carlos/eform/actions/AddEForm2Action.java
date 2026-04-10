@@ -600,7 +600,14 @@ public class AddEForm2Action extends ActionSupport {
      * Stores email attachment data in request attributes.
      * Used for non-redirect scenarios where request scope is sufficient.
      *
-     * @param request HTTP request
+     * <p>All numeric IDs ({@code fdid}, {@code demographicId}, and attached-* arrays) are
+     * validated by parsing through {@link #validateIntId} and {@link #validateIntIdArray}
+     * before storage to break the CodeQL taint chain (CWE-501 Trust Boundary Violation).
+     * Boolean values are pre-validated via {@code "true".equals()} in
+     * {@link io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings#of}.
+     * String values (email fields) are sanitized before storage.</p>
+     *
+     * @param request  HTTP request
      * @param settings EmailAttachmentSettings containing all attachment configuration
      */
     private void addEmailAttachments(HttpServletRequest request, EmailAttachmentSettings settings) {
@@ -610,13 +617,14 @@ public class AddEForm2Action extends ActionSupport {
         request.setAttribute("isEmailAutoSend", settings.isEmailAutoSend());
         request.setAttribute("openEFormAfterEmail", settings.openAfterEmail());
         request.setAttribute("attachEFormItSelf", settings.attachEFormItSelf());
-        request.setAttribute("fdid", settings.fdid());
-        request.setAttribute("demographicId", settings.demographicNo());
-        request.setAttribute("attachedEForms", settings.attachedEForms());
-        request.setAttribute("attachedDocuments", settings.attachedDocuments());
-        request.setAttribute("attachedLabs", settings.attachedLabs());
-        request.setAttribute("attachedHRMDocuments", settings.attachedHRMDocuments());
-        request.setAttribute("attachedForms", settings.attachedForms());
+        // Validate numeric IDs via Integer.parseInt to break the taint chain (CWE-501)
+        request.setAttribute("fdid", validateIntId(settings.fdid()));
+        request.setAttribute("demographicId", validateIntId(settings.demographicNo()));
+        request.setAttribute("attachedEForms", validateIntIdArray(settings.attachedEForms()));
+        request.setAttribute("attachedDocuments", validateIntIdArray(settings.attachedDocuments()));
+        request.setAttribute("attachedLabs", validateIntIdArray(settings.attachedLabs()));
+        request.setAttribute("attachedHRMDocuments", validateIntIdArray(settings.attachedHRMDocuments()));
+        request.setAttribute("attachedForms", validateIntIdArray(settings.attachedForms()));
         request.setAttribute("emailPDFPassword", settings.emailPDFPassword());
         request.setAttribute("emailPDFPasswordClue", settings.emailPDFPasswordClue());
         request.setAttribute("senderEmail", settings.senderEmail());
