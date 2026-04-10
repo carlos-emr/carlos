@@ -55,12 +55,29 @@ public interface AppointmentSearchManager {
     /**
      * Thrown when appointment search filter instantiation fails due to
      * misconfiguration or an unauthorized filter class name.
+     *
+     * <p>This exception wraps {@link ReflectiveOperationException} cases that occur
+     * during reflective instantiation of whitelisted {@code AvailableTimeSlotFilter}
+     * implementations. Callers should handle this as a configuration or system error.</p>
+     *
+     * @since 2026-04-10
      */
     public static class AppointmentSearchException extends RuntimeException {
+        /**
+         * Constructs a new exception with the specified detail message.
+         *
+         * @param message String the detail message describing the instantiation failure
+         */
         public AppointmentSearchException(String message) {
             super(message);
         }
 
+        /**
+         * Constructs a new exception with the specified detail message and cause.
+         *
+         * @param message String the detail message describing the instantiation failure
+         * @param cause Throwable the underlying reflective operation failure
+         */
         public AppointmentSearchException(String message, Throwable cause) {
             super(message, cause);
         }
