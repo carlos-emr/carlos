@@ -1336,7 +1336,7 @@ and other liscences (MIT, LGPL etc) as indicated
                 m += "&quot; id=&quot;"
                 m += htmlEncode(htmlEncode(inputName))
                 m += "&quot; type=&quot;text&quot; class=&quot;"
-                m += inputClassValue
+                m += htmlEncode(htmlEncode(inputClassValue))
                 m += "noborder&quot; style=&quot;position:absolute; left:"
                 m += x0
                 m += "px; top:"
@@ -1401,7 +1401,7 @@ and other liscences (MIT, LGPL etc) as indicated
                 m += "&quot; id=&quot;"
                 m += htmlEncode(htmlEncode(inputName))
                 m += "&quot; type=&quot;text&quot; class=&quot;"
-                m += inputClassValue
+                m += htmlEncode(htmlEncode(inputClassValue))
                 m += " noborder&quot; style=&quot;position:absolute; left:"
                 m += x0
                 m += "px; top:"
@@ -1457,7 +1457,7 @@ and other liscences (MIT, LGPL etc) as indicated
                 m += "&quot; id=&quot;"
                 m += htmlEncode(htmlEncode(inputName))
                 m += "&quot; class=&quot;"
-                m += inputClassValue
+                m += htmlEncode(htmlEncode(inputClassValue))
                 m += "&quot; type=&quot;checkbox&quot;"
                 if (document.getElementById('ScaleCheckmark').checked) {
                     m += " class=&quot;largerCheckbox&quot;"
@@ -1497,7 +1497,7 @@ and other liscences (MIT, LGPL etc) as indicated
                 m += "&quot; id=&quot;"
                 m += htmlEncode(htmlEncode(inputName))
                 m += "&quot; type=&quot;text&quot; class=&quot;"
-                m += inputClassValue
+                m += htmlEncode(htmlEncode(inputClassValue))
                 m += "&quot; style=&quot;position:absolute; left:"
                 m += x0;
                 m += "px; top:";
@@ -1620,7 +1620,7 @@ and other liscences (MIT, LGPL etc) as indicated
                 }
                 textBottom += "&lt;input id=&quot;tickler_priority&quot; type=&quot;hidden&quot; value=&quot;" + document.getElementById('tickler_priority').value + "&quot;&gt;\n"
                 if (document.getElementById('tickler_message').value.length > 0) {
-                    textBottom += "&lt;input id=&quot;tickler_message&quot; type=&quot;hidden&quot; value=&quot;" + document.getElementById('tickler_message').value + "&quot;&gt;\n"
+                    textBottom += "&lt;input id=&quot;tickler_message&quot; type=&quot;hidden&quot; value=&quot;" + htmlEncode(htmlEncode(document.getElementById('tickler_message').value)) + "&quot;&gt;\n"
                 }
             }
 
