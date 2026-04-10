@@ -87,7 +87,11 @@ jobs:
             PMD_ZIP="pmd-dist-${PMD_VERSION}-bin.zip"
             PMD_BASE_URL="https://github.com/pmd/pmd/releases/download/pmd_releases%2F${PMD_VERSION}"
             wget -q "${PMD_BASE_URL}/${PMD_ZIP}"
-            EXPECTED_SHA256="$(wget -qO- "${PMD_BASE_URL}/${PMD_ZIP}.sha256" | awk '{print $1}' | tr -d '\r\n')"
+            if ! EXPECTED_SHA256="$(wget -O- "${PMD_BASE_URL}/${PMD_ZIP}.sha256" | awk '{print $1}' | tr -d '\r\n')"; then
+              echo "Failed to download checksum file for ${PMD_ZIP}" >&2
+              rm -f "${PMD_ZIP}"
+              exit 1
+            fi
             ACTUAL_SHA256="$(sha256sum "${PMD_ZIP}" | awk '{print $1}')"
             if [ -z "${EXPECTED_SHA256}" ] || [ "${ACTUAL_SHA256}" != "${EXPECTED_SHA256}" ]; then
               echo "Checksum verification failed for ${PMD_ZIP}" >&2
