@@ -126,7 +126,8 @@ public class DocumentTeleplanReportUploadServlet extends HttpServlet {
                         filename = filename.substring(filename.lastIndexOf('\\') + 1, filename.lastIndexOf('\"'));
 
                         fileheader = filename;
-                        fos = new FileOutputStream(foldername + filename);
+                        File destFile = PathValidationUtils.validatePath(filename, new File(foldername));
+                        fos = new FileOutputStream(destFile);
                         dest = new BufferedOutputStream(fos, BUFFER);
                     }
                     c = sis.readLine(data2, 0, BUFFER);

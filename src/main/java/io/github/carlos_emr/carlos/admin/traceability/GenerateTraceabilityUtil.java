@@ -73,11 +73,11 @@ public class GenerateTraceabilityUtil {
         Iterator<File> iterator = FileUtils.iterateFiles(webappDir, null, true);
         while (iterator.hasNext()) {
             File f_ = iterator.next();
-            FileInputStream fi_ = new FileInputStream(f_);
             String path = f_.getAbsolutePath();
             path = path.replace(realPath, "");
-            traceMap.put(path, DigestUtils.sha256Hex(fi_));
-            fi_.close();
+            try (FileInputStream fi_ = new FileInputStream(f_)) {
+                traceMap.put(path, DigestUtils.sha256Hex(fi_));
+            }
         }
 
         return traceMap;
