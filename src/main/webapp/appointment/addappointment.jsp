@@ -86,7 +86,6 @@ Ontario, Canada
 
 <%@ page import="java.util.*, java.lang.*, io.github.carlos_emr.carlos.appt.*" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusMgr" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.status.service.impl.AppointmentStatusMgrImpl" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.decisionSupport.BillingGuidelines" %>

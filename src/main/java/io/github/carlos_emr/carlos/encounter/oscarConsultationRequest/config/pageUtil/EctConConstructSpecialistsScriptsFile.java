@@ -37,7 +37,7 @@ import java.util.Locale;
 import java.util.ResourceBundle;
 import java.util.Vector;
 
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.ServiceSpecialistsDao;
@@ -160,7 +160,7 @@ public class EctConConstructSpecialistsScriptsFile {
     }
 
     private String escapeString(String s) {
-        s = StringEscapeUtils.escapeEcmaScript(s);
+        s = Encode.forJavaScript(s);
         return s;
     }
 }

@@ -5,7 +5,7 @@
  * GNU General Public License, Version 2, 1991 (GPLv2).
  * License details are available via "indivica.ca/gplv2"
  * and "gnu.org/licenses/gpl-2.0.html".
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -36,19 +36,19 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
 
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        // ensure it's a local machine request... no one else should be calling this servlet.
+        String remoteAddress = request.getRemoteAddr();
+        logger.debug("EformPdfServlet request from : {}", remoteAddress);
+
+        if (!"127.0.0.1".equals(remoteAddress)) {
+            logger.warn("Unauthorised request made to EFormSignatureViewForPdfGenerationServlet from address : {}", remoteAddress);
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+
+
+        // https://127.0.0.1:8443/oscar/eform/efmshowform_data.jsp?fdid=2&parentAjaxId=eforms
         try {
-            // ensure it's a local machine request... no one else should be calling this servlet.
-            String remoteAddress = request.getRemoteAddr();
-            logger.debug("EformPdfServlet request from : " + remoteAddress);
-
-            if (!"127.0.0.1".equals(remoteAddress)) {
-                logger.warn("Unauthorised request made to EFormSignatureViewForPdfGenerationServlet from address : " + remoteAddress);
-                response.sendError(HttpServletResponse.SC_FORBIDDEN);
-                return;
-            }
-
-
-            // https://127.0.0.1:8443/oscar/eform/efmshowform_data.jsp?fdid=2&parentAjaxId=eforms
             // get image
 			DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
 			DigitalSignature digitalSignature = digitalSignatureManager
@@ -67,7 +67,7 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
 
                 return;
             }
-        } catch (ServletException | IOException e) {
+        } catch (IOException e) {
             throw e;
         } catch (Exception e) {
             logger.error("Unexpected error in EFormSignatureViewForPdfGenerationServlet", e);

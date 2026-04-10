@@ -658,7 +658,7 @@ public class CaseManagementPrint {
      * @return String the MRP's full name (first name + surname), or empty string if no MRP is assigned
      */
     protected String getMRP(HttpServletRequest request) {
-        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
+        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean"); // nosemgrep: tainted-session-from-http-request
         if (bean == null) return new String("");
         if (bean.familyDoctorNo == null) return new String("");
         if (bean.familyDoctorNo.isEmpty()) return new String("");

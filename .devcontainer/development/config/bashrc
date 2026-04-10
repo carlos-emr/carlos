@@ -91,5 +91,10 @@ export EDITOR=nano
 export JAVA_HOME=/opt/java/openjdk
 export MAVEN_OPTS="-Xmx4G -Xms1G"
 
+# Override VS Code's BROWSER helper for Gemini CLI OAuth
+# VS Code's browser.sh fails to open OAuth URLs correctly from containers.
+# This script captures the URL and prints it for manual copy-paste.
+export BROWSER=/scripts/gemini-browser
+
 # Add workspace and Go bin to PATH for custom scripts and Go tools
 export PATH="/workspace/scripts:/root/go/bin:$PATH"

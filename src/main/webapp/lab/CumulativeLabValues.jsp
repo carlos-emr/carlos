@@ -207,7 +207,7 @@
                                     String identCodeEsc = "";
                                     if (identCode != null)
                                         identCodeEsc = identCode.replaceAll("&", "_amp_");
-                                    String prevNameEsc = org.apache.commons.text.StringEscapeUtils.escapeEcmaScript(prevName);
+                                    String prevNameEsc = Encode.forJavaScript(prevName);
 
                                     if (prevName == null) {
                                         prevName = "";

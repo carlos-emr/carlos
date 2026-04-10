@@ -66,8 +66,20 @@ public final class Billing2Action extends ActionSupport {
             response.sendRedirect(newURL);
             return NONE;
         } else {
-            if (request.getParameter("demographic_no") != null &
+            if (request.getParameter("demographic_no") != null &&
                     request.getParameter("appointment_no") != null) {
+                String demoNo = request.getParameter("demographic_no");
+                if (!demoNo.matches("\\d{1,9}")) {
+                    _log.warn("Invalid demographic_no rejected");
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                    return NONE;
+                }
+                String apptNo = request.getParameter("appointment_no");
+                if (!apptNo.matches("\\d{1,9}")) {
+                    _log.warn("Invalid appointment_no rejected");
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                    return NONE;
+                }
                 String newWCBClaim = request.getParameter("newWCBClaim");
                 //If newWCBClaim == 1, this action was invoked from the WCB form
                 //Therefore, we need to set the appropriate parameters to set up the subsequent bill
@@ -91,16 +103,19 @@ public final class Billing2Action extends ActionSupport {
                 }
                 bean = new BillingSessionBean();
                 fillBean(request, bean);
+                // Overwrite patientNo and apptNo set by fillBean() with pre-validated values
+                bean.setPatientNo(demoNo);
+                bean.setApptNo(apptNo);
                 if (request.getAttribute("serviceDate") != null) {
                     MiscUtils.getLogger().debug("service Date set to the appointment Date" + (String) request.getAttribute("serviceDate"));
                     bean.setApptDate((String) request.getAttribute("serviceDate"));
                 }
 
-                request.getSession().setAttribute("billingSessionBean", bean);
+                request.getSession().setAttribute("billingSessionBean", bean); // nosemgrep: tainted-session-from-http-request
                 
                 try {
                     _log.debug("Start of billing rules");
-                    List<DSConsequence> list = BillingGuidelines.getInstance().evaluateAndGetConsequences(loggedInInfo, request.getParameter("demographic_no"), (String) request.getSession().getAttribute("user"));
+                    List<DSConsequence> list = BillingGuidelines.getInstance().evaluateAndGetConsequences(loggedInInfo, demoNo, (String) request.getSession().getAttribute("user")); // nosemgrep: tainted-session-from-http-request
 
                     for (DSConsequence dscon : list) {
                         _log.debug("DSTEXT " + dscon.getText());

@@ -1,0 +1,116 @@
+# Custom Semgrep rule: Path Traversal with PathValidationUtils sanitizer
+#
+# Replaces the three built-in path traversal rules that generate ~140 false
+# positives across 17 files already protected by PathValidationUtils:
+#   - java.lang.security.httpservlet-path-traversal.httpservlet-path-traversal
+#   - java.servlets.security.httpservlet-path-traversal.httpservlet-path-traversal
+#   - java.servlets.security.httpservlet-path-traversal-deepsemgrep.httpservlet-path-traversal-deepsemgrep
+#
+# Those built-in rules must be disabled in Semgrep Cloud policy (app.semgrep.dev)
+# so that only this custom rule runs for path traversal detection.
+#
+# See: https://github.com/carlos-emr/carlos/issues/1433
+# See also: docs/path-validation-utils.md
+
+rules:
+  - id: carlos.httpservlet-path-traversal
+    message: >
+      Detected a request parameter used in a file path operation without
+      proper validation via PathValidationUtils. This could allow path
+      traversal attacks. Use PathValidationUtils.validatePath(),
+      validateExistingPath(), or validateUpload() to validate or
+      canonicalize file paths before use. See docs/path-validation-utils.md
+      for usage guidance.
+    severity: ERROR
+    languages: [java]
+    mode: taint
+    metadata:
+      category: security
+      cwe:
+        - "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+      confidence: HIGH
+      references:
+        - https://owasp.org/www-community/attacks/Path_Traversal
+        - https://github.com/carlos-emr/carlos/blob/develop/docs/path-validation-utils.md
+
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern: $REQ.$METHOD(...)
+              - metavariable-type:
+                  metavariable: $REQ
+                  type: javax.servlet.http.HttpServletRequest
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: (getParameter|getQueryString|getPathInfo|getRequestURI|getHeader)
+          - patterns:
+              - pattern: $REQ.$METHOD(...)
+              - metavariable-type:
+                  metavariable: $REQ
+                  type: jakarta.servlet.http.HttpServletRequest
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: (getParameter|getQueryString|getPathInfo|getRequestURI|getHeader)
+
+    pattern-sanitizers:
+      # Qualified class references
+      - pattern: PathValidationUtils.validatePath(...)
+      - pattern: PathValidationUtils.validateExistingPath(...)
+      - pattern: PathValidationUtils.validateUpload(...)
+      # Unqualified static-import usage
+      - patterns:
+          - pattern: validatePath(...)
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.*;
+              ...
+      - patterns:
+          - pattern: validatePath(...)
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath;
+              ...
+      - patterns:
+          - pattern: validateExistingPath(...)
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.*;
+              ...
+      - patterns:
+          - pattern: validateExistingPath(...)
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath;
+              ...
+      - patterns:
+          - pattern: validateUpload(...)
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.*;
+              ...
+      - patterns:
+          - pattern: validateUpload(...)
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validateUpload;
+              ...
+      # Fully-qualified class references
+      - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(...)
+      - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath(...)
+      - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateUpload(...)
+
+    pattern-sinks:
+      # Unqualified names (standard import usage)
+      - pattern: new File(...)
+      - pattern: new FileInputStream(...)
+      - pattern: new FileOutputStream(...)
+      - pattern: Paths.get(...)
+      - patterns:
+          - pattern: Files.$METHOD(...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: (newInputStream|newOutputStream|newBufferedReader|newBufferedWriter|newByteChannel|readAllBytes|readAllLines|readString|write|writeString|copy|move|delete|deleteIfExists|createFile|createDirectory|createDirectories|createTempFile|createTempDirectory)
+      # Fully-qualified names (explicit package references)
+      - pattern: new java.io.File(...)
+      - pattern: new java.io.FileInputStream(...)
+      - pattern: new java.io.FileOutputStream(...)
+      - pattern: java.nio.file.Paths.get(...)
+      - patterns:
+          - pattern: java.nio.file.Files.$METHOD(...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: (newInputStream|newOutputStream|newBufferedReader|newBufferedWriter|newByteChannel|readAllBytes|readAllLines|readString|write|writeString|copy|move|delete|deleteIfExists|createFile|createDirectory|createDirectories|createTempFile|createTempDirectory)

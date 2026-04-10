@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -28,8 +28,10 @@
  */
 package io.github.carlos_emr.carlos.util;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.Set;
 
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,16 +44,40 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 public class OscarDownload extends GenericDownload {
     private static final Logger log = MiscUtils.getLogger();
 
+    private static final Set<String> ALLOWED_HOMEPATH_KEYS = Set.of(
+            "homepath", "ohipdownload", "obecdownload"
+    );
+
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
         try {
             HttpSession session = req.getSession(true);
             String filename = req.getParameter("filename") != null ? req.getParameter("filename") : "null";
-            String homepath = req.getParameter("homepath") != null ? req.getParameter("homepath") : "null";
+            String homepath = req.getParameter("homepath");
 
-            String backupfilepath = ((String) session.getAttribute(homepath)) != null ? ((String) session.getAttribute(homepath)) : "null";
-            if (filename != null && backupfilepath != null && ((String) session.getAttribute("user")) != null) {
+            if (homepath == null || !ALLOWED_HOMEPATH_KEYS.contains(homepath)) {
+                log.warn("OscarDownload rejected invalid homepath key from {}", req.getRemoteAddr());
+                res.setContentType("text/html");
+                PrintWriter out = res.getWriter();
+                out.println("<html><body>Invalid download path key.</body></html>");
+                return;
+            }
+
+            String backupfilepath = (String) session.getAttribute(homepath);
+            if (filename != null && backupfilepath != null
+                    && !backupfilepath.isEmpty()
+                    && ((String) session.getAttribute("user")) != null) {
+                File downloadDir = new File(backupfilepath).getCanonicalFile();
+                if (!downloadDir.isDirectory()) {
+                    log.warn("OscarDownload rejected non-directory path from {}", req.getRemoteAddr());
+                    res.setContentType("text/html");
+                    PrintWriter out = res.getWriter();
+                    out.println("<html><body>Invalid download directory.</body></html>");
+                    return;
+                }
+                // Path traversal protection is enforced by GenericDownload.transferFile() via PathValidationUtils.validatePath(filename, directory)
                 ServletOutputStream stream = res.getOutputStream();
                 transferFile(res, stream, backupfilepath, filename);
+                stream.close();
             } else {
                 res.setContentType("text/html");
                 PrintWriter out = res.getWriter();
