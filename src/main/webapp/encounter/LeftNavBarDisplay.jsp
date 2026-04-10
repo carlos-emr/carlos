@@ -93,7 +93,7 @@ autoCompleted['<%= Encode.forJavaScript(acItem.key()) %>'] = "<%= Encode.forJava
 <%      NavBarDisplayDAO.PopupConfig rightCfg = dao.getRightPopup();
         String rightEvent = dao.numPopUpMenuItems() > 0 ? "onmouseover" : "onclick";
         if (rightCfg != null) { %>
-        <h3><a href="javascript:void(0);" <%=rightEvent%>="popupPage(<%=rightCfg.width()%>,<%=rightCfg.height()%>,'<%=Encode.forJavaScript(rightCfg.windowName())%>','<%=Encode.forJavaScript(rightCfg.url())%>'); return false;">&#43;</a></h3>
+        <h3><a href="javascript:void(0);" <%=rightEvent%>="popupPage(<%=rightCfg.width()%>,<%=rightCfg.height()%>,'<%=Encode.forJavaScriptAttribute(rightCfg.windowName())%>','<%=Encode.forJavaScriptAttribute(rightCfg.url())%>'); return false;">&#43;</a></h3>
 <%      } else { %>
         <h3><a href="javascript:void(0);" <%=rightEvent%>="<%=Encode.forHtmlAttribute(dao.getRightURL())%>">&#43;</a></h3>
 <%      } %>
@@ -126,7 +126,7 @@ autoCompleted['<%= Encode.forJavaScript(acItem.key()) %>'] = "<%= Encode.forJava
            onmouseout='this.style.color="white"'
 <%         NavBarDisplayDAO.PopupConfig popCfg = dao.getPopUpConfig(idx);
            if (popCfg != null) { %>
-           onclick="popupPage(<%=popCfg.width()%>,<%=popCfg.height()%>,'<%=Encode.forJavaScript(popCfg.windowName())%>','<%=Encode.forJavaScript(popCfg.url())%>'); return false;"><%=Encode.forHtml(dao.getPopUpText(idx))%>
+           onclick="popupPage(<%=popCfg.width()%>,<%=popCfg.height()%>,'<%=Encode.forJavaScriptAttribute(popCfg.windowName())%>','<%=Encode.forJavaScriptAttribute(popCfg.url())%>'); return false;"><%=Encode.forHtml(dao.getPopUpText(idx))%>
 <%         } else { %>
            onclick="<%=Encode.forHtmlAttribute(dao.getPopUpUrl(idx) + "; return false;")%>"><%=Encode.forHtml(dao.getPopUpText(idx))%>
 <%         } %>
@@ -161,7 +161,7 @@ autoCompleted['<%= Encode.forJavaScript(acItem.key()) %>'] = "<%= Encode.forJava
     <div class="nav-menu-title">
 <%      NavBarDisplayDAO.PopupConfig leftCfg = dao.getLeftPopup();
         if (leftCfg != null) { %>
-        <h3 onclick="popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,'<%=Encode.forJavaScript(leftCfg.windowName())%>','<%=Encode.forJavaScript(leftCfg.url())%>'); return false;"><a href="javascript:void(0)"><%=Encode.forHtml(dao.getLeftHeading())%>
+        <h3 onclick="popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,'<%=Encode.forJavaScriptAttribute(leftCfg.windowName())%>','<%=Encode.forJavaScriptAttribute(leftCfg.url())%>'); return false;"><a href="javascript:void(0)"><%=Encode.forHtml(dao.getLeftHeading())%>
         </a></h3>
 <%      } else { %>
         <h3 onclick="<%=Encode.forHtmlAttribute(dao.getLeftURL() + "; return false;")%>"><a href="javascript:void(0)"><%=Encode.forHtml(dao.getLeftHeading())%>

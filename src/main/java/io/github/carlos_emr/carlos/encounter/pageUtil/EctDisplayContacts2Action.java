@@ -96,7 +96,7 @@ public class EctDisplayContacts2Action extends EctDisplayAction {
 
             //set right hand heading link
             winName = "AddContact" + bean.demographicNo;
-            Dao.setRightPopup(height, width, winName, pathedit);
+            Dao.setRightPopup(width, height, winName, pathedit);
             Dao.setRightHeadingID(cmd);
 
             List<DemographicContact> contacts = demographicContactDao.findActiveByDemographicNo(Integer.parseInt(bean.demographicNo));

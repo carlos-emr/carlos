@@ -216,7 +216,8 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
 
             //if there are none, we tell user
             if (bean.measurementGroupNames.size() == 0) {
-                Dao.addPopUpMenu(0, 0, "", "");
+                // Use addPopUpUrl("") so this no-op entry renders as an empty onclick (not popupPage(0,0,'',''))
+                Dao.addPopUpUrl("");
                 Dao.addPopUpText("None");
             }
 

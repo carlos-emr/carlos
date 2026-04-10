@@ -82,7 +82,6 @@ public class EctDisplayDecisionSupportAlerts2Action extends EctDisplayAction {
 
             //set the right hand heading link
             Dao.setRightPopup(500, 950, winName, dsPath);
-            winName = "AddeForm" + bean.demographicNo;
 
             Dao.setRightHeadingID(cmd);  //no menu so set div id to unique id for this action
 

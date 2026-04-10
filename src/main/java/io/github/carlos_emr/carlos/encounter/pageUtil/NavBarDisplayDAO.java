@@ -231,7 +231,7 @@ public class NavBarDisplayDAO {
     }
 
     public int numPopUpMenuItems() {
-        return PopUpMenuURLS.size();
+        return popUpMenuConfigs.isEmpty() ? PopUpMenuURLS.size() : popUpMenuConfigs.size();
     }
 
     // --- Structured popup configuration methods (defense-in-depth, issue #1386) ---
@@ -328,7 +328,7 @@ public class NavBarDisplayDAO {
      * @return List of AutoCompleteItem records
      */
     public List<AutoCompleteItem> getAutoCompleteItems() {
-        return autoCompleteItems;
+        return Collections.unmodifiableList(autoCompleteItems);
     }
 
     public void addItem(Item i) {
