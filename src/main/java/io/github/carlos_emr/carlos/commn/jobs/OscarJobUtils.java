@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.ReflectionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
@@ -51,8 +52,10 @@ public class OscarJobUtils {
      * by {@link #isJobTypeCurrentlyValid(OscarJobType)} and {@link #scheduleJob(OscarJob)}.
      * Job class names are stored in the database and this prevents a compromised row
      * from loading arbitrary JVM classes (CWE-470).</p>
+     *
+     * @see ReflectionConstants#CARLOS_PACKAGE_PREFIX
      */
-    private static final String ALLOWED_JOB_PACKAGE_PREFIX = "io.github.carlos_emr.carlos.";
+    private static final String ALLOWED_JOB_PACKAGE_PREFIX = ReflectionConstants.CARLOS_PACKAGE_PREFIX;
 
     public static boolean isJobTypeCurrentlyValid(OscarJobType oscarJobType) {
 
@@ -68,8 +71,8 @@ public class OscarJobUtils {
         }
 
         try {
-            Class clazz = Class.forName(className); // nosemgrep: unsafe-reflection — className is validated against ALLOWED_JOB_PACKAGE_PREFIX above
-            for (Class i : clazz.getInterfaces()) {
+            Class<?> clazz = Class.forName(className); // nosemgrep: unsafe-reflection — className is validated against ALLOWED_JOB_PACKAGE_PREFIX above
+            for (Class<?> i : clazz.getInterfaces()) {
                 if (i.getName().equals("io.github.carlos_emr.carlos.commn.jobs.OscarRunnable")) {
                     return true;
                 }

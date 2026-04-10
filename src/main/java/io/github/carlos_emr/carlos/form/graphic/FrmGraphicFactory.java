@@ -62,14 +62,11 @@ public class FrmGraphicFactory {
         }
         FrmPdfGraphic pdfGraph = null;
         try {
-            Class classDefinition = Class.forName(name);
-            pdfGraph = (FrmPdfGraphic) classDefinition.newInstance();
-        } catch (InstantiationException e) {
-            MiscUtils.getLogger().debug("debug", e);
-        } catch (IllegalAccessException e) {
-            MiscUtils.getLogger().debug("debug", e);
-        } catch (ClassNotFoundException e) {
-            MiscUtils.getLogger().debug("debug", e);
+            Class<? extends FrmPdfGraphic> classDefinition = Class.forName(name) // nosemgrep: unsafe-reflection — name is validated against ALLOWED_GRAPHIC_CLASSES whitelist above
+                    .asSubclass(FrmPdfGraphic.class);
+            pdfGraph = classDefinition.getDeclaredConstructor().newInstance();
+        } catch (ReflectiveOperationException e) {
+            MiscUtils.getLogger().debug("Error instantiating graphic class", e);
         }
 
         return pdfGraph;

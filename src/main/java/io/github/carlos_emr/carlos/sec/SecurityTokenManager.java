@@ -39,6 +39,7 @@ import jakarta.servlet.ServletResponse;
 
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.ReflectionConstants;
 
 import io.github.carlos_emr.CarlosProperties;
 
@@ -52,8 +53,10 @@ public abstract class SecurityTokenManager {
      * <p>The implementation class name is read from {@code sec.token.manager} in the
      * server-side properties file. This prefix check is a defence-in-depth measure
      * to prevent arbitrary class instantiation if the properties file is tampered with.</p>
+     *
+     * @see ReflectionConstants#CARLOS_PACKAGE_PREFIX
      */
-    private static final String ALLOWED_PACKAGE_PREFIX = "io.github.carlos_emr.carlos.";
+    private static final String ALLOWED_PACKAGE_PREFIX = ReflectionConstants.CARLOS_PACKAGE_PREFIX;
 
     public static SecurityTokenManager getInstance() {
         if (instance != null) {
