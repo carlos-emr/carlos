@@ -89,17 +89,17 @@ jobs:
             CHECKSUM_FILE="${PMD_ZIP}.sha256"
             wget -q "${PMD_BASE_URL}/${PMD_ZIP}"
             if ! wget -O "${CHECKSUM_FILE}" "${PMD_BASE_URL}/${PMD_ZIP}.sha256"; then
-              echo "Failed to download checksum file for ${PMD_ZIP}" >&2
+              echo "Failed to download checksum file: ${PMD_BASE_URL}/${PMD_ZIP}.sha256" >&2
               rm -f "${PMD_ZIP}" "${CHECKSUM_FILE}"
               exit 1
             fi
             EXPECTED_SHA256="$(awk '{print $1}' "${CHECKSUM_FILE}" | tr -d '\r\n')"
-            rm -f "${CHECKSUM_FILE}"
             if [ -z "${EXPECTED_SHA256}" ]; then
               echo "Downloaded checksum file for ${PMD_ZIP} is empty or malformed" >&2
-              rm -f "${PMD_ZIP}"
+              rm -f "${PMD_ZIP}" "${CHECKSUM_FILE}"
               exit 1
             fi
+            rm -f "${CHECKSUM_FILE}"
             ACTUAL_SHA256="$(sha256sum "${PMD_ZIP}" | awk '{print $1}')"
             if [ "${ACTUAL_SHA256}" != "${EXPECTED_SHA256}" ]; then
               echo "Checksum verification failed for ${PMD_ZIP}" >&2
