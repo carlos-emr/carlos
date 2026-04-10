@@ -146,7 +146,7 @@ public final class LogSanitizer {
      * @param input Object the value to sanitize; may be {@code null}
      * @return String the sanitized string; never {@code null}
      */
-    public static String sanitize(Object input) {
+    public static String sanitizeObject(Object input) {
         if (input == null) {
             return "null";
         }
