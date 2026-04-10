@@ -1625,7 +1625,7 @@ public class MSPReconcile {
                 String[] row = SqlUtils.getRow("select ohip_no from provider where provider_no = ?", providerNo);
                 if (row != null && row.length > 0) {
                     String ohip_no = row[0];
-                    criteriaQry += " and t_practitionerno = '" + ohip_no + "'";
+                    criteriaQry += " and t_practitionerno = '" + ohip_no.replace("'", "''") + "'";
                 } else {
                     throw new RuntimeException("Provider must have ohip no!");
                 }

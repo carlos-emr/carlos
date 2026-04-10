@@ -127,7 +127,7 @@ public class JDBCUtil {
 
             //check if the data existed in the database already...
             if (!formName.matches("[a-zA-Z][a-zA-Z0-9_]*")) {
-                throw new IllegalArgumentException("Invalid form table name: " + formName);
+                throw new IllegalArgumentException("Invalid form table name");
             }
             String sql = "SELECT * FROM " + formName + " WHERE demographic_no=? AND formEdited=?";
             MiscUtils.getLogger().debug(sql);

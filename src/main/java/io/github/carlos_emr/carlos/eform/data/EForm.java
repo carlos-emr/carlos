@@ -725,7 +725,9 @@ public class EForm extends EFormBase {
 
     /**
      * Escapes single quotes in a value to prevent SQL injection
-     * when the value is substituted into a SQL template.
+     * when the value is substituted into a DatabaseAP SQL template.
+     * Only handles single-quote escaping because DatabaseAP templates
+     * use single-quoted string literals in SQL WHERE clauses.
      */
     private static String escapeSqlValue(String value) {
         if (value == null) return null;
