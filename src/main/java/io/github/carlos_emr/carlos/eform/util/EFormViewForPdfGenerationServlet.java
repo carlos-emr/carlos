@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.owasp.encoder.Encode;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -83,30 +84,44 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
 
             EFormValueDao efvDao = (EFormValueDao) SpringUtils.getBean(EFormValueDao.class);
             List<EFormValue> eFormValues = efvDao.findByFormDataId(formDataId);
+
+            // Collect Letter and signatureValue first to avoid order-dependency
+            String letterHtml = null;
+            String signatureValue = null;
             for (EFormValue value : eFormValues) {
                 if (value.getVarName().equals("Letter")) {
-                    String html = value.getVarValue();
-                    html = html.replace("/imageRenderingServlet", "/EFormSignatureViewForPdfGenerationServlet");
-                    if (prepareForFax) {
-                        html = "<div style=\"position:relative\"><div style=\"position:absolute; margin-top:35px;\">" + html + "</div></div>";
-                    }
-                    html = "<html><body style='width:640px;'>" + html + "</body></html>";
-                    eForm.setFormHtml(html);
+                    letterHtml = value.getVarValue();
+                } else if (value.getVarName().equals("signatureValue")) {
+                    signatureValue = value.getVarValue();
                 }
-                if (value.getVarName().equals("signatureValue")) {
+            }
 
-                    // Checking to see if there are any parameters for the signature in the html.
-                    String html = eForm.getFormHtml();
-                    String signatureInit = "signatureControl.initialize\\s*\\(\\s*\\{\\s*eform:true,\\s+height:(\\d+),\\s+width:(\\d+),\\s+top:(\\d+),\\s+left:(\\d+)\\s*\\}\\s*\\)";
-                    Pattern pattern = Pattern.compile(signatureInit);
-                    Matcher matcher = pattern.matcher(html);
-                    boolean matchFound = matcher.find();
-                    if (matchFound && matcher.groupCount() == 4) {
-                        String sign = value.getVarValue();
-                        sign = sign.replace("/imageRenderingServlet", "/EFormSignatureViewForPdfGenerationServlet");
-                        String left = matcher.group(4), top = matcher.group(3), width = matcher.group(2), height = matcher.group(1);
-                        eForm.setFormHtml(html.replace("<div id=\"signatureDisplay\"></div>", String.format("<div id=\"signatureDisplay\"><img src=\"%s\" style=\"position:absolute;left:%s;top:%s;width:%s;height:%s;\" /> </div>", sign, left, top, width, height)));
-                    }
+            if (letterHtml == null) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Letter value not found");
+                return;
+            }
+
+            String html = letterHtml.replace("/imageRenderingServlet", "/EFormSignatureViewForPdfGenerationServlet");
+            if (prepareForFax) {
+                html = "<div style=\"position:relative\"><div style=\"position:absolute; margin-top:35px;\">" + html + "</div></div>";
+            }
+            html = "<html><body style='width:640px;'>" + html + "</body></html>";
+            eForm.setFormHtml(html);
+
+            // Inject signature if present
+            if (signatureValue != null) {
+                // Checking to see if there are any parameters for the signature in the html.
+                String signatureInit = "signatureControl.initialize\\s*\\(\\s*\\{\\s*eform:true,\\s+height:(\\d+),\\s+width:(\\d+),\\s+top:(\\d+),\\s+left:(\\d+)\\s*\\}\\s*\\)";
+                Pattern pattern = Pattern.compile(signatureInit);
+                Matcher matcher = pattern.matcher(eForm.getFormHtml());
+                boolean matchFound = matcher.find();
+                if (matchFound && matcher.groupCount() == 4) {
+                    String sign = signatureValue.replace("/imageRenderingServlet", "/EFormSignatureViewForPdfGenerationServlet");
+                    String left = matcher.group(4), top = matcher.group(3), width = matcher.group(2), height = matcher.group(1);
+                    // Encode sign as HTML attribute to prevent XSS (CodeQL S5131)
+                    eForm.setFormHtml(eForm.getFormHtml().replace("<div id=\"signatureDisplay\"></div>",
+                        String.format("<div id=\"signatureDisplay\"><img src=\"%s\" style=\"position:absolute;left:%s;top:%s;width:%s;height:%s;\" /> </div>",
+                            Encode.forHtmlAttribute(sign), left, top, width, height)));
                 }
             }
 

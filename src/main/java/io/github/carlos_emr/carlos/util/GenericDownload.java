@@ -33,7 +33,7 @@ package io.github.carlos_emr.carlos.util;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-
+import java.util.Set;
 
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServlet;
@@ -53,6 +53,12 @@ public class GenericDownload extends HttpServlet {
 
     private static final Logger log = MiscUtils.getLogger();
 
+    /** Allowlist of permitted CarlosProperties keys that may serve as download roots. */
+    private static final Set<String> ALLOWED_DIR_PROPERTIES = Set.of(
+        "oscar_document_dir", "BASE_DOCUMENT_DIR", "eform_image_dir",
+        "fax_document_dir", "DOCUMENT_DIR"
+    );
+
     public GenericDownload() {
     }
 
@@ -65,7 +71,9 @@ public class GenericDownload extends HttpServlet {
             String filename = req.getParameter("filename");
             String dir_property = req.getParameter("dir_property");
             String contentType = req.getParameter("contentType");
-            String dir = oscarProps.getProperty(dir_property);
+            // Only resolve directory for allowlisted property keys (prevents client-controlled filesystem root)
+            String dir = (dir_property != null && ALLOWED_DIR_PROPERTIES.contains(dir_property))
+                ? oscarProps.getProperty(dir_property) : null;
             String user = (String) session.getAttribute("user");
 
             boolean bDo = false;

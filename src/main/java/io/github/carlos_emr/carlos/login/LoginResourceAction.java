@@ -98,7 +98,7 @@ public class LoginResourceAction extends HttpServlet {
                     image = PathValidationUtils.validatePath(sanitizedFilename, imagesDir);
                 } catch (SecurityException e) {
                     log.warn("Path validation rejected for filename: {}", sanitizedFilename);
-                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid resource path");
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Invalid resource path");
                     return;
                 }
             }
