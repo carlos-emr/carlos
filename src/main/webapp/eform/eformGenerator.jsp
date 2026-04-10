@@ -814,7 +814,7 @@ and other liscences (MIT, LGPL etc) as indicated
             textTop = "&lt;!DOCTYPE html&gt;\n&lt;html&gt;\n&lt;head&gt;\n"
             textTop += "&lt;META http-equiv=&quot;Content-Type&quot; content=&quot;text/html; charset=UTF-8&quot;&gt;\n";
             textTop += "&lt;title&gt;"
-            textTop += htmlEncode(document.getElementById('eFormName').value);
+            textTop += htmlEncode(htmlEncode(document.getElementById('eFormName').value));
             textTop += "&lt;/title&gt;\n";
             // first style that is there for all media
             textTop += "&lt;style&gt;\n";
@@ -1056,7 +1056,7 @@ and other liscences (MIT, LGPL etc) as indicated
                 textTop += "&lt;script language=&quot;javascript&quot;&gt;\n"
                 textTop += "function setFaxNo(){\n"
                 textTop += "\tsetTimeout('document.getElementById(&quot;otherFaxInput&quot;).value=&quot;"
-                textTop += document.getElementById('faxno').value
+                textTop += escapeJsStringInHtml(document.getElementById('faxno').value)
                 textTop += "&quot;',1000);\n"
                 textTop += "} \n"
                 textTop += "&lt;/script&gt;\n\n"
@@ -1332,9 +1332,9 @@ and other liscences (MIT, LGPL etc) as indicated
                 var inputValue = P[13];
                 var inputClassValue = P[14] + P[15];
                 m = "&lt;input name=&quot;"
-                m += inputName
+                m += htmlEncode(htmlEncode(inputName))
                 m += "&quot; id=&quot;"
-                m += inputName
+                m += htmlEncode(htmlEncode(inputName))
                 m += "&quot; type=&quot;text&quot; class=&quot;"
                 m += inputClassValue
                 m += "noborder&quot; style=&quot;position:absolute; left:"
@@ -1397,9 +1397,9 @@ and other liscences (MIT, LGPL etc) as indicated
                 var inputValue = P[13];
                 var inputClassValue = P[14] + P[15];
                 m = "&lt;textarea name=&quot;"
-                m += inputName
+                m += htmlEncode(htmlEncode(inputName))
                 m += "&quot; id=&quot;"
-                m += inputName
+                m += htmlEncode(htmlEncode(inputName))
                 m += "&quot; type=&quot;text&quot; class=&quot;"
                 m += inputClassValue
                 m += " noborder&quot; style=&quot;position:absolute; left:"
@@ -1453,9 +1453,9 @@ and other liscences (MIT, LGPL etc) as indicated
                 var preCheck = P[4];
                 var inputClassValue = P[5] + P[6];
                 m = "&lt;input name=&quot;"
-                m += inputName
+                m += htmlEncode(htmlEncode(inputName))
                 m += "&quot; id=&quot;"
-                m += inputName
+                m += htmlEncode(htmlEncode(inputName))
                 m += "&quot; class=&quot;"
                 m += inputClassValue
                 m += "&quot; type=&quot;checkbox&quot;"
@@ -1493,9 +1493,9 @@ and other liscences (MIT, LGPL etc) as indicated
                     inputClassValue += " Xbox";
                 }
                 m = "&lt;input name=&quot;"
-                m += inputName
+                m += htmlEncode(htmlEncode(inputName))
                 m += "&quot; id=&quot;"
-                m += inputName
+                m += htmlEncode(htmlEncode(inputName))
                 m += "&quot; type=&quot;text&quot; class=&quot;"
                 m += inputClassValue
                 m += "&quot; style=&quot;position:absolute; left:"
@@ -2982,7 +2982,12 @@ and other liscences (MIT, LGPL etc) as indicated
             if (document.getElementById('ExportMeasurementList').value) {
                 inputName = "m$" + document.getElementById('ExportMeasurementList').value + "#" + document.getElementById('ExportMeasurementField').value;
             } else if (document.getElementById('ExportMeasurementCustom').value) {
-                inputName = "m$" + document.getElementById('ExportMeasurementCustom').value + "#" + document.getElementById('ExportMeasurementField').value;
+                var customMeasurement = document.getElementById('ExportMeasurementCustom').value;
+                if (!isValid(customMeasurement)) {
+                    alert("The custom measurement name can only contain\n letters A-Z a-z numbers 0-9 and underline _");
+                    return false;
+                }
+                inputName = "m$" + customMeasurement + "#" + document.getElementById('ExportMeasurementField').value;
             }
         } else if (inputNameType == "Auto") {
             if (oscarDB) {
@@ -2999,7 +3004,12 @@ and other liscences (MIT, LGPL etc) as indicated
                     inputName = inputName + j;
                 }
             } else {
-                inputName = document.getElementById('AutoNamePrefix').value + inputCounter;
+                var autoPrefix = document.getElementById('AutoNamePrefix').value;
+                if (!isValid(autoPrefix)) {
+                    alert("The auto-name prefix can only contain\n letters A-Z a-z numbers 0-9 and underline _");
+                    return false;
+                }
+                inputName = autoPrefix + inputCounter;
                 ++inputCounter;
             }
         }
