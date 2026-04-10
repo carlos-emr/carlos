@@ -128,7 +128,7 @@ public final class RxRePrescribe2Action extends ActionSupport {
         request.setAttribute("rePrint", "true");
         request.setAttribute("comment", comment);
 
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.REPRINT, LogConst.CON_PRESCRIPTION, script_no, ip, "" + beanRX.getDemographicNo(), auditStr.toString());
+        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REPRINT, LogConst.CON_PRESCRIPTION, script_no, ip, "" + beanRX.getDemographicNo(), auditStr.toString());
 
         return "reprint";
     }
