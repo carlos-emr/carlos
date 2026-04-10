@@ -68,7 +68,6 @@
 <%@ page import="java.text.DecimalFormat" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -221,8 +220,6 @@
 
     List<CaseManagementNoteLink> cml = cmm.getLinkByTableId(CaseManagementNoteLink.DEMOGRAPHIC, Long.valueOf(demographic_no));
     boolean hasImportExtra = (cml.size() > 0);
-    String annotation_display = CaseManagementNoteLink.DISP_DEMO;
-
     LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_DEMOGRAPHIC, demographic_no, request.getRemoteAddr(), demographic_no);
 
     Boolean isMobileOptimized = session.getAttribute("mobileOptimized") != null;
@@ -326,7 +323,7 @@
        adding a calendar a matter of 1 or 2 lines of code. -->
         <script type="text/javascript" src="<%=request.getContextPath()%>/share/calendar/calendar-setup.js"></script>
 
-        <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/check_hin.js"></script>
 
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/popup.js"></script>
@@ -717,7 +714,7 @@
 
             <security:oscarSec roleName="<%= roleName$ %>" objectName="_eChart" rights="r" reverse="<%= false %>" >
             var numMenus = 1;
-            var encURL = "<c:out value="${ctx}"/>/encounter/IncomingEncounter.do?providerNo=<%= Encode.forJavaScript(curProvider_no) %>&appointmentNo=&demographicNo=<%=demographic_no%>&curProviderNo=&reason=<%=URLEncoder.encode(noteReason, StandardCharsets.UTF_8)%>&encType=<%=URLEncoder.encode("telephone encounter with client", StandardCharsets.UTF_8)%>&userName=<%=URLEncoder.encode( userfirstname+" "+userlastname, StandardCharsets.UTF_8) %>&curDate=<%=dateString%>&appointmentDate=&startTime=&status=";
+            var encURL = "<c:out value="${ctx}"/>/encounter/IncomingEncounter.do?providerNo=<%= Encode.forJavaScript(curProvider_no) %>&appointmentNo=&demographicNo=<%= Encode.forJavaScript(demographic_no) %>&curProviderNo=&reason=<%=Encode.forJavaScript(URLEncoder.encode(noteReason, StandardCharsets.UTF_8))%>&encType=<%=Encode.forJavaScript(URLEncoder.encode("telephone encounter with client", StandardCharsets.UTF_8))%>&userName=<%=Encode.forJavaScript(URLEncoder.encode( userfirstname+" "+userlastname, StandardCharsets.UTF_8)) %>&curDate=<%= Encode.forJavaScript(dateString) %>&appointmentDate=&startTime=&status=";
 
             function showMenu(menuNumber, eventObj) {
                 var menuId = 'menu' + menuNumber;
@@ -1515,7 +1512,7 @@
                                                                         if (key.endsWith("_id")) {
                                                                 %>
                                                                 <input type="hidden" name="<%= key %>"
-                                                                       value="<%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demoExt.get(key)))%>"/>
+                                                                       value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get(key)))%>"/>
                                                                 <%
                                                                         }
                                                                     }
@@ -2038,16 +2035,16 @@
                                                                         <span class="info"><%=StringUtils.trimToEmpty(demoExt.get("demo_cell"))%></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formPhoneComment"/>:</span>
-                                                                        <span class="info"><%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%></span>
+                                                                        <span class="info"><%=Encode.forHtml(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formAddr"/>(<span
                                                                             class="popup"
                                                                             onmouseover="nhpup.popup(addressHistory);"
                                                                             title="Address History">History</span>):</span>
-                                                                        <span class="info"><%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getAddress()))%></span>
+                                                                        <span class="info"><%=Encode.forHtml(StringUtils.trimToEmpty(demographic.getAddress()))%></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formCity"/>:</span>
-                                                                        <span class="info"><%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getCity()))%></span>
+                                                                        <span class="info"><%=Encode.forHtml(StringUtils.trimToEmpty(demographic.getCity()))%></span>
                                                                     </li>
                                                                     <li><span class="label">
 							<% if (oscarProps.getProperty("demographicLabelProvince") == null) { %>
@@ -2066,10 +2063,10 @@
 
 
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResidentialAddr"/>:</span>
-                                                                        <span class="info"><%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getResidentialAddress()))%></span>
+                                                                        <span class="info"><%=Encode.forHtml(StringUtils.trimToEmpty(demographic.getResidentialAddress()))%></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResidentialCity"/>:</span>
-                                                                        <span class="info"><%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getResidentialCity()))%></span>
+                                                                        <span class="info"><%=Encode.forHtml(StringUtils.trimToEmpty(demographic.getResidentialCity()))%></span>
                                                                     </li>
                                                                     <li><span class="label">
 														<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResidentialProvince"/>:</span>
@@ -2560,17 +2557,7 @@
                                                             <div class="demographicSection" id="notes">
                                                                 <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formNotes"/></h3>
 
-                                                                <%=StringEscapeUtils.escapeHtml4(notes)%>&nbsp;
-                                                                <%if (hasImportExtra) { %>
-                                                                <a href="javascript:void(0);"
-                                                                   title="Extra data from Import"
-                                                                   onclick="window.open('<%= request.getContextPath() %>/annotation/importExtra.jsp?display=<%=Encode.forJavaScriptAttribute(annotation_display)%>&amp;table_id=<%=Encode.forJavaScriptAttribute(demographic_no)%>&amp;demo=<%=Encode.forJavaScriptAttribute(demographic_no)%>','anwin','width=400,height=250');">
-                                                                    <img src="<%= request.getContextPath() %>/images/notes.gif" align="right"
-                                                                         alt="Extra data from Import" height="16"
-                                                                         width="13" border="0"> </a>
-                                                                <%} %>
-
-
+                                                                <%=Encode.forHtml(notes)%>&nbsp;
                                                             </div>
 
                                                                 <%-- TOGGLED OFF PROGRAM ADMISSIONS --%>
@@ -2612,14 +2599,14 @@
                                                         <td align="left"><input type="text"
                                                                                 name="last_name" <%=getDisabled("last_name")%>
                                                                                 size="30"
-                                                                                value="<%=StringEscapeUtils.escapeHtml4(demographic.getLastName())%>"
+                                                                                value="<%=Encode.forHtmlAttribute(demographic.getLastName())%>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                         <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formFirstName"/>:
                                                         </b></td>
                                                         <td align="left"><input type="text"
                                                                                 name="first_name" <%=getDisabled("first_name")%>
                                                                                 size="30"
-                                                                                value="<%=StringEscapeUtils.escapeHtml4(demographic.getFirstName())%>"
+                                                                                value="<%=Encode.forHtmlAttribute(demographic.getFirstName())%>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                     </tr>
                                                     <tr>
@@ -2628,7 +2615,7 @@
                                                         <td align="left"><input type="text"
                                                                                 name="middleNames" <%=getDisabled("middleNames")%>
                                                                                 size="30"
-                                                                                value="<%=StringEscapeUtils.escapeHtml4(demographic.getMiddleNames())%>"
+                                                                                value="<%=Encode.forHtmlAttribute(demographic.getMiddleNames())%>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                         <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgDemoTitle"/>: </b>
                                                         </td>
@@ -2754,13 +2741,13 @@
                                                         <td align="left"><input type="text"
                                                                                 name="address" <%=getDisabled("address")%>
                                                                                 size="30"
-                                                                                value="<%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getAddress()))%>">
+                                                                                value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getAddress()))%>">
                                                         </td>
                                                         <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formCity"/>: </b>
                                                         </td>
                                                         <td align="left"><input type="text" name="city"
                                                                                 size="30" <%=getDisabled("city")%>
-                                                                                value="<%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getCity()))%>">
+                                                                                value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getCity()))%>">
                                                         </td>
                                                     </tr>
 
@@ -3029,13 +3016,13 @@
                                                         <td align="left"><input type="text"
                                                                                 name="residentialAddress" <%=getDisabled("residentialAddress")%>
                                                                                 size="30"
-                                                                                value="<%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getResidentialAddress()))%>">
+                                                                                value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getResidentialAddress()))%>">
                                                         </td>
                                                         <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResidentialCity"/>: </b>
                                                         </td>
                                                         <td align="left"><input type="text" name="residentialCity"
                                                                                 size="30" <%=getDisabled("residentialCity")%>
-                                                                                value="<%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getResidentialCity()))%>">
+                                                                                value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getResidentialCity()))%>">
                                                         </td>
                                                     </tr>
 
@@ -3346,9 +3333,9 @@
                                                         </td>
                                                         <td align="left" colspan="3">
                                                             <input type="hidden" name="phoneCommentOrig"
-                                                                   value="<%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%>"/>
+                                                                   value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%>"/>
                                                             <textarea rows="2" cols="30"
-                                                                      name="phoneComment"><%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%></textarea>
+                                                                      name="phoneComment"><%=Encode.forHtml(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%></textarea>
                                                         </td>
                                                     </tr>
                                                     <tr valign="top">
