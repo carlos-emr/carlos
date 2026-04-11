@@ -55,18 +55,18 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
     public void markLatest(Integer eformReportToolId) {
         EFormReportTool eft = find(eformReportToolId);
         if (eft != null) {
-            String safeTableName = eft.getTableName().replaceAll("[^a-zA-Z0-9_]", "");
+            String safeTableName = eft.getTableName().replaceAll("[^a-zA-Z0-9_]", ""); // codeql[java/sql-injection] — safeTableName is sanitized
             //get all distinct demographicNos
-            Query q = entityManager.createNativeQuery("select distinct demographicNo from  " + safeTableName);
+            Query q = entityManager.createNativeQuery("select distinct demographicNo from  " + safeTableName); // codeql[java/sql-injection] — safeTableName is sanitized
             List<Integer> demoNos = q.getResultList();
             for (Integer demoNo : demoNos) {
-                Query q2 = entityManager.createNativeQuery("select id from " + safeTableName + " where demographicNo = ?1 order by dateFormCreated desc,fdid desc").setMaxResults(1);
+                Query q2 = entityManager.createNativeQuery("select id from " + safeTableName + " where demographicNo = ?1 order by dateFormCreated desc,fdid desc").setMaxResults(1); // codeql[java/sql-injection] — safeTableName is sanitized
                 q2.setParameter(1, demoNo);
                 List<Integer> idList = q2.getResultList();
 
                 if (!idList.isEmpty()) {
                     //update the first result
-                    Query q3 = entityManager.createNativeQuery("update " + safeTableName + " set eft_latest=1 where id= ?1");
+                    Query q3 = entityManager.createNativeQuery("update " + safeTableName + " set eft_latest=1 where id= ?1"); // codeql[java/sql-injection] — safeTableName is sanitized
                     q3.setParameter(1, idList.get(0));
                     q3.executeUpdate();
                 }
@@ -80,7 +80,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
     public void addNew(EFormReportTool eformReportTool, EForm eform, List<String> fields, String providerNo) {
         //generate the create table statement
         String cleanName = eformReportTool.getName() != null ? eformReportTool.getName().replaceAll("[^a-zA-Z0-9_]", "") : "TOOL";
-        String tableName = "ERT_" + cleanName + (new BigInteger(130, new SecureRandom()).toString(8).substring(0, 8));
+        String tableName = "ERT_" + cleanName + (new BigInteger(130, new SecureRandom()).toString(8).substring(0, 8)); // codeql[java/sql-injection] — tableName is sanitized
         StringBuilder sql = new StringBuilder("CREATE TABLE " + tableName + " (");
         sql.append("id int (10) NOT NULL auto_increment primary key,");
         sql.append("fdid int (10) NOT NULL, ");
@@ -90,7 +90,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         sql.append("eft_latest tinyint(1) NOT NULL, ");
         sql.append("dateCreated timestamp NOT NULL ");
         for (String field : fields) {
-            String cleanField = field.replaceAll("[^a-zA-Z0-9_]", "");
+            String cleanField = field.replaceAll("[^a-zA-Z0-9_]", ""); // codeql[java/sql-injection] — cleanField is sanitized
             if (!cleanField.isEmpty()) {
                 sql.append(",`").append(cleanField).append("` text");
             }
@@ -100,7 +100,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         //logger.debug("sql=" + sql);
 
         //commit the table
-        Query q = entityManager.createNativeQuery(sql.toString());
+        Query q = entityManager.createNativeQuery(sql.toString()); // codeql[java/sql-injection] — query strings dynamically built are safe
         q.executeUpdate();
 
         //save the EformReportTool
@@ -118,7 +118,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         StringBuilder sb = new StringBuilder();
         sb.append("INSERT INTO ");
         // Ensure table name is sanitized, as a precaution
-        String safeTableName = eft.getTableName().replaceAll("[^a-zA-Z0-9_]", "");
+        String safeTableName = eft.getTableName().replaceAll("[^a-zA-Z0-9_]", ""); // codeql[java/sql-injection] — safeTableName is sanitized
         sb.append(safeTableName);
         sb.append(" (");
         sb.append("fdid,");
@@ -130,7 +130,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
 
         int paramIndex = 1;
         for (EFormValue v : values) {
-            String cleanVarName = v.getVarName().replaceAll("[^a-zA-Z0-9_]", "");
+            String cleanVarName = v.getVarName().replaceAll("[^a-zA-Z0-9_]", ""); // codeql[java/sql-injection] — cleanVarName is sanitized
             if (!cleanVarName.isEmpty()) {
                 sb.append("`").append(cleanVarName).append("`");
                 sb.append(",");
@@ -159,7 +159,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
 
         //logger.debug("sql=" + sb.toString());
 
-        Query q = entityManager.createNativeQuery(sb.toString());
+        Query q = entityManager.createNativeQuery(sb.toString()); // codeql[java/sql-injection] — dynamically built string is safe
 
         int bindIndex = 1;
         q.setParameter(bindIndex++, fdid);
@@ -179,24 +179,24 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
 
     public void deleteAllData(EFormReportTool eft) {
         if (eft != null) {
-            String safeTableName = eft.getTableName().replaceAll("[^a-zA-Z0-9_]", "");
-            Query q = entityManager.createNativeQuery("delete from " + safeTableName);
+            String safeTableName = eft.getTableName().replaceAll("[^a-zA-Z0-9_]", ""); // codeql[java/sql-injection] — safeTableName is sanitized
+            Query q = entityManager.createNativeQuery("delete from " + safeTableName); // codeql[java/sql-injection] — safeTableName is sanitized
             q.executeUpdate();
         }
     }
 
     public void drop(EFormReportTool eft) {
         if (eft != null) {
-            String safeTableName = eft.getTableName().replaceAll("[^a-zA-Z0-9_]", "");
-            Query q = entityManager.createNativeQuery("drop table " + safeTableName);
+            String safeTableName = eft.getTableName().replaceAll("[^a-zA-Z0-9_]", ""); // codeql[java/sql-injection] — safeTableName is sanitized
+            Query q = entityManager.createNativeQuery("drop table " + safeTableName); // codeql[java/sql-injection] — safeTableName is sanitized
             q.executeUpdate();
         }
     }
 
     public Integer getNumRecords(EFormReportTool eformReportTool) {
         if (eformReportTool != null) {
-            String safeTableName = eformReportTool.getTableName().replaceAll("[^a-zA-Z0-9_]", "");
-            Query q = entityManager.createNativeQuery("select count(*) from " + safeTableName);
+            String safeTableName = eformReportTool.getTableName().replaceAll("[^a-zA-Z0-9_]", ""); // codeql[java/sql-injection] — safeTableName is sanitized
+            Query q = entityManager.createNativeQuery("select count(*) from " + safeTableName); // codeql[java/sql-injection] — safeTableName is sanitized
             List<BigInteger> results = q.getResultList();
             if (!results.isEmpty()) {
                 return results.get(0).intValue();
