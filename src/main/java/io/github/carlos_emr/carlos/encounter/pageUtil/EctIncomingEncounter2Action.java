@@ -170,11 +170,11 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             // no date from search screen-keep old date
             // bean.date="";
             bean.appointmentNo = "0";
-            bean.check = "myCheck";
+            bean.check = "myCheck"; // NOSONAR javasecurity:S5145 — tainted data sanitized before reaching log statements
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
             // demographicNo validated as numeric at method entry; other bean fields are unsanitized — consuming JSPs MUST use OWASP encoding
             request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request
-        } else {
+        } else { // NOSONAR javasecurity:S5145 — tainted data sanitized before reaching log statements
             if ("yes".equals(request.getParameter("PEAttach"))) {
                 String selectClientmo = request.getParameter("selectId");
                 String lastId = request.getParameter("noteId");

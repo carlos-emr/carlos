@@ -447,7 +447,7 @@ public class EFormUtil {
         io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao.find(id);
         HashMap<String, Object> curht = new HashMap<String, Object>();
         if (eform == null) {
-            logger.error("Unable to find EForm with ID = {}", LogSanitizer.sanitize(fid));
+            logger.error("Unable to find EForm with ID = {}", LogSanitizer.sanitize(fid)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             curht.put("formName", "");
             curht.put("formHtml", "No Such Form in Database");
             return curht;
@@ -1323,7 +1323,7 @@ public class EFormUtil {
 
         io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao.find(ConversionUtils.fromIntString(fid));
         if (eform == null) {
-            logger.error("Unable to find EForm for {}", LogSanitizer.sanitize(fid));
+            logger.error("Unable to find EForm for {}", LogSanitizer.sanitize(fid)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return;
         }
         eform.setCurrent(status);

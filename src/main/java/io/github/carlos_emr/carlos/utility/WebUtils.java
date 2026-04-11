@@ -56,7 +56,7 @@ public final class WebUtils {
 
         while (e.hasMoreElements()) {
             String key = (String) e.nextElement();
-            logger.error("{}={}", LogSanitizer.sanitize(key), LogSanitizer.sanitize(request.getParameter(key)));
+            logger.error("{}={}", LogSanitizer.sanitize(key), LogSanitizer.sanitize(request.getParameter(key))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         }
 
         logger.error("--- Dump Request Parameters End ---");

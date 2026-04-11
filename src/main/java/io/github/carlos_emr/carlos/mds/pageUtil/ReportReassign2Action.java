@@ -111,7 +111,7 @@ public class ReportReassign2Action extends ActionSupport {
          * process.
          */
         String selectedProviders = request.getParameter("selectedProviders");
-        logger.info("selected providers to forward labs to {}", LogSanitizer.sanitize(selectedProviders));
+        logger.info("selected providers to forward labs to {}", LogSanitizer.sanitize(selectedProviders)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 
         if (selectedProviders != null && !selectedProviders.isEmpty()) {
             try {

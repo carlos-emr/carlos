@@ -125,7 +125,7 @@ public class DbAddFluBilling2Action extends ActionSupport {
         }
 
         if (svcPrice == null || !svcPrice.contains(".")) {
-            MiscUtils.getLogger().error("DbAddFluBilling2Action: svcPrice is null or has no decimal for svcCode={}", LogSanitizer.sanitize(request.getParameter("svcCode")));
+            MiscUtils.getLogger().error("DbAddFluBilling2Action: svcPrice is null or has no decimal for svcCode={}", LogSanitizer.sanitize(request.getParameter("svcCode"))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             addActionError("Service code price could not be resolved.");
             return ERROR;
         }
@@ -139,7 +139,7 @@ public class DbAddFluBilling2Action extends ActionSupport {
         String providerOhipNo = "";
         String providerNo = "";
         if (providers == null || !providers.contains("##") || providers.length() < 8) {
-            MiscUtils.getLogger().error("DbAddFluBilling2Action: invalid providers format: {}", LogSanitizer.sanitize(providers));
+            MiscUtils.getLogger().error("DbAddFluBilling2Action: invalid providers format: {}", LogSanitizer.sanitize(providers)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             addActionError("Invalid provider selection. Expected format: OHIP##providerNo.");
             return ERROR;
         }

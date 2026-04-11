@@ -265,7 +265,7 @@ public class Pregnancy2Action extends ActionSupport {
     public String createGBSLabReq() throws SQLException {
         String demoNoParam = request.getParameter("demographicNo");
         if (demoNoParam == null || !demoNoParam.matches("\\d+")) {
-            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createGBSLabReq: {}", LogSanitizer.sanitize(demoNoParam));
+            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createGBSLabReq: {}", LogSanitizer.sanitize(demoNoParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return null;
         }
         Integer demographicNo = Integer.parseInt(demoNoParam);
@@ -304,7 +304,7 @@ public class Pregnancy2Action extends ActionSupport {
     public String createMCVLabReq() throws SQLException {
         String demoNoParam = request.getParameter("demographicNo");
         if (demoNoParam == null || !demoNoParam.matches("\\d+")) {
-            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createMCVLabReq: {}", LogSanitizer.sanitize(demoNoParam));
+            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createMCVLabReq: {}", LogSanitizer.sanitize(demoNoParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return null;
         }
         Integer demographicNo = Integer.parseInt(demoNoParam);
@@ -404,7 +404,7 @@ public class Pregnancy2Action extends ActionSupport {
 
         String formClass = request.getParameter("form_class");
         if (formClass == null || !ALLOWED_PREGNANCY_FORM_CLASSES.contains(formClass)) {
-            MiscUtils.getLogger().warn("Invalid form class requested in pregnancy saveFormAjax: {}", LogSanitizer.sanitize(formClass));
+            MiscUtils.getLogger().warn("Invalid form class requested in pregnancy saveFormAjax: {}", LogSanitizer.sanitize(formClass)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             jsonObj = objectMapper.valueToTree(new LabelValueBean("result", "error"));
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");
@@ -595,7 +595,7 @@ Repeat antibody screen
     public String createGCTLabReq() throws SQLException {
         String demoNoParam = request.getParameter("demographicNo");
         if (demoNoParam == null || !demoNoParam.matches("\\d+")) {
-            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createGCTLabReq: {}", LogSanitizer.sanitize(demoNoParam));
+            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createGCTLabReq: {}", LogSanitizer.sanitize(demoNoParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return null;
         }
         Integer demographicNo = Integer.parseInt(demoNoParam);
@@ -653,7 +653,7 @@ Repeat antibody screen
     public String createGTTLabReq() throws SQLException {
         String demoNoParam = request.getParameter("demographicNo");
         if (demoNoParam == null || !demoNoParam.matches("\\d+")) {
-            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createGTTLabReq: {}", LogSanitizer.sanitize(demoNoParam));
+            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createGTTLabReq: {}", LogSanitizer.sanitize(demoNoParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return null;
         }
         Integer demographicNo = Integer.parseInt(demoNoParam);

@@ -65,6 +65,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -138,7 +139,7 @@ public class DemographicEdit2Action extends ActionSupport {
         DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
         Demographic demographic = demographicDao.getDemographic(demographic_no);
         if (demographic == null) {
-            logger.warn("DemographicEdit2Action: demographic_no={} not found", demographic_no);
+            logger.warn("DemographicEdit2Action: demographic_no={} not found", LogSanitizer.sanitize(demographic_no)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             addActionError("Patient record not found for demographic_no: " + demographic_no);
             return ERROR;
         }

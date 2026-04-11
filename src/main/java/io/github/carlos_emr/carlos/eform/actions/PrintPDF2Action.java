@@ -78,7 +78,7 @@ public final class PrintPDF2Action extends ActionSupport {
                 props.setProperty(name, request.getParameter(name));
             }
 
-            log.info("SUBMIT {}", LogSanitizer.sanitize(request.getParameter("submit")));
+            log.info("SUBMIT {}", LogSanitizer.sanitize(request.getParameter("submit"))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             //if we are graphing, we need to grab info from db and add it to request object
             if (request.getParameter("submit").equals("graph")) {
                 props = EFormPrintPDFUtil.getFrmRourkeGraph(loggedInInfo, props);

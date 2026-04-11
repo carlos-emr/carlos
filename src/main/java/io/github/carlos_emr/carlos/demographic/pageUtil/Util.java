@@ -267,7 +267,7 @@ public class Util {
             
             // If the filename is empty or null after sanitization, reject the request
             if (safeFileName == null || safeFileName.trim().isEmpty()) {
-                logger.error("Invalid filename provided: {}", LogSanitizer.sanitize(fileName));
+                logger.error("Invalid filename provided: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 return;
             }
             
@@ -285,7 +285,7 @@ public class Util {
 
             // Verify the file exists and is readable
             if (!requestedFile.exists() || !requestedFile.isFile() || !requestedFile.canRead()) {
-                logger.error("Error during file download: file does not exist or is not accessible - {}", LogSanitizer.sanitize(fileName));
+                logger.error("Error during file download: file does not exist or is not accessible - {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 rsp.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }

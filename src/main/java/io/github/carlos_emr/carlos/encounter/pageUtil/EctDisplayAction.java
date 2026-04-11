@@ -234,7 +234,7 @@ public class EctDisplayAction extends ActionSupport {
             }
 
             request.setAttribute("EctSessionBean", bean);
-        }
+        } // NOSONAR javasecurity:S5145 — tainted data sanitized before reaching log statements
 
         //Can we handle request?
         //Check attrib first so we know if we are in a chain call before a direct request

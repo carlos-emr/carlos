@@ -177,7 +177,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
         if (!result.isBlocked()) {
             return false;
         }
-        logger.warn("Cannot {} measurement {} - blocked at {} level", LogSanitizer.sanitize(action), LogSanitizer.sanitize(measurement), result.getBlockingLevel());
+        logger.warn("Cannot {} measurement {} - blocked at {} level", LogSanitizer.sanitize(action), LogSanitizer.sanitize(measurement), result.getBlockingLevel()); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         request.setAttribute("errorMessage",
             "Cannot " + Encode.forHtml(action) + " measurement: blocked at " + Encode.forHtml(result.getBlockingLevel()) + " level");
         setResponseAttributes(ctx);
@@ -263,8 +263,8 @@ public class FlowSheetCustom2Action extends ActionSupport {
                     loggedInInfo.getLoggedInProviderNo(), demographicNo);
 
                 if (cascadeResult.isBlocked()) {
-                    logger.warn("Cannot add measurement {} - blocked at {} level",
-                        LogSanitizer.sanitize(measurementType), cascadeResult.getBlockingLevel());
+                    logger.warn("Cannot add measurement {} - blocked at {} level", // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                        LogSanitizer.sanitize(measurementType), LogSanitizer.sanitize(cascadeResult.getBlockingLevel()));
                     request.setAttribute("errorMessage",
                         "Cannot add measurement: blocked at " + Encode.forHtml(cascadeResult.getBlockingLevel()) + " level");
                     request.setAttribute("demographic", demographicNo);
@@ -548,8 +548,8 @@ public class FlowSheetCustom2Action extends ActionSupport {
                 cust, scope, currentProviderNo, demographicNo);
 
             if (canArchive.isBlocked()) {
-                logger.warn("Cannot archive customization {} - created at {} level",
-                    LogSanitizer.sanitize(id), canArchive.getBlockingLevel());
+                logger.warn("Cannot archive customization {} - created at {} level", // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                    LogSanitizer.sanitize(id), LogSanitizer.sanitize(canArchive.getBlockingLevel()));
                 request.setAttribute("errorMessage",
                     "Cannot remove customization: created at " + Encode.forHtml(canArchive.getBlockingLevel()) + " level");
                 request.setAttribute("demographic", demographicNo);

@@ -127,7 +127,7 @@ public class ManageLetters {
                 logger.error("Error", e);
             }
         } else {
-            logger.error("Could not find letter for id: {}", LogSanitizer.sanitize(id));
+            logger.error("Could not find letter for id: {}", LogSanitizer.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         }
 
     }
