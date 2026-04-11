@@ -64,64 +64,66 @@ class AddEForm2ActionTest extends CarlosUnitTestBase {
     class ValidateEformLink {
 
         @Test
-        @DisplayName("should return value for valid eform_link pattern with numeric segments and word suffix")
-        void shouldReturn_validEformLinkPattern() {
+        @DisplayName("should return value when format has numeric segments and word suffix")
+        void shouldReturnValue_whenFormatIsValid() {
             assertThat(AddEForm2Action.validateEformLink("1_100_5_fieldName")).isEqualTo("1_100_5_fieldName");
         }
 
         @Test
-        @DisplayName("should return value for eform_link with underscore in suffix segment")
-        void shouldReturn_eformLinkWithUnderscoreInSuffix() {
+        @DisplayName("should return value when suffix segment contains underscore")
+        void shouldReturnValue_whenSuffixContainsUnderscore() {
             assertThat(AddEForm2Action.validateEformLink("12_34_56_my_field")).isEqualTo("12_34_56_my_field");
         }
 
         @Test
-        @DisplayName("should return value for eform_link with dash and dot in field name")
-        void shouldReturn_eformLinkWithDashAndDot() {
-            // Pattern allows [a-zA-Z0-9_.-] in the field name segment
+        @DisplayName("should return value when suffix contains dash, dot, dollar, and hash")
+        void shouldReturnValue_whenSuffixContainsSpecialChars() {
+            // Pattern allows [a-zA-Z0-9_.-$#] in the field name segment,
+            // including measurement AP names like m$type#field
             assertThat(AddEForm2Action.validateEformLink("1_100_5_field.name-v2")).isEqualTo("1_100_5_field.name-v2");
+            assertThat(AddEForm2Action.validateEformLink("1_100_5_m$bloodpressure#systolic")).isEqualTo("1_100_5_m$bloodpressure#systolic");
         }
 
         @Test
-        @DisplayName("should return null for eform_link that is a plain session attribute name")
-        void shouldReturnNull_plainSessionAttributeName() {
+        @DisplayName("should return null when value is a plain session attribute name")
+        void shouldReturnNull_whenValueIsPlainSessionKey() {
             // Attempts to overwrite 'user' session attribute
             assertThat(AddEForm2Action.validateEformLink("user")).isNull();
         }
 
         @Test
-        @DisplayName("should return null for eform_link that targets userrole session attribute")
-        void shouldReturnNull_userRoleSessionAttributeName() {
+        @DisplayName("should return null when value targets userrole session attribute")
+        void shouldReturnNull_whenValueTargetsUserRoleKey() {
             assertThat(AddEForm2Action.validateEformLink("userrole")).isNull();
         }
 
         @Test
-        @DisplayName("should return null for eform_link with injected SQL-like content")
-        void shouldReturnNull_sqlInjectionAttempt() {
+        @DisplayName("should return null when value contains SQL injection content")
+        void shouldReturnNull_whenValueContainsSqlInjection() {
             assertThat(AddEForm2Action.validateEformLink("1'; DROP TABLE eform;--")).isNull();
         }
 
         @Test
-        @DisplayName("should return null for eform_link missing numeric prefix segments")
-        void shouldReturnNull_missingNumericSegments() {
+        @DisplayName("should return null when numeric prefix segments are missing")
+        void shouldReturnNull_whenNumericSegmentsAreMissing() {
             assertThat(AddEForm2Action.validateEformLink("abc_def_ghi_field")).isNull();
         }
 
         @Test
-        @DisplayName("should return null for eform_link with only two numeric segments")
-        void shouldReturnNull_onlyTwoNumericSegments() {
+        @DisplayName("should return null when only two numeric segments exist")
+        void shouldReturnNull_whenOnlyTwoSegmentsExist() {
             assertThat(AddEForm2Action.validateEformLink("1_2_field")).isNull();
         }
 
         @Test
-        @DisplayName("should return null for empty string eform_link")
-        void shouldReturnNull_emptyString() {
+        @DisplayName("should return null when input is an empty string")
+        void shouldReturnNull_whenInputIsEmptyString() {
             assertThat(AddEForm2Action.validateEformLink("")).isNull();
         }
 
         @Test
-        @DisplayName("should return null for null input")
-        void shouldReturnNull_nullInput() {
+        @DisplayName("should return null when input is null")
+        void shouldReturnNull_whenInputIsNull() {
             assertThat(AddEForm2Action.validateEformLink(null)).isNull();
         }
     }
@@ -226,8 +228,8 @@ class AddEForm2ActionTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should filter out non-integer elements, keeping valid ones")
-        void shouldFilterNonIntegers_keepingValidOnes() {
+        @DisplayName("should filter out non-integer elements when array contains mixed values")
+        void shouldFilterNonIntegers_whenArrayContainsMixedValues() {
             String[] result = AddEForm2Action.validateIntIdArray(
                 new String[]{"1", "abc", "3", null, "5"}
             );
@@ -318,9 +320,9 @@ class AddEForm2ActionTest extends CarlosUnitTestBase {
             );
             action.addEmailAttachmentsToSession(mockRequest, settings);
 
-            ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+            ArgumentCaptor<String[]> captor = ArgumentCaptor.forClass(String[].class);
             Mockito.verify(mockSession).setAttribute(eq("attachedEForms"), captor.capture());
-            assertThat((String[]) captor.getValue()).isEmpty();
+            assertThat(captor.getValue()).isEmpty();
         }
 
         @Test
@@ -335,9 +337,9 @@ class AddEForm2ActionTest extends CarlosUnitTestBase {
             );
             action.addEmailAttachmentsToSession(mockRequest, settings);
 
-            ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+            ArgumentCaptor<String[]> captor = ArgumentCaptor.forClass(String[].class);
             Mockito.verify(mockSession).setAttribute(eq("attachedEForms"), captor.capture());
-            assertThat((String[]) captor.getValue()).containsExactly("5", "7");
+            assertThat(captor.getValue()).containsExactly("5", "7");
         }
 
         /**

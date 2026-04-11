@@ -57,7 +57,11 @@ class AddEForm2ActionEformLinkValidationTest {
             "p1_123456789_9999999999_field.name",
             "abc_1_2_field-name",
             "abc_1_2_field_name",
-            "abc_1_2_a.b-c_d"
+            "abc_1_2_a.b-c_d",
+            // Measurement AP field names use m$type#field convention (e.g. EForm generator output)
+            "doc1_100_5_m$bloodpressure#systolic",
+            "p1_123_10_m$weight#value",
+            "999998_-1_67_m$type#field"
         })
         void shouldReturnValue_whenFormatIsValid(String eformLink) {
             assertThat(AddEForm2Action.validateEformLink(eformLink))
