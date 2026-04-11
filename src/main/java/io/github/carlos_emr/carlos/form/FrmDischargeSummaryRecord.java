@@ -142,16 +142,16 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
             StringBuilder issues = new StringBuilder();
 
 
-            String sql4 = "SELECT issue_id from casemgmt_issue where demographic_no=" + demographicNo + " and resolved=0";
+            String sql4 = "SELECT issue_id from casemgmt_issue where demographic_no=? and resolved=0";
 
             ResultSet rs4 = null;
 
             try {
-                rs4 = DBHandler.GetSQL(sql4);
+                rs4 = DBHandler.GetPreSQL(sql4, demographicNo);
                 while (rs4.next()) {
 
-                    String sql5 = "SELECT description from issue where issue_id=" + Misc.getString(rs4, "issue_id");
-                    ResultSet rs5 = DBHandler.GetSQL(sql5);
+                    String sql5 = "SELECT description from issue where issue_id=?";
+                    ResultSet rs5 = DBHandler.GetPreSQL(sql5, rs4.getInt("issue_id"));
                     if (rs5.next()) {
                         if (rs4.isFirst()) {
                             issues.append(Misc.getString(rs5, "description"));

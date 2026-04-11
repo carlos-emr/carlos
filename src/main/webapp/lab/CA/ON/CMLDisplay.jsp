@@ -49,7 +49,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao" %>
 <%@page errorPage="/errorpage.jsp" %>
 <%@ page
-        import="java.util.*, io.github.carlos_emr.carlos.mds.data.*,io.github.carlos_emr.carlos.lab.ca.on.CML.*,io.github.carlos_emr.carlos.lab.LabRequestReportLink,io.github.carlos_emr.carlos.db.*,java.sql.*,io.github.carlos_emr.carlos.log.*,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,io.github.carlos_emr.carlos.casemgmt.model.*" %>
+        import="java.util.*, io.github.carlos_emr.carlos.mds.data.*,io.github.carlos_emr.carlos.lab.ca.on.CML.*,io.github.carlos_emr.carlos.lab.LabRequestReportLink,io.github.carlos_emr.carlos.db.*,java.sql.*,io.github.carlos_emr.carlos.log.*,io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%
@@ -64,9 +64,6 @@
     String reqID = reqIDL == null ? "" : reqIDL.toString();
     reqIDL = LabRequestReportLink.getRequestTableIdByReport("labPatientPhysicianInfo", Long.valueOf(segmentID));
     String reqTableID = reqIDL == null ? "" : reqIDL.toString();
-
-    String annotation_display = CaseManagementNoteLink.DISP_LABTEST2;
-    CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
 
 %>
 <%
@@ -105,8 +102,6 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CML.CMLLabTest" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.ReportStatus" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.MDSSegmentData" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -151,10 +146,21 @@
         value="<%= Encode.forHtmlAttribute(segmentID) %>"/> <input
         type="hidden" name="selectedProviders" value=""/>
     <input type="hidden" name="favorites" value=""/>
-    <input type="hidden" name="labType" value="CML"/> <input type="hidden"
-                                                             name="labType<%= Encode.forHtmlAttribute(segmentID) %>CML"
-                                                             value="imNotNull"/> <input type="hidden" name="providerNo"
-                                                                                        value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>"/>
+    <input type="hidden" name="labType" value="CML"/>
+    <%
+        String safeSegmentId = null;
+        try {
+            safeSegmentId = Integer.toString(Integer.parseInt(StringUtils.noNull(segmentID)));
+        } catch (NumberFormatException e) {
+            safeSegmentId = null;
+        }
+    %>
+    <% if (safeSegmentId != null) { %>
+    <input type="hidden" name="labType<%= safeSegmentId %>CML"
+           value="imNotNull"/> <%-- segmentID must remain digits-only here so the generated parameter name stays valid and matches server-side lookup --%>
+    <% } %>
+    <input type="hidden" name="providerNo"
+           value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>"/>
 </form>
 <form name="acknowledgeForm" method="post"
       action="<%=request.getContextPath()%>/oscarMDS/UpdateStatus.do">
@@ -541,23 +547,12 @@
                         <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
                         <td width="5%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestLocation"/></td>
                         <td width="5%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
-                        <td width="5%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAnnotate"/></td>
                     </tr>
 
                     <%
                         //int linenum = 1;
                         ArrayList labs = gResults.getLabResults();
                         for (int l = 0; l < labs.size(); l++) {
-
-                            boolean isPrevAnnotation = false;
-                            CaseManagementNoteLink cml = caseManagementManager.getLatestLinkByTableId(CaseManagementNoteLink.LABTEST2, Long.valueOf(segmentID), i + "-" + l);
-                            CaseManagementNote p_cmn = null;
-                            if (cml != null) {
-                                p_cmn = caseManagementManager.getNote(cml.getNoteId().toString());
-                            }
-                            if (p_cmn != null) {
-                                isPrevAnnotation = true;
-                            }
 
                             CMLLabTest.LabResult thisResult = (CMLLabTest.LabResult) labs.get(l);
                             String lineClass = "NormalRes";
@@ -585,15 +580,6 @@
                         <td align="center"><%=thisResult.locationId %>
                         </td>
                         <td align="center"><%=""/*thisResult.resultStatus*/ %>
-                        </td>
-                        <td align="center" valign="top">
-                            <a href="javascript:void(0);" title="Annotation"
-                               onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=Encode.forJavaScriptAttribute(annotation_display)%>&amp;table_id=<%=Encode.forJavaScriptAttribute(segmentID)%>&amp;demo=<%=Encode.forJavaScriptAttribute(lab.getDemographicNo())%>&amp;other_id=<%=Encode.forJavaScriptAttribute(String.valueOf(i) + "-" + String.valueOf(l))%>','anwin','width=400,height=500');">
-                                <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation"
-                                                                  height="16" width="13" border="0"/><%} else { %><img
-                                    src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"
-                                    border="0"/> <%} %>
-                            </a>
                         </td>
                     </tr>
                     <% } else {%>

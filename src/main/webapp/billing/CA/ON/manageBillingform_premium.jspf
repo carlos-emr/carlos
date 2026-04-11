@@ -83,7 +83,7 @@
 		<td class="allborder" valign="top">
 		<table width="100%" border="0" cellspacing="0" cellpadding="0">
 			<form method="post" name="form1"
-				action="dbManageBillingform_premium.jsp">
+				action="DbManageBillingformPremium.do">
 			<tr>
 				<td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform_premium.msgAdd"/></td>
 			</tr>
@@ -103,7 +103,7 @@
 		<td class="allborder">
 		<table width="100%" border="0" cellspacing="0" cellpadding="0">
 			<form method="post" name="form1"
-				action="dbManageBillingform_premium_delete.jsp">
+				action="DbManageBillingformPremiumDelete.do">
 			<tr>
 				<td class="rightBorder"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform_premium.msgDescription"/></td>
 				<td class="rightBorder"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform_premium.msgDescription"/></td>

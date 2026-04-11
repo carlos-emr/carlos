@@ -62,6 +62,14 @@
     StringBuffer bufChart = null, bufName = null, bufNo = null;
     if (request.getParameter("limit1") != null) strLimit1 = request.getParameter("limit1");
     if (request.getParameter("limit2") != null) strLimit2 = request.getParameter("limit2");
+
+    int parsedLimit1;
+    try { parsedLimit1 = Integer.parseInt(strLimit1); } catch (NumberFormatException e) { parsedLimit1 = 0; }
+    strLimit1 = String.valueOf(parsedLimit1);
+
+    int parsedLimit2;
+    try { parsedLimit2 = Integer.parseInt(strLimit2); } catch (NumberFormatException e) { parsedLimit2 = 10; }
+    strLimit2 = String.valueOf(parsedLimit2);
 %>
 
 
@@ -213,11 +221,40 @@
                 }
 
                 String orderby = "", limit = "", limit1 = "", limit2 = "";
-                if (request.getParameter("orderby") != null) orderby = "order by " + request.getParameter("orderby");
-                if (request.getParameter("limit1") != null) limit1 = request.getParameter("limit1");
+                // Validate orderby against allowed demographic columns to prevent SQL injection
+                // while still allowing an optional ASC/DESC direction.
+                String orderbyParam = request.getParameter("orderby");
+                if (orderbyParam != null) {
+                    Set<String> validColumns = Set.of("last_name", "first_name", "demographic_no",
+                        "chart_no", "hin", "phone", "sex", "year_of_birth", "month_of_birth",
+                        "date_of_birth", "roster_status", "patient_status", "provider_no");
+                    String[] orderbyParts = orderbyParam.trim().split("\\s+");
+                    if (orderbyParts.length >= 1 && orderbyParts.length <= 2) {
+                        String orderbyColumn = orderbyParts[0];
+                        String orderbyDirection = "";
+                        if (orderbyParts.length == 2) {
+                            if ("asc".equalsIgnoreCase(orderbyParts[1])) {
+                                orderbyDirection = " ASC";
+                            } else if ("desc".equalsIgnoreCase(orderbyParts[1])) {
+                                orderbyDirection = " DESC";
+                            } else {
+                                orderbyColumn = "";
+                            }
+                        }
+                        if (validColumns.contains(orderbyColumn)) {
+                            orderby = "order by " + orderbyColumn + orderbyDirection;
+                        }
+                    }
+                }
+                // Validate limit values as integers to prevent SQL injection
+                if (request.getParameter("limit1") != null) {
+                    try { limit1 = String.valueOf(Math.max(0, Integer.parseInt(request.getParameter("limit1")))); } catch (NumberFormatException e) { limit1 = "0"; }
+                }
                 if (request.getParameter("limit2") != null) {
-                    limit2 = request.getParameter("limit2");
-                    limit = "limit " + limit2 + " offset " + limit1;
+                    try { limit2 = String.valueOf(Math.max(0, Integer.parseInt(request.getParameter("limit2")))); } catch (NumberFormatException e) { limit2 = ""; }
+                    if (!limit2.isEmpty()) {
+                        limit = "limit " + limit2 + " offset " + (limit1.isEmpty() ? "0" : limit1);
+                    }
                 }
 
                 String fieldname = "", regularexp = "like"; // exactly search is not required by users, e.g. regularexp="=";
@@ -328,24 +365,24 @@
 
             <tr bgcolor="<%=bodd?"ivory":"white"%>" align="center">
                 <td><input type="submit" name="demographicNo"
-                           value="<%=io.github.carlos_emr.Misc.getString(rs,"demographic_no")%>"
-                           onclick="updateOpener('<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("labNo"))) %>','<%=io.github.carlos_emr.Misc.getString(rs,"demographic_no")%>');">
+                           value="<%=Encode.forHtmlAttribute(io.github.carlos_emr.Misc.getString(rs,"demographic_no"))%>"
+                           onclick="updateOpener('<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("labNo"))) %>','<%=Encode.forJavaScriptAttribute(io.github.carlos_emr.Misc.getString(rs,"demographic_no"))%>');">
                 </td>
-                <td><%=nbsp(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "last_name")))%>
+                <td><%=nbsp(Encode.forHtml(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "last_name"))))%>
                 </td>
-                <td><%=nbsp(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "first_name")))%>
+                <td><%=nbsp(Encode.forHtml(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "first_name"))))%>
                 </td>
                 <td><%= age %>
                 </td>
-                <td><%=nbsp(io.github.carlos_emr.Misc.getString(rs, "roster_status"))%>
+                <td><%=nbsp(Encode.forHtml(io.github.carlos_emr.Misc.getString(rs, "roster_status")))%>
                 </td>
-                <td><%=nbsp(io.github.carlos_emr.Misc.getString(rs, "patient_status"))%>
+                <td><%=nbsp(Encode.forHtml(io.github.carlos_emr.Misc.getString(rs, "patient_status")))%>
                 </td>
-                <td><%=nbsp(io.github.carlos_emr.Misc.getString(rs, "sex"))%>
+                <td><%=nbsp(Encode.forHtml(io.github.carlos_emr.Misc.getString(rs, "sex")))%>
                 </td>
-                <td><%=nbsp(io.github.carlos_emr.Misc.getString(rs, "year_of_birth") + "-" + io.github.carlos_emr.Misc.getString(rs, "month_of_birth") + "-" + io.github.carlos_emr.Misc.getString(rs, "date_of_birth"))%>
+                <td><%=nbsp(Encode.forHtml(io.github.carlos_emr.Misc.getString(rs, "year_of_birth") + "-" + io.github.carlos_emr.Misc.getString(rs, "month_of_birth") + "-" + io.github.carlos_emr.Misc.getString(rs, "date_of_birth")))%>
                 </td>
-                <td><%=providerBean.getProperty(io.github.carlos_emr.Misc.getString(rs, "provider_no")) == null ? "&nbsp;" : providerBean.getProperty(io.github.carlos_emr.Misc.getString(rs, "provider_no")) %>
+                <td><%=providerBean.getProperty(io.github.carlos_emr.Misc.getString(rs, "provider_no")) == null ? "&nbsp;" : Encode.forHtml(providerBean.getProperty(io.github.carlos_emr.Misc.getString(rs, "provider_no"))) %>
                 </td>
 
             </tr>
@@ -368,12 +405,12 @@
     <script language="JavaScript">
         <!--
         function last() {
-            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/PatientSearch.jsp?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>&from=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("from")))) %>";
+            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/PatientSearch.jsp?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%= Encode.forJavaScript(Encode.forUriComponent(strLimit2)) %>&from=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("from")))) %>";
             //document.nextform.submit();
         }
 
         function next() {
-            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/PatientSearch.jsp?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>&from=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("from")))) %>";
+            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/PatientSearch.jsp?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%= Encode.forJavaScript(Encode.forUriComponent(strLimit2)) %>&from=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("from")))) %>";
             //document.nextform.submit();
         }
 

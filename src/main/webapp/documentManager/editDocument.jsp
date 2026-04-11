@@ -62,7 +62,6 @@
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%
     DocumentExtraReviewerDao documentExtraReviewerDao = SpringUtils.getBean(DocumentExtraReviewerDao.class);
@@ -124,9 +123,6 @@
 
     List<Map<String, String>> pdList = new ProviderData().getProviderList();
     ArrayList doctypes = EDocUtil.getDoctypes(formdata.getFunction());
-    String annotation_display = CaseManagementNoteLink.DISP_DOCUMENT;
-    String annotation_tableid = editDocumentNo;
-
     CtlDocClassDao docClassDao = (CtlDocClassDao) SpringUtils.getBean(CtlDocClassDao.class);
     List<String> reportClasses = docClassDao.findUniqueReportClasses();
     ArrayList<String> subClasses = new ArrayList<String>();
@@ -273,13 +269,13 @@
     <% } %> <form action="${pageContext.request.contextPath}/documentManager/addEditDocument.do" method="POST"
                        enctype="multipart/form-data" onsubmit="return submitUpload(this);">
     <input type="hidden" name="function"
-           value="<%=formdata.getFunction()%>" size="20"/>
+           value="<%=Encode.forHtmlAttribute(formdata.getFunction())%>" size="20"/>
     <input type="hidden" name="functionId"
-           value="<%=formdata.getFunctionId()%>" size="20"/>
-    <input type="hidden" name="functionid" value="<%=moduleid%>" size="20"/>
-    <input type="hidden" name="mode" value="<%=editDocumentNo%>"/>
-    <input type="hidden" name="reviewerId" value="<%=formdata.getReviewerId()%>"/>
-    <input type="hidden" name="reviewDateTime" value="<%=formdata.getReviewDateTime()%>"/>
+           value="<%=Encode.forHtmlAttribute(formdata.getFunctionId())%>" size="20"/>
+    <input type="hidden" name="functionid" value="<%=Encode.forHtmlAttribute(moduleid)%>" size="20"/>
+    <input type="hidden" name="mode" value="<%=Encode.forHtmlAttribute(editDocumentNo)%>"/>
+    <input type="hidden" name="reviewerId" value="<%=Encode.forHtmlAttribute(formdata.getReviewerId())%>"/>
+    <input type="hidden" name="reviewDateTime" value="<%=Encode.forHtmlAttribute(formdata.getReviewDateTime())%>"/>
     <input type="hidden" name="reviewDoc" value="false"/>
 
     <input type="hidden" name="extraReviewerId" value=""/>
@@ -464,12 +460,6 @@
                 <br/>
                 <input type="button" value="Reviewed" title="Click to set Reviewed" onclick="reviewed(this);"/>
                 <% } %>
-            </td>
-        </tr>
-        <tr>
-            <td colspan=2>
-                <input type="button" value="Annotation"
-                       onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=annotation_display%>&table_id=<%=annotation_tableid%>&demo=<%=moduleid%>','anwin','width=400,height=500');"/>
             </td>
         </tr>
         <tr>

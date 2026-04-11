@@ -30,7 +30,6 @@
 
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
-import org.apache.commons.text.StringEscapeUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
@@ -73,18 +72,16 @@ public class EctDisplayForm2Action extends EctDisplayAction {
             try {
 
                 String winName = "Forms" + bean.demographicNo;
-                StringBuilder url = new StringBuilder("popupPage(600, 700, '" + winName + "', '" + request.getContextPath() + "/encounter/formlist.jsp?demographic_no=" + bean.demographicNo + "')");
 
                 // set text for lefthand module title
                 Dao.setLeftHeading(getText("encounter.Index.msgForms"));
                 // set link for lefthand module title
-                Dao.setLeftURL(url.toString());
+                Dao.setLeftPopup(600, 700, winName, request.getContextPath() + "/encounter/formlist.jsp?demographic_no=" + bean.demographicNo);
 
                 // we're going to display a pop up menu of forms so we set the menu title and id num of menu
                 Dao.setRightHeadingID(menuId);
                 Dao.setMenuHeader(getText("encounter.LeftNavBar.AddFrm"));
-                StringBuilder javascript = new StringBuilder("<script type=\"text/javascript\">");
-                String js = "";
+                StringBuilder url;
                 String serviceDateStr;
                 StringBuilder strTitle;
                 String fullTitle;
@@ -152,11 +149,9 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                                             + "&formId=latest" + "');");
 
                             key = StringUtils.maxLenString(fullTitle, MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + "(" + serviceDateStr + ")";
-                            key = StringEscapeUtils.escapeEcmaScript(key);
 
                             // auto completion arrays and colour code are set
-                            js = "itemColours['" + key + "'] = '" + BGCOLOUR + "'; autoCompList.push('" + key + "'); autoCompleted['" + key + "'] = \"" + url + "\";";
-                            javascript.append(js);
+                            Dao.addAutoCompleteItem(key, url.toString(), BGCOLOUR);
 
                             // set item href text
                             item.setTitle(strTitle.toString());
@@ -175,22 +170,16 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                     // we add all unhidden forms to the pop up menu
                     if (!encounterForm.isHidden()) {
                         hash = Math.abs(winName.hashCode());
-                        url = new StringBuilder("popupPage(700,960,'" + hash + "new', '" + encounterForm.getFormValue() + bean.demographicNo + "&formId=0&provNo=" + bean.providerNo + "&parentAjaxId=" + cmd + ((appointmentNo != null) ? "&appointmentNo=" + appointmentNo : "") + "')");
-                        Dao.addPopUpUrl(url.toString());
+                        String newFormPath = encounterForm.getFormValue() + bean.demographicNo + "&formId=0&provNo=" + bean.providerNo + "&parentAjaxId=" + cmd + ((appointmentNo != null) ? "&appointmentNo=" + appointmentNo : "");
+                        Dao.addPopUpMenu(700, 960, String.valueOf(hash) + "new", newFormPath);
                         key = StringUtils.maxLenString(encounterForm.getFormName(), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + " (new)";
                         Dao.addPopUpText(encounterForm.getFormName());
-                        key = StringEscapeUtils.escapeEcmaScript(key);
 
                         // auto completion arrays and colour code are set
-                        js = "itemColours['" + key + "'] = '" + BGCOLOUR + "'; autoCompList.push('" + key + "'); autoCompleted['" + key + "'] = \"" + url + ";\";";
-                        javascript.append(js);
+                        Dao.addAutoCompleteItem(key, "popupPage(700,960,'" + hash + "new','" + newFormPath + "');", BGCOLOUR);
                     }
                 }
-                url = new StringBuilder("return !showMenu('" + menuId + "', event);");
-                Dao.setRightURL(url.toString());
-
-                javascript.append("</script>");
-                Dao.setJavaScript(javascript.toString());
+                Dao.setRightURL("return !showMenu('" + menuId + "', event);");
 
                 // sort module items, i.e. forms, from most recently started to more distant
                 Dao.sortItems(NavBarDisplayDAO.DATESORT_ASC);

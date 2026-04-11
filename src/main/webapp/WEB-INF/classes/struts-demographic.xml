@@ -69,12 +69,7 @@
             <result name="success">/demographic/demographicExport.jsp</result>
             <result name="fail">/demographic/demographicExport.jsp</result>
         </action>
-        <action name="demographic/cihiExportOMD4" class="io.github.carlos_emr.carlos.demographic.pageUtil.CihiExport2Action" method="execute">
-            <result name="display">/WEB-INF/jsp/demographic/cihiExport.jsp</result>
-        </action>
-        <action name="demographic/cihiExportPHC_VRS" class="io.github.carlos_emr.carlos.demographic.pageUtil.CihiExportPHC_VRS2Action" method="execute">
-            <result name="display">/WEB-INF/jsp/demographic/cihiExport.jsp</result>
-        </action>
+
         <action name="demographic/eRourkeExport" class="io.github.carlos_emr.carlos.demographic.pageUtil.RourkeExport2Action" method="execute">
             <result name="display">/WEB-INF/jsp/demographic/rourkeExport.jsp</result>
         </action>
@@ -102,7 +97,20 @@
 
         <action name="demographic/DemographicUpdate"
                 class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicUpdate2Action">
-            <result name="success">/demographic/demographicupdatearecord.jsp</result>
+            <result name="success">/WEB-INF/jsp/demographic/demographicupdatearecord.jsp</result>
+            <result name="duplicate">/WEB-INF/jsp/demographic/demographicupdatearecord.jsp</result>
+            <result name="methodNotAllowed" type="httpheader">
+                <param name="status">405</param>
+            </result>
+        </action>
+
+        <action name="demographic/DemographicAddRecord"
+                class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicAddRecord2Action">
+            <result name="success">/WEB-INF/jsp/demographic/demographicaddarecord.jsp</result>
+            <result name="duplicate">/WEB-INF/jsp/demographic/demographicaddarecord.jsp</result>
+            <result name="methodNotAllowed" type="httpheader">
+                <param name="status">405</param>
+            </result>
         </action>
 
         <action name="demographic/DemographicPdfLabel"

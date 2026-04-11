@@ -39,6 +39,7 @@ import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 import org.xml.sax.XMLReader;
@@ -85,7 +86,7 @@ public class OBChecklist_99_12 {
         }
 
         try {
-            SAXParserFactory factory = SAXParserFactory.newInstance();
+            SAXParserFactory factory = XmlUtils.createSecureSAXParserFactory();
             SAXParser saxParser = factory.newSAXParser();
             XMLReader reader = saxParser.getXMLReader();
 

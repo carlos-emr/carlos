@@ -130,7 +130,7 @@ public class ProviderInboxRoutingDaoImpl extends AbstractDaoImpl<ProviderInboxIt
 
         try {
             Query rulesQuery = entityManager
-                    .createQuery("FROM IncomingLabRules r WHERE r.archive = 0 AND r.providerNo = ?1");
+                    .createQuery("FROM IncomingLabRules r WHERE r.archive = '0' AND r.providerNo = ?1");
             rulesQuery.setParameter(1, providerNo);
 
             for (IncomingLabRules rules : (List<IncomingLabRules>) rulesQuery.getResultList()) {

@@ -202,12 +202,23 @@ public class FrmData {
             table = encounterForm.getFormTable();
         }
 
+        // No matching EncounterForm found — return safe defaults so callers don't NPE
+        if (table == null) {
+            ret[0] = "";
+            ret[1] = "0";
+            return ret;
+        }
+
+        // Defense-in-depth: validate table name from DB (consistent with getPatientForms / getCurrentPatientForm)
+        if (!table.isEmpty() && !table.matches("[a-zA-Z][a-zA-Z0-9_]*")) {
+            throw new IllegalArgumentException("Invalid form table name returned from database");
+        }
 
         String sql;
         ResultSet rs;
 
         ret[1] = "0";
-        if (table.equals("form")) {
+        if ("form".equals(table)) {
             String searchFormName = formName;
             if (searchFormName.equals("AR1"))
                 searchFormName = "ar1_99_12"; // quick hack for ease of migration from old forms to new

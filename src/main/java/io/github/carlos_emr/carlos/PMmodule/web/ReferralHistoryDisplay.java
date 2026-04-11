@@ -30,7 +30,7 @@ package io.github.carlos_emr.carlos.PMmodule.web;
 import java.util.Comparator;
 import java.util.Date;
 
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import org.apache.commons.lang3.time.DateFormatUtils;
 import io.github.carlos_emr.carlos.PMmodule.model.ClientReferral;
 
@@ -69,7 +69,7 @@ public class ReferralHistoryDisplay {
     }
 
     public String getDestinationProgramName() {
-        return (StringEscapeUtils.escapeHtml4(destinationProgramName));
+        return (Encode.forHtml(destinationProgramName));
     }
 
     public void setDestinationProgramName(String destinationProgramName) {
@@ -77,7 +77,7 @@ public class ReferralHistoryDisplay {
     }
 
     public String getDestinationProgramType() {
-        return (StringEscapeUtils.escapeHtml4(destinationProgramType));
+        return (Encode.forHtml(destinationProgramType));
     }
 
     public void setDestinationProgramType(String destinationProgramType) {
@@ -111,7 +111,7 @@ public class ReferralHistoryDisplay {
     }
 
     public String getSourceProgramName() {
-        return (StringEscapeUtils.escapeHtml4(sourceProgramName));
+        return (Encode.forHtml(sourceProgramName));
     }
 
     public void setSourceProgramName(String sourceProgramName) {
@@ -119,7 +119,7 @@ public class ReferralHistoryDisplay {
     }
 
     public String getExternal() {
-        return (StringEscapeUtils.escapeHtml4(external));
+        return (Encode.forHtml(external));
     }
 
     public void setExternal(String external) {

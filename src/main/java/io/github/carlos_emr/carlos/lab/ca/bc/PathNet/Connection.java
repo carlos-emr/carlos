@@ -40,6 +40,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -149,24 +150,7 @@ public class Connection {
     }
 
     public Document CreateDocument(InputStream input) throws SAXException, IOException, ParserConfigurationException {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-
-        try {
-            // Disable external entities
-            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-            
-            // Disable XInclude
-            factory.setXIncludeAware(false);
-            
-            // Disable expansion of entity references
-            factory.setExpandEntityReferences(false);
-        } catch (ParserConfigurationException e) {
-            logger.error ("Failed ton configure XML parser to prevent XXE", e);
-            return null;
-        }
+        DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
 
         DocumentBuilder builder = factory.newDocumentBuilder();
         return builder.parse(input);

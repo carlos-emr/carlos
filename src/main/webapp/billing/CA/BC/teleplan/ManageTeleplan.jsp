@@ -31,6 +31,7 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.billing.ca.bc.Teleplan.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.TeleplanSequenceDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.TeleplanUserPassDAO" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -75,7 +76,7 @@
         <%if (request.getAttribute("error") != null) { %>
         <div class="alert alert-danger">
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            <%=request.getAttribute("error")%>
+            <%=Encode.forHtml((String) request.getAttribute("error"))%>
         </div>
         <%}%>
 
