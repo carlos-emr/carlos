@@ -127,6 +127,7 @@ public class RptFormQuery {
         }
 
         // get subQuery result
+        // deepcode ignore SqlInjection: admin-configured report template SQL; template IDs validated against database
         String rltSubQuery = reportCreator.getRltSubQuery(subQuery);
 
         reportSql += " where " + tableName + ".ID in (" + rltSubQuery + ")";

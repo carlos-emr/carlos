@@ -99,6 +99,7 @@
     String provider_no = (String) session.getAttribute("user");
     String demographic_no = request.getParameter("demographic_no");
     String appointment_no = request.getParameter("appointment");
+    if (appointment_no != null && !appointment_no.matches("\\d+")) { appointment_no = null; } // validate numeric to prevent SQL injection
     String fid = request.getParameter("fid");
     String eform_link = request.getParameter("eform_link");
     String source = request.getParameter("source");

@@ -216,6 +216,7 @@ public class HttpMethodGuardFilter implements Filter {
             "providerrole.jsp",
             "providertemplate.jsp",
             "billingsettings.jsp",
+            "demographicmergerecord.jsp",
             // Billing forms
             "billingcorrection.jsp",
             "billingcorrectionsubmit.jsp",

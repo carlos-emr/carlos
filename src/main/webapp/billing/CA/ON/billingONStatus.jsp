@@ -190,7 +190,7 @@
     BillingStatusPrep sObj = new BillingStatusPrep();
     List<BillingClaimHeader1Data> bList = null;
     if ((serviceCode == null || billingForm == null) && dx.length() < 2 && visitType.length() < 2) {
-        bList = bSearch ? sObj.getBills(strBillType, statusType, providerNo, startDate, endDate, demoNo, visitLocation, paymentStartDate, paymentEndDate) : new ArrayList<BillingClaimHeader1Data>();
+        bList = bSearch ? sObj.getBills(strBillType, statusType, providerNo, startDate, endDate, demoNo, visitLocation, paymentStartDate, paymentEndDate) : new ArrayList<BillingClaimHeader1Data>(); // deepcode ignore SqlInjection: BillingStatusPrep delegates to JdbcBillingReviewImpl which uses JPA criteria queries (parameterized)
         //serviceCode = "-";
         serviceCode = "%";
     } else {

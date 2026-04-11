@@ -277,7 +277,7 @@ public class SchemaUtils {
                 Statement s1 = c.createStatement();
                 ResultSet newrs = s1.executeQuery("SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE " +
                         "WHERE TABLE_NAME = '" + tableName + "_maventest" + "' AND " +
-                        "CONSTRAINT_NAME LIKE 'fk_%'"); // codeql[java/sql-injection] — test utility only; table names from internal test code, JDBC metadata
+                        "CONSTRAINT_NAME LIKE 'fk_%'"); // codeql[java/sql-injection] — test utility only; table names from internal test code and JDBC metadata
                 while (newrs.next()) {
                     String constraintName = newrs.getString("CONSTRAINT_NAME");
                     s.executeUpdate("ALTER TABLE " + tableName + "_maventest" + " DROP FOREIGN KEY " + constraintName); // codeql[java/sql-injection] — test utility only; names from JDBC metadata

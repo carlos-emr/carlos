@@ -204,10 +204,8 @@ public class EctPatientData {
                     ResultSet rs = null;
                     try {
 
-                        String sql = "select * from eChart where demographicNo=" + demographicNo
-                                + " ORDER BY eChartId DESC";
                         //                            + " ORDER BY eChartId DESC limit 1";
-                        rs = DBHandler.GetSQL(sql);
+                        rs = DBHandler.GetPreSQL("select * from eChart where demographicNo=? ORDER BY eChartId DESC", demographicNo);
                         if (rs.next()) {
                             this.eChartTimeStamp = rs.getTimestamp("timeStamp");
                             this.socialHistory = Misc.getString(rs, "socialHistory");

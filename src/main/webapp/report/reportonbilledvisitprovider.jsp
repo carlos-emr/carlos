@@ -67,6 +67,7 @@
     }
 %>
 <%@page import="io.github.carlos_emr.carlos.db.DBPreparedHandler" %>
+<%@page import="io.github.carlos_emr.carlos.db.DBPreparedHandlerParam" %>
 
 <%@page import="io.github.carlos_emr.Misc" %>
 <html>
@@ -110,7 +111,7 @@
 
     query += "where u.provider_no=p.provider_no  order by p.first_name, p.last_name";
 
-    ResultSet rs = dbObj.queryResults(query);
+    ResultSet rs = dbObj.queryResults(query, new DBPreparedHandlerParam[0]);
 
     while (rs.next()) {
         oldRoleProp.setProperty(Misc.getString(rs, "provider_no"), Misc.getString(rs, "role_name"));
@@ -121,7 +122,7 @@
     }
 
     query = "select * from provider order by first_name, last_name";
-    rs = dbObj.queryResults(query);
+    rs = dbObj.queryResults(query, new DBPreparedHandlerParam[0]);
 
     while (rs.next()) {
         if (Misc.getString(rs, "last_name").length() < 1 || oldRoleProp.containsKey((Misc.getString(rs, "provider_no")))) {

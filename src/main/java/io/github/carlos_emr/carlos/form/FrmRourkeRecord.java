@@ -56,8 +56,8 @@ public class FrmRourkeRecord extends FrmRecord {
 
             String sql = "SELECT demographic_no, CONCAT(last_name, ', ', first_name) AS pName, "
                     + "year_of_birth, month_of_birth, date_of_birth, sex "
-                    + "FROM demographic WHERE demographic_no = " + demographicNo;
-            ResultSet rs = DBHandler.GetSQL(sql);
+                    + "FROM demographic WHERE demographic_no = ?";
+            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo);
             if (rs.next()) {
                 props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
                 props.setProperty("c_pName", Misc.getString(rs, "pName"));
@@ -70,8 +70,8 @@ public class FrmRourkeRecord extends FrmRecord {
             }
             rs.close();
         } else {
-            String sql = "SELECT * FROM formRourke WHERE demographic_no = " + demographicNo + " AND ID = " + existingID;
-            props = (new FrmRecordHelp()).getFormRecord(sql);
+            String sql = "SELECT * FROM formRourke WHERE demographic_no = ? AND ID = ?";
+            props = (new FrmRecordHelp()).getFormRecord(sql, demographicNo, existingID);
         }
 
         return props;
@@ -79,9 +79,9 @@ public class FrmRourkeRecord extends FrmRecord {
 
     public int saveFormRecord(Properties props) throws SQLException {
         String demographic_no = props.getProperty("demographic_no");
-        String sql = "SELECT * FROM formRourke WHERE demographic_no=" + demographic_no + " AND ID=0";
+        String sql = "SELECT * FROM formRourke WHERE demographic_no=? AND ID=0";
 
-        return ((new FrmRecordHelp()).saveFormRecord(props, sql));
+        return ((new FrmRecordHelp()).saveFormRecord(props, sql, demographic_no));
     }
 
     //////////////new/ Done By Jay////
@@ -125,11 +125,11 @@ public class FrmRourkeRecord extends FrmRecord {
                     + "p1_ht1w, p1_ht2w, p1_ht1m, p1_ht2m, "
                     + "p2_ht4m, p2_ht6m, p2_ht9m, p2_ht12m, p3_ht18m, p3_ht2y "
                     + "FROM formRourke "
-                    + "WHERE demographic_no = " + demographicNo + " AND ID = " + existingID;
+                    + "WHERE demographic_no = ? AND ID = ?";
 
 
             try {
-                rs = DBHandler.GetSQL(sql);
+                rs = DBHandler.GetPreSQL(sql, demographicNo, existingID);
 
                 if (rs.next()) {
                     ResultSetMetaData md = rs.getMetaData();

@@ -84,6 +84,10 @@ public class TraceabilityReportProcessor implements Callable<String> {
      * exact types written by {@link TraceDataProcessor} for traceability data
      * ({@code Map<String, String>}).
      *
+     * <p>In Java 21+, {@code HashMap.readObject()} validates its internal bucket array
+     * allocation via {@code ObjectInputStream.checkArray(s, Map.Entry[].class, cap)},
+     * so {@code Map.Entry[]} must also be allowed through the filter.
+     *
      * <p>Also enforces resource bounds (depth, references, stream bytes, array length)
      * to mitigate deserialization bomb (DoS) attacks from uploaded files.
      */
@@ -98,6 +102,12 @@ public class TraceabilityReportProcessor implements Callable<String> {
             String name = filterInfo.serialClass().getName();
             if (name.equals(HashMap.class.getName()) ||
                 name.equals(String.class.getName())) {
+                return ObjectInputFilter.Status.ALLOWED;
+            }
+            // Java 21+: HashMap.readObject() calls checkArray(s, Map.Entry[].class, cap)
+            // to validate internal bucket array allocation through the filter.
+            if (filterInfo.serialClass().isArray() &&
+                filterInfo.serialClass().getComponentType() == Map.Entry.class) {
                 return ObjectInputFilter.Status.ALLOWED;
             }
             return ObjectInputFilter.Status.REJECTED;

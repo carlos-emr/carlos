@@ -55,24 +55,23 @@ public class FrmGripStrengthRecord extends FrmRecord {
         String sql;
 
         if (existingID <= 0) {
-            sql = "SELECT demographic_no FROM demographic WHERE demographic_no = "
-                    + demographicNo;
-            rs = DBHandler.GetSQL(sql);
+            sql = "SELECT demographic_no FROM demographic WHERE demographic_no = ?";
+            rs = DBHandler.GetPreSQL(sql, demographicNo);
             if (rs.next()) {
                 props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
                 props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), _dateFormat));
             }
             rs.close();
-            sql = "SELECT studyID FROM rehabStudy2004 WHERE demographic_no='" + demographicNo + "'";
-            rs = DBHandler.GetSQL(sql);
+            sql = "SELECT studyID FROM rehabStudy2004 WHERE demographic_no=?";
+            rs = DBHandler.GetPreSQL(sql, demographicNo);
             if (rs.next()) {
                 props.setProperty("studyID", Misc.getString(rs, "studyID"));
             } else {
                 props.setProperty("studyID", "N/A");
             }
             rs.close();
-            sql = "SELECT studyID FROM rehabStudy2004 WHERE demographic_no='" + demographicNo + "'";
-            rs = DBHandler.GetSQL(sql);
+            sql = "SELECT studyID FROM rehabStudy2004 WHERE demographic_no=?";
+            rs = DBHandler.GetPreSQL(sql, demographicNo);
             if (rs.next()) {
                 props.setProperty("studyID", Misc.getString(rs, "studyID"));
             } else {
@@ -80,11 +79,8 @@ public class FrmGripStrengthRecord extends FrmRecord {
             }
             rs.close();
         } else {
-            sql = "SELECT * FROM formGripStrength WHERE demographic_no = "
-                    + demographicNo
-                    + " AND ID = "
-                    + existingID;
-            rs = DBHandler.GetSQL(sql);
+            sql = "SELECT * FROM formGripStrength WHERE demographic_no = ? AND ID = ?";
+            rs = DBHandler.GetPreSQL(sql, demographicNo, existingID);
 
             if (rs.next()) {
                 MiscUtils.getLogger().debug("getting metaData");
@@ -125,25 +121,20 @@ public class FrmGripStrengthRecord extends FrmRecord {
     public int saveFormRecord(Properties props) throws SQLException {
         String demographic_no = props.getProperty("demographic_no");
         String sql =
-                "SELECT * FROM formGripStrength WHERE demographic_no="
-                        + demographic_no
-                        + " AND ID=0";
+                "SELECT * FROM formGripStrength WHERE demographic_no=? AND ID=0";
 
         FrmRecordHelp frh = new FrmRecordHelp();
         frh.setDateFormat(_dateFormat);
-        return ((frh).saveFormRecord(props, sql));
+        return ((frh).saveFormRecord(props, sql, demographic_no));
     }
 
     public Properties getPrintRecord(int demographicNo, int existingID)
             throws SQLException {
         String sql =
-                "SELECT * FROM formGripStrength WHERE demographic_no = "
-                        + demographicNo
-                        + " AND ID = "
-                        + existingID;
+                "SELECT * FROM formGripStrength WHERE demographic_no = ? AND ID = ?";
         FrmRecordHelp frh = new FrmRecordHelp();
         frh.setDateFormat(_dateFormat);
-        return ((frh).getPrintRecord(sql));
+        return ((frh).getPrintRecord(sql, demographicNo, existingID));
     }
 
     public String findActionValue(String submit) throws SQLException {
