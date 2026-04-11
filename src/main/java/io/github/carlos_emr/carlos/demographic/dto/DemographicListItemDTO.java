@@ -151,7 +151,7 @@ public class DemographicListItemDTO implements Serializable {
      * @return String the formatted name
      */
     public String getFormattedName() {
-        if (lastName == null && firstName == null) {
+        if (lastName == null && firstName == null && (alias == null || alias.trim().isEmpty())) {
             return "N/A";
         }
         StringBuilder sb = new StringBuilder();
@@ -177,10 +177,12 @@ public class DemographicListItemDTO implements Serializable {
      * @return String the formatted date of birth
      */
     public String getFormattedDob() {
-        if (yearOfBirth == null || monthOfBirth == null || dateOfBirth == null) {
+        if (yearOfBirth == null || yearOfBirth.trim().isEmpty()
+                || monthOfBirth == null || monthOfBirth.trim().isEmpty()
+                || dateOfBirth == null || dateOfBirth.trim().isEmpty()) {
             return "";
         }
-        return yearOfBirth + "-" + monthOfBirth + "-" + dateOfBirth;
+        return yearOfBirth.trim() + "-" + monthOfBirth.trim() + "-" + dateOfBirth.trim();
     }
 
     public Integer getDemographicNo() {

@@ -236,18 +236,23 @@ public interface DemographicManager {
      * @param loggedInInfo LoggedInInfo the logged-in user context
      * @param demographicId Integer the patient demographic number
      * @return DemographicHeaderDTO the header data, or null if not found
+     * @throws RuntimeException if the logged-in user lacks read privilege on _demographic
+     * @since 2026-04-11
      */
     public DemographicHeaderDTO getDemographicHeader(LoggedInInfo loggedInInfo, Integer demographicId);
 
     /**
      * Searches demographics by name and returns lightweight list item DTOs.
-     * Enforces read privilege check.
+     * Enforces read privilege check. Results are restricted to the logged-in
+     * provider's program domain.
      *
      * @param loggedInInfo LoggedInInfo the logged-in user context
-     * @param searchString String the name search string
-     * @param startIndex int starting position
-     * @param itemsToReturn int maximum results
-     * @return List of DemographicListItemDTO matching the search
+     * @param searchString String the name search string in "lastName" or "lastName,firstName" format
+     * @param startIndex int starting position for pagination
+     * @param itemsToReturn int maximum number of results to return
+     * @return List of DemographicListItemDTO matching the search within the provider's domain
+     * @throws RuntimeException if the logged-in user lacks read privilege on _demographic
+     * @since 2026-04-11
      */
     public List<DemographicListItemDTO> searchDemographicDTOs(LoggedInInfo loggedInInfo, String searchString,
                                                               int startIndex, int itemsToReturn);

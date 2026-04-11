@@ -752,7 +752,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
     @Override
     public List<ProviderSummaryDTO> getActiveProviderSummaries() {
         Query<ProviderSummaryDTO> query = currentSession().createQuery(
-                "SELECT NEW io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO(p.ProviderNo, p.LastName, p.FirstName, p.Specialty, p.Status, p.Team) FROM Provider p WHERE p.Status = '1' ORDER BY p.LastName, p.FirstName",
+                "SELECT NEW io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO(p.ProviderNo, p.LastName, p.FirstName, p.Specialty, p.Status, p.Team) FROM Provider p WHERE p.Status = '1' AND p.ProviderNo NOT LIKE '-%' ORDER BY p.LastName, p.FirstName",
                 ProviderSummaryDTO.class);
         return query.list();
     }

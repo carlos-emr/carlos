@@ -139,10 +139,12 @@ public class DemographicHeaderDTO implements Serializable {
      * @return String the formatted date of birth
      */
     public String getFormattedDob() {
-        if (yearOfBirth == null || monthOfBirth == null || dateOfBirth == null) {
+        if (yearOfBirth == null || yearOfBirth.trim().isEmpty()
+                || monthOfBirth == null || monthOfBirth.trim().isEmpty()
+                || dateOfBirth == null || dateOfBirth.trim().isEmpty()) {
             return "";
         }
-        return yearOfBirth + "-" + monthOfBirth + "-" + dateOfBirth;
+        return yearOfBirth.trim() + "-" + monthOfBirth.trim() + "-" + dateOfBirth.trim();
     }
 
     /**
