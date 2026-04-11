@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
@@ -40,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.dashboard.display.beans.DrilldownBean;
 import io.github.carlos_emr.carlos.managers.DashboardManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -68,7 +70,7 @@ public class ExcludeDemographicHandler {
         logger.debug("getDemosIds: " + allProviderDemoExts + " matching extensions for template " + indicatorName);
         String providerNo = getProviderNo();
         for (DemographicExt e : allProviderDemoExts) {
-            if (e.getProviderNo().equals(providerNo) && isCurrentExclusion(e)) {
+            if (Objects.equals(e.getProviderNo(), providerNo) && isCurrentExclusion(e)) {
                 demoIds.add(e.getDemographicNo());
                 logger.debug("template: " + indicatorName + " getDemoIds returning: " + e.getDemographicNo());
             }
@@ -83,7 +85,7 @@ public class ExcludeDemographicHandler {
         logger.debug("getDemosExts: " + allProviderDemoExts + " matching extensions for template " + indicatorName);
         String providerNo = getProviderNo();
         for (DemographicExt e : allProviderDemoExts) {
-            if (e.getProviderNo().equals(providerNo) && isCurrentExclusion(e)) {
+            if (Objects.equals(e.getProviderNo(), providerNo) && isCurrentExclusion(e)) {
                 demoExts.add(e);
                 logger.debug("template: " + indicatorName + " getDemoExts returning: " + e.getDemographicNo());
             }
@@ -120,10 +122,10 @@ public class ExcludeDemographicHandler {
         List<DemographicExt> allProviderDemoExts = demographicExtDao.getDemographicExtByKeyAndValue(excludeIndicator, indicatorName);
         logger.debug("unExcludeDemoIds: " + allProviderDemoExts + " matching extensions for template " + indicatorName);
         for (DemographicExt e : allProviderDemoExts) {
-            // remove exclusion if provider_no matches or is null and the demongraphic_no matches
-            if (e.getProviderNo().equals(providerNo) && demographicNos.contains(e.getDemographicNo())) {
+            // remove exclusion if provider_no matches or is null and the demographic_no matches
+            if ((e.getProviderNo() == null || Objects.equals(e.getProviderNo(), providerNo)) && demographicNos.contains(e.getDemographicNo())) {
                 demographicExtDao.removeDemographicExt(e.getId());
-                logger.info("demo: " + e.getDemographicNo() + " unexcluded from indicatorTemplate " + indicatorName);
+                logger.info("demo: {} unexcluded from indicatorTemplate {}", e.getDemographicNo(), indicatorName);
             }
         }
     }
@@ -149,7 +151,7 @@ public class ExcludeDemographicHandler {
         logger.debug("unExcludeDemoIds (json): {} matching extensions for template {}", allProviderDemoExts, indicatorName);
         for (DemographicExt e : allProviderDemoExts) {
             // remove exclusion if provider_no matches or is null and the demographic_no matches
-            if (e.getProviderNo().equals(providerNo) && demoIds.contains(e.getDemographicNo())) {
+            if ((e.getProviderNo() == null || Objects.equals(e.getProviderNo(), providerNo)) && demoIds.contains(e.getDemographicNo())) {
                 demographicExtDao.removeDemographicExt(e.getId());
                 logger.info("demo: {} unexcluded from indicatorTemplate {}", e.getDemographicNo(), indicatorName);
             }
@@ -170,15 +172,20 @@ public class ExcludeDemographicHandler {
             ArrayNode jsonArray = (ArrayNode) objectMapper.readTree(jsonString);
             List<Integer> result = new ArrayList<>();
             for (int i = 0; i < jsonArray.size(); i++) {
-                if (!jsonArray.get(i).isIntegralNumber()) {
-                    logger.warn("Non-integer element in demographic ID list at index {}", i);
+                if (!jsonArray.get(i).isIntegralNumber() || !jsonArray.get(i).canConvertToInt()) {
+                    logger.warn("Out-of-range or non-integer element in demographic ID list at index {}", i);
                     return new ArrayList<>();
                 }
-                result.add(jsonArray.get(i).asInt());
+                int demoId = jsonArray.get(i).intValue();
+                if (demoId <= 0) {
+                    logger.warn("Non-positive demographic ID element at index {}", i);
+                    return new ArrayList<>();
+                }
+                result.add(demoId);
             }
             return result;
         } catch (Exception e) {
-            logger.error("Failed to parse integer list: {}", jsonString, e);
+            logger.error("Failed to parse integer list: {}", LogSanitizer.sanitize(jsonString), e);
             return new ArrayList<>();
         }
     }

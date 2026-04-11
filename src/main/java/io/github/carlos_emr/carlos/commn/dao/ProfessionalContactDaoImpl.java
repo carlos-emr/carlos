@@ -132,11 +132,11 @@ public class ProfessionalContactDaoImpl extends AbstractDaoImpl<ProfessionalCont
             paramList.add(keyword + "%");
         }
         
-        // Validate and sanitize orderBy to prevent SQL injection
-        // lgtm[java/concatenated-sql-query] NOSONAR java:S3649 — validatedSearchMode and validatedOrderBy from allowlist maps
+        // Validate and sanitize orderBy to prevent SQL injection; both identifiers come from allowlist maps
+        // lgtm[java/concatenated-sql-query] — validatedSearchMode and validatedOrderBy come from allowlist maps; not user input
         String validatedOrderBy = validateOrderBy(orderBy);
         
-        String sql = "SELECT c from ProfessionalContact c where " + where.toString() + " order by " + validatedOrderBy;
+        String sql = "SELECT c from ProfessionalContact c where " + where.toString() + " order by " + validatedOrderBy; // NOSONAR java:S3649 — validatedOrderBy from allowlist map, not user input
 
         Query query = entityManager.createQuery(sql);
         for (int x = 0; x < paramList.size(); x++) {

@@ -110,14 +110,19 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             return null;
         }
 
-        String indicatorName = excludeDemographicHandler.getDrilldownIdentifier(
-                indicatorId);
+        String indicatorName = excludeDemographicHandler.getDrilldownIdentifier(indicatorId);
+
+        List<Integer> demoIdList = parseIntegerList(patientIdsJson);
+        if (demoIdList.isEmpty()) {
+            logger.warn("No valid patient IDs to exclude; aborting");
+            return null;
+        }
 
         excludeDemographicHandler.excludeDemoIds(patientIdsJson, indicatorName);
 
         String subject = "Patient exclusion report.";
-        String message = "Excluded patient demographic_no {" + patientIdsJson +
-                "} from indicator {" + indicatorName + "}";
+        String message = "Excluded patient demographic_no " + demoIdList +
+                " for indicator: " + indicatorName;
 
         messageHandler.notifyProvider(
                 subject,
@@ -157,6 +162,11 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         String patientIdsJson = request.getParameter("patientIds");
         List<Integer> patientIdList = parseIntegerList(patientIdsJson);
 
+        if (patientIdList.isEmpty()) {
+            logger.warn("No valid patient IDs to add to disease registry; aborting");
+            return null;
+        }
+
         String ip = request.getRemoteAddr();
         for (int patientId : patientIdList) {
             Integer drId = diseaseRegistryHandler.addToDiseaseRegistry(
@@ -169,7 +179,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
 
         String subject = "Bulk addition to disease registry report.";
         String message = "Added ICD9 code {" + icd9code +
-                "} to disease registry for patient demographic_no {" + patientIdsJson + "}" +
+                "} to disease registry for patient demographic_no " + patientIdList +
                 " with provider no {" + providerNo + "}";
 
         messageHandler.notifyProvider(subject, message, providerNo, null); //patientIdList);
@@ -219,15 +229,20 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         String patientIdsJson = request.getParameter("patientIds");
         List<Integer> patientIdList = parseIntegerList(patientIdsJson);
 
+        if (patientIdList.isEmpty()) {
+            logger.warn("No valid patient IDs to change to inactive; aborting");
+            return null;
+        }
+
         String ip = request.getRemoteAddr();
         for (int patientId : patientIdList) {
             demographicPatientStatusRosterStatusHandler.setPatientStatusInactive("" + patientId);
             LogAction.addLog(providerNo, LogConst.UPDATE, LogConst.CON_DEMOGRAPHIC, "" + patientId, ip, "" + patientId, "patient_status: IN");
         }
 
-        String subject = "Report on bulk setting of patients to inactive.";
-        String message = "Patient charts with demographic_no(s) {" + patientIdsJson +
-                "} have been set inactive by: " + loggedInInfo.getLoggedInProvider().getFormattedName();
+        String subject = "Report on bulk patient status change to inactive.";
+        String message = "Patient charts with demographic_no(s) " + patientIdList +
+                " changed to inactive by: " + loggedInInfo.getLoggedInProvider().getFormattedName();
 
         messageHandler.notifyProvider(subject, message, providerNo);
         String mrp = getMRP(loggedInInfo);
@@ -256,11 +271,16 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             ArrayNode jsonArray = (ArrayNode) objectMapper.readTree(jsonString);
             List<Integer> result = new ArrayList<>();
             for (int i = 0; i < jsonArray.size(); i++) {
-                if (!jsonArray.get(i).isIntegralNumber()) {
-                    logger.warn("Non-integer element in patient ID list at index {}", i);
+                if (!jsonArray.get(i).isIntegralNumber() || !jsonArray.get(i).canConvertToInt()) {
+                    logger.warn("Out-of-range or non-integer element in patient ID list at index {}", i);
                     return new ArrayList<>();
                 }
-                result.add(jsonArray.get(i).asInt());
+                int patientId = jsonArray.get(i).intValue();
+                if (patientId <= 0) {
+                    logger.warn("Non-positive patient ID element at index {}", i);
+                    return new ArrayList<>();
+                }
+                result.add(patientId);
             }
             return result;
         } catch (Exception e) {

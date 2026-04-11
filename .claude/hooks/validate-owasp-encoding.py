@@ -52,6 +52,7 @@ def check_jsp_unsafe_patterns(content: str) -> list[str]:
     # Safe wrappers that indicate proper encoding
     safe_wrappers = [
         r'Encode\.for\w+\s*\(',  # Encode.forHtml(), Encode.forJavaScript(), etc.
+        r'e:for\w+\s*\(',        # OWASP Encoder EL functions: ${e:forHtml()}, ${e:forHtmlAttribute()}, etc.
         r'fn:escapeXml\s*\(',    # JSTL escapeXml function
     ]
 

@@ -501,7 +501,7 @@ public class NioFileManagerImpl implements NioFileManager {
             // Get source and destination directories
             File documentDir = new File(getDocumentDirectory());
             File sourceFile = new File(tempFilePath);
-            File destinationFile = new File(documentDir, sanitizedFileName); // NOSONAR java:S2083 — filename sanitized via sanitizeFileName() and path validated by PathValidationUtils below
+            File destinationFile = new File(documentDir, sanitizedFileName); // NOSONAR java:S2083 — filename sanitized via FilenameUtils.getName() and path validated by PathValidationUtils below
 
             // Validate that source file exists and is a regular file
             if (!sourceFile.exists() || !sourceFile.isFile()) {
