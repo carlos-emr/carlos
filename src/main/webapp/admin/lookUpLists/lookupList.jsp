@@ -29,6 +29,8 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <div class="lookupListItemsWrapper">
 
@@ -68,8 +70,9 @@
                    name="lookupListItemLabel_${ lookuplist.id }" value=""/>
         </div>
         <div class="addInputButton">
+            <fmt:message key="global.btnAdd" var="btnAddLabel"/>
             <input type="button" class="addLookupListItemButton" id="addLookupListItemButton_${ lookuplist.id }"
-                   value="add">
+                   value="${btnAddLabel}">
         </div>
     </div>
 

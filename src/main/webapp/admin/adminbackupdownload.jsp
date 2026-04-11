@@ -83,14 +83,15 @@
     boolean exists = dir.exists();
 %>
 
+<fmt:setBundle basename="oscarResources"/>
 <c:set var="calendarLangKey">
   <fmt:message key="global.javascript.calendar"/>
 </c:set>
 <c:url value="/share/calendar/lang/${calendarLangKey}" var="calendarLangUrl"/>
 
-<html>
+<html lang="${pageContext.request.locale.language}">
   <head>
-    <title>Admin Backup Download</title>
+    <title><fmt:message key="admin.adminbackupdownload.title"/></title>
     <link href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"/>
     <link href="<%= request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet"/>
     <script type="text/javascript"
@@ -99,7 +100,6 @@
   </head>
   <body>
     <h3>
-      <fmt:setBundle basename="oscarResources"/>
       <fmt:message key="admin.admin.btnAdminBackupDownload"/>
     </h3>
 
@@ -107,7 +107,7 @@
       <div class="card card-body bg-body-tertiary">
         <table class="table table-striped table-sm">
           <thead>
-            <tr><th>File Name</th><th>Size</th></tr>
+            <tr><th><fmt:message key="admin.adminbackupdownload.thFileName"/></th><th><fmt:message key="admin.adminbackupdownload.thSize"/></th></tr>
           </thead>
           <tbody>
           <%
@@ -162,8 +162,7 @@
       </div>
     <% } else { %>
       <div class="alert alert-danger">
-        <strong>Warning!</strong>
-        Backup directory not found—check <i>backup_path</i> in your properties.
+        <fmt:message key="admin.adminbackupdownload.msgBackupDirNotFound"/>
       </div>
     <% } %>
   </body>

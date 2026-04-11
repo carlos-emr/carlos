@@ -29,6 +29,7 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + ","
             + (String) session.getAttribute("user");
@@ -47,21 +48,22 @@
 <%@page import="io.github.carlos_emr.carlos.web.admin.KeyManagerUIBean" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PublicKey" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
-
+<fmt:setBundle basename="oscarResources"/>
 <%@include file="/layouts/html_top.jspf" %>
 
 <h2 class="oscarBlueHeader">
-    Key Manager
+    <fmt:message key="admin.keyManager.title"/>
 </h2>
 
 <br/>
 
-<input type="button" value="Create New Key" onclick="document.location='createKey.jsp'"/>
+<fmt:message key="admin.keyManager.btnCreateNewKey" var="btnCreateNewKeyLabel"/>
+<input type="button" value="${btnCreateNewKeyLabel}" onclick="document.location='createKey.jsp'"/>
 
 <br/>
 <hr/>
 <br/>
-<div class="oscarBlueForeground">Example eData / Lab Upload url</div>
+<div class="oscarBlueForeground"><fmt:message key="admin.keyManager.sectionUploadUrl"/></div>
 <%
     String requestUrl = request.getRequestURL().toString();
     String servletPath = request.getServletPath();
@@ -71,12 +73,12 @@
 <div style="border:solid grey 1px;word-wrap:break-word;font-size:12px; width:95%"><%=Encode.forHtml(uploadUrl)%>
 </div>
 <div style="font-size:12px">
-    (You may need to change the server name / port to the externally accessible name / port of your server.)
+    <fmt:message key="admin.keyManager.msgServerNameNote"/>
 </div>
 <br/>
 <hr/>
 <br/>
-<div class="oscarBlueForeground">CARLOS Public Key (Base64 encoded)</div>
+<div class="oscarBlueForeground"><fmt:message key="admin.keyManager.sectionCarlosPublicKey"/></div>
 <div style="border:solid grey 1px;word-wrap:break-word;font-size:12px; width:95%"><%=KeyManagerUIBean.getPublicOscarKeyEscaped()%>
 </div>
 <br/>
@@ -84,6 +86,8 @@
 <br/>
 
 <script language="javascript">
+    var i18n_changesSaved = '<fmt:message key="admin.keyManager.msgChangesSaved"/>';
+
     function onSelectService() {
         var selectKeyList = document.getElementById("selectKeyList");
 
@@ -113,15 +117,15 @@
                 professionalSpecialistId: getSelectListValue(selectProfessionalSpecialistList)
             },
             function (xml) {
-                alert('Changes saved.');
+                alert(i18n_changesSaved);
             }
         );
     }
 </script>
-<div class="oscarBlueForeground">Current Public Keys</div>
+<div class="oscarBlueForeground"><fmt:message key="admin.keyManager.sectionCurrentPublicKeys"/></div>
 <table style="border-collapse:collapse; width:95%; table-layout:fixed;word-wrap:break-word;font-size:12px">
     <tr style="border:solid grey 1px">
-        <td class="oscarBlueHeader" style="width:13em">Service Name</td>
+        <td class="oscarBlueHeader" style="width:13em"><fmt:message key="admin.keyManager.thServiceName"/></td>
         <td>
             <select id="selectKeyList" onchange="onSelectService()">
                 <%
@@ -139,14 +143,14 @@
         </td>
     </tr>
     <tr style="border:solid grey 1px">
-        <td class="oscarBlueHeader">Private Service Key (Base64 encoded)</td>
+        <td class="oscarBlueHeader"><fmt:message key="admin.keyManager.thPrivateServiceKey"/></td>
         <td id="privateKey"></td>
     </tr>
     <tr style="border:solid grey 1px">
-        <td class="oscarBlueHeader">Matching Professional Specialist (optional)</td>
+        <td class="oscarBlueHeader"><fmt:message key="admin.keyManager.thMatchingSpecialist"/></td>
         <td>
             <select id="selectProfessionalSpecialistList">
-                <option value="">-- none --</option>
+                <option value=""><fmt:message key="admin.keyManager.optNone"/></option>
                 <%
                     for (ProfessionalSpecialist professionalSpecialist : KeyManagerUIBean.getProfessionalSpecialists()) {
                 %>
@@ -156,7 +160,8 @@
                     }
                 %>
             </select>
-            <input type="button" value="Update Matching Professional Specialist"
+            <fmt:message key="admin.keyManager.btnUpdateMatchingSpecialist" var="btnUpdateMatchingSpecialistLabel"/>
+            <input type="button" value="${btnUpdateMatchingSpecialistLabel}"
                    onclick="updateMatchingProcessionalSpecialist()"/>
         </td>
     </tr>

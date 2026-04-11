@@ -77,10 +77,6 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
-    java.util.ResourceBundle privResources =
-        java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
-%>
-<%
     SecRoleDao secRoleDao = SpringUtils.getBean(SecRoleDao.class);
     SecPrivilegeDao secPrivilegeDao = SpringUtils.getBean(SecPrivilegeDao.class);
     SecObjectNameDao secObjectNameDao = SpringUtils.getBean(SecObjectNameDaoImpl.class);

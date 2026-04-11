@@ -46,6 +46,7 @@
     }
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <%@ page import="java.lang.*, java.util.*, java.text.*,java.sql.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -63,12 +64,12 @@
 %>
 
 <fmt:setBundle basename="oscarResources"/>
-
-<html>
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/checkPassword.js.jsp"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityupdatesecurity.title"/></title>
+        <title><fmt:message key="admin.securityupdatesecurity.title"/></title>
         <link rel="stylesheet" type="text/css" href="bcArStyle.css">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
@@ -79,7 +80,7 @@
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
                adding a calendar a matter of 1 or 2 lines of code. -->
@@ -95,17 +96,17 @@
 
             function onsub() {
                 if (document.updatearecord.user_name.value == "") {
-                    alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formUserName"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.msgIsRequired"/>');
+                    alert('<fmt:message key="admin.securityrecord.formUserName"/> <fmt:message key="admin.securityrecord.msgIsRequired"/>');
                     setfocus('user_name');
                     return false;
                 }
                 if (document.updatearecord.user_name.value.length > 10) {
-                    alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formUserName"/>: <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.msgAtMost"/> 10 <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.msgAlphaNumeric"/>');
+                    alert('<fmt:message key="admin.securityrecord.formUserName"/>: <fmt:message key="admin.securityrecord.msgAtMost"/> 10 <fmt:message key="admin.securityrecord.msgAlphaNumeric"/>');
                     setfocus('user_name');
                     return false;
                 }
                 if (document.updatearecord.password.value == "") {
-                    alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formPassword"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.msgIsRequired"/>');
+                    alert('<fmt:message key="admin.securityrecord.formPassword"/> <fmt:message key="admin.securityrecord.msgIsRequired"/>');
                     setfocus('password');
                     return false;
                 }
@@ -114,7 +115,7 @@
                     return false;
                 }
                 if (document.forms[0].password.value != document.forms[0].conPassword.value) {
-                    alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.msgPasswordNotConfirmed"/>');
+                    alert('<fmt:message key="admin.securityrecord.msgPasswordNotConfirmed"/>');
                     setfocus('conPassword');
                     return false;
                 }
@@ -122,13 +123,13 @@
                     return false;
                 }
                 if (document.forms[0].b_ExpireSet.checked && document.forms[0].date_ExpireDate.value.length < 10) {
-                    alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formDate"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.msgIsRequired"/>');
+                    alert('<fmt:message key="admin.securityrecord.formDate"/> <fmt:message key="admin.securityrecord.msgIsRequired"/>');
                     setfocus('date_ExpireDate');
                     return false;
                 }
                 if (document.forms[0].b_RemoteLockSet.checked || document.forms[0].b_LocalLockSet.checked) {
                     if (document.forms[0].pin.value == "") {
-                        alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formPIN"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.msgIsRequired"/>');
+                        alert('<fmt:message key="admin.securityrecord.formPIN"/> <fmt:message key="admin.securityrecord.msgIsRequired"/>');
                         setfocus('pin');
                         return false;
                     }
@@ -138,7 +139,7 @@
                     return false;
                 }
                 if (document.forms[0].pin.value != document.forms[0].conPin.value) {
-                    alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.msgPinNotConfirmed"/>');
+                    alert('<fmt:message key="admin.securityrecord.msgPinNotConfirmed"/>');
                     setfocus('conPin');
                     return false;
                 }
@@ -223,7 +224,7 @@
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">
 
-                <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityupdatesecurity.description"/></font></th>
+                <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.securityupdatesecurity.description"/></font></th>
             </tr>
         </table>
         <table cellspacing="0" cellpadding="2" width="100%" border="0">
@@ -236,32 +237,32 @@
                     if (security == null) {
                 %>
                 <tr>
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityupdatesecurity.msgFailed"/></td>
+                    <td><fmt:message key="admin.securityupdatesecurity.msgFailed"/></td>
                 </tr>
                 <%
                 } else {
                 %>
                 <tr>
-                    <td width="50%" align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formUserName"/>:
+                    <td width="50%" align="right"><fmt:message key="admin.securityrecord.formUserName"/>:
                     </td>
                     <td><input type="text" name="user_name" maxlength="10"
                                value="<%= Encode.forHtmlAttribute(security.getUserName()) %>"></td>
                 </tr>
                 <tr>
-                    <td align="right" nowrap><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formPassword"/>:
+                    <td align="right" nowrap><fmt:message key="admin.securityrecord.formPassword"/>:
                     </td>
                     <td><input type="password" name="password" value="*********" maxlength="15"> <font
-                            size="-2">(<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.msgAtLeast"/>
-                        <%=op.getProperty("password_min_length")%> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.msgSymbols"/>)</font></td>
+                            size="-2">(<fmt:message key="admin.securityrecord.msgAtLeast"/>
+                        <%=op.getProperty("password_min_length")%> <fmt:message key="admin.securityrecord.msgSymbols"/>)</font></td>
                 </tr>
                 <tr>
-                    <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formConfirm"/>:
+                    <td align="right"><fmt:message key="admin.securityrecord.formConfirm"/>:
                     </td>
                     <td><input type="password" name="conPassword" value="*********" maxlength="15"></td>
                 </tr>
                 <tr>
                     <td>
-                        <div align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formProviderNo"/>:
+                        <div align="right"><fmt:message key="admin.securityrecord.formProviderNo"/>:
                         </div>
                     </td>
                     <td><%= Encode.forHtmlContent(security.getProviderNo()) %>
@@ -270,10 +271,10 @@
                 </tr>
                 <!-- new sec -->
                 <tr>
-                    <td align="right" nowrap><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formExpiryDate"/>:
+                    <td align="right" nowrap><fmt:message key="admin.securityrecord.formExpiryDate"/>:
                     </td>
                     <td><input type="checkbox" name="b_ExpireSet" value="1"
-                            <%= security.getBExpireset()==0?"":"checked" %>> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formDate"/>: <input
+                            <%= security.getBExpireset()==0?"":"checked" %>> <fmt:message key="admin.securityrecord.formDate"/>: <input
                             type="text" name="date_ExpireDate" id="date_ExpireDate"
                             value="<%=  security.getDateExpiredate() ==null?"": security.getDateExpiredate()  %>"
                             size="10" readonly/> <img src="<%= request.getContextPath() %>/images/cal.gif"
@@ -285,7 +286,7 @@
                 <tr>
                     <td align="right" nowrap>
                         <label for="b_RemoteLockSet">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formRemotePIN"/>:
+                            <fmt:message key="admin.securityrecord.formRemotePIN"/>:
                         </label>
                     </td>
                     <td>
@@ -303,15 +304,15 @@
                 </tr>
                 <!-- new sec -->
                 <tr>
-                    <td align="right" nowrap><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formPIN"/>:
+                    <td align="right" nowrap><fmt:message key="admin.securityrecord.formPIN"/>:
                     </td>
                     <td><input type="password" name="pin" value="****" <%=security.isUsingMfa() ? "disabled" : ""%> size="6" maxlength="6"> <font
-                            size="-2">(<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.msgAtLeast"/>
-                        <%=op.getProperty("password_pin_min_length")%> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.msgDigits"/>)</font>
+                            size="-2">(<fmt:message key="admin.securityrecord.msgAtLeast"/>
+                        <%=op.getProperty("password_pin_min_length")%> <fmt:message key="admin.securityrecord.msgDigits"/>)</font>
                     </td>
                 </tr>
                 <tr>
-                    <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formConfirm"/>:
+                    <td align="right"><fmt:message key="admin.securityrecord.formConfirm"/>:
                     </td>
                     <td><input type="password" name="conPin" value="****" <%=security.isUsingMfa() ? "disabled" : ""%> size="6" maxlength="6" /></td>
                 </tr>
@@ -322,7 +323,7 @@
                     if (!CarlosProperties.getInstance().getBooleanProperty("mandatory_password_reset", "false")) {
                 %>
                 <tr>
-                    <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.forcePasswordReset"/>:
+                    <td align="right"><fmt:message key="admin.provider.forcePasswordReset"/>:
                     </td>
                     <td>
                         <select name="forcePasswordReset">
@@ -374,9 +375,11 @@
                 <tr>
                     <td colspan="2" align="center">
                         <input type="hidden" name="security_no" value="<%= Encode.forHtmlAttribute(String.valueOf(security.getSecurityNo())) %>">
+                        <fmt:message var="btnSubmit" key="admin.securityupdatesecurity.btnSubmit"/>
+                        <fmt:message var="btnDelete" key="admin.securityupdatesecurity.btnDelete"/>
                         <input type="submit" name="subbutton"
-                               value='<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityupdatesecurity.btnSubmit"/>'>
-                        <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityupdatesecurity.btnDelete"/>"
+                               value="${e:forHtmlAttribute(btnSubmit)}">
+                        <input type="button" value="${e:forHtmlAttribute(btnDelete)}"
                                onclick="document.getElementById('deleteSecurityForm').submit()">
                     </td>
                 </tr>

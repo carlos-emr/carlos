@@ -6,6 +6,9 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib prefix = "c" uri = "jakarta.tags.core" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
       String roleName2$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 	boolean authed=true;
@@ -22,14 +25,14 @@ if(!authed) {
 <table class="table table-striped table-hover table-sm" id="content">
 	<thead>
 		<tr>
-			<th class="small">Type</th>
-			<th class="small">User</th>
-			<th class="small">Patient</th>
-			<th class="small">Recipient</th>
-			<th class="small">Status</th>
-			<th class="small">Status Message</th>
-			<th class="small">Date</th>
-			<th class="small">Action</th>
+			<th class="small"><fmt:message key="admin.faxStatusResults.thType"/></th>
+			<th class="small"><fmt:message key="admin.faxStatusResults.thUser"/></th>
+			<th class="small"><fmt:message key="admin.faxStatusResults.thPatient"/></th>
+			<th class="small"><fmt:message key="admin.faxStatusResults.thRecipient"/></th>
+			<th class="small"><fmt:message key="admin.faxStatusResults.thStatus"/></th>
+			<th class="small"><fmt:message key="admin.faxStatusResults.thStatusMessage"/></th>
+			<th class="small"><fmt:message key="admin.faxStatusResults.thDate"/></th>
+			<th class="small"><fmt:message key="admin.faxStatusResults.thAction"/></th>
 		</tr>
 	</thead>
 	<tbody>
@@ -111,7 +114,9 @@ if(!authed) {
 			<td class="small"><%=DateFormatUtils.format(faxJob.getStamp(), "yyyy-MM-dd HH:mm:ss")%></td>
 			<td class="small">
 <div class="btn-group">
-				<button class="btn btn-link btn-view" title="Open a preview image of this fax" onclick="view(<%=faxJob.getId()%>)">view</button>
+				<fmt:message var="tooltipView" key="admin.faxStatusResults.tooltipView"/>
+				<fmt:message var="btnViewLabel" key="admin.faxStatusResults.btnView"/>
+				<button class="btn btn-link btn-view" title="${e:forHtmlAttribute(tooltipView)}" onclick="view(<%=faxJob.getId()%>)">${e:forHtml(btnViewLabel)}</button>
 <%
 			if( ! FaxJob.STATUS.RECEIVED.equals(faxJob.getStatus()) ) {			    
 			    
@@ -119,14 +124,18 @@ if(!authed) {
 					if(FaxManager.isEnabled()) {
 %>			    
 						<security:oscarSec roleName="<%=roleName2$%>" objectName="_admin" rights="r" reverse="<%=false%>">
-							<button class="btn btn-link btn-resend" title="Re-send this fax to the fax gateway service for delivery" id="resend_<%=faxJob.getId()%>" onclick="resend(<%=faxJob.getId()%>,'<%=faxJob.getDestination()%>','status<%=count%>')">resend</button>
+							<fmt:message var="tooltipResend" key="admin.faxStatusResults.tooltipResend"/>
+							<fmt:message var="btnResendLabel" key="admin.faxStatusResults.btnResend"/>
+							<button class="btn btn-link btn-resend" title="${e:forHtmlAttribute(tooltipResend)}" id="resend_<%=faxJob.getId()%>" onclick="resend(<%=faxJob.getId()%>,'<%=faxJob.getDestination()%>','status<%=count%>')">${e:forHtml(btnResendLabel)}</button>
 						</security:oscarSec>						
 <%
 					}
 					if( faxJob.getStatus().equals(FaxJob.STATUS.ERROR) ) {
 %>
 							<security:oscarSec roleName="<%=roleName2$%>" objectName="_admin" rights="r" reverse="<%=false%>">
-								<button class="btn btn-link btn-complete" title="Clear the error status of this fax" id="complete_<%=faxJob.getId()%>" onclick="complete(<%=faxJob.getId()%>,'status<%=count%>')">resolve</button>
+								<fmt:message var="tooltipResolve" key="admin.faxStatusResults.tooltipResolve"/>
+								<fmt:message var="btnResolveLabel" key="admin.faxStatusResults.btnResolve"/>
+								<button class="btn btn-link btn-complete" title="${e:forHtmlAttribute(tooltipResolve)}" id="complete_<%=faxJob.getId()%>" onclick="complete(<%=faxJob.getId()%>,'status<%=count%>')">${e:forHtml(btnResolveLabel)}</button>
 							</security:oscarSec>						
 <%					    
 					}
@@ -134,7 +143,9 @@ if(!authed) {
 				else if( FaxJob.STATUS.SENT.equals(faxJob.getStatus())  || FaxJob.STATUS.WAITING.equals(faxJob.getStatus())) {
 %>
 				<security:oscarSec roleName="<%=roleName2$%>" objectName="_admin" rights="r" reverse="<%=false%>">
-					<button class="btn btn-link btn-cancel" title="Cancel this fax before it is sent to the destination by the fax gateway service" id="cancel_<%=faxJob.getId()%>" onclick="cancel(<%=faxJob.getId()%>,'status<%=count%>')">cancel</button>
+					<fmt:message var="tooltipCancel" key="admin.faxStatusResults.tooltipCancel"/>
+					<fmt:message var="btnCancelLabel" key="admin.faxStatusResults.btnCancel"/>
+					<button class="btn btn-link btn-cancel" title="${e:forHtmlAttribute(tooltipCancel)}" id="cancel_<%=faxJob.getId()%>" onclick="cancel(<%=faxJob.getId()%>,'status<%=count%>')">${e:forHtml(btnCancelLabel)}</button>
 				</security:oscarSec>						
 
 <%

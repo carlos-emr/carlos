@@ -32,10 +32,11 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
-<html>
+<html lang="${pageContext.request.locale.language}">
 <head>
-    <title>Look-Up List Manager</title>
+    <title><fmt:message key="admin.lookUpListsIndex.title"/></title>
 
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
@@ -229,7 +230,7 @@
 <body id="lookUpListManager">
 <header>
     <h1 class="pageTitle">
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.lookuplists.title"/>
+        <fmt:message key="admin.admin.lookuplists.title"/>
     </h1>
 </header>
 

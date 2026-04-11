@@ -38,10 +38,6 @@
 <%@ page
         import="java.sql.*, java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.SxmlMisc, io.github.carlos_emr.carlos.providers.data.ProviderBillCenter"
         errorPage="/errorpage.jsp" %>
-<%
-    java.util.ResourceBundle clinicNbrResources =
-        java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
-%>
 <fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">

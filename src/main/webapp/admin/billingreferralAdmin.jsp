@@ -22,15 +22,11 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
-"http://www.w3.org/TR/html4/loose.dtd">
 <%@page import="org.owasp.encoder.Encode" %>
 <%@ include file="/taglibs.jsp" %>
-<%
-    java.util.ResourceBundle billingRefResources =
-        java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
-%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -56,8 +52,11 @@
     Boolean checked = (Boolean) request.getAttribute("showHidden");
 %>
 <fmt:setBundle basename="oscarResources"/>
+<!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
     <head>
+        <fmt:message key="admin.billingreferralAdmin.msgProcessing" var="i18nMsgProcessing"/>
+        <fmt:message key="admin.billingreferralAdmin.labelNone" var="i18nLabelNone"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="admin.billingreferralAdmin.title"/></title>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
@@ -111,7 +110,7 @@
 
             function printAllCheckedLabels() {
                 $("#checked_items_tbl tbody tr").remove();
-                $("#checked_items_tbl tbody").append("<tr><td><%= Encode.forJavaScript(billingRefResources.getString("admin.billingreferralAdmin.msgProcessing")) %></td></tr>");
+                $("#checked_items_tbl tbody").append("<tr><td>${e:forJavaScript(i18nMsgProcessing)}</td></tr>");
                 location.href = '<%=request.getContextPath() %>/printReferralLabelAction.do?useCheckList=true';
             }
 
@@ -119,7 +118,7 @@
                 $("#checked_items_tbl tbody tr").remove();
 
                 if (data == null || data.length == 0) {
-                    $("#checked_items_tbl tbody").append("<tr><td><%= Encode.forJavaScript(billingRefResources.getString("admin.billingreferralAdmin.labelNone")) %></td></tr>");
+                    $("#checked_items_tbl tbody").append("<tr><td>${e:forJavaScript(i18nLabelNone)}</td></tr>");
                 }
                 for (var x = 0; x < data.length; x++) {
                     $("#checked_items_tbl tbody").append("<tr><td>" + data[x].formattedName + "</td></tr>");

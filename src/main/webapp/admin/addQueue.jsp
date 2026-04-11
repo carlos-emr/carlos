@@ -29,20 +29,15 @@
 
 --%>
 
-<fmt:setBundle basename="oscarResources"/>
-<!DOCTYPE html>
-
-<%@page import="io.github.carlos_emr.carlos.providers.data.*,java.util.*,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-<%
-    java.util.ResourceBundle addQueueResources =
-        java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
-%>
-
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@page import="io.github.carlos_emr.carlos.providers.data.*,java.util.*,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<fmt:setBundle basename="oscarResources"/>
+<!DOCTYPE html>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -117,16 +112,24 @@
  
 </body>
 
+<fmt:message key="admin.addQueue.docTitle" var="i18nDocTitle"/>
+<fmt:message key="admin.addQueue.jsMsgCannotOverwriteDefault" var="i18nErrCannotOverwriteDefault"/>
+<fmt:message key="admin.addQueue.jsMsgSuccessAdded" var="i18nSuccessAdded"/>
+<fmt:message key="admin.addQueue.jsMsgNotAdded" var="i18nErrNotAdded"/>
+<fmt:message key="admin.addQueue.jsMsgNotAddedSupport" var="i18nErrNotAddedSupport"/>
+<fmt:message key="admin.addQueue.jsMsgNameEmpty" var="i18nErrNameEmpty"/>
+<fmt:message key="admin.addQueue.jsLabelError" var="i18nLabelError"/>
+<fmt:message key="admin.addQueue.jsLabelSuccess" var="i18nLabelSuccess"/>
 <script type="text/javascript">
     var i18n = {
-        docTitle: '<%= Encode.forJavaScript(addQueueResources.getString("admin.addQueue.docTitle")) %>',
-        errCannotOverwriteDefault: '<%= Encode.forJavaScript(addQueueResources.getString("admin.addQueue.jsMsgCannotOverwriteDefault")) %>',
-        successAdded: '<%= Encode.forJavaScript(addQueueResources.getString("admin.addQueue.jsMsgSuccessAdded")) %>',
-        errNotAdded: '<%= Encode.forJavaScript(addQueueResources.getString("admin.addQueue.jsMsgNotAdded")) %>',
-        errNotAddedSupport: '<%= Encode.forJavaScript(addQueueResources.getString("admin.addQueue.jsMsgNotAddedSupport")) %>',
-        errNameEmpty: '<%= Encode.forJavaScript(addQueueResources.getString("admin.addQueue.jsMsgNameEmpty")) %>',
-        labelError: '<%= Encode.forJavaScript(addQueueResources.getString("admin.addQueue.jsLabelError")) %>',
-        labelSuccess: '<%= Encode.forJavaScript(addQueueResources.getString("admin.addQueue.jsLabelSuccess")) %>'
+        docTitle: '${e:forJavaScript(i18nDocTitle)}',
+        errCannotOverwriteDefault: '${e:forJavaScript(i18nErrCannotOverwriteDefault)}',
+        successAdded: '${e:forJavaScript(i18nSuccessAdded)}',
+        errNotAdded: '${e:forJavaScript(i18nErrNotAdded)}',
+        errNotAddedSupport: '${e:forJavaScript(i18nErrNotAddedSupport)}',
+        errNameEmpty: '${e:forJavaScript(i18nErrNameEmpty)}',
+        labelError: '${e:forJavaScript(i18nLabelError)}',
+        labelSuccess: '${e:forJavaScript(i18nLabelSuccess)}'
     };
 
     var pageTitle = document.title;

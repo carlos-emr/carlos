@@ -1,31 +1,34 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:forEach items="${ emailStatusResults }" var="emailStatusResult" varStatus="loop">
 <!-- Email Card -->
 <div class="card email-status-card mt-1">
     <div class="card-body vertical-status-divider vertical-status-divider-${fn:toLowerCase(emailStatusResult.status)}" id="cardBody${emailStatusResult.logId}">
         <table class="email-info-table table table-borderless">
             <tr>
-                <th>Subject</th>
-                <td><c:out value="${ emailStatusResult.subject }"/></td>                      
+                <th><fmt:message key="admin.emailStatusResults.thSubject"/></th>
+                <td><c:out value="${ emailStatusResult.subject }"/></td>
             </tr>
             <tr>
-                <th>From</th>
+                <th><fmt:message key="admin.emailStatusResults.thFrom"/></th>
                 <td><c:out value="${ emailStatusResult.senderFullName }"/> &lt;<c:out value="${ emailStatusResult.senderEmail }"/>&gt;</td>
             </tr>
             <tr>
-                <th>To</th>
+                <th><fmt:message key="admin.emailStatusResults.thTo"/></th>
                 <td><c:out value="${ emailStatusResult.recipientFullName }"/> &lt;<c:out value="${ emailStatusResult.recipientEmail }"/>&gt;</td>
             </tr>
             <tr>
-                <th>Encryption</th>
+                <th><fmt:message key="admin.emailStatusResults.thEncryption"/></th>
                 <td>
                 <c:choose>
                     <c:when test="${emailStatusResult.isEncrypted}">
-                        <i class="fa-solid fa-lock"></i> Encrypted with password <b><c:out value="${ emailStatusResult.password }"/></b>
+                        <i class="fa-solid fa-lock"></i> <fmt:message key="admin.emailStatusResults.msgEncryptedWithPassword"/> <b><c:out value="${ emailStatusResult.password }"/></b>
                     </c:when>
                     <c:otherwise>
-                        <i class="fa-solid fa-unlock"></i> Unencrypted
+                        <i class="fa-solid fa-unlock"></i> <fmt:message key="admin.emailStatusResults.msgUnencrypted"/>
                     </c:otherwise>
                 </c:choose>
                 </td>
@@ -48,9 +51,9 @@
                 </td>
                 <td class="action-menu">
                     <c:if test="${emailStatusResult.status eq 'FAILED'}">
-                        <button type="button" class="btn btn-outline-secondary btnResolve" id="btnResolve${emailStatusResult.logId}" onclick="resolve('${emailStatusResult.logId}')"><i class="fa-solid fa-circle-check"></i> Resolve</button>
+                        <button type="button" class="btn btn-outline-secondary btnResolve" id="btnResolve${emailStatusResult.logId}" onclick="resolve('${emailStatusResult.logId}')"><i class="fa-solid fa-circle-check"></i> <fmt:message key="admin.emailStatusResults.btnResolve"/></button>
                     </c:if>
-                    <button type="button" class="btn btn-success btnResend" id="btnResend${emailStatusResult.logId}" onclick="resend('${emailStatusResult.logId}')"><i class="fa-solid fa-envelope"></i> Copy and Open as New Email to Patient</button>
+                    <button type="button" class="btn btn-success btnResend" id="btnResend${emailStatusResult.logId}" onclick="resend('${emailStatusResult.logId}')"><i class="fa-solid fa-envelope"></i> <fmt:message key="admin.emailStatusResults.btnCopyAndOpen"/></button>
                 </td>
             </tr>
         </table>

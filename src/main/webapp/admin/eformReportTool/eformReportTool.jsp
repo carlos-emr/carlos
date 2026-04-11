@@ -46,7 +46,8 @@
     }
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -58,11 +59,11 @@
             .getLoggedInInfoFromSession(request);
     Provider provider = loggedInInfo.getLoggedInProvider();
 %>
-<html>
+<html lang="${pageContext.request.locale.language}">
     <head>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <script src="<%=request.getContextPath()%>/js/global.js"></script>
-        <title>CARLOS Products</title>
+        <title><fmt:message key="admin.eformReportTool.title"/></title>
         <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <link href="<%=request.getContextPath()%>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
 
@@ -82,6 +83,13 @@
 
 
         <script>
+            // i18n labels
+            var i18nEft = {
+                save: '<fmt:message key="global.btnSave"/>',
+                cancel: '<fmt:message key="global.btnCancel"/>',
+                confirmRemove: '<fmt:message key="admin.eformReportTool.msgConfirmRemove"/>'
+            };
+
             $(document)
                 .ready(
                     function () {
@@ -93,71 +101,51 @@
 
                         });
 
-                        $("#new-report")
-                            .dialog(
-                                {
-                                    autoOpen: false,
-                                    height: 450,
-                                    width: 800,
-                                    modal: true,
-                                    buttons: {
-                                        "Add": {
-                                            class: "btn btn-primary",
-                                            text: "Save",
-                                            click: function () {
-                                                var e = {
-                                                    name: $(
-                                                        "#eformReportToolName")
-                                                        .val(),
-                                                    eformId: $(
-                                                        "#eformReportToolEformId")
-                                                        .val()
-                                                };
-
-                                                if ($(
-                                                        "#eformExpiryDate")
-                                                        .val() != null
-                                                    && $(
-                                                        "#eformExpiryDate")
-                                                        .val()
-                                                        .length > 0) {
-                                                    e.expiryDateString = $(
-                                                        "#eformExpiryDate")
-                                                        .val();
-                                                }
-
-                                                $.ajax({
-                                                        url: '${pageContext.request.contextPath}/ws/rs/reporting/eformReportTool/add',
-                                                        type: 'POST',
-                                                        data: JSON
-                                                            .stringify(e),
-                                                        contentType: "application/json; charset=utf-8",
-                                                        dataType: 'json',
-                                                        success: function (data) {
-                                                            listReports();
-                                                        },
-                                                        error: function (xhr, status, error) {
-                                                            alert('Error: ' + error + '\nHTTP Status: ' + xhr.status);
-                                                        }
-                                                    });
-
-                                                $(this).dialog("close");
-
-                                            }
-                                        },
-                                        Cancel: {
-                                            class: "btn",
-                                            text: "Cancel",
-                                            click: function () {
-
-                                                $(this).dialog("close");
-                                            }
-                                        }
+                        var newReportButtons = {};
+                        newReportButtons[i18nEft.save] = {
+                            class: "btn btn-primary",
+                            text: i18nEft.save,
+                            click: function () {
+                                var e = {
+                                    name: $("#eformReportToolName").val(),
+                                    eformId: $("#eformReportToolEformId").val()
+                                };
+                                if ($("#eformExpiryDate").val() != null && $("#eformExpiryDate").val().length > 0) {
+                                    e.expiryDateString = $("#eformExpiryDate").val();
+                                }
+                                $.ajax({
+                                    url: '${pageContext.request.contextPath}/ws/rs/reporting/eformReportTool/add',
+                                    type: 'POST',
+                                    data: JSON.stringify(e),
+                                    contentType: "application/json; charset=utf-8",
+                                    dataType: 'json',
+                                    success: function (data) {
+                                        listReports();
                                     },
-                                    close: function () {
-
+                                    error: function (xhr, status, error) {
+                                        alert('Error: ' + error + '\nHTTP Status: ' + xhr.status);
                                     }
                                 });
+                                $(this).dialog("close");
+                            }
+                        };
+                        newReportButtons[i18nEft.cancel] = {
+                            class: "btn",
+                            text: i18nEft.cancel,
+                            click: function () {
+                                $(this).dialog("close");
+                            }
+                        };
+
+                        $("#new-report").dialog({
+                            autoOpen: false,
+                            height: 450,
+                            width: 800,
+                            modal: true,
+                            buttons: newReportButtons,
+                            close: function () {
+                            }
+                        });
 
                     });
 
@@ -216,7 +204,7 @@
             }
 
             function removeItem(eftId) {
-                if (confirm("Are you sure? This will delete your temporary table")) {
+                if (confirm(i18nEft.confirmRemove)) {
                     var e = {
                         id: eftId
                     };
@@ -308,31 +296,32 @@
     </head>
 
     <body class="BodyStyle">
-    <h4>EForm Reporting Tool</h4>
+    <h4><fmt:message key="admin.eformReportTool.title"/></h4>
 
 
     <!--  display list of existing tables made, with ability to delete any one of them -->
     <table id="listTable" class="table table-striped table-hover table-sm" style="width: 100%;">
         <thead>
         <th>&nbsp;</th>
-        <th>Name</th>
-        <th>Table Name</th>
-        <th>Eform Name</th>
-        <th>Created</th>
-        <th>Expires</th>
-        <th>Last Populated</th>
-        <th>Latest Marked</th>
-        <th># of Records</th>
+        <th><fmt:message key="admin.eformReportTool.thName"/></th>
+        <th><fmt:message key="admin.eformReportTool.thTableName"/></th>
+        <th><fmt:message key="admin.eformReportTool.thEformName"/></th>
+        <th><fmt:message key="admin.eformReportTool.thCreated"/></th>
+        <th><fmt:message key="admin.eformReportTool.thExpires"/></th>
+        <th><fmt:message key="admin.eformReportTool.thLastPopulated"/></th>
+        <th><fmt:message key="admin.eformReportTool.thLatestMarked"/></th>
+        <th><fmt:message key="admin.eformReportTool.thNumRecords"/></th>
         </thead>
         <tbody></tbody>
     </table>
 
     <!-- button to add new  -->
-    <button id="btnAdd" class="btn btn-secondary">Add New</button>
+    <button id="btnAdd" class="btn btn-secondary"><fmt:message key="admin.eformReportTool.btnAddNew"/></button>
 
     <!-- add new should show form with name, eform name, and expiry date -->
 
-    <div id="new-report" title="Create new OSCAR EForm Report table">
+    <fmt:message var="dialogTitleNewReport" key="admin.eformReportTool.dialogTitleNewReport"/>
+    <div id="new-report" title="${e:forHtmlAttribute(dialogTitleNewReport)}">
         <p class="validateTips"></p>
 
         <form id="reportForm">
@@ -340,8 +329,7 @@
             <div>
                 <div class="d-flex gap-2">
                     <div class="mb-3 col-md-8" id="group1">
-                        <label class="form-label" for="eformReportToolEformId">Choose
-                            EForm:</label>
+                        <label class="form-label" for="eformReportToolEformId"><fmt:message key="admin.eformReportTool.labelChooseEform"/></label>
                         <div>
                             <select id="eformReportToolEformId"
                                     name="eformReportTool.eformId">
@@ -352,7 +340,7 @@
                 </div>
                 <div class="d-flex gap-2">
                     <div class="mb-3 col-md-8" id="group2">
-                        <label class="form-label" for="eformReportToolName">Name:</label>
+                        <label class="form-label" for="eformReportToolName"><fmt:message key="admin.eformReportTool.labelName"/></label>
                         <div>
                             <input type="text" name="eformReportTool.name"
                                    id="eformReportToolName"/>
@@ -364,8 +352,7 @@
                 <div class="d-flex gap-2">
 
                     <div class="mb-3 col-md-8" id="group3">
-                        <label class="form-label" for="eformExpiryDate">Expiry
-                            Date:</label>
+                        <label class="form-label" for="eformExpiryDate"><fmt:message key="admin.eformReportTool.labelExpiryDate"/></label>
                         <div>
                             <input type="text" name="eformReportTool.expiryDate"
                                    id="eformExpiryDate" value=""/>

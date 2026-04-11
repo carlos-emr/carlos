@@ -47,15 +47,16 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%
-    java.util.ResourceBundle drugrefResources =
-        java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
-%>
-
 
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 <fmt:setBundle basename="oscarResources"/>
+
+<fmt:message key="admin.updateDrugref.jsMsgNotUpdated" var="jsMsgNotUpdated"/>
+<fmt:message key="admin.updateDrugref.jsMsgUpdating" var="jsMsgUpdating"/>
+<fmt:message key="admin.updateDrugref.jsMsgUpdateStarted" var="jsMsgUpdateStarted"/>
+<fmt:message key="admin.updateDrugref.jsMsgAlreadyUpdating" var="jsMsgAlreadyUpdating"/>
 
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
@@ -66,10 +67,10 @@
 
         <script>
             var i18n = {
-                msgNotUpdated: '<%= Encode.forJavaScript(drugrefResources.getString("admin.updateDrugref.jsMsgNotUpdated")) %>',
-                msgUpdating: '<%= Encode.forJavaScript(drugrefResources.getString("admin.updateDrugref.jsMsgUpdating")) %>',
-                msgUpdateStarted: '<%= Encode.forJavaScript(drugrefResources.getString("admin.updateDrugref.jsMsgUpdateStarted")) %>',
-                msgAlreadyUpdating: '<%= Encode.forJavaScript(drugrefResources.getString("admin.updateDrugref.jsMsgAlreadyUpdating")) %>'
+                msgNotUpdated: '${e:forJavaScript(jsMsgNotUpdated)}',
+                msgUpdating: '${e:forJavaScript(jsMsgUpdating)}',
+                msgUpdateStarted: '${e:forJavaScript(jsMsgUpdateStarted)}',
+                msgAlreadyUpdating: '${e:forJavaScript(jsMsgAlreadyUpdating)}'
             };
 
             function getCsrfToken() {

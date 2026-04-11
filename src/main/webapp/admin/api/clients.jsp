@@ -47,15 +47,16 @@
     }
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
-<html>
+<html lang="${pageContext.request.locale.language}">
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Manage REST Clients (OAuth)</title>
+        <title><fmt:message key="admin.clients.title"/></title>
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <link href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
@@ -146,46 +147,51 @@
                     }, "json");
             }
 
+            // i18n button labels
+            var i18n = {
+                addClient: '<fmt:message key="admin.clients.btnAddClient"/>',
+                cancel: '<fmt:message key="global.btnCancel"/>'
+            };
+
             $(document).ready(function () {
                 listClients();
                 listTokens();
+
+                var dialogButtons = {};
+                dialogButtons[i18n.addClient] = function () {
+                    $(this).dialog("close");
+                    var name = $("#clientName").val();
+                    var uri = $("#clientURI").val();
+                    var lifetime = $("#lifetime").val();
+                    jQuery.post("clientManage.json",
+                        {
+                            method: "add",
+                            name: name,
+                            uri: uri,
+                            lifetime: lifetime
+                        },
+                        function (xml) {
+                            if (xml.success) {
+                                $("#clientName").val('');
+                                $("#clientURI").val('');
+                                $("#lifetime").val('');
+                                listClients();
+                            } else {
+                                alert(xml.error);
+                            }
+                        }, "json");
+                };
+                dialogButtons[i18n.cancel] = function () {
+                    $(this).dialog("close");
+                };
 
                 $("#new-form").dialog({
                     autoOpen: false,
                     height: 400,
                     width: 450,
                     modal: true,
-                    buttons: {
-                        "Add Client": function () {
-                            $(this).dialog("close");
-                            var name = $("#clientName").val();
-                            var uri = $("#clientURI").val();
-                            var lifetime = $("#lifetime").val();
-                            jQuery.post("clientManage.json",
-                                {
-                                    method: "add",
-                                    name: name,
-                                    uri: uri,
-                                    lifetime: lifetime
-                                },
-                                function (xml) {
-                                    if (xml.success) {
-                                        $("#clientName").val('');
-                                        $("#clientURI").val('');
-                                        $("#lifetime").val('');
-                                        listClients();
-                                    } else {
-                                        alert(xml.error);
-                                    }
-                                }, "json");
-
-                        },
-                        Cancel: function () {
-                            $(this).dialog("close");
-                        }
-                    },
+                    buttons: dialogButtons,
                     close: function () {
-
                     }
                 });
 
@@ -194,36 +200,37 @@
     </head>
 
     <body vlink="#0000FF" class="BodyStyle">
-    <h4>Manage Clients</h4>
+    <h4><fmt:message key="admin.clients.sectionClients"/></h4>
     <table id="clientTable" name="clientTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
-            <th>Name</th>
-            <th>Client Key</th>
-            <th>Client Secret</th>
-            <th>URI</td>
-            <th>Token TTL</td>
-            <th>Actions</th>
+            <th><fmt:message key="admin.clients.thName"/></th>
+            <th><fmt:message key="admin.clients.thClientKey"/></th>
+            <th><fmt:message key="admin.clients.thClientSecret"/></th>
+            <th><fmt:message key="admin.clients.thUri"/></th>
+            <th><fmt:message key="admin.clients.thTokenTtl"/></th>
+            <th><fmt:message key="admin.clients.thActions"/></th>
         </tr>
         </thead>
         <tbody></tbody>
     </table>
-    <input type="button" class="btn btn-primary" value="Add New" onClick="addNewClient()"/>
+    <fmt:message var="btnAddNewLabel" key="admin.clients.btnAddNew"/>
+    <input type="button" class="btn btn-primary" value="${e:forHtmlAttribute(btnAddNewLabel)}" onClick="addNewClient()"/>
     <%
         String thisUrl = request.getRequestURL().toString();
         String contextPath = request.getContextPath();
         String here = thisUrl.substring(0, thisUrl.indexOf(contextPath) + contextPath.length());
     %>
     <hr/>
-    <h4>Tokens</h4>
+    <h4><fmt:message key="admin.clients.sectionTokens"/></h4>
     <table id="tokenTable" name="tokenTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
-            <th>ID</th>
-            <th>TTL (seconds)</th>
-            <th>Issued</th>
-            <th>Provider</td>
-            <th>Actions</th>
+            <th><fmt:message key="admin.clients.thId"/></th>
+            <th><fmt:message key="admin.clients.thTtlSeconds"/></th>
+            <th><fmt:message key="admin.clients.thIssued"/></th>
+            <th><fmt:message key="admin.clients.thProvider"/></th>
+            <th><fmt:message key="admin.clients.thActions"/></th>
         </tr>
         </thead>
         <tbody></tbody>
@@ -232,37 +239,38 @@
     <hr/>
     <table class="table table-bordered table-striped table-hover table-sm">
         <tr>
-            <td>Temporary Credential Request:</td>
+            <td><fmt:message key="admin.clients.labelTempCredRequest"/></td>
             <td><%=Encode.forHtml(here)%>/ws/oauth/initiate</td>
         </tr>
         <tr>
-            <td>Resource Owner Authorization URI:</td>
+            <td><fmt:message key="admin.clients.labelResourceOwnerUri"/></td>
             <td><%=Encode.forHtml(here)%>/ws/oauth/authorize</td>
         </tr>
         <tr>
-            <td>Token Request URI:</td>
+            <td><fmt:message key="admin.clients.labelTokenRequestUri"/></td>
             <td><%=Encode.forHtml(here)%>/ws/oauth/token</td>
         </tr>
     </table>
 
-    <div id="new-form" title="Create Client">
+    <fmt:message var="dialogCreateClient" key="admin.clients.dialogTitleCreateClient"/>
+    <div id="new-form" title="${e:forHtmlAttribute(dialogCreateClient)}">
         <p class="validateTips"></p>
         <form>
             <fieldset>
                 <div class="mb-3">
-                    <label class="form-label" for="clientName">Name:</label>
+                    <label class="form-label" for="clientName"><fmt:message key="admin.clients.labelName"/></label>
                     <div>
                         <input type="text" name="clientName" id="clientName"/>
                     </div>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label" for="clientURI">URI:</label>
+                    <label class="form-label" for="clientURI"><fmt:message key="admin.clients.labelUri"/></label>
                     <div>
                         <input type="text" name="clientURI" id="clientURI"/>
                     </div>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label" for="lifetime">Token Lifetime (seconds):</label>
+                    <label class="form-label" for="lifetime"><fmt:message key="admin.clients.labelTokenLifetime"/></label>
                     <div>
                         <input type="text" name="lifetime" id="lifetime"/>
                     </div>

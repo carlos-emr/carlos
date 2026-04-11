@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -33,7 +32,9 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -71,26 +72,30 @@
     if (outcome != null) {
         if (outcome.equals("success")) {
 %>
+<fmt:message key="admin.demographicmergerecord.jsMsgMergeSuccess" var="jsMsgMergeSuccess"/>
 <script language="JavaScript">
-    alert("Records merged successfully");
+    alert('${e:forJavaScript(jsMsgMergeSuccess)}');
 </script>
 <%
 } else if (outcome.equals("failure")) {
 %>
+<fmt:message key="admin.demographicmergerecord.jsMsgMergeFailure" var="jsMsgMergeFailure"/>
 <script language="JavaScript">
-    alert("Failed to merge records");
+    alert('${e:forJavaScript(jsMsgMergeFailure)}');
 </script>
 <%
 } else if (outcome.equals("successUnMerge")) {
 %>
+<fmt:message key="admin.demographicmergerecord.jsMsgUnmergeSuccess" var="jsMsgUnmergeSuccess"/>
 <script language="JavaScript">
-    alert("Record(s) unmerged successfully");
+    alert('${e:forJavaScript(jsMsgUnmergeSuccess)}');
 </script>
 <%
 } else if (outcome.equals("failureUnMerge")) {
 %>
+<fmt:message key="admin.demographicmergerecord.jsMsgUnmergeFailure" var="jsMsgUnmergeFailure"/>
 <script language="JavaScript">
-    alert("Failed to unmerge records");
+    alert('${e:forJavaScript(jsMsgUnmergeFailure)}');
 </script>
 <%
         }
@@ -130,10 +135,13 @@
 
 %>
 
-<html>
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mergeRec"/></title>
+    <title><fmt:message key="admin.admin.mergeRec"/></title>
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+    <fmt:message key="admin.demographicmergerecord.jsMsgDateFormat" var="i18nMsgDateFormat"/>
+    <fmt:message key="admin.demographicmergerecord.jsConfirmMerge" var="i18nConfirmMerge"/>
     <script language="JavaScript">
         function setfocus() {
             document.titlesearch.keyword.focus();
@@ -155,7 +163,7 @@
                         + dob.value.substring(6, 8);
                 }
                 if (dob.value.length != 10 || dob.value.indexOf(' ') > 0) {
-                    alert("Please format the date as yyyy-mm-dd");
+                    alert("${e:forJavaScript(i18nMsgDateFormat)}");
                     typeInOK = false;
                 }
                 return typeInOK;
@@ -165,7 +173,7 @@
         }
 
         function confirmMerge() {
-            const message = "You are about to merge duplicate patient records. This action is permanent and cannot be undone. Do you want to proceed?";
+            const message = "${e:forJavaScript(i18nConfirmMerge)}";
             const userConfirmed = confirm(message);
             if (!userConfirmed) {
                 return false;
@@ -199,36 +207,38 @@
 </head>
 <body onLoad="setfocus()">
 <div class="container-fluid card card-body bg-body-tertiary">
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mergeRec"/></h3>
+    <h3><fmt:message key="admin.admin.mergeRec"/></h3>
 
     <form method="post" name="titlesearch" action="demographicmergerecord.jsp" class="d-flex flex-wrap align-items-center gap-2"
           onSubmit="return checkTypeIn()">
 
-        Search:
+        <fmt:message key="admin.demographicmergerecord.labelSearch"/>:
 
         <input type="radio" name="search_mode" value="search_name" <%=searchMode.equals("search_name")?"checked":""%> >
-        Name
+        <fmt:message key="admin.demographicmergerecord.optName"/>
         <input type="radio" name="search_mode"
-               value="search_phone" <%=searchMode.equals("search_phone")?"checked":""%>    > Phone
+               value="search_phone" <%=searchMode.equals("search_phone")?"checked":""%>    > <fmt:message key="admin.demographicmergerecord.optPhone"/>
         <input type="radio" name="search_mode" value="search_dob" <%=searchMode.equals("search_dob")?"checked":""%> >
-        DOB
+        <fmt:message key="admin.demographicmergerecord.optDob"/>
         <input type="radio" name="search_mode"
-               value="search_address" <%=searchMode.equals("search_address")?"checked":""%>> Address
-        <input type="radio" name="search_mode" value="search_hin" <%=searchMode.equals("search_hin")?"checked":""%>> HIN
+               value="search_address" <%=searchMode.equals("search_address")?"checked":""%>> <fmt:message key="admin.demographicmergerecord.optAddress"/>
+        <input type="radio" name="search_mode" value="search_hin" <%=searchMode.equals("search_hin")?"checked":""%>> <fmt:message key="admin.demographicmergerecord.optHin"/>
 
         <input type="text" NAME="keyword" class="form-control" MAXLENGTH="100" value="<%=(keyword != null)?Encode.forHtmlAttribute(keyword):""%>">
         <INPUT TYPE="hidden" NAME="orderby" VALUE="last_name">
         <INPUT TYPE="hidden" NAME="limit1" VALUE="0">
         <INPUT TYPE="hidden" NAME="limit2" VALUE="10">
 
-        <INPUT class="btn btn-secondary" TYPE="SUBMIT" NAME="button" VALUE="Search">
-        <input class="btn btn-secondary" type="submit" name="mergebutton" value="Search Merged Records" onclick="searchMerged()">
+        <fmt:message key="global.search" var="btnSearch"/>
+        <fmt:message key="admin.demographicmergerecord.btnSearchMerged" var="btnSearchMerged"/>
+        <INPUT class="btn btn-secondary" TYPE="SUBMIT" NAME="button" VALUE="${e:forHtmlAttribute(btnSearch)}">
+        <input class="btn btn-secondary" type="submit" name="mergebutton" value="${e:forHtmlAttribute(btnSearchMerged)}" onclick="searchMerged()">
     </form>
 </div><!--well-->
 
 <% if (request.getParameter("keyword") != null) {%>
 
-<i>Results based on keyword(s)</i> : <%= Encode.forHtml(StringUtils.noNull(request.getParameter("keyword"))) %>
+<i><fmt:message key="admin.search.keywords"/></i> : <%= Encode.forHtml(StringUtils.noNull(request.getParameter("keyword"))) %>
 
 <CENTER>
     <form method="post" name="mergeform" action="MergeRecords.do" onSubmit="return confirmMerge()">

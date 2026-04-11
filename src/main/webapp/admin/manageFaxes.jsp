@@ -36,6 +36,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -49,10 +50,6 @@
     if (!authed) {
         return;
     }
-%>
-<%
-    java.util.ResourceBundle faxMgmtResources =
-        java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
 %>
 <fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
@@ -73,14 +70,20 @@
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
+    <fmt:message key="admin.manageFaxes.jsPromptCorrectFaxNumber" var="jsPromptCorrectFaxNumber"/>
+    <fmt:message key="admin.manageFaxes.jsMsgResendError" var="jsMsgResendError"/>
+    <fmt:message key="admin.manageFaxes.jsMsgFaxNoPunctuation" var="jsMsgFaxNoPunctuation"/>
+    <fmt:message key="admin.manageFaxes.jsConfirmRemoveFax" var="jsConfirmRemoveFax"/>
+    <fmt:message key="admin.manageFaxes.jsMsgCancelFailed" var="jsMsgCancelFailed"/>
+    <fmt:message key="admin.manageFaxes.jsConfirmResolveFax" var="jsConfirmResolveFax"/>
     <script type="text/javascript">
         var i18n = {
-            promptCorrectFaxNumber: '<%= Encode.forJavaScript(faxMgmtResources.getString("admin.manageFaxes.jsPromptCorrectFaxNumber")) %>',
-            msgResendError: '<%= Encode.forJavaScript(faxMgmtResources.getString("admin.manageFaxes.jsMsgResendError")) %>',
-            msgFaxNoPunctuation: '<%= Encode.forJavaScript(faxMgmtResources.getString("admin.manageFaxes.jsMsgFaxNoPunctuation")) %>',
-            confirmRemoveFax: '<%= Encode.forJavaScript(faxMgmtResources.getString("admin.manageFaxes.jsConfirmRemoveFax")) %>',
-            msgCancelFailed: '<%= Encode.forJavaScript(faxMgmtResources.getString("admin.manageFaxes.jsMsgCancelFailed")) %>',
-            confirmResolveFax: '<%= Encode.forJavaScript(faxMgmtResources.getString("admin.manageFaxes.jsConfirmResolveFax")) %>'
+            promptCorrectFaxNumber: '${e:forJavaScript(jsPromptCorrectFaxNumber)}',
+            msgResendError: '${e:forJavaScript(jsMsgResendError)}',
+            msgFaxNoPunctuation: '${e:forJavaScript(jsMsgFaxNoPunctuation)}',
+            confirmRemoveFax: '${e:forJavaScript(jsConfirmRemoveFax)}',
+            msgCancelFailed: '${e:forJavaScript(jsMsgCancelFailed)}',
+            confirmResolveFax: '${e:forJavaScript(jsConfirmResolveFax)}'
         };
 
         $(document).ready(function () {

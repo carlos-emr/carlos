@@ -30,6 +30,7 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ page import="java.util.*,java.io.*,io.github.carlos_emr.carlos.lab.ca.all.util.KeyPairGen" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -48,12 +49,16 @@
         return;
     }
 %>
+<fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <%
     String name = request.getParameter("name");
     String type = request.getParameter("type");
     if (type != null && type.equals("OTHER"))
         type = request.getParameter("otherType");
+
+    java.util.ResourceBundle createKeyResources =
+        java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
 
     String message = null;
     String failDisplay = "none";
@@ -62,34 +67,35 @@
 
     if (name != null && !name.matches("^[a-zA-Z0-9._-]+$")) {
         error = "true";
-        message = "Failed: Service name contains invalid characters. Only letters, numbers, periods, hyphens and underscores are allowed.";
+        message = createKeyResources.getString("admin.createKey.msgErrInvalidChars");
         name = null;
     }
 
     if (name != null) {
         if (name.equals("oscar")) {
             if (KeyPairGen.checkName(name)) {
-                message = "Failed: The oscar key pair has already been created";
+                message = createKeyResources.getString("admin.createKey.msgErrOscarKeyExists");
                 error = "true";
             } else if (KeyPairGen.createKeys(name, null).equals("success")) {
-                message = "CARLOS key pair created successfully";
+                message = createKeyResources.getString("admin.createKey.msgCarlosKeyCreated");
             } else {
-                message = "Failed: Could not create the oscar key pair";
+                message = createKeyResources.getString("admin.createKey.msgErrOscarKeyFailed");
                 error = "true";
             }
         } else {
             if (KeyPairGen.checkName(name)) {
-                message = "Failed: Key pair has already been created for the service '" + name + "'";
+                message = java.text.MessageFormat.format(
+                    createKeyResources.getString("admin.createKey.msgErrServiceKeyExists"), name);
                 error = "true";
             } else {
                 String clientKey = KeyPairGen.createKeys(name, type);
                 String oscarKey = KeyPairGen.getPublic();
 
                 if (clientKey == null) {
-                    message = "Failed: Could not create key pair";
+                    message = createKeyResources.getString("admin.createKey.msgErrKeyPairFailed");
                     error = "true";
                 } else if (oscarKey == null) {
-                    message = "Failed: Could not retrieve public key from oscar";
+                    message = createKeyResources.getString("admin.createKey.msgErrPublicKeyFailed");
                     error = "true";
                 } else {
 
@@ -107,14 +113,14 @@
                         output.print(keyPairOut);
                         output.flush();
                     } catch (IOException e) {
-                        message = "Failed: Could not save key pair";
+                        message = createKeyResources.getString("admin.createKey.msgErrSaveKeyPair");
                         error = "true";
                     } finally {
                         if (output != null) {
                             try {
                                 output.close();
                             } catch (IOException e) {
-                                message = "Failed: Could not close output stream";
+                                message = createKeyResources.getString("admin.createKey.msgErrCloseStream");
                                 error = "true";
                             }
                         }
@@ -129,12 +135,17 @@
     }
 %>
 
-<html>
+<html lang="${pageContext.request.locale.language}">
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>CARLOS - Key Pair Creation</title>
+    <title><fmt:message key="admin.createKey.title"/></title>
     <link rel="stylesheet" type="text/css" href="<%=request.getContextPath()%>/share/css/OscarStandardLayout.css">
+    <fmt:message key="admin.createKey.msgEnterServiceName" var="msgEnterServiceName"/>
+    <fmt:message key="admin.createKey.msgSpecifyOtherType" var="msgSpecifyOtherType"/>
     <script type="text/javascript">
+        var i18n_enterServiceName = '${e:forJavaScript(msgEnterServiceName)}';
+        var i18n_specifyOtherType = '${e:forJavaScript(msgSpecifyOtherType)}';
+
         function selectOther() {
             if (document.getElementById('selection').value == "OTHER")
                 document.getElementById('OTHER').style.visibility = "visible";
@@ -145,10 +156,10 @@
         function checkInput() {
 
             if (document.getElementById('name').value == "") {
-                alert("Please enter a service name");
+                alert(i18n_enterServiceName);
                 return false;
             } else if (document.getElementById('selection').value == "OTHER" && document.getElementById('otherType').value == "") {
-                alert("Please specify the other message type");
+                alert(i18n_specifyOtherType);
                 return false;
             }
             document.getElementById('success').style.display = "block";
@@ -161,15 +172,13 @@
 <form method='POST' action=''>
     <table align="center" class="MainTable">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn" width="175">Key Pair
-                Creation
+            <td class="MainTableTopRowLeftColumn" width="175"><fmt:message key="admin.createKey.sectionKeyPairCreation"/>
             </td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
                         <td>
-                            <div id="success" style="display: none;">Key pair created
-                                successfully
+                            <div id="success" style="display: none;"><fmt:message key="admin.createKey.msgKeyPairCreatedSuccess"/>
                             </div>
                             <div id="fail" style="display:<%= failDisplay %>;">
                                 <%
@@ -189,23 +198,24 @@
                         </td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
+                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
+                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>
         </tr>
         <tr>
-            <td><input type="submit" value="Create Key Pair"
+            <td><fmt:message key="admin.createKey.btnCreateKeyPair" var="btnCreateKeyPairLabel"/>
+                <input type="submit" value="${btnCreateKeyPairLabel}"
                        onclick="return checkInput()"></td>
             <td>
                 <table>
                     <tr>
-                        <td>Your service name:</td>
+                        <td><fmt:message key="admin.createKey.labelServiceName"/></td>
                         <td><input type="text" id="name" name="name"></td>
                     </tr>
                     <tr>
-                        <td>Lab type:</td>
+                        <td><fmt:message key="admin.createKey.labelLabType"/></td>
                         <td><select name="type" id="selection" onClick="selectOther()">
                             <option value="ALPHA">ALPHA</option>
                             <option value="CML">CML</option>
@@ -228,13 +238,13 @@
                             <option value="Spire">Spire</option>
                             <option value="PDFDOC">PDFDOC</option>
                             <option value="BIOTEST">BioTest</option>
-                            <option value="CLS">Calgary Lab Service (CLS)</option>
+                            <option value="CLS"><fmt:message key="admin.createKey.optCalgaryLabService"/></option>
                             <option value="TRUENORTH">TRUENORTH</option>
-                            <option value="OTHER">Other</option>
+                            <option value="OTHER"><fmt:message key="admin.createKey.optOther"/></option>
                         </select></td>
                     </tr>
                     <tr id="OTHER" style="visibility: hidden;">
-                        <td>Please specify the other message type:</td>
+                        <td><fmt:message key="admin.createKey.labelSpecifyOtherType"/></td>
                         <td><input type="text" id="otherType" name="otherType"></td>
                     </tr>
                 </table>

@@ -69,11 +69,11 @@
 
 <%
     String ip = request.getRemoteAddr();
-    String msg = "";
     LoginCheckLogin cl = new LoginCheckLogin();
     Vector vec = cl.findLockList();
     if (vec == null) vec = new Vector();
 
+    String unlockedUser = null;
     if (request.getParameter("submit") != null) {
         // unlock
         if (request.getParameter("userName") != null && request.getParameter("userName").length() > 0) {
@@ -81,7 +81,7 @@
             vec.remove(userName);
             cl.unlock(userName);
             LogAction.addLog(curUser_no, "unlock", "adminUnlock", userName, ip);
-            msg = "The login account " + Encode.forHtml(userName) + " was unlocked.";
+            unlockedUser = userName;
         }
     }
 
@@ -129,9 +129,11 @@
     </div>
 
     <form method="post" name="baseurl" action="unLock.jsp">
-        <% if (!msg.equals("")) { %>
+        <% if (unlockedUser != null) { %>
         <div class="alert alert-success">
-            <%=msg%>
+            <fmt:message key="admin.unLock.msgUnlocked">
+                <fmt:param value="<%=Encode.forHtml(unlockedUser)%>"/>
+            </fmt:message>
         </div>
         <% } %>
         <div class="card card-body bg-body-tertiary">

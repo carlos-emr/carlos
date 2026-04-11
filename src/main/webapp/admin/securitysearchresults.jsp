@@ -28,10 +28,10 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<!DOCTYPE html>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" buffer="none" %>
 
@@ -42,6 +42,8 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<fmt:setBundle basename="oscarResources"/>
+<!DOCTYPE html>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 
@@ -71,9 +73,9 @@
 %>
 
 
-<html>
+<html lang="${pageContext.request.locale.language}">
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitysearchresults.title"/></title>
+        <title><fmt:message key="admin.securitysearchresults.title"/></title>
         <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
@@ -95,7 +97,7 @@
             jQuery(document).ready(function () {
                 jQuery('#tblResults').DataTable({
                     "language": {
-                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18n.datatablescode"/>.json"
+                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
                     }
                 });
             });
@@ -104,26 +106,27 @@
     </head>
     <body onLoad="setfocus()">
 
-    <h4><i class="fa-solid fa-magnifying-glass" title=""></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitysearchresults.description"/></h4>
+    <h4><i class="fa-solid fa-magnifying-glass" title=""></i>&nbsp;<fmt:message key="admin.securitysearchresults.description"/></h4>
     <div name="alert" style="display:none;" class="alert alert-danger"></div>
     <div class="card card-body bg-body-tertiary">
         <form method="post" action="securitysearchresults.jsp" name="searchprovider">
             <table style="width:100%">
                 <tr>
-                    <td style="text-align:right; vertical-align:middle"><b><i><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitysearchrecordshtm.msgCriteria"/></i></b>&nbsp;&nbsp;
+                    <td style="text-align:right; vertical-align:middle"><b><i><fmt:message key="admin.securitysearchrecordshtm.msgCriteria"/></i></b>&nbsp;&nbsp;
                     </td>
                     <td style="white-space: nowrap;">
                         <input type="radio" name="search_mode" value="search_username">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formUserName"/></td>
+                        <fmt:message key="admin.securityrecord.formUserName"/></td>
                     <td style="white-space: nowrap;">
                         <input type="radio" checked name="search_mode"
-                               value="search_providerno"> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formProviderNo"/></td>
+                               value="search_providerno"> <fmt:message key="admin.securityrecord.formProviderNo"/></td>
                     <td style="vertical-align:middle; text-align:left">
                         <div class="input-group" name="keywordwrap">
                             <input type="text" name="keyword" class="form-control" maxlength="100">
+                            <fmt:message var="btnSearch" key="admin.securitysearchrecordshtm.btnSearch"/>
                             <button type="submit" name="button" class="btn input-group-text" style="height:30px; width:30px;">
                                 <i class="fa-solid fa-magnifying-glass"
-                                   title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitysearchrecordshtm.btnSearch"/>"></i></button>
+                                   title="${e:forHtmlAttribute(btnSearch)}"></i></button>
                         </div>
                         <input type="hidden" name="orderby" value="user_name">
                         <input type="hidden" name="limit1" value="0">
@@ -135,7 +138,7 @@
     </div>
     <table style="width:100%">
         <tr>
-            <td style="text-align:left"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.search.keywords"/></i>:
+            <td style="text-align:left"><i><fmt:message key="admin.search.keywords"/></i>:
                 <%=Encode.forHtmlContent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>
             </td>
         </tr>
@@ -143,10 +146,10 @@
     <table style="width:100%" id="tblResults" class="table table-hover table-striped table-sm">
         <thead>
         <tr>
-            <th style="text-align:center; width:20%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formUserName"/></b></th>
-            <th style="text-align:center; width:40%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formPassword"/></b></th>
-            <th style="text-align:center; width:20%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formProviderNo"/></b></th>
-            <th style="text-align:center; width:20%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formPIN"/></b></th>
+            <th style="text-align:center; width:20%"><b><fmt:message key="admin.securityrecord.formUserName"/></b></th>
+            <th style="text-align:center; width:40%"><b><fmt:message key="admin.securityrecord.formPassword"/></b></th>
+            <th style="text-align:center; width:20%"><b><fmt:message key="admin.securityrecord.formProviderNo"/></b></th>
+            <th style="text-align:center; width:20%"><b><fmt:message key="admin.securityrecord.formPIN"/></b></th>
         </tr>
         </thead>
         <%
@@ -180,6 +183,6 @@
         %>
     </table>
     <br>
-    <p><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitysearchresults.msgClickForDetail"/></p>
+    <p><fmt:message key="admin.securitysearchresults.msgClickForDetail"/></p>
     </body>
 </html>
