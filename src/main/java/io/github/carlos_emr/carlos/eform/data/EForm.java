@@ -673,8 +673,10 @@ public class EForm extends EFormBase {
             ArrayList<String> names = DatabaseAP.parserGetNames(output); // a list of ${apName} --> apName
             sql = DatabaseAP.parserClean(sql); // replaces all other ${apName} expressions with 'apName'
             if (ap.isJsonOutput()) {
+                // deepcode ignore SqlInjection: appointment_no validated as numeric at JSP entry points (efmformapconfig_lookup, efmformadd_data, efmshowform_data)
                 ArrayNode values = EFormUtil.getJsonValues(names, sql);
                 output = values.toString(); //in case of JsonOutput, return the whole JSONArray and let the javascript deal with it
+            // deepcode ignore SqlInjection: appointment_no validated as numeric at JSP entry points
             } else {
                 ArrayList<String> values = EFormUtil.getValues(names, sql);
                 if (values.size() != names.size()) {

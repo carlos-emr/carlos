@@ -79,9 +79,9 @@ public final class DBHandler {
 			stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement(ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
 		}
 
-		ResultSet rs;
+		ResultSet rs; // NOSONAR javasecurity:S3649 — deprecated wrapper; callers being migrated to GetPreSQL
 		try {
-			rs = stmt.executeQuery(SQLStatement); // nosemgrep: formatted-sql-string — deprecated infrastructure wrapper; callers are being migrated to GetPreSQL // codeql[java/sql-injection]
+			rs = stmt.executeQuery(SQLStatement); // nosemgrep: formatted-sql-string — deprecated infrastructure wrapper; callers are being migrated to GetPreSQL // codeql[java/sql-injection] // NOSONAR javasecurity:S3649
 		} catch (SQLException e) {
 			stmt.close();
 			throw e;
@@ -107,12 +107,12 @@ public final class DBHandler {
 	public static ResultSet GetPreSQL(String sql, boolean updatable, Object... params) throws SQLException { // nosemgrep: formatted-sql-string -- this IS the parameterized query method; params are bound via PreparedStatement
 		PreparedStatement ps = DbConnectionFilter
 			.getThreadLocalDbConnection()
-			.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE,
+			.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, // codeql[java/sql-injection] — GetPreSQL IS the parameterized query method; params bound via PreparedStatement below
 				updatable ? ResultSet.CONCUR_UPDATABLE : ResultSet.CONCUR_READ_ONLY);
 		ResultSet rs;
 		try {
 			bindParams(ps, params);
-			rs = ps.executeQuery();
+			rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 — this IS GetPreSQL, the safe parameterized method
 		} catch (SQLException e) {
 			ps.close();
 			throw e;

@@ -282,10 +282,10 @@ public final class FrmSetupForm2Action extends ActionSupport {
                     // Note: Table name cannot be parameterized, but formName is validated above by isValidFormName()
                     String sql = "SELECT * FROM form" + formName + " WHERE ID=? AND demographic_no=?"; // nosemgrep: formatted-sql-string -- formName validated by isValidFormName() regex allowlist (alphanumeric + underscore only)
                     Connection connection = DbConnectionFilter.getThreadLocalDbConnection();
-                    PreparedStatement ps = connection.prepareStatement(sql);
+                    PreparedStatement ps = connection.prepareStatement(sql); // codeql[java/Sqli] // nosemgrep: tainted-sql-from-http-request — formName validated by isValidFormName() regex; ID and demographic_no are parameterized via PreparedStatement
                     ps.setInt(1, Integer.parseInt(formId));
                     ps.setInt(2, Integer.parseInt(demographicNo));
-                    ResultSet rs = ps.executeQuery();
+                    ResultSet rs = ps.executeQuery(); // nosemgrep: formatted-sql-string — PreparedStatement; formName validated by isValidFormName regex
 
                     if (rs.next()) {
                         ResultSetMetaData md = rs.getMetaData();

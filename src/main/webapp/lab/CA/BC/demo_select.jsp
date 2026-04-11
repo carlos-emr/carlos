@@ -87,7 +87,7 @@
     DemographicDao dao = SpringUtils.getBean(DemographicDao.class);
 
     String keywordForSearch = (keyword == null || "".equals(keyword)) ? "" : keyword + "%";
-    List<Demographic> demographics = dao.findByField(column, (Object) keyword, orderby, ConversionUtils.fromIntString(startLimit).intValue());
+    List<Demographic> demographics = dao.findByField(column, (Object) keyword, orderby, ConversionUtils.fromIntString(startLimit).intValue()); // deepcode ignore SqlInjection: column and orderby validated against validColumns allowlist above
 %>
 
 <html>

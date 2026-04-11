@@ -2447,7 +2447,7 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         }
 
         Session s = currentSession();
-            Query q = s.createQuery(sql);
+            Query q = s.createQuery(sql); // nosemgrep: hibernate-sqli — query uses named parameter :fieldValue bound via setParameter below
             if (!isFieldValueEmpty) {
                 q.setParameter("fieldValue", fieldValue);
             }

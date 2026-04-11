@@ -47,8 +47,13 @@
         String searchModeParam = request.getParameter("search_mode");
         String orderByParam = request.getParameter("orderby");
 
+        // Validate against allowlist to prevent SQL injection (same as BC version)
+        java.util.Set<String> VALID_COLUMNS = java.util.Set.of("company_name", "attention", "address", "city", "province", "postcode", "telephone", "fax", "id");
+        if (orderByParam == null || !VALID_COLUMNS.contains(orderByParam)) { orderByParam = "company_name"; }
+        if (searchModeParam == null || !VALID_COLUMNS.contains(searchModeParam)) { searchModeParam = "company_name"; }
+
         Billing3rdPartyAddressDao dao = SpringUtils.getBean(Billing3rdPartyAddressDao.class);
-        for (Billing3rdPartyAddress ba : dao.findAddresses(searchModeParam, orderByParam, keyword, strLimit1, strLimit2)) {
+        for (Billing3rdPartyAddress ba : dao.findAddresses(searchModeParam, orderByParam, keyword, strLimit1, strLimit2)) { // deepcode ignore SqlInjection: searchModeParam and orderByParam validated against VALID_COLUMNS allowlist above
             prop = new Properties();
             prop.setProperty("id", "" + ba.getId());
             prop.setProperty("attention", ba.getAttention());

@@ -778,7 +778,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
     }
 
     private int queryExecuteUpdate(String preparedSQL, DBPreparedHandlerParam[] params) throws SQLException { // nosemgrep: formatted-sql-string -- parameterized query infrastructure; params are bound via PreparedStatement
-        PreparedStatement preparedStmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(preparedSQL);
+        PreparedStatement preparedStmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(preparedSQL); // codeql[java/sql-injection] — parameterized query infrastructure; params bound via PreparedStatement
         for (int i = 0; i < params.length; i++) {
             DBPreparedHandlerParam param = params[i];
 
@@ -794,7 +794,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
                 preparedStmt.setTimestamp(i + 1, param.getTimestampValue());
             }
         }
-        return (preparedStmt.executeUpdate());
+        return (preparedStmt.executeUpdate()); // nosemgrep: formatted-sql-string — part of PreparedStatement chain; params bound via setString/setDate/setInt
     }
 
 }

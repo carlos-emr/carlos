@@ -265,7 +265,7 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         }
         buf.insert(0, "select m FROM Measurement m");
 
-        Query query = entityManager.createQuery(buf.toString());
+        Query query = entityManager.createQuery(buf.toString()); // codeql[java/sql-injection] — all params bound via setParameter in loop below
         for (Entry<String, Object> param : params.entrySet()) {
             query.setParameter(param.getKey(), param.getValue());
         }

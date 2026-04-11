@@ -86,6 +86,7 @@
     EForm eForm = null;
     if (fid == null) {  // form exists in patient
         String appointmentNo = request.getParameter("appointment");
+        if (appointmentNo != null && !appointmentNo.matches("\\d+")) { appointmentNo = null; } // validate numeric to prevent SQL injection
         String eformLink = request.getParameter("eform_link");
 
         eForm = new EForm(fdid);

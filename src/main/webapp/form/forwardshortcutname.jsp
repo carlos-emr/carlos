@@ -50,7 +50,9 @@
         out.clearBuffer();
         //forward to the current specified form, e.g. contextPath/form/formar.jsp?demographic_no=
         String strFrm = URLDecoder.decode(request.getParameter("formname"), "UTF-8");
-        String[] formPath = (new FrmData()).getShortcutFormValue(request.getParameter("demographic_no"), strFrm);
+        String demoNo = request.getParameter("demographic_no");
+        if (demoNo != null && !demoNo.matches("\\d+")) { demoNo = null; } // validate numeric to prevent SQL injection
+        String[] formPath = (new FrmData()).getShortcutFormValue(demoNo, strFrm); // deepcode ignore SqlInjection: demoNo validated as numeric; table name in FrmData validated by regex
         formPath[0] = formPath[0].trim();
 
         // Normalize the deprecated "../" prefix used in older DB entries
