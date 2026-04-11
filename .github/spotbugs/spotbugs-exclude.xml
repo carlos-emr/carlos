@@ -88,8 +88,4 @@
         <Bug pattern="RV_RETURN_VALUE_OF_PUTIFABSENT_IGNORED"/>
     </Match>
 
-    <Match>
-        <Bug pattern="SECXXEVAL"/>
-    </Match>
-
 </FindBugsFilter>
