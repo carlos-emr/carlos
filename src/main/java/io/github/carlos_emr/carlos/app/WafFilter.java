@@ -469,6 +469,20 @@ public class WafFilter implements Filter {
             if (checkInjectionPatterns(httpReq, httpResp, decodedQs, "query")) {
                 return;
             }
+            // CRLF must also be checked on the raw query string. checkInjectionPatterns() does not
+            // include CRLF because those checks run per-parameter-value below. However, a CRLF payload
+            // can appear directly in the query string without being parsed as a parameter value
+            // (e.g. GET /search.do?%0d%0aContent-Type:%20text/html), so we check it here too.
+            if (headerInjectionEnabled) {
+                for (Pattern p : CRLF_PATTERNS) {
+                    if (p.matcher(decodedQs).find()) {
+                        if (block(httpReq, httpResp, "crlf", "query")) {
+                            return;
+                        }
+                        break;
+                    }
+                }
+            }
         }
 
         // --- Parameter-level checks ---
