@@ -57,6 +57,34 @@
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return;
         }
+        final String validatedDemoNo = demoNo;
+        final javax.servlet.http.HttpServletRequest originalRequest = request;
+        request = new javax.servlet.http.HttpServletRequestWrapper(originalRequest) {
+            @Override
+            public String getParameter(String name) {
+                if ("demographic_no".equals(name)) {
+                    return validatedDemoNo;
+                }
+                return super.getParameter(name);
+            }
+
+            @Override
+            public String[] getParameterValues(String name) {
+                if ("demographic_no".equals(name)) {
+                    return validatedDemoNo == null ? null : new String[] { validatedDemoNo };
+                }
+                return super.getParameterValues(name);
+            }
+
+            @Override
+            public java.util.Map<String, String[]> getParameterMap() {
+                java.util.Map<String, String[]> parameterMap =
+                        new java.util.HashMap<String, String[]>(super.getParameterMap());
+                parameterMap.put("demographic_no",
+                        validatedDemoNo == null ? null : new String[] { validatedDemoNo });
+                return java.util.Collections.unmodifiableMap(parameterMap);
+            }
+        };
 
         String appointmentNo = request.getParameter("appointment_no");
         if (appointmentNo != null && !appointmentNo.matches("\\d+")) {
