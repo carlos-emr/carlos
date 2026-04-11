@@ -22,8 +22,10 @@
 package io.github.carlos_emr.carlos.provider.dto;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.utility.DtoFormatUtils;
 
 /**
  * Lightweight data transfer object for provider name lookups and list display,
@@ -81,6 +83,7 @@ public class ProviderSummaryDTO implements Serializable {
      * @return ProviderSummaryDTO a lightweight projection of the provider
      */
     public static ProviderSummaryDTO fromEntity(Provider provider) {
+        Objects.requireNonNull(provider, "Provider entity must not be null for DTO conversion");
         return new ProviderSummaryDTO(
                 provider.getProviderNo(),
                 provider.getLastName(),
@@ -97,20 +100,7 @@ public class ProviderSummaryDTO implements Serializable {
      * @return String the formatted name, or "N/A" if both names are null
      */
     public String getFormattedName() {
-        if (lastName == null && firstName == null) {
-            return "N/A";
-        }
-        StringBuilder sb = new StringBuilder();
-        if (lastName != null) {
-            sb.append(lastName.trim());
-        }
-        if (firstName != null) {
-            if (sb.length() > 0) {
-                sb.append(", ");
-            }
-            sb.append(firstName.trim());
-        }
-        return sb.toString();
+        return DtoFormatUtils.formatName(lastName, firstName, "N/A");
     }
 
     public String getProviderNo() {

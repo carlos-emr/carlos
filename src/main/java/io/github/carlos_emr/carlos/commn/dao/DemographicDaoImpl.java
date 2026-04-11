@@ -3011,7 +3011,7 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             baseQuery = baseQuery.concat(" and (d.FirstName like :firstName or d.Alias like :firstName)");
         }
         if (providerNo != null && !outOfDomain) {
-            baseQuery = baseQuery.concat(" AND d.id IN (select distinct a.clientId from ProgramProvider pp,Admission a WHERE pp.ProgramId=a.programId AND pp.ProviderNo=:providerNo)");
+            baseQuery = baseQuery.concat(" AND d.id IN (" + PROGRAM_DOMAIN_RESTRICTION + ")");
         }
 
         Query<DemographicListItemDTO> query = currentSession().createQuery(baseQuery, DemographicListItemDTO.class);

@@ -1286,7 +1286,12 @@ public class DemographicManagerImpl implements DemographicManager {
         } else {
             checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
         }
-        return demographicDao.getDemographicHeader(demographicId);
+        DemographicHeaderDTO result = demographicDao.getDemographicHeader(demographicId);
+        if (result != null) {
+            LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.getDemographicHeader",
+                    "demographicId=" + result.getDemographicNo());
+        }
+        return result;
     }
 
     @Override
@@ -1294,7 +1299,16 @@ public class DemographicManagerImpl implements DemographicManager {
                                                               int startIndex, int itemsToReturn) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
-        return demographicDao.searchDemographicDTOByName(searchString, itemsToReturn, startIndex, providerNo, false);
+        List<DemographicListItemDTO> results = demographicDao.searchDemographicDTOByName(
+                searchString, itemsToReturn, startIndex, providerNo, false);
+
+        // --- log action ---
+        for (DemographicListItemDTO dto : results) {
+            LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.searchDemographicDTOs result",
+                    "demographicId=" + dto.getDemographicNo());
+        }
+
+        return results;
     }
 
 }

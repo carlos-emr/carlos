@@ -22,8 +22,10 @@
 package io.github.carlos_emr.carlos.demographic.dto;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.utility.DtoFormatUtils;
 
 /**
  * Lightweight data transfer object for patient search results and autocomplete,
@@ -122,6 +124,7 @@ public class DemographicListItemDTO implements Serializable {
      * @return DemographicListItemDTO a lightweight projection
      */
     public static DemographicListItemDTO fromEntity(Demographic d) {
+        Objects.requireNonNull(d, "Demographic entity must not be null for DTO conversion");
         DemographicListItemDTO dto = new DemographicListItemDTO(
                 d.getDemographicNo(),
                 d.getLastName(),
@@ -151,23 +154,15 @@ public class DemographicListItemDTO implements Serializable {
      * @return String the formatted name
      */
     public String getFormattedName() {
-        if (lastName == null && firstName == null && (alias == null || alias.trim().isEmpty())) {
+        boolean hasAlias = alias != null && !alias.trim().isEmpty();
+        if (lastName == null && firstName == null && !hasAlias) {
             return "N/A";
         }
-        StringBuilder sb = new StringBuilder();
-        if (lastName != null) {
-            sb.append(lastName.trim());
+        String base = DtoFormatUtils.formatName(lastName, firstName, "");
+        if (hasAlias) {
+            return base + " (" + alias.trim() + ")";
         }
-        if (firstName != null) {
-            if (sb.length() > 0) {
-                sb.append(", ");
-            }
-            sb.append(firstName.trim());
-        }
-        if (alias != null && !alias.trim().isEmpty()) {
-            sb.append(" (").append(alias.trim()).append(")");
-        }
-        return sb.toString();
+        return base;
     }
 
     /**
@@ -177,12 +172,7 @@ public class DemographicListItemDTO implements Serializable {
      * @return String the formatted date of birth
      */
     public String getFormattedDob() {
-        if (yearOfBirth == null || yearOfBirth.trim().isEmpty()
-                || monthOfBirth == null || monthOfBirth.trim().isEmpty()
-                || dateOfBirth == null || dateOfBirth.trim().isEmpty()) {
-            return "";
-        }
-        return yearOfBirth.trim() + "-" + monthOfBirth.trim() + "-" + dateOfBirth.trim();
+        return DtoFormatUtils.formatDob(yearOfBirth, monthOfBirth, dateOfBirth);
     }
 
     public Integer getDemographicNo() {

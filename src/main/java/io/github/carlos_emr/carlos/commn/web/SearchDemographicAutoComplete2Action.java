@@ -232,21 +232,9 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
                     String cust1 = StringUtils.trimToNull(demographicCust.getNurse());
                     String cust2 = StringUtils.trimToNull(demographicCust.getResident());
                     String cust4 = StringUtils.trimToNull(demographicCust.getMidwife());
-                    if (cust1 != null) {
-                        h.put("cust1", cust1);
-                        ProviderSummaryDTO c1 = providerMap.get(cust1);
-                        if (c1 != null) h.put("cust1Name", c1.getFormattedName());
-                    }
-                    if (cust2 != null) {
-                        h.put("cust2", cust2);
-                        ProviderSummaryDTO c2 = providerMap.get(cust2);
-                        if (c2 != null) h.put("cust2Name", c2.getFormattedName());
-                    }
-                    if (cust4 != null) {
-                        h.put("cust4", cust4);
-                        ProviderSummaryDTO c4 = providerMap.get(cust4);
-                        if (c4 != null) h.put("cust4Name", c4.getFormattedName());
-                    }
+                    putCustProvider(h, "cust1", cust1, providerMap);
+                    putCustProvider(h, "cust2", cust2, providerMap);
+                    putCustProvider(h, "cust4", cust4, providerMap);
                 }
             }
 
@@ -273,6 +261,14 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         }
         return null;
 
+    }
+
+    private static void putCustProvider(HashMap<String, String> h, String key, String providerNo,
+                                           Map<String, ProviderSummaryDTO> providerMap) {
+        if (providerNo == null) return;
+        h.put(key, providerNo);
+        ProviderSummaryDTO prov = providerMap.get(providerNo);
+        if (prov != null) h.put(key + "Name", prov.getFormattedName());
     }
 
     private String formatJSON(List<HashMap<String, String>> info) {

@@ -25,6 +25,9 @@ import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.Period;
 
+import io.github.carlos_emr.carlos.utility.DtoFormatUtils;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+
 /**
  * Lightweight data transfer object for encounter and chart page headers.
  * Optimized for JPQL constructor expression projection with a LEFT JOIN
@@ -116,20 +119,7 @@ public class DemographicHeaderDTO implements Serializable {
      * @return String the formatted name
      */
     public String getFormattedName() {
-        if (lastName == null && firstName == null) {
-            return "N/A";
-        }
-        StringBuilder sb = new StringBuilder();
-        if (lastName != null) {
-            sb.append(lastName.trim());
-        }
-        if (firstName != null) {
-            if (sb.length() > 0) {
-                sb.append(", ");
-            }
-            sb.append(firstName.trim());
-        }
-        return sb.toString();
+        return DtoFormatUtils.formatName(lastName, firstName, "N/A");
     }
 
     /**
@@ -139,12 +129,7 @@ public class DemographicHeaderDTO implements Serializable {
      * @return String the formatted date of birth
      */
     public String getFormattedDob() {
-        if (yearOfBirth == null || yearOfBirth.trim().isEmpty()
-                || monthOfBirth == null || monthOfBirth.trim().isEmpty()
-                || dateOfBirth == null || dateOfBirth.trim().isEmpty()) {
-            return "";
-        }
-        return yearOfBirth.trim() + "-" + monthOfBirth.trim() + "-" + dateOfBirth.trim();
+        return DtoFormatUtils.formatDob(yearOfBirth, monthOfBirth, dateOfBirth);
     }
 
     /**
@@ -163,6 +148,8 @@ public class DemographicHeaderDTO implements Serializable {
                     Integer.parseInt(dateOfBirth));
             return String.valueOf(Period.between(dob, LocalDate.now()).getYears());
         } catch (NumberFormatException | java.time.DateTimeException e) {
+            MiscUtils.getLogger().warn("Invalid DOB components for demographic {}: year={}, month={}, day={}",
+                    demographicNo, yearOfBirth, monthOfBirth, dateOfBirth);
             return "";
         }
     }
@@ -174,16 +161,7 @@ public class DemographicHeaderDTO implements Serializable {
      * @return String the formatted provider name
      */
     public String getProviderName() {
-        if (providerLastName == null && providerFirstName == null) {
-            return "";
-        }
-        StringBuilder sb = new StringBuilder();
-        if (providerLastName != null) sb.append(providerLastName.trim());
-        if (providerFirstName != null) {
-            if (sb.length() > 0) sb.append(", ");
-            sb.append(providerFirstName.trim());
-        }
-        return sb.toString();
+        return DtoFormatUtils.formatName(providerLastName, providerFirstName, "");
     }
 
     public Integer getDemographicNo() {
