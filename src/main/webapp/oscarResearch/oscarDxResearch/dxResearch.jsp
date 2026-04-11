@@ -275,7 +275,7 @@
                                                 <select class="form-select" name="selectedCodingSystem"
                                                             <%=disabled%>>
                                                     <c:forEach var="codingSys" items="${codingSystem.codingSystems}">
-                                                        <option value="${codingSys}">
+                                                        <option value="${e:forHtmlAttribute(codingSys)}">
                                                             ${e:forHtml(codingSys)}
                                                         </option>
                                                     </c:forEach>

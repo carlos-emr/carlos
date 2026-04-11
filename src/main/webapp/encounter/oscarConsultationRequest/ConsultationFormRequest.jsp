@@ -2321,8 +2321,8 @@ if (userAgent != null) {
                                                 </tr>
                                                 <c:forEach items="${ attachedForms }" var="attachedForm">
                                                     <tr id="entry_formNo${ attachedForm.formId }"
-                                                        data-formName="${ attachedForm.formName }"
-                                                        data-formDate="${ attachedForm.getEdited() }">
+                                                        data-formName="${e:forHtmlAttribute(attachedForm.formName)}"
+                                                        data-formDate="${e:forHtmlAttribute(attachedForm.getEdited())}">
                                                         <td>
                                                             ${e:forHtml(attachedForm.formName)}
                                                             <input name="formNo" value="${ attachedForm.formId }"
