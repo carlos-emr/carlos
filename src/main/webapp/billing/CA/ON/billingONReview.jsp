@@ -593,7 +593,7 @@
                     <tr>
                         <td style="white-space:nowrap; width:10%; text-align:center"><%=Encode.forHtml(demoname)%>
                             &nbsp;&nbsp; <%=demoSex.equals("1") ? "Male" : "Female"%> &nbsp;&nbsp;
-                            <%=" DOB: " + demoDOBYY + "/" + demoDOBMM + "/" + demoDOBDD + " &nbsp;&nbsp; HIN: " + demoHIN + "" + demoVer%>
+                            DOB: <%=Encode.forHtml(demoDOBYY)%>/<%=Encode.forHtml(demoDOBMM)%>/<%=Encode.forHtml(demoDOBDD)%> &nbsp;&nbsp; HIN: <%=Encode.forHtml(demoHIN)%><%=Encode.forHtml(demoVer)%>
                         </td>
                         <td style="text-align:center"><%=wrongMsg%>
                         </td>

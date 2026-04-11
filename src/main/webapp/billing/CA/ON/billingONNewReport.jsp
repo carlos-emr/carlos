@@ -115,11 +115,14 @@
             prop.setProperty("PATIENT", Encode.forHtml(rs.getString("name")));
             prop.setProperty("DESCRIPTION", Encode.forHtml(rs.getString("reason")));
             String tempStr = "<a href=# onClick='popupPage(700,1000, \"billingOB.jsp?billForm="
-                    + URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8) + "&hotclick=&appointment_no="
-                    + rs.getString("appointment_no")
-                    + "&demographic_no=" + rs.getString("demographic_no") + "&user_no=" + rs.getString("provider_no")
-                    + "&apptProvider_no=" + providerview + "&appointment_date=" + rs.getString("appointment_date")
-                    + "&start_time=" + rs.getString("start_time") + "&bNewForm=1\"); return false;'>Bill ";
+                    + Encode.forUriComponent(oscarVariables.getProperty("default_view", "")) + "&hotclick=&appointment_no="
+                    + Encode.forUriComponent(rs.getString("appointment_no") == null ? "" : rs.getString("appointment_no"))
+                    + "&demographic_no=" + Encode.forUriComponent(rs.getString("demographic_no") == null ? "" : rs.getString("demographic_no"))
+                    + "&user_no=" + Encode.forUriComponent(rs.getString("provider_no") == null ? "" : rs.getString("provider_no"))
+                    + "&apptProvider_no=" + Encode.forUriComponent(providerview == null ? "" : providerview)
+                    + "&appointment_date=" + Encode.forUriComponent(rs.getString("appointment_date") == null ? "" : rs.getString("appointment_date"))
+                    + "&start_time=" + Encode.forUriComponent(rs.getString("start_time") == null ? "" : rs.getString("start_time"))
+                    + "&bNewForm=1\"); return false;'>Bill ";
             prop.setProperty("COMMENTS", tempStr);
             vecValue.add(prop);
         }

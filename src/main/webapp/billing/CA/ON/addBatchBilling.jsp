@@ -191,7 +191,7 @@
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="text" name="demo_name" readonly
-                                    value="<%=org.owasp.encoder.Encode.forHtmlAttribute(batchDemoName)%>" size="20">
+                                    value="<%=Encode.forHtmlAttribute(batchDemoName)%>" size="20">
                             </font></td>
                         </tr>
                         <tr>

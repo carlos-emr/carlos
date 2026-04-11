@@ -202,7 +202,7 @@
                                                     </option>
                                                 </c:forEach>
                                             </select>
-                                            <a href="#" onClick="popupPage(${ctr.index}, '${waitingListBean.patientName}', '${waitingListBean.demographicNo}', '${today}', 400, 780, '<%= request.getContextPath() %>/schedule/scheduleflipview.jsp?originalpage=<%= request.getContextPath() %>/oscarWaitingList/DisplayWaitingList.jsp'); return false;">
+                                            <a href="#" onClick="popupPage(${ctr.index}, '${waitingListBean.demographicNo}', '${today}', 400, 780, '<%= request.getContextPath() %>/schedule/scheduleflipview.jsp?originalpage=<%= request.getContextPath() %>/oscarWaitingList/DisplayWaitingList.jsp'); return false;">
                                                 make_appt
                                             </a>
                                         </td>
@@ -279,7 +279,7 @@
             //alert("setParameters(): onListSinceSelected = " + document.forms[0].onListSinceSelected.value);
         }
 
-        function popupPage(ctr, patientName, demographicNo, startDate, vheight, vwidth, varpage) {
+        function popupPage(ctr, demographicNo, startDate, vheight, vwidth, varpage) {
             var nbPatients = parseInt('<c:out value="${nbPatients}" default="0"/>');
             if (nbPatients > 1) {
                 var selected = document.forms[0].selectedProvider[ctr].options[document.forms[0].selectedProvider[ctr].selectedIndex].value;

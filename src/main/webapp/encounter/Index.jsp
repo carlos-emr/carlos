@@ -38,6 +38,7 @@
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -931,7 +932,7 @@
                             <%
                                 if (bean.status.indexOf('B') == -1) { %>
                             <a href=#
-                               onClick='popupPage(700,1000, "<%=request.getContextPath()%>/billing.do?billRegion=<%=URLEncoder.encode(province, StandardCharsets.UTF_8)%>&billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8)%>&hotclick=<%=URLEncoder.encode("", StandardCharsets.UTF_8)%>&appointment_no=<%=bean.appointmentNo%>&demographic_no=<%=bean.demographicNo%>&providerview=<%=bean.curProviderNo%>&user_no=<%=bean.providerNo%>&apptProvider_no=<%=bean.curProviderNo%>&appointment_date=<%=bean.appointmentDate%>&start_time=<%=bean.startTime%>&bNewForm=1&status=t");return false;'
+                               onClick='popupPage(700,1000, "<%=request.getContextPath()%>/billing.do?billRegion=<%=Encode.forUriComponent(province)%>&billForm=<%=Encode.forUriComponent(oscarVariables.getProperty("default_view", ""))%>&hotclick=&appointment_no=<%=Encode.forUriComponent(bean.appointmentNo == null ? "" : bean.appointmentNo)%>&demographic_no=<%=Encode.forUriComponent(bean.demographicNo == null ? "" : bean.demographicNo)%>&providerview=<%=Encode.forUriComponent(bean.curProviderNo == null ? "" : bean.curProviderNo)%>&user_no=<%=Encode.forUriComponent(bean.providerNo == null ? "" : bean.providerNo)%>&apptProvider_no=<%=Encode.forUriComponent(bean.curProviderNo == null ? "" : bean.curProviderNo)%>&appointment_date=<%=Encode.forUriComponent(bean.appointmentDate == null ? "" : bean.appointmentDate)%>&start_time=<%=Encode.forUriComponent(bean.startTime == null ? "" : bean.startTime)%>&bNewForm=1&status=t");return false;'
                                title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.billing"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.billing"/></a> <% } else {%>
                             <!--a href=# onClick='onUnbilled("<%= request.getContextPath() %>/billing/billingDeleteWithoutNo.jsp?appointment_no=<%=bean.appointmentNo%>");return false;' title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.unbil"/>">-<fmt:setBundle basename="oscarResources"/><fmt:message key="global.billing"/></a-->
                             <a href=#

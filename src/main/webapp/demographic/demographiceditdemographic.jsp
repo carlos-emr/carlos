@@ -1059,7 +1059,7 @@
                                     } else {
                                     %>
                                     <a href="#"
-                                       onclick="popupPage(800,1000,'<%= request.getContextPath() %>/billing/CA/BC/billStatus.jsp?filterPatient=true&demographicNo=<%=demographic.getDemographicNo()%>');return false;">
+                                       onclick="popupPage(800,1000,'<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/billing/CA/BC/billStatus.jsp?filterPatient=true&demographicNo=" + Encode.forUriComponent(String.valueOf(demographic.getDemographicNo()))) %>');return false;">
                                         <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgInvoiceList"/></a>
 
 
@@ -1077,7 +1077,7 @@
                             <tr>
                                 <td><a
                                         href="javascript: function myFunction() {return false; }"
-                                        onClick="popupPage(700, 1000, '<%=request.getContextPath()%>/billing.do?billRegion=<%=URLEncoder.encode(prov, StandardCharsets.UTF_8)%>&billForm=<%=URLEncoder.encode(oscarProps.getProperty("default_view"), StandardCharsets.UTF_8)%>&hotclick=&appointment_no=0&demographic_no=<%=demographic.getDemographicNo()%>&providerview=<%=demographic.getProviderNo()%>&user_no=<%=curProvider_no%>&apptProvider_no=none&appointment_date=<%=dateString%>&start_time=00:00:00&bNewForm=1&status=t');return false;"
+                                        onClick="popupPage(700, 1000, '<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/billing.do?billRegion=" + Encode.forUriComponent(prov) + "&billForm=" + Encode.forUriComponent(oscarProps.getProperty("default_view", "")) + "&hotclick=&appointment_no=0&demographic_no=" + Encode.forUriComponent(String.valueOf(demographic.getDemographicNo())) + "&providerview=" + Encode.forUriComponent(String.valueOf(demographic.getProviderNo())) + "&user_no=" + Encode.forUriComponent(curProvider_no == null ? "" : curProvider_no) + "&apptProvider_no=none&appointment_date=" + Encode.forUriComponent(dateString == null ? "" : dateString) + "&start_time=00:00:00&bNewForm=1&status=t") %>');return false;"
                                         title="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgBillPatient"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgCreateInvoice"/></a></td>
                             </tr>
                             <%

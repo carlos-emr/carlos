@@ -1005,13 +1005,21 @@
         function onChangePrivate() {
             var n = document.forms[0].xml_billtype.selectedIndex;
             var val = document.forms[0].xml_billtype[n].value;
+            <%
+                String _apptNo = Encode.forUriComponent(request.getParameter("appointment_no") == null ? "" : request.getParameter("appointment_no"));
+                String _demoNo = Encode.forUriComponent(request.getParameter("demographic_no") == null ? "" : request.getParameter("demographic_no"));
+                String _apptProvNo = Encode.forUriComponent(request.getParameter("apptProvider_no") == null ? "" : request.getParameter("apptProvider_no"));
+                String _apptDate = Encode.forUriComponent(request.getParameter("appointment_date") == null ? "" : request.getParameter("appointment_date"));
+                String _status = Encode.forUriComponent(request.getParameter("status") == null ? "" : request.getParameter("status"));
+                String _startTime = Encode.forUriComponent(request.getParameter("start_time") == null ? "" : request.getParameter("start_time"));
+            %>
             if (val.substring(0, 3) == "PAT" || val.substring(0, 3) == "OCF" || val.substring(0, 3) == "ODS" || val.substring(0, 3) == "CPP" || val.substring(0, 3) == "STD") {
-                self.location.href = "billingON.jsp?curBillForm=<%="PRI"%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%=request.getParameter("appointment_no")%>&demographic_no=<%=request.getParameter("demographic_no")%>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<%=request.getParameter("apptProvider_no")%>&providerview=<%=request.getParameter("apptProvider_no")%>&appointment_date=<%=request.getParameter("appointment_date")%>&status=<%=request.getParameter("status")%>&start_time=<%=request.getParameter("start_time")%>&bNewForm=1";
+                self.location.href = "billingON.jsp?curBillForm=<%="PRI"%>&hotclick=&appointment_no=<%=_apptNo%>&demographic_no=<%=_demoNo%>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<%=_apptProvNo%>&providerview=<%=_apptProvNo%>&appointment_date=<%=_apptDate%>&status=<%=_status%>&start_time=<%=_startTime%>&bNewForm=1";
             } else if (val.substring(0, 3) == "BON") {
-                self.location.href = "billingON.jsp?curBillForm=<%=oscarVariables.getProperty("primary_care_incentive", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%=request.getParameter("appointment_no")%>&demographic_no=<%=request.getParameter("demographic_no")%>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<%=request.getParameter("apptProvider_no")%>&providerview=<%=request.getParameter("apptProvider_no")%>&appointment_date=<%=request.getParameter("appointment_date")%>&status=<%=request.getParameter("status")%>&start_time=<%=request.getParameter("start_time")%>&bNewForm=1";
+                self.location.href = "billingON.jsp?curBillForm=<%=Encode.forUriComponent(oscarVariables.getProperty("primary_care_incentive", "").trim())%>&hotclick=&appointment_no=<%=_apptNo%>&demographic_no=<%=_demoNo%>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<%=_apptProvNo%>&providerview=<%=_apptProvNo%>&appointment_date=<%=_apptDate%>&status=<%=_status%>&start_time=<%=_startTime%>&bNewForm=1";
             } else {
                 <% if(ctlBillForm.equals("PRI") ) {%>
-                self.location.href = "billingON.jsp?curBillForm=<%=oscarVariables.getProperty("default_view", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%=request.getParameter("appointment_no")%>&demographic_no=<%=request.getParameter("demographic_no")%>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<%=request.getParameter("apptProvider_no")%>&providerview=<%=request.getParameter("apptProvider_no")%>&appointment_date=<%=request.getParameter("appointment_date")%>&status=<%=request.getParameter("status")%>&start_time=<%=request.getParameter("start_time")%>&bNewForm=1";
+                self.location.href = "billingON.jsp?curBillForm=<%=Encode.forUriComponent(oscarVariables.getProperty("default_view", "").trim())%>&hotclick=&appointment_no=<%=_apptNo%>&demographic_no=<%=_demoNo%>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<%=_apptProvNo%>&providerview=<%=_apptProvNo%>&appointment_date=<%=_apptDate%>&status=<%=_status%>&start_time=<%=_startTime%>&bNewForm=1";
                 <% } %>
             }
         }

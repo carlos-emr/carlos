@@ -705,8 +705,8 @@
         %>
         <tr bgcolor=<%=ctlCount % 2 == 0 ? "#FFFFFF" : "#EEEEFF"%>>
             <td colspan="2"><b><font size="-2" color="#7A388D"><a
-                    href="billingShortcutPg1.jsp?billForm=<%=ctlcode%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%=request.getParameter("appointment_no")%>&demographic_no=<%=request.getParameter("demographic_no")%>&user_no=<%=user_no%>&apptProvider_no=<%=request.getParameter("apptProvider_no")%>&providerview=<%=request.getParameter("apptProvider_no")%>&appointment_date=<%=request.getParameter("appointment_date")%>&status=<%=request.getParameter("status")%>&start_time=<%=request.getParameter("start_time")%>&bNewForm=1"
-                    onClick="showHideLayers('Layer1','','hide');"><%=ctlcodename%>
+                    href="billingShortcutPg1.jsp?billForm=<%=Encode.forUriComponent(ctlcode)%>&hotclick=&appointment_no=<%=Encode.forUriComponent(request.getParameter("appointment_no") == null ? "" : request.getParameter("appointment_no"))%>&demographic_no=<%=Encode.forUriComponent(request.getParameter("demographic_no") == null ? "" : request.getParameter("demographic_no"))%>&user_no=<%=Encode.forUriComponent(user_no == null ? "" : user_no)%>&apptProvider_no=<%=Encode.forUriComponent(request.getParameter("apptProvider_no") == null ? "" : request.getParameter("apptProvider_no"))%>&providerview=<%=Encode.forUriComponent(request.getParameter("apptProvider_no") == null ? "" : request.getParameter("apptProvider_no"))%>&appointment_date=<%=Encode.forUriComponent(request.getParameter("appointment_date") == null ? "" : request.getParameter("appointment_date"))%>&status=<%=Encode.forUriComponent(request.getParameter("status") == null ? "" : request.getParameter("status"))%>&start_time=<%=Encode.forUriComponent(request.getParameter("start_time") == null ? "" : request.getParameter("start_time"))%>&bNewForm=1"
+                    onClick="showHideLayers('Layer1','','hide');"><%=Encode.forHtml(ctlcodename)%>
             </a></font></b></td>
         </tr>
         <%
