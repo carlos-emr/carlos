@@ -65,7 +65,7 @@ import org.xml.sax.helpers.DefaultHandler;
 public class OBChecklistHandler_99_12 extends DefaultHandler {
 
     private Locator locator;
-    private String results = ""; //, riskName; //currentElement
+    private StringBuilder results = new StringBuilder(); //, riskName; //currentElement
     private int count = 0;
     private boolean disprisk = false;
     private boolean dispitem = true;
@@ -108,11 +108,11 @@ public class OBChecklistHandler_99_12 extends DefaultHandler {
     public void startDocument() throws SAXException {
 
         init();
-        results += "<center><table BORDER=0 CELLSPACING=0 CELLPADDING=1 WIDTH='95%' BGCOLOR='#009966'>\n";
-        results += "<tr><td width='5%' bgcolor='ivory' align='center'><b><font color='black'>Done</font></b></td>\n<td width='5%' bgcolor='ivory' align='center'><b><font color='black'>N/A</font></b></td>";
-        results += "<td align='center'><b><font color='white'>Antenatal Checklist</font></b></td></tr></table></center>";
+        results.append("<center><table BORDER=0 CELLSPACING=0 CELLPADDING=1 WIDTH='95%' BGCOLOR='#009966'>\n");
+        results.append("<tr><td width='5%' bgcolor='ivory' align='center'><b><font color='black'>Done</font></b></td>\n<td width='5%' bgcolor='ivory' align='center'><b><font color='black'>N/A</font></b></td>");
+        results.append("<td align='center'><b><font color='white'>Antenatal Checklist</font></b></td></tr></table></center>");
 
-        results += "<center><table width='95%' border='0' cellpadding='0' CELLSPACING='0' BGCOLOR='ivory'><tr><td>\n";
+        results.append("<center><table width='95%' border='0' cellpadding='0' CELLSPACING='0' BGCOLOR='ivory'><tr><td>\n");
     }
 
     /**
@@ -123,7 +123,7 @@ public class OBChecklistHandler_99_12 extends DefaultHandler {
      */
     public void endDocument() throws SAXException {
 
-        results += "</td></tr></table></center>\n";
+        results.append("</td></tr></table></center>\n");
     }
 
     /**
@@ -147,7 +147,7 @@ public class OBChecklistHandler_99_12 extends DefaultHandler {
 
     public void startElement(String namespaceURI, String localName, String rawName, Attributes atts) throws SAXException {
         if (localName.equals("recommendations")) {
-            results += "<center><table border=0 cellspacing=1 cellpadding=1 width=\"100%\">\n\n";
+            results.append("<center><table border=0 cellspacing=1 cellpadding=1 width=\"100%\">\n\n");
         }
 
         if (localName.equals("week")) {
@@ -158,15 +158,15 @@ public class OBChecklistHandler_99_12 extends DefaultHandler {
             }
             cal.set(now.get(Calendar.YEAR), now.get(Calendar.MONTH), now.get(Calendar.DAY_OF_MONTH));
             cal.add(Calendar.DATE, count * 7);
-            results += "<table border=0 cellspacing=1 cellpadding=1 width=\"100%\" datasrc='#xml_list'>\n";
-            results += "<tr bgcolor='#CCFFCC'><td width='5%'></td><td width='5%'></td><td colspan='1'><span CLASS='.title'>\n";
+            results.append("<table border=0 cellspacing=1 cellpadding=1 width=\"100%\" datasrc='#xml_list'>\n");
+            results.append("<tr bgcolor='#CCFFCC'><td width='5%'></td><td width='5%'></td><td colspan='1'><span CLASS='.title'>\n");
             if (count == 0) {
-                results += "Initial Assessment - Week " + count;
+                results.append("Initial Assessment - Week " + count);
             } else {
-                results += monthNames[cal.get(Calendar.MONTH)] + " " + cal.get(Calendar.DAY_OF_MONTH) + ", " + cal.get(Calendar.YEAR) + " - Week " + count;
+                results.append(monthNames[cal.get(Calendar.MONTH)] + " " + cal.get(Calendar.DAY_OF_MONTH) + ", " + cal.get(Calendar.YEAR) + " - Week " + count);
             }
 
-            results += "</span></td></tr>";
+            results.append("</span></td></tr>");
 
         }
 
@@ -183,16 +183,16 @@ public class OBChecklistHandler_99_12 extends DefaultHandler {
             }
 
             if (riskname.equals("") || savedar1params.getProperty(riskname) != null) {
-                results += "<tr>";
+                results.append("<tr>");
 
                 if (checkbox) {
-                    results += "<td width='5%' align='center'><input type='checkbox' name='xml_" + clname + "d' value='checked' datafld='xml_" + clname + "d'></td><td width='5%' align='center'><input type='checkbox' name='xml_" + clname + "na' value='checked' datafld='xml_" + clname + "na'></td>\n";
+                    results.append("<td width='5%' align='center'><input type='checkbox' name='xml_" + clname + "d' value='checked' datafld='xml_" + clname + "d'></td><td width='5%' align='center'><input type='checkbox' name='xml_" + clname + "na' value='checked' datafld='xml_" + clname + "na'></td>\n");
                 } else {
-                    results += "<td></td><td></td>";
+                    results.append("<td></td><td></td>");
                 }
-                results += "<td colspan='" + count + "'>";
+                results.append("<td colspan='" + count + "'>");
                 if (savedar1params.getProperty(riskname) != null) {
-                    results += "<b>";
+                    results.append("<b>");
                     disprisk = true;
                 } else disprisk = false;
                 dispitem = true;
@@ -205,26 +205,26 @@ public class OBChecklistHandler_99_12 extends DefaultHandler {
 
         if (localName.equals("B") || localName.equals("b")) {
             if (dispitem)
-                results += "<b>";
+                results.append("<b>");
         }
         if (localName.equals("I") || localName.equals("i")) {
             if (dispitem)
-                results += "<i>";
+                results.append("<i>");
         }
         if (localName.equals("FONT") || localName.equals("font")) {
             if (dispitem) {
-                results += "<font ";
+                results.append("<font ");
                 for (int i = 0; i < atts.getLength(); i++) {
-                    results += atts.getLocalName(i) + "='" + atts.getValue(i) + "' ";
+                    results.append(atts.getLocalName(i) + "='" + atts.getValue(i) + "' ");
                 }
-                results += ">";
+                results.append(">");
             }
         }
         if (localName.equals("A") || localName.equals("a")) {
             if (dispitem) {
-                results += "<a href=# onClick=\"popupPage(400,500,'";
+                results.append("<a href=# onClick=\"popupPage(400,500,'");
                 for (int i = 0; i < atts.getLength(); i++) {
-                    results += atts.getValue(i) + "');return false;\">";
+                    results.append(atts.getValue(i) + "');return false;\">");
                 }
             }
         }
@@ -232,35 +232,34 @@ public class OBChecklistHandler_99_12 extends DefaultHandler {
 
     public void endElement(String namespaceURI, String localName, String rawName) throws SAXException {
         if (localName.equals("recommendations")) {
-            results += "</td></tr></table></center>\n";
+            results.append("</td></tr></table></center>\n");
         }
         if (localName.equals("week")) {
-            results += "</table>\n";
+            results.append("</table>\n");
         }
         if (localName.equals("item")) {
-            if (disprisk) results += "</b>";
-            if (dispitem) results += "</td></tr>\n";
+            if (disprisk) results.append("</b>");
+            if (dispitem) results.append("</td></tr>\n");
             disprisk = true;
             dispitem = true;
         }
         if (localName.equals("B") || localName.equals("b")) {
-            if (dispitem) results += "</b>";
+            if (dispitem) results.append("</b>");
         }
         if (localName.equals("I") || localName.equals("i")) {
-            if (dispitem) results += "</i>";
+            if (dispitem) results.append("</i>");
         }
         if (localName.equals("FONT") || localName.equals("font")) {
-            if (dispitem) results += "</font>";
+            if (dispitem) results.append("</font>");
         }
         if (localName.equals("A") || localName.equals("a")) {
-            if (dispitem) results += "</a>";
+            if (dispitem) results.append("</a>");
         }
     }
 
     public void characters(char[] ch, int start, int length) throws SAXException {
         if (disprisk || dispitem) {
-            String s = new String(ch, start, length);
-            results += s;
+            results.append(ch, start, length);
         }
     }
 
@@ -274,7 +273,7 @@ public class OBChecklistHandler_99_12 extends DefaultHandler {
     }
 
     public String getResults() {
-        return results;
+        return results.toString();
     }
 
     private void init() {
