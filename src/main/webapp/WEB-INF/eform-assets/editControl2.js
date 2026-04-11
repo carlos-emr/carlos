@@ -328,6 +328,14 @@ function isIE(){
 
 function exprompt(command, promptText){
     var value = prompt(promptText);
+    if (value === null) return; // user cancelled
+    // Validate URLs for createLink/insertImage against the same allowlist used in sanitizeEditorHtml
+    if (command === 'createLink' || command === 'insertImage') {
+        var safeScheme = /^(https?:|mailto:|tel:|#|\/|\.{1,2}\/|\?|[^:]+$)/i;
+        var cleanVal = value.replace(/[\x00-\x20]/g, '');
+        var safe = safeScheme.test(cleanVal) || (command === 'insertImage' && /^data:image\//i.test(cleanVal));
+        if (!safe) return; // fail closed — reject dangerous URL schemes
+    }
     ex(command,value);
 }
 
