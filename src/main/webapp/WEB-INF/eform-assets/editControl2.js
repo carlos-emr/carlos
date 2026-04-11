@@ -144,8 +144,10 @@ function sanitizeEditorHtml(html) {
         }
         // Remove event handler attributes from all elements
         var allElements = doc.body.querySelectorAll('*');
-        // Allowlist of safe URL schemes (blocks javascript:, vbscript:, data:text/html, etc.)
-        var safeScheme = /^(https?:|mailto:|tel:|#|\/)/i;
+        // Allowlist of safe URL schemes (blocks javascript:, vbscript:, data:text/html, blob:, etc.)
+        // [^:]+ matches any relative URL with no colon — relative paths (image.png, ../img.jpg) are safe
+        // because all dangerous schemes require a colon (javascript:, vbscript:, data:, blob:)
+        var safeScheme = /^(https?:|mailto:|tel:|#|\/|\.{1,2}\/|\?|[^:]+$)/i;
         for (var j = 0; j < allElements.length; j++) {
             var attrs = allElements[j].attributes;
             for (var k = attrs.length - 1; k >= 0; k--) {
