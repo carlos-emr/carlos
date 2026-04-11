@@ -486,7 +486,7 @@
                                                     <td>
                                                             <span class="rcvPayment">
                                                             <a href="#"
-                                                               onClick="popupPage(300,450,'viewReceivePaymentAction.do?lineNo=<%=bi.getLineNo()%>&amp;billNo=<%=bean.getBillingNo()%> ')">Receive Payment</a>
+                                                               onClick="popupPage(300,450,'viewReceivePaymentAction.do?lineNo=<%=Encode.forJavaScriptAttribute(String.valueOf(bi.getLineNo()))%>&amp;billNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(bean.getBillingNo())))%>')">Receive Payment</a>
                                                             </span>
                                                     </td>
                                                     <td><%=bi.getLineNo()%>
@@ -662,7 +662,7 @@
                                                                 <td colspan="2" align="left" valign="bottom">
                                                                     <input type="submit" name="submit" class="header" value="Update Invoice" />
                                                                     <button class="header" value="Edit Invoice"
-                                                                            onclick="editInvoice('<%=bean.getBillingMasterNo()%>')">
+                                                                            onclick="editInvoice('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(bean.getBillingMasterNo()))%>')">
                                                                         Edit Invoice
                                                                     </button>
                                                                     <button class="header" onclick="printInvoiceWithoutNotes()">Print</button>

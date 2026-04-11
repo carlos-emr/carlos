@@ -52,7 +52,6 @@
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page import="java.util.Properties" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%
 
     String msg = "Enter contact details.";

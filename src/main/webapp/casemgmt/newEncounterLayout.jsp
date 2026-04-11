@@ -33,7 +33,7 @@
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
-<%@page import="java.util.Enumeration, org.apache.commons.text.StringEscapeUtils" %>
+<%@page import="java.util.Enumeration" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
@@ -147,7 +147,7 @@
         </script>
 
 
-<script type="text/javascript" src="${pageContext.request.contextPath}/js/validateTextInputs.js"></script>
+<script type="text/javascript" src="${e:forHtmlAttribute(pageContext.request.contextPath)}/js/validateTextInputs.js"></script>
 <!--js code for newCaseManagementView.jsp -->
 <script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/js/newCaseManagementView.js.jsp"></script>
 

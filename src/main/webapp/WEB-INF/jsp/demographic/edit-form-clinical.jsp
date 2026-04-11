@@ -4,7 +4,6 @@
 <%@ page import="java.text.DecimalFormat" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -964,13 +963,13 @@
                                                                                     <c:if test="${ not empty patientConsent and not empty patientConsent.optout }">
                                                                                         <c:choose>
                                                                                             <c:when test="${ patientConsent.optout }">
-                                                                                                <div id="consentDate_${consentType.type}"
+                                                                                                <div id="consentDate_${e:forHtmlAttribute(consentType.type)}"
                                                                                                      style="color:red;white-space:nowrap;">
                                                                                                     Opted Out:${e:forHtml(patientConsent.optoutDate)}
                                                                                                 </div>
                                                                                             </c:when>
                                                                                             <c:otherwise>
-                                                                                                <div id="consentDate_${consentType.type}"
+                                                                                                <div id="consentDate_${e:forHtmlAttribute(consentType.type)}"
                                                                                                      style="color:green;white-space:nowrap;">
                                                                                                     Consented:${e:forHtml(patientConsent.consentDate)}
                                                                                                 </div>
@@ -987,38 +986,38 @@
                                                                                 <td id="consentStatusDate"
                                                                                     style="width:31%;vertical-align:top;">
                                                                                     <input type="radio"
-                                                                                           name="${ consentType.type }"
-                                                                                           id="optin_${ consentType.type }"
+                                                                                           name="${e:forHtmlAttribute(consentType.type)}"
+                                                                                           id="optin_${e:forHtmlAttribute(consentType.type)}"
                                                                                            value="0"
                                                                                             <c:if test="${ not empty patientConsent and not empty patientConsent.optout and not patientConsent.optout }">
                                                                                                 checked
                                                                                             </c:if>
                                                                                     />
-                                                                                    <label for="optin_${ consentType.type }">Opt-In</label>
+                                                                                    <label for="optin_${e:forHtmlAttribute(consentType.type)}">Opt-In</label>
                                                                                     <input type="radio"
-                                                                                           name="${ consentType.type }"
-                                                                                           id="optout_${ consentType.type }"
+                                                                                           name="${e:forHtmlAttribute(consentType.type)}"
+                                                                                           id="optout_${e:forHtmlAttribute(consentType.type)}"
                                                                                            value="1"
                                                                                             <c:if test="${ not empty patientConsent and not empty patientConsent.optout and patientConsent.optout }">
                                                                                                 checked
                                                                                             </c:if>
                                                                                     />
-                                                                                    <label for="optout_${ consentType.type }">Opt-Out</label>
+                                                                                    <label for="optout_${e:forHtmlAttribute(consentType.type)}">Opt-Out</label>
                                                                                     <input type="button"
-                                                                                           name="clearRadio_${consentType.type}_btn"
-                                                                                           onclick="consentClearBtn('${consentType.type}')"
+                                                                                           name="clearRadio_${e:forHtmlAttribute(consentType.type)}_btn"
+                                                                                           onclick="consentClearBtn('${e:forJavaScriptAttribute(consentType.type)}')"
                                                                                            value="Clear"/>
 
                                                                                         <%-- Was this consent set by the user? Or by the database?  --%>
                                                                                     <input type="hidden"
-                                                                                           name="consentPreset_${consentType.type}"
-                                                                                           id="consentPreset_${consentType.type}"
+                                                                                           name="consentPreset_${e:forHtmlAttribute(consentType.type)}"
+                                                                                           id="consentPreset_${e:forHtmlAttribute(consentType.type)}"
                                                                                            value="${ not empty patientConsent }"/>
 
                                                                                         <%-- This consent will be labeled for delete when the clear button is clicked. --%>
                                                                                     <input type="hidden"
-                                                                                           name="deleteConsent_${consentType.type}"
-                                                                                           id="deleteConsent_${consentType.type}"
+                                                                                           name="deleteConsent_${e:forHtmlAttribute(consentType.type)}"
+                                                                                           id="deleteConsent_${e:forHtmlAttribute(consentType.type)}"
                                                                                            value="0"/>
 
                                                                                 </td>
