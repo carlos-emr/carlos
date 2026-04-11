@@ -49,6 +49,7 @@ import org.apache.logging.log4j.Logger;
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.carlos.form.FrmRecord;
@@ -72,8 +73,6 @@ import org.openpdf.text.pdf.PdfContentByte;
 import org.openpdf.text.pdf.PdfImportedPage;
 import org.openpdf.text.pdf.PdfReader;
 import org.openpdf.text.pdf.PdfWriter;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
-
 /**
  * Servlet that generates PDF renditions of standard medical forms (Rourke growth charts,
  * BCAR antenatal records, and other configurable clinical forms).

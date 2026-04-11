@@ -250,8 +250,7 @@ public class EFormPDFServlet extends HttpServlet {
             Properties[][] graphicCfg = loadGraphicCfg(req, suffix, numPages);
             int cfgFileNo = printCfg == null ? 0 : printCfg.length;
 
-            Properties props = new Properties();
-            getPrintPropValues(props, req, suffix);
+            Properties props = getPrintPropValues(new Properties(), req, suffix);
 
             Properties measurements = new Properties();
 
@@ -487,7 +486,7 @@ public class EFormPDFServlet extends HttpServlet {
         return graphicCfg;
     }
 
-    private void getPrintPropValues(Properties props, HttpServletRequest req, String suffix) {
+    private Properties getPrintPropValues(Properties props, HttpServletRequest req, String suffix) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
         StringBuilder temp = new StringBuilder("");
         for (Enumeration<String> e = req.getParameterNames(); e.hasMoreElements(); ) {
@@ -522,6 +521,7 @@ public class EFormPDFServlet extends HttpServlet {
         props.setProperty("current_user", currentUser);
         props.setProperty("current_date", currentDate);
         props.setProperty("printer_info", "Printed on " + currentDate + " by " + currentUser + ": Page " + currentPage + " of " + totalPages);
+        return props;
     }
 
     private void saveMeasurementValues(Properties measurements, Properties props, HttpServletRequest req, int numPages, List<List<List<String>>> xMeasurementValues, List<List<List<String>>> yMeasurementValues) {
