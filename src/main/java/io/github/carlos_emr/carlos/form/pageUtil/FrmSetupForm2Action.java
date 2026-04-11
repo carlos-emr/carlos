@@ -162,7 +162,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
             File formDir = new File(formDirPath);
             File validatedForm = PathValidationUtils.validatePath(formName + ".xml", formDir);
             try (InputStream is = new FileInputStream(validatedForm)) {
-            Vector measurementTypes = EctFindMeasurementTypeUtil.checkMeasurmentTypes(is, formName); // deepcode ignore XXE: XXE protection applied internally via XmlUtils.createSecureJaxbSource()
+            Vector measurementTypes = EctFindMeasurementTypeUtil.checkMeasurmentTypes(is, formName); // deepcode ignore java/XXE: XXE protection applied internally via XmlUtils.createSecureJaxbSource()
             EctMeasurementTypesBean mt;
 
             ResultSet rs;
