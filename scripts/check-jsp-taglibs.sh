@@ -159,6 +159,9 @@ if [ "$CHECK_I18N" = true ] && [ $i18n_issues -eq 0 ]; then
 elif [ "$CHECK_I18N" = true ] && [ $i18n_issues -gt 0 ]; then
     echo "Please resolve i18n issues (see docs/I18N-STANDARDS.md)"
 fi
+if [ "$found_issues" -gt 0 ] || [ "$i18n_issues" -gt 0 ]; then
+    exit 1
+fi
 
 # Optional: Check for unused taglibs (reverse check)
 echo
