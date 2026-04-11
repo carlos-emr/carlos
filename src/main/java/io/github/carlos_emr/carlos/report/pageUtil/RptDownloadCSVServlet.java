@@ -643,8 +643,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
                         vecFieldName.add(temp[i].trim());
                         MiscUtils.getLogger().debug(" vecFieldCaption: " + propARSelect.getProperty(temp[i].trim()));
                     }
-                } // nosemgrep: tainted-sql-from-http-request — report template SQL; same pattern as line 502
-                vecFieldValue = (new RptReportCreator()).query(sql, vecFieldName);
+                }
+                vecFieldValue = (new RptReportCreator()).query(sql, vecFieldName); // nosemgrep: tainted-sql-from-http-request -- report template SQL; same pattern as line 502
                 vecFieldName.remove(0); // remove "demographic_no"
 
             }
