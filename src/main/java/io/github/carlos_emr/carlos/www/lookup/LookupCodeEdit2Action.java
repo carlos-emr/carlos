@@ -94,6 +94,18 @@ public class LookupCodeEdit2Action extends ActionSupport {
         List fieldDefList = this.getCodeFields();
         boolean isNew = this.isNewCode();
 
+        if (tableDef == null || Utility.IsEmpty(tableDef.getTableId()) || !tableDef.getTableId().matches("^[A-Z0-9_]+$")) {
+            addActionMessage(getText("error.lookup.duplicate"));
+            return "edit";
+        }
+
+        LookupTableDefValue trustedTableDef = lookupManager.GetLookupTableDef(tableDef.getTableId());
+        if (trustedTableDef == null) {
+            addActionMessage(getText("error.lookup.duplicate"));
+            return "edit";
+        }
+        tableDef = trustedTableDef;
+
         boolean isInActive = false;
 
         String code = "";
