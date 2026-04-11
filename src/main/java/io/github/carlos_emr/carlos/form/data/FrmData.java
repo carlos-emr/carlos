@@ -164,6 +164,7 @@ public class FrmData {
         String selectClause = "SELECT ID, demographic_no, formCreated, formEdited FROM ";
         String whereClause = " WHERE demographic_no=? ORDER BY ID DESC limit 0,1";
         sql = selectClause + table + whereClause;
+        // deepcode ignore SqlInjection: table validated by regex [a-zA-Z][a-zA-Z0-9_]*; demoNo parameterized via GetPreSQL
         rs = DBHandler.GetPreSQL(sql, demoNo);
         while (rs.next()) {
             frm = new PatientForm(Misc.getString(rs, "ID"), Misc.getString(rs, "demographic_no"),
@@ -202,12 +203,23 @@ public class FrmData {
             table = encounterForm.getFormTable();
         }
 
+        // No matching EncounterForm found — return safe defaults so callers don't NPE
+        if (table == null) {
+            ret[0] = "";
+            ret[1] = "0";
+            return ret;
+        }
+
+        // Defense-in-depth: validate table name from DB (consistent with getPatientForms / getCurrentPatientForm)
+        if (!table.isEmpty() && !table.matches("[a-zA-Z][a-zA-Z0-9_]*")) {
+            throw new IllegalArgumentException("Invalid form table name returned from database");
+        }
 
         String sql;
         ResultSet rs;
 
         ret[1] = "0";
-        if (table.equals("form")) {
+        if ("form".equals(table)) {
             String searchFormName = formName;
             if (searchFormName.equals("AR1"))
                 searchFormName = "ar1_99_12"; // quick hack for ease of migration from old forms to new
@@ -285,8 +297,7 @@ public class FrmData {
         String ret = "";
 
 
-        String sql = "SELECT value FROM property WHERE name='resource'";
-        ResultSet rs = DBHandler.GetSQL(sql);
+        ResultSet rs = DBHandler.GetPreSQL("SELECT value FROM property WHERE name=?", "resource");
         while (rs.next()) {
             ret = Misc.getString(rs, "value");
         }
@@ -302,8 +313,7 @@ public class FrmData {
         String ret = "";
 
 
-        String sql = "SELECT value FROM property WHERE name='" + name + "'";
-        ResultSet rs = DBHandler.GetSQL(sql);
+        ResultSet rs = DBHandler.GetPreSQL("SELECT value FROM property WHERE name=?", name);
         while (rs.next()) {
             ret = Misc.getString(rs, "value");
         }

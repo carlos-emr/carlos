@@ -35,6 +35,7 @@
 <%@ page import="java.util.*" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     String[] selectedEforms = request.getParameterValues("selected_eform");
@@ -51,7 +52,7 @@
 %>
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.selectEforms"/></title>
+        <title><fmt:message key="admin.fieldNote.selectEforms"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
         <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/eformStyle.css">
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -65,9 +66,9 @@
     <body>
 
     <div class="eformInputHeading" align="center">
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.selectEforms"/>
+        <fmt:message key="admin.fieldNote.selectEforms"/>
     </div>
-    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.back"/>"
+    <input type="button" value="<fmt:message key="admin.fieldNote.back"/>"
            onclick="window.location.href='fieldnotereport.jsp'"/>
 
     <form name="selectFieldNoteForm" action="fieldnoteselect.jsp">
@@ -75,24 +76,24 @@
         <input type="hidden" name="unselect_eform"/>
         <table class="elements" width="100%">
             <tr bgcolor="#CCCCFF">
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnFormName"/></a></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnSubject"/></a></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnFile"/></a></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnDate"/></a></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnTime"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnRoleType"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.msgAction"/></th>
+                <th><fmt:message key="eform.uploadhtml.btnFormName"/></a></th>
+                <th><fmt:message key="eform.uploadhtml.btnSubject"/></a></th>
+                <th><fmt:message key="eform.uploadhtml.btnFile"/></a></th>
+                <th><fmt:message key="eform.uploadhtml.btnDate"/></a></th>
+                <th><fmt:message key="eform.uploadhtml.btnTime"/></th>
+                <th><fmt:message key="eform.uploadhtml.btnRoleType"/></th>
+                <th><fmt:message key="eform.uploadhtml.msgAction"/></th>
             </tr>
             <tr class="eformInputHeadingActive" style="color: #707070;">
                 <td colspan="7">
                     <%
                         if (fieldNoteEforms.isEmpty()) {
                     %>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.noFieldNote"/>
+                    <fmt:message key="admin.fieldNote.noFieldNote"/>
                     <%
                     } else {
                     %>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.eformSelected"/>
+                    <fmt:message key="admin.fieldNote.eformSelected"/>
                     <%
                         }
                     %>
@@ -119,8 +120,8 @@
                 <td nowrap align='center' width="10%"><%=fieldNoteEform.getRoleType()%>
                 </td>
                 <td nowrap align='center'>
-                    <a href="#" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.unselectEform"/>"
-                       onclick="remove_select(<%=fieldNoteEform.getId()%>);"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.unselect"/></a>
+                    <a href="#" title="<fmt:message key="admin.fieldNote.unselectEform"/>"
+                       onclick="remove_select(<%=fieldNoteEform.getId()%>);"><fmt:message key="admin.fieldNote.unselect"/></a>
                 </td>
             </tr>
             <%
@@ -153,7 +154,7 @@
                 </td>
                 <td nowrap align='center'>
                     <input type="checkbox" value="<%=fieldNoteEform.getId()%>"
-                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.addEform"/>" name="selected_eform"/>
+                           title="<fmt:message key="admin.fieldNote.addEform"/>" name="selected_eform"/>
                 </td>
             </tr>
             <%
@@ -161,13 +162,13 @@
             %>
             <tr>
                 <td colspan="7" align="right">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.enterCustomName"/>:
+                    <fmt:message key="admin.fieldNote.enterCustomName"/>:
                     <input type="text" name="custom_name" size="60"/>
                 </td>
             </tr>
             <tr>
                 <td colspan="7" align="right">
-                    <input type="submit" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.submit"/>"/>
+                    <input type="submit" value="<fmt:message key="admin.fieldNote.submit"/>"/>
                 </td>
             </tr>
         </table>

@@ -58,8 +58,8 @@ public class FrmLabReqRecord extends FrmRecord {
             String sql = "SELECT demographic_no, CONCAT(last_name, ', ', first_name) AS patientName, "
                     + "sex, address, city, province, postal, hin, ver, "
                     + "phone, year_of_birth, month_of_birth, date_of_birth, provider_no  "
-                    + "FROM demographic WHERE demographic_no = " + demographicNo;
-            ResultSet rs = DBHandler.GetSQL(sql);
+                    + "FROM demographic WHERE demographic_no = ?";
+            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo);
 
             if (rs.next()) {
                 java.util.Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), rs
@@ -98,9 +98,8 @@ public class FrmLabReqRecord extends FrmRecord {
             }
 
         } else {
-            String sql = "SELECT * FROM formLabReq WHERE demographic_no = " + demographicNo + " AND ID = "
-                    + existingID;
-            props = (new FrmRecordHelp()).getFormRecord(sql);
+            String sql = "SELECT * FROM formLabReq WHERE demographic_no = ? AND ID = ?";
+            props = (new FrmRecordHelp()).getFormRecord(sql, demographicNo, existingID);
         }
 
         return props;
@@ -117,8 +116,8 @@ public class FrmLabReqRecord extends FrmRecord {
             if (Integer.parseInt(demoProvider) == provNo) {
                 // from provider table
                 sql = "SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no, comments "
-                        + "FROM provider WHERE provider_no = " + provNo;
-                rs = DBHandler.GetSQL(sql);
+                        + "FROM provider WHERE provider_no = ?";
+                rs = DBHandler.GetPreSQL(sql, provNo);
 
                 if (rs.next()) {
                     String num = Misc.getString(rs, "ohip_no");
@@ -141,9 +140,8 @@ public class FrmLabReqRecord extends FrmRecord {
                 rs.close();
             } else {
                 // from provider table
-                sql = "SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no, comments FROM provider WHERE provider_no = "
-                        + provNo;
-                rs = DBHandler.GetSQL(sql);
+                sql = "SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no, comments FROM provider WHERE provider_no = ?";
+                rs = DBHandler.GetPreSQL(sql, provNo);
 
                 String num = "";
                 if (rs.next()) {
@@ -163,9 +161,8 @@ public class FrmLabReqRecord extends FrmRecord {
                 rs.close();
 
                 // from provider table
-                sql = "SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no, comments FROM provider WHERE provider_no = "
-                        + demoProvider;
-                rs = DBHandler.GetSQL(sql);
+                sql = "SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no, comments FROM provider WHERE provider_no = ?";
+                rs = DBHandler.GetPreSQL(sql, demoProvider);
 
                 if (rs.next()) {
                     String sp, specialty;
@@ -203,14 +200,14 @@ public class FrmLabReqRecord extends FrmRecord {
 
     public int saveFormRecord(Properties props) throws SQLException {
         String demographic_no = props.getProperty("demographic_no");
-        String sql = "SELECT * FROM formLabReq WHERE demographic_no=" + demographic_no + " AND ID=0";
+        String sql = "SELECT * FROM formLabReq WHERE demographic_no=? AND ID=0";
 
-        return ((new FrmRecordHelp()).saveFormRecord(props, sql));
+        return ((new FrmRecordHelp()).saveFormRecord(props, sql, demographic_no));
     }
 
     public Properties getPrintRecord(int demographicNo, int existingID) throws SQLException {
-        String sql = "SELECT * FROM formLabReq WHERE demographic_no = " + demographicNo + " AND ID = " + existingID;
-        return ((new FrmRecordHelp()).getPrintRecord(sql));
+        String sql = "SELECT * FROM formLabReq WHERE demographic_no = ? AND ID = ?";
+        return ((new FrmRecordHelp()).getPrintRecord(sql, demographicNo, existingID));
     }
 
     public String findActionValue(String submit) throws SQLException {

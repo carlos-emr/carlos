@@ -50,13 +50,13 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ page
         import="java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.providers.data.ProviderData, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -136,10 +136,6 @@
 
     List<Map<String, String>> pdList = new ProviderData().getProviderList();
     ArrayList<String> doctypes = EDocUtil.getDoctypes(module);
-    String annotation_display = CaseManagementNoteLink.DISP_DOCUMENT;
-    String annotation_tableid = editDocumentNo;
-    Long now = new Date().getTime();
-    String annotation_attrib = "anno" + now;
 
     CtlDocClassDao docClassDao = (CtlDocClassDao) SpringUtils.getBean(CtlDocClassDao.class);
     List<String> reportClasses = docClassDao.findUniqueReportClasses();
@@ -202,7 +198,7 @@
 
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
     <script type="text/javascript"
-            src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+            src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
     <script type="text/javascript">
         window.onload = function () {
@@ -307,7 +303,7 @@
 <div class="maindiv">
     <div class="maindivheading">&nbsp;&nbsp;&nbsp; Edit Document</div>
     <%-- Lists linkhtmlerrors --%> <% for (Enumeration errorkeys = linkhtmlerrors.keys(); errorkeys.hasMoreElements(); ) {%>
-    <font class="warning">Error: <fmt:setBundle basename="oscarResources"/><fmt:message key="<%=(String) linkhtmlerrors.get(errorkeys.nextElement())%>"/></font><br/>
+    <font class="warning">Error: <fmt:message key="<%=(String) linkhtmlerrors.get(errorkeys.nextElement())%>"/></font><br/>
     <% } %> <form action="${pageContext.request.contextPath}/documentManager/addEditHtml.do" method="POST"
                        enctype="multipart/form-data" class="form"
                        onsubmit="return submitUpload(this);">
@@ -316,20 +312,19 @@
     <input type="hidden" name="functionId"
            value="<%=Encode.forHtmlAttribute(formdata.getFunctionId())%>" size="20"/>
     <input type="hidden" name="functionid" value="<%=Encode.forHtmlAttribute(moduleid)%>" size="20"/>
-    <input type="hidden" name="mode" value="<%=mode%>"/>
+    <input type="hidden" name="mode" value="<%=Encode.forHtmlAttribute(mode)%>"/>
     <input type="hidden" name="docCreator"
-           value="<%=formdata.getDocCreator()%>"/>
-    <input type="hidden" name="reviewerId" value="<%=formdata.getReviewerId()%>"/>
-    <input type="hidden" name="reviewDateTime" value="<%=formdata.getReviewDateTime()%>"/>
+           value="<%=Encode.forHtmlAttribute(formdata.getDocCreator())%>"/>
+    <input type="hidden" name="reviewerId" value="<%=Encode.forHtmlAttribute(formdata.getReviewerId())%>"/>
+    <input type="hidden" name="reviewDateTime" value="<%=Encode.forHtmlAttribute(formdata.getReviewDateTime())%>"/>
     <input type="hidden" name="reviewDoc" value="false"/>
-    <input type="hidden" name="annotation_attrib" value="<%=annotation_attrib%>"/>
 
     <table width="100%" height="100%" class="layouttable">
         <tr>
             <td width="180px">Type:</td>
             <td>
                 <select id="docType" name="docType" style="width: 160">
-                    <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formSelect"/></option>
+                    <option value=""><fmt:message key="dms.addDocument.formSelect"/></option>
                     <% for (int i = 0; i < doctypes.size(); i++) {
                         String doctype = doctypes.get(i); %>
                     <option value="<%=Encode.forHtmlAttribute(doctype)%>" <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><%=Encode.forHtmlContent(doctype)%>
@@ -337,13 +332,13 @@
                     <%}%>
                 </select>
                 <input id="docTypeinput" type="button" size="20" onClick="newDocType();"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentEdit.formAddNewDocType"/> "/>
+                       value="<fmt:message key="dms.documentEdit.formAddNewDocType"/> "/>
             </td>
         </tr>
         <tr>
-            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDocClass"/>:</td>
+            <td><fmt:message key="dms.addDocument.msgDocClass"/>:</td>
             <td><select name="docClass" id="docClass">
-                <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formSelectClass"/></option>
+                <option value=""><fmt:message key="dms.addDocument.formSelectClass"/></option>
                 <% boolean consultShown = false;
                     for (String reportClass : reportClasses) {
                         if (reportClass.startsWith("Consultant Report")) {
@@ -359,7 +354,7 @@
             </td>
         </tr>
         <tr>
-            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDocSubClass"/>:</td>
+            <td><fmt:message key="dms.addDocument.msgDocSubClass"/>:</td>
             <td><input type="text" name="docSubClass" id="docSubClass" value="<%=Encode.forHtmlAttribute(formdata.getDocSubClass())%>"
                        style="width:330px">
                 <div class="autocomplete_style" id="docSubClass_list"></div>
@@ -398,7 +393,7 @@
             </td>
         </tr>
         <tr>
-            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formContentAddedUpdated"/>:</td>
+            <td><fmt:message key="dms.addDocument.formContentAddedUpdated"/>:</td>
             <td><%=formdata.getContentDateTime()%>
             </td>
         </tr>
@@ -436,12 +431,6 @@
             </td>
         </tr>
         <% } %>
-        <tr>
-            <td colspan="2">
-                <input type="button" value="Annotation"
-                       onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?atbname=<%=annotation_attrib%>&display=<%=annotation_display%>&table_id=<%=annotation_tableid%>&demo=<%=moduleid%>','anwin','width=400,height=500');"/>
-            </td>
-        </tr>
         <tr>
             <td colspan="2">Html:</td>
         </tr>

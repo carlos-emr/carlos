@@ -25,6 +25,7 @@
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.AppointmentStatus" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -41,7 +42,7 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.appt.status.mgr.title"/></title>
+    <title><fmt:message key="admin.appt.status.mgr.title"/></title>
     <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
     <script>
@@ -56,7 +57,7 @@
 %>
 <table border=0 cellspacing=0 cellpadding=0 width="100%">
     <tr bgcolor="#486ebd">
-        <th align="CENTER" NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.appt.status.mgr.title"/></font></th>
+        <th align="CENTER" NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.appt.status.mgr.title"/></font></th>
         <th align="right" NOWRAP><font face="Helvetica" color="#CCCCCC"><a
                 href=<%=reseturl%>>reset</a></font></th>
     </tr>
@@ -65,11 +66,11 @@
 
 <table class="borderAll" width="100%">
     <tr>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.appt.status.mgr.label.status"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.appt.status.mgr.label.desc"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.appt.status.mgr.label.color"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.appt.status.mgr.label.enable"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.appt.status.mgr.label.active"/></th>
+        <th><fmt:message key="admin.appt.status.mgr.label.status"/></th>
+        <th><fmt:message key="admin.appt.status.mgr.label.desc"/></th>
+        <th><fmt:message key="admin.appt.status.mgr.label.color"/></th>
+        <th><fmt:message key="admin.appt.status.mgr.label.enable"/></th>
+        <th><fmt:message key="admin.appt.status.mgr.label.active"/></th>
         <th>&nbsp;</th>
     </tr>
     <%

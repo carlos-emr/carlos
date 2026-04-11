@@ -30,6 +30,7 @@
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -43,14 +44,11 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@page import="io.github.carlos_emr.carlos.rx.StaticScriptBean" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.util.RxUtil" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@page import="java.util.ArrayList" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
-
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -69,7 +67,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="StaticScript.title"/></title>
+        <title><fmt:message key="StaticScript.title"/></title>
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
@@ -129,7 +127,6 @@
             ArrayList<StaticScriptBean.DrugDisplayData> drugs = StaticScriptBean.getDrugList(loggedInInfo, currentDemographicNo, regionalIdentifier, cn, bn, atc);
 
             RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, currentDemographicNo);
-            String annotation_display = CaseManagementNoteLink.DISP_PRESCRIP;
         %>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
         <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/Oscar.js"/>"></script>
@@ -195,7 +192,7 @@
                        width="100%" height="100%">
                     <tr>
                         <td width="0%" valign="top">
-                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/oscarRx/SearchDrug3.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a> &gt; <b><fmt:setBundle basename="oscarResources"/><fmt:message key="StaticScript.title"/></b>
+                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/oscarRx/SearchDrug3.jsp"> <fmt:message key="SearchDrug.title"/></a> &gt; <b><fmt:message key="StaticScript.title"/></b>
                             </div>
                         </td>
                     </tr>
@@ -234,26 +231,26 @@
                                     </td>
                                     <td><%
                                         if (!drug.startDate.equals("0001/01/01")) {
-                                            out.print(partialDateDao.getDatePartial(drug.startDate, PartialDate.DRUGS, drug.localDrugId, PartialDate.DRUGS_STARTDATE));
+                                            out.print(Encode.forHtml(partialDateDao.getDatePartial(drug.startDate, PartialDate.DRUGS, drug.localDrugId, PartialDate.DRUGS_STARTDATE)));
 							/*
 							String startDate = drug.startDate;
 		            		PartialDate pd = partialDateDao.getPartialDate(PartialDate.DRUGS , drug.localDrugId, PartialDate.DRUGS_STARTDATE);
 		            		if(pd != null) {
 		            			startDate = startDate.substring(0,pd.getFormat().length());
 		            		}
-		            		
+
 							out.print(startDate);
 							*/
                                         }
                                     %></td>
                                     <td><%
                                         if (!drug.startDate.equals("0001/01/01")) {
-                                            out.print(drug.endDate);
+                                            out.print(Encode.forHtml(drug.endDate));
                                         }
                                     %></td>
                                     <td><%
                                         if (!drug.writtenDate.equals("0001/01/01")) {
-                                            out.print(partialDateDao.getDatePartial(drug.writtenDate, PartialDate.DRUGS, drug.localDrugId, PartialDate.DRUGS_WRITTENDATE));
+                                            out.print(Encode.forHtml(partialDateDao.getDatePartial(drug.writtenDate, PartialDate.DRUGS, drug.localDrugId, PartialDate.DRUGS_WRITTENDATE)));
                                         }
                                     %></td>
                                     <td>
@@ -267,7 +264,7 @@
                                         <%}%>
 
                                         <% if (drug.nonAuthoritative) { %>
-                                        &nbsp;<fmt:setBundle basename="oscarResources"/>
+                                        &nbsp;
                                         <fmt:message key="WriteScript.msgNonAuthoritative"/>
                                         <% } %>
 
@@ -281,24 +278,24 @@
                                         <% }
                                         } %>
                                         <%if (drug.eTreatmentType != null && !drug.eTreatmentType.equals("null")) { %>
-                                        &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgETreatmentType"/>:
+                                        &nbsp;<fmt:message key="WriteScript.msgETreatmentType"/>:
 
                                         <%if (drug.eTreatmentType.equals("CHRON")) {%>
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgETreatment.Continuous"/>
+                                        <fmt:message key="WriteScript.msgETreatment.Continuous"/>
                                         <%} else if (drug.eTreatmentType.equals("ACU")) {%>
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgETreatment.Acute"/>
+                                        <fmt:message key="WriteScript.msgETreatment.Acute"/>
                                         <%} else if (drug.eTreatmentType.equals("ONET")) {%>
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgETreatment.OneTime"/>
+                                        <fmt:message key="WriteScript.msgETreatment.OneTime"/>
                                         <%} else if (drug.eTreatmentType.equals("PRNL")) {%>
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgETreatment.LongTermPRN"/>
+                                        <fmt:message key="WriteScript.msgETreatment.LongTermPRN"/>
                                         <%} else if (drug.eTreatmentType.equals("PRNS")) {%>
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgETreatment.ShortTermPRN"/>
+                                        <fmt:message key="WriteScript.msgETreatment.ShortTermPRN"/>
                                         <%
                                                 }
                                             }
                                         %>
                                         <%if (drug.rxStatus != null && !drug.rxStatus.equals("null")) { %>
-                                        &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgRxStatus"/>: <%=Encode.forHtml(drug.rxStatus)%>
+                                        &nbsp;<fmt:message key="WriteScript.msgRxStatus"/>: <%=Encode.forHtml(drug.rxStatus)%>
                                         <%}%>
 
                                     </td>
@@ -314,21 +311,6 @@
                             <%
                                 if (drug.isLocal) {
                             %>
-                            <input type="button" value="Annotation" title="Annotation" class="ControlPushButton"
-                                   onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=Encode.forUriComponent(annotation_display)%>&table_id=<%=Encode.forUriComponent(String.valueOf(drug.localDrugId))%>&demo=<%=Encode.forUriComponent(String.valueOf(currentDemographicNo))%>','anwin','width=400,height=500');">
-                            <%
-                                }
-                            %>
-                        </td>
-                        <td>
-                            <%
-                                if (drug.isLocal) {
-                            %>
-                                <%--  <form action="">
-      <input type="hidden" name="drugList" value="<%=drug.localDrugId.toString()%>" />
-      <input type="hidden" name="method" value="represcribe">
-                                                  <input type="submit" name="submit" style="width:100px" class="ControlPushButton"  onclick="javascript:reRxDrugSearch3('<%=drug.localDrugId%>');" value="Re-prescribe" />
-  </form> --%>
                             <input type="button" align="top" value="Represcribe" style="width: 100px"
                                    class="ControlPushButton"
                                    onclick="javascript:reRxDrugSearch3('<%=Encode.forJavaScriptAttribute(String.valueOf(drug.localDrugId))%>');"/>

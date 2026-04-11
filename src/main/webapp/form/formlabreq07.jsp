@@ -59,6 +59,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -545,7 +546,7 @@
                                         %>
                                         <td class="borderGrayBottomRight"
                                             style="border-right: 0px; width: 130px;"><font
-                                                class="subHeading"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.form.labreq.patientChartNo"/></font><br/>
+                                                class="subHeading"><fmt:message key="encounter.form.labreq.patientChartNo"/></font><br/>
                                             <input type="hidden" style="width: 90%" name="patientChartNo"
                                                    value="<%=Encode.forHtmlAttribute(demoChartNo)%>"/> <%=Encode.forHtml(props.getProperty("patientChartNo", ""))%>
                                         </td>

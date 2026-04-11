@@ -69,6 +69,7 @@
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     double totalPayments = 0;
     double totalRefunds = 0;
@@ -107,7 +108,7 @@
 <html>
     <head>
         <title>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.bc.title"/>
+            <fmt:message key="billing.bc.title"/>
         </title>
         <link rel="stylesheet" type="text/css" href="billReceiptPrint.css" id="printStyle" media="print"/>
         <style>
@@ -470,7 +471,7 @@
                                                     <td></td>
                                                     <td>Line#</td>
                                                     <td>
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.desc"/>
+                                                        <fmt:message key="billing.service.desc"/>
                                                     </td>
                                                     <td>Service Code</td>
                                                     <td>QTY</td>
@@ -487,7 +488,7 @@
                                                     <td>
                                                             <span class="rcvPayment">
                                                             <a href="#"
-                                                               onClick="popupPage(300,450,'viewReceivePaymentAction.do?lineNo=<%=bi.getLineNo()%>&amp;billNo=<%=bean.getBillingNo()%> ')">Receive Payment</a>
+                                                               onClick="popupPage(300,450,'viewReceivePaymentAction.do?lineNo=<%=Encode.forJavaScriptAttribute(String.valueOf(bi.getLineNo()))%>&amp;billNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(bean.getBillingNo())))%>')">Receive Payment</a>
                                                             </span>
                                                     </td>
                                                     <td><%=bi.getLineNo()%>
@@ -667,7 +668,7 @@
                                                                 <td colspan="2" align="left" valign="bottom">
                                                                     <input type="submit" name="submit" class="header" value="Update Invoice" />
                                                                     <button class="header" value="Edit Invoice"
-                                                                            onclick="editInvoice('<%=bean.getBillingMasterNo()%>')">
+                                                                            onclick="editInvoice('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(bean.getBillingMasterNo()))%>')">
                                                                         Edit Invoice
                                                                     </button>
                                                                     <button class="header" onclick="printInvoiceWithoutNotes()">Print</button>

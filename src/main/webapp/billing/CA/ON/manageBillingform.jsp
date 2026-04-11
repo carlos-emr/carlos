@@ -32,6 +32,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" %>
@@ -58,7 +59,7 @@
 %>
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform.title"/></title>
+        <title><fmt:message key="billing.manageBillingform.title"/></title>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <!-- Bootstrap -->
@@ -83,19 +84,19 @@
 
             function valid(form) {
                 if (validateServiceType(form)) {
-                    form.action = "<%= request.getContextPath() %>/billing/CA/ON/dbManageBillingform_add.jsp";
+                    form.action = "<%= request.getContextPath() %>/billing/CA/ON/DbManageBillingformAdd.do";
                     form.submit();
                 }
             }
 
             function validateServiceType() {
                 if (document.servicetypeform.typeid.value == "MFP") {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform.msgIDExists"/>");
+                    alert("<fmt:message key="billing.manageBillingform.msgIDExists"/>");
                     return false;
                 }
 
                 if (document.servicetypeform.typeid.value == '') {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform.btnManage.msgRequiredField"/>");
+                    alert("<fmt:message key="billing.manageBillingform.btnManage.msgRequiredField"/>");
                     return false;
                 }
                 return true;
@@ -123,9 +124,28 @@
                 showManageType(true);
             }
 
-            function onUnbilled(url) {
-                if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform.msgDeleteBillingConfirm"/>")) {
-                    popupPage(700, 720, url);
+            function postToPopup(action, params, winName, w, h) {
+                var form = document.createElement('form');
+                form.method = 'POST';
+                form.action = action;
+                form.target = winName;
+                for (var key in params) {
+                    var input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = key;
+                    input.value = params[key];
+                    form.appendChild(input);
+                }
+                window.open('', winName, 'width=' + w + ',height=' + h);
+                document.body.appendChild(form);
+                form.submit();
+                document.body.removeChild(form);
+            }
+
+            function onUnbilled(servicetype) {
+                if (confirm("<fmt:message key="billing.manageBillingform.msgDeleteBillingConfirm"/>")) {
+                    postToPopup('<%= request.getContextPath() %>/billing/CA/ON/DbManageBillingformDelete.do',
+                        {servicetype: servicetype}, 'deletePopup', 700, 720);
                 }
             }
 
@@ -139,15 +159,15 @@
             }
 
             function manageBillType(id, oldtype, newtype) {
-                url = "dbManageBillingform_billtype.jsp";
-                pars = "?servicetype=" + id + "&billtype_old=" + oldtype + "&billtype=" + newtype;
-                popupPage(700, 720, url + pars);
+                postToPopup('<%= request.getContextPath() %>/billing/CA/ON/DbManageBillingformBilltype.do',
+                    {servicetype: id, billtype_old: oldtype, billtype: newtype},
+                    'billtypePopup', 700, 720);
             }
 
         </script>
     </head>
     <body onload="showManageType(false);">
-    <h4><b>oscar<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform.msgBilling"/></h4>
+    <h4><b>oscar<fmt:message key="billing.manageBillingform.msgBilling"/></h4>
 
     <form name="serviceform" method="post" action="manageBillingform.jsp">
 
@@ -156,15 +176,15 @@
                 <tr>
                     <td style="width:30%; text-align:right">
                         <input type="radio" name="reportAction" value="servicecode"
-                                <%=reportAction.equals("servicecode")?"checked":""%>> <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform.formServiceCode"/>
+                                <%=reportAction.equals("servicecode")?"checked":""%>> <fmt:message key="billing.manageBillingform.formServiceCode"/>
                         <input type="radio" name="reportAction" value="dxcode"
-                                <%=reportAction.equals("dxcode")?"checked":""%>> <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform.formDxCode"/></td>
+                                <%=reportAction.equals("dxcode")?"checked":""%>> <fmt:message key="billing.manageBillingform.formDxCode"/></td>
                     <td style="width:40%; text-align: center">
                         <div style="align:right">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform.formSelectForm"/>&nbsp;&nbsp;
+                            <fmt:message key="billing.manageBillingform.formSelectForm"/>&nbsp;&nbsp;
                             <select name="billingform">
-                                <option value="000" <%=clinicview.equals("000") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform.formAddDelete"/></option>
-                                <option value="***" <%=clinicview.equals("***") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform.formManagePremium"/></option>
+                                <option value="000" <%=clinicview.equals("000") ? "selected" : ""%>><fmt:message key="billing.manageBillingform.formAddDelete"/></option>
+                                <option value="***" <%=clinicview.equals("***") ? "selected" : ""%>><fmt:message key="billing.manageBillingform.formManagePremium"/></option>
 
                                 <%
                                     String serviceType = "";
@@ -185,7 +205,7 @@
                     </td>
                     <td style="width:30%;">
                         <input type="submit" name="Submit" class="btn btn-secondary"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform.btnManage"/>">
+                               value="<fmt:message key="billing.manageBillingform.btnManage"/>">
                     </td>
                 </tr>
             </table>

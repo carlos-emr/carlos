@@ -32,6 +32,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
 <html>
 <head>
@@ -229,7 +230,7 @@
 <body id="lookUpListManager">
 <header>
     <h1 class="pageTitle">
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.lookuplists.title"/>
+        <fmt:message key="admin.admin.lookuplists.title"/>
     </h1>
 </header>
 

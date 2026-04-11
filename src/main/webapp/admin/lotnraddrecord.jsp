@@ -48,6 +48,7 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction,io.github.carlos_emr.carlos.log.LogConst" %>
@@ -70,7 +71,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotaddrecord.title"/></title>
+        <title><fmt:message key="admin.lotaddrecord.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
     </head>
 
@@ -79,7 +80,7 @@
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">
                 <th><font face="Helvetica" color="#FFFFFF">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotaddrecord.description"/>
+                    <fmt:message key="admin.lotaddrecord.description"/>
                 </font></th>
             </tr>
         </table>
@@ -96,12 +97,12 @@
                     p.setDeleted(false);
                     PreventionsLotNrsDao.merge(p);
         %>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotaddrecord.msgAdditionSuccess"/>
+        <fmt:message key="admin.lotaddrecord.msgAdditionSuccess"/>
         <%
             }
         } else if (currentLotnrs.contains(lotnr)) {
         %>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotaddrecord.msgDuplicateLotnr"/>
+        <fmt:message key="admin.lotaddrecord.msgDuplicateLotnr"/>
         <%
         } else {
             PreventionsLotNrs p = new PreventionsLotNrs();
@@ -115,11 +116,11 @@
 
             if (p.getId() != null) {
         %>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotaddrecord.msgAdditionSuccess"/>
+        <fmt:message key="admin.lotaddrecord.msgAdditionSuccess"/>
         <%
         } else {
         %>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotaddrecord.msgAdditionFailure"/>
+        <fmt:message key="admin.lotaddrecord.msgAdditionFailure"/>
         <%
                 }
             }

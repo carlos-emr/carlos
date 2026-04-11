@@ -53,6 +53,7 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.ManageLetters" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <jsp:useBean id="providerBean" class="java.util.Properties"
@@ -82,7 +83,7 @@
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
         <!-- Prototype.js removed — using vanilla JS (Phase 1c migration) -->
 
@@ -202,8 +203,8 @@
                         <td>&nbsp; <a href="${pageContext.request.contextPath}/report/ViewManageLetters.do">manage</a></td>
                         <td style="text-align: right">
                             <a
-                                    href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                                    href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
+                                    href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
+                                    href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>

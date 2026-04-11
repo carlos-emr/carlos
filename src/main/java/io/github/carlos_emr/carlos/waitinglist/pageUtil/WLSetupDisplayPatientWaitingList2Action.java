@@ -99,9 +99,9 @@ public final class WLSetupDisplayPatientWaitingList2Action extends ActionSupport
         String demoInfo = demo.getLastName() + ", " + demo.getFirstName() + " " + demo.getSex() + " " + demo.getAge();
         WLPatientWaitingListBeanHandler hd = new WLPatientWaitingListBeanHandler(demographicNo);
         HttpSession session = request.getSession();
-        session.setAttribute("demoInfo", demoInfo);
-        session.setAttribute("patientWaitingList", hd);
-        session.setAttribute("demographicNo", demographicNo);
+        session.setAttribute("demoInfo", demoInfo); // nosemgrep: tainted-session-from-http-request -- composed from DAO-loaded Demographic fields (name, sex, age)
+        session.setAttribute("patientWaitingList", hd); // nosemgrep: tainted-session-from-http-request -- DAO-sourced bean handler built from validated demographicNo
+        session.setAttribute("demographicNo", demographicNo); // nosemgrep: tainted-session-from-http-request -- validated via Integer.parseInt and DAO existence check above
 
         return "continue";
     }

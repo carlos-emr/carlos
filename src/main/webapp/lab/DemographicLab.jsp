@@ -41,6 +41,7 @@
 <%@ page import="io.github.carlos_emr.carlos.mds.data.ProviderData" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -112,7 +113,7 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.title"/> Page <%=pageNum%>
+    <title><fmt:message key="oscarMDS.index.title"/> Page <%=pageNum%>
     </title>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
@@ -156,7 +157,7 @@
             if (aBoxIsChecked) {
                 popupStart(300, 400, 'SelectProvider.jsp', 'providerselect');
             } else {
-                alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgSelectOneLab"/>');
+                alert('<fmt:message key="oscarMDS.index.msgSelectOneLab"/>');
             }
         }
 
@@ -225,24 +226,24 @@
                             <input type="hidden" name="status" value="<%= Encode.forHtmlAttribute(ackStatus) %>">
                             <input type="hidden" name="selectedProviders"> <% if (demographicNo == null) { %>
                             <input type="button" class="smallButton"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnSearch"/>"
+                                   value="<fmt:message key="oscarMDS.index.btnSearch"/>"
                                    onClick="window.location='Search.jsp?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>'">
                             <% } %> <input type="button" class="smallButton"
-                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnClose"/>"
+                                           value="<fmt:message key="oscarMDS.index.btnClose"/>"
                                            onClick="window.close()">
 
                             <% if (demographicNo == null && request.getParameter("fname") != null) { %>
                             <input type="button" class="smallButton"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnDefaultView"/>"
+                                   value="<fmt:message key="oscarMDS.index.btnDefaultView"/>"
                                    onClick="window.location='lab/DemographicLab.jsp?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>'">
                             <% } %> <% if (demographicNo == null && labs.size() > 0) { %>
                             <!-- <input type="button" class="smallButton" value="Reassign" onClick="popupStart(300, 400, 'SelectProvider.jsp', 'providerselect')"> -->
                             <input type="button" class="smallButton"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnForward"/>"
+                                   value="<fmt:message key="oscarMDS.index.btnForward"/>"
                                    onClick="checkSelected()"> <input type="button"
                                                                      class="smallButton" value="File"
                                                                      onclick="submitFile()"/>
-                            <span title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"
+                            <span title="<fmt:message key="global.uploadWarningBody"/>"
                                   style="vertical-align:middle;font-family:arial;font-size:20px;font-weight:bold;color:#ABABAB;cursor:pointer"><img
                                     border="0" src="<%= request.getContextPath() %>/images/icon_alertsml.gif"/></span></span>
 
@@ -250,30 +251,30 @@
                         </td>
                         <td align="center" valign="center" width="40%" class="Nav">
                             &nbsp;&nbsp;&nbsp; <% if (demographicNo == null) { %> <span
-                                class="white"> <% if (ackStatus.equals("N")) {%> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgNewLabReportsFor"/> <%} else if (ackStatus.equals("A")) {%>
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgAcknowledgedLabReportsFor"/> <%} else {%>
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgAllLabReportsFor"/> <%}%>&nbsp;
-				<% if (searchProviderNo.equals("")) {%> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgAllPhysicians"/> <%} else if (searchProviderNo.equals("0")) {%>
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgUnclaimed"/> <%} else {%> <%= Encode.forHtml(ProviderData.getProviderName(searchProviderNo)) %>
+                                class="white"> <% if (ackStatus.equals("N")) {%> <fmt:message key="oscarMDS.index.msgNewLabReportsFor"/> <%} else if (ackStatus.equals("A")) {%>
+				<fmt:message key="oscarMDS.index.msgAcknowledgedLabReportsFor"/> <%} else {%>
+				<fmt:message key="oscarMDS.index.msgAllLabReportsFor"/> <%}%>&nbsp;
+				<% if (searchProviderNo.equals("")) {%> <fmt:message key="oscarMDS.index.msgAllPhysicians"/> <%} else if (searchProviderNo.equals("0")) {%>
+				<fmt:message key="oscarMDS.index.msgUnclaimed"/> <%} else {%> <%= Encode.forHtml(ProviderData.getProviderName(searchProviderNo)) %>
 				<%}%> &nbsp;&nbsp;&nbsp; Page : <%=pageNum%> </span> <% } %>
                         </td>
                         <td align="right" valign="center" width="30%"><a
-                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a></td>
+                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/About.jsp')"><fmt:message key="global.about"/></a></td>
                     </tr>
                 </table>
             </td>
         </tr>
         <tr>
-            <th class="cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgDateTest"/></th>
+            <th class="cell"><fmt:message key="oscarMDS.index.msgDateTest"/></th>
             <th class="cell">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgLabel"/>
+                <fmt:message key="oscarMDS.index.msgLabel"/>
             </th>
-            <th class="cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgRequestingClient"/></th>
-            <th class="cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgResultStatus"/></th>
+            <th class="cell"><fmt:message key="oscarMDS.index.msgRequestingClient"/></th>
+            <th class="cell"><fmt:message key="oscarMDS.index.msgResultStatus"/></th>
 
-            <th class="cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgReportStatus"/></th>
+            <th class="cell"><fmt:message key="oscarMDS.index.msgReportStatus"/></th>
             <th class="cell">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgDiscipline"/>
+                <fmt:message key="oscarMDS.index.msgDiscipline"/>
             </th>
         </tr>
 
@@ -350,7 +351,7 @@
 
             if (endIndex == 0) { %>
         <tr>
-            <td colspan="9" align="center"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgNoReports"/></i></td>
+            <td colspan="9" align="center"><i><fmt:message key="oscarMDS.index.msgNoReports"/></i></td>
         </tr>
         <% } %>
         <tr class="MainTableBottomRow">
@@ -361,18 +362,18 @@
                         <td align="left" valign="middle" width="30%">
                             <% if (demographicNo == null) { %> <input type="button"
                                                                       class="smallButton"
-                                                                      value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnSearch"/>"
+                                                                      value="<fmt:message key="oscarMDS.index.btnSearch"/>"
                                                                       onClick="window.location='Search.jsp?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>'">
                             <% } %> <input type="button" class="smallButton"
-                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnClose"/>"
+                                           value="<fmt:message key="oscarMDS.index.btnClose"/>"
                                            onClick="window.close()"> <% if (request.getParameter("fname") != null) { %>
                             <input type="button" class="smallButton"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnDefaultView"/>"
+                                   value="<fmt:message key="oscarMDS.index.btnDefaultView"/>"
                                    onClick="window.location='lab/DemographicLab.jsp?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>'">
                             <% } %> <% if (demographicNo == null && labs.size() > 0) { %>
                             <!-- <input type="button" class="smallButton" value="Reassign" onClick="popupStart(300, 400, 'SelectProvider.jsp', 'providerselect')"> -->
                             <input type="button" class="smallButton"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnForward"/>"
+                                   value="<fmt:message key="oscarMDS.index.btnForward"/>"
                                    onClick="checkSelected()"> <input type="button"
                                                                      class="smallButton" value="File"
                                                                      onclick="submitFile()"/> <% } %>
@@ -382,7 +383,7 @@
                                 <% if (pageNum > 1 || labs.size() > endIndex) {
                                     if (pageNum > 1) { %> <a class="visLink"
                                                              href="lab/DemographicLab.jsp?providerNo=<%= Encode.forUriComponent(providerNo) %><%= (demographicNo == null ? "" : "&demographicNo="+Encode.forUriComponent(demographicNo)) %>&searchProviderNo=<%= Encode.forUriComponent(searchProviderNo) %>&status=<%= Encode.forUriComponent(ackStatus) %><%= (request.getParameter("lname") == null ? "" : "&lname="+Encode.forUriComponent(request.getParameter("lname"))) %><%= (request.getParameter("fname") == null ? "" : "&fname="+Encode.forUriComponent(request.getParameter("fname"))) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+Encode.forUriComponent(request.getParameter("hnum"))) %>&pageNum=<%=pageNum-1%>&startIndex=<%=startIndex-20%>"><
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgPrevious"/></a> <% } else { %>
+                                <fmt:message key="oscarMDS.index.msgPrevious"/></a> <% } else { %>
                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                 <% } %> <%
                                 int count = 1;
@@ -397,7 +398,7 @@
                                 %> <% if (labs.size() > endIndex) { %>
                                 <a
                                         class="visLink"
-                                        href="lab/DemographicLab.jsp?providerNo=<%= Encode.forUriComponent(providerNo) %><%= (demographicNo == null ? "" : "&demographicNo="+Encode.forUriComponent(demographicNo)) %>&searchProviderNo=<%= Encode.forUriComponent(searchProviderNo) %>&status=<%= Encode.forUriComponent(ackStatus) %><%= (request.getParameter("lname") == null ? "" : "&lname="+Encode.forUriComponent(request.getParameter("lname"))) %><%= (request.getParameter("fname") == null ? "" : "&fname="+Encode.forUriComponent(request.getParameter("fname"))) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+Encode.forUriComponent(request.getParameter("hnum"))) %>&pageNum=<%=pageNum+1%>&startIndex=<%=startIndex+20%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgNext"/> ></a> <% } else { %>
+                                        href="lab/DemographicLab.jsp?providerNo=<%= Encode.forUriComponent(providerNo) %><%= (demographicNo == null ? "" : "&demographicNo="+Encode.forUriComponent(demographicNo)) %>&searchProviderNo=<%= Encode.forUriComponent(searchProviderNo) %>&status=<%= Encode.forUriComponent(ackStatus) %><%= (request.getParameter("lname") == null ? "" : "&lname="+Encode.forUriComponent(request.getParameter("lname"))) %><%= (request.getParameter("fname") == null ? "" : "&fname="+Encode.forUriComponent(request.getParameter("fname"))) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+Encode.forUriComponent(request.getParameter("hnum"))) %>&pageNum=<%=pageNum+1%>&startIndex=<%=startIndex+20%>"><fmt:message key="oscarMDS.index.msgNext"/> ></a> <% } else { %>
                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                 <% }
                                 } %>

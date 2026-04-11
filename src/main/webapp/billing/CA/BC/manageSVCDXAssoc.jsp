@@ -1,5 +1,6 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -20,7 +21,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.BC.billingBC.manageSVCDXAssoc.title"/></title>
+        <title><fmt:message key="oscar.billing.CA.BC.billingBC.manageSVCDXAssoc.title"/></title>
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
         <script type="text/javascript">
@@ -49,17 +50,17 @@
                 <table width="100%" border="1" cellspacing="0" cellpadding="0">
                     <tr class="TopStatusBar">
                         <td>
-                            <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.BC.billingBC.manageSVCDXAssoc.title"/></h3>
+                            <h3><fmt:message key="oscar.billing.CA.BC.billingBC.manageSVCDXAssoc.title"/></h3>
                         </td>
                         <td style="text-align: right" colspan="2"><a
-                                href="javascript:popupStart(300,400,'Help.jsp')"> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.help"/> </a> | <a
-                                href="javascript:popupStart(300,400,'About.jsp')"> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/> </a> | <a
-                                href="javascript:popupStart(300,400,'License.jsp')"> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/> </a></td>
+                                href="javascript:popupStart(300,400,'Help.jsp')"> <fmt:message key="global.help"/> </a> | <a
+                                href="javascript:popupStart(300,400,'About.jsp')"> <fmt:message key="global.about"/> </a> | <a
+                                href="javascript:popupStart(300,400,'License.jsp')"> <fmt:message key="global.license"/> </a></td>
                     </tr>
                     <tr bgcolor="CCCCFF">
-                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.BC.billingBC.manageSVCDXAssoc.svc"/></th>
-                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.BC.billingBC.manageSVCDXAssoc.dx"/></th>
-                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.BC.billingBC.manageSVCDXAssoc.options"/></th>
+                        <th><fmt:message key="oscar.billing.CA.BC.billingBC.manageSVCDXAssoc.svc"/></th>
+                        <th><fmt:message key="oscar.billing.CA.BC.billingBC.manageSVCDXAssoc.dx"/></th>
+                        <th><fmt:message key="oscar.billing.CA.BC.billingBC.manageSVCDXAssoc.options"/></th>
                     </tr>
                     <%
                         ArrayList lst = (ArrayList) request.getAttribute("assocs");

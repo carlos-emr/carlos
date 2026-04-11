@@ -53,10 +53,10 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.apache.commons.text.WordUtils" %>
 
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     if (session.getAttribute("user") == null) {
@@ -171,7 +171,7 @@
                     String bgColor = i.getIndex() % 2 == 0 ? "#EEEEFF" : "ivory";
 
                     String strOnClick;
-                    strOnClick = "selectResult('" + contact.getId() + "','" + StringEscapeUtils.escapeEcmaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";
+                    strOnClick = "selectResult('" + contact.getId() + "','" + Encode.forJavaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";
 
                 %>
                 <tr align="center" bgcolor="<%=bgColor%>" align="center"
@@ -192,7 +192,7 @@
             nLastPage = Integer.parseInt(strLimit1) - Integer.parseInt(strLimit2);
         %> <%
         if (nItems == 0 && nLastPage <= 0) {
-    %> <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.noResultsWereFound"/> <%
+    %> <fmt:message key="demographic.search.noResultsWereFound"/> <%
         }
     %>
         <script language="JavaScript">
@@ -214,12 +214,12 @@
             <%
                 if (nLastPage >= 0) {
             %> <input type="submit" class="mbttn" name="submit"
-                      value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/>"
+                      value="<fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/>"
                       onClick="last()"> <%
             }
             if (nItems == Integer.parseInt(strLimit2)) {
         %> <input type="submit" class="mbttn" name="submit"
-                  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/>"
+                  value="<fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/>"
                   onClick="next()"> <%
             }
         %>

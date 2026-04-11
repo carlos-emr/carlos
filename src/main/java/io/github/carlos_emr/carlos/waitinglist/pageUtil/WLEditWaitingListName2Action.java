@@ -176,9 +176,9 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
 
         String today = UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
 
-        session.setAttribute("waitingListNames", wlNameHd.getWaitingListNameList());
+        session.setAttribute("waitingListNames", wlNameHd.getWaitingListNameList()); // nosemgrep: tainted-session-from-http-request -- DAO-sourced list from WLWaitingListNameBeanHandler
 
-        session.setAttribute("today", today);
+        session.setAttribute("today", today); // nosemgrep: tainted-session-from-http-request -- server-generated date string from new Date()
 
         MiscUtils.getLogger().debug("WLEditWaitingListName2Action/execute(): getMessage() = " + getMessage());
         request.setAttribute("message", getMessage());

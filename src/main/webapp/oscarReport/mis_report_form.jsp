@@ -55,7 +55,7 @@
 <%@page import="java.text.DateFormatSymbols" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@page import="org.owasp.encoder.Encode" %>
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -67,16 +67,17 @@
 %>
 
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.misRpt"/></title>
+    <title><fmt:message key="admin.admin.misRpt"/></title>
 </head>
 
 <body>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
-<h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.misRpt"/></h3>
+<h3><fmt:message key="admin.admin.misRpt"/></h3>
 
 <form action="${ctx}/oscarReport/mis_report_form.jsp" class="card card-body bg-body-tertiary" id="misForm">
 
@@ -106,7 +107,7 @@
                     <%
                         for (FunctionalCentre functionalCentre : functionalCentres) {
                     %>
-                    <option value="<%=functionalCentre.getAccountId()%>"><%=StringEscapeUtils.escapeHtml4(functionalCentre.getAccountId() + ", " + functionalCentre.getDescription())%>
+                    <option value="<%=functionalCentre.getAccountId()%>"><%=Encode.forHtml(functionalCentre.getAccountId() + ", " + functionalCentre.getDescription())%>
                     </option>
                     <%
                         }
@@ -126,7 +127,7 @@
                         for (Program program : programs) {
                             if ("Service".equalsIgnoreCase(program.getType())) {
                     %>
-                    <option value="<%=program.getId()%>"><%=StringEscapeUtils.escapeHtml4(program.getName() + " (" + program.getType() + ')')%>
+                    <option value="<%=program.getId()%>"><%=Encode.forHtml(program.getName() + " (" + program.getType() + ')')%>
                     </option>
                     <%
                             }

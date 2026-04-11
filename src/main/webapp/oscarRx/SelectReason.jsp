@@ -30,6 +30,7 @@
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ page
@@ -39,7 +40,6 @@
         import="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO,io.github.carlos_emr.carlos.commn.model.Dxresearch,io.github.carlos_emr.carlos.commn.dao.Icd9Dao,io.github.carlos_emr.carlos.commn.model.Icd9" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%
     CodingSystemManager codingSystemManager = SpringUtils.getBean(CodingSystemManager.class);
@@ -266,14 +266,14 @@
                                 <legend>Current Indications</legend>
                                 <table>
                                     <tr>
-                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectReason.table.codingSystem"/></th>
-                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectReason.table.code"/></th>
-                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectReason.table.description"/></th>
-                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectReason.table.comments"/></th>
-                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectReason.table.primaryReasonFlag"/></th>
-                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectReason.table.provider"/></th>
+                                        <th><fmt:message key="SelectReason.table.codingSystem"/></th>
+                                        <th><fmt:message key="SelectReason.table.code"/></th>
+                                        <th><fmt:message key="SelectReason.table.description"/></th>
+                                        <th><fmt:message key="SelectReason.table.comments"/></th>
+                                        <th><fmt:message key="SelectReason.table.primaryReasonFlag"/></th>
+                                        <th><fmt:message key="SelectReason.table.provider"/></th>
                                         <th>
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="SelectReason.table.dateCoded"/>
+                                                <fmt:message key="SelectReason.table.dateCoded"/>
                                         <th>
                                         <th>&nbsp;</th>
                                     </tr>
@@ -289,7 +289,7 @@
                                                 String descr = codingSystemManager.getCodeDescription(drugReason.getCodingSystem(), drugReason.getCode());
                                                 descr = org.apache.commons.lang3.StringUtils.trimToEmpty(descr);
                                             %>
-                                            <%=StringEscapeUtils.escapeHtml4(descr) %>
+                                            <%=Encode.forHtml(descr) %>
                                         </td>
                                         <td><%=drugReason.getComments() %>
                                         </td>

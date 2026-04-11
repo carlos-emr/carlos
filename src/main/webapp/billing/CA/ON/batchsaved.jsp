@@ -30,6 +30,7 @@
 --%>
 
 <%@ include file="/casemgmt/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <html>
 <head>
     <title>Batch Saved</title>
@@ -44,7 +45,7 @@
 </head>
 <body style="background-color:#C4D9E7;" onload='setTimeout("exit();",5000)'>
 
-<h3><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.msgConfirmSaved"/></h3>
+<h3><fmt:message key="billing.batchbilling.msgConfirmSaved"/></h3>
 
 </body>
 </html>

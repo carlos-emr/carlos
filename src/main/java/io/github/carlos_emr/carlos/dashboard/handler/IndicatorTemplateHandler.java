@@ -114,7 +114,7 @@ public class IndicatorTemplateHandler {
 
         try {
 
-            Validator validator = getSchema().newValidator();
+            Validator validator = XmlUtils.createSecureValidator(getSchema());
             validator.validate(new DOMSource(getIndicatorTemplateDocument()));
             setValidXML(Boolean.TRUE);
         } catch (Exception e) {

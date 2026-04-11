@@ -36,14 +36,13 @@
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page language="java" import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@page import="org.owasp.encoder.Encode" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
@@ -86,14 +85,13 @@
     %>
 </c:if>
 <%
-    String annotation_display = CaseManagementNoteLink.DISP_ALLERGY;
     RxPatientData.Patient patient = (RxPatientData.Patient) session.getAttribute("Patient");
     request.setAttribute("patient", patient);
     SecurityManager securityManager = new SecurityManager();
 %>
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="EditAllergies.title"/></title>
+        <title><fmt:message key="EditAllergies.title"/></title>
 
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
@@ -437,16 +435,16 @@
                 <table>
                     <tr class="DivCCBreadCrumbs">
                         <td>
-                            <a href="SearchDrug3.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a>
+                            <a href="SearchDrug3.jsp"><fmt:message key="SearchDrug.title"/></a>
                             &nbsp;&gt;&nbsp;
-                            <b><fmt:setBundle basename="oscarResources"/><fmt:message key="EditAllergies.title"/></b>
+                            <b><fmt:message key="EditAllergies.title"/></b>
                         </td>
                     </tr>
                     <!----Start new rows here-->
 
                     <tr class="DivContentSectionHead">
                         <td>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="EditAllergies.section1Title"/>
+                            <fmt:message key="EditAllergies.section1Title"/>
                         </td>
                     </tr>
                     <tr id="patientDataRow">
@@ -454,7 +452,7 @@
                             <table>
                                 <tr>
                                     <td>
-                                        <b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.nameText"/></b>
+                                        <b><fmt:message key="SearchDrug.nameText"/></b>
                                         ${patient.getSurname() }, ${patient.getFirstName() }<br/>
                                     </td>
                                     <td>&nbsp;</td>
@@ -467,7 +465,7 @@
                     </tr>
                     <tr>
                         <td class="DivContentSectionHead">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="EditAllergies.section2Title"/>
+                            <fmt:message key="EditAllergies.section2Title"/>
                             <span class="view_menu">View:
 <%
 
@@ -537,8 +535,6 @@
 							<td><b>Start Date</b></td>
 							<td><b>Life Stage</b></td>
 							<td><b>Age Of Onset</b></td>
-              <td><b><img src="<%= request.getContextPath() %>/images/notes.gif" border="0" width="10" height="12"
-                          alt="Annotation"></b></td>
 							<td><b>Action</b></td>
 						</tr>
                                             <%
@@ -633,20 +629,6 @@
                                                 <td><%=Encode.forHtml(allergy.getLifeStageDesc()) %>
                                                 </td>
                                                 <td><%=allergy.getAgeOfOnset() == null ? "" : Encode.forHtml(String.valueOf(allergy.getAgeOfOnset()))%>
-                                                </td>
-                                                <%
-                                                    CaseManagementManager cmm = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
-                                                    @SuppressWarnings("unchecked")
-                                                    List<CaseManagementNoteLink> existingAnnots = cmm.getLinkByTableId(CaseManagementNoteLink.ALLERGIES, Long.valueOf(allergy.getAllergyId()));
-                                                %>
-                                                <td>
-                                                    <a href="#" title="Annotation" onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=annotation_display%>&table_id=<%=String.valueOf(allergy.getAllergyId())%>&demo=${patient.getDemographicNo()}','anwin','width=400,height=500');">
-                                                        <% if (existingAnnots.size() > 0) {%>
-                                                        <img src="<%= request.getContextPath() %>/images/filledNotes.gif" border="0"/>
-                                                        <% } else { %>
-                                                        <img src="<%= request.getContextPath() %>/images/notes.gif" border="0">
-                                                        <% } %>
-                                                    </a>
                                                 </td>
                                                 <td>
                                                     <%

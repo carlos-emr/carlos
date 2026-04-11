@@ -133,6 +133,7 @@
         </action>
         <action name="oscarRx/showAllergy" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxShowAllergy2Action">
             <result name="success">/oscarRx/ShowAllergies2.jsp</result>
+            <result name="failure">/errorpage.jsp</result>
         </action>
         <action name="oscarRx/drugInfo" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxDrugInfo2Action">
             <result name="success">/oscarRx/SearchDrug3.jsp</result>

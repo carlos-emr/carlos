@@ -19,6 +19,7 @@
 <%@page import="java.util.Objects" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -162,9 +163,15 @@
             if (duplicateLabIdsString != null) {
                 String[] duplicateLabIdsStringSplit = duplicateLabIdsString.split(",");
                 for (String tempId : duplicateLabIdsStringSplit) {
-                    HRMDocument doc = hrmDocumentDao.find(Integer.parseInt(tempId));
-                    dupReportDates.put(Integer.parseInt(tempId), doc.getReportDate());
-                    dupTimeReceived.put(Integer.parseInt(tempId), doc.getTimeReceived());
+                    tempId = tempId.trim();
+                    int parsedId;
+                    try { parsedId = Integer.parseInt(tempId); } catch (NumberFormatException e) {
+                        MiscUtils.getLogger().warn("Skipping invalid HRM duplicate lab ID: {}", tempId);
+                        continue;
+                    }
+                    HRMDocument doc = hrmDocumentDao.find(parsedId);
+                    dupReportDates.put(parsedId, doc.getReportDate());
+                    dupTimeReceived.put(parsedId, doc.getTimeReceived());
                 }
 
             }
@@ -412,14 +419,14 @@
         <input type="button" id="mainTickler_<%=hrmReportId%>" value="Tickler"
                onClick="popupPatient(710, 1024,'<%= request.getContextPath() %>/tickler/ForwardDemographicTickler.do?docType=HRM&docId=<%=hrmReportId%>&demographic_no=', 'Tickler','<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
         <input type="button" id="mainEchart_<%=hrmReportId%>"
-               value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
+               value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
                onClick="popupPatient(710, 1024,'<%= request.getContextPath() %>/encounter/IncomingEncounter.do?updateParent=false&reason=
-               <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.labResults"/>&curDate=<%=currentDate%>>&appointmentNo=&appointmentDate=&startTime=&status=&demographicNo=', 'encounter', '<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
+               <fmt:message key="oscarMDS.segmentDisplay.labResults"/>&curDate=<%=currentDate%>>&appointmentNo=&appointmentDate=&startTime=&status=&demographicNo=', 'encounter', '<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
         <input type="button" id="mainMaster_<%=hrmReportId%>"
-               value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnMaster"/>"
+               value=" <fmt:message key="oscarMDS.segmentDisplay.btnMaster"/>"
                onClick="popupPatient(710,1024,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=','master','<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
         <input type="button" id="mainApptHistory_<%=hrmReportId%>"
-               value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnApptHist"/>"
+               value=" <fmt:message key="oscarMDS.segmentDisplay.btnApptHist"/>"
                onClick="popupPatient(710,1024,'<%= request.getContextPath() %>/demographic/DemographicApptHistory.do?orderby=appttime&dboperation=appt_history&limit1=0&limit2=25&demographic_no=','ApptHist','<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
         <%-- formONAREnhancedRecord deprecated and removed - ONAR shortcut buttons disabled
         <% if (obgynShortcuts && demographicLink != null) {%>
@@ -780,8 +787,7 @@
                             <%
                                 }
                             %>
-                            <input type="button" value="Annotations"
-                                   onClick="popupPage(500, 400, '<%=request.getContextPath() %>/annotation/annotation.jsp?display=HRM&table_id=<%=hrmReportId%>&demo=<%=demographicNo%>')"/>
+
                         </form>
                     </td>
                 </tr>
@@ -957,16 +963,22 @@
                 //need datetime of report.
                 String[] duplicateLabIdsStringSplit = duplicateLabIdsString.split(",");
                 for (String tempId : duplicateLabIdsStringSplit) {
+                    tempId = tempId.trim();
+                    int parsedId;
+                    try { parsedId = Integer.parseInt(tempId); } catch (NumberFormatException e) {
+                        MiscUtils.getLogger().warn("Skipping invalid HRM duplicate lab ID in display: {}", tempId);
+                        continue;
+                    }
             %>
             <tr>
-                <td><%=tempId %>
+                <td><%=Encode.forHtml(String.valueOf(parsedId)) %>
                 </td>
-                <td><%=formatter.format(dupReportDates.get(Integer.parseInt(tempId))) %>
+                <td><%=formatter.format(dupReportDates.get(parsedId)) %>
                 </td>
-                <td><%=formatter.format(dupTimeReceived.get(Integer.parseInt(tempId))) %>
+                <td><%=formatter.format(dupTimeReceived.get(parsedId)) %>
                 </td>
                 <td><input type="button" value="Open Report"
-                           onclick="window.open('?id=<%=tempId%>&segmentId=<%=tempId%>&providerNo=<%=Encode.forJavaScriptAttribute(request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "")%>&searchProviderNo=<%=Encode.forJavaScriptAttribute(request.getParameter("searchProviderNo") != null ? request.getParameter("searchProviderNo") : "")%>&status=<%=Encode.forJavaScriptAttribute(request.getParameter("status") != null ? request.getParameter("status") : "")%>&demoName=<%=Encode.forJavaScriptAttribute(request.getParameter("demoName") != null ? request.getParameter("demoName") : "")%>', null)"/>
+                           onclick="window.open('?id=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(tempId))%>&segmentId=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(tempId))%>&providerNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(request.getParameter("providerNo") != null ? request.getParameter("providerNo") : ""))%>&searchProviderNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(request.getParameter("searchProviderNo") != null ? request.getParameter("searchProviderNo") : ""))%>&status=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(request.getParameter("status") != null ? request.getParameter("status") : ""))%>&demoName=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(request.getParameter("demoName") != null ? request.getParameter("demoName") : ""))%>', null)"/>
                 </td>
             </tr>
 

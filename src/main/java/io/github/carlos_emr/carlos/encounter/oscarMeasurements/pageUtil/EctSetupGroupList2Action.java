@@ -60,7 +60,7 @@ public final class EctSetupGroupList2Action extends ActionSupport {
             EctGroupNameBeanHandler hd = new EctGroupNameBeanHandler();
             Collection groups = hd.getGroupNameVector();
             HttpSession session = request.getSession();
-            session.setAttribute("groups", groups);
+            session.setAttribute("groups", groups); // nosemgrep: tainted-session-from-http-request -- DAO result list from EctGroupNameBeanHandler
 
             return "continue";
 

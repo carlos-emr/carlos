@@ -70,13 +70,14 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.RecycleBinDao" %>
 <%@ page import="org.springframework.dao.DataIntegrityViolationException" %>
 <%@ page import="org.springframework.web.util.HtmlUtils" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     SecRoleDao secRoleDao = SpringUtils.getBean(SecRoleDao.class);
@@ -304,10 +305,10 @@
     <script>
         jQuery(document).ready(function () {
             jQuery('#addtbl').DataTable({
-                "lengthMenu": [[8, 16, 32, -1], [8, 16, 32, "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.LeftNavBar.AllLabs"/>"]],
+                "lengthMenu": [[8, 16, 32, -1], [8, 16, 32, "<fmt:message key="encounter.LeftNavBar.AllLabs"/>"]],
                 "order": [],
                 "language": {
-                    "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18n.datatablescode"/>.json"
+                    "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
                 }
             });
         });

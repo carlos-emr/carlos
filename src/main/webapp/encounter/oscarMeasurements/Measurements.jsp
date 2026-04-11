@@ -33,9 +33,11 @@
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <%@ page
         import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasuringInstructionBeanHandler, io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasuringInstructionBean" %>
@@ -55,8 +57,8 @@
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><c:if test="${not empty groupName}">
-            <c:out value="${groupName}"/>
-        </c:if> <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.measurements"/></title>
+            ${e:forHtml(groupName)}
+        </c:if> <fmt:message key="encounter.Index.measurements"/></title>
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
@@ -91,7 +93,7 @@
             }
         </style>
         <script src="${ pageContext.request.contextPath }/share/calendar/calendar.js"></script>
-        <script src="${ pageContext.request.contextPath }/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+        <script src="${ pageContext.request.contextPath }/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
         <script src="${ pageContext.request.contextPath }/share/calendar/calendar-setup.js"></script>
         <link rel="stylesheet" type="text/css" media="all"
               href="${ pageContext.request.contextPath }/share/calendar/calendar.css" title="win2k-cold-2"/>
@@ -123,7 +125,7 @@
                 if (parentChanged) {
                     document.forms[0].elements["value(parentChanged)"].value = "true";
 
-                    if (!confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.Measurements.msgParentChanged"/> <oscar:nameage demographicNo="<%=demo%>"/>"))
+                    if (!confirm("<fmt:message key="encounter.oscarMeasurements.Measurements.msgParentChanged"/> <oscar:nameage demographicNo="<%=demo%>"/>"))
                         ret = false;
                 }
 
@@ -216,7 +218,7 @@
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(150,200,'<%=request.getContextPath()%>/encounter/calculators.jsp?demo=<%=Encode.forUriComponent(demo)%>'); return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.calculators"/></a></td>
+                                    onClick="popupPage(150,200,'<%=request.getContextPath()%>/encounter/calculators.jsp?demo=<%=Encode.forUriComponent(demo)%>'); return false;"><fmt:message key="encounter.Index.calculators"/></a></td>
                         </tr>
                     </table>
                 </td>
@@ -250,15 +252,15 @@
     </div>
 <% } %>
                                                     <tr class="Header">
-                                                        <th style="width:120px"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.Measurements.headingType"/>
+                                                        <th style="width:120px"><fmt:message key="encounter.oscarMeasurements.Measurements.headingType"/>
                                                         </th>
-                                                        <th style="width:160px"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.Measurements.headingMeasuringInstrc"/>
+                                                        <th style="width:160px"><fmt:message key="encounter.oscarMeasurements.Measurements.headingMeasuringInstrc"/>
                                                         </th>
-                                                        <th style="width:30px"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.Measurements.headingValue"/>
+                                                        <th style="width:30px"><fmt:message key="encounter.oscarMeasurements.Measurements.headingValue"/>
                                                         </th>
-                                                        <th style="width:40px"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.Measurements.headingObservationDate"/>
+                                                        <th style="width:40px"><fmt:message key="encounter.oscarMeasurements.Measurements.headingObservationDate"/>
                                                         </th>
-                                                        <th style="width:80px"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.Measurements.headingComments"/>
+                                                        <th style="width:80px"><fmt:message key="encounter.oscarMeasurements.Measurements.headingComments"/>
                                                         </th>
                                                         <th style="width:10px"></th>
                                                     </tr>
@@ -340,10 +342,10 @@
                                             <table>
                                                 <tr>
                                                     <td><input type="button" name="Button" class="btn btn-secondary"
-                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
+                                                               value="<fmt:message key="global.btnCancel"/>"
                                                                onClick="window.close()"></td>
                                                     <td><input type="button" name="Button" class="btn btn-primary"
-                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnSubmit"/>"
+                                                               value="<fmt:message key="global.btnSubmit"/>"
                                                                onclick="check();"/></td>
                                                 </tr>
                                             </table>

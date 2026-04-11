@@ -28,6 +28,7 @@
 %>
 <%@page import="java.nio.charset.StandardCharsets" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.*, java.sql.*, java.net.*" %>
 <%@ include file="/admin/dbconnection.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -64,7 +65,7 @@
 
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnINRBatchBilling"/></title>
+    <title><fmt:message key="admin.admin.btnINRBatchBilling"/></title>
     <script language="JavaScript">
         <!--
         function openBrWindow(theURL, winName, features) {
@@ -101,7 +102,7 @@
 </head>
 
 <body>
-<h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnINRBatchBilling"/></h3>
+<h3><fmt:message key="admin.admin.btnINRBatchBilling"/></h3>
 
 <div class="container-fluid card card-body bg-body-tertiary">
     <button class="btn btn-secondary" type='button' name='print' value='Print' onClick='window.print()'><i

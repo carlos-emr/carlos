@@ -57,9 +57,10 @@
 <%@ taglib prefix="s" uri="/struts-tags" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
+
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
 <%@page import="io.github.carlos_emr.CarlosProperties,io.github.carlos_emr.carlos.log.*" %>
@@ -74,7 +75,6 @@
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 
@@ -128,7 +128,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 <security:oscarSec roleName="<%=roleName2$%>"
 	objectName='<%="_rx$"+demoNo%>' rights="o"
 	reverse="<%=false%>">
-    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.accessDenied"/>
+    <fmt:message key="demographic.demographiceditdemographic.accessDenied"/>
     <% response.sendRedirect(request.getContextPath() + "/acctLocked.html"); %>
 </security:oscarSec>
 
@@ -184,8 +184,6 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
             }
             String[] d_route = ("Oral," + drugref_route).split(",");
 
-            String annotation_display = CaseManagementNoteLink.DISP_PRESCRIP;
-
             RxPrescriptionData.Prescription[] prescribedDrugs;
 
   prescribedDrugs = patient.getPrescribedDrugScripts(); //this function only returns drugs which have an entry in prescription and drugs table
@@ -234,7 +232,6 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 
         <%-- Pre-declare all i18n messages used in JavaScript so they can be safely embedded
              in JavaScript string literals using OWASP forJavaScript() encoding --%>
-        <fmt:setBundle basename="oscarResources"/>
         <fmt:message key="SearchDrug.js.handlerNotRemoved"         var="msg_handlerNotRemoved"/>
         <fmt:message key="SearchDrug.js.confirmMedRecComplete"     var="msg_confirmMedRecComplete"/>
         <fmt:message key="SearchDrug.js.medRecCompleted"           var="msg_medRecCompleted"/>
@@ -831,13 +828,13 @@ function renderRxStage() {
 
                     <div class="floatingWindow" id="reRxConfirmBox">
                         <p style="margin-bottom: 12px; font-size: 11px; text-align: end">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgReRxConfirmPrefix"/> <span style="font-weight: bold" id="selectedCount">0</span> <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgReRxConfirmSuffix"/>
+                            <fmt:message key="SearchDrug.msgReRxConfirmPrefix"/> <span style="font-weight: bold" id="selectedCount">0</span> <fmt:message key="SearchDrug.msgReRxConfirmSuffix"/>
                         </p>
                         <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                            <input type="button" name="cancel" class="ControlPushButton" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgCancel"/>"
-                                   onclick="cancelAndClearSelection()" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgCancel"/>">
-                            <input type="button" name="stage" class="ControlPushButton" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgStageMedication"/>"
-                                   onclick="stageSelectedReRxMedications()" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgStageMedications"/>">
+                            <input type="button" name="cancel" class="ControlPushButton" value="<fmt:message key="SearchDrug.msgCancel"/>"
+                                   onclick="cancelAndClearSelection()" title="<fmt:message key="SearchDrug.msgCancel"/>">
+                            <input type="button" name="stage" class="ControlPushButton" value="<fmt:message key="SearchDrug.msgStageMedication"/>"
+                                   onclick="stageSelectedReRxMedications()" title="<fmt:message key="SearchDrug.msgStageMedications"/>">
                         </div>
                     </div>
 
@@ -879,31 +876,31 @@ function renderRxStage() {
                                                             <input type="radio" id="allCategories" name="method"
                                                                    value="searchAllCategories" class="trigger"
                                                                    checked="checked"/>
-                                                            <label for="allCategories"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.drugCategory.all"/></label>
+                                                            <label for="allCategories"><fmt:message key="SearchDrug.drugCategory.all"/></label>
 
                                                             <input type="radio" id="brandName" name="method"
                                                                    value="searchBrandName" class="trigger" disabled/>
-                                                            <label for="brandName"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.drugCategory.brand"/></label>
+                                                            <label for="brandName"><fmt:message key="SearchDrug.drugCategory.brand"/></label>
 
                                                             <input type="radio" id="genericName" name="method"
                                                                    value="searchGenericName" class="trigger" disabled/>
-                                                            <label for="genericName"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.drugCategory.ingredient"/></label>
+                                                            <label for="genericName"><fmt:message key="SearchDrug.drugCategory.ingredient"/></label>
 
                                                             <input type="radio" id="naturalRemedy" name="method"
                                                                    disabled="disabled"
                                                                    value="searchNaturalRemedy" class="trigger" />
-                                                            <label for="naturalRemedy"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.drugCategory.natural"/></label>
+                                                            <label for="naturalRemedy"><fmt:message key="SearchDrug.drugCategory.natural"/></label>
                                                         </fieldset>
                                                         <fieldset id="searchParamSet">
                                                             <input type="radio" id="wildCardRight" name="wildcard"
                                                                    value="true" checked="checked" />
-                                                            <label title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.searchParam.exactTitle"/>"
-                                                                   for="wildCardRight"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.searchParam.exact"/></label>
+                                                            <label title="<fmt:message key="SearchDrug.searchParam.exactTitle"/>"
+                                                                   for="wildCardRight"><fmt:message key="SearchDrug.searchParam.exact"/></label>
 
                                                             <input type="radio" id="wildCardBoth" name="wildcard"
                                                                    value="false" />
-                                                            <label title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.searchParam.anyTitle"/>"
-                                                                   for="wildCardBoth"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.searchParam.any"/></label>
+                                                            <label title="<fmt:message key="SearchDrug.searchParam.anyTitle"/>"
+                                                                   for="wildCardBoth"><fmt:message key="SearchDrug.searchParam.any"/></label>
                                                         </fieldset>
                                                     </div>
                                                 </div>
@@ -911,17 +908,17 @@ function renderRxStage() {
                                             </td>
                                             <td>
                                                 <div id="searchDrugsButtonSet">
-                                                    <input type="button" name="search" class="btn btn-secondary btn-sm"  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgSearch"/>" onclick="popupRxSearchWindow();" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.Search"/>">
-                                                    <input id="customDrug" type="button" class="btn btn-secondary btn-sm" onclick="customWarning2();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgCustomDrugRx3"/>" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.CustomDrug"/>" />
-                                                    <input id="customNote" type="button" class="btn btn-secondary btn-sm"  onclick="customNoteWarning();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgNoteRx3"/>" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.CustomNote"/>"/>
-                                                    <input id="reset" type="button" class="btn btn-secondary btn-sm" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.clearPending"/>"   onclick="resetStash();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgResetPrescriptionRx3"/>"/>
+                                                    <input type="button" name="search" class="btn btn-secondary btn-sm"  value="<fmt:message key="SearchDrug.msgSearch"/>" onclick="popupRxSearchWindow();" title="<fmt:message key="SearchDrug.help.Search"/>">
+                                                    <input id="customDrug" type="button" class="btn btn-secondary btn-sm" onclick="customWarning2();" value="<fmt:message key="SearchDrug.msgCustomDrugRx3"/>" title="<fmt:message key="SearchDrug.help.CustomDrug"/>" />
+                                                    <input id="customNote" type="button" class="btn btn-secondary btn-sm"  onclick="customNoteWarning();" value="<fmt:message key="SearchDrug.msgNoteRx3"/>" title="<fmt:message key="SearchDrug.help.CustomNote"/>"/>
+                                                    <input id="reset" type="button" class="btn btn-secondary btn-sm" title="<fmt:message key="SearchDrug.help.clearPending"/>"   onclick="resetStash();" value="<fmt:message key="SearchDrug.msgResetPrescriptionRx3"/>"/>
                                                     <%if (CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
-                                                    <a href="javascript:goOMD();" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.OMD"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgOMDLookup"/></a>
+                                                    <a href="javascript:goOMD();" title="<fmt:message key="SearchDrug.help.OMD"/>"><fmt:message key="SearchDrug.msgOMDLookup"/></a>
                                                     <%}%>
                                                     <security:oscarSec roleName="<%=roleName2$%>" objectName="_rx" rights="x">
-                                                    <input id="saveButton" type="button"  class="btn btn-primary btn-sm" onclick="updateSaveAllDrugsPrintCheckContinue();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgSaveAndPrint"/>" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.SaveAndPrint"/>" />
+                                                    <input id="saveButton" type="button"  class="btn btn-primary btn-sm" onclick="updateSaveAllDrugsPrintCheckContinue();" value="<fmt:message key="SearchDrug.msgSaveAndPrint"/>" title="<fmt:message key="SearchDrug.help.SaveAndPrint"/>" />
                                                     </security:oscarSec>
-                                                    <input id="saveOnlyButton" type="button"  class="btn btn-secondary btn-sm" onclick="updateSaveAllDrugsCheckContinue();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgSaveOnly"/>" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.Save"/>"/>
+                                                    <input id="saveOnlyButton" type="button"  class="btn btn-secondary btn-sm" onclick="updateSaveAllDrugsCheckContinue();" value="<fmt:message key="SearchDrug.msgSaveOnly"/>" title="<fmt:message key="SearchDrug.help.Save"/>"/>
                                                 </div>
                                             </td>
 
@@ -939,17 +936,17 @@ function renderRxStage() {
                                         <tr>
                                             <td>
                                                 <div class="DivContentSectionHead">
-                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.section2Title" />
+                                                    <fmt:message key="SearchDrug.section2Title" />
                                                     &nbsp;
-                                                    <a href="javascript:void(0)" onClick="printDrugProfile();"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.Print"/></a>
+                                                    <a href="javascript:void(0)" onClick="printDrugProfile();"><fmt:message key="SearchDrug.Print"/></a>
                                                     &nbsp;
 													<%if(securityManager.hasWriteAccess("_rx",roleName2$,true)) {%>
-                                                    <a href="#" onclick="var rp=document.getElementById('reprint');rp.style.display=(rp.style.display==='none')?'':'none';return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.Reprint"/></a>
+                                                    <a href="#" onclick="var rp=document.getElementById('reprint');rp.style.display=(rp.style.display==='none')?'':'none';return false;"><fmt:message key="SearchDrug.Reprint"/></a>
                                                     &nbsp;
-                                                    <a href="javascript:void(0);" id="cmdRePrescribe" onclick="RePrescribeLongTerm();" style="width: 200px" ><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgReprescribeLongTermMed"/></a>
+                                                    <a href="javascript:void(0);" id="cmdRePrescribe" onclick="RePrescribeLongTerm();" style="width: 200px" ><fmt:message key="SearchDrug.msgReprescribeLongTermMed"/></a>
                                                     &nbsp;
 													<% } %>
-                                                    <a href="javascript:popupWindow(720,920, ctx + '/oscarRx/chartDrugProfile.jsp?demographic_no=<%=demoNo%>','PrintDrugProfile2')"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.timelineDrugProfile"/></a>
+                                                    <a href="javascript:popupWindow(720,920, ctx + '/oscarRx/chartDrugProfile.jsp?demographic_no=<%=demoNo%>','PrintDrugProfile2')"><fmt:message key="SearchDrug.timelineDrugProfile"/></a>
                                                     &nbsp;
                                                     &nbsp;&nbsp;
                                                 </div>
@@ -1015,7 +1012,7 @@ function renderRxStage() {
                                                             <table class="legend">
                                                                     <tr>
                                                                         <td style="text-align: left; width:100px;">
-                                                                            <a href="#"  title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.rxChangeProfileViewMessage"/>"
+                                                                            <a href="#"  title="<fmt:message key="provider.rxChangeProfileViewMessage"/>"
                                                                             	onclick="popupPage(230,860,'../setProviderStaleDate.do?method=viewRxProfileView');" style="color:red;text-decoration:none" >
                                                                             	<fmt:message key="provider.rxChangeProfileView"/>
                                                                             </a>
@@ -1029,29 +1026,29 @@ function renderRxStage() {
 																				<td >
 		                                                                            <a href="javascript:void(0);" onclick="callReplacementWebService('ListDrugs.jsp','drugProfile');CngClass(this);" 
 		                                                                            	id="selected_default" style="color:#000000; text-decoration: none;"
-		                                                                            	TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key='SearchDrug.msgShowCurrentDesc'/>">
-		                                                                            	<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgShowCurrent"/>
+		                                                                            	TITLE="<fmt:message key='SearchDrug.msgShowCurrentDesc'/>">
+		                                                                            	<fmt:message key="SearchDrug.msgShowCurrent"/>
 		                                                                            </a>
 	                                                                            </td>
 																				<%}if(show_all){%>
 	                                                                            <td >
 																					<a href="javascript:void(0);" onclick="callReplacementWebService('ListDrugs.jsp?show=all','drugProfile');CngClass(this);" 
-																						Title="<fmt:setBundle basename="oscarResources"/><fmt:message key='SearchDrug.msgShowAllDesc'/>">
-																						<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgShowAll"/>
+																						Title="<fmt:message key='SearchDrug.msgShowAllDesc'/>">
+																						<fmt:message key="SearchDrug.msgShowAll"/>
 																					</a>
 	                                                                            </td>
 																				<%}if(active){%>
 																				<td >
 																					<a href="javascript:void(0);" onclick="callReplacementWebService('ListDrugs.jsp?status=active','drugProfile');CngClass(this);" 
-																						TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key='SearchDrug.msgActiveDesc'/>">
-																						<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgActive"/>
+																						TITLE="<fmt:message key='SearchDrug.msgActiveDesc'/>">
+																						<fmt:message key="SearchDrug.msgActive"/>
 																					</a>
 	                                                                            </td>
 																				<%}if(inactive){%>
 																				<td >
 																					<a href="javascript:void(0);" onclick="callReplacementWebService('ListDrugs.jsp?status=inactive','drugProfile');CngClass(this);" 
-																						TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key='SearchDrug.msgInactiveDesc'/>">
-																						<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgInactive"/>
+																						TITLE="<fmt:message key='SearchDrug.msgInactiveDesc'/>">
+																						<fmt:message key="SearchDrug.msgInactive"/>
 																					</a>
 	                                                                            </td>
 																				<%} if(!CarlosProperties.getInstance().getProperty("rx.profile_legend.hide","false").equals("true")) {
@@ -1059,15 +1056,15 @@ function renderRxStage() {
 																				if(longterm_acute){%>
 																				<td >
 																					<a href="javascript:void(0);" onclick="callReplacementWebService('ListDrugs.jsp?longTermOnly=true&heading=Long Term Meds','drugProfile'); callAdditionWebService('ListDrugs.jsp?longTermOnly=acute&heading=Acute','drugProfile');CngClass(this);" 
-                                                                                   TITLE="<fmt:setBundle basename='oscarResources'/><fmt:message key='SearchDrug.msgLongTermAcuteDesc'/>">
-                                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgLongTermAcute"/>
+                                                                                   TITLE="<fmt:message key='SearchDrug.msgLongTermAcuteDesc'/>">
+                                                                                    <fmt:message key="SearchDrug.msgLongTermAcute"/>
 																					</a>
 	                                                                            </td>
 																				<%}if(longterm_acute_inactive_external){%>
 																				<td >
 																					<a href="javascript:void(0);" onclick="callReplacementWebService('ListDrugs.jsp?longTermOnly=true&heading=Long Term Meds','drugProfile'); callAdditionWebService('ListDrugs.jsp?longTermOnly=acute&heading=Acute&status=active','drugProfile');callAdditionWebService('ListDrugs.jsp?longTermOnly=acute&heading=Inactive&status=inactive','drugProfile');callAdditionWebService('ListDrugs.jsp?heading=External&drugLocation=external','drugProfile');CngClass(this);" 
-                                                                                   TITLE="<fmt:setBundle basename='oscarResources'/><fmt:message key='SearchDrug.msgLongTermAcuteInactiveExternalDesc'/>">
-                                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgLongTermAcuteInactiveExternal"/>
+                                                                                   TITLE="<fmt:message key='SearchDrug.msgLongTermAcuteInactiveExternalDesc'/>">
+                                                                                    <fmt:message key="SearchDrug.msgLongTermAcuteInactiveExternal"/>
 																					</a>
 	                                                                            </td>
 																				<%}
@@ -1084,15 +1081,15 @@ function renderRxStage() {
                                                             <div id="drugProfile" ></div>
 
                                                             <div id="themeLegend">
-                                                                <a href="javascript:void(0);" class="currentDrug"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.legend.currentDrug"/></a> |
+                                                                <a href="javascript:void(0);" class="currentDrug"><fmt:message key="SearchDrug.legend.currentDrug"/></a> |
                                                                 <%if(!CarlosProperties.getInstance().getProperty("rx.delete_drug.hide","false").equals("true")) {%>
-                                                                <a href="javascript:void(0);" class="archivedDrug"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.legend.archivedDrug"/></a> |
+                                                                <a href="javascript:void(0);" class="archivedDrug"><fmt:message key="SearchDrug.legend.archivedDrug"/></a> |
                                                                 <%} %>
-                                                                <a href="javascript:void(0);" class="expireInReference"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.legend.expireInReference"/></a> |
-                                                                <a href="javascript:void(0);" class="expiredDrug"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.legend.expiredDrug"/></a> |
-                                                                <a href="javascript:void(0);" class="longTermMed"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.legend.longTermMed"/></a> |
-                                                                <a href="javascript:void(0);" class="discontinued"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.legend.discontinued"/></a> |
-                                                                <a href="javascript:void(0);" class="external"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.legend.external"/></a>
+                                                                <a href="javascript:void(0);" class="expireInReference"><fmt:message key="SearchDrug.legend.expireInReference"/></a> |
+                                                                <a href="javascript:void(0);" class="expiredDrug"><fmt:message key="SearchDrug.legend.expiredDrug"/></a> |
+                                                                <a href="javascript:void(0);" class="longTermMed"><fmt:message key="SearchDrug.legend.longTermMed"/></a> |
+                                                                <a href="javascript:void(0);" class="discontinued"><fmt:message key="SearchDrug.legend.discontinued"/></a> |
+                                                                <a href="javascript:void(0);" class="external"><fmt:message key="SearchDrug.legend.external"/></a>
                                                             </div>
 
                                                             <form action="/oscarRx/rePrescribe">
@@ -1112,7 +1109,7 @@ function renderRxStage() {
                                         <tr>
                                             <td>
                                                 <div class="DivContentSectionHead">
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.otherMedications"/>
+                                                <fmt:message key="SearchDrug.otherMedications"/>
                                              </div>
                                             </td>
                                         </tr>
@@ -1120,8 +1117,8 @@ function renderRxStage() {
                                         	<td>
                                         	<table class="sortable" id="OMedsTabls" width="50%" border="0" cellpadding="3">
                                         		<tr>
-                                        			<th align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.OMeds.dateEntered"/></th>
-                                        			<th align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.OMeds.medication"/></th>
+                                        			<th align="left"><fmt:message key="SearchDrug.OMeds.dateEntered"/></th>
+                                        			<th align="left"><fmt:message key="SearchDrug.OMeds.medication"/></th>
                                         		</tr>
                                         		 <%
                                         		// java.text.SimpleDateFormat formatter = new java.text.SimpleDateFormat("yyyy-MM-dd");
@@ -1132,7 +1129,7 @@ function renderRxStage() {
                             					%>
                             						<tr>
                             							<td><%=formatter.format(note.getCreate_date()) %></td>
-                                                    <td><%=StringEscapeUtils.escapeHtml4(str)%>
+                                                    <td><%=Encode.forHtml(str)%>
                                                     </td>
                             						</tr>
                             					<% 
@@ -1160,35 +1157,35 @@ function renderRxStage() {
 
 <div id="dragifm" style="top:0px;left:0px;"></div>
     <div id="discontinueUI" style="position: absolute;display:none;width:500px;height:200px;background-color:white;padding:20px;border:1px solid grey">
-        <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.discontinue.heading"/><span id="disDrug"></span></h3>
+        <h3><fmt:message key="SearchDrug.discontinue.heading"/><span id="disDrug"></span></h3>
         <input type="hidden" name="disDrugId" id="disDrugId"/>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.msgReason"/>
+        <fmt:message key="oscarRx.discontinuedReason.msgReason"/>
         <select name="disReason" id="disReason">
-            <option value="adverseReaction"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.AdverseReaction"/></option>
-            <option value="allergy"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.Allergy"/></option>
-            <option value="cost"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.Cost"/></option>
-            <option value="discontinuedByAnotherPhysician"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.DiscontinuedByAnotherPhysician"/></option>
-            <option value="doseChange"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.DoseChange"/></option>
-            <option value="drugInteraction"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.DrugInteraction"/></option>
-            <option value="increasedRiskBenefitRatio"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.IncreasedRiskBenefitRatio"/></option>
-            <option value="ineffectiveTreatment"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.IneffectiveTreatment"/></option>
-            <option value="newScientificEvidence"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.NewScientificEvidence"/></option>
-            <option value="noLongerNecessary"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.NoLongerNecessary"/></option>
-            <option value="enteredInError"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.EnteredInError"/></option>
-            <option value="patientRequest"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.PatientRequest"/></option>
-            <option value="prescribingError"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.PrescribingError"/></option>
-            <option value="simplifyingTreatment"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.SimplifyingTreatment"/></option>
-            <option value="unknown"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.Unknown"/></option>
+            <option value="adverseReaction"><fmt:message key="oscarRx.discontinuedReason.AdverseReaction"/></option>
+            <option value="allergy"><fmt:message key="oscarRx.discontinuedReason.Allergy"/></option>
+            <option value="cost"><fmt:message key="oscarRx.discontinuedReason.Cost"/></option>
+            <option value="discontinuedByAnotherPhysician"><fmt:message key="oscarRx.discontinuedReason.DiscontinuedByAnotherPhysician"/></option>
+            <option value="doseChange"><fmt:message key="oscarRx.discontinuedReason.DoseChange"/></option>
+            <option value="drugInteraction"><fmt:message key="oscarRx.discontinuedReason.DrugInteraction"/></option>
+            <option value="increasedRiskBenefitRatio"><fmt:message key="oscarRx.discontinuedReason.IncreasedRiskBenefitRatio"/></option>
+            <option value="ineffectiveTreatment"><fmt:message key="oscarRx.discontinuedReason.IneffectiveTreatment"/></option>
+            <option value="newScientificEvidence"><fmt:message key="oscarRx.discontinuedReason.NewScientificEvidence"/></option>
+            <option value="noLongerNecessary"><fmt:message key="oscarRx.discontinuedReason.NoLongerNecessary"/></option>
+            <option value="enteredInError"><fmt:message key="oscarRx.discontinuedReason.EnteredInError"/></option>
+            <option value="patientRequest"><fmt:message key="oscarRx.discontinuedReason.PatientRequest"/></option>
+            <option value="prescribingError"><fmt:message key="oscarRx.discontinuedReason.PrescribingError"/></option>
+            <option value="simplifyingTreatment"><fmt:message key="oscarRx.discontinuedReason.SimplifyingTreatment"/></option>
+            <option value="unknown"><fmt:message key="oscarRx.discontinuedReason.Unknown"/></option>
 
-            <option value="other"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.Other"/></option>
+            <option value="other"><fmt:message key="oscarRx.discontinuedReason.Other"/></option>
         </select>
 
 
         <br/>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.msgComment"/><br/>
+        <fmt:message key="oscarRx.discontinuedReason.msgComment"/><br/>
         <textarea id="disComment" rows="3" cols="45"></textarea><br/>
-        <input type="button" onclick="document.getElementById('discontinueUI').style.display='none';" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.discontinue.cancel"/>"/>
-        <input type="button" onclick="Discontinue2(document.getElementById('disDrugId').value,document.getElementById('disReason').value,document.getElementById('disComment').value,document.getElementById('disDrug').textContent);" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.discontinue.action"/>"/>
+        <input type="button" onclick="document.getElementById('discontinueUI').style.display='none';" value="<fmt:message key="SearchDrug.discontinue.cancel"/>"/>
+        <input type="button" onclick="Discontinue2(document.getElementById('disDrugId').value,document.getElementById('disReason').value,document.getElementById('disComment').value,document.getElementById('disDrug').textContent);" value="<fmt:message key="SearchDrug.discontinue.action"/>"/>
 
     </div>
 
@@ -1205,45 +1202,45 @@ function renderRxStage() {
         </tr>
 
         <tr>
-                <td class="wcblayerTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.pharmacy.msgName"/></td>
+                <td class="wcblayerTitle"><fmt:message key="SearchDrug.pharmacy.msgName"/></td>
             <td class="wcblayerContent" id="pharmacyName"></td>
         </tr>
 
         <tr>
-                <td class="wcblayerTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.pharmacy.msgAddress"/></td>
+                <td class="wcblayerTitle"><fmt:message key="SearchDrug.pharmacy.msgAddress"/></td>
             <td class="wcblayerContent" id="pharmacyAddress"></td>
         </tr>
         <tr>
-                <td class="wcblayerTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.pharmacy.msgCity"/></td>
+                <td class="wcblayerTitle"><fmt:message key="SearchDrug.pharmacy.msgCity"/></td>
             <td class="wcblayerContent" id="pharmacyCity"></td>
         </tr>
 
         <tr>
-                <td class="wcblayerTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.pharmacy.msgProvince"/></td>
+                <td class="wcblayerTitle"><fmt:message key="SearchDrug.pharmacy.msgProvince"/></td>
             <td class="wcblayerContent" id="pharmacyProvince"></td>
         </tr>
         <tr>
-                <td class="wcblayerTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.pharmacy.msgPostalCode"/></td>
+                <td class="wcblayerTitle"><fmt:message key="SearchDrug.pharmacy.msgPostalCode"/></td>
             <td class="wcblayerContent" id="pharmacyPostalCode"></td>
         </tr>
         <tr>
-                <td class="wcblayerTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.pharmacy.msgPhone1"/></td>
+                <td class="wcblayerTitle"><fmt:message key="SearchDrug.pharmacy.msgPhone1"/></td>
             <td class="wcblayerContent"  id="pharmacyPhone1"></td>
         </tr>
         <tr>
-                <td class="wcblayerTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.pharmacy.msgPhone2"/></td>
+                <td class="wcblayerTitle"><fmt:message key="SearchDrug.pharmacy.msgPhone2"/></td>
             <td class="wcblayerContent" id="pharmacyPhone2"></td>
         </tr>
         <tr>
-                <td class="wcblayerTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.pharmacy.msgFax"/></td>
+                <td class="wcblayerTitle"><fmt:message key="SearchDrug.pharmacy.msgFax"/></td>
             <td class="wcblayerContent" id="pharmacyFax"></td>
         </tr>
         <tr>
-                <td class="wcblayerTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.pharmacy.msgEmail"/></td>
+                <td class="wcblayerTitle"><fmt:message key="SearchDrug.pharmacy.msgEmail"/></td>
             <td class="wcblayerContent"  id="pharmacyEmail"></td>
         </tr>
         <tr>
-                <td class="wcblayerTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.pharmacy.msgNotes"/></td>
+                <td class="wcblayerTitle"><fmt:message key="SearchDrug.pharmacy.msgNotes"/></td>
             <td class="wcblayerContent"  id="pharmacyNotes"></td>
         </tr>
     </table>
@@ -1272,7 +1269,7 @@ function renderRxStage() {
 
 <script type="text/javascript">
         function changeLt(element, drugId) {
-            if (confirm('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.Prescription.changeDrugLongTermConfirm"/>') === true) {
+            if (confirm('<fmt:message key="oscarRx.Prescription.changeDrugLongTermConfirm"/>') === true) {
             const data = "ltDrugId=" + encodeURIComponent(drugId) + "&isLongTerm=" + element.checked + "&rand=" + Math.floor(Math.random() * 10001);
             const url = ctx + "/oscarRx/WriteScript.do?parameterValue=updateLongTermStatus";
             CarlosAjax.request(url, {

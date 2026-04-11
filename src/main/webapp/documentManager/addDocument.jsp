@@ -44,6 +44,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ page
@@ -142,7 +143,6 @@
     boolean openDocPanel = (request.getAttribute("docerrors") != null) || "add".equals(mode);
     boolean openLinkPanel = (request.getAttribute("linkhtmlerrors") != null);
 %>
-<fmt:setBundle basename="oscarResources"/>
 <script type="text/javascript">
     /* i18n strings for JavaScript use */
     var msgInvalidDate = '<fmt:message key="dms.addDocument.errorInvalidDate"/>';

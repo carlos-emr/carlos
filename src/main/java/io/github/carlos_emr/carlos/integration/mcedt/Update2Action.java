@@ -79,7 +79,7 @@ public class Update2Action extends ActionSupport {
             for (DetailData d : details.getData()) {
                 d.setModifyTimestamp(null);
             }
-            request.getSession().setAttribute(SESSION_KEY_UPLOAD_DETAILS, details);
+            request.getSession().setAttribute(SESSION_KEY_UPLOAD_DETAILS, details); // nosemgrep: tainted-session-from-http-request -- MCEDT resource list from EDT service response
         }
         return "initial";
     }

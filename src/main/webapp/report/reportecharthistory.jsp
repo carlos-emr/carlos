@@ -45,6 +45,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
 
 
@@ -87,11 +88,11 @@
 
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#CCCCFF">
-        <th align=CENTER NOWRAP><font face="Helvetica"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.echartHistory.title"/></font></th>
+        <th align=CENTER NOWRAP><font face="Helvetica"><fmt:message key="encounter.echartHistory.title"/></font></th>
         <th width="10%" nowrap><input type="button" name="Button"
-                                      value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.echartHistory.buttonPrint"/>"
+                                      value="<fmt:message key="encounter.echartHistory.buttonPrint"/>"
                                       onClick="window.print()"><input type="button" name="Button"
-                                                                      value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.echartHistory.buttonExit"/>"
+                                                                      value="<fmt:message key="encounter.echartHistory.buttonExit"/>"
                                                                       onClick="window.close()"></th>
     </tr>
 </table>
@@ -105,8 +106,8 @@
 <table width="100%" border="0" bgcolor="#ffffff" cellspacing="1"
        cellpadding="2">
     <tr bgcolor="#CCCCFF" align="center">
-        <TH><b><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.echartHistory.apptDate"/></b></TH>
-        <TH width="50%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.echartHistory.reason"/></b></TH>
+        <TH><b><fmt:message key="encounter.echartHistory.apptDate"/></b></TH>
+        <TH width="50%"><b><fmt:message key="encounter.echartHistory.reason"/></b></TH>
         <!--TH width="10%"><b>Size</b></TH-->
         <th>Provider</th>
     </tr>

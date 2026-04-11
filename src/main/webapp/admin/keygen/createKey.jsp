@@ -30,6 +30,7 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ page import="java.util.*,java.io.*,io.github.carlos_emr.carlos.lab.ca.all.util.KeyPairGen" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -59,6 +60,12 @@
     String failDisplay = "none";
 
     String error = "false";
+
+    if (name != null && !name.matches("^[a-zA-Z0-9._-]+$")) {
+        error = "true";
+        message = "Failed: Service name contains invalid characters. Only letters, numbers, periods, hyphens and underscores are allowed.";
+        name = null;
+    }
 
     if (name != null) {
         if (name.equals("oscar")) {
@@ -91,6 +98,7 @@
                             "----- Client Private Key -----\n" + clientKey + "\n------------------------------\n" +
                             "------ Oscar Public Key ------\n" + oscarKey + "\n------------------------------";
                     response.setContentType("text/plain");
+                    response.setHeader("X-Content-Type-Options", "nosniff");
                     response.setContentLength(keyPairOut.length());
                     response.setHeader("Content-Disposition", "attachment; filename=keyPair.key");
                     ServletOutputStream output = null;
@@ -182,8 +190,8 @@
                         </td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
+                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
+                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>

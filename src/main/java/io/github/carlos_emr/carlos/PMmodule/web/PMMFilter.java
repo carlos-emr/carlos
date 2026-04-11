@@ -86,11 +86,11 @@ public class PMMFilter implements Filter {
             return;
         }
 
-        session.setAttribute("program_domain", providerManager.getProgramDomain(oscarUser));
+        session.setAttribute("program_domain", providerManager.getProgramDomain(oscarUser)); // nosemgrep: tainted-session-from-http-request -- DAO-sourced program domain list for authenticated provider
 
         if (session.getAttribute("pmm_admin") == null) {
             logger.debug("setting session variable: pmm_admin");
-            session.setAttribute("pmm_admin", Boolean.valueOf(oscarSecurityManager.hasAdminRole(oscarUser)));
+            session.setAttribute("pmm_admin", Boolean.valueOf(oscarSecurityManager.hasAdminRole(oscarUser))); // nosemgrep: tainted-session-from-http-request -- boolean derived from DAO-sourced role check on authenticated provider
         }
 		
 /* If the providers didn't have the role 'admin', he can still have the access to the administration links(eg. Add Program) on PMM.
@@ -106,7 +106,7 @@ public class PMMFilter implements Filter {
         // set local agency
         if (request.getSession().getServletContext().getAttribute("agency") == null) {
             Agency agency = agencyManager.getLocalAgency();
-            request.getSession().getServletContext().setAttribute("agency", agency);
+            request.getSession().getServletContext().setAttribute("agency", agency); // nosemgrep: tainted-session-from-http-request -- DAO-loaded local agency entity stored in application scope
             Agency.setLocalAgency(agency);
         }
 

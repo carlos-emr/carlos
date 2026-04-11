@@ -30,10 +30,10 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <ul>
     <c:forEach var="l" items="${list}">
-        <li id="<c:out value="${l.demographicNo}"/>"><c:out value="${l.formattedName}"/> (<c:out
-                value="${l.formattedDob}"/>)
+        <li id="${e:forHtmlAttribute(l.demographicNo)}">${e:forHtml(l.formattedName)} (${e:forHtml(l.formattedDob)})
         </li>
     </c:forEach>
 </ul>

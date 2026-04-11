@@ -30,6 +30,7 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <html>
@@ -37,7 +38,7 @@
 
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.title"/></title>
+        <title><fmt:message key="encounter.calculators.GeneralCalculators.title"/></title>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounterStyles.css">
 
         <SCRIPT LANGUAGE="JavaScript">
@@ -144,25 +145,25 @@
     <!--  -->
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgCalculators"/>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="encounter.calculators.GeneralCalculators.msgCalculators"/>
             </td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgTitle"/></td>
+                        <td><fmt:message key="encounter.calculators.GeneralCalculators.msgTitle"/></td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
+                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
+                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>
         </tr>
         <tr>
-            <td class="MainTableLeftColumn" valign="top"><a href="#distance"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgDistance"/></A> <a
-                    href="#weight"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgWeight"/></A> <a
-                    href="#volume"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgVolume"/></A> <a
-                    href="#temps"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgTemperatures"/></A>
+            <td class="MainTableLeftColumn" valign="top"><a href="#distance"><fmt:message key="encounter.calculators.GeneralCalculators.msgDistance"/></A> <a
+                    href="#weight"><fmt:message key="encounter.calculators.GeneralCalculators.msgWeight"/></A> <a
+                    href="#volume"><fmt:message key="encounter.calculators.GeneralCalculators.msgVolume"/></A> <a
+                    href="#temps"><fmt:message key="encounter.calculators.GeneralCalculators.msgTemperatures"/></A>
 
 
             </td>
@@ -173,18 +174,18 @@
                             <FORM method="post">
                                 <TABLE BORDER=2 cellpadding=3 cellspacing=0>
                                     <TR class="Header">
-                                        <TD COLSPAN=7 ALIGN=CENTER VALIGN=MIDDLE><A NAME="distance"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgDistanceConversion"/></b></A>
+                                        <TD COLSPAN=7 ALIGN=CENTER VALIGN=MIDDLE><A NAME="distance"><b><fmt:message key="encounter.calculators.GeneralCalculators.msgDistanceConversion"/></b></A>
                                         </TD>
                                     </TR>
                                     <TR>
-                                        <TD ALIGN=CENTER><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgMeters"/></TD>
-                                        <TD ALIGN=CENTER><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgInches"/></TD>
-                                        <TD ALIGN=CENTER><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgFeet"/></TD>
-                                        <TD ALIGN=CENTER><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgYards"/></TD>
-                                        <TD ALIGN=CENTER><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgMiles"/></TD>
-                                        <TD ALIGN=CENTER><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgNauticalMiles"/></TD>
+                                        <TD ALIGN=CENTER><fmt:message key="encounter.calculators.GeneralCalculators.msgMeters"/></TD>
+                                        <TD ALIGN=CENTER><fmt:message key="encounter.calculators.GeneralCalculators.msgInches"/></TD>
+                                        <TD ALIGN=CENTER><fmt:message key="encounter.calculators.GeneralCalculators.msgFeet"/></TD>
+                                        <TD ALIGN=CENTER><fmt:message key="encounter.calculators.GeneralCalculators.msgYards"/></TD>
+                                        <TD ALIGN=CENTER><fmt:message key="encounter.calculators.GeneralCalculators.msgMiles"/></TD>
+                                        <TD ALIGN=CENTER><fmt:message key="encounter.calculators.GeneralCalculators.msgNauticalMiles"/></TD>
                                         <TD><INPUT TYPE="button"
-                                                   VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.btnCalibrate"/>"
+                                                   VALUE="<fmt:message key="encounter.calculators.GeneralCalculators.btnCalibrate"/>"
                                                    onclick="resetform(this.form)"></TD>
                                     </TR>
                                     <TR>
@@ -201,7 +202,7 @@
                                         <TD><INPUT TYPE=TEXT NAME=val6 SIZE=7
                                                    onfocus="clearform(this.form)"></TD>
                                         <TD><INPUT TYPE="button"
-                                                   VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.btnCalculate"/>"
+                                                   VALUE="<fmt:message key="encounter.calculators.GeneralCalculators.btnCalculate"/>"
                                                    onclick="convertform(this.form)"></TD>
                                     </TR>
                                 </TABLE>
@@ -210,19 +211,19 @@
                                 <TABLE BORDER=2 cellpadding=3 cellspacing=0>
                                     <TR class="Header">
                                         <TD COLSPAN=8 ALIGN=CENTER VALIGN=MIDDLE style="font-weight: bold">
-                                            <A NAME="weight"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgWightConversion"/></b></A>
+                                            <A NAME="weight"><b><fmt:message key="encounter.calculators.GeneralCalculators.msgWightConversion"/></b></A>
                                         </TD>
                                     </TR>
                                     <TR>
-                                        <TD ALIGN=CENTER><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgKilograms"/></TD>
-                                        <TD ALIGN=CENTER><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgOunces"/></TD>
-                                        <TD ALIGN=CENTER><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgPounds"/></TD>
-                                        <TD ALIGN=CENTER><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgTroyPounds"/></TD>
-                                        <TD ALIGN=CENTER><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgStones"/></TD>
-                                        <TD ALIGN=CENTER><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgShortTons"/></TD>
-                                        <TD ALIGN=CENTER><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgLongTons"/></TD>
+                                        <TD ALIGN=CENTER><fmt:message key="encounter.calculators.GeneralCalculators.msgKilograms"/></TD>
+                                        <TD ALIGN=CENTER><fmt:message key="encounter.calculators.GeneralCalculators.msgOunces"/></TD>
+                                        <TD ALIGN=CENTER><fmt:message key="encounter.calculators.GeneralCalculators.msgPounds"/></TD>
+                                        <TD ALIGN=CENTER><fmt:message key="encounter.calculators.GeneralCalculators.msgTroyPounds"/></TD>
+                                        <TD ALIGN=CENTER><fmt:message key="encounter.calculators.GeneralCalculators.msgStones"/></TD>
+                                        <TD ALIGN=CENTER><fmt:message key="encounter.calculators.GeneralCalculators.msgShortTons"/></TD>
+                                        <TD ALIGN=CENTER><fmt:message key="encounter.calculators.GeneralCalculators.msgLongTons"/></TD>
                                         <TD><INPUT TYPE="button"
-                                                   VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.btnCalibrate"/>"
+                                                   VALUE="<fmt:message key="encounter.calculators.GeneralCalculators.btnCalibrate"/>"
                                                    onClick="resetform(this.form)"></TD>
                                     </TR>
                                     <TR>
@@ -241,7 +242,7 @@
                                         <TD><INPUT TYPE=TEXT NAME=val7 SIZE=6
                                                    onFocus="clearform(this.form)"></TD>
                                         <TD><INPUT TYPE="button"
-                                                   VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.btnCalculate"/>"
+                                                   VALUE="<fmt:message key="encounter.calculators.GeneralCalculators.btnCalculate"/>"
                                                    onclick="convertform(this.form)"></TD>
                                     </TR>
                                 </TABLE>
@@ -249,17 +250,17 @@
                             <FORM method="post">
                                 <TABLE border=2 cellpadding=3 cellspacing=0>
                                     <TR class="Header">
-                                        <TD COLSPAN=7 ALIGN=CENTER VALIGN=MIDDLE><A NAME="volume"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgVolumeConversion"/></b></A>
+                                        <TD COLSPAN=7 ALIGN=CENTER VALIGN=MIDDLE><A NAME="volume"><b><fmt:message key="encounter.calculators.GeneralCalculators.msgVolumeConversion"/></b></A>
                                         </TD>
                                     </TR>
                                     <TR>
-                                        <TD ALIGN=CENTER><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgLitres"/></TD>
-                                        <TD ALIGN=CENTER><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgFluid"/></TD>
-                                        <TD ALIGN=CENTER><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgQuarts"/></TD>
-                                        <TD ALIGN=CENTER><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgGallons"/></TD>
-                                        <TD ALIGN=CENTER><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgImperialGallons"/></TD>
+                                        <TD ALIGN=CENTER><fmt:message key="encounter.calculators.GeneralCalculators.msgLitres"/></TD>
+                                        <TD ALIGN=CENTER><fmt:message key="encounter.calculators.GeneralCalculators.msgFluid"/></TD>
+                                        <TD ALIGN=CENTER><fmt:message key="encounter.calculators.GeneralCalculators.msgQuarts"/></TD>
+                                        <TD ALIGN=CENTER><fmt:message key="encounter.calculators.GeneralCalculators.msgGallons"/></TD>
+                                        <TD ALIGN=CENTER><fmt:message key="encounter.calculators.GeneralCalculators.msgImperialGallons"/></TD>
                                         <TD><INPUT TYPE="button"
-                                                   VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.btnCalibrate"/>"
+                                                   VALUE="<fmt:message key="encounter.calculators.GeneralCalculators.btnCalibrate"/>"
                                                    onclick="resetform(this.form)"></TD>
                                     </TR>
                                     <TR>
@@ -274,20 +275,20 @@
                                         <TD><INPUT TYPE=TEXT NAME=val5 SIZE=6
                                                    onfocus="clearform(this.form)"></TD>
                                         <TD><INPUT TYPE="button"
-                                                   VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.btnCalculate"/>"
+                                                   VALUE="<fmt:message key="encounter.calculators.GeneralCalculators.btnCalculate"/>"
                                                    onclick="convertform(this.form)"></TD>
                                     </TR>
                                 </TABLE>
                             </FORM>
                             <TABLE border=2 cellpadding=3 cellspacing=0>
                                 <TR class="Header">
-                                    <TD COLSPAN=3 ALIGN=CENTER VALIGN=MIDDLE><A NAME="temps"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgTemperaturesConversion"/></b></A>
+                                    <TD COLSPAN=3 ALIGN=CENTER VALIGN=MIDDLE><A NAME="temps"><b><fmt:message key="encounter.calculators.GeneralCalculators.msgTemperaturesConversion"/></b></A>
                                     </TD>
                                 </TR>
                                 <TR>
-                                    <TD><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgInstructions1"/></TD>
-                                    <TD><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgInstructions2"/></TD>
-                                    <TD><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgInstructions3"/></TD>
+                                    <TD><fmt:message key="encounter.calculators.GeneralCalculators.msgInstructions1"/></TD>
+                                    <TD><fmt:message key="encounter.calculators.GeneralCalculators.msgInstructions2"/></TD>
+                                    <TD><fmt:message key="encounter.calculators.GeneralCalculators.msgInstructions3"/></TD>
                                 </TR>
                             </table>
 
@@ -295,10 +296,10 @@
                                 <table border=2 cellpadding=3 cellspacing=0 width="100%"
                                        height="100%">
                                     <tr>
-                                        <td width="50%" style="text-align: center;" nowrap><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgFahrenheit"/>
+                                        <td width="50%" style="text-align: center;" nowrap><fmt:message key="encounter.calculators.GeneralCalculators.msgFahrenheit"/>
                                             <input type="text" name="F" value="32"
                                                    onChange="C.value = 100/(212-32) * (this.value - 32 )"></td>
-                                        <td width="50%" style="text-align: center;" nowrap><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.calculators.GeneralCalculators.msgCelsius"/>
+                                        <td width="50%" style="text-align: center;" nowrap><fmt:message key="encounter.calculators.GeneralCalculators.msgCelsius"/>
                                             <input type="text" name="C" value="0"
                                                    onChange="F.value = (212-32)/100 * this.value + 32"></td>
                                     </tr>

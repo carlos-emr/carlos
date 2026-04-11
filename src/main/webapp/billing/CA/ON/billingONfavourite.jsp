@@ -34,7 +34,7 @@
          import="java.util.*,java.sql.*,io.github.carlos_emr.*,java.text.*,java.net.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
 <% //
@@ -222,6 +222,7 @@
     }
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <html>
     <head>
@@ -431,10 +432,10 @@
                 <td style="text-align:center" class="myGreen" colspan="2"><input
                         type="hidden" name="action" value='<%=Encode.forHtmlAttribute(action)%>'> <input
                         type="submit" name="submit" class="btn btn-primary"
-                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>"
+                        value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
                         onclick="javascript:return onSave();"> <input class="btn btn-secondary" type="button"
                                                                       name="Cancel"
-                                                                      value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnExit"/>"
+                                                                      value="<fmt:message key="admin.resourcebaseurl.btnExit"/>"
                                                                       onClick="window.close()"></td>
             </tr>
         </table>

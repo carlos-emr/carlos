@@ -15,7 +15,6 @@
 
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
-import org.apache.commons.text.StringEscapeUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
@@ -47,19 +46,17 @@ public class EctDisplayHRM2Action extends EctDisplayAction {
         } else {
 
             String winName = "docs" + bean.demographicNo;
-            String url = "popupPage(500,1115,'" + winName + "', '" + request.getContextPath() + "/hospitalReportManager/displayHRMDocList.jsp?demographic_no=" + bean.demographicNo + "')";
-            Dao.setLeftURL(url);
+            Dao.setLeftPopup(500, 1115, winName, request.getContextPath() + "/hospitalReportManager/displayHRMDocList.jsp?demographic_no=" + bean.demographicNo);
             Dao.setLeftHeading(getText("encounter.Index.msgHRMDocuments"));
 
             Dao.setRightHeadingID(cmd); //no menu so set div id to unique id for this action
 
-            StringBuilder javascript = new StringBuilder("<script type=\"text/javascript\">");
-            String js = "";
             String dbFormat = "yyyy-MM-dd";
             String serviceDateStr = "";
             String key;
             int hash;
             String BGCOLOUR = request.getParameter("hC");
+            String url;
             Date date;
 
             ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, bean.demographicNo, true);
@@ -96,18 +93,13 @@ public class EctDisplayHRM2Action extends EctDisplayAction {
                 item.setLinkTitle(displayHRMName + serviceDateStr);
                 item.setTitle(labRead + displayHRMName + labRead);
                 key = StringUtils.maxLenString((String) hrmDocument.get("report_type"), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + "(" + serviceDateStr + ")";
-                key = StringEscapeUtils.escapeEcmaScript(key);
 
-
-                js = "itemColours['" + key + "'] = '" + BGCOLOUR + "'; autoCompleted['" + key + "'] = \"" + url + "\"; autoCompList.push('" + key + "');";
-                javascript.append(js);
+                Dao.addAutoCompleteItem(key, url, BGCOLOUR);
                 url += "return false;";
                 item.setURL(url);
                 Dao.addItem(item);
             }
-            javascript.append("</script>");
 
-            Dao.setJavaScript(javascript.toString());
             Dao.sortItems(NavBarDisplayDAO.DATESORT_ASC);
 
             return true;

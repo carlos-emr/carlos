@@ -31,6 +31,7 @@
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     String orderByRequest = request.getParameter("orderby");
@@ -47,7 +48,7 @@
         <link rel="stylesheet" href="<%= request.getContextPath() %>/css/fontawesome-all.min.css">
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.title"/></title>
+        <title><fmt:message key="eform.uploadhtml.title"/></title>
 
         <script>
             function restoreEForm(fid) {
@@ -67,9 +68,9 @@
     <script language="javascript">
         function checkFormAndDisable() {
             if (document.forms[0].formHtml.value == "") {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.msgFileMissing"/>");
+                alert("<fmt:message key="eform.uploadhtml.msgFileMissing"/>");
             } else {
-                document.forms[0].subm.value = "<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.processing"/>";
+                document.forms[0].subm.value = "<fmt:message key="eform.uploadimages.processing"/>";
                 document.forms[0].subm.disabled = true;
                 document.forms[0].submit();
             }
@@ -84,21 +85,21 @@
 
     <%@ include file="efmTopNav.jspf" %>
 
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.calldeletedformdata.title"/></h3>
+    <h3><fmt:message key="eform.calldeletedformdata.title"/></h3>
 
 
     <table class="table table-sm table-striped table-hover" id="tblDeletedEforms">
         <tr>
             <th><a href="<%= request.getContextPath() %>/eform/efmformmanagerdeleted.jsp?orderby=form_name"
-                   class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnFormName"/></a></th>
+                   class="contentLink"><fmt:message key="eform.uploadhtml.btnFormName"/></a></th>
             <th><a href="<%= request.getContextPath() %>/eform/efmformmanagerdeleted.jsp?orderby=form_subject"
-                   class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnSubject"/></a></th>
+                   class="contentLink"><fmt:message key="eform.uploadhtml.btnSubject"/></a></th>
             <th><a href="<%= request.getContextPath() %>/eform/efmformmanagerdeleted.jsp?orderby=file_name"
-                   class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnFile"/></a></th>
+                   class="contentLink"><fmt:message key="eform.uploadhtml.btnFile"/></a></th>
             <th><a href="<%= request.getContextPath() %>/eform/efmformmanagerdeleted.jsp?"
-                   class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnDate"/></a></th>
-            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnTime"/></th>
-            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.msgAction"/></th>
+                   class="contentLink"><fmt:message key="eform.uploadhtml.btnDate"/></a></th>
+            <th><fmt:message key="eform.uploadhtml.btnTime"/></th>
+            <th><fmt:message key="eform.uploadhtml.msgAction"/></th>
         </tr>
         <%
             ArrayList<HashMap<String, ? extends Object>> eForms = EFormUtil.listEForms(orderBy, EFormUtil.DELETED);
@@ -118,7 +119,7 @@
             </td>
             <td><a href='javascript:void(0);' onclick="restoreEForm('<%=curForm.get("fid")%>');"
                    class="contentLink">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.calldeletedformdata.btnRestore"/>
+                <fmt:message key="eform.calldeletedformdata.btnRestore"/>
             </a>
             </td>
         </tr>

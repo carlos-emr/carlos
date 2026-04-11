@@ -84,7 +84,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao" %>
@@ -92,7 +91,6 @@
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptData" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
@@ -100,6 +98,7 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -171,7 +170,6 @@
     boolean caisiEnabled = moduleNames != null && org.apache.commons.lang3.StringUtils.containsIgnoreCase(moduleNames, "Caisi");
     boolean locationEnabled = caisiEnabled && (useProgramLocation != null && useProgramLocation.equals("true"));
 
-    String annotation_display = CaseManagementNoteLink.DISP_APPOINTMENT;
     CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
 
 
@@ -233,7 +231,7 @@
 
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.title"/></title>
+        <title><fmt:message key="appointment.editappointment.title"/></title>
         <%@ include file="/includes/global-head.jspf" %>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script src="${pageContext.request.contextPath}/js/checkDate.js"></script>
@@ -382,7 +380,7 @@
                 obj.blur();
                 document.EDITAPPT.keyword.focus();
                 document.EDITAPPT.keyword.select();
-                showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillNameField"/>");
+                showJSAlert("<fmt:message key="Appointment.msgFillNameField"/>");
             }
 
             function labelprint(vheight, vwidth, varpage) {
@@ -402,7 +400,7 @@
             function onButCancel() {
                 var aptStat = document.EDITAPPT.status.value;
                 if (aptStat.indexOf('B') === 0) {
-                    var agree = confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.msgCanceledBilledConfirmation"/>");
+                    var agree = confirm("<fmt:message key="appointment.editappointment.msgCanceledBilledConfirmation"/>");
                     if (!agree) {
                         return;
                     }
@@ -420,9 +418,9 @@
                 if (saveTemp === 1) {
                     var aptStat = document.EDITAPPT.status.value;
                     if (aptStat.indexOf('B') === 0) {
-                        return (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.msgDeleteBilledConfirmation"/>"));
+                        return (confirm("<fmt:message key="appointment.editappointment.msgDeleteBilledConfirmation"/>"));
                     } else {
-                        return (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.msgDeleteConfirmation"/>"));
+                        return (confirm("<fmt:message key="appointment.editappointment.msgDeleteConfirmation"/>"));
                     }
                 }
                 if (saveTemp === 2) {
@@ -441,7 +439,7 @@
                 }
 
                 if (stime.length != 5) {
-                    showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgInvalidDateFormat"/>");
+                    showJSAlert("<fmt:message key="Appointment.msgInvalidDateFormat"/>");
                     return false;
                 }
 
@@ -450,7 +448,7 @@
                 var duration = document.EDITAPPT.duration.value;
 
                 if (isNaN(duration)) {
-                    showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillTimeField"/>");
+                    showJSAlert("<fmt:message key="Appointment.msgFillTimeField"/>");
                     return false;
                 }
 
@@ -474,7 +472,7 @@
                 smin = smin < 10 ? ("0" + smin) : smin;
                 document.EDITAPPT.end_time.value = shour + ":" + smin;
                 if (shour > 23) {
-                    showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgCheckDuration"/>");
+                    showJSAlert("<fmt:message key="Appointment.msgCheckDuration"/>");
                     return false;
                 }
                 return true;
@@ -507,11 +505,11 @@
             function checkTimeTypeIn(obj) {
                 var colonIdx;
                 if (!checkTypeNum(obj.value)) {
-                    showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillTimeField"/>");
+                    showJSAlert("<fmt:message key="Appointment.msgFillTimeField"/>");
                 } else {
                     colonIdx = obj.value.indexOf(':');
                     if (colonIdx === -1) {
-                        if (obj.value.length < 3) showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillValidTimeField"/>");
+                        if (obj.value.length < 3) showJSAlert("<fmt:message key="Appointment.msgFillValidTimeField"/>");
                         obj.value = obj.value.substring(0, obj.value.length - 2) + ":" + obj.value.substring(obj.value.length - 2);
                     }
                 }
@@ -760,13 +758,13 @@
                         var dur = item.element.attr("data-dur");
                         if (dur && dur.length > 0) {
                             $div.append(document.createTextNode("\u00a0" + dur + "\u00a0"));
-                            $div.append(jQuery("<span>").html("<fmt:setBundle basename='oscarResources'/><fmt:message key='provider.preference.min'/>"));
+                            $div.append(jQuery("<span>").html("<fmt:message key='provider.preference.min'/>"));
                         }
                         var notesVal = item.element.attr("data-notes");
                         if (notesVal && notesVal.length > 0) {
                             $div.append(jQuery("<span>").html("&nbsp;&nbsp;"));
                             var $notesIcon = jQuery("<span>").css("color", "gray").append(
-                                jQuery("<i>").addClass("fa-solid fa-pencil").attr("title", "<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formNotes"/>:\u00a0" + notesVal)
+                                jQuery("<i>").addClass("fa-solid fa-pencil").attr("title", "<fmt:message key="Appointment.formNotes"/>:\u00a0" + notesVal)
                             );
                             $div.append($notesIcon);
                         }
@@ -774,7 +772,7 @@
                         var reasonVal = item.element.attr("data-reason");
                         if (reasonVal && reasonVal.length > 0) {
                             var $reasonIcon = jQuery("<span>").css("color", "gray").append(
-                                jQuery("<i>").addClass("fa-solid fa-tags").attr("title", "<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formReason"/>")
+                                jQuery("<i>").addClass("fa-solid fa-tags").attr("title", "<fmt:message key="Appointment.formReason"/>")
                             );
                             $div.append($reasonIcon).append(jQuery("<span>").html("&nbsp;&nbsp;")).append(document.createTextNode(reasonVal));
                         }
@@ -782,7 +780,7 @@
                         if (resourcesVal && resourcesVal.length > 0) {
                             $div.append(jQuery("<br>"));
                             var $resourcesIcon = jQuery("<span>").css("color", "gray").append(
-                                jQuery("<i>").addClass("fa-solid fa-gear").attr("title", "<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formResources"/>")
+                                jQuery("<i>").addClass("fa-solid fa-gear").attr("title", "<fmt:message key="Appointment.formResources"/>")
                             );
                             $div.append($resourcesIcon).append(jQuery("<span>").html("&nbsp;&nbsp;")).append(document.createTextNode(resourcesVal));
                         }
@@ -790,7 +788,7 @@
                         if (locVal && locVal.length > 1) {
                             $div.append(jQuery("<br>"));
                             var $locIcon = jQuery("<span>").css("color", "gray").append(
-                                jQuery("<i>").addClass("fa-solid fa-house").attr("title", "<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formLocation"/>")
+                                jQuery("<i>").addClass("fa-solid fa-house").attr("title", "<fmt:message key="Appointment.formLocation"/>")
                             );
                             $div.append($locIcon).append(jQuery("<span>").html("&nbsp;&nbsp;")).append(document.createTextNode(locVal));
                         }
@@ -845,7 +843,6 @@
         String editPatientStatus = (patientStatus == null || patientStatus.isEmpty() || patientStatus.equalsIgnoreCase("AC")) ? "" : patientStatus;
         boolean editShowStatus = editDisplayRoster || !editPatientStatus.isEmpty();
     %>
-    <fmt:setBundle basename="oscarResources"/>
     <fmt:message key="Appointment.msgRosterStatus" var="rosterStatusLabel"/>
     <div id="patientStatusBanner" class="alert alert-info alert-dismissible"
          data-roster-label="${e:forHtmlAttribute(rosterStatusLabel)}"
@@ -861,7 +858,7 @@
     <div class="page-header-bar time" id="header">
         <h4 class="page-header-title">
                     <!-- We display a shortened title for the mobile version -->
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.msgMainLabel"/>
+                    <fmt:message key="appointment.editappointment.msgMainLabel"/>
 
                     <%
 
@@ -883,7 +880,7 @@
                     <%
 		if (appt == null) {
 %>              <div class="alert alert-danger" role="alert">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.msgNoSuchAppointment"/>
+                <fmt:message key="appointment.editappointment.msgNoSuchAppointment"/>
                 </div>
                     <%
 			return;
@@ -921,8 +918,8 @@
     %>
     <div id="tooManySameDayGroupApptWarning" style="<%=displayStyle%>">
         <div class="alert alert-danger alert-dismissible" role="alert">
-            <h4><fmt:setBundle basename='oscarResources'/><fmt:message key='appointment.addappointment.titleMultipleGroupDayBooking'/></h4>
-            <fmt:setBundle basename='oscarResources'/><fmt:message key='appointment.addappointment.MultipleGroupDayBooking'/>
+            <h4><fmt:message key='appointment.addappointment.titleMultipleGroupDayBooking'/></h4>
+            <fmt:message key='appointment.addappointment.MultipleGroupDayBooking'/>
             <button type="button" class="btn-close" onclick="document.getElementById('tooManySameDayGroupApptWarning').style.display='none'" aria-label="Close"></button>
         </div>
     </div>
@@ -954,17 +951,17 @@
     <table class="table table-sm">
                 <tr>
                     <td>
-                        <label for="date"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formDate"/>:</label>
+                        <label for="date"><fmt:message key="Appointment.formDate"/>:</label>
                     </td>
                     <td>
                 <input type="date" class="form-control" name="appointment_date" id="date"
-                               value="<%=bFirstDisp?ConversionUtils.toDateString(appt.getAppointmentDate()):strApptDate%>"
+                               value="<%=Encode.forHtmlAttribute(bFirstDisp?ConversionUtils.toDateString(appt.getAppointmentDate()):strApptDate)%>"
                         >
                     </td>
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formStartTime"/>:</label>
+                        <label><fmt:message key="Appointment.formStartTime"/>:</label>
                     </td>
                     <td>
                 <input type="time" name="start_time" class="form-control"
@@ -974,7 +971,7 @@
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formDuration"/>:</label>
+                        <label><fmt:message key="Appointment.formDuration"/>:</label>
                     </td>
                     <td>
                         <%
@@ -1025,17 +1022,17 @@
                         <input type="hidden" name="ptstatus" value="active">
                         <input type="submit" name="searchBtn" id="searchBtn" class="btn btn-primary" style="margin-bottom:10px;"
                                onclick="parseSearch();document.forms['EDITAPPT'].displaymode.value='Search '"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnSearch"/>">
+                               value="<fmt:message key="appointment.editappointment.btnSearch"/>">
                     </td>
                     <td>
             	<input type="text" name="keyword" id="keyword" class="form-control"
                                value="<%=Encode.forHtmlAttribute(bFirstDisp?nameSb.toString():(request.getParameter("name") != null ? request.getParameter("name") : ""))%>"
-                               placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formName"/>">
+                               placeholder="<fmt:message key="Appointment.formName"/>">
                     </td>
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formReason"/>:</label>
+                        <label><fmt:message key="Appointment.formReason"/>:</label>
                     </td>
                     <td>
 				<select name="reasonCode" class="form-select">
@@ -1070,7 +1067,7 @@
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formLocation"/>:</label>
+                        <label><fmt:message key="Appointment.formLocation"/>:</label>
                     </td>
                     <td>
                         <%
@@ -1089,12 +1086,12 @@
                                 StringBuilder sb = new StringBuilder();
                                 for (Site s : sites) {
                                     if (s.getName().equals(loc)) isSiteSelected = true;
-                                    sb.append("<option value=\"").append(s.getName()).append("\" class=\"").append(s.getShortName()).append("\" style=\"background-color: ").append(s.getBgColor()).append("\" ").append(s.getName().equals(loc) ? "selected" : "").append(">").append(s.getName()).append("</option>");
+                                    sb.append("<option value=\"").append(Encode.forHtmlAttribute(s.getName())).append("\" class=\"").append(Encode.forHtmlAttribute(s.getShortName())).append("\" style=\"background-color: ").append(Encode.forCssString(s.getBgColor())).append("\" ").append(s.getName().equals(loc) ? "selected" : "").append(">").append(Encode.forHtml(s.getName())).append("</option>");
                                 }
                                 if (isSiteSelected) {
                                     out.println(sb.toString());
                                 } else {
-                                    out.println("<option value='" + loc + "'>" + loc + "</option>");
+                                    out.println("<option value='" + Encode.forHtmlAttribute(loc) + "'>" + Encode.forHtml(loc) + "</option>");
                                 }
                             %>
 
@@ -1126,7 +1123,7 @@
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formCreator"/>:</label>
+                        <label><fmt:message key="Appointment.formCreator"/>:</label>
                     </td>
                     <td>
                         <% String lastCreatorNo = bFirstDisp ? (appt.getCreator()) : request.getParameter("user_id"); %>
@@ -1162,13 +1159,13 @@
                 %>
                 <tr>
                     <td>
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.CreateDate"/>:</label>
+                        <label><fmt:message key="Appointment.CreateDate"/>:</label>
                     </td>
                     <td>
                 <div class="card">
                     <div class="card-body">
-                        <input type="hidden" class="form-control" name="createDate" value="<%=origDate%>">
-                        <%=dateString1%>
+                        <input type="hidden" class="form-control" name="createDate" value="<%=Encode.forHtmlAttribute(origDate)%>">
+                        <%=Encode.forHtml(dateString1)%>
                     </div>
                 </div>
                     </td>
@@ -1177,7 +1174,7 @@
                     String mcNumber = OtherIdManager.getApptOtherId(appointment_no, "appt_mc_number"); %>
                 <tr>
                     <td>
-                        <label for="appt_mc_number"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formMC"/>:</label>
+                        <label for="appt_mc_number"><fmt:message key="Appointment.formMC"/>:</label>
                     </td>
                     <td>
                 <input type="text" class="form-control" name="appt_mc_number" id="appt_mc_number" value="<%=bFirstDisp?mcNumber:Encode.forHtmlAttribute(request.getParameter("appt_mc_number") != null ? request.getParameter("appt_mc_number") : "")%>" />
@@ -1192,19 +1189,19 @@
     <table class="table table-sm">
                 <tr>
                     <td>
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formStatus"/>:</label>
+                        <label><fmt:message key="Appointment.formStatus"/>:</label>
                     </td>
                     <td>
                         <%
 
                             if (strEditable != null && strEditable.equalsIgnoreCase("yes")) { %>
 
-                <select name="status" class="form-select" style="background-color:<%=((AppointmentStatus)allStatus.get(curSelect)).getColor()%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor' >
+                <select name="status" class="form-select" style="background-color:<%=Encode.forCssString(((AppointmentStatus)allStatus.get(curSelect)).getColor())%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor' >
                             <% for (int i = 0; i < allStatus.size(); i++) { %>
-                            <option class="<%=((AppointmentStatus)allStatus.get(i)).getStatus()%>"
-                                    style="background-color:<%=((AppointmentStatus)allStatus.get(i)).getColor()%>"
-                                    value="<%=((AppointmentStatus)allStatus.get(i)).getStatus()+signOrVerify%>"
-                                    <%=((AppointmentStatus) allStatus.get(i)).getStatus().equals(statusCode) ? "SELECTED" : ""%>><%=((AppointmentStatus) allStatus.get(i)).getDescription()%>
+                            <option class="<%=Encode.forHtmlAttribute(((AppointmentStatus)allStatus.get(i)).getStatus())%>"
+                                    style="background-color:<%=Encode.forCssString(((AppointmentStatus)allStatus.get(i)).getColor())%>"
+                                    value="<%=Encode.forHtmlAttribute(((AppointmentStatus)allStatus.get(i)).getStatus()+signOrVerify)%>"
+                                    <%=((AppointmentStatus) allStatus.get(i)).getStatus().equals(statusCode) ? "SELECTED" : ""%>><%=Encode.forHtml(((AppointmentStatus) allStatus.get(i)).getDescription())%>
                             </option>
                             <% } %>
                         </select> <%
@@ -1213,7 +1210,7 @@
               	<input type="text" class="form-control" name="status" value="<%= Encode.forHtmlAttribute(statusCode) %>" > <%
                     } else { %>
                 <input type="text" class="form-control" name="status" value="<%= Encode.forHtmlAttribute(statusCode) %>" >
-                <input type="text"  class="form-control" TITLE="Imported Status" value="<%=importedStatus%>" readonly> <%
+                <input type="text"  class="form-control" TITLE="Imported Status" value="<%=Encode.forHtmlAttribute(importedStatus)%>" readonly> <%
                             }
                         }
                     %>
@@ -1221,11 +1218,11 @@
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formType"/>:</label>
+                        <label><fmt:message key="Appointment.formType"/>:</label>
                     </td>
                     <td>
                         <select name="type" class="form-select" id="type"
-                                title="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgSelectVisitType"/>">
+                                title="<fmt:message key="billing.billingCorrection.msgSelectVisitType"/>">
                         <option data-dur="" data-reason=""></option><!-- important leave a blank top entry  -->
 
         <% AppointmentTypeDao appDao = SpringUtils.getBean(AppointmentTypeDao.class);
@@ -1247,18 +1244,18 @@
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formDoctor"/>:</label>
+                        <label><fmt:message key="Appointment.formDoctor"/>:</label>
                     </td>
                     <td>
                 <input type="text" readonly name="doctorNo" id="mrp" class="form-control"
-                               value="<%=StringEscapeUtils.escapeHtml4(providerBean.getProperty(doctorNo,""))%>">
+                               value="<%=Encode.forHtmlAttribute(providerBean.getProperty(doctorNo,""))%>">
                     </td>
                 </tr>
                 <tr>
                     <td>
                         <label><a href="#" onclick="demographicdetail(550,700)" class="btn btn-link"
                                   style="padding-left:0px;">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="global.master"/></a></label>
+                            <fmt:message key="global.master"/></a></label>
                     </td>
                     <td>
                 <input type="text" name="demographic_no" id="demographic_no" class="form-control"
@@ -1268,17 +1265,17 @@
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formChartNo"/>:</label>
+                        <label><fmt:message key="Appointment.formChartNo"/>:</label>
                     </td>
                     <td>
                 <input type="text" name="chart_no" class="form-control"
-                    readonly value="<%=bFirstDisp?StringUtils.trimToEmpty(chartno):Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("chart_no")))%>"
+                    readonly value="<%=Encode.forHtmlAttribute(bFirstDisp?StringUtils.trimToEmpty(chartno):io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("chart_no")))%>"
                         >
                     </td>
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formNotes"/>:</label>
+                        <label><fmt:message key="Appointment.formNotes"/>:</label>
                     </td>
                     <td>
 				<textarea name="notes" class="form-control" maxlength="255" rows="2" style="resize:none;"><%=Encode.forHtmlContent(StringUtils.defaultString(bFirstDisp?appt.getNotes():request.getParameter("notes")))%></textarea>
@@ -1286,7 +1283,7 @@
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formResources"/>:</label>
+                        <label><fmt:message key="Appointment.formResources"/>:</label>
                     </td>
                     <td>
                 <input type="text" name="resources" tabindex="5" class="form-control"
@@ -1295,7 +1292,7 @@
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formLastCreator"/>:</label>
+                        <label><fmt:message key="Appointment.formLastCreator"/>:</label>
                     </td>
                     <td>
                         <% lastCreatorNo = request.getParameter("user_id");
@@ -1315,7 +1312,7 @@
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formLastTime"/>:</label>
+                        <label><fmt:message key="Appointment.formLastTime"/>:</label>
                     </td>
                     <td>
                 <div class="card">
@@ -1336,7 +1333,7 @@
                 </tr>
                 <tr>
                     <td>
-                        <label for="urgency"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formCritical"/> <i
+                        <label for="urgency"><fmt:message key="Appointment.formCritical"/> <i
                                 class="fa-solid fa-triangle-exclamation"></i>:</label>
                     </td>
                     <td>
@@ -1361,7 +1358,7 @@
                     if ((emailReminder != null) && emailReminder.equalsIgnoreCase("yes")) { %>
                 <tr>
                     <td>
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formEmailReminder"/>:</label>
+                        <label><fmt:message key="Appointment.formEmailReminder"/>:</label>
                     </td>
                     <td>
                 <input type="checkbox" class="form-check-input" name="emailPt" value="email reminder">
@@ -1382,49 +1379,45 @@
                 <% if (!bMultipleSameDayGroupAppt) { %>
                 <td style="text-align: left;"><input type="submit" class="btn btn-primary" id="updateButton"
                                                      onclick="document.forms['EDITAPPT'].displaymode.value='Update Appt'; onButUpdate();"
-                                                     value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnUpdateAppointment"/>">
+                                                     value="<fmt:message key="appointment.editappointment.btnUpdateAppointment"/>">
                     <% if (!props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {%>
                     <input type="submit" id="groupButton" class="btn btn-secondary"
                            onclick="document.forms['EDITAPPT'].displaymode.value='Group Action'; onButUpdate();"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnGroupAction"/>">
+                           value="<fmt:message key="appointment.editappointment.btnGroupAction"/>">
                     <% }%>
                     <input type="submit" id="printReceiptButton" class="btn btn-secondary"
                            onclick="document.forms['EDITAPPT'].displaymode.value='Update Appt';document.forms['EDITAPPT'].printReceipt.value='1';"
-                           value="<fmt:setBundle basename='oscarResources'/><fmt:message key='appointment.editappointment.btnPrintReceipt'/>">
+                           value="<fmt:message key='appointment.editappointment.btnPrintReceipt'/>">
                     <input type="hidden" name="printReceipt" value="">
                     <input type="submit" class="btn btn-danger" id="deleteButton"
                            onclick="document.forms['EDITAPPT'].displaymode.value='Delete Appt'; onButDelete();"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnDeleteAppointment"/>">
+                           value="<fmt:message key="appointment.editappointment.btnDeleteAppointment"/>">
                     <input type="button" id="cancelButton" class="btn btn-dark"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnCancelAppointment"/>"
+                           value="<fmt:message key="appointment.editappointment.btnCancelAppointment"/>"
                            onClick="onButCancel();">
                     <input type="button"
                            name="noShowButton" id="noShowButton" class="btn btn-secondary"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnNoShow"/>"
+                           value="<fmt:message key="appointment.editappointment.btnNoShow"/>"
                            onClick="document.EDITAPPT.displaymode.value='Update Appt';document.EDITAPPT.buttoncancel.value='No Show';document.EDITAPPT.submit();">
                     <br>
-                    <a class="btn" href="javascript:void(0);" title="Annotation" aria-label="Annotation"
-                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=Encode.forUriComponent(annotation_display)%>&amp;table_id=' + encodeURIComponent(document.forms['EDITAPPT'].appointment_no.value) + '&amp;demo=' + encodeURIComponent(document.EDITAPPT.demographic_no.value),'anwin','width=400,height=500');">
-                        <i class="fa-regular fa-comment" aria-hidden="true"></i>
-                    </a>
                     <a class="btn"
                        onClick="window.location='appointmentcontrol.jsp?displaymode=PrintCard&appointment_no=' + encodeURIComponent(document.forms['EDITAPPT'].appointment_no.value)">
-                        <i class="fa-solid fa-print"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnPrintCard"/></a>
+                        <i class="fa-solid fa-print"></i>&nbsp;<fmt:message key="appointment.editappointment.btnPrintCard"/></a>
                     <a class="btn"
                        onClick="window.open('<%=request.getContextPath() %>/demographic/demographiclabelprintsetting.jsp?demographic_no=' + encodeURIComponent(document.EDITAPPT.demographic_no.value), 'labelprint','height=550,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no')">
-                        <i class="fa-solid fa-print"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnLabelPrint"/></a>
+                        <i class="fa-solid fa-print"></i>&nbsp;<fmt:message key="appointment.editappointment.btnLabelPrint"/></a>
                     <a class="btn"
                        onclick="document.forms['EDITAPPT'].displaymode.value='Cut';localStorage.setItem('copyPaste','1');document.forms['EDITAPPT'].submit();">
-                        <i class="fa-solid fa-scissors"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentedit.cut"/></a>
+                        <i class="fa-solid fa-scissors"></i>&nbsp;<fmt:message key="appointment.appointmentedit.cut"/></a>
                     <a class="btn"
                        onclick="document.forms['EDITAPPT'].displaymode.value='Copy';localStorage.setItem('copyPaste','1');document.forms['EDITAPPT'].submit();">
-                        <i class="fa-solid fa-copy"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentedit.copy"/> </a>
+                        <i class="fa-solid fa-copy"></i>&nbsp;<fmt:message key="appointment.appointmentedit.copy"/> </a>
                     <% if (!props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {%>
                     <input type="button" id="repeatButton" class="btn"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.btnRepeat"/>"
+                           value="<fmt:message key="appointment.addappointment.btnRepeat"/>"
                            onclick="onButRepeat()">
                     <% }%>
-                    <input type="button" name="Button" class="btn btn-link" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/>"
+                    <input type="button" name="Button" class="btn btn-link" value="<fmt:message key="global.btnExit"/>"
                            onClick="self.close()"></td>
                 <% }%>
 
@@ -1438,9 +1431,9 @@
     <div id="bottomInfo">
         <table style="width:95%;">
             <tr>
-                <td style="padding-left:10px;"><label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgTelephone"/>:</label> <%= Encode.forHtmlContent(StringUtils.trimToEmpty(phone))%>
+                <td style="padding-left:10px;"><label><fmt:message key="Appointment.msgTelephone"/>:</label> <%= Encode.forHtmlContent(StringUtils.trimToEmpty(phone))%>
                     <br>
-                    <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgRosterStatus"/>:</label> <%=Encode.forHtmlContent(StringUtils.trimToEmpty(rosterstatus))%>
+                    <label><fmt:message key="Appointment.msgRosterStatus"/>:</label> <%=Encode.forHtmlContent(StringUtils.trimToEmpty(rosterstatus))%>
                 </td>
             </tr>
         </table>
@@ -1532,7 +1525,7 @@
     <table style="background-color: #e8e8e8; margin-left:auto; vertical-align: top; padding:3px">
         <tr style="background-color:#f3f6f9">
             <th colspan="2">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgFormsSaved"/>
+                <fmt:message key="appointment.addappointment.msgFormsSaved"/>
             </th>
         </tr>
         <% } %>
@@ -1540,9 +1533,9 @@
         <tr style="background-color:#c0c0c0; text-align:left">
             <th style="padding-right: 20px">${e:forHtml(formName)}:</th>
             <% if (formComplete) { %>
-            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgFormCompleted"/></td>
+            <td><fmt:message key="appointment.addappointment.msgFormCompleted"/></td>
             <% } else { %>
-            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgFormNotCompleted"/></td>
+            <td><fmt:message key="appointment.addappointment.msgFormNotCompleted"/></td>
             <% } %>
         </tr>
         <%

@@ -46,6 +46,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.DocumentBean;
 
@@ -71,18 +72,18 @@ public class DocumentTeleplanReportUploadServlet extends HttpServlet {
         String userHomePath = System.getProperty("user.home", "user.dir");
         MiscUtils.getLogger().debug(userHomePath);
 
-        File pFile = new File(userHomePath, backupfilepath + ".properties");
+        File homeDir = new File(userHomePath);
+        File pFile = PathValidationUtils.validatePath(backupfilepath + ".properties", homeDir);
 
 
         //   File pFile = new File(userHomePath, "oscar_sfhc.properties");
-        FileInputStream pStream = new FileInputStream(pFile.getPath());
-
         Properties ap = new Properties();
-        ap.load(pStream);
+        try (FileInputStream pStream = new FileInputStream(pFile)) {
+            ap.load(pStream);
+        }
 
         forwardTo = ap.getProperty("TA_FORWARD");
         foldername = ap.getProperty("DOCUMENT_DIR");
-        pStream.close();
 
 
         // function = request.getParameter("function");
@@ -125,7 +126,8 @@ public class DocumentTeleplanReportUploadServlet extends HttpServlet {
                         filename = filename.substring(filename.lastIndexOf('\\') + 1, filename.lastIndexOf('\"'));
 
                         fileheader = filename;
-                        fos = new FileOutputStream(foldername + filename);
+                        File destFile = PathValidationUtils.validatePath(filename, new File(foldername));
+                        fos = new FileOutputStream(destFile);
                         dest = new BufferedOutputStream(fos, BUFFER);
                     }
                     c = sis.readLine(data2, 0, BUFFER);

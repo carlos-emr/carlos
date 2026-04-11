@@ -376,14 +376,14 @@ public class EForm extends EFormBase {
 
     public void setFdid(String fdid) {
         if (this.formHtml != null && this.fdidMarker != null && fdid != null) {
-            this.formHtml = this.formHtml.replace(fdidMarker, fdid);
+            this.formHtml = this.formHtml.replace(fdidMarker, Encode.forHtmlAttribute(fdid));
         }
     }
 
     public void setSource(String source) {
         if (StringUtils.isBlank(source)) source = "";
 
-        this.formHtml = this.formHtml.replace(sourceMarker, source);
+        this.formHtml = this.formHtml.replace(sourceMarker, Encode.forHtmlAttribute(source));
     }
 
 
@@ -668,14 +668,21 @@ public class EForm extends EFormBase {
         String sql = ap.getApSQL();
         String output = ap.getApOutput();
         if (!StringUtils.isBlank(sql)) {
-            sql = replaceAllFields(sql);
-            log.debug("SQL----" + sql);
+            try {
+                sql = replaceAllFields(sql);
+            } catch (IllegalArgumentException e) {
+                log.error("Invalid placeholder value in eForm AP query, skipping: {}", e.getMessage());
+                return html;
+            }
+            log.debug("SQL---- [eform AP query executed]");
             ArrayList<String> names = DatabaseAP.parserGetNames(output); // a list of ${apName} --> apName
             sql = DatabaseAP.parserClean(sql); // replaces all other ${apName} expressions with 'apName'
             if (ap.isJsonOutput()) {
+                // deepcode ignore SqlInjection: appointment_no validated as numeric at JSP entry points (efmformapconfig_lookup, efmformadd_data, efmshowform_data)
                 ArrayNode values = EFormUtil.getJsonValues(names, sql);
                 output = values.toString(); //in case of JsonOutput, return the whole JSONArray and let the javascript deal with it
             } else {
+                // deepcode ignore SqlInjection: appointment_no validated as numeric at JSP entry points
                 ArrayList<String> values = EFormUtil.getValues(names, sql);
                 if (values.size() != names.size()) {
                     output = "";
@@ -706,21 +713,54 @@ public class EForm extends EFormBase {
     }
 
     public String replaceAllFields(String sql) {
-        sql = DatabaseAP.parserReplace("demographic", demographicNo, sql);
-        sql = DatabaseAP.parserReplace("provider", providerNo, sql);
-        sql = DatabaseAP.parserReplace("providers", providerNo, sql);
-        sql = DatabaseAP.parserReplace("appt_no", appointment_no, sql);
+        // Numeric ID fields: validate digits-only to prevent injection in unquoted SQL contexts
+        sql = DatabaseAP.parserReplace("demographic", requireDigitsOnly("demographic", demographicNo), sql);
+        sql = DatabaseAP.parserReplace("appt_no", requireDigitsOnly("appt_no", appointment_no), sql);
+        sql = DatabaseAP.parserReplace(EFORM_DEMOGRAPHIC, requireDigitsOnly(EFORM_DEMOGRAPHIC, getSqlParams(EFORM_DEMOGRAPHIC)), sql);
+        sql = DatabaseAP.parserReplace(REF_FID, requireDigitsOnly(REF_FID, getSqlParams(REF_FID)), sql);
+        sql = DatabaseAP.parserReplace(TABLE_ID, requireDigitsOnly(TABLE_ID, getSqlParams(TABLE_ID)), sql);
 
-        sql = DatabaseAP.parserReplace(EFORM_DEMOGRAPHIC, getSqlParams(EFORM_DEMOGRAPHIC), sql);
-        sql = DatabaseAP.parserReplace(REF_FID, getSqlParams(REF_FID), sql);
-        sql = DatabaseAP.parserReplace(VAR_NAME, getSqlParams(VAR_NAME), sql);
-        sql = DatabaseAP.parserReplace(VAR_VALUE, getSqlParams(VAR_VALUE), sql);
-        sql = DatabaseAP.parserReplace(REF_VAR_NAME, getSqlParams(REF_VAR_NAME), sql);
-        sql = DatabaseAP.parserReplace(REF_VAR_VALUE, getSqlParams(REF_VAR_VALUE), sql);
-        sql = DatabaseAP.parserReplace(TABLE_NAME, getSqlParams(TABLE_NAME), sql);
-        sql = DatabaseAP.parserReplace(TABLE_ID, getSqlParams(TABLE_ID), sql);
-        sql = DatabaseAP.parserReplace(OTHER_KEY, getSqlParams(OTHER_KEY), sql);
+        // String fields: escape backslashes and single quotes for use in quoted SQL literals
+        sql = DatabaseAP.parserReplace("provider", escapeSqlValue(providerNo), sql);
+        sql = DatabaseAP.parserReplace("providers", escapeSqlValue(providerNo), sql);
+        sql = DatabaseAP.parserReplace(VAR_NAME, escapeSqlValue(getSqlParams(VAR_NAME)), sql);
+        sql = DatabaseAP.parserReplace(VAR_VALUE, escapeSqlValue(getSqlParams(VAR_VALUE)), sql);
+        sql = DatabaseAP.parserReplace(REF_VAR_NAME, escapeSqlValue(getSqlParams(REF_VAR_NAME)), sql);
+        sql = DatabaseAP.parserReplace(REF_VAR_VALUE, escapeSqlValue(getSqlParams(REF_VAR_VALUE)), sql);
+        sql = DatabaseAP.parserReplace(TABLE_NAME, escapeSqlValue(getSqlParams(TABLE_NAME)), sql);
+        sql = DatabaseAP.parserReplace(OTHER_KEY, escapeSqlValue(getSqlParams(OTHER_KEY)), sql);
         return sql;
+    }
+
+    /**
+     * Escapes backslashes and single quotes in a value for safe substitution into a
+     * single-quoted SQL string literal in a DatabaseAP template.
+     * Backslashes are escaped first to prevent MySQL's backslash-escape bypass
+     * (e.g., a backslash followed by a quote would otherwise consume the doubled quote).
+     */
+    private static String escapeSqlValue(String value) {
+        if (value == null) return null;
+        // Escape backslashes before single quotes to prevent MySQL backslash-escape bypass
+        return value.replace("\\", "\\\\").replace("'", "''");
+    }
+
+    /**
+     * Validates that a value intended for an unquoted numeric SQL placeholder
+     * contains only digits (with optional leading minus sign for negative IDs).
+     * Throws {@link IllegalArgumentException} if the value is non-numeric and non-empty,
+     * preventing injection in unquoted contexts like {@code WHERE id = ${placeholder}}.
+     *
+     * @param placeholderName the name of the placeholder (for error messages)
+     * @param value           the value to validate
+     * @return the original value if valid
+     * @throws IllegalArgumentException if the value contains non-numeric characters
+     */
+    private static String requireDigitsOnly(String placeholderName, String value) {
+        if (value == null || value.isEmpty()) return value;
+        if (!value.matches("-?\\d+")) {
+            throw new IllegalArgumentException("Non-numeric value for placeholder: " + placeholderName);
+        }
+        return value;
     }
 
     private String getSqlParams(String key) {
@@ -900,16 +940,25 @@ public class EForm extends EFormBase {
                 }
             }
 
+            // Encode dynamic values for safe embedding into JavaScript string literals
+            String jsSignatureRequestId = Encode.forJavaScript(signatureRequestId);
+            String jsImageUrl = Encode.forJavaScript(imageUrl);
+            String jsStoredImgUrl = Encode.forJavaScript(storedImgUrl);
+            String jsContextPath = Encode.forJavaScript(contextPath);
+            String jsSignatureRequestIdKey = Encode.forJavaScript(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY);
+            String jsBrowserType = Encode.forJavaScript(browserType);
+            String jsDemographicNo = Encode.forJavaScript(demographicNo);
+
             String signatureCode = "<script type='text/javascript' src='oscar/library/jquery/jquery-3.7.1.min.js'></script>" +
                     "<script type='text/javascript' src='${oscar_javascript_path}signature.js'></script>" +
                     "<script type='text/javascript'>\n" +
-                    "var _signatureRequestId = '" + signatureRequestId + "';\n" +
-                    "var _imageUrl = '" + imageUrl + "';\n" +
-                    "var _storedImgUrl = '" + storedImgUrl + "';\n" +
-                    "var _contextPath = '" + contextPath + "';\n" +
-                    "var _digitalSignatureRequestIdKey = '" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "';\n" +
-                    "var _browserType = '" + browserType + "';\n" +
-                    "var _demographicNo = '" + demographicNo + "';\n" +
+                    "var _signatureRequestId = '" + jsSignatureRequestId + "';\n" +
+                    "var _imageUrl = '" + jsImageUrl + "';\n" +
+                    "var _storedImgUrl = '" + jsStoredImgUrl + "';\n" +
+                    "var _contextPath = '" + jsContextPath + "';\n" +
+                    "var _digitalSignatureRequestIdKey = '" + jsSignatureRequestIdKey + "';\n" +
+                    "var _browserType = '" + jsBrowserType + "';\n" +
+                    "var _demographicNo = '" + jsDemographicNo + "';\n" +
                     "</script>";
 
 

@@ -45,6 +45,7 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -101,11 +102,12 @@
 <head>
 	<meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<title><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.title" /></title>
+	<title><fmt:message key="inboxmanager.document.title" /></title>
 	<link rel="stylesheet" href="${pageContext.request.contextPath}/share/css/OscarStandardLayout.css" />
 
      <!-- Bootstrap -->
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/global.css"/>
 
     <!-- jQuery for preference AJAX calls (CSRFGuard auto-patches jQuery XHR) -->
     <script src="<%= Encode.forHtmlAttribute(context) %>/library/jquery/jquery-3.7.1.min.js"></script>
@@ -175,7 +177,7 @@
         transition: border-color 0.2s, background-color 0.2s;
       }
       #drop-area.drag-over {
-        border-color: #0d6efd;
+        border-color: var(--carlos-primary, #337ab7);
         background-color: #f0f7ff;
       }
       .progress { margin-bottom: 10px; }
@@ -184,14 +186,18 @@
 </head>
 <body onload="setDropList();">
     <div class="container">
+      <div class="page-header-bar">
+          <h4 class="page-header-title"><fmt:message key="dms.addDocument.msgManageUploadDocument" /></h4>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="window.close();">Back</button>
+      </div>
       <div class="card">
         <div class="card-header">
-          <h3 class="card-title"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgManageUploadDocument" /></h3>
+          <h6 class="card-title mb-0 fw-bold"><fmt:message key="inboxmanager.document.title" /></h6>
         </div>
         <div class="card-body">
             <ul>
-                <li><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.title" /></li>
-                <li><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUpload.onlyPdf" /></li>
+                <li><fmt:message key="inboxmanager.document.title" /></li>
+                <li><fmt:message key="dms.documentUpload.onlyPdf" /></li>
             </ul>
         </div>
        </div>
@@ -207,16 +213,16 @@
 		    <input type="hidden" id="queue" name="queue" value="<%=queueId%>"/>
 
              <div class="mb-3">
-                <label for="destinationDrop"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.destination" />:</label>
+                <label for="destinationDrop"><fmt:message key="dms.documentUploader.destination" />:</label>
                     <select onchange="javascript:setDestination(this);"  id="destinationDrop"  name="destinationDrop" class="form-select">
-                        <option value="pendingDocs" <%=( destination.equals("pendingDocs") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.pendingDocs" /></option>
-                        <option value="incomingDocs" <%=( destination.equals("incomingDocs") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.incomingDocs" /></option>
+                        <option value="pendingDocs" <%=( destination.equals("pendingDocs") ? " selected" : "")%> ><fmt:message key="inboxmanager.document.pendingDocs" /></option>
+                        <option value="incomingDocs" <%=( destination.equals("incomingDocs") ? " selected" : "")%> ><fmt:message key="inboxmanager.document.incomingDocs" /></option>
                     </select>
              </div>
              <div class="mb-3" id="providerDropDiv">
-                <label for="providerDrop" class="fields"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.sendToProvider" />:</label>
+                <label for="providerDrop" class="fields"><fmt:message key="dms.documentUploader.sendToProvider" />:</label>
 				<select onchange="javascript:setProvider(this);" id="providerDrop" name="providerDrop" class="form-select">
-					<option value="0" <%=("0".equals(provider) ? " selected" : "")%>><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.none" /></option>
+					<option value="0" <%=("0".equals(provider) ? " selected" : "")%>><fmt:message key="dms.documentUploader.none" /></option>
 					<%
 					for (int i = 0; i < providers.size(); i++) {
 	                	Provider h = providers.get(i);
@@ -228,7 +234,7 @@
 				</select>
              </div>
              <div class="mb-3">
-				<label for="queueDrop" class="fields"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.queue" />:</label>
+				<label for="queueDrop" class="fields"><fmt:message key="dms.incomingDocs.queue" />:</label>
 				<select onchange="javascript:setQueue(this);" id="queueDrop" name="queueDrop" class="form-select">
 					<%
 					for (Map.Entry<Integer,String> entry : queues.entrySet()) {
@@ -243,12 +249,12 @@
 				</select>
              </div>
              <div class="mb-3" id="destFolderDiv">
-                <label for="destFolderDrop" class="fields"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.folder" />:</label>
+                <label for="destFolderDrop" class="fields"><fmt:message key="dms.documentUploader.folder" />:</label>
                     <select onchange="javascript:setDestFolder(this);"  id="destFolderDrop"  name="destFolderDrop" class="form-select">
-                        <option value="Fax" <%=( destFolder.equals("Fax") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.fax" /></option>
-                        <option value="Mail" <%=( destFolder.equals("Mail") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.mail" /></option>
-                        <option value="File" <%=( destFolder.equals("File") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.file" /></option>
-                        <option value="Refile" <%=( destFolder.equals("Refile") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.refile" /></option>
+                        <option value="Fax" <%=( destFolder.equals("Fax") ? " selected" : "")%> ><fmt:message key="dms.incomingDocs.fax" /></option>
+                        <option value="Mail" <%=( destFolder.equals("Mail") ? " selected" : "")%> ><fmt:message key="dms.incomingDocs.mail" /></option>
+                        <option value="File" <%=( destFolder.equals("File") ? " selected" : "")%> ><fmt:message key="dms.incomingDocs.file" /></option>
+                        <option value="Refile" <%=( destFolder.equals("Refile") ? " selected" : "")%> ><fmt:message key="dms.incomingDocs.refile" /></option>
                     </select>
               </div>
 
@@ -256,16 +262,16 @@
           <div class="col-lg-7">
             <span class="btn fileinput-button btn-secondary">
               <i class="fa-solid fa-plus"></i>
-              <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnAdd" />...</span>
+              <span><fmt:message key="global.btnAdd" />...</span>
               <input type="file" id="fileInput" name="filedata" multiple accept=".pdf,application/pdf" />
             </span>
             <button type="button" class="btn btn-primary" id="btnUpload">
               <i class="fa-solid fa-upload"></i>
-              <span><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.zadddocument.btnUpload" /></span>
+              <span><fmt:message key="dms.zadddocument.btnUpload" /></span>
             </button>
             <button type="button" class="btn btn-secondary" id="btnReset">
               <i class="fa-solid fa-ban"></i>
-              <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.reset" /></span>
+              <span><fmt:message key="global.reset" /></span>
             </button>
           </div>
           <div class="col-lg-5">
@@ -335,7 +341,7 @@
         for (var i = 0; i < files.length; i++) {
             var file = files[i];
             if (!/\.pdf$/i.test(file.name)) {
-                showError(file.name + ' \u2014 <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUpload.onlyPdf" />');
+                showError(file.name + ' \u2014 <fmt:message key="dms.documentUpload.onlyPdf" />');
                 continue;
             }
             var entry = { file: file, row: null };
@@ -467,18 +473,18 @@
                         markRowDone(entry.row);
                     }
                 } catch (e) {
-                    showError(entry.file.name + ': <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.errors.upload.failed" />');
+                    showError(entry.file.name + ': <fmt:message key="eform.errors.upload.failed" />');
                     markRowError(entry.row);
                 }
             } else {
-                showError(entry.file.name + ': <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.errors.upload.failed" /> (HTTP ' + xhr.status + ')');
+                showError(entry.file.name + ': <fmt:message key="eform.errors.upload.failed" /> (HTTP ' + xhr.status + ')');
                 markRowError(entry.row);
             }
             onComplete();
         });
 
         xhr.addEventListener('error', function () {
-            showError(entry.file.name + ': <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.errors.upload.failed" />');
+            showError(entry.file.name + ': <fmt:message key="eform.errors.upload.failed" />');
             if (entry.row) markRowError(entry.row);
             onComplete();
         });

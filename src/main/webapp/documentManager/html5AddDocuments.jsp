@@ -54,12 +54,13 @@
 <%@page import="io.github.carlos_emr.carlos.providers.data.*,java.util.*,io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.title"/></title>
+    <title><fmt:message key="inboxmanager.document.title"/></title>
     <!-- Prototype.js/Scriptaculous removed — using vanilla JS (Phase 1c migration) -->
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
 
@@ -330,7 +331,7 @@
 <body>
 <div class="maindiv">
     <div class="maindivheading">
-        &nbsp;&nbsp;&nbsp; <fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.addMultipleDocuments"/>
+        &nbsp;&nbsp;&nbsp; <fmt:message key="inboxmanager.document.addMultipleDocuments"/>
     </div>
     <div>
         <input type="hidden" id="queue" value="<%=queueId%>"/>
