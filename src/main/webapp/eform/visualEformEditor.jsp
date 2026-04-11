@@ -124,7 +124,8 @@ FOR STAND ALONE USE
                 var css = document.createElement('link');
                 css.rel = 'stylesheet';
                 css.type = 'text/css';
-                css.href = 'https://code.jquery.com/ui/1.12.0/themes/base/jquery-ui.min.css';
+                /* Use same version (1.12.1) as the jQuery UI JS below to avoid version skew */
+                css.href = 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.min.css';
                 head.appendChild(css);
 
                 /* Load jQuery first, then dependents in its onload callback
@@ -134,15 +135,22 @@ FOR STAND ALONE USE
                 jq.src = 'https://code.jquery.com/jquery-3.6.4.min.js';
                 jq.integrity = 'sha256-oP6HI9z1XaZNBrJURtCoUT5SUnxFr8s3BzRl+cbzUq8=';
                 jq.crossOrigin = 'anonymous';
+                jq.onerror = function() {
+                    console.error('Failed to load jQuery from CDN; standalone mode will not function correctly.');
+                };
                 jq.onload = function() {
-                    /* jQuery loaded — now safe to load jQuery UI */
+                    /* jQuery loaded — now safe to load jQuery UI and signature_pad.
+                       signature_pad has no jQuery UI dependency so both can be
+                       appended in parallel (they only require window.jQuery, which
+                       is now available). */
                     var jqui = document.createElement('script');
                     jqui.src = 'https://code.jquery.com/ui/1.12.1/jquery-ui.min.js';
                     jqui.integrity = 'sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=';
                     jqui.crossOrigin = 'anonymous';
                     head.appendChild(jqui);
 
-                    /* Also load signature_pad after jQuery */
+                    /* signature_pad is a standalone canvas library with no jQuery UI
+                       dependency — loading it alongside jqui (both after jQuery) is safe */
                     var sp = document.createElement('script');
                     sp.src = 'signature_pad.min.js';
                     head.appendChild(sp);
@@ -366,13 +374,18 @@ var EFORM_I18N = {
        //for a unique identifier
 	   //myunique = prompt("Enter Unique Identifier","")  //2021-Jan-10 commented out May-01-2024
 
-        //enable submit button
-        $(document).ready(function() {
-            $('#SubmitButton').attr('disabled', false);
-            $('#PrintSubmitButton').attr('disabled', false);
-            $('#subject').attr('disabled', false);
-
-        });
+        // Guard to prevent ReferenceError in standalone mode: jQuery is loaded
+        // asynchronously via jq.onload, so $ may not be defined when this script
+        // block runs. The buttons have no disabled attribute by default, making
+        // this a no-op in practice, but without the guard the ReferenceError
+        // would also stop window.moveTo() and the resize code below from running.
+        if (window.jQuery) {
+            $(document).ready(function() {
+                $('#SubmitButton').attr('disabled', false);
+                $('#PrintSubmitButton').attr('disabled', false);
+                $('#subject').attr('disabled', false);
+            });
+        }
 
         function custom_alert( message, title ) {
             if ( !title )
@@ -2643,7 +2656,10 @@ var EFORM_I18N = {
 				wrapper.id = 'page_' + pageNo;
 				wrapper.className = 'page_container ui-droppable';
 				wrapper.setAttribute('style', 'width: 800px; height: 1000px;');
-				// Move child nodes instead of serialising/parsing HTML
+				// Move all child nodes (including text/comment nodes) using DOM
+				// node-moving rather than serialising to HTML strings.
+				// .contents() intentionally includes non-Element nodes to preserve
+				// whitespace and avoid re-parsing; this is the correct behaviour.
 				$page.contents().each(function() {
 					wrapper.appendChild(this);
 				});
