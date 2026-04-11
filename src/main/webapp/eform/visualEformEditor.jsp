@@ -139,21 +139,30 @@ FOR STAND ALONE USE
                     console.error('Failed to load jQuery from CDN; standalone mode will not function correctly.');
                 };
                 jq.onload = function() {
-                    /* jQuery loaded — now safe to load jQuery UI and signature_pad.
-                       signature_pad has no jQuery UI dependency so both can be
-                       appended in parallel (they only require window.jQuery, which
-                       is now available). */
+                    /* jQuery loaded — load jQuery UI next, then signature_pad after.
+                       Dynamically inserted scripts are async by default and do NOT delay
+                       window.load, so we must fully chain all three loads and call init()
+                       from sp.onload rather than relying on body onload to arrive after
+                       these scripts are ready (see body onload guard below). */
                     var jqui = document.createElement('script');
                     jqui.src = 'https://code.jquery.com/ui/1.12.1/jquery-ui.min.js';
                     jqui.integrity = 'sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=';
                     jqui.crossOrigin = 'anonymous';
+                    jqui.onload = function() {
+                        /* jQuery UI loaded — now load signature_pad (standalone canvas
+                           library, no jQuery UI dependency). Sequencing here ensures all
+                           three deps are complete before init() is invoked. */
+                        var sp = document.createElement('script');
+                        sp.src = 'signature_pad.min.js';
+                        sp.onload = function() {
+                            /* All dependencies ready: jQuery, jQuery UI, signature_pad.
+                               In standalone mode body onload skips init() so we call it
+                               here once everything is guaranteed to be available. */
+                            init();
+                        };
+                        head.appendChild(sp);
+                    };
                     head.appendChild(jqui);
-
-                    /* signature_pad is a standalone canvas library with no jQuery UI
-                       dependency — loading it alongside jqui (both after jQuery) is safe */
-                    var sp = document.createElement('script');
-                    sp.src = 'signature_pad.min.js';
-                    head.appendChild(sp);
                 };
                 head.appendChild(jq);
             })();
@@ -5338,7 +5347,7 @@ var EFORM_I18N = {
         }
     </script>
 </head>
-<body onload="init();">
+<body onload="if (!runStandaloneVersion) { init(); }">
     <!--Float bar Main Gen-->
     <div id="mySidenavGen" class="sidenav DoNotPrint">
     </div>
