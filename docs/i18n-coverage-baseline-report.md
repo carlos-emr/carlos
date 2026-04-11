@@ -25,8 +25,8 @@ these baseline numbers.
 **Overall i18n completion: 19% (full) + 32% (partial) = 51% of files touched**
 
 The remaining 48% of files have zero `fmt:message` usage and are entirely hardcoded
-in English. The largest untranslated areas are `form/` (clinical forms, 172 files),
-`billing/` (181 files), and `encounter/` (93 files).
+in English. The largest untranslated areas are `form/` (clinical forms, 167 files),
+`billing/` (165 files), and `encounter/` (61 files).
 
 ---
 
