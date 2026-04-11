@@ -65,6 +65,18 @@
     String startLimit = Misc.check(request.getParameter("startLimit"), "0");
     String orderby = Misc.check(request.getParameter("orderby"), "LastName");
     String column = Misc.check(request.getParameter("column"), null, orderby);
+
+    // Allowlist valid column names to prevent HQL injection in DemographicDao.findByField()
+    List<String> validColumns = List.of(
+        "DemographicNo", "LastName", "FirstName", "ChartNo", "Sex", "YearOfBirth", "PatientStatus"
+    );
+    if (!validColumns.contains(orderby)) {
+        orderby = "LastName";
+    }
+    if (column != null && !column.isEmpty() && !validColumns.contains(column)) {
+        column = orderby;
+    }
+
     Object keyword = Misc.check(request.getParameter("keyword"), "");
     if (column != null && column.equals("DemographicNo")) {
         keyword = ConversionUtils.fromIntString(keyword);
@@ -166,8 +178,8 @@
             }
 
             int start = Integer.parseInt(startLimit);
-            String next = url + "&orderby=" + orderby + "&startLimit=" + (start + 10),
-                    previous = url + "&orderby=" + orderby + "&startLimit=" + (start - 10);
+            String next = url + "&orderby=" + URLEncoder.encode(orderby, StandardCharsets.UTF_8) + "&startLimit=" + (start + 10),
+                    previous = url + "&orderby=" + URLEncoder.encode(orderby, StandardCharsets.UTF_8) + "&startLimit=" + (start - 10);
         %>
         <tr>
             <td width="50%" colspan="3" align="right" class="SmallerText">

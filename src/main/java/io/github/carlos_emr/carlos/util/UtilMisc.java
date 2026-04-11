@@ -42,7 +42,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 public class UtilMisc {
     /**
-     * @deprecated use apache's StringEscapeUtils instead.
+     * @deprecated use OWASP Encoder's {@link org.owasp.encoder.Encode#forHtml(String)} instead.
      */
     @Deprecated
     public static String htmlEscape(String S) {
@@ -140,7 +140,7 @@ public class UtilMisc {
     }
 
     /**
-     * @deprecated use apache's StringEscapeUtils instead.
+     * @deprecated use OWASP Encoder's {@link org.owasp.encoder.Encode#forJavaScript(String)} instead.
      */
     @Deprecated
     public static String JSEscape(String S) {

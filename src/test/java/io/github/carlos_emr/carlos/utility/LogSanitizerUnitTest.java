@@ -30,13 +30,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Unit tests for {@link LogSanitizer}.
  *
+ * <p>Verifies log injection prevention, truncation behaviour, null safety, and the
+ * {@link LogSanitizer#sanitizeObject(Object)} fallback for non-String inputs.
+ *
  * <p>LogSanitizer is a pure utility with no dependencies beyond OWASP Encoder,
  * so these tests run standalone without Spring context or mocking.</p>
  *
+ * @see LogSanitizer
  * @since 2026-04-03
  */
 @Tag("unit")
 @Tag("fast")
+@Tag("security")
 @DisplayName("LogSanitizer")
 class LogSanitizerUnitTest {
 
@@ -45,8 +50,8 @@ class LogSanitizerUnitTest {
     class SanitizeString {
 
         @Test
-        @DisplayName("should return 'null' when input is null")
-        void shouldReturnNullString_whenInputIsNull() {
+        @DisplayName("should return literal 'null' string when input is null")
+        void shouldReturnLiteralNull_whenInputIsNull() {
             assertThat(LogSanitizer.sanitize((String) null)).isEqualTo("null");
         }
 
@@ -57,10 +62,23 @@ class LogSanitizerUnitTest {
         }
 
         @Test
+        @DisplayName("should return original value when input contains only spaces")
+        void shouldReturnSpaces_whenInputIsWhitespaceOnly() {
+            assertThat(LogSanitizer.sanitize("   ")).isEqualTo("   ");
+        }
+
+        @Test
         @DisplayName("should pass through safe strings without modification")
         void shouldPassThroughSafeStrings_withoutModification() {
             String safe = "Hello, world! 123 test@example.com";
             assertThat(LogSanitizer.sanitize(safe)).isEqualTo(safe);
+        }
+
+        @Test
+        @DisplayName("should not modify safe file path input")
+        void shouldNotModifyFilePath_whenNoControlChars() {
+            String path = "/var/oscar/eforms/template.pdf";
+            assertThat(LogSanitizer.sanitize(path)).isEqualTo(path);
         }
 
         @Test
@@ -129,6 +147,17 @@ class LogSanitizerUnitTest {
 
             assertThat(sanitized.length()).isEqualTo(200);
             assertThat(sanitized).doesNotEndWith("...");
+        }
+
+        @Test
+        @DisplayName("should cap post-encoding output to prevent log flooding from adversarial input")
+        void shouldCapEncodedOutput_whenAdversarialInputExpandsExcessively() {
+            // Non-ASCII chars encoded as \uXXXX expand up to 6x.
+            // Feed 200 non-ASCII chars → raw input is truncated to 200, but encoding
+            // could produce up to 200*6=1200 chars. The output must be capped.
+            String adversarial = "\u00e9".repeat(LogSanitizer.DEFAULT_MAX_LENGTH);
+            String result = LogSanitizer.sanitize(adversarial);
+            assertThat(result.length()).isLessThanOrEqualTo(LogSanitizer.MAX_ENCODED_LENGTH + 3);
         }
 
         @Test
@@ -203,51 +232,45 @@ class LogSanitizerUnitTest {
     }
 
     @Nested
-    @DisplayName("sanitize(Object)")
+    @DisplayName("sanitizeObject(Object)")
     class SanitizeObject {
 
         @Test
-        @DisplayName("should return 'null' when object input is null")
-        void shouldReturnNullString_whenObjectInputIsNull() {
-            assertThat(LogSanitizer.sanitize((Object) null)).isEqualTo("null");
+        @DisplayName("should return literal 'null' when input object is null")
+        void shouldReturnLiteralNull_whenObjectIsNull() {
+            assertThat(LogSanitizer.sanitizeObject(null)).isEqualTo("null");
         }
 
         @Test
         @DisplayName("should delegate to String overload for normal objects")
         void shouldDelegateToStringOverload_whenObjectInputProvided() {
             Integer number = 42;
-            assertThat(LogSanitizer.sanitize((Object) number)).isEqualTo("42");
+            assertThat(LogSanitizer.sanitizeObject(number)).isEqualTo("42");
         }
 
         @Test
-        @DisplayName("should return safe fallback when toString() throws RuntimeException")
-        void shouldReturnSafeFallback_whenObjectToStringThrows() {
-            Object broken = new Object() {
+        @DisplayName("should sanitize the toString() result of a plain object")
+        void shouldSanitizeToStringResult_forPlainObject() {
+            Object obj = new Object() {
                 @Override
                 public String toString() {
-                    throw new IllegalStateException("broken");
+                    return "safe-value";
                 }
             };
-
-            String sanitized = LogSanitizer.sanitize(broken);
-
-            assertThat(sanitized).startsWith("[toString() failed:");
-            assertThat(sanitized).contains("IllegalStateException");
+            assertThat(LogSanitizer.sanitizeObject(obj)).isEqualTo("safe-value");
         }
 
         @Test
-        @DisplayName("should include exception type in fallback for diagnostics")
-        void shouldIncludeExceptionType_inFallbackMessage() {
-            Object npe = new Object() {
+        @DisplayName("should escape control chars in toString() output")
+        void shouldEscapeControlChars_inObjectToStringResult() {
+            Object obj = new Object() {
                 @Override
                 public String toString() {
-                    throw new NullPointerException();
+                    return "value\nwith\nnewlines";
                 }
             };
-
-            String sanitized = LogSanitizer.sanitize(npe);
-
-            assertThat(sanitized).contains("NullPointerException");
+            String result = LogSanitizer.sanitizeObject(obj);
+            assertThat(result).doesNotContain("\n");
         }
 
         @Test
@@ -260,26 +283,60 @@ class LogSanitizerUnitTest {
                 }
             };
 
-            String sanitized = LogSanitizer.sanitize(injectable);
+            String sanitized = LogSanitizer.sanitizeObject(injectable);
 
             assertThat(sanitized).doesNotContain("\r");
             assertThat(sanitized).doesNotContain("\n");
         }
 
         @Test
-        @DisplayName("should return safe fallback when toString() causes StackOverflowError")
-        void shouldReturnSafeFallback_whenToStringCausesStackOverflow() {
-            Object recursive = new Object() {
+        @DisplayName("should return safe fallback when toString() throws an exception")
+        void shouldReturnSafeFallback_whenToStringThrowsException() {
+            Object obj = new Object() {
                 @Override
                 public String toString() {
-                    return toString();
+                    throw new RuntimeException("toString() exploded");
+                }
+            };
+            String result = LogSanitizer.sanitizeObject(obj);
+            assertThat(result).startsWith("[toString() failed:");
+            assertThat(result).contains("RuntimeException");
+        }
+
+        @Test
+        @DisplayName("should include exception type in fallback for diagnostics")
+        void shouldIncludeExceptionType_inFallbackMessage() {
+            Object npe = new Object() {
+                @Override
+                public String toString() {
+                    throw new NullPointerException();
                 }
             };
 
-            String sanitized = LogSanitizer.sanitize(recursive);
+            String sanitized = LogSanitizer.sanitizeObject(npe);
 
-            assertThat(sanitized).startsWith("[toString() failed:");
-            assertThat(sanitized).contains("StackOverflowError");
+            assertThat(sanitized).contains("NullPointerException");
+        }
+
+        @Test
+        @DisplayName("should return safe fallback when toString() causes StackOverflowError")
+        void shouldReturnSafeFallback_whenToStringCausesStackOverflow() {
+            Object obj = new Object() {
+                @Override
+                public String toString() {
+                    // Simulate recursive toString
+                    throw new StackOverflowError();
+                }
+            };
+            String result = LogSanitizer.sanitizeObject(obj);
+            assertThat(result).startsWith("[toString() failed:");
+            assertThat(result).contains("StackOverflowError");
+        }
+
+        @Test
+        @DisplayName("should sanitize Integer toString representation")
+        void shouldSanitizeInteger_whenPassedAsObject() {
+            assertThat(LogSanitizer.sanitizeObject(42)).isEqualTo("42");
         }
     }
 }

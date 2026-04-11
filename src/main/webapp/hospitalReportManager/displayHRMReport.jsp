@@ -162,9 +162,15 @@
             if (duplicateLabIdsString != null) {
                 String[] duplicateLabIdsStringSplit = duplicateLabIdsString.split(",");
                 for (String tempId : duplicateLabIdsStringSplit) {
-                    HRMDocument doc = hrmDocumentDao.find(Integer.parseInt(tempId));
-                    dupReportDates.put(Integer.parseInt(tempId), doc.getReportDate());
-                    dupTimeReceived.put(Integer.parseInt(tempId), doc.getTimeReceived());
+                    tempId = tempId.trim();
+                    int parsedId;
+                    try { parsedId = Integer.parseInt(tempId); } catch (NumberFormatException e) {
+                        MiscUtils.getLogger().warn("Skipping invalid HRM duplicate lab ID: {}", tempId);
+                        continue;
+                    }
+                    HRMDocument doc = hrmDocumentDao.find(parsedId);
+                    dupReportDates.put(parsedId, doc.getReportDate());
+                    dupTimeReceived.put(parsedId, doc.getTimeReceived());
                 }
 
             }
@@ -780,8 +786,7 @@
                             <%
                                 }
                             %>
-                            <input type="button" value="Annotations"
-                                   onClick="popupPage(500, 400, '<%=request.getContextPath() %>/annotation/annotation.jsp?display=HRM&table_id=<%=hrmReportId%>&demo=<%=demographicNo%>')"/>
+
                         </form>
                     </td>
                 </tr>
@@ -957,16 +962,22 @@
                 //need datetime of report.
                 String[] duplicateLabIdsStringSplit = duplicateLabIdsString.split(",");
                 for (String tempId : duplicateLabIdsStringSplit) {
+                    tempId = tempId.trim();
+                    int parsedId;
+                    try { parsedId = Integer.parseInt(tempId); } catch (NumberFormatException e) {
+                        MiscUtils.getLogger().warn("Skipping invalid HRM duplicate lab ID in display: {}", tempId);
+                        continue;
+                    }
             %>
             <tr>
-                <td><%=tempId %>
+                <td><%=Encode.forHtml(String.valueOf(parsedId)) %>
                 </td>
-                <td><%=formatter.format(dupReportDates.get(Integer.parseInt(tempId))) %>
+                <td><%=formatter.format(dupReportDates.get(parsedId)) %>
                 </td>
-                <td><%=formatter.format(dupTimeReceived.get(Integer.parseInt(tempId))) %>
+                <td><%=formatter.format(dupTimeReceived.get(parsedId)) %>
                 </td>
                 <td><input type="button" value="Open Report"
-                           onclick="window.open('?id=<%=tempId%>&segmentId=<%=tempId%>&providerNo=<%=Encode.forJavaScriptAttribute(request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "")%>&searchProviderNo=<%=Encode.forJavaScriptAttribute(request.getParameter("searchProviderNo") != null ? request.getParameter("searchProviderNo") : "")%>&status=<%=Encode.forJavaScriptAttribute(request.getParameter("status") != null ? request.getParameter("status") : "")%>&demoName=<%=Encode.forJavaScriptAttribute(request.getParameter("demoName") != null ? request.getParameter("demoName") : "")%>', null)"/>
+                           onclick="window.open('?id=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(tempId))%>&segmentId=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(tempId))%>&providerNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(request.getParameter("providerNo") != null ? request.getParameter("providerNo") : ""))%>&searchProviderNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(request.getParameter("searchProviderNo") != null ? request.getParameter("searchProviderNo") : ""))%>&status=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(request.getParameter("status") != null ? request.getParameter("status") : ""))%>&demoName=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(request.getParameter("demoName") != null ? request.getParameter("demoName") : ""))%>', null)"/>
                 </td>
             </tr>
 

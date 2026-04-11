@@ -156,5 +156,10 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     addHiddenEmailProperties(loggedInInfo, thisEForm, demographic_no);
 
-    out.print(thisEForm.getFormHtml());
+    // EForms are an intentional HTML rendering system — provider-authored templates are
+    // output unencoded. CSP mitigates stored XSS by blocking inline script execution
+    // while allowing external scripts from the same origin that eforms depend on.
+    response.setHeader("Content-Security-Policy", "script-src 'self'; object-src 'none'");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    out.print(thisEForm.getFormHtml()); // CodeQL[java/xss] eform HTML is intentionally unencoded
 %>

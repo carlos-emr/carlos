@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
@@ -73,7 +74,13 @@ public class DxresearchReport2Action extends ActionSupport {
     private MyGroupDao mygroupdao = SpringUtils.getBean(MyGroupDao.class);
     private static final String REPORTS_PATH = "org/oscarehr/common/web/DxResearchReport.jrxml";
 
-    /** Allowlist of valid values for the {@code radiovaluestatus} session attribute. */
+    /**
+     * Allowlist of valid values for the {@code radiovaluestatus} session attribute.
+     * Note: "patientRegistedDistincted" is an intentional legacy identifier used consistently
+     * across this Action class and the companion JSP (oscarReportDxReg.jsp). Changing it
+     * would require a coordinated rename of both server-side method names and JSP references,
+     * and is therefore preserved as-is to avoid breakage.
+     */
     private static final Set<String> VALID_STATUS_VALUES = Set.of(
             "patientRegistedAll",
             "patientRegistedDistincted",
@@ -81,6 +88,75 @@ public class DxresearchReport2Action extends ActionSupport {
             "patientRegistedActive",
             "patientRegistedResolve"
     );
+
+    /** Provider number: alphanumeric 1-6 characters (matches {@code provider} table VARCHAR(6)), or {@code *} for "All Providers" (DAO treats {@code *} as wildcard to include every provider's patients). */
+    private static final Pattern PROVIDER_NO_PATTERN = Pattern.compile("^([a-zA-Z0-9]{1,6}|\\*)$");
+
+    /** Prefix used by the JSP provider selector for provider group expansion. */
+    private static final String GROUP_PREFIX = "_grp_";
+
+    /** Group name after {@link #GROUP_PREFIX}: alphanumeric/underscore, 1-20 characters (generous upper bound). */
+    private static final Pattern GROUP_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]{1,20}$");
+
+    /** Diagnostic code: alphanumeric with dots, 1-10 characters (e.g. ICD-9 "250.0"). Intentionally permissive — DAO lookup rejects unknown codes. */
+    private static final Pattern CODE_PATTERN = Pattern.compile("^[a-zA-Z0-9.]{1,10}$");
+
+    /**
+     * Validates the {@code provider_no} request parameter and returns the resolved
+     * list of provider numbers. Provider numbers are alphanumeric (1-6 chars) or
+     * {@code *} (all providers), optionally prefixed with {@link #GROUP_PREFIX}
+     * for group expansion.
+     *
+     * @return list of provider numbers, or {@code null} if the parameter is missing or invalid
+     */
+    private List<String> getValidatedProviderNoList() {
+        String providerNo = request.getParameter("provider_no");
+        if (providerNo == null || providerNo.isEmpty()) {
+            return null;
+        }
+
+        List<String> providerNoList = new ArrayList<>();
+        if (providerNo.startsWith(GROUP_PREFIX)) {
+            String groupName = providerNo.substring(GROUP_PREFIX.length());
+            if (!GROUP_NAME_PATTERN.matcher(groupName).matches()) {
+                return null;
+            }
+            providerNoList = mygroupdao.getGroupDoctors(groupName);
+        } else {
+            if (!PROVIDER_NO_PATTERN.matcher(providerNo).matches()) {
+                return null;
+            }
+            providerNoList.add(providerNo);
+        }
+        return providerNoList;
+    }
+
+    /**
+     * Validates the {@code provider_no} request parameter and returns the bare
+     * provider number (with {@link #GROUP_PREFIX} stripped if present).
+     * Used by {@link #patientExcelReport()} which needs the single value, not a list.
+     *
+     * @return validated provider number string, or {@code null} if invalid
+     */
+    private String getValidatedProviderNo() {
+        String providerNo = request.getParameter("provider_no");
+        if (providerNo == null || providerNo.isEmpty()) {
+            return null;
+        }
+
+        if (providerNo.startsWith(GROUP_PREFIX)) {
+            String groupName = providerNo.substring(GROUP_PREFIX.length());
+            if (!GROUP_NAME_PATTERN.matcher(groupName).matches()) {
+                return null;
+            }
+            return groupName;
+        } else {
+            if (!PROVIDER_NO_PATTERN.matcher(providerNo).matches()) {
+                return null;
+            }
+            return providerNo;
+        }
+    }
 
     @Override
     public String execute() throws Exception {
@@ -126,27 +202,29 @@ public class DxresearchReport2Action extends ActionSupport {
 
     public String patientRegistedAll() {
 
-        List<String> providerNoList = new ArrayList<String>();
-        String providerNo = request.getParameter("provider_no");
-        if (providerNo.startsWith("_grp_")) {
-            providerNo = providerNo.replaceFirst("_grp_", "");
-            providerNoList = mygroupdao.getGroupDoctors(providerNo);
-        } else
-            providerNoList.add(providerNo);
+        List<String> providerNoList = getValidatedProviderNoList();
+        if (providerNoList == null) {
+            return ERROR;
+        }
 
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedAll(codeSearch, providerNoList);
-        request.getSession().setAttribute("listview", patientInfo);
+        request.getSession().setAttribute("listview", patientInfo); // nosemgrep: tainted-session-from-http-request -- provider_no validated by getValidatedProviderNoList(); patientInfo is DAO query result
         if (patientInfo == null || patientInfo.size() == 0) {
-            request.getSession().setAttribute("Counter", 0);
+            request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request -- hardcoded integer
         } else
-            request.getSession().setAttribute("Counter", patientInfo.size());
+            request.getSession().setAttribute("Counter", patientInfo.size()); // nosemgrep: tainted-session-from-http-request -- integer derived from list size
         request.getSession().setAttribute("radiovaluestatus", "patientRegistedAll");
         return SUCCESS;
     }
 
     public String patientExcelReport() {
+        String providerNo = getValidatedProviderNo();
+        if (providerNo == null) {
+            return ERROR;
+        }
+
         ServletOutputStream outputStream = getServletOstream(response);
 
         List<DxRegistedPTInfo> patients = null;
@@ -157,12 +235,6 @@ public class DxresearchReport2Action extends ActionSupport {
             patients = new ArrayList<DxRegistedPTInfo>();
             DxRegistedPTInfo info = (DxRegistedPTInfo) request.getSession().getAttribute("listview");
             patients.add(info);
-        }
-
-        String providerNo = request.getParameter("provider_no");
-
-        if (providerNo.startsWith("_grp_")) {
-            providerNo = providerNo.replaceFirst("_grp_", "");
         }
 
         String mode = (String) request.getSession().getAttribute("radiovaluestatus");
@@ -184,21 +256,18 @@ public class DxresearchReport2Action extends ActionSupport {
 
     public String patientRegistedDistincted() {
 
-        List<String> providerNoList = new ArrayList<String>();
-        String providerNo = request.getParameter("provider_no");
-        if (providerNo.startsWith("_grp_")) {
-            providerNo = providerNo.replaceFirst("_grp_", "");
-            providerNoList = mygroupdao.getGroupDoctors(providerNo);
-        } else
-            providerNoList.add(providerNo);
+        List<String> providerNoList = getValidatedProviderNoList();
+        if (providerNoList == null) {
+            return ERROR;
+        }
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedDistincted(codeSearch, providerNoList);
-        request.getSession().setAttribute("listview", patientInfo);
+        request.getSession().setAttribute("listview", patientInfo); // nosemgrep: tainted-session-from-http-request -- provider_no validated; values are DAO results
         if (patientInfo == null || patientInfo.size() == 0) {
-            request.getSession().setAttribute("Counter", 0);
+            request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request -- hardcoded integer
         } else
-            request.getSession().setAttribute("Counter", patientInfo.size());
+            request.getSession().setAttribute("Counter", patientInfo.size()); // nosemgrep: tainted-session-from-http-request -- integer derived from list size
         request.getSession().setAttribute("radiovaluestatus", "patientRegistedDistincted");
         return SUCCESS;
     }
@@ -215,63 +284,54 @@ public class DxresearchReport2Action extends ActionSupport {
 
     public String patientRegistedDeleted() {
 
-        List<String> providerNoList = new ArrayList<String>();
-        String providerNo = request.getParameter("provider_no");
-        if (providerNo.startsWith("_grp_")) {
-            providerNo = providerNo.replaceFirst("_grp_", "");
-            providerNoList = mygroupdao.getGroupDoctors(providerNo);
-        } else
-            providerNoList.add(providerNo);
+        List<String> providerNoList = getValidatedProviderNoList();
+        if (providerNoList == null) {
+            return ERROR;
+        }
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedDeleted(codeSearch, providerNoList);
-        request.getSession().setAttribute("listview", patientInfo);
+        request.getSession().setAttribute("listview", patientInfo); // nosemgrep: tainted-session-from-http-request -- provider_no validated; values are DAO results
         if (patientInfo == null || patientInfo.size() == 0) {
-            request.getSession().setAttribute("Counter", 0);
+            request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request -- hardcoded integer
         } else
-            request.getSession().setAttribute("Counter", patientInfo.size());
+            request.getSession().setAttribute("Counter", patientInfo.size()); // nosemgrep: tainted-session-from-http-request -- integer derived from list size
         request.getSession().setAttribute("radiovaluestatus", "patientRegistedDeleted");
         return SUCCESS;
     }
 
     public String patientRegistedActive() {
 
-        List<String> providerNoList = new ArrayList<String>();
-        String providerNo = request.getParameter("provider_no");
-        if (providerNo.startsWith("_grp_")) {
-            providerNo = providerNo.replaceFirst("_grp_", "");
-            providerNoList = mygroupdao.getGroupDoctors(providerNo);
-        } else
-            providerNoList.add(providerNo);
+        List<String> providerNoList = getValidatedProviderNoList();
+        if (providerNoList == null) {
+            return ERROR;
+        }
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedActive(codeSearch, providerNoList);
-        request.getSession().setAttribute("listview", patientInfo);
+        request.getSession().setAttribute("listview", patientInfo); // nosemgrep: tainted-session-from-http-request -- provider_no validated; values are DAO results
         if (patientInfo == null || patientInfo.size() == 0) {
-            request.getSession().setAttribute("Counter", 0);
+            request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request -- hardcoded integer
         } else
-            request.getSession().setAttribute("Counter", patientInfo.size());
+            request.getSession().setAttribute("Counter", patientInfo.size()); // nosemgrep: tainted-session-from-http-request -- integer derived from list size
         request.getSession().setAttribute("radiovaluestatus", "patientRegistedActive");
         return SUCCESS;
     }
 
     public String patientRegistedResolve() {
 
-        List<String> providerNoList = new ArrayList<String>();
-        String providerNo = request.getParameter("provider_no");
-        if (providerNo.startsWith("_grp_")) {
-            providerNo = providerNo.replaceFirst("_grp_", "");
-            providerNoList = mygroupdao.getGroupDoctors(providerNo);
-        } else
-            providerNoList.add(providerNo);
+        List<String> providerNoList = getValidatedProviderNoList();
+        if (providerNoList == null) {
+            return ERROR;
+        }
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedResolve(codeSearch, providerNoList);
-        request.getSession().setAttribute("listview", patientInfo);
+        request.getSession().setAttribute("listview", patientInfo); // nosemgrep: tainted-session-from-http-request -- provider_no validated; values are DAO results
         if (patientInfo == null || patientInfo.size() == 0) {
-            request.getSession().setAttribute("Counter", 0);
+            request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request -- hardcoded integer
         } else
-            request.getSession().setAttribute("Counter", patientInfo.size());
+            request.getSession().setAttribute("Counter", patientInfo.size()); // nosemgrep: tainted-session-from-http-request -- integer derived from list size
         request.getSession().setAttribute("radiovaluestatus", "patientRegistedResolve");
         return SUCCESS;
     }
@@ -283,9 +343,9 @@ public class DxresearchReport2Action extends ActionSupport {
 
         dxQuickListItemsHandler.updatePatientCodeDesc(editingCodeType, editingCodeCode, editingCodeDesc);
 
-        // Encode before storing in session to prevent XSS via unsanitized session data (CWE-501)
-        editingCodeDesc = String.format("\"%s\"", Encode.forHtml(editingCodeDesc));
-        request.getSession().setAttribute("editingCodeDesc", editingCodeDesc);
+        // Length-limit before storing in session to avoid unbounded session storage; output encoding is applied at render time in the JSP.
+        editingCodeDesc = editingCodeDesc != null && editingCodeDesc.length() > 1000 ? editingCodeDesc.substring(0, 1000) : editingCodeDesc;
+        request.getSession().setAttribute("editingCodeDesc", editingCodeDesc); // nosemgrep: tainted-session-from-http-request -- raw value is stored intentionally and output encoding is applied at render time
 
         return SUCCESS;
     }
@@ -299,6 +359,11 @@ public class DxresearchReport2Action extends ActionSupport {
         String codeSystem = request.getParameter("codesystem");
         String action = request.getParameter("action");
         dxCodeSearchBean newAddition = null;
+
+        // Validate diagnostic code format (alphanumeric with dots, 1-10 chars)
+        if (codeSingle != null && !codeSingle.isEmpty() && !CODE_PATTERN.matcher(codeSingle).matches()) {
+            return ERROR;
+        }
 
         // check the code
         CodingSystemManager codingSystemManager = SpringUtils.getBean(CodingSystemManager.class);
@@ -334,7 +399,7 @@ public class DxresearchReport2Action extends ActionSupport {
             codeSearch.add(newAddition);
         }
 
-        request.getSession().setAttribute("codeSearch", codeSearch);
+        request.getSession().setAttribute("codeSearch", codeSearch); // nosemgrep: tainted-session-from-http-request -- codeSystem allowlisted via enum valueOf(); codeSingle validated by CODE_PATTERN; codeDescription from DAO lookup
         return SUCCESS;
     }
 

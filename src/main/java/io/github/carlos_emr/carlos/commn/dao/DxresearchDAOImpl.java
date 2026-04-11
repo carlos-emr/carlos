@@ -33,8 +33,10 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import jakarta.persistence.Query;
 
@@ -115,24 +117,25 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
 
         Query query = null;
         if (listItems != null && listItems.size() > 0) {
+            Map<String, Object> params = new HashMap<>();
+            HQL = "SELECT dxres FROM Dxresearch dxres WHERE ";
+            int idx = 0;
             Iterator<dxCodeSearchBean> ite = listItems.listIterator();
-            HQL = "SELECT dxres FROM Dxresearch dxres";
-
-            if (ite.hasNext()) {
-                HQL += " WHERE ";
-            }
-
             while (ite.hasNext()) {
                 dxCodeSearchBean bean = ite.next();
-                String codeSys = bean.getType();
-                String code = bean.getDxSearchCode();
-                HQL += "dxres.codingSystem= '" + codeSys + "' AND dxres.dxresearchCode='" + code + "'";
+                String codeSysParam = "codeSys" + idx;
+                String codeParam = "code" + idx;
+                HQL += "dxres.codingSystem = :" + codeSysParam + " AND dxres.dxresearchCode = :" + codeParam;
+                params.put(codeSysParam, bean.getType());
+                params.put(codeParam, bean.getDxSearchCode());
                 if (ite.hasNext()) {
                     HQL += " OR ";
                 }
+                idx++;
             }
             HQL += " GROUP BY dxres.demographicNo ORDER BY dxres.updateDate asc";
             query = entityManager.createQuery(HQL);
+            params.forEach(query::setParameter);
         } else {
             HQL = "SELECT dxres FROM Dxresearch dxres GROUP BY dxres.demographicNo ORDER BY dxres.updateDate asc";
             query = entityManager.createQuery(HQL);
@@ -154,24 +157,25 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
         String HQL = "";
         Query query = null;
         if (listItems != null && listItems.size() > 0) {
+            Map<String, Object> params = new HashMap<>();
+            HQL = "SELECT dxres FROM Dxresearch dxres WHERE ";
+            int idx = 0;
             Iterator<dxCodeSearchBean> ite = listItems.listIterator();
-            HQL = "SELECT dxres FROM Dxresearch dxres";
-
-            if (ite.hasNext()) {
-                HQL += " WHERE ";
-            }
-
             while (ite.hasNext()) {
                 dxCodeSearchBean bean = ite.next();
-                String codeSys = bean.getType();
-                String code = bean.getDxSearchCode().trim();
-                HQL += "dxres.codingSystem= '" + codeSys + "' AND dxres.dxresearchCode='" + code + "'";
+                String codeSysParam = "codeSys" + idx;
+                String codeParam = "code" + idx;
+                HQL += "dxres.codingSystem = :" + codeSysParam + " AND dxres.dxresearchCode = :" + codeParam;
+                params.put(codeSysParam, bean.getType());
+                params.put(codeParam, bean.getDxSearchCode().trim());
                 if (ite.hasNext()) {
                     HQL += " OR ";
                 }
+                idx++;
             }
             HQL += " ORDER BY dxres.demographicNo asc, dxres.updateDate asc";
             query = entityManager.createQuery(HQL);
+            params.forEach(query::setParameter);
         } else {
             HQL = "SELECT dxres FROM Dxresearch dxres ORDER BY dxres.demographicNo asc, dxres.updateDate asc";
             query = entityManager.createQuery(HQL);
@@ -210,26 +214,33 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
 
         Query query = null;
         if (listItems != null && listItems.size() > 0) {
-            Iterator<dxCodeSearchBean> ite = listItems.listIterator();
+            Map<String, Object> params = new HashMap<>();
             HQL = "SELECT dxres FROM Dxresearch dxres WHERE (";
-
+            int idx = 0;
+            Iterator<dxCodeSearchBean> ite = listItems.listIterator();
             while (ite.hasNext()) {
                 dxCodeSearchBean bean = ite.next();
-                String codeSys = bean.getType();
-                String code = bean.getDxSearchCode();
-                HQL += "dxres.codingSystem= '" + codeSys + "' AND dxres.dxresearchCode='" + code + "'";
+                String codeSysParam = "codeSys" + idx;
+                String codeParam = "code" + idx;
+                HQL += "dxres.codingSystem = :" + codeSysParam + " AND dxres.dxresearchCode = :" + codeParam;
+                params.put(codeSysParam, bean.getType());
+                params.put(codeParam, bean.getDxSearchCode());
                 if (ite.hasNext()) {
                     HQL += " OR ";
                 }
+                idx++;
             }
             if (listItems.size() > 0)
                 HQL += ") AND ";
 
-            HQL += "dxres.status= '" + status + "' ORDER BY dxres.demographicNo asc, dxres.updateDate asc";
+            HQL += "dxres.status = :status ORDER BY dxres.demographicNo asc, dxres.updateDate asc";
+            params.put("status", status);
             query = entityManager.createQuery(HQL);
+            params.forEach(query::setParameter);
         } else {
-            HQL = "SELECT dxres FROM Dxresearch dxres WHERE dxres.status= '" + status + "' ORDER BY dxres.demographicNo asc, dxres.updateDate asc";
+            HQL = "SELECT dxres FROM Dxresearch dxres WHERE dxres.status = :status ORDER BY dxres.demographicNo asc, dxres.updateDate asc";
             query = entityManager.createQuery(HQL);
+            query.setParameter("status", status);
         }
         dList = query.getResultList();
 

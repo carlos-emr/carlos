@@ -209,7 +209,8 @@
 
                         let obsDate = new Date(this.dateObserved.time).toISOString().slice(0, 10);
 
-                        // Capture values for the event-listener closure
+                        // Server-sourced values are rendered via textContent and value (XSS-safe DOM APIs).
+                        // Do NOT use innerHTML with these values — stored XSS is possible via clinical data.
                         let dataField = this.dataField;
                         let measuringInstruction = this.measuringInstruction;
 

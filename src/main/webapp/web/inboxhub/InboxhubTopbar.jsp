@@ -30,17 +30,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <c:set var="providerNo" value="${sessionScope.user}" />
 <c:set var="contextPath" value="${pageContext.request.contextPath}" />
 
-<a href="javascript:reportWindow('${e:forHtml(contextPath)}/oscarMDS/ForwardingRules.jsp?providerNo=${e:forHtml(providerNo)}');" class="nav-link"><fmt:message key="inboxhub.topbar.forwardingRules"/></a>
-<a href="javascript:reportWindow('${e:forHtml(contextPath)}/lab/CA/ALL/testUploader.jsp',800,1000)" class="nav-link"><fmt:message key="admin.admin.hl7LabUpload"/></a>
-
+<%-- Ordered by workflow: incoming → pending → uploads → create → config --%>
+<a href="javascript:reportWindow('${e:forJavaScript(contextPath)}/documentManager/incomingDocs.jsp',800,1200)" class="nav-link"><fmt:message key="inboxmanager.document.incomingDocs"/></a>
+<a href="javascript:reportWindow('${e:forJavaScript(contextPath)}/documentManager/inboxManage.do?method=getDocumentsInQueues',700,1100)" class="nav-link"><fmt:message key="inboxmanager.document.pendingDocs"/></a>
 <c:if test="${CarlosProperties.getInstance().getBooleanProperty('legacy_document_upload_enabled', 'true')}">
-    <a href="javascript:reportWindow('${e:forHtml(contextPath)}/documentManager/html5AddDocuments.jsp',600,500)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
+    <a href="javascript:reportWindow('${e:forJavaScript(contextPath)}/documentManager/html5AddDocuments.jsp',600,500)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
 </c:if>
-
 <c:if test="${!CarlosProperties.getInstance().getBooleanProperty('legacy_document_upload_enabled', 'true')}">
-    <a href="javascript:reportWindow('${e:forHtml(contextPath)}/documentManager/documentUploader.jsp',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
+    <a href="javascript:reportWindow('${e:forJavaScript(contextPath)}/documentManager/documentUploader.jsp',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
 </c:if>
-
-<a href="javascript:reportWindow('${e:forHtml(contextPath)}/documentManager/inboxManage.do?method=getDocumentsInQueues',700,1100)" class="nav-link"><fmt:message key="inboxmanager.document.pendingDocs"/></a>
-<a href="javascript:reportWindow('${e:forHtml(contextPath)}/documentManager/incomingDocs.jsp',800,1200)" class="nav-link"><fmt:message key="inboxmanager.document.incomingDocs"/></a>
-<a href="javascript:reportWindow('${e:forHtml(contextPath)}/oscarMDS/CreateLab.jsp',800,1000)" class="nav-link"><fmt:message key="global.createLab" /></a>
+<a href="javascript:reportWindow('${e:forJavaScript(contextPath)}/lab/CA/ALL/testUploader.jsp',800,1000)" class="nav-link"><fmt:message key="admin.admin.hl7LabUpload"/></a>
+<a href="javascript:reportWindow('${e:forJavaScript(contextPath)}/oscarMDS/CreateLab.jsp',800,1000)" class="nav-link"><fmt:message key="global.createLab" /></a>
+<a href="javascript:reportWindow('${e:forJavaScript(contextPath)}/oscarMDS/ForwardingRules.jsp?providerNo=${e:forJavaScript(providerNo)}');" class="nav-link"><fmt:message key="inboxhub.topbar.forwardingRules"/></a>

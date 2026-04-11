@@ -72,8 +72,7 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
 
             // set link for lefthand module title
             String winName = "Labs" + bean.demographicNo;
-            String url = "popupPage(700,599,'" + winName + "','" + request.getContextPath() + "/lab/DemographicLab.jsp?demographicNo=" + bean.demographicNo + "'); return false;";
-            Dao.setLeftURL(url);
+            Dao.setLeftPopup(700, 599, winName, request.getContextPath() + "/lab/DemographicLab.jsp?demographicNo=" + bean.demographicNo);
 
             // we're going to display popup menu of 2 selections - row display and grid display
             String menuId = "2";
@@ -84,26 +83,23 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
             winName = "AllLabs" + bean.demographicNo;
 
             if (CarlosProperties.getInstance().getBooleanProperty("HL7TEXT_LABS", "yes")) {
-                url = "popupPage(700,1000, '" + winName + "','" + request.getContextPath() + "/lab/CumulativeLabValues3.jsp?demographic_no=" + bean.demographicNo + "')";
-                Dao.addPopUpUrl(url);
+                Dao.addPopUpMenu(700, 1000, winName, request.getContextPath() + "/lab/CumulativeLabValues3.jsp?demographic_no=" + bean.demographicNo);
                 Dao.addPopUpText(getText("encounter.LeftNavBar.LabMenuItem1"));
                 if (CarlosProperties.getInstance().getProperty("labs.hide_old_grid_display", "false").equals("false")) {
-                    url = "popupPage(700,1000, '" + winName + "','" + request.getContextPath() + "/lab/CumulativeLabValues2.jsp?demographic_no=" + bean.demographicNo + "')";
-                    Dao.addPopUpUrl(url);
+                    Dao.addPopUpMenu(700, 1000, winName, request.getContextPath() + "/lab/CumulativeLabValues2.jsp?demographic_no=" + bean.demographicNo);
                     Dao.addPopUpText(getText("encounter.LeftNavBar.LabMenuItem1") + "-OLD");
                 }
             } else {
-                url = "popupPage(700,1000, '" + winName + "','" + request.getContextPath() + "/lab/CumulativeLabValues2.jsp?demographic_no=" + bean.demographicNo + "')";
-                Dao.addPopUpUrl(url);
+                Dao.addPopUpMenu(700, 1000, winName, request.getContextPath() + "/lab/CumulativeLabValues2.jsp?demographic_no=" + bean.demographicNo);
                 Dao.addPopUpText(getText("encounter.LeftNavBar.LabMenuItem1"));
             }
-            url = "popupPage(700,1000, '" + winName + "','" + request.getContextPath() + "/lab/CumulativeLabValues.jsp?demographic_no=" + bean.demographicNo + "')";
-            Dao.addPopUpUrl(url);
+            Dao.addPopUpMenu(700, 1000, winName, request.getContextPath() + "/lab/CumulativeLabValues.jsp?demographic_no=" + bean.demographicNo);
             Dao.addPopUpText(getText("encounter.LeftNavBar.LabMenuItem2"));
 
             // now we add individual module items
             LabResultData result;
             String labDisplayName, label;
+            String url;
             // String bgcolour = "FFFFCC";
             StringBuilder func;
             int hash;

@@ -37,7 +37,7 @@ import java.util.HashSet;
 import java.util.List;
 
 import org.apache.commons.collections4.map.MultiValueMap;
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
@@ -151,14 +151,14 @@ public final class Cds4ReportUIBean {
     }
 
     public String getFunctionalCentreDescription() {
-        return (StringEscapeUtils.escapeHtml4(functionalCentre.getAccountId() + ", " + functionalCentre.getDescription()));
+        return (Encode.forHtml(functionalCentre.getAccountId() + ", " + functionalCentre.getDescription()));
     }
 
     public String getDateRangeForDisplay() {
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
         GregorianCalendar displayEndDate = (GregorianCalendar) endDateExclusive.clone();
         displayEndDate.add(GregorianCalendar.DAY_OF_YEAR, -1);
-        return (StringEscapeUtils.escapeHtml4(simpleDateFormat.format(startDate.getTime()) + " to " + simpleDateFormat.format(displayEndDate.getTime()) + " (inclusive)"));
+        return (Encode.forHtml(simpleDateFormat.format(startDate.getTime()) + " to " + simpleDateFormat.format(displayEndDate.getTime()) + " (inclusive)"));
     }
 
     public static List<CdsFormOption> getCdsFormOptions() {

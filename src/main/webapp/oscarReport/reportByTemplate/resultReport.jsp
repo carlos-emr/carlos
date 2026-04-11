@@ -35,7 +35,7 @@
 %>
 
 <%@ page
-        import="java.util.*,io.github.carlos_emr.carlos.report.reportByTemplate.*,java.sql.*, org.apache.commons.text.StringEscapeUtils" %>
+        import="java.util.*,io.github.carlos_emr.carlos.report.reportByTemplate.*,java.sql.*, org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObjectGeneric" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -156,7 +156,7 @@
                 <label><%=(x + 1)%>
                 </label>
                 <%}%>
-                <input type="hidden" class="btn btn-secondary" name="csv" value="<%=StringEscapeUtils.escapeHtml4(csvList.get(x))%>">
+                <input type="hidden" class="btn btn-secondary" name="csv" value="<%=Encode.forHtmlAttribute(csvList.get(x))%>">
                 <input type="submit" class="btn btn-secondary" name="getCSV" value="Export to CSV">
                 <input type="submit" class="btn btn-secondary" name="getXLS" value="Export to XLS">
             </form>
@@ -176,7 +176,7 @@
                 <samp style="font-size: 11px;">
                     <%
                         for (int x = 0; x < sqlList.size(); x++) {
-                            out.println((x + 1) + ")" + org.apache.commons.text.StringEscapeUtils.escapeHtml4(sqlList.get(x).trim()));
+                            out.println((x + 1) + ")" + Encode.forHtml(sqlList.get(x).trim()));
                         }
                     %>
                 </samp>
