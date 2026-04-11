@@ -1,0 +1,4 @@
+## 2026-04-11 - SQL Injection in reportdaysheet.jsp orderby parameter
+**Vulnerability:** SQL Injection in `src/main/webapp/report/reportdaysheet.jsp`. The `orderby` parameter from `request.getParameter("orderby")` was concatenated directly into several SQL queries.
+**Learning:** `ORDER BY` parameters cannot be parameterized in prepared statements. Using raw string concatenation in queries is vulnerable to SQL Injection. Also, when modifying inline Java in JSP files, do not assume classes are imported, use fully qualified paths like `java.util.Arrays.asList`.
+**Prevention:** Implement a strict whitelist/allowlist for `ORDER BY` parameters, ensuring the input matches an expected list of columns, and defaulting to a safe column if invalid. Use fully qualified names in JSPs to prevent compilation failures.

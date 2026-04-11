@@ -62,7 +62,16 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 <%
     String curProvider_no = (String) session.getAttribute("user");
-    String orderby = request.getParameter("orderby") != null ? request.getParameter("orderby") : ("start_time");
+
+    // Sanitize orderby to prevent SQL injection using a whitelist
+    String orderbyParam = request.getParameter("orderby");
+    String orderby = "start_time"; // Default
+    if (orderbyParam != null) {
+        java.util.List<String> validColumns = java.util.Arrays.asList("start_time", "name", "phone", "sex", "hin", "ver", "chart_no", "roster_status");
+        if (validColumns.contains(orderbyParam.trim())) {
+            orderby = orderbyParam.trim();
+        }
+    }
 
     java.util.Properties oscarVariables = io.github.carlos_emr.CarlosProperties.getInstance();
 
