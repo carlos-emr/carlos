@@ -31,12 +31,17 @@ package io.github.carlos_emr.carlos.admin.traceability;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.InputStream;
+import java.io.ObjectInputFilter;
 import java.io.ObjectInputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.zip.GZIPInputStream;
+
+import org.apache.commons.io.input.BoundedInputStream;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -60,6 +65,48 @@ public class TraceabilityReportProcessor implements Callable<String> {
 
     private String newLine = System.getProperty("line.separator");
 
+    /** Maximum object graph depth for traceability deserialization. */
+    private static final int TRACE_MAX_DEPTH = 10;
+    /** Maximum object reference count for traceability deserialization. */
+    private static final long TRACE_MAX_REFS = 500_000L;
+    /** Maximum object stream byte count (50 MB) for traceability deserialization. */
+    private static final long TRACE_MAX_BYTES = 50_000_000L;
+    /** Maximum array length for traceability deserialization. */
+    private static final int TRACE_MAX_ARRAY = 100_000;
+    /**
+     * Maximum uncompressed bytes (100 MB) read from the GZIP stream to prevent
+     * decompression bomb (DoS) attacks before ObjectInputStream is reached.
+     */
+    private static final long TRACE_MAX_GZIP_UNCOMPRESSED_BYTES = 100_000_000L;
+
+    /**
+     * Restricts deserialization to {@link HashMap} and {@link String} only, which are the
+     * exact types written by {@link TraceDataProcessor} for traceability data
+     * ({@code Map<String, String>}).
+     *
+     * <p>Also enforces resource bounds (depth, references, stream bytes, array length)
+     * to mitigate deserialization bomb (DoS) attacks from uploaded files.
+     */
+    private static final ObjectInputFilter TRACE_DESERIALIZATION_FILTER = filterInfo -> {
+        if (filterInfo.depth() > TRACE_MAX_DEPTH ||
+            filterInfo.references() > TRACE_MAX_REFS ||
+            filterInfo.streamBytes() > TRACE_MAX_BYTES ||
+            (filterInfo.arrayLength() >= 0 && filterInfo.arrayLength() > TRACE_MAX_ARRAY)) {
+            return ObjectInputFilter.Status.REJECTED;
+        }
+        if (filterInfo.serialClass() != null) {
+            String name = filterInfo.serialClass().getName();
+            if (name.equals(HashMap.class.getName()) ||
+                name.equals(String.class.getName())) {
+                return ObjectInputFilter.Status.ALLOWED;
+            }
+            return ObjectInputFilter.Status.REJECTED;
+        }
+        // Non-class invocations (metrics-only updates for depth/refs/bytes) —
+        // resource bounds already checked above, so allow them to proceed.
+        return ObjectInputFilter.Status.ALLOWED;
+    };
+
     public TraceabilityReportProcessor(OutputStream outputStream, File uploadedFile, HttpServletRequest request) {
         this.request = request;
         this.uploadedFile = uploadedFile;
@@ -74,9 +121,20 @@ public class TraceabilityReportProcessor implements Callable<String> {
         String originDate = null;
         String gitSHA = null;
 
-        try (GZIPInputStream gzip = new GZIPInputStream(new FileInputStream(uploadedFile));
-         ObjectInputStream ios = new ObjectInputStream(gzip);
-         PrintWriter pw = new PrintWriter(outputStream)) {
+        // Wrap GZIPInputStream output in BoundedInputStream to prevent decompression
+        // bomb (DoS) attacks — limits uncompressed bytes before ObjectInputStream reads.
+        // FileInputStream is declared separately so it is closed if GZIPInputStream
+        // construction throws (e.g. not-a-gzip file).
+        try (FileInputStream fis = new FileInputStream(uploadedFile);
+             GZIPInputStream gzip = new GZIPInputStream(fis);
+             InputStream bounded = BoundedInputStream.builder()
+                 .setInputStream(gzip)
+                 .setMaxCount(TRACE_MAX_GZIP_UNCOMPRESSED_BYTES)
+                 .get();
+             ObjectInputStream ios = new ObjectInputStream(bounded);
+             PrintWriter pw = new PrintWriter(outputStream)) {
+
+            ios.setObjectInputFilter(TRACE_DESERIALIZATION_FILTER);
 
             @SuppressWarnings("unchecked")
             Map<String, String> sourceMap = (Map<String, String>) ios.readObject();

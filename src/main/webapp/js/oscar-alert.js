@@ -105,7 +105,8 @@ class OscarAlert {
         this.alertDiv.className = `alert alert-${alertType} alert-dismissible fade oscar-alert`;
         this.alertDiv.role = 'alert';
 
-        this.alertDiv.innerHTML = this.getInnerHTML(message);
+        // Safe: getInnerHTML() escapes message via escapeHtml(); alertType is from trusted string literals
+        this.alertDiv.innerHTML = this.getInnerHTML(message); // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
 
         this.alertDiv.querySelector('.btn-close').addEventListener('click', () => this.dismissAlert());
     }

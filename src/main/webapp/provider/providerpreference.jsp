@@ -48,6 +48,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page errorPage="/errorpage.jsp" %>
 
@@ -1556,7 +1557,7 @@ function isValidAutoSaveResponse(status, body) {
         var self = this;
         var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
         var csrfToken = csrfEl ? csrfEl.value : '';
-        fetch('<c:out value="${ctx}"/>/provider/rxInteractionWarningLevel.do', {
+        fetch('${e:forJavaScript(ctx)}/provider/rxInteractionWarningLevel.do', {
             method: 'POST',
             credentials: 'same-origin',
             headers: {

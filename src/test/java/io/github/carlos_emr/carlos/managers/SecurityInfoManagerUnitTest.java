@@ -580,15 +580,163 @@ public class SecurityInfoManagerUnitTest extends CarlosUnitTestBase {
                 assertThat(result).isTrue();
             }
 
-            // TODO: Known bug in OscarRoleObjectPrivilege.checkRights() - uses string compareTo
-            // which treats "r" >= "o" as true, causing patient-specific READ privileges to
-            // incorrectly trigger NORIGHTS/account-lock logic. This should be fixed in
-            // production code (see SecurityInfoManagerImpl:141-145 and
-            // OscarRoleObjectPrivilege:172-174). Once fixed, add test asserting that
-            // patient-specific READ privilege grants READ access (not locks account).
-            //
-            // Issue: Patient with "r" privilege should have READ access, not be locked out.
-            // Root cause: checkRights uses alphabetical comparison instead of explicit match.
+            @Test
+            @DisplayName("should grant read access for patient-specific READ privilege (not lock account)")
+            void shouldGrantReadAccess_forPatientSpecificReadPrivilege() {
+                // Patient-specific has READ privilege for doctor; must NOT lock account
+                String patientObjName = TEST_OBJECT_NAME + "$" + TEST_DEMOGRAPHIC_NO;
+                when(mockSecObjPrivilegeDao.findByObjectNames(any())).thenAnswer(inv -> {
+                    Collection<String> names = inv.getArgument(0);
+                    if (names.contains(patientObjName)) {
+                        return Collections.singletonList(
+                            createPrivilege(ROLE_DOCTOR, patientObjName, "r", 0));
+                    }
+                    return Collections.emptyList();
+                });
+
+                boolean result = securityInfoManager.hasPrivilege(
+                    mockLoggedInInfo, TEST_OBJECT_NAME, SecurityInfoManager.READ,
+                    String.valueOf(TEST_DEMOGRAPHIC_NO));
+
+                assertThat(result).isTrue();
+                verify(mockSession, never()).setAttribute("accountLocked", true);
+            }
+
+            @Test
+            @DisplayName("should grant read access for patient-specific UPDATE privilege (not lock account)")
+            void shouldGrantReadAccess_forPatientSpecificUpdatePrivilege() {
+                // Patient-specific UPDATE privilege must grant READ and never lock account
+                String patientObjName = TEST_OBJECT_NAME + "$" + TEST_DEMOGRAPHIC_NO;
+                when(mockSecObjPrivilegeDao.findByObjectNames(any())).thenAnswer(inv -> {
+                    Collection<String> names = inv.getArgument(0);
+                    if (names.contains(patientObjName)) {
+                        return Collections.singletonList(
+                            createPrivilege(ROLE_DOCTOR, patientObjName, "u", 0));
+                    }
+                    return Collections.emptyList();
+                });
+
+                boolean result = securityInfoManager.hasPrivilege(
+                    mockLoggedInInfo, TEST_OBJECT_NAME, SecurityInfoManager.READ,
+                    String.valueOf(TEST_DEMOGRAPHIC_NO));
+
+                assertThat(result).isTrue();
+                verify(mockSession, never()).setAttribute("accountLocked", true);
+            }
+
+            @Test
+            @DisplayName("should grant read access for patient-specific WRITE privilege (not lock account)")
+            void shouldGrantReadAccess_forPatientSpecificWritePrivilege() {
+                // Patient-specific WRITE privilege must grant READ and never lock account
+                String patientObjName = TEST_OBJECT_NAME + "$" + TEST_DEMOGRAPHIC_NO;
+                when(mockSecObjPrivilegeDao.findByObjectNames(any())).thenAnswer(inv -> {
+                    Collection<String> names = inv.getArgument(0);
+                    if (names.contains(patientObjName)) {
+                        return Collections.singletonList(
+                            createPrivilege(ROLE_DOCTOR, patientObjName, "w", 0));
+                    }
+                    return Collections.emptyList();
+                });
+
+                boolean result = securityInfoManager.hasPrivilege(
+                    mockLoggedInInfo, TEST_OBJECT_NAME, SecurityInfoManager.READ,
+                    String.valueOf(TEST_DEMOGRAPHIC_NO));
+
+                assertThat(result).isTrue();
+                verify(mockSession, never()).setAttribute("accountLocked", true);
+            }
+
+            @Test
+            @DisplayName("should grant update access for patient-specific WRITE privilege (not lock account)")
+            void shouldGrantUpdateAccess_forPatientSpecificWritePrivilege() {
+                // Patient-specific WRITE privilege must grant UPDATE and never lock account
+                String patientObjName = TEST_OBJECT_NAME + "$" + TEST_DEMOGRAPHIC_NO;
+                when(mockSecObjPrivilegeDao.findByObjectNames(any())).thenAnswer(inv -> {
+                    Collection<String> names = inv.getArgument(0);
+                    if (names.contains(patientObjName)) {
+                        return Collections.singletonList(
+                            createPrivilege(ROLE_DOCTOR, patientObjName, "w", 0));
+                    }
+                    return Collections.emptyList();
+                });
+
+                boolean result = securityInfoManager.hasPrivilege(
+                    mockLoggedInInfo, TEST_OBJECT_NAME, SecurityInfoManager.UPDATE,
+                    String.valueOf(TEST_DEMOGRAPHIC_NO));
+
+                assertThat(result).isTrue();
+                verify(mockSession, never()).setAttribute("accountLocked", true);
+            }
+
+            @Test
+            @DisplayName("should grant read access for legacy only-read token '|or|' (not lock account)")
+            void shouldGrantReadAccess_forLegacyOnlyReadToken() {
+                // DemographicMerged.java stores "|or|" for read-only patient eChart access.
+                // The "or" (only-read) token must grant READ and never lock the account.
+                String patientObjName = TEST_OBJECT_NAME + "$" + TEST_DEMOGRAPHIC_NO;
+                when(mockSecObjPrivilegeDao.findByObjectNames(any())).thenAnswer(inv -> {
+                    Collection<String> names = inv.getArgument(0);
+                    if (names.contains(patientObjName)) {
+                        return Collections.singletonList(
+                            createPrivilege(ROLE_DOCTOR, patientObjName, "|or|", 0));
+                    }
+                    return Collections.emptyList();
+                });
+
+                boolean result = securityInfoManager.hasPrivilege(
+                    mockLoggedInInfo, TEST_OBJECT_NAME, SecurityInfoManager.READ,
+                    String.valueOf(TEST_DEMOGRAPHIC_NO));
+
+                assertThat(result).isTrue();
+                verify(mockSession, never()).setAttribute("accountLocked", true);
+            }
+
+            @Test
+            @DisplayName("should not grant write access for legacy only-read token '|or|'")
+            void shouldNotGrantWriteAccess_forLegacyOnlyReadToken() {
+                // "or" (only-read) must not escalate to WRITE.
+                String patientObjName = TEST_OBJECT_NAME + "$" + TEST_DEMOGRAPHIC_NO;
+                when(mockSecObjPrivilegeDao.findByObjectNames(any())).thenAnswer(inv -> {
+                    Collection<String> names = inv.getArgument(0);
+                    if (names.contains(patientObjName)) {
+                        return Collections.singletonList(
+                            createPrivilege(ROLE_DOCTOR, patientObjName, "|or|", 0));
+                    }
+                    return Collections.emptyList();
+                });
+
+                boolean result = securityInfoManager.hasPrivilege(
+                    mockLoggedInInfo, TEST_OBJECT_NAME, SecurityInfoManager.WRITE,
+                    String.valueOf(TEST_DEMOGRAPHIC_NO));
+
+                assertThat(result).isFalse();
+                verify(mockSession, never()).setAttribute("accountLocked", true);
+            }
+
+            @Test
+            @DisplayName("should not lock account for legacy only-read token when NORIGHTS is checked")
+            void shouldNotLockAccount_forLegacyOnlyReadTokenWhenCheckingNorights() {
+                // "or" (only-read) must NOT be treated as NORIGHTS ("o").
+                // This is the core regression: "or".startsWith("o") must NOT trigger account lock.
+                String patientObjName = TEST_OBJECT_NAME + "$" + TEST_DEMOGRAPHIC_NO;
+                when(mockSecObjPrivilegeDao.findByObjectNames(any())).thenAnswer(inv -> {
+                    Collection<String> names = inv.getArgument(0);
+                    if (names.contains(patientObjName)) {
+                        return Collections.singletonList(
+                            createPrivilege(ROLE_DOCTOR, patientObjName, "|or|", 0));
+                    }
+                    return Collections.emptyList();
+                });
+
+                // NORIGHTS check is performed internally by hasPrivilege when demographicNo is set.
+                // Re-verify via READ: if account were locked, it would return false AND set the flag.
+                boolean result = securityInfoManager.hasPrivilege(
+                    mockLoggedInInfo, TEST_OBJECT_NAME, SecurityInfoManager.READ,
+                    String.valueOf(TEST_DEMOGRAPHIC_NO));
+
+                assertThat(result).isTrue();
+                verify(mockSession, never()).setAttribute("accountLocked", true);
+            }
 
             @Test
             @DisplayName("should lock account and deny access for patient-specific NORIGHTS")

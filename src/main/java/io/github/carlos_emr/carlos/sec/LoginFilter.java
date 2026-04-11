@@ -30,7 +30,11 @@
 package io.github.carlos_emr.carlos.sec;
 
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.Date;
+import java.util.Deque;
+import java.util.Iterator;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
@@ -117,6 +121,12 @@ public class LoginFilter implements Filter {
     /** Logger instance for filter events and debugging */
     private static final Logger logger = MiscUtils.getLogger();
 
+    /** Pre-compiled pattern for stripping path parameters (;key=value) from URI segments. */
+    private static final Pattern PATH_PARAM_PATTERN = Pattern.compile(";[^/]*");
+
+    /** Pre-compiled pattern for collapsing consecutive slashes. */
+    private static final Pattern REPEATED_SLASH_PATTERN = Pattern.compile("/+");
+
     /**
      * URLs exempt from authentication requirement.
      *
@@ -156,7 +166,7 @@ public class LoginFilter implements Filter {
             "/EFormViewForPdfGenerationServlet",
             "/EFormSignatureViewForPdfGenerationServlet",
             "/EFormImageViewForPdfGenerationServlet",
-            "/js/bootstap",
+            "/js/bootstrap",
             "/css/bootstrap",
             "/css/Roboto.css",
             "/loginResource",
@@ -368,27 +378,108 @@ public class LoginFilter implements Filter {
     /**
      * Checks if a request URI matches any URL in the exemption list.
      *
-     * <p>This method performs prefix matching, so "/images/Oscar.ico" in the
-     * exemption list will match "/contextPath/images/Oscar.ico" but not
-     * "/contextPath/images/Oscar.ico.bak".
+     * <p>The request URI is first normalized to prevent bypass attempts using
+     * path parameters ({@code ;jsessionid=...}), repeated slashes ({@code //}),
+     * or dot segments ({@code .} / {@code ..}).
+     *
+     * <p>This method enforces path-boundary matching to prevent authentication
+     * bypass via crafted URLs. The matching rules are:
+     * <ul>
+     *   <li>Exempt URLs ending with "/" are treated as directory prefixes and
+     *       match any URI that starts with the exempt path (e.g., "/ws/" matches
+     *       "/ws/anything").</li>
+     *   <li>All other exempt URLs require either an exact match or that the
+     *       next character in the URI is "/" (e.g., "/css/bootstrap" matches
+     *       "/css/bootstrap" and "/css/bootstrap/file.css" but NOT
+     *       "/css/bootstrapEvil.do").</li>
+     * </ul>
      *
      * @param requestURI String the full request URI including context path
      * @param contextPath String the servlet context path (e.g., "/carlos")
-     * @param EXEMPT_URLS String[] array of exempt URL prefixes (without context path)
-     * @return boolean true if request URI starts with any exempt URL, false otherwise
+     * @param EXEMPT_URLS String[] array of exempt URL paths (without context path)
+     * @return boolean true if request URI matches any exempt URL with proper
+     *         path boundaries, false otherwise
      */
     boolean inListOfExemptions(String requestURI, String contextPath, String[] EXEMPT_URLS) {
+        requestURI = normalizeUri(requestURI);
+
         // Treat context root (e.g. /carlos/) as equivalent to /index.jsp (welcome file)
         if (requestURI.equals(contextPath) || requestURI.equals(contextPath + "/")) {
             requestURI = contextPath + "/index.jsp";
         }
         for (String exemptUrl : EXEMPT_URLS) {
-            if (requestURI.startsWith(contextPath + exemptUrl)) {
+            String fullExempt = contextPath + exemptUrl;
+            if (requestURI.equals(fullExempt)
+                    || requestURI.startsWith(fullExempt + "/")
+                    || (exemptUrl.endsWith("/") && requestURI.startsWith(fullExempt))) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Normalizes a URI by stripping path parameters, collapsing repeated
+     * slashes, and resolving {@code .} / {@code ..} segments.
+     *
+     * <p>This prevents bypass attempts where an attacker uses path tricks
+     * to match (or avoid matching) exempt URL patterns:
+     * <ul>
+     *   <li>{@code /login.do;jsessionid=abc} → {@code /login.do}</li>
+     *   <li>{@code //ws///service} → {@code /ws/service}</li>
+     *   <li>{@code /ws/../admin/secret.do} → {@code /admin/secret.do}</li>
+     * </ul>
+     *
+     * @param uri the raw request URI
+     * @return the normalized URI
+     * @see io.github.carlos_emr.carlos.app.HttpMethodGuardFilter#normalizePath(String)
+     */
+    static String normalizeUri(String uri) {
+        if (uri == null || uri.isEmpty()) {
+            return uri;
+        }
+
+        // Strip path parameters from each segment (;jsessionid=..., ;v=1.0, etc.)
+        // Uses per-segment stripping so /ws;p=1/service;p=2 → /ws/service
+        uri = PATH_PARAM_PATTERN.matcher(uri).replaceAll("");
+
+        // Remember if URI had a trailing slash (important for directory matching)
+        boolean hadTrailingSlash = uri.endsWith("/") && uri.length() > 1;
+
+        // Collapse consecutive slashes (e.g., //admin///page.jsp → /admin/page.jsp)
+        uri = REPEATED_SLASH_PATTERN.matcher(uri).replaceAll("/");
+
+        // Resolve . and .. segments
+        String[] segments = uri.split("/");
+        Deque<String> stack = new ArrayDeque<>();
+        for (String seg : segments) {
+            if (seg.isEmpty() || ".".equals(seg)) {
+                continue;
+            } else if ("..".equals(seg)) {
+                if (!stack.isEmpty()) {
+                    stack.removeLast();
+                }
+            } else {
+                stack.addLast(seg);
+            }
+        }
+
+        StringBuilder normalized = new StringBuilder("/");
+        Iterator<String> it = stack.iterator();
+        while (it.hasNext()) {
+            normalized.append(it.next());
+            if (it.hasNext()) {
+                normalized.append('/');
+            }
+        }
+
+        // Preserve trailing slash for directory-style URIs
+        if (hadTrailingSlash && normalized.length() > 1 && normalized.charAt(normalized.length() - 1) != '/') {
+            normalized.append('/');
+        }
+
+        return normalized.toString();
     }
 
     /**

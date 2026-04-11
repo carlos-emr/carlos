@@ -272,7 +272,7 @@
                                     <% if ("admin".equals(provider.getProviderType())) { %>
                                     SELECTED <%}%>><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formType.optionAdmin"/></option>
                         </select>
-                        <!--input type="text" name="provider_type" value="<%= provider.getProviderType() %>" maxlength="15" -->
+                        <%-- Removed: unused commented-out provider_type input (XSS vector via stored providerType) --%>
                     </td>
                 </tr>
                 <%

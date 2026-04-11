@@ -30,13 +30,14 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <ul class="m-0 p-0 patient-info">
     <li class="flex justify-center items-center" style="min-width: 600px;">
         <div>
             <span>Chart #:</span>
             <span class="font-bold" data-field-name="demographicNo">
-                <c:out value="${ param.demographicNo }"/>
+                ${e:forHtml(param.demographicNo)}
             </span>
         </div>
         <div class="ml-2">

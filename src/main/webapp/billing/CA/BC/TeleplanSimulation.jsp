@@ -56,6 +56,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillActivityDAO" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     GregorianCalendar now = new GregorianCalendar();
     int curYear = now.get(Calendar.YEAR);
@@ -149,7 +150,7 @@
 
     <h4>Simulate Teleplan Report - <%=Encode.forHtml(thisyear)%>
     </h4>
-    <c:if test="${!empty error}"><c:out value="${error}"/></c:if>
+    <c:if test="${!empty error}">${e:forHtml(error)}</c:if>
 
     <form action="${pageContext.request.contextPath}/billing/CA/BC/SimulateTeleplanFile.do"
                onsubmit="return checkSubmit();" class="d-flex flex-wrap align-items-center gap-2">

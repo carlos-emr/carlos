@@ -54,7 +54,6 @@
 <%@page import="java.util.Enumeration" %>
 <%@page import="io.github.carlos_emr.carlos.encounter.pageUtil.NavBarDisplayDAO" %>
 <%@page import="java.util.Arrays,java.util.Properties,java.util.List,java.util.Set,java.util.ArrayList,java.util.Enumeration,java.util.HashSet,java.util.Iterator,java.text.SimpleDateFormat,java.util.Calendar,java.util.Date,java.text.ParseException" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.model.*,io.github.carlos_emr.carlos.casemgmt.service.* " %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.*" %>
@@ -530,7 +529,7 @@
     <input type="hidden" name="pType" id="pType" value="">
     <input type="hidden" name="pStartDate" id="pStartDate" value="">
     <input type="hidden" name="pEndDate" id="pEndDate" value="">
-    <input type="hidden" id="annotation_attribname" name="annotation_attribname" value="">
+
     <span id="notesLoading">
 		<img src="<c:out value="${ctx}/images/DMSLoader.gif" />">Loading Notes...
 	</span>

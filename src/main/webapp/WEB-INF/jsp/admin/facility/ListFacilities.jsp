@@ -30,6 +30,7 @@
 --%>
 
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -77,7 +78,7 @@
             <display:column property="description" sortable="true" title="Description"/>
 
             <display:column sortable="false" title="">
-                <a href="<%=request.getContextPath() %>/FacilityManager.do?method=edit&id=<c:out value="${facility.id}" />">
+                <a href="<%=request.getContextPath() %>/FacilityManager.do?method=edit&id=${e:forHtmlAttribute(facility.id)}">
                     Edit </a>
             </display:column>
             <!--
