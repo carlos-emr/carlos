@@ -51,7 +51,8 @@ def scan_files():
             try:
                 with open(fpath, "r", encoding="utf-8", errors="replace") as f:
                     content = f.read()
-            except OSError:
+            except OSError as e:
+                print(f"Warning: could not read {fpath}: {e}", file=sys.stderr)
                 continue
             count = len(SETBUNDLE_RE.findall(content))
             if count > 0:
