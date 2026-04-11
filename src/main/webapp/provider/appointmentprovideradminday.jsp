@@ -2322,7 +2322,7 @@
                                                                 alt="Happy Birthday"/>
                                                         </span>
                                                         <c:forEach items="${formNamesList}" var="form">
-                                                            |<a href="javascript:void(0)" onClick='popupPage2("${pageContext.servletContext.contextPath}/form/forwardshortcutname.do?formname=${e:forJavaScriptAttribute(form)}&amp;formId=0&provNo=${appointment.providerNo}&parentAjaxId=forms&amp;demographic_no=${appointment.demographicNo}&amp;appointmentNo=${appointment.id}")'
+                                                            |<a href="javascript:void(0)" onClick='popupPage2("${pageContext.servletContext.contextPath}/form/forwardshortcutname.do?formname=${e:forUriComponent(form)}&amp;formId=0&provNo=${appointment.providerNo}&parentAjaxId=forms&amp;demographic_no=${appointment.demographicNo}&amp;appointmentNo=${appointment.id}")'
                                                             title='${e:forHtmlAttribute(form)}'>
                                                             ${e:forHtml(fn:substring(form, 0, truncateLimit))}
                                                             </a>
