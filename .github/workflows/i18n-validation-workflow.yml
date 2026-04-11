@@ -3,13 +3,12 @@
 # PURPOSE: Validate i18n key parity and ISO 8859-1 encoding compliance on every PR.
 #
 # INSTALLATION:
-#   Copy this file to: .github/workflows/i18n-validation.yml
-#   (Stored here in docs/ because .github/workflows/ is protected from automated writes.)
+#   This file has been moved from docs/
 #
 # What this workflow checks:
 #   1. All locale files (es, fr, pl, pt_BR) have all English keys (no missing translations)
 #   2. No locale file has orphaned keys absent from English
-#   3. All .properties files are ISO 8859-1 compliant (no raw non-ASCII bytes)
+#   3. All .properties files are ISO 8859-1 compliant (no raw non-ASCII bytes) or UTF-8
 #   4. Any JSP using fmt:message has a fmt:setBundle declaration
 
 name: i18n Validation
@@ -41,6 +40,7 @@ jobs:
           set +e
           ./scripts/check-i18n-properties.sh --output /tmp/i18n-parity-report.txt
           EXIT_CODE=$?
+          set -e
           cat /tmp/i18n-parity-report.txt
           exit $EXIT_CODE
 
@@ -90,11 +90,12 @@ jobs:
           RESOURCES="src/main/resources"
 
           while IFS= read -r key; do
-            # Escape regex metacharacters in key for ERE pattern
-            escaped_key=$(echo "$key" | sed 's/[.[\^$*+?{}|()/]/\\&/g')
+            # Escape regex metacharacters in key to avoid false matches (e.g. '.' matching any char)
+            escaped_key=$(printf '%s' "$key" | sed 's/[.[\^$*+?{}|()/\\]/\\&/g')
             for locale in $LOCALES; do
               locale_file="${RESOURCES}/oscarResources_${locale}.properties"
-              if ! grep -qE "^[[:space:]]*${escaped_key}[[:space:]]*[=:]" "$locale_file"; then
+              if ! sed -E '/^[[:space:]]*[#!]/d;/^[[:space:]]*$/d;/^[[:space:]]/d;s/[[:space:]]*[=:[:space:]].*$//;s/[[:space:]]*$//' "$locale_file" \
+                 | grep -Fqx "$key"; then
                 echo "MISSING: key '$key' not found in ${locale_file}"
                 FAILED=true
               fi
@@ -110,6 +111,31 @@ jobs:
           fi
           echo "All new English keys are present in all locale files."
 
+  i18n-encoding:
+    name: UTF-8 Encoding Compliance
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check properties files are valid UTF-8
+        run: |
+          FAILED=false
+          for f in src/main/resources/oscarResources_*.properties; do
+            if ! iconv -f UTF-8 -t UTF-8 "$f" >/dev/null 2>&1; then
+              echo "ENCODING VIOLATION: $f is not valid UTF-8"
+              echo "Fix: Ensure the file is saved with UTF-8 encoding in your editor/IDE"
+              FAILED=true
+            fi
+          done
+          if [ "$FAILED" = "true" ]; then
+            echo ""
+            echo "See: docs/I18N-STANDARDS.md#utf-8-encoding-requirements-java-21"
+            exit 1
+          fi
+          echo "All properties files are valid UTF-8."
+
   i18n-jsp-bundle:
     name: JSP fmt:setBundle Check
     runs-on: ubuntu-latest
@@ -117,6 +143,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Check new/modified JSPs for missing fmt:setBundle
         run: |
