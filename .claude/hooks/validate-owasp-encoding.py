@@ -87,7 +87,7 @@ def check_jsp_unsafe_patterns(content: str) -> list[str]:
 
         # Check if this ${} is inside an OWASP Encoder JSP tag like
         # <e:forHtmlAttribute value='${param.foo}' /> or <e:forHtml value="${expr}" />
-        has_encoder_tag_before = bool(re.search(r'<e:for\w+', context_before))
+        has_encoder_tag_before = bool(re.search(r'<e:for\w+[^>]*$', context_before))
         has_encoder_tag_close_after = bool(re.search(r'</\s*e:for\w+\s*>', context_after))
         if has_encoder_tag_before and (has_self_closing_after or has_encoder_tag_close_after):
             is_safe = True
