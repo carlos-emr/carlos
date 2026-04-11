@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+ *
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos

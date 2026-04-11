@@ -124,6 +124,7 @@ class StatementClosingResultSetUnitTest {
         // Then
         assertThat(value).isEqualTo("hello");
         verify(mockRs).getString(1);
+        verifyNoInteractions(mockStmt);
     }
 
     /**
