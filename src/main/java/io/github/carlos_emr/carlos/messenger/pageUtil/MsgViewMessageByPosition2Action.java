@@ -152,7 +152,7 @@ public class MsgViewMessageByPosition2Action extends ActionSupport {
         EntityManager em = dao.getEntityManager();
 
         try {
-            Query query = em.createNativeQuery(sql);
+            Query query = em.createNativeQuery(sql); // nosemgrep: jpa-sqli, formatted-sql-string // codeql[java/sql-injection] — demographic_no bound via setParameter; orderBy from MsgDisplayMessagesBean allowlist
             query.setParameter("demographic_no", this.demographic_no);
             int firstResult = 0;
             try {

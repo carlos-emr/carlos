@@ -55,10 +55,10 @@ public class FrmBCBirthSumMo2008Record extends FrmRecord {
             props.setProperty("formEdited", UtilDateUtilities.DateToString(new Date(), dateFormat));
             props.setProperty("pg1_formDate", UtilDateUtilities.DateToString(new Date(), dateFormat));
         } else {
-            String sql = "SELECT * FROM formBCBirthSumMo2008 WHERE demographic_no = " + demographicNo + " AND ID = " + existingID;
+            String sql = "SELECT * FROM formBCBirthSumMo2008 WHERE demographic_no = ? AND ID = ?";
             FrmRecordHelp frh = new FrmRecordHelp();
             frh.setDateFormat(dateFormat);
-            props = (frh).getFormRecord(sql);
+            props = (frh).getFormRecord(sql, demographicNo, existingID);
 
             this.setDemoCurProperties(loggedInInfo, demographicNo, props);
         }
@@ -67,18 +67,18 @@ public class FrmBCBirthSumMo2008Record extends FrmRecord {
 
     public int saveFormRecord(Properties props) throws SQLException {
         String demographic_no = props.getProperty("demographic_no");
-        String sql = "SELECT * FROM formBCBirthSumMo2008 WHERE demographic_no=" + demographic_no + " AND ID=0";
+        String sql = "SELECT * FROM formBCBirthSumMo2008 WHERE demographic_no=? AND ID=0";
 
         FrmRecordHelp frh = new FrmRecordHelp();
         frh.setDateFormat(dateFormat);
-        return ((frh).saveFormRecord(props, sql));
+        return ((frh).saveFormRecord(props, sql, demographic_no));
     }
 
     public Properties getPrintRecord(int demographicNo, int existingID) throws SQLException {
-        String sql = "SELECT * FROM formBCBirthSumMo2008 WHERE demographic_no = " + demographicNo + " AND ID = " + existingID;
+        String sql = "SELECT * FROM formBCBirthSumMo2008 WHERE demographic_no = ? AND ID = ?";
         FrmRecordHelp frh = new FrmRecordHelp();
         frh.setDateFormat(dateFormat);
-        return ((frh).getPrintRecord(sql));
+        return ((frh).getPrintRecord(sql, demographicNo, existingID));
     }
 
     public String findActionValue(String submit) throws SQLException {

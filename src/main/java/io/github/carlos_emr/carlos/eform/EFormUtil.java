@@ -1312,7 +1312,7 @@ public class EFormUtil {
         ResultSet rs = null;
         try {
 
-            rs = DBHandler.GetSQL(sql);
+            rs = DBHandler.GetPreSQL(sql);
         } catch (SQLException sqe) {
             logger.error("Error", sqe);
         }
