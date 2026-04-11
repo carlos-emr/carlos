@@ -129,7 +129,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
         String method = request.getParameter("method");
 
-        log.debug("Creating graph for demo {} type1: {} type2: {}", LogSanitizer.sanitize(demographicNo), LogSanitizer.sanitize(typeIdName), LogSanitizer.sanitize(typeIdName2));
+        log.debug("Creating graph for demo {} type1: {} type2: {}", LogSanitizer.sanitize(String.valueOf(demographicNo)), LogSanitizer.sanitize(String.valueOf(typeIdName)), LogSanitizer.sanitize(String.valueOf(typeIdName2)));
         JFreeChart chart = null;
         if (method == null) {
             log.debug("Calling DefaultChart");
@@ -960,7 +960,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                     systolic.addOrUpdate(new Day(mdb.getDateObservedAsDate()), Double.parseDouble(str[0]));
                     diastolic.addOrUpdate(new Day(mdb.getDateObservedAsDate()), Double.parseDouble(str[1]));
                 } else {
-                    log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSanitizer.sanitize(mdb.getId()));
+                    log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSanitizer.sanitize(String.valueOf(mdb.getId())));
                 }
             }
             dataset.addSeries(diastolic);
@@ -983,7 +983,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                                 Double.parseDouble(result));
                     }
                 } else {
-                    log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSanitizer.sanitize(mdb.getId()));
+                    log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSanitizer.sanitize(String.valueOf(mdb.getId())));
                 }
             }
             dataset.addSeries(newSeries);
@@ -1012,7 +1012,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                                 Double.parseDouble(result));
                     }
                 } else {
-                    log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSanitizer.sanitize(mdb.getId()));
+                    log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSanitizer.sanitize(String.valueOf(mdb.getId())));
                 }
             }
             dataset2.addSeries(newSeries);

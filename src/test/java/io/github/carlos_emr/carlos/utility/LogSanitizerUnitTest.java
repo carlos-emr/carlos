@@ -152,7 +152,7 @@ class LogSanitizerUnitTest {
         @Test
         @DisplayName("should cap post-encoding output to prevent log flooding from adversarial input")
         void shouldCapEncodedOutput_whenAdversarialInputExpandsExcessively() {
-            // Non-ASCII chars encoded as \uXXXX expand up to 6x.
+            // Non-ASCII chars encoded as \\uXXXX expand up to 6x.
             // Feed 200 non-ASCII chars → raw input is truncated to 200, but encoding
             // could produce up to 200*6=1200 chars. The output must be capped.
             String adversarial = "\u00e9".repeat(LogSanitizer.DEFAULT_MAX_LENGTH);

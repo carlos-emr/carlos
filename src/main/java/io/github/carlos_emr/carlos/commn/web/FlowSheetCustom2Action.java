@@ -416,7 +416,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
             cust.setMeasurement(item.getItemName()); //THIS THE MEASUREMENT TO SET THIS AFTER!
             cust.setProviderNo(providerNo);
 
-            logger.debug("UPDATE {}", LogSanitizer.sanitize(cust));
+            logger.debug("UPDATE {}", LogSanitizer.sanitize(String.valueOf(cust)));
 
             flowSheetCustomizationDao.persist(cust);
 
@@ -448,7 +448,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
         cust.setDemographicNo(ctx.demographicNo);
 
         flowSheetCustomizationDao.persist(cust);
-        logger.debug("HIDE {}", LogSanitizer.sanitize(cust));
+        logger.debug("HIDE {}", LogSanitizer.sanitize(String.valueOf(cust)));
 
         setResponseAttributes(ctx);
         return SUCCESS;
@@ -561,7 +561,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
             cust.setArchivedDate(new Date());
             flowSheetCustomizationDao.merge(cust);
         }
-        logger.debug("archiveMod {}", LogSanitizer.sanitize(cust));
+        logger.debug("archiveMod {}", LogSanitizer.sanitize(String.valueOf(cust)));
 
         request.setAttribute("demographic", demographicNo);
         request.setAttribute("flowsheet", flowsheet);

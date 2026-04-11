@@ -362,12 +362,12 @@ public class BillingReProcessBill2Action extends ActionSupport {
                 MiscUtils.getLogger().warn("warning", e);
             }
             bill.setProviderNo(providerNo);
-            logger.debug("WHAT IS BILL <ASTER {}", LogSanitizer.sanitize(billingmaster.getBillingmasterNo()));
+            logger.debug("WHAT IS BILL <ASTER {}", LogSanitizer.sanitize(String.valueOf(billingmaster.getBillingmasterNo())));
             billingmasterDAO.update(billingmaster);
             billingmasterDAO.update(bill);
 
             logger.debug("type 2 {}", LogSanitizer.sanitize(bill.getBillingtype()));
-            logger.debug("WHAT IS BILL <ASTER2 {}", LogSanitizer.sanitize(billingmaster.getBillingmasterNo()));
+            logger.debug("WHAT IS BILL <ASTER2 {}", LogSanitizer.sanitize(String.valueOf(billingmaster.getBillingmasterNo())));
 
 
             if (!StringUtils.isNullOrEmpty(billingStatus)) {  //What if billing status is null?? the status just doesn't get updated but everything else does??'

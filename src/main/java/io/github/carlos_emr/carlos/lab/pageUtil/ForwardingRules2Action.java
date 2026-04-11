@@ -108,7 +108,7 @@ public class ForwardingRules2Action extends ActionSupport {
                         r.setFrwdProviderNo(providerNums[i]);
                         dao.persist(r);
 
-                        logger.info("Added rule: {}", LogSanitizer.sanitize(r));
+                        logger.info("Added rule: {}", LogSanitizer.sanitize(String.valueOf(r)));
                     }
                 }
 
@@ -126,7 +126,7 @@ public class ForwardingRules2Action extends ActionSupport {
                         r.setFrwdProviderNo("0");
                         dao.persist(r);
 
-                        logger.info("Inserted a new rule: {}", LogSanitizer.sanitize(r));
+                        logger.info("Inserted a new rule: {}", LogSanitizer.sanitize(String.valueOf(r)));
 
                         // clear the rules if there is no forwarding and the user sets the
                         // status to New... since this is the default
@@ -141,7 +141,7 @@ public class ForwardingRules2Action extends ActionSupport {
                         result.setStatus(status);
                         dao.merge(result);
 
-                        logger.info("Set status to {} for {}", LogSanitizer.sanitize(status), LogSanitizer.sanitize(result));
+                        logger.info("Set status to {} for {}", LogSanitizer.sanitize(status), LogSanitizer.sanitize(String.valueOf(result)));
                     }
                 }
             } catch (Exception e) {
