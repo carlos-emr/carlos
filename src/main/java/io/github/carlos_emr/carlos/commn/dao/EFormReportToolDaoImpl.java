@@ -63,7 +63,8 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
                 List<Integer> idList = q2.getResultList();
 
                 //update the first result
-                Query q3 = entityManager.createNativeQuery("update " + eft.getTableName() + " set eft_latest=1 where id=" + idList.get(0));
+                Query q3 = entityManager.createNativeQuery("update " + eft.getTableName() + " set eft_latest=1 where id=?1");
+                q3.setParameter(1, idList.get(0));
                 q3.executeUpdate();
             }
 
