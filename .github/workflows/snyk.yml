@@ -5,9 +5,6 @@ on:
   pull_request:
     branches: [develop]
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   snyk-dependencies:
     name: Dependency Vulnerabilities (SCA)

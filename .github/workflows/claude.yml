@@ -10,9 +10,6 @@ on:
   pull_request_review:
     types: [submitted]
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   claude:
     # Security: Only allow trusted users to trigger Claude. CONTRIBUTOR,

@@ -31,9 +31,6 @@ on:
       - community/*/develop
       - community/*/staging/*
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   conventional-commits:
     name: Commit Message Format

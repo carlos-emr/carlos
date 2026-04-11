@@ -39,9 +39,6 @@ on:
 permissions:
   contents: write  # Required for dependency graph submission
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   validate-and-submit:
     name: Validate dependencies
