@@ -37,6 +37,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -65,6 +66,7 @@ public class Pregnancy2Action extends ActionSupport {
 
     private EpisodeDao episodeDao = SpringUtils.getBean(EpisodeDao.class);
     private ObjectMapper objectMapper = new ObjectMapper();
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     // Allowlist of form class names valid for pregnancy-related AJAX form saves.
     // Prevents user-controlled input from loading arbitrary classes via FrmRecordFactory.
@@ -81,6 +83,9 @@ public class Pregnancy2Action extends ActionSupport {
     }
 
     public String execute() throws Exception {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "r", null)) {
+            throw new SecurityException("missing required sec object (_form)");
+        }
         String method = request.getParameter("method");
         if ("getLatestFormIdByPregnancy".equals(method)) {
             return getLatestFormIdByPregnancy();
@@ -147,6 +152,9 @@ public class Pregnancy2Action extends ActionSupport {
     }
 
     public String create() {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
+            throw new SecurityException("missing required sec object (_form write)");
+        }
         Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
         String code = request.getParameter("code");
         String codeType = request.getParameter("codetype");
@@ -211,6 +219,9 @@ public class Pregnancy2Action extends ActionSupport {
     }
 
     public String doComplete() {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
+            throw new SecurityException("missing required sec object (_form write)");
+        }
         //Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
         Integer episodeId = Integer.parseInt(request.getParameter("episodeId"));
         String endDate = request.getParameter("endDate");
@@ -230,6 +241,9 @@ public class Pregnancy2Action extends ActionSupport {
     }
 
     public String doDelete() {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
+            throw new SecurityException("missing required sec object (_form write)");
+        }
         //Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
         Integer episodeId = Integer.parseInt(request.getParameter("episodeId"));
         Episode e = episodeDao.find(episodeId);
@@ -398,6 +412,9 @@ public class Pregnancy2Action extends ActionSupport {
     }
 
     public String saveFormAjax() throws IOException {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
+            throw new SecurityException("missing required sec object (_form write)");
+        }
         int newID = 0;
         FrmRecord rec = null;
         ObjectNode jsonObj = null;
@@ -491,6 +508,9 @@ public class Pregnancy2Action extends ActionSupport {
     }
 
     public String saveMeasurementAjax() throws IOException {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
+            throw new SecurityException("missing required sec object (_form write)");
+        }
         String demographicNo = request.getParameter("demographicNo");
         String type = request.getParameter("type");
         String value = request.getParameter("value");

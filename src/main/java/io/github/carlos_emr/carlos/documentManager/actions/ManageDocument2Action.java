@@ -352,6 +352,7 @@ public class ManageDocument2Action extends ActionSupport {
         ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
             response.setContentType("application/json;charset=UTF-8");
+            // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type and Jackson serialization
             response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8)); // CodeQL[java/xss] JSON response — application/json content-type with Jackson serialization
         } catch (IOException e) {
             MiscUtils.getLogger().error("IOException writing JSON response in getDemoNameAjax", e);

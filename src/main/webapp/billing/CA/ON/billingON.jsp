@@ -159,7 +159,7 @@
 
         for (DSConsequence dscon : list) {
             if (dscon.getConsequenceStrength().equals(DSConsequence.ConsequenceStrength.warning)) {
-                billingRecomendations.append(dscon.getText()).append("<br/>");
+                billingRecomendations.append(Encode.forHtml(dscon.getText())).append("<br/>");
             }
         }
     } catch (Exception e) {
@@ -1505,7 +1505,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                             }
                         %>
                         <td style="text-align: center;"
-                            class="<%=warningClass%>"><%=billingRecomendations.toString()%> <%-- CodeQL[java/xss] system-generated Drools DSConsequence text, not user input --%>
+                            class="<%=warningClass%>"><%=billingRecomendations.toString()%>
                         </td>
                         <td style="text-align: center;"><%=msg%>
                         </td>
