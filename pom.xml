@@ -1751,6 +1751,16 @@
                             </plugins>
                         </configuration>
                     </plugin>
+                    <plugin>
+                        <groupId>se.vandmo</groupId>
+                        <artifactId>dependency-lock-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>check</id>
+                                <phase>none</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
                     <!-- Skip dependency lock — already validated in the build job -->
                     <plugin>
                         <groupId>se.vandmo</groupId>
