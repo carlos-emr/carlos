@@ -49,21 +49,23 @@
     String deepcolor = "#CCCCFF", weakcolor = "#EEEEFF", tableTitle = "#99ccff";
     boolean bEdit = request.getParameter("appointment_no") != null ? true : false;
 %>
-<%@ page import="java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.sql.*"
-         errorPage="/errorpage.jsp" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
-
-<%@page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="java.text.SimpleDateFormat" %>
+<%@ page import="java.sql.*" %>
+<%@ page import="java.util.*" %>
+<%@ page import="java.text.SimpleDateFormat" %>
+<%@ page import="io.github.carlos_emr.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     AppointmentArchiveDao appointmentArchiveDao = (AppointmentArchiveDao) SpringUtils.getBean(AppointmentArchiveDao.class);
     OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
@@ -352,31 +354,6 @@
     <form name="groupappt" method="POST"
           action="appointmenteditrepeatbooking.jsp" onSubmit="return ( onSub());">
         <INPUT TYPE="hidden" NAME="groupappt" value="">
-        <table width="100%" BGCOLOR="silver">
-            <tr>
-                <TD>
-                    <% if (bEdit) { %> <INPUT TYPE="button"
-                                              onclick="document.forms['groupappt'].groupappt.value='Group Update'; document.forms['groupappt'].submit();"
-                                              VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupUpdate"/>">
-                    <INPUT TYPE="button"
-                           onclick="document.forms['groupappt'].groupappt.value='Group Cancel'; document.forms['groupappt'].submit();"
-                           VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>">
-                    <INPUT TYPE="button"
-                           onclick="document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
-                           VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>"
-                           onClick="onButDelete()"> <% } else { %> <INPUT
-                        TYPE="button"
-                        onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();"
-                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>">
-                    <% } %>
-                </TD>
-                <TD align="right"><INPUT TYPE="button"
-                                         VALUE=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/> "
-                                         onClick="window.history.go(-1);return false;"> <INPUT
-                        TYPE="button" VALUE=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/> "
-                        onClick="onExit()"></TD>
-            </tr>
-        </table>
 
         <table border=0 cellspacing=0 cellpadding=0 width="100%">
             <tr bgcolor="<%=deepcolor%>">
@@ -431,6 +408,31 @@
                                                id="endDate" size="10"
                                                value="<%=UtilDateUtilities.DateToString(new java.util.Date(),"dd/MM/yyyy")%>"
                                                readonly></td>
+            </tr>
+        </table>
+        <table width="100%" BGCOLOR="silver">
+            <tr>
+                <TD>
+                    <% if (bEdit) { %> <INPUT TYPE="button"
+                                              onclick="document.forms['groupappt'].groupappt.value='Group Update'; document.forms['groupappt'].submit();"
+                                              VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupUpdate"/>">
+                    <INPUT TYPE="button"
+                           onclick="document.forms['groupappt'].groupappt.value='Group Cancel'; document.forms['groupappt'].submit();"
+                           VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>">
+                    <INPUT TYPE="button"
+                           onclick="document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
+                           VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>"
+                           onClick="onButDelete()"> <% } else { %> <INPUT
+                        TYPE="button"
+                        onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();"
+                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>">
+                    <% } %>
+                </TD>
+                <TD align="right"><INPUT TYPE="button"
+                                         VALUE=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/> "
+                                         onClick="window.history.go(-1);return false;"> <INPUT
+                        TYPE="button" VALUE=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/> "
+                        onClick="onExit()"></TD>
             </tr>
         </table>
         <%
