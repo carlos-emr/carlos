@@ -258,29 +258,37 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         return HqlQueryHelper.find(currentSession(), sSql, params);
     }
 
+    private String validateSqlIdentifier(String identifier) {
+        if (identifier == null || !identifier.matches("^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$")) {
+            throw new IllegalArgumentException("Invalid SQL identifier: " + identifier);
+        }
+        return identifier;
+    }
+
     @Override
     public List GetCodeFieldValues(LookupTableDefValue tableDef, String code) {
         // tableName and field SQL come from LookupTableDef/FieldDefValue database config,
         // not from direct user input, so second-order injection risk is low.  The user-supplied
         // code value is parameterized below.
-        String tableName = tableDef.getTableName();
+        String tableName = validateSqlIdentifier(tableDef.getTableName());
         List fs = LoadFieldDefList(tableDef.getTableId());
         String idFieldName = "";
 
         String sql = "select ";
         for (int i = 0; i < fs.size(); i++) {
             FieldDefValue fdv = (FieldDefValue) fs.get(i);
+            String fieldSql = validateSqlIdentifier(fdv.getFieldSQL());
             if (fdv.getGenericIdx() == 1)
-                idFieldName = fdv.getFieldSQL();
+                idFieldName = fieldSql;
             if (i == 0) {
-                sql += fdv.getFieldSQL();
+                sql += fieldSql;
             } else {
-                sql += "," + fdv.getFieldSQL();
+                sql += "," + fieldSql;
             }
         }
         sql += " from " + tableName + " s";
         // Use a parameterized placeholder for the code value to prevent SQL injection.
-        sql += " where " + idFieldName + "=?";
+        sql += " where " + validateSqlIdentifier(idFieldName) + "=?";
         DBPreparedHandler db = new DBPreparedHandler();
         try {
             DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[]{ new DBPreparedHandlerParam(code) };
