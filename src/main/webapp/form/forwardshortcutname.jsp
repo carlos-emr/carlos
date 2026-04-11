@@ -58,8 +58,8 @@
             return;
         }
         final String validatedDemoNo = demoNo;
-        final javax.servlet.http.HttpServletRequest originalRequest = request;
-        request = new javax.servlet.http.HttpServletRequestWrapper(originalRequest) {
+        final jakarta.servlet.http.HttpServletRequest originalRequest = request;
+        request = new jakarta.servlet.http.HttpServletRequestWrapper(originalRequest) {
             @Override
             public String getParameter(String name) {
                 if ("demographic_no".equals(name)) {

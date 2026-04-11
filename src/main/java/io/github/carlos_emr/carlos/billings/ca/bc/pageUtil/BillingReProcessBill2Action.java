@@ -423,7 +423,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
     private String[] getServiceCodePrice(String billingServiceCode, boolean usePrefix) {
         String prepend = usePrefix ? "A" : "";
         String[] privateCodeRecord = SqlUtils.getRow(
-                "select value from billingservice where service_code = '" + prepend + billingServiceCode + "'");
+                "select value from billingservice where service_code = ?", prepend + billingServiceCode);
         return privateCodeRecord;
     }
 

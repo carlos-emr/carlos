@@ -267,6 +267,7 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         if (criteria.getDateObserved() != null) {
             jpql.append(hasWhere ? " AND " : " WHERE ");
             jpql.append("m.dateObserved = :dateObserved");
+            hasWhere = true;
         }
 
         Query query = entityManager.createQuery(jpql.toString());

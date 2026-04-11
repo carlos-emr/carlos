@@ -296,6 +296,9 @@ public final class FrmSetupForm2Action extends ActionSupport {
                     }
                 } else return null;
             } else return null;
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("Non-numeric formId or demographicNo in getFormRecord");
+            return null;
         } catch (SQLException e) {
             MiscUtils.getLogger().error("Error", e);
         }

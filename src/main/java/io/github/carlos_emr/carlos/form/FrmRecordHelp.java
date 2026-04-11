@@ -79,12 +79,29 @@ public class FrmRecordHelp {
         _dateFormat = s;
     }
 
+    /**
+     * @deprecated Use {@link #getFormRecord(String, Object...)} with parameterized SQL instead.
+     */
+    @Deprecated
     public Properties getFormRecord(String sql) //int demographicNo, int existingID)
+            throws SQLException {
+        return getFormRecord(sql, new Object[0]);
+    }
+
+    /**
+     * Retrieves a form record using a parameterized SQL query.
+     *
+     * @param sql    the SQL query with {@code ?} placeholders
+     * @param params the parameter values to bind to the placeholders
+     * @return Properties containing the column name/value pairs from the first result row
+     * @throws SQLException if a database access error occurs
+     */
+    public Properties getFormRecord(String sql, Object... params)
             throws SQLException {
         Properties props = new Properties();
 
 
-        ResultSet rs = DBHandler.GetSQL(sql);
+        ResultSet rs = DBHandler.GetPreSQL(sql, params);
         if (rs.next()) {
             ResultSetMetaData md = rs.getMetaData();
             for (int i = 1; i <= md.getColumnCount(); i++) {
@@ -111,10 +128,27 @@ public class FrmRecordHelp {
         return props;
     }
 
+    /**
+     * @deprecated Use {@link #saveFormRecord(Properties, String, Object...)} with parameterized SQL instead.
+     */
+    @Deprecated
     public synchronized int saveFormRecord(Properties props, String sql) throws SQLException {
+        return saveFormRecord(props, sql, new Object[0]);
+    }
+
+    /**
+     * Saves a form record using a parameterized SQL query.
+     *
+     * @param props  the form properties to save
+     * @param sql    the SQL query with {@code ?} placeholders
+     * @param params the parameter values to bind to the placeholders
+     * @return the auto-generated ID of the inserted record
+     * @throws SQLException if a database access error occurs
+     */
+    public synchronized int saveFormRecord(Properties props, String sql, Object... params) throws SQLException {
 
 
-        ResultSet rs = DBHandler.GetSQL(sql, true);
+        ResultSet rs = DBHandler.GetPreSQL(sql, true, params);
         rs.moveToInsertRow();
         rs = updateResultSet(props, rs, true);
         rs.insertRow();
@@ -158,7 +192,7 @@ public class FrmRecordHelp {
         } else {
             throw new SQLException("ERROR: Database " + db_type + " unrecognized.");
         }
-        rs = DBHandler.GetSQL(sql);
+        rs = DBHandler.GetPreSQL(sql);
         if (rs.next())
             ret = rs.getInt(1);
         rs.close();
@@ -232,11 +266,27 @@ public class FrmRecordHelp {
         return rs;
     }
 
+    /**
+     * @deprecated Use {@link #updateFormRecord(Properties, String, Object...)} with parameterized SQL instead.
+     */
+    @Deprecated
     //for page form
     public void updateFormRecord(Properties props, String sql) throws SQLException {
+        updateFormRecord(props, sql, new Object[0]);
+    }
+
+    /**
+     * Updates a form record using a parameterized SQL query.
+     *
+     * @param props  the form properties to update
+     * @param sql    the SQL query with {@code ?} placeholders
+     * @param params the parameter values to bind to the placeholders
+     * @throws SQLException if a database access error occurs
+     */
+    public void updateFormRecord(Properties props, String sql, Object... params) throws SQLException {
 
 
-        ResultSet rs = DBHandler.GetSQL(sql, true);
+        ResultSet rs = DBHandler.GetPreSQL(sql, true, params);
         //rs.relative(0);
 
         rs = updateResultSet(props, rs, false);
@@ -245,20 +295,52 @@ public class FrmRecordHelp {
         rs.close();
     }
 
+    /**
+     * @deprecated Use {@link #getPrintRecord(String, Object...)} with parameterized SQL instead.
+     */
+    @Deprecated
     public Properties getPrintRecord(String sql) throws SQLException {
+        return getPrintRecord(sql, new Object[0]);
+    }
+
+    /**
+     * Retrieves a single print record using a parameterized SQL query.
+     *
+     * @param sql    the SQL query with {@code ?} placeholders
+     * @param params the parameter values to bind to the placeholders
+     * @return Properties containing the column name/value pairs from the first result row
+     * @throws SQLException if a database access error occurs
+     */
+    public Properties getPrintRecord(String sql, Object... params) throws SQLException {
         Properties props = new Properties();
 
-        ResultSet rs = DBHandler.GetSQL(sql);
+        ResultSet rs = DBHandler.GetPreSQL(sql, params);
         if (rs.next()) {
             props = getResultsAsProperties(rs);
         }
         return props;
     }
 
+    /**
+     * @deprecated Use {@link #getPrintRecords(String, Object...)} with parameterized SQL instead.
+     */
+    @Deprecated
     public List<Properties> getPrintRecords(String sql) throws SQLException {
+        return getPrintRecords(sql, new Object[0]);
+    }
+
+    /**
+     * Retrieves multiple print records using a parameterized SQL query.
+     *
+     * @param sql    the SQL query with {@code ?} placeholders
+     * @param params the parameter values to bind to the placeholders
+     * @return List of Properties, one per result row
+     * @throws SQLException if a database access error occurs
+     */
+    public List<Properties> getPrintRecords(String sql, Object... params) throws SQLException {
         ArrayList<Properties> results = new ArrayList<Properties>();
 
-        ResultSet rs = DBHandler.GetSQL(sql);
+        ResultSet rs = DBHandler.GetPreSQL(sql, params);
         while (rs.next()) {
             Properties p = getResultsAsProperties(rs);
             results.add(p);
@@ -291,10 +373,26 @@ public class FrmRecordHelp {
         return (p);
     }
 
+    /**
+     * @deprecated Use {@link #getDemographicIds(String, Object...)} with parameterized SQL instead.
+     */
+    @Deprecated
     public List<Integer> getDemographicIds(String sql) throws SQLException {
+        return getDemographicIds(sql, new Object[0]);
+    }
+
+    /**
+     * Retrieves demographic IDs using a parameterized SQL query.
+     *
+     * @param sql    the SQL query with {@code ?} placeholders
+     * @param params the parameter values to bind to the placeholders
+     * @return List of demographic_no values from the result set
+     * @throws SQLException if a database access error occurs
+     */
+    public List<Integer> getDemographicIds(String sql, Object... params) throws SQLException {
         List<Integer> results = new ArrayList<Integer>();
 
-        ResultSet rs = DBHandler.GetSQL(sql);
+        ResultSet rs = DBHandler.GetPreSQL(sql, params);
         while (rs.next()) {
             results.add(rs.getInt("demographic_no"));
         }

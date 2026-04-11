@@ -71,11 +71,14 @@ public class RptByExampleData {
         this.sql = sql;
         this.oscarVariables = oscarVariables;
 
+        // Audit log: admin SQL execution is intentional but sensitive
+        MiscUtils.getLogger().warn("Admin report SQL execution: {}", sql.length() > 200 ? sql.substring(0, 200) + "..." : sql);
+
         try {
             accessDB = new DBPreparedHandler();
 
             ResultSet rs = null;
-            rs = accessDB.queryResults(this.sql);
+            rs = accessDB.queryResults(this.sql); // nosemgrep: formatted-sql-string — intentional admin dynamic SQL; validated by DBPreparedHandler.validateSafeSelectQuery
 
             if (rs != null) {
                 results = RptResultStruct.getStructure(rs);

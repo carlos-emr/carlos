@@ -297,8 +297,7 @@ public class FrmData {
         String ret = "";
 
 
-        String sql = "SELECT value FROM property WHERE name='resource'";
-        ResultSet rs = DBHandler.GetSQL(sql);
+        ResultSet rs = DBHandler.GetPreSQL("SELECT value FROM property WHERE name=?", "resource");
         while (rs.next()) {
             ret = Misc.getString(rs, "value");
         }
@@ -314,8 +313,7 @@ public class FrmData {
         String ret = "";
 
 
-        String sql = "SELECT value FROM property WHERE name='" + name + "'";
-        ResultSet rs = DBHandler.GetSQL(sql);
+        ResultSet rs = DBHandler.GetPreSQL("SELECT value FROM property WHERE name=?", name);
         while (rs.next()) {
             ret = Misc.getString(rs, "value");
         }

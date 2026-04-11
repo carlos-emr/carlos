@@ -74,17 +74,18 @@ public class SQLDenominator implements Denominator {
         ArrayList list = new ArrayList();
         try {
 
+            List<Object> paramValues = new ArrayList<>();
             if (replaceableValues != null) {
-                MiscUtils.getLogger().debug("has replaceablevalues" + replaceableValues.size());
-                MiscUtils.getLogger().debug("before replace \n" + sql);
-                exeSql = replaceAll(sql, replaceableValues);
+                MiscUtils.getLogger().debug("has replaceablevalues {}", replaceableValues.size());
+                MiscUtils.getLogger().debug("before replace \n{}", sql);
+                exeSql = replaceAllParameterized(sql, replaceableValues, paramValues);
             } else {
                 MiscUtils.getLogger().debug("doesn't have replaceablevalues");
                 exeSql = sql;
-                MiscUtils.getLogger().debug("sql " + sql);
+                MiscUtils.getLogger().debug("sql {}", sql);
             }
 
-            ResultSet rs = DBHandler.GetSQL(exeSql);
+            ResultSet rs = DBHandler.GetPreSQL(exeSql, paramValues.toArray());
             MiscUtils.getLogger().debug("SQL Statement: " + exeSql);
             while (rs.next()) {
                 String toAdd = Misc.getString(rs, resultString);
@@ -123,6 +124,45 @@ public class SQLDenominator implements Denominator {
 
         }
         return str;
+    }
+
+    /**
+     * Replaces ${key} placeholders in the SQL template with ? parameter markers
+     * and collects the corresponding values in order for parameterized query binding.
+     *
+     * @param template the SQL template containing ${key} placeholders
+     * @param replacers Hashtable mapping placeholder keys to their values
+     * @param paramValues List to collect parameter values in the order they appear
+     * @return String the SQL with ${key} placeholders replaced by ?
+     */
+    private String replaceAllParameterized(String template, Hashtable replacers, List<Object> paramValues) {
+        // Single-pass left-to-right replacement to ensure parameter order matches
+        // the position of ${key} placeholders in the SQL template.
+        StringBuilder result = new StringBuilder();
+        int i = 0;
+        while (i < template.length()) {
+            int start = template.indexOf("${", i);
+            if (start < 0) {
+                result.append(template.substring(i));
+                break;
+            }
+            int end = template.indexOf("}", start);
+            if (end < 0) {
+                result.append(template.substring(i));
+                break;
+            }
+            result.append(template, i, start);
+            String key = template.substring(start + 2, end);
+            String value = (String) replacers.get(key);
+            if (value != null) {
+                result.append("?");
+                paramValues.add(value);
+            } else {
+                result.append(template, start, end + 1);
+            }
+            i = end + 1;
+        }
+        return result.toString();
     }
 
     public String[] getReplaceableKeys() {

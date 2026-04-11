@@ -108,6 +108,16 @@ public class LookupCodeEdit2Action extends ActionSupport {
         }
         tableDef = trustedTableDef;
 
+        // Re-fetch field definitions from the database so that field metadata
+        // (fieldSQL, fieldType, genericIdx, etc.) is trusted and cannot be
+        // tampered with via Struts parameter binding.  Only the user-submitted
+        // .val values are applied from the request below.
+        fieldDefList = lookupManager.LoadFieldDefList(tableDef.getTableId());
+        if (fieldDefList == null || fieldDefList.isEmpty()) {
+            addActionMessage(getText("error.lookup.duplicate"));
+            return "edit";
+        }
+
         boolean isInActive = false;
 
         String code = "";
@@ -162,10 +172,6 @@ public class LookupCodeEdit2Action extends ActionSupport {
             }
         }
         if (!getActionMessages().isEmpty()) {
-            return "edit";
-        }
-        if (tableDef == null) {
-            addActionMessage(getText("error.lookup.invalidTable"));
             return "edit";
         }
         try {

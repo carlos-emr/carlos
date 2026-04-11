@@ -260,7 +260,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
 
     /**
      * Validates that a SQL identifier (table or column name) contains only safe characters.
-     * Allows dotted identifiers (e.g. {@code table.column}) for field SQL expressions.
+     * Allows dotted identifiers (e.g. {@code table.column}).
      *
      * <p>Note: {@code LookupCodeEdit2Action} also validates {@code tableId} with a stricter
      * {@code ^[A-Z0-9_]+$} regex before it reaches this DAO. This method provides a
@@ -268,9 +268,25 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
      */
     private String validateSqlIdentifier(String identifier) {
         if (identifier == null || !identifier.matches("^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$")) {
-            throw new IllegalArgumentException("Invalid SQL identifier: " + identifier);
+            MiscUtils.getLogger().error("Invalid SQL identifier rejected in lookup configuration");
+            throw new IllegalArgumentException("Invalid SQL identifier in lookup configuration");
         }
         return identifier;
+    }
+
+    /**
+     * Validates a field SQL expression from {@code FieldDefValue.getFieldSQL()}.
+     * Allows simple identifiers, dotted identifiers, and SQL function expressions
+     * like {@code IFNULL(buf1,'')} that are stored in the {@code lookupfielddef.fieldsql}
+     * column (varchar 32). Only alphanumeric characters, underscores, dots, parentheses,
+     * single-quoted string literals, commas, and whitespace are permitted.
+     */
+    private String validateFieldSql(String fieldSql) {
+        if (fieldSql == null || !fieldSql.matches("^[A-Za-z_][A-Za-z0-9_.,() ']*$")) {
+            MiscUtils.getLogger().error("Invalid field SQL expression rejected in lookup configuration");
+            throw new IllegalArgumentException("Invalid field SQL expression in lookup configuration");
+        }
+        return fieldSql;
     }
 
     @Override
@@ -286,7 +302,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         String sql = "select ";
         for (int i = 0; i < fs.size(); i++) {
             FieldDefValue fdv = (FieldDefValue) fs.get(i);
-            String fieldSql = validateSqlIdentifier(fdv.getFieldSQL());
+            String fieldSql = validateFieldSql(fdv.getFieldSQL());
             if (fdv.getGenericIdx() == 1)
                 idFieldName = fieldSql;
             if (i == 0) {
@@ -339,7 +355,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         String sql = "select ";
         for (int i = 0; i < fs.size(); i++) {
             FieldDefValue fdv = (FieldDefValue) fs.get(i);
-            String fieldSql = validateSqlIdentifier(fdv.getFieldSQL());
+            String fieldSql = validateFieldSql(fdv.getFieldSQL());
             if (i == 0) {
                 sql += fieldSql;
             } else {
@@ -349,7 +365,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         sql += " from " + tableName;
         DBPreparedHandler db = new DBPreparedHandler();
         try {
-            ResultSet rs = db.queryResults(sql);
+            ResultSet rs = db.queryResults(sql, new DBPreparedHandlerParam[0]);
             while (rs.next()) {
                 for (int i = 0; i < fs.size(); i++) {
                     FieldDefValue fdv = (FieldDefValue) fs.get(i);
@@ -379,7 +395,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         sql += " from " + tableName;
         DBPreparedHandler db = new DBPreparedHandler();
 
-        ResultSet rs = db.queryResults(sql);
+        ResultSet rs = db.queryResults(sql, new DBPreparedHandlerParam[0]);
         int id = 0;
         if (rs.next())
             id = rs.getInt(1);

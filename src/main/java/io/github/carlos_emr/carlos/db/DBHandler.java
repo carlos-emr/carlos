@@ -32,14 +32,9 @@ package io.github.carlos_emr.carlos.db;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.sql.Types;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * @deprecated Use JPA instead, no new code should be written against this class.
@@ -47,47 +42,12 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
 @Deprecated
 public final class DBHandler {
 
-    private static final Logger logger = LogManager.getLogger(DBHandler.class);
-
     private DBHandler() {
         // not intented for instantiation
     }
 
-    /**
-     * @deprecated This method is vulnerable to SQL injection. Use GetPreSQL with parameters or JPA instead.
-     * This method now includes basic SQL injection detection as a safety measure for legacy code.
-     */
-    @Deprecated
-    public static java.sql.ResultSet GetSQL(String SQLStatement) throws SQLException {
-        return GetSQL(SQLStatement, false);
-    }
-
-    /**
-     * @deprecated This method is vulnerable to SQL injection. Use GetPreSQL with parameters or JPA instead.
-     * This method now includes basic SQL injection detection as a safety measure for legacy code.
-     */
-    @Deprecated
-	public static ResultSet GetSQL(String SQLStatement, boolean updatable) throws SQLException {
-		// Log warning about deprecated usage — sanitize and allow longer output for SQL migration diagnostics
-		logger.warn("Deprecated GetSQL method called. SQL injection risk. Consider migrating to GetPreSQL or JPA. SQL: {}", LogSanitizer.sanitize(SQLStatement, 1000));
-		
-		Statement stmt;
-
-		if (updatable) {
-			stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement(ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
-		} else {
-			stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement(ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
-		}
-
-		ResultSet rs; // NOSONAR javasecurity:S3649 — deprecated wrapper; callers being migrated to GetPreSQL
-		try {
-			rs = stmt.executeQuery(SQLStatement); // nosemgrep: formatted-sql-string — deprecated infrastructure wrapper; callers are being migrated to GetPreSQL // codeql[java/sql-injection]
-		} catch (SQLException e) {
-			stmt.close();
-			throw e;
-		}
-		return StatementClosingResultSet.wrap(rs, stmt);
-	}
+    // GetSQL(String) removed — all callers migrated to GetPreSQL.
+    // See git history for the deprecated raw SQL execution method.
 
 	private static void bindParams(PreparedStatement ps, Object... params) throws SQLException {
 		for (int i = 0; i < params.length; i++) {
