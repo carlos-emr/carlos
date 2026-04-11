@@ -57,7 +57,7 @@
       href='${request.contextPath}/css/displaytag.css'/>
 
 <link rel="stylesheet" type="text/css"
-      href='${request.contextPath}/share/calendar/skins/aqua/theme.css'/>
+      href='${request.contextPath}/share/calendar/calendar.css'/>
 
 <link rel="stylesheet" type="text/css"
       href='${request.contextPath}/css/topnav.css'/>

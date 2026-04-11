@@ -34,7 +34,9 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.common;
 
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.ReflectionConstants;
 
 import io.github.carlos_emr.CarlosProperties;
 
@@ -43,12 +45,35 @@ import io.github.carlos_emr.CarlosProperties;
  */
 public class Colour {
 
+    /**
+     * Allowed package prefix for Colour subclass instantiation via reflection.
+     *
+     * <p>The class name is read from {@code ColourClass} in the server-side properties
+     * file. This prefix check is a defence-in-depth measure to prevent arbitrary class
+     * instantiation if the properties file is tampered with.</p>
+     *
+     * @see ReflectionConstants#CARLOS_PACKAGE_PREFIX
+     */
+    private static final String ALLOWED_PACKAGE_PREFIX = ReflectionConstants.CARLOS_PACKAGE_PREFIX;
+
     public static Colour getInstance() {
         Colour c = null;
         try {
             String colourClass = CarlosProperties.getInstance().getProperty("ColourClass", "io.github.carlos_emr.carlos.casemgmt.common.Colour");
+            colourClass = colourClass.trim();
             if (colourClass.length() > 0) {
-                c = (Colour) Class.forName(colourClass).newInstance();
+                if (!colourClass.startsWith(ALLOWED_PACKAGE_PREFIX)) {
+                    MiscUtils.getLogger().error("Rejected Colour class outside allowed package: {}",
+                            LogSanitizer.sanitize(colourClass));
+                    return new Colour();
+                }
+                Class<?> clazz = Class.forName(colourClass); // nosemgrep: unsafe-reflection — colourClass is validated against ALLOWED_PACKAGE_PREFIX above
+                if (!Colour.class.isAssignableFrom(clazz)) {
+                    MiscUtils.getLogger().error("Rejected Colour class not assignable to Colour: {}",
+                            LogSanitizer.sanitize(colourClass));
+                    return new Colour();
+                }
+                c = (Colour) clazz.getDeclaredConstructor().newInstance();
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);

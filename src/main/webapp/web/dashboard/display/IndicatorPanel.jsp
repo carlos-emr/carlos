@@ -29,6 +29,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <div class="indicatorPanelContainer">
 
@@ -42,10 +43,12 @@
     <div class="row indicatorData">
         <div class="col-md-12">
 
-            <input type="hidden" id="graphPlots_${ indicatorPanel.id }" value="${ indicatorPanel.stringArrayPlots }"/>
-            <input type="hidden" id="graphLabels_${ indicatorPanel.id }"
-                   value="${ indicatorPanel.stringArrayTooltips }"/>
-            <div class="indicatorGraph" id="graphContainer_${ indicatorPanel.id }"></div>
+            <input type="hidden" id="graphPlots_${indicatorPanel.id}" value="${e:forHtmlAttribute(indicatorPanel.stringArrayPlots)}"/>
+            <input type="hidden" id="graphLabels_${indicatorPanel.id}"
+                   value="${e:forHtmlAttribute(indicatorPanel.stringArrayTooltips)}"/>
+            <div class="indicatorGraph" id="graphContainer_${indicatorPanel.id}">
+                <canvas id="graphCanvas_${indicatorPanel.id}" role="img" aria-label="${e:forHtmlAttribute(indicatorPanel.name)} chart"></canvas>
+            </div>
         </div>
     </div>
 
@@ -60,12 +63,12 @@
             <ul class="dropdown-menu float-end text-start">
                 <li>
                     <a class="dropdown-item" href="javascript:void(0)" data-bs-toggle="modal"
-                       data-bs-target="#indicatorInfo_${ indicatorPanel.id }">
+                       data-bs-target="#indicatorInfo_${indicatorPanel.id}">
                         Indicator Info
                     </a>
                 </li>
                 <li>
-                    <a class="dropdown-item indicatorDrilldownBtn" href="javascript:void(0)" id="getDrilldown_${ indicatorPanel.id }">
+                    <a class="dropdown-item indicatorDrilldownBtn" href="javascript:void(0)" id="getDrilldown_${indicatorPanel.id}">
                         Drill Down
                     </a>
                 </li>
@@ -77,12 +80,12 @@
 
 
     <!-- modal panel for displaying this indicators details -->
-    <div id="indicatorInfo_${ indicatorPanel.id }" class="modal fade" tabindex="-1" aria-labelledby="indicatorTitle_${ indicatorPanel.id }">
+    <div id="indicatorInfo_${indicatorPanel.id}" class="modal fade" tabindex="-1" aria-labelledby="indicatorTitle_${indicatorPanel.id}">
         <div class="modal-dialog">
 
             <div class="modal-content">
                 <div class="modal-header">
-                    <h4 class="modal-title" id="indicatorTitle_${ indicatorPanel.id }">
+                    <h4 class="modal-title" id="indicatorTitle_${indicatorPanel.id}">
                         <c:out value="${ indicatorPanel.name }"/>
                     </h4>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>

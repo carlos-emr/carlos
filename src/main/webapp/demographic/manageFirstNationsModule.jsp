@@ -31,6 +31,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -150,7 +151,7 @@
         <select id="fNationCom" name="fNationCom">
             <c:forEach items="${firstNationCommunities.items}" var="firstNationCommunity">
                 <option value="${firstNationCommunity.value}" ${firstNationCommunity.value eq demoExt["fNationCom"] ? 'selected' : '' }>
-                    <c:out value="${firstNationCommunity.label}"/>
+                    ${e:forHtml(firstNationCommunity.label)}
                 </option>
             </c:forEach>
         </select>

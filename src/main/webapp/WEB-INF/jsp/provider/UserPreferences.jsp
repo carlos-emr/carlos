@@ -31,6 +31,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page import="java.util.Map" %>
 <%@ page import="io.github.carlos_emr.carlos.provider.web.UserPreference2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
@@ -45,8 +46,8 @@
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.pref.title"/></title>
-    <script src="<c:out value="${ctx}/js/checkPassword.js.jsp"/>"></script>
-    <script src="<c:out value="${ctx}/library/jquery/jquery-3.7.1.min.js"/>"></script>
+    <script src="${e:forHtmlAttribute(ctx)}/js/checkPassword.js.jsp"></script>
+    <script src="${e:forHtmlAttribute(ctx)}/library/jquery/jquery-3.7.1.min.js"></script>
     <script>
         jQuery(document).ready(function () {
             //jQuery("#general").hide();

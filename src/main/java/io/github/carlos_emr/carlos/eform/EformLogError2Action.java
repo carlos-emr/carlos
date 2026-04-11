@@ -7,7 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.jsoup.internal.StringUtil;
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 
 /**
  * Struts2 action for logging errors that occur during eForm processing.
@@ -23,7 +23,7 @@ import org.apache.commons.text.StringEscapeUtils;
  * <p><strong>Security Features:</strong></p>
  * <ul>
  *   <li>Validates formId is numeric to prevent injection attacks</li>
- *   <li>Sanitizes error messages using HTML entity encoding via StringEscapeUtils</li>
+ *   <li>Sanitizes error messages using HTML entity encoding via OWASP Encoder</li>
  *   <li>Performs null and empty checks on the formId parameter</li>
  * </ul>
  *
@@ -69,7 +69,7 @@ public class EformLogError2Action extends ActionSupport {
          */
 
          if (formId != null && !formId.isEmpty() && StringUtil.isNumeric(formId)) {
-		String sanitizedError = StringEscapeUtils.escapeHtml4(error);
+		String sanitizedError = Encode.forHtml(error);
 		EFormUtil.logError(Integer.parseInt(formId), sanitizedError);
 	 }
 

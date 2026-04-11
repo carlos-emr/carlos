@@ -30,6 +30,7 @@
 
 
 <%@ include file="/casemgmt/taglibs.jsp" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -71,6 +72,6 @@
 <input type="submit" name="submit" value="save" onclick="this.form.method.value='patientCPPSave'"/>
 <c:if test="${not empty messages}">
     <c:forEach var="message" items="${messages}">
-        <div style="color: blue"><I><c:out value="${message}"/></I></div>
+        <div style="color: blue"><I>${e:forHtml(message)}</I></div>
     </c:forEach>
 </c:if>

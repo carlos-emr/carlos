@@ -33,7 +33,7 @@ import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.validator.GenericValidator;
 import org.apache.struts2.ServletActionContext;
@@ -347,7 +347,7 @@ public class EctMeasurements2Action extends ActionSupport {
             objectMapper.writeValue(response.getWriter(), json);
             return null;
         } else {
-            request.setAttribute("textOnEncounter", StringEscapeUtils.escapeEcmaScript(textOnEncounter));
+            request.setAttribute("textOnEncounter", Encode.forJavaScript(textOnEncounter));
             return SUCCESS;
         }
     }

@@ -358,14 +358,18 @@ function seteditControlContents(editorname, value){
 	// Sanitize to strip dangerous elements/attributes before innerHTML insertion
 	value = sanitizeEditorHtml(value);
 
-    if (document.designMode) {
-		if (isIE()){
-		    window[editorname].document.body.innerHTML = value; //if browser supports M$ conventions
-		    return
-		} else {
-		    document.getElementById(editorname).contentWindow.document.body.innerHTML = value;
-		    return
-		}
+	// Get the editor iframe's document — designMode is set on the iframe, not the top-level document
+	var editorDoc;
+	if (isIE()) {
+		editorDoc = window[editorname] ? window[editorname].document : null;
+	} else {
+		var editorIframe = document.getElementById(editorname);
+		editorDoc = editorIframe && editorIframe.contentWindow ? editorIframe.contentWindow.document : null;
+	}
+
+	if (editorDoc && editorDoc.designMode === 'on') {
+		editorDoc.body.innerHTML = value; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
+		return
 	} else {
 		// play nice and at least set the value to the <textarea> if document.designMode does not exist
 		document.getElementById(cfg_editorname).value = value;
@@ -531,8 +535,17 @@ function doHtml(value) {
 		sel.removeAllRanges();
 		sel.addRange(range);
 	} else {
-		// No selection/cursor — append to end of document body
-		editorDoc.body.innerHTML += value;
+		// No selection/cursor — append to end of document body.
+		// Sanitize via centralized helper; null means DOMPurify unavailable → fail closed with textContent.
+		var safeValue = sanitizeHtml(value);
+		if (safeValue !== null) {
+			var appendRange = editorDoc.createRange();
+			appendRange.selectNodeContents(editorDoc.body);
+			var appendFrag = appendRange.createContextualFragment(safeValue);
+			editorDoc.body.appendChild(appendFrag);
+		} else {
+			editorDoc.body.appendChild(editorDoc.createTextNode(value));
+		}
 	}
 	// Return focus to the editor iframe so the user can continue typing
 	// immediately after a sidebar button inserts content
@@ -1025,7 +1038,22 @@ function submitFaxButton() {
 			$.ajax({
 				url : "efmformrtl_templates.jsp",
 				success : function(data) {
-					$("#template").html(data);
+					var cleanData = sanitizeHtml(data, {ALLOWED_TAGS: ['option'], ALLOWED_ATTR: ['value', 'selected']});
+					if (cleanData !== null) {
+						$("#template").html(cleanData);
+					} else {
+						// DOMPurify not available — fallback safely constructs <option> elements
+						var parser = new DOMParser();
+						var doc = parser.parseFromString(data, 'text/html');
+						var templateSelect = $("#template").empty();
+						doc.querySelectorAll('option').forEach(function(opt) {
+							var safeOpt = document.createElement('option');
+							safeOpt.value = opt.value;
+							safeOpt.textContent = opt.textContent;
+							if (opt.selected) safeOpt.selected = true;
+							templateSelect.append(safeOpt);
+						});
+					}
 					loadDefaultTemplate();
 				},
 				error : function(xhr, status, error) {
@@ -1292,7 +1320,7 @@ function collapseFooter() {
          */
         function consultantSearch(term) {
             if (term.length < 2) {
-                document.getElementById('tempBin').innerHTML = "You must enter at least 2 characters of a patients name!";
+                document.getElementById('tempBin').textContent = "You must enter at least 2 characters of a patient's name!";
                 return false;
             }
 
@@ -1393,7 +1421,7 @@ function collapseFooter() {
                 document.getElementById("tempBin").style.display = 'block';
             } else if (a === 0 && searchDropDownFlag === false) {
                 document.getElementById("tempBin").style.display = 'none';
-                document.getElementById("tempBin").innerHTML = "You must enter at least 2 characters of a patients name!";
+                document.getElementById("tempBin").textContent = "You must enter at least 2 characters of a patient's name!";
             }
         }
 
