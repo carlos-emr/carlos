@@ -181,7 +181,7 @@
                 <td><%=DateFormatUtils.format(dataExport.getDaterun().getTime(), DateFormatUtils.ISO_DATETIME_FORMAT.getPattern()) %>
                 </td>
                 <td>
-                    <a href='${e:forHtmlAttribute(ctx)}/demographic/eRourkeExport.do?method=getFile&zipFile=<%=file%>'><%=file %>
+                    <a href='${e:forHtmlAttribute(ctx)}/demographic/eRourkeExport.do?method=getFile&zipFile=<%=org.owasp.encoder.Encode.forUriComponent(file)%>'><%=org.owasp.encoder.Encode.forHtml(file)%>
                     </a></td>
                 <td><%=dataExport.getUser()%>
                 <td><%=dataExport.getType()%>

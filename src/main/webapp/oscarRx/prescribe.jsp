@@ -272,7 +272,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 <fmt:message key="WriteScript.msgClose" var="i18nClose"/>
 
 <fieldset style="margin-top:2px;" id="<%=fieldSetId%>">
-    <a tabindex="-1" href="javascript:void(0);"  style="float:right;margin-left:5px;margin-top:0px;padding-top:0px;" onclick="removePrescribingDrug(<%=fieldSetId%>, <%=DrugReferenceId%>);"><img src='${e:forHtmlAttribute(ctx)}/images/close.png' border="0"></a>
+    <a tabindex="-1" href="javascript:void(0);"  style="float:right;margin-left:5px;margin-top:0px;padding-top:0px;" onclick="removePrescribingDrug(document.getElementById('<%=Encode.forJavaScript(fieldSetId)%>'), <%=DrugReferenceId%>);"><img src='${e:forHtmlAttribute(ctx)}/images/close.png' border="0"></a>
     <a tabindex="-1" href="javascript:void(0);"  style="float:right;;margin-left:5px;margin-top:0px;padding-top:0px;" title="${i18nAddToFavorites}" onclick="addFav('<%=rand%>','<%=Encode.forJavaScript(drugName)%>')">F</a>
     <a tabindex="-1" href="javascript:void(0);" style="float:right;margin-top:0px;padding-top:0px;" onclick="var el=document.getElementById('rx_more_<%=rand%>');el.style.display=el.style.display==='none'?'':'none';">  <span id="moreLessWord_<%=rand%>" onclick="updateMoreLess(id)" >${i18nMore}</span> </a>
 

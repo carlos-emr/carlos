@@ -36,6 +36,7 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
 <html>
     <head>
@@ -60,7 +61,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><%= Encode.forHtml(error) %></li>
             <% } %>
         </ul>
     </div>

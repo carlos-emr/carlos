@@ -78,7 +78,7 @@
             <display:column property="description" sortable="true" title="Description"/>
 
             <display:column sortable="false" title="">
-                <a href="<%=request.getContextPath() %>/FacilityManager.do?method=edit&id=${e:forHtmlAttribute(facility.id)}">
+                <a href="<%=request.getContextPath() %>/FacilityManager.do?method=edit&id=${e:forUriComponent(facility.id)}">
                     Edit </a>
             </display:column>
             <!--

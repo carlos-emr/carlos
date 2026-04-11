@@ -36,7 +36,7 @@
            bgcolor="#C0C0C0">
         <c:if test="${not empty savedMessage}">
             <tr>
-                <td class="error">${savedMessage}</td>
+                <td class="error">${e:forHtml(savedMessage)}</td>
             </tr>
         </c:if>
     </table>

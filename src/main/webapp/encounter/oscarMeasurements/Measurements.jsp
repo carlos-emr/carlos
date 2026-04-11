@@ -200,7 +200,7 @@
             <tr class="MainTableTopRow">
                 <td class="MainTableTopRowLeftColumn"><h4>
                     <c:if test="${not empty groupName}">
-                    <h4>${groupName}</h4>
+                    <h4>${e:forHtml(groupName)}</h4>
                     </c:if>
                 </td>
                 <td class="MainTableTopRowRightColumn" style="padding:0px">
