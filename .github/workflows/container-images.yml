@@ -59,10 +59,6 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   REGISTRY: ghcr.io
   # Images will be: ghcr.io/carlos-emr/carlos-tomcat-dev, etc.
   IMAGE_PREFIX: ${{ github.repository_owner }}
@@ -97,7 +93,6 @@ jobs:
       - name: Check container freshness
         id: check
         env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           FORCE_REBUILD: ${{ inputs.force_rebuild }}
           REGISTRY: ${{ env.REGISTRY }}
           IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
@@ -190,7 +185,6 @@ jobs:
 
       - name: Build tomcat-dev container
         env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           CONTENT_HASH: ${{ needs.check-containers.outputs.tomcat_hash }}
         run: |
           echo "Building carlos-tomcat-dev container..."
@@ -229,7 +223,6 @@ jobs:
       - name: Push to registry
         if: steps.test.outputs.success == 'true' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild == 'true'))
         env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev
         run: |
           # Tag with multiple tags
@@ -271,7 +264,6 @@ jobs:
 
       - name: Build mariadb-dev container
         env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           CONTENT_HASH: ${{ needs.check-containers.outputs.mariadb_hash }}
         run: |
           echo "Building carlos-mariadb-dev container..."
@@ -355,7 +347,6 @@ jobs:
       - name: Push to registry
         if: steps.test.outputs.success == 'true' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild == 'true'))
         env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-mariadb-dev
         run: |
           docker tag carlos-mariadb-dev:test "$IMAGE:latest"
@@ -395,7 +386,6 @@ jobs:
 
       - name: Build drugref container
         env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           CONTENT_HASH: ${{ needs.check-containers.outputs.drugref_hash }}
         run: |
           echo "Building carlos-drugref container..."
@@ -454,7 +444,6 @@ jobs:
       - name: Push to registry
         if: steps.test.outputs.success == 'true' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild == 'true'))
         env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-drugref
         run: |
           docker tag carlos-drugref:test "$IMAGE:latest"
@@ -478,7 +467,6 @@ jobs:
     steps:
       - name: Report results
         env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           TOMCAT_NEEDS_BUILD: ${{ needs.check-containers.outputs.tomcat_needs_build }}
           TOMCAT_RESULT: ${{ needs.build-tomcat.result }}
           MARIADB_NEEDS_BUILD: ${{ needs.check-containers.outputs.mariadb_needs_build }}

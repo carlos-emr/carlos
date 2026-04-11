@@ -54,10 +54,6 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   PMD_VERSION: '7.13.0'
   PMD_HOME: 'pmd-bin-7.13.0'
 
@@ -158,7 +154,6 @@ jobs:
       - name: Report summary
         if: always()
         env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           VIOLATIONS: ${{ steps.pmd.outputs.violations }}
         run: |
           echo "### PMD Analysis Results" >> "$GITHUB_STEP_SUMMARY"

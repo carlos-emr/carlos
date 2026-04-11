@@ -57,10 +57,6 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ${{ github.repository_owner }}
 
@@ -88,7 +84,6 @@ jobs:
         id: pull-image
         continue-on-error: true
         env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev:latest
         run: |
           echo "Attempting to pull pre-built image from $IMAGE..."
@@ -216,7 +211,6 @@ jobs:
         id: pull-image
         continue-on-error: true
         env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev:latest
         run: |
           echo "Attempting to pull pre-built image from $IMAGE..."
@@ -334,7 +328,6 @@ jobs:
         id: pull-image
         continue-on-error: true
         env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev:latest
         run: |
           echo "Attempting to pull pre-built image from $IMAGE..."

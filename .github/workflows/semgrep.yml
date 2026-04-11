@@ -37,9 +37,6 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   semgrep:
@@ -57,7 +54,6 @@ jobs:
         if: env.SEMGREP_APP_TOKEN != ''
         run: semgrep ci --sarif --output semgrep.sarif
         env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
 
       - name: Upload SARIF to GitHub Security tab
