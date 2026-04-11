@@ -92,7 +92,7 @@
             return;
         }
 
-        String[] formPath = (new FrmData()).getShortcutFormValue(demoNo, strFrm); // deepcode ignore SqlInjection: demoNo validated as digits-only (line 56); formName used in parameterized DAO query; table name in FrmData validated by regex
+        String[] formPath = (new FrmData()).getShortcutFormValue(demoNo, strFrm); // deepcode ignore SqlInjection: demoNo validated as digits-only (line 56); formName used in parameterized DAO query (EncounterFormDao.findByFormName); table name from DB validated by regex [a-zA-Z][a-zA-Z0-9_]* at FrmData.java:214
         formPath[0] = formPath[0].trim();
 
         // Normalize the deprecated "../" prefix used in older DB entries

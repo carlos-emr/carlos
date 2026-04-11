@@ -669,7 +669,7 @@ public class EForm extends EFormBase {
         String output = ap.getApOutput();
         if (!StringUtils.isBlank(sql)) {
             sql = replaceAllFields(sql);
-            log.debug("SQL----" + sql);
+            log.debug("SQL---- [eform AP query executed]");
             ArrayList<String> names = DatabaseAP.parserGetNames(output); // a list of ${apName} --> apName
             sql = DatabaseAP.parserClean(sql); // replaces all other ${apName} expressions with 'apName'
             if (ap.isJsonOutput()) {

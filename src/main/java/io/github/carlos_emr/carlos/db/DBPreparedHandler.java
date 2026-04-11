@@ -216,12 +216,23 @@ public final class DBPreparedHandler {
         return new Object[]{rs, preparedStmt};
     }
 
-    synchronized public Object[] queryResultsCaisi(String preparedSQL) throws SQLException {
+    synchronized public Object[] queryResultsCaisi(String preparedSQL) throws SQLException { // nosemgrep: formatted-sql-string -- deprecated unparameterized overload; callers should migrate to parameterized variant
+        validateSafeSelectQuery(preparedSQL);
         stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement();
-        rs = stmt.executeQuery(preparedSQL);
+        rs = stmt.executeQuery(preparedSQL); // codeql[java/sql-injection] — validated SELECT-only SQL; defense-in-depth only, callers should migrate
         return new Object[]{rs, stmt};
     }
 
+    /**
+     * Basic defense-in-depth guard for unparameterized SQL overloads.
+     * Restricts to SELECT-only and blocks obvious injection metacharacters.
+     *
+     * <p><strong>Limitation:</strong> This is a denylist, NOT a security boundary.
+     * It catches trivial patterns (semicolons, comments, {@code OR 1=1}) but cannot
+     * detect all injection forms (e.g. UNION-based, subquery, or blind injection).
+     * Callers should migrate to parameterized overloads; this guard only reduces
+     * the attack surface during the migration period.</p>
+     */
     private void validateSafeSelectQuery(String sql) throws SQLException {
         if (sql == null || sql.trim().isEmpty()) {
             throw new SQLException("SQL query must not be empty");
@@ -248,9 +259,10 @@ public final class DBPreparedHandler {
         return rs;
     }
 
-    synchronized public ResultSet queryResults_paged(String preparedSQL, int iOffSet) throws SQLException {
+    synchronized public ResultSet queryResults_paged(String preparedSQL, int iOffSet) throws SQLException { // nosemgrep: formatted-sql-string -- deprecated unparameterized overload; callers should migrate to parameterized variant
+        validateSafeSelectQuery(preparedSQL);
         stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement();
-        rs = stmt.executeQuery(preparedSQL);
+        rs = stmt.executeQuery(preparedSQL); // codeql[java/sql-injection] — validated SELECT-only SQL; defense-in-depth only, callers should migrate
         for (int i = 1; i <= iOffSet; i++) {
             if (rs.next() == false) break;
         }
