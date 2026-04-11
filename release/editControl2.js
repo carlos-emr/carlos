@@ -175,6 +175,11 @@ function sanitizeEditorHtml(html) {
             if (dataVal && !safeScheme.test(dataVal.replace(/[\x00-\x20]/g, ''))) {
                 allElements[j].removeAttribute('data');
             }
+            // For SVG xlink:href (namespaced): used in <use>, <image>, <a> SVG elements
+            var xlinkHref = allElements[j].getAttributeNS('http://www.w3.org/1999/xlink', 'href');
+            if (xlinkHref && !safeScheme.test(xlinkHref.replace(/[\x00-\x20]/g, ''))) {
+                allElements[j].removeAttributeNS('http://www.w3.org/1999/xlink', 'href');
+            }
         }
         return doc.body.innerHTML;
     } catch (e) {
