@@ -84,7 +84,7 @@ public final class BillingEditCode2Action extends ActionSupport {
         jsonObject.put("id", id);
         MiscUtils.getLogger().debug(jsonObject.toString());
         response.setContentType("application/json;charset=UTF-8");
-        response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
+        response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8)); // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type
         return null;
     }
 

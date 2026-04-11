@@ -144,7 +144,7 @@ public class BillingInvoice2Action extends ActionSupport {
                 } catch (Exception e) {
                     MiscUtils.getLogger().error("Error", e);
                 } finally {
-                    if (fos != null) fos.close();
+                    if (fos != null) fos.close(); // nosemgrep: no-direct-response-writer -- PDF file stream close
                 }
             }
         }

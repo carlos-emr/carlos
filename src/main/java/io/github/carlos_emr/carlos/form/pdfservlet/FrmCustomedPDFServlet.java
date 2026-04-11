@@ -149,7 +149,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                     Path filepath = validatedPdfFile.toPath();
 
                     if (!Files.exists(filepath)) {
-                        baosPDF.writeTo(Files.newOutputStream(filepath));
+                        baosPDF.writeTo(Files.newOutputStream(filepath)); // nosemgrep: no-direct-response-writer -- PDF bytes written to file, not HTTP response
                     }
 
                     // write to temporary file

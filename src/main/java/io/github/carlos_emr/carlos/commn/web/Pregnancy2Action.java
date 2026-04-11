@@ -362,7 +362,7 @@ public class Pregnancy2Action extends ActionSupport {
         ObjectNode json = objectMapper.valueToTree(new LabelValueBean("allergies", output.toString().trim()));
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().println(json);
+        response.getWriter().println(json); // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type
         return null;
     }
 
@@ -393,7 +393,7 @@ public class Pregnancy2Action extends ActionSupport {
         ObjectNode json = objectMapper.valueToTree(new LabelValueBean("meds", output.toString().trim()));
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().println(json);
+        response.getWriter().println(json); // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type
         return null;
     }
 
@@ -470,7 +470,7 @@ public class Pregnancy2Action extends ActionSupport {
 
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().print(jsonObj.toString());
+        response.getWriter().print(jsonObj.toString()); // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type
 
         return null;
     }
@@ -485,7 +485,7 @@ public class Pregnancy2Action extends ActionSupport {
         ArrayNode json = objectMapper.valueToTree(m);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().print(json.toString());
+        response.getWriter().print(json.toString()); // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type
 
         return null;
     }
@@ -839,7 +839,7 @@ Repeat antibody screen
         ArrayNode json = objectMapper.valueToTree(results);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().print(json.toString());
+        response.getWriter().print(json.toString()); // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type
         return null;
     }
 }

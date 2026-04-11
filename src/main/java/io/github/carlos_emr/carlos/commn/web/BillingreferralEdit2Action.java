@@ -168,7 +168,7 @@ public class BillingreferralEdit2Action extends ActionSupport {
         ArrayNode arr = objectMapper.valueToTree(checkedSpecs);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().print(arr);
+        response.getWriter().print(arr); // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type
 
         return null;
     }

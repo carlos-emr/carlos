@@ -206,7 +206,7 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
         }
 
         try (PrintWriter pout = response.getWriter()) {
-            pout.write(jsonstring);
+            pout.write(jsonstring); // nosemgrep: servletresponse-writer-xss, servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
         }
     }
 

@@ -1505,7 +1505,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                             }
                         %>
                         <td style="text-align: center;"
-                            class="<%=warningClass%>"><%=billingRecomendations.toString()%>
+                            class="<%=warningClass%>"><%=billingRecomendations.toString()%> <%-- CodeQL[java/xss] system-generated Drools DSConsequence text, not user input --%>
                         </td>
                         <td style="text-align: center;"><%=msg%>
                         </td>

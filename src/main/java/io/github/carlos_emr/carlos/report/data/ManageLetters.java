@@ -122,7 +122,7 @@ public class ManageLetters {
 
         if (r != null) {
             try {
-                out.write(r.getReportFile(), 0, r.getReportFile().length);
+                out.write(r.getReportFile(), 0, r.getReportFile().length); // nosemgrep: no-direct-response-writer -- binary report file bytes
             } catch (IOException e) {
                 logger.error("Error", e);
             }

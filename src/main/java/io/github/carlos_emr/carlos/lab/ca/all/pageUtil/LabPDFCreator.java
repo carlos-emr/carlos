@@ -276,7 +276,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
             }
         }
 
-        os.flush();
+        os.flush(); // nosemgrep: no-direct-response-writer -- binary PDF stream flush
     }
 
     public void addEmbeddedDocuments(File currentPDF, OutputStream os) {

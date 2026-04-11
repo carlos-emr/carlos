@@ -331,7 +331,7 @@ public class DocumentPreview2Action extends ActionSupport {
 
                 int data;
                 while ((data = bfis.read()) != -1) {
-                    outs.write(data);
+                    outs.write(data); // nosemgrep: no-direct-response-writer -- application/pdf binary document preview
                 }
 
                 outs.flush();

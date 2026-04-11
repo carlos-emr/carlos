@@ -88,6 +88,7 @@ public class PatientListByAppt extends HttpServlet {
                     Appointment a = (Appointment) o[1];
                     Provider p = (Provider) o[2];
 
+                    // nosemgrep: no-direct-response-writer -- text/plain CSV download with Content-Disposition: attachment, not HTML
                     pw.print(d.getLastName() + ",");
                     pw.print(d.getFirstName() + ",");
                     pw.print(d.getPhone() + ",");

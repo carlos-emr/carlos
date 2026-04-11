@@ -223,10 +223,10 @@ public class HRMPDFCreator extends PdfPageEventHelper {
                 outputStream.write(Files.readAllBytes(path));
             } else {
                 logger.info("HRM Report is binary, only printing the attachment");
-                outputStream.write(hrmReport.getBinaryContent());
+                outputStream.write(hrmReport.getBinaryContent()); // nosemgrep: no-direct-response-writer -- binary PDF bytes to OutputStream
             }
 
-            outputStream.flush();
+            outputStream.flush(); // nosemgrep: no-direct-response-writer -- binary PDF bytes to OutputStream
         } catch (IOException e) {
             logger.error("An I/O Exception has occurred while either getting a PDFWriter Instance or creating the BaseFont", e);
         } catch (DocumentException e) {

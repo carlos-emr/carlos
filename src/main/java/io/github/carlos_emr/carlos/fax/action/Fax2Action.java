@@ -325,7 +325,7 @@ public class Fax2Action extends ActionSupport {
 
                 int data;
                 while ((data = bfis.read()) != -1) {
-                    outs.write(data);
+                    outs.write(data); // nosemgrep: no-direct-response-writer -- binary fax document download
                 }
                 outs.flush();
             } catch (IOException e) {
