@@ -71,7 +71,7 @@
 
     </head>
     <body class="BodyStyle">
-    <h4><fmt:message key="admin.admin.clinicAdmin"/></h4></h4>
+    <h4><fmt:message key="admin.admin.clinicAdmin"/></h4>
     <div class="card card-body bg-body-tertiary">
 
         <form action="<%=request.getContextPath() %>/admin/ManageClinic.do" method="post" class="">
