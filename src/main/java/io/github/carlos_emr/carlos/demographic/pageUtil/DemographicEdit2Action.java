@@ -126,7 +126,7 @@ public class DemographicEdit2Action extends ActionSupport {
         try {
             Integer.parseInt(demographic_no.trim());
         } catch (NumberFormatException e) {
-            logger.warn("DemographicEdit2Action: non-numeric demographic_no='{}'", demographic_no);
+            logger.warn("DemographicEdit2Action: non-numeric demographic_no='{}'", LogSanitizer.sanitize(demographic_no)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             addActionError("Invalid demographic_no: must be numeric");
             return ERROR;
         }
