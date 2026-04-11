@@ -160,6 +160,9 @@ public class DemographicListItemDTO implements Serializable {
         }
         String base = DtoFormatUtils.formatName(lastName, firstName, "");
         if (hasAlias) {
+            if (base.isEmpty()) {
+                return "(" + alias.trim() + ")";
+            }
             return base + " (" + alias.trim() + ")";
         }
         return base;

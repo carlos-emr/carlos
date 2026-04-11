@@ -148,8 +148,7 @@ public class DemographicHeaderDTO implements Serializable {
                     Integer.parseInt(dateOfBirth));
             return String.valueOf(Period.between(dob, LocalDate.now()).getYears());
         } catch (NumberFormatException | java.time.DateTimeException e) {
-            MiscUtils.getLogger().warn("Invalid DOB components for demographic {}: year={}, month={}, day={}",
-                    demographicNo, yearOfBirth, monthOfBirth, dateOfBirth);
+            MiscUtils.getLogger().warn("Invalid DOB components for demographic {}", demographicNo);
             return "";
         }
     }

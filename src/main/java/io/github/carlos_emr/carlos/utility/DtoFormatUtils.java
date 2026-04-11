@@ -42,20 +42,30 @@ public final class DtoFormatUtils {
      * @return String the formatted name, or fallback if both names are null
      */
     public static String formatName(String lastName, String firstName, String fallback) {
-        if (lastName == null && firstName == null) {
+        String trimmedLast = trimToNull(lastName);
+        String trimmedFirst = trimToNull(firstName);
+        if (trimmedLast == null && trimmedFirst == null) {
             return fallback;
         }
         StringBuilder sb = new StringBuilder();
-        if (lastName != null) {
-            sb.append(lastName.trim());
+        if (trimmedLast != null) {
+            sb.append(trimmedLast);
         }
-        if (firstName != null) {
+        if (trimmedFirst != null) {
             if (sb.length() > 0) {
                 sb.append(", ");
             }
-            sb.append(firstName.trim());
+            sb.append(trimmedFirst);
         }
         return sb.toString();
+    }
+
+    private static String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     /**
