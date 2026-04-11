@@ -125,8 +125,7 @@ public class QueueDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should return queue ID by name - DISABLED: production bug in QueueDaoImpl.getQueueid() uses string concatenation instead of parameterized query")
-        @org.junit.jupiter.api.Disabled("Production bug: QueueDaoImpl.getQueueid() uses HQL string concatenation (q.name=\" + name) instead of parameterized query - SQL injection vulnerability and H2 incompatible")
+        @DisplayName("should return queue ID by name")
         void shouldReturnQueueId_byName() throws Exception {
             createQueue("alpha");
             Queue q2 = createQueue("bravo");
