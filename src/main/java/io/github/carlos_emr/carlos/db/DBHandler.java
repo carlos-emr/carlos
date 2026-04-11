@@ -81,7 +81,7 @@ public final class DBHandler {
 
 		ResultSet rs; // NOSONAR javasecurity:S3649 — deprecated wrapper; callers being migrated to GetPreSQL
 		try {
-			rs = stmt.executeQuery(SQLStatement); // nosemgrep: formatted-sql-string — deprecated infrastructure wrapper; callers are being migrated to GetPreSQL // codeql[java/sql-injection] // NOSONAR javasecurity:S3649
+			rs = stmt.executeQuery(SQLStatement); // nosemgrep: formatted-sql-string — deprecated infrastructure wrapper; callers are being migrated to GetPreSQL // codeql[java/sql-injection]
 		} catch (SQLException e) {
 			stmt.close();
 			throw e;
