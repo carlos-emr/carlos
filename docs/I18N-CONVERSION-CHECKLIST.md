@@ -26,6 +26,7 @@ top of the file. Place it alongside existing `c:`, `fn:`, and OWASP encoder decl
 ```
 
 - [ ] `fmt` taglib declaration added after other taglib declarations
+- [ ] OWASP encoder taglib declaration added: `<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>`
 
 ### Step 2: Add the Bundle Declaration
 
@@ -139,6 +140,7 @@ For strings used in `alert()`, `confirm()`, or dynamic DOM manipulation:
 
 1. Add the ResourceBundle scriptlet to the top scriptlet block:
    ```jsp
+   <%@ page import="org.owasp.encoder.Encode" %>
    <%
        java.util.ResourceBundle oscarResources =
            java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
@@ -160,6 +162,7 @@ For strings used in `alert()`, `confirm()`, or dynamic DOM manipulation:
 4. In JavaScript, replace `alert("Hardcoded text")` with `alert(i18n.msgKey)`.
 
 - [ ] ResourceBundle scriptlet added if JS strings are needed
+- [ ] `org.owasp.encoder.Encode` import added for `Encode.forJavaScript()` calls
 - [ ] All `alert("...")` and `confirm("...")` calls use i18n variables
 - [ ] All JS strings encoded with `Encode.forJavaScript()`
 - [ ] i18n keys for JS strings added to all five locale files

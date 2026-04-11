@@ -38,6 +38,7 @@ jobs:
       - name: Run properties key parity check
         id: parity_check
         run: |
+          set +e
           ./scripts/check-i18n-properties.sh --output /tmp/i18n-parity-report.txt
           EXIT_CODE=$?
           cat /tmp/i18n-parity-report.txt
@@ -89,9 +90,11 @@ jobs:
           RESOURCES="src/main/resources"
 
           while IFS= read -r key; do
+            # Escape regex metacharacters in key for ERE pattern
+            escaped_key=$(echo "$key" | sed 's/[.[\^$*+?{}|()/]/\\&/g')
             for locale in $LOCALES; do
               locale_file="${RESOURCES}/oscarResources_${locale}.properties"
-              if ! grep -qE "^[[:space:]]*${key}[[:space:]]*[=:]" "$locale_file"; then
+              if ! grep -qE "^[[:space:]]*${escaped_key}[[:space:]]*[=:]" "$locale_file"; then
                 echo "MISSING: key '$key' not found in ${locale_file}"
                 FAILED=true
               fi

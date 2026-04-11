@@ -18,12 +18,21 @@ echo "=== Comprehensive JSP Taglib Checker ==="
 echo
 
 declare -A tags=(
-    # JSTL tags
-    ["fmt"]="http://java.sun.com/jsp/jstl/fmt"
-    ["c"]="http://java.sun.com/jsp/jstl/core"
-    ["fn"]="http://java.sun.com/jsp/jstl/functions"
-    ["sql"]="http://java.sun.com/jsp/jstl/sql"
-    ["x"]="http://java.sun.com/jsp/jstl/xml"
+    # JSTL tags (legacy java.sun.com and Jakarta namespaces)
+    ["fmt"]="(http://java\\.sun\\.com/jsp/jstl/fmt|jakarta\\.tags\\.fmt)"
+    ["c"]="(http://java\\.sun\\.com/jsp/jstl/core|jakarta\\.tags\\.core)"
+    ["fn"]="(http://java\\.sun\\.com/jsp/jstl/functions|jakarta\\.tags\\.functions)"
+    ["sql"]="(http://java\\.sun\\.com/jsp/jstl/sql|jakarta\\.tags\\.sql)"
+    ["x"]="(http://java\\.sun\\.com/jsp/jstl/xml|jakarta\\.tags\\.xml)"
+)
+
+# Preferred (Jakarta) URIs for suggestions
+declare -A suggested_uris=(
+    ["fmt"]="jakarta.tags.fmt"
+    ["c"]="jakarta.tags.core"
+    ["fn"]="jakarta.tags.functions"
+    ["sql"]="jakarta.tags.sql"
+    ["x"]="jakarta.tags.xml"
 )
 
 # Patterns for taglib include files
@@ -71,7 +80,7 @@ while IFS= read -r -d '' file; do
                 fi
 
                 # Check if taglib is declared (and not commented out)
-                if ! grep -v '<!--' "$file" | grep -q "taglib.*${tags[$prefix]}"; then
+                if ! grep -v '<!--' "$file" | grep -qE "taglib.*${tags[$prefix]}"; then
                     missing+=("$prefix")
                 fi
             fi
@@ -82,7 +91,7 @@ while IFS= read -r -d '' file; do
             echo "   Missing taglib(s): ${missing[*]}"
             echo "   Add these declarations at the top:"
             for prefix in "${missing[@]}"; do
-                echo "      <%@ taglib uri=\"${tags[$prefix]}\" prefix=\"$prefix\" %>"
+                echo "      <%@ taglib uri=\"${suggested_uris[$prefix]}\" prefix=\"$prefix\" %>"
             done
             echo
             ((found_issues++))
@@ -168,7 +177,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
         
         for prefix in "${!tags[@]}"; do
             # Check if taglib is declared
-            if grep -q "taglib.*${tags[$prefix]}" "$file"; then
+            if grep -qE "taglib.*${tags[$prefix]}" "$file"; then
                 # Check if tag is actually used
                 if ! grep -qiE "<\s*${prefix}\s*:|[\$\{]${prefix}:" "$file"; then
                     unused+=("$prefix")
