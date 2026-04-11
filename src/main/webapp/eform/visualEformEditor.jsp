@@ -84,6 +84,7 @@ version 0.2.077 now converts checkboxes to xBoxes
 version 0.2.078 fixed datepicker, and wet signature print/pdf
 version 0.2.079 support for converting checkboxes that are checked
 version 0.2.080 fixed BNK.png again for export
+version 0.3.000 i18n
 -->
 <!--
 FOR STAND ALONE USE
