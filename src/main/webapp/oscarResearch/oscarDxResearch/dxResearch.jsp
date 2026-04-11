@@ -380,7 +380,7 @@
                                                                    value="${e:forHtmlAttribute(diagnotics.start_date)}" style="display:none"/>
                                                         </a>
                                                     </td>
-                                                    <td class="notResolved">${e:forHtml(diagnotics.end_date)}</td>
+                                                    <td class="notResolved">${e:forHtml(empty diagnotics.end_date ? '' : diagnotics.end_date)}</td>
                                                     <c:if test="${not disable}">
                                                         <td class="notResolved">
                                                             <a href="#" onclick="submitDxAction('C','','${diagnotics.dxResearchNo}','${demographicNo}','${providerNo}'); return false;">
