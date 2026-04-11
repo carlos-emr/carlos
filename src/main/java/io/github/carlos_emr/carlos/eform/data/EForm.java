@@ -676,8 +676,8 @@ public class EForm extends EFormBase {
                 // deepcode ignore SqlInjection: appointment_no validated as numeric at JSP entry points (efmformapconfig_lookup, efmformadd_data, efmshowform_data)
                 ArrayNode values = EFormUtil.getJsonValues(names, sql);
                 output = values.toString(); //in case of JsonOutput, return the whole JSONArray and let the javascript deal with it
-            // deepcode ignore SqlInjection: appointment_no validated as numeric at JSP entry points
             } else {
+                // deepcode ignore SqlInjection: appointment_no validated as numeric at JSP entry points
                 ArrayList<String> values = EFormUtil.getValues(names, sql);
                 if (values.size() != names.size()) {
                     output = "";
