@@ -215,7 +215,7 @@
                     </tr>
                     <tr>
                         <td class="alignRight alignTop smallText">CPSO:</td>
-                        <td><c:catch var="exception">${ dContact.details.cpso }</c:catch></td>
+                        <td><c:catch var="exception">${e:forHtml(dContact.details.cpso)}</c:catch></td>
                     </tr>
                 </table>
 

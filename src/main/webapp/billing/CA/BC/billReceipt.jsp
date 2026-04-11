@@ -329,13 +329,13 @@
                                                 </tr>
                                                 <tr>
                                                     <td class="address"> Telephone:
-                                                        <%=vecPhones.size() >= 1 ? vecPhones.elementAt(0) : Encode.forHtmlContent(clinic.getClinicPhone())%>
+                                                        <%= Encode.forHtml(vecPhones.size() >= 1 ? String.valueOf(vecPhones.elementAt(0)) : clinic.getClinicPhone()) %>
                                                     </td>
                                                     <td class="address" id="clinicPhone">&nbsp;</td>
                                                 </tr>
                                                 <tr>
                                                     <td class="address"> Fax:
-                                                        <%=vecFaxes.size() >= 1 ? vecFaxes.elementAt(0) : Encode.forHtmlContent(clinic.getClinicFax())%>
+                                                        <%= Encode.forHtml(vecFaxes.size() >= 1 ? String.valueOf(vecFaxes.elementAt(0)) : clinic.getClinicFax()) %>
                                                     </td>
                                                     <td class="address" id="clinicFax">&nbsp;</td>
                                                 </tr>
@@ -419,13 +419,13 @@
                                                         <div style="padding-left: 5px;">
                                                             <%= Encode.forHtml(demo.getAddress()) %><br>
                                                             <%= Encode.forHtml(demo.getCity()) %>,
-                                                            <%=demo.getProvince()%><br>
+                                                            <%= Encode.forHtml(demo.getProvince()) %><br>
                                                             <%=Encode.forHtmlContent(demo.getPostal())%>
                                                         </div>
                                                         <strong>Gender:</strong>
-                                                        <%=demo.getSex()%>                              <br>
+                                                        <%= Encode.forHtml(demo.getSex()) %>                              <br>
                                                         <strong>Birth Date :</strong>
-                                                        <%=DemographicData.getDob(demo, "-")%>
+                                                        <%= Encode.forHtml(DemographicData.getDob(demo, "-")) %>
                                                     </td>
                                                 </tr>
                                             </table>
