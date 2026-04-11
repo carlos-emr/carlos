@@ -300,7 +300,7 @@
     }
 %>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
     <head>
         <meta charset="UTF-8">
         <title><fmt:message key="appointment.appointmentgrouprecords.title"/></title>
@@ -370,28 +370,28 @@
                     <div class="d-flex gap-3 flex-wrap">
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="dateUnit" id="dateUnitDay"
-                                   value="day" checked onclick='onCheck(this, "day")'>
+                                   value="day" checked onclick='onCheck(this, "<fmt:message key="day"/>")'>
                             <label class="form-check-label" for="dateUnitDay">
                                 <fmt:message key="day"/>
                             </label>
                         </div>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="dateUnit" id="dateUnitWeek"
-                                   value="week" onclick='onCheck(this, "week")'>
+                                   value="week" onclick='onCheck(this, "<fmt:message key="week"/>")'>
                             <label class="form-check-label" for="dateUnitWeek">
                                 <fmt:message key="week"/>
                             </label>
                         </div>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="dateUnit" id="dateUnitMonth"
-                                   value="month" onclick='onCheck(this, "month")'>
+                                   value="month" onclick='onCheck(this, "<fmt:message key="month"/>")'>
                             <label class="form-check-label" for="dateUnitMonth">
                                 <fmt:message key="month"/>
                             </label>
                         </div>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="dateUnit" id="dateUnitYear"
-                                   value="year" onclick='onCheck(this, "year")'>
+                                   value="year" onclick='onCheck(this, "<fmt:message key="year"/>")'>
                             <label class="form-check-label" for="dateUnitYear">
                                 <fmt:message key="year"/>
                             </label>
@@ -416,7 +416,7 @@
                         </select>
                         <input type="text" name="everyUnit" id="everyUnit"
                                class="form-control form-control-sm" style="width: 8rem;"
-                               value="day" readonly>
+                               value="<fmt:message key="day"/>" readonly>
                     </div>
                 </div>
 
@@ -448,7 +448,7 @@
                             <fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>
                         </button>
                         <button type="button" class="btn btn-danger btn-sm"
-                                onclick="if (confirm('${e:forJavaScriptAttribute(deleteConfirmMsg)}')) { document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit(); }">
+                                onclick="if (confirm('${e:forJavaScript(deleteConfirmMsg)}')) { document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit(); }">
                             <fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>
                         </button>
                         <% } else { %>
