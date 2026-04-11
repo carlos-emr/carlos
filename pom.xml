@@ -1738,6 +1738,7 @@
                             <effort>Max</effort>
                             <threshold>Low</threshold>
                             <xmlOutput>true</xmlOutput>
+                            <maxHeap>4096</maxHeap>
                             <xmlOutputDirectory>${project.build.directory}</xmlOutputDirectory>
                             <spotbugsXmlOutputFilename>spotbugs-result.xml</spotbugsXmlOutputFilename>
                             <excludeFilterFile>${project.basedir}/.github/spotbugs/spotbugs-exclude.xml</excludeFilterFile>
@@ -1745,7 +1746,7 @@
                                 <plugin>
                                     <groupId>com.h3xstream.findsecbugs</groupId>
                                     <artifactId>findsecbugs-plugin</artifactId>
-                                    <version>1.13.0</version>
+                                    <version>1.12.0</version>
                                 </plugin>
                             </plugins>
                         </configuration>
