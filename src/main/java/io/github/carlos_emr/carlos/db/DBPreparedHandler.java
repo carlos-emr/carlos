@@ -35,6 +35,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Locale;
 
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
@@ -221,9 +222,29 @@ public final class DBPreparedHandler {
         return new Object[]{rs, stmt};
     }
 
+    private void validateSafeSelectQuery(String sql) throws SQLException {
+        if (sql == null || sql.trim().isEmpty()) {
+            throw new SQLException("SQL query must not be empty");
+        }
+
+        String normalized = sql.trim().toLowerCase(Locale.ROOT);
+        if (!normalized.startsWith("select")) {
+            throw new SQLException("Only SELECT statements are allowed");
+        }
+
+        if (normalized.contains(";") || normalized.contains("--") || normalized.contains("/*") || normalized.contains("*/")) {
+            throw new SQLException("Unsafe SQL detected");
+        }
+
+        if (normalized.contains("' or '") || normalized.contains("\" or \"") || normalized.contains(" or 1=1")) {
+            throw new SQLException("Potential SQL injection pattern detected");
+        }
+    }
+
     synchronized public ResultSet queryResults(String preparedSQL) throws SQLException { // nosemgrep: formatted-sql-string -- infrastructure wrapper; callers should migrate to parameterized variant
+        validateSafeSelectQuery(preparedSQL);
         stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement();
-        rs = stmt.executeQuery(preparedSQL); // codeql[java/sql-injection] — infrastructure wrapper; callers supply parameterized SQL
+        rs = stmt.executeQuery(preparedSQL); // codeql[java/sql-injection] — validated SELECT-only SQL
         return rs;
     }
 
