@@ -63,6 +63,26 @@ import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 @Transactional
 public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
 
+    /**
+     * Validates that the given string is a safe SQL identifier (for example, a table or column name).
+     * Only allows letters, digits, and underscore characters to avoid SQL injection via identifiers.
+     *
+     * @param identifier the identifier to validate
+     * @return the original identifier if it is valid
+     * @throws IllegalArgumentException if the identifier is null, empty, or contains invalid characters
+     */
+    private String validateIdentifier(String identifier) {
+        if (identifier == null || identifier.isEmpty()) {
+            MiscUtils.getLogger().error("Invalid SQL identifier: null or empty");
+            throw new IllegalArgumentException("Invalid SQL identifier");
+        }
+        if (!identifier.matches("[A-Za-z0-9_]+")) {
+            MiscUtils.getLogger().error("Invalid SQL identifier: {}", identifier);
+            throw new IllegalArgumentException("Invalid SQL identifier");
+        }
+        return identifier;
+    }
+
     private static final Logger log = MiscUtils.getLogger();
 
     /*
@@ -260,7 +280,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
 
     @Override
     public List GetCodeFieldValues(LookupTableDefValue tableDef, String code) {
-        String tableName = tableDef.getTableName();
+        String tableName = validateIdentifier(tableDef.getTableName());
         List fs = LoadFieldDefList(tableDef.getTableId());
         String idFieldName = "";
 
