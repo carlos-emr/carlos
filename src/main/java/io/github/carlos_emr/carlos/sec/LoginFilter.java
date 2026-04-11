@@ -362,7 +362,7 @@ public class LoginFilter implements Filter {
 
                 if (!inListOfExemptions(requestURI, contextPath, EXEMPT_URLS_FOR_REQUEST_TIMEOUT)) {
                     logger.debug("reseting timer list uri " + httpRequest.getRequestURI());
-                    // nosemgrep: tainted-session-from-http-request — thisRequestDate is a server-generated Date object (new Date()), not user input
+                    // nosemgrep: tainted-session-from-http-request -- thisRequestDate is a server-generated Date object (new Date()), not user input
                     session.setAttribute("last_request_time", thisRequestDate);
                 }
             } catch (Exception e) {

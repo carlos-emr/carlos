@@ -179,7 +179,7 @@ public class AppointmentSearchManagerImpl implements AppointmentSearchManager {
                         AvailableTimeSlotFilter filterClassInstance;
                         try {
                             @SuppressWarnings("unchecked")
-                            Class<AvailableTimeSlotFilter> filterClass = (Class<AvailableTimeSlotFilter>) Class.forName(filterClassName); // nosemgrep: unsafe-reflection — filterClassName is validated against ALLOWED_FILTER_CLASSES whitelist above
+                            Class<AvailableTimeSlotFilter> filterClass = (Class<AvailableTimeSlotFilter>) Class.forName(filterClassName); // nosemgrep: unsafe-reflection -- filterClassName is validated against ALLOWED_FILTER_CLASSES whitelist above
                             filterClassInstance = filterClass.getDeclaredConstructor().newInstance();
                         } catch (ReflectiveOperationException e) {
                             throw new AppointmentSearchManager.AppointmentSearchException("Failed to instantiate appointment filter", e);

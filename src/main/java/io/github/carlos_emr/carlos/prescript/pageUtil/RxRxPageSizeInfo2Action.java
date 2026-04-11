@@ -68,7 +68,7 @@ public final class RxRxPageSizeInfo2Action extends ActionSupport {
             rxPageSize = prop.getValue();
         }
 
-        // nosemgrep: tainted-session-from-http-request — rxPageSize is DAO-sourced from UserProperty, not raw user input
+        // nosemgrep: tainted-session-from-http-request -- rxPageSize is DAO-sourced from UserProperty, not raw user input
         request.getSession().setAttribute("rxPageSize", rxPageSize);
         logger.debug("Processing time " + (System.currentTimeMillis() - start));
         return SUCCESS;

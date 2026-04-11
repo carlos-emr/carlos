@@ -37,6 +37,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -63,7 +64,13 @@ public final class RptSelectCDMReport2Action extends ActionSupport {
         HttpSession session = request.getSession();
         String CDMgroup = (String) this.getValue("CDMgroup");
 
-        MiscUtils.getLogger().debug("The selected group is" + CDMgroup);
+        // CWE-501: validate CDMgroup at trust boundary — reject control chars and excessive length
+        if (CDMgroup != null && (CDMgroup.length() > 100 || !CDMgroup.matches("[\\w\\s\\-\\.]+"))) {
+            MiscUtils.getLogger().warn("Rejected invalid CDMgroup: {}", LogSanitizer.sanitize(CDMgroup));
+            return ERROR;
+        }
+
+        MiscUtils.getLogger().debug("The selected group is {}", CDMgroup);
         RptMeasurementTypesBeanHandler hd = new RptMeasurementTypesBeanHandler(CDMgroup);
         Vector mInstrcVector = hd.getMeasuringInstrcBeanVector();
 
@@ -82,7 +89,8 @@ public final class RptSelectCDMReport2Action extends ActionSupport {
         String lastYear = now.get(Calendar.YEAR) - 1 + "-" + (now.get(Calendar.MONTH) + 1) + "-" + now.get(Calendar.DATE);
 
         session.setAttribute("measurementTypes", hd); // nosemgrep: tainted-session-from-http-request -- DAO-sourced measurement types handler
-        session.setAttribute("CDMGroup", CDMgroup); // nosemgrep: tainted-session-from-http-request -- CDMgroup from Struts ValueStack, used as DAO lookup key; output-encoded at render time
+        // nosemgrep: tainted-session-from-http-request -- CDMgroup validated via regex [\\w\\s\\-\\.]+, length-capped to 100; action guarded by _report read privilege
+        session.setAttribute("CDMGroup", CDMgroup);
         session.setAttribute("today", today); // nosemgrep: tainted-session-from-http-request -- server-generated date string from GregorianCalendar
         session.setAttribute("lastYear", lastYear); // nosemgrep: tainted-session-from-http-request -- server-generated date string from GregorianCalendar
 

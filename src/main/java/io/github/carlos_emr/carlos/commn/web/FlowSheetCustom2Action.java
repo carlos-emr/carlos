@@ -288,7 +288,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
                 cust.setDemographicNo(demographicNo);
                 cust.setCreateDate(new Date());
 
-                logger.debug("SAVE {}", LogSanitizer.sanitize(String.valueOf(cust)));
+                logger.debug("SAVE {}", LogSanitizer.sanitizeObject(cust));
 
                 flowSheetCustomizationDao.persist(cust);
 
@@ -416,7 +416,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
             cust.setMeasurement(item.getItemName()); //THIS THE MEASUREMENT TO SET THIS AFTER!
             cust.setProviderNo(providerNo);
 
-            logger.debug("UPDATE {}", LogSanitizer.sanitize(String.valueOf(cust)));
+            logger.debug("UPDATE {}", LogSanitizer.sanitizeObject(cust));
 
             flowSheetCustomizationDao.persist(cust);
 
@@ -448,7 +448,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
         cust.setDemographicNo(ctx.demographicNo);
 
         flowSheetCustomizationDao.persist(cust);
-        logger.debug("HIDE {}", LogSanitizer.sanitize(String.valueOf(cust)));
+        logger.debug("HIDE {}", LogSanitizer.sanitizeObject(cust));
 
         setResponseAttributes(ctx);
         return SUCCESS;
@@ -561,7 +561,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
             cust.setArchivedDate(new Date());
             flowSheetCustomizationDao.merge(cust);
         }
-        logger.debug("archiveMod {}", LogSanitizer.sanitize(String.valueOf(cust)));
+        logger.debug("archiveMod {}", LogSanitizer.sanitizeObject(cust));
 
         request.setAttribute("demographic", demographicNo);
         request.setAttribute("flowsheet", flowsheet);

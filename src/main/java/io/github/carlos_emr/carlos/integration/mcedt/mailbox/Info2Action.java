@@ -198,7 +198,8 @@ public class Info2Action extends ActionSupport {
         String currStatus = this.getStatus();
         if (prvStatus.equalsIgnoreCase(currStatus)) {
             this.setPageNo(1);
-            request.getSession().setAttribute("resourceStatus", currStatus); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
+            // nosemgrep: tainted-session-from-http-request -- currStatus from Struts @StrutsParameter, validated via getStatusAsResourceStatus() enum match in caller; only stored when matching previous session value
+            request.getSession().setAttribute("resourceStatus", currStatus);
         }
 
         List<DetailDataCustom> resourceList = getResourceList(request);

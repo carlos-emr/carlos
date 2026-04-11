@@ -46,13 +46,13 @@ public class ArchiveView2Action extends ActionSupport {
         if ("cmm".equals(request.getParameter("method"))) {
             return cmm();
         }
-        // nosemgrep: tainted-session-from-http-request — value is hardcoded literal "true", not user input
+        // nosemgrep: tainted-session-from-http-request -- value is hardcoded literal "true", not user input
         request.getSession(true).setAttribute("archiveView", "true");
         return "view";
     }
 
     public String cmm() {
-        // nosemgrep: tainted-session-from-http-request — value is hardcoded literal "false", not user input
+        // nosemgrep: tainted-session-from-http-request -- value is hardcoded literal "false", not user input
         request.getSession(true).setAttribute("archiveView", "false");
         return "view";
     }

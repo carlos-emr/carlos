@@ -62,7 +62,7 @@ public class FrmGraphicFactory {
         }
         FrmPdfGraphic pdfGraph = null;
         try {
-            Class<? extends FrmPdfGraphic> classDefinition = Class.forName(name) // nosemgrep: unsafe-reflection — name is validated against ALLOWED_GRAPHIC_CLASSES whitelist above
+            Class<? extends FrmPdfGraphic> classDefinition = Class.forName(name) // nosemgrep: unsafe-reflection -- name is validated against ALLOWED_GRAPHIC_CLASSES whitelist above
                     .asSubclass(FrmPdfGraphic.class);
             pdfGraph = classDefinition.getDeclaredConstructor().newInstance();
         } catch (ReflectiveOperationException e) {

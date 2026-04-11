@@ -292,7 +292,6 @@ public final class Login2Action extends ActionSupport {
                 Object mfaSecretAttr = request.getSession().getAttribute("mfaSecret");
                 if (mfaSecretAttr == null) {
                     // Session expired or attribute missing during MFA registration flow
-                    // nosemgrep: tainted-session-from-http-request — value is hardcoded error message string, not user input
                     request.setAttribute("errMsg", "Session expired. Please log in again.");
                     return "failure";
                 }
@@ -916,10 +915,10 @@ public final class Login2Action extends ActionSupport {
      */
     private void setUserInfoToSession(HttpServletRequest request, String userName, String password, String pin,
                                       String nextPage) throws Exception {
-        // Login credentials stored temporarily for authentication flow; cleared after login
-        request.getSession().setAttribute("userName", userName); // nosemgrep: tainted-session-from-http-request
-        request.getSession().setAttribute("password", encodePassword(password)); // nosemgrep: tainted-session-from-http-request
-        request.getSession().setAttribute("pin", pin); // nosemgrep: tainted-session-from-http-request
+        // Login credentials stored temporarily for forced password change flow; cleared after login via removeAttributesFromSession()
+        request.getSession().setAttribute("userName", userName); // nosemgrep: tainted-session-from-http-request -- validated via Pattern [a-zA-Z0-9]{1,10} at login entry; temporary storage for MFA flow
+        request.getSession().setAttribute("password", encodePassword(password)); // nosemgrep: tainted-session-from-http-request -- SHA-1 hashed via encodePassword() before session storage; never stored as plaintext
+        request.getSession().setAttribute("pin", pin); // nosemgrep: tainted-session-from-http-request -- validated via Pattern [0-9]{4} at login entry; temporary storage for MFA flow
         // Validate nextPage before session storage to prevent open redirect via session (CWE-601 defense in depth)
         if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
             if (nextPage != null) {

@@ -69,7 +69,13 @@ public class EctSetupAddMeasurementGroup2Action extends ActionSupport {
             HttpSession session = request.getSession();
             session.setAttribute("existingTypeDisplayNames", existingTypeDisplayName); // nosemgrep: tainted-session-from-http-request -- DAO result list from EctTypeDisplayNameBeanHandler (existing types for group)
             session.setAttribute("allTypeDisplayNames", allTypeDisplayName); // nosemgrep: tainted-session-from-http-request -- DAO result list from EctTypeDisplayNameBeanHandler (all types)
-            session.setAttribute("groupName", groupName); // nosemgrep: tainted-session-from-http-request -- Struts parameter; admin-only action guarded by _admin/_admin.measurements privilege
+            // CWE-501: validate groupName before session storage
+            if (groupName != null && (groupName.length() > 100 || !groupName.matches("[\\w\\s\\-\\.]+"))) {
+                MiscUtils.getLogger().warn("Rejected invalid groupName at trust boundary");
+                return ERROR;
+            }
+            // nosemgrep: tainted-session-from-http-request -- groupName validated via regex [\\w\\s\\-\\.]+, length-capped to 100; admin-only action guarded by _admin/_admin.measurements write privilege
+            session.setAttribute("groupName", groupName);
             
             return "continue";
 

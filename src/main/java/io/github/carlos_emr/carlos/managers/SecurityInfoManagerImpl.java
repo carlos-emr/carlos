@@ -141,7 +141,7 @@ public class SecurityInfoManagerImpl implements SecurityInfoManager {
             if (!noMatchingRoleToSpecificPatient && OscarRoleObjectPrivilege.checkPrivilege(roleNames,
                     (Properties) v.get(0), (List<String>) v.get(1), (List<String>) v.get(2), NORIGHTS)) {
                 HttpSession returnSession = loggedInInfo.getSession();
-                // nosemgrep: tainted-session-from-http-request — value is hardcoded boolean true, not user input
+                // nosemgrep: tainted-session-from-http-request -- value is hardcoded boolean true, not user input
                 returnSession.setAttribute("accountLocked", true);
                 loggedInInfo.setSession(returnSession);
             } else if (OscarRoleObjectPrivilege.checkPrivilege(roleNames, (Properties) v.get(0),

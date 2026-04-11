@@ -129,7 +129,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
         String method = request.getParameter("method");
 
-        log.debug("Creating graph for demo {} type1: {} type2: {}", LogSanitizer.sanitize(String.valueOf(demographicNo)), LogSanitizer.sanitize(String.valueOf(typeIdName)), LogSanitizer.sanitize(String.valueOf(typeIdName2)));
+        log.debug("Creating graph for demo {} type1: {} type2: {}", LogSanitizer.sanitizeObject(demographicNo), LogSanitizer.sanitize(typeIdName), LogSanitizer.sanitize(typeIdName2));
         JFreeChart chart = null;
         if (method == null) {
             log.debug("Calling DefaultChart");

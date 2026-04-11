@@ -72,7 +72,7 @@ public abstract class SecurityTokenManager {
                 return null;
             }
             try {
-                instance = (SecurityTokenManager) Class.forName(managerName) // nosemgrep: unsafe-reflection — managerName is validated against ALLOWED_PACKAGE_PREFIX above
+                instance = (SecurityTokenManager) Class.forName(managerName) // nosemgrep: unsafe-reflection -- managerName is validated against ALLOWED_PACKAGE_PREFIX above
                         .getDeclaredConstructor().newInstance();
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Unable to load token manager: {}",

@@ -47,6 +47,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Set;
+import java.util.regex.Pattern;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 
@@ -67,6 +69,14 @@ public class EctDisplayAction extends ActionSupport {
     protected static final int CROP_LEN_TITLE = 45;
     protected static final int MAX_LEN_KEY = 12;
     protected static final int CROP_LEN_KEY = 9;
+
+    // CWE-501 trust boundary validation patterns
+    private static final Pattern SAFE_STATUS = Pattern.compile("[a-zA-Z]{1,2}");
+    private static final Pattern SAFE_DATE = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
+    private static final Pattern SAFE_TIME = Pattern.compile("[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?");
+    // Any character except ASCII control chars (allows Unicode for bilingual Canadian EMR)
+    private static final Pattern SAFE_TEXT = Pattern.compile("[^\\p{Cntrl}]*");
+    private static final Set<String> VALID_SOURCES = Set.of("encounter", "messenger");
 
     private boolean enabled;
 
@@ -155,25 +165,45 @@ public class EctDisplayAction extends ActionSupport {
             }
             bean.appointmentNo = apptNoParam;
             bean.curProviderNo = request.getParameter("curProviderNo");
-            bean.reason = request.getParameter("reason");
-            bean.encType = request.getParameter("encType");
+            if (bean.curProviderNo != null && !bean.curProviderNo.isEmpty() && !bean.curProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
+                logger.warn("Invalid curProviderNo: {}", LogSanitizer.sanitize(bean.curProviderNo));
+                return "error";
+            }
+            // Fall back to authenticated provider — the logged-in user IS the provider unless viewing another provider's schedule
+            if (bean.curProviderNo == null || bean.curProviderNo.trim().isEmpty()) {
+                bean.curProviderNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProvider().getProviderNo();
+            }
+            // CWE-501 trust boundary: validate structured fields, sanitize free-text
+            String reasonParam = request.getParameter("reason");
+            bean.reason = (reasonParam != null && SAFE_TEXT.matcher(reasonParam).matches() && reasonParam.length() <= 255) ? reasonParam : null;
+            String encTypeParam = request.getParameter("encType");
+            bean.encType = (encTypeParam != null && encTypeParam.matches("[a-zA-Z0-9_ ]{1,50}")) ? encTypeParam : null;
             bean.userName = request.getParameter("userName");
             if (bean.userName == null) {
                 bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " " + ((String) request.getSession().getAttribute("userlastname"));
+            } else if (!SAFE_TEXT.matcher(bean.userName).matches() || bean.userName.length() > 100) {
+                bean.userName = null;
             }
 
-            bean.appointmentDate = request.getParameter("appointmentDate");
-            bean.startTime = request.getParameter("startTime");
-            bean.status = request.getParameter("status");
-            bean.date = request.getParameter("date");
+            String apptDateParam = request.getParameter("appointmentDate");
+            bean.appointmentDate = (apptDateParam != null && SAFE_DATE.matcher(apptDateParam).matches()) ? apptDateParam : null;
+            String startTimeParam = request.getParameter("startTime");
+            bean.startTime = (startTimeParam != null && SAFE_TIME.matcher(startTimeParam).matches()) ? startTimeParam : null;
+            String statusParam = request.getParameter("status");
+            bean.status = (statusParam != null && SAFE_STATUS.matcher(statusParam).matches()) ? statusParam : null;
+            String dateParam = request.getParameter("date");
+            bean.date = (dateParam != null && SAFE_DATE.matcher(dateParam).matches()) ? dateParam : null;
             bean.check = "myCheck";
             bean.oscarMsgID = request.getParameter("msgId");
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
-            // demographicNo and appointmentNo validated as numeric; other bean fields (reason, encType, userName, etc.) are unsanitized request params — consuming JSPs MUST use OWASP encoding when rendering
-            request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request
-            request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request
-            if (request.getParameter("source") != null) {
-                bean.source = request.getParameter("source");
+            // nosemgrep: tainted-session-from-http-request -- demographicNo/appointmentNo validated numeric;
+            // status validated [a-zA-Z]{1,2}; dates validated YYYY-MM-DD; time validated HH:MM; encType validated alphanumeric;
+            // reason/userName sanitized for control chars and length-capped; eChartId is server-generated
+            request.getSession().setAttribute("EctSessionBean", bean);
+            request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request -- server-generated ID from EctSessionBean.setUpEncounterPage()
+            String sourceParam = request.getParameter("source");
+            if (sourceParam != null) {
+                bean.source = VALID_SOURCES.contains(sourceParam) ? sourceParam : null;
             }
 
             request.setAttribute("EctSessionBean", bean);

@@ -44,9 +44,12 @@ import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupStyleDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementGroup;
 import io.github.carlos_emr.carlos.commn.model.MeasurementGroupStyle;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.MeasurementManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctStyleSheetBeanHandler;
 
@@ -58,19 +61,26 @@ public class EctSelectMeasurementGroup2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private MeasurementGroupStyleDao styleDao = SpringUtils.getBean(MeasurementGroupStyleDao.class);
     private MeasurementGroupDao groupDao = SpringUtils.getBean(MeasurementGroupDao.class);
     private MeasurementManager measurementManager = SpringUtils.getBean(MeasurementManager.class);
 
     public String execute() throws ServletException, IOException {
         String groupName = this.getSelectedGroupName();
-        //String forward = frm.getForward();
+
+        // CWE-501: validate groupName at trust boundary — reject control chars and excessive length
+        if (groupName == null || groupName.isEmpty() || groupName.length() > 100
+                || !groupName.matches("[\\w\\s\\-\\.]+")) {
+            MiscUtils.getLogger().warn("Rejected invalid measurement group name: {}", LogSanitizer.sanitize(groupName));
+            return ERROR;
+        }
 
         MiscUtils.getLogger().debug("The forward message is: " + forward);
 
         HttpSession session = request.getSession();
-        session.setAttribute("groupName", groupName); // nosemgrep: tainted-session-from-http-request -- Struts parameter (selectedGroupName); used as display key for measurement group navigation
+        // nosemgrep: tainted-session-from-http-request -- groupName validated via regex [\\w\\s\\-\\.]+, length-capped to 100
+        session.setAttribute("groupName", groupName);
 
         if (forward.compareTo("style") == 0) {
             //get the current style
@@ -83,6 +93,11 @@ public class EctSelectMeasurementGroup2Action extends ActionSupport {
             request.setAttribute("groupName", groupName);
             return "style";
         } else if (forward.compareTo("delete") == 0) {
+            // Delete is a write operation — require admin privilege (matches EctAddMeasurementGroup2Action pattern)
+            if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)
+                    && !securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
+                throw new SecurityException("missing required sec object (_admin.measurements)");
+            }
             deleteGroup(groupName);
             return "delete";
         }

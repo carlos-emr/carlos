@@ -38,7 +38,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListItemsHandler;
@@ -64,14 +66,22 @@ public class dxResearchLoadQuickListItems2Action extends ActionSupport {
         //request.getSession().setAttribute("dxResearchLoadQuickListItemsFrm", frm);
         String quickListName = getQuickListName();
 
+        // CWE-501: validate quickListName at trust boundary — reject control chars and excessive length
+        if (quickListName == null || quickListName.isEmpty() || quickListName.length() > 100
+                || !quickListName.matches("[\\w\\s\\-\\.]+")) {
+            MiscUtils.getLogger().warn("Rejected invalid quickListName: {}", LogSanitizer.sanitize(quickListName));
+            return ERROR;
+        }
+
         dxResearchCodingSystem codingSys = new dxResearchCodingSystem();
 
         dxQuickListItemsHandler quicklistItemsHd = new dxQuickListItemsHandler(quickListName);
 
         HttpSession session = request.getSession();
         session.setAttribute("codingSystem", codingSys); // nosemgrep: tainted-session-from-http-request -- new dxResearchCodingSystem reference object, no user input
-        session.setAttribute("allQuickListItems", quicklistItemsHd); // nosemgrep: tainted-session-from-http-request -- DAO-sourced quick list items loaded by dxQuickListItemsHandler
-        session.setAttribute("quickListName", quickListName); // nosemgrep: tainted-session-from-http-request -- quickListName from Struts parameter used as DAO lookup key; output-encoded at render time
+        session.setAttribute("allQuickListItems", quicklistItemsHd); // nosemgrep: tainted-session-from-http-request -- DAO-sourced quick list items loaded by dxQuickListItemsHandler using validated quickListName
+        // nosemgrep: tainted-session-from-http-request -- quickListName validated via regex [\\w\\s\\-\\.]+, length-capped to 100; action guarded by _dxresearch read privilege
+        session.setAttribute("quickListName", quickListName);
 
         return SUCCESS;
     }

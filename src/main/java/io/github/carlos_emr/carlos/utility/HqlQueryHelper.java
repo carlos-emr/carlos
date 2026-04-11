@@ -74,7 +74,7 @@ public final class HqlQueryHelper {
     public static List<?> find(Session session, String hql, Object... params) {
         Objects.requireNonNull(session, "Hibernate session must not be null — is there an active @Transactional?");
         try {
-            // nosemgrep: hibernate-sqli — hql is parameterized via bindPositionalParams below; this utility IS the parameterization layer
+            // nosemgrep: hibernate-sqli -- hql is parameterized via bindPositionalParams below; this utility IS the parameterization layer
             Query<?> query = session.createQuery(hql);
             bindPositionalParams(query, params);
             return query.getResultList();
@@ -100,7 +100,7 @@ public final class HqlQueryHelper {
     public static List<?> findWithLimit(Session session, String hql, int maxResults, Object... params) {
         Objects.requireNonNull(session, "Hibernate session must not be null — is there an active @Transactional?");
         try {
-            // nosemgrep: hibernate-sqli — hql is parameterized via bindPositionalParams below; this utility IS the parameterization layer
+            // nosemgrep: hibernate-sqli -- hql is parameterized via bindPositionalParams below; this utility IS the parameterization layer
             Query<?> query = session.createQuery(hql);
             bindPositionalParams(query, params);
             if (maxResults >= 0) {
@@ -128,7 +128,7 @@ public final class HqlQueryHelper {
     public static List<?> find(Session session, String hql, Map<String, Object> namedParams) {
         Objects.requireNonNull(session, "Hibernate session must not be null — is there an active @Transactional?");
         try {
-            // nosemgrep: hibernate-sqli — hql is parameterized via bindNamedParams below; this utility IS the parameterization layer
+            // nosemgrep: hibernate-sqli -- hql is parameterized via bindNamedParams below; this utility IS the parameterization layer
             Query<?> query = session.createQuery(hql);
             bindNamedParams(query, namedParams);
             return query.getResultList();
@@ -153,7 +153,7 @@ public final class HqlQueryHelper {
     public static List<?> findWithLimit(Session session, String hql, int maxResults, Map<String, Object> namedParams) {
         Objects.requireNonNull(session, "Hibernate session must not be null — is there an active @Transactional?");
         try {
-            // nosemgrep: hibernate-sqli — hql is parameterized via bindNamedParams below; this utility IS the parameterization layer
+            // nosemgrep: hibernate-sqli -- hql is parameterized via bindNamedParams below; this utility IS the parameterization layer
             Query<?> query = session.createQuery(hql);
             bindNamedParams(query, namedParams);
             if (maxResults >= 0) {
@@ -205,7 +205,7 @@ public final class HqlQueryHelper {
     public static int bulkUpdate(Session session, String hql, Object... params) {
         Objects.requireNonNull(session, "Hibernate session must not be null — is there an active @Transactional?");
         try {
-            // nosemgrep: hibernate-sqli — hql is parameterized via bindPositionalParams below; this utility IS the parameterization layer
+            // nosemgrep: hibernate-sqli -- hql is parameterized via bindPositionalParams below; this utility IS the parameterization layer
             Query<?> query = session.createQuery(hql);
             bindPositionalParams(query, params);
             return query.executeUpdate();
@@ -232,7 +232,7 @@ public final class HqlQueryHelper {
     public static List<?> findWithPagination(Session session, String hql, int firstResult, int maxResults, Map<String, Object> namedParams) {
         Objects.requireNonNull(session, "Hibernate session must not be null — is there an active @Transactional?");
         try {
-            // nosemgrep: hibernate-sqli — hql is parameterized via bindNamedParams below; this utility IS the parameterization layer
+            // nosemgrep: hibernate-sqli -- hql is parameterized via bindNamedParams below; this utility IS the parameterization layer
             Query<?> query = session.createQuery(hql);
             bindNamedParams(query, namedParams);
             if (firstResult >= 0) {

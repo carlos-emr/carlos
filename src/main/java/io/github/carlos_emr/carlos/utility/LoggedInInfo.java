@@ -96,7 +96,7 @@ public final class LoggedInInfo implements Serializable {
      */
     public static void setLoggedInInfoIntoSession(HttpSession session, LoggedInInfo loggedInInfo) {
 
-        // nosemgrep: tainted-session-from-http-request — loggedInInfo is an internally constructed LoggedInInfo object, not user input
+        // nosemgrep: tainted-session-from-http-request -- loggedInInfo is an internally constructed LoggedInInfo object, not user input
         session.setAttribute(new LoggedInInfo().LOGGED_IN_INFO_KEY, loggedInInfo);
     }
 

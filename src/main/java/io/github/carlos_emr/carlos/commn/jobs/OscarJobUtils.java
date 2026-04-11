@@ -71,7 +71,7 @@ public class OscarJobUtils {
         }
 
         try {
-            Class<?> clazz = Class.forName(className); // nosemgrep: unsafe-reflection — className is validated against ALLOWED_JOB_PACKAGE_PREFIX above
+            Class<?> clazz = Class.forName(className); // nosemgrep: unsafe-reflection -- className is validated against ALLOWED_JOB_PACKAGE_PREFIX above
             for (Class<?> i : clazz.getInterfaces()) {
                 if (i.getName().equals("io.github.carlos_emr.carlos.commn.jobs.OscarRunnable")) {
                     return true;
@@ -145,7 +145,7 @@ public class OscarJobUtils {
             throw new SecurityException("Job class outside allowed package: "
                     + LogSanitizer.sanitize(jobClassName));
         }
-        OscarRunnable oscarRunnableInstance = Class.forName(jobClassName) // nosemgrep: unsafe-reflection — jobClassName is validated against ALLOWED_JOB_PACKAGE_PREFIX above
+        OscarRunnable oscarRunnableInstance = Class.forName(jobClassName) // nosemgrep: unsafe-reflection -- jobClassName is validated against ALLOWED_JOB_PACKAGE_PREFIX above
                 .asSubclass(OscarRunnable.class)
                 .getDeclaredConstructor()
                 .newInstance();
