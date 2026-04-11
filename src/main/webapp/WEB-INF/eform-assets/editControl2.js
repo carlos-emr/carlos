@@ -124,6 +124,25 @@ var cfg_sstyle = 'vertical-align: top; height:24px;';//the CSS of the option sel
 var cfg_sepstyle = 'width:6px;height:24px;border: solid 2px #ccccff; background-color: #ccccff;';	//the CSS of the seperator icon
 
 
+/**
+ * Sanitizes HTML using DOMPurify when available. Returns null when DOMPurify
+ * is not loaded, signaling the caller to use a safe fallback (e.g., textContent).
+ * Centralizes the sanitization policy so every innerHTML sink goes through one gate.
+ *
+ * @param {string} html - Raw HTML string to sanitize
+ * @param {Object} [config] - Optional DOMPurify configuration (e.g., ALLOWED_TAGS)
+ * @returns {string|null} Sanitized HTML string, or null if DOMPurify is unavailable
+ */
+function sanitizeHtml(html, config) {
+	if (typeof DOMPurify !== 'undefined') {
+		return DOMPurify.sanitize(html, config);
+	}
+	if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+		console.warn('editControl2: DOMPurify not loaded — caller should use safe fallback to prevent XSS.');
+	}
+	return null;
+}
+
 function insertEditControl() {
 	// The main initialising function which writes the edit control as per passed variables
 	// ...OR... if it fails, degrades nicely by supplying a text area with the same ID (cfg_editorname)
@@ -297,15 +316,26 @@ function seteditControlContents(editorname, value){
 
 	// Converting image paths with template style tag to URL format using 'cfg_isrc' using imageControl library.
 	value = jQuery().convertImagePaths(value, cfg_isrc);
-	
-    if (document.designMode) {
-		if (isIE()){
-		    window[editorname].document.body.innerHTML = value; //if browser supports M$ conventions
-		    return
+
+	// Sanitize HTML via centralized helper; null means DOMPurify unavailable → fail closed with textContent.
+	var sanitized = sanitizeHtml(value);
+
+	// Get the editor iframe's document — designMode is set on the iframe, not the top-level document
+	var editorDoc;
+	if (isIE()) {
+		editorDoc = window[editorname] ? window[editorname].document : null;
+	} else {
+		var editorIframe = document.getElementById(editorname);
+		editorDoc = editorIframe && editorIframe.contentWindow ? editorIframe.contentWindow.document : null;
+	}
+
+	if (editorDoc && editorDoc.designMode === 'on') {
+		if (sanitized !== null) {
+		    editorDoc.body.innerHTML = sanitized; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
 		} else {
-		    document.getElementById(editorname).contentWindow.document.body.innerHTML = value;
-		    return
+		    editorDoc.body.textContent = value;
 		}
+		return
 	} else {
 		// play nice and at least set the value to the <textarea> if document.designMode does not exist
 		document.getElementById(cfg_editorname).value = value;
@@ -469,8 +499,17 @@ function doHtml(value) {
 		sel.removeAllRanges();
 		sel.addRange(range);
 	} else {
-		// No selection/cursor — append to end of document body
-		editorDoc.body.innerHTML += value;
+		// No selection/cursor — append to end of document body.
+		// Sanitize via centralized helper; null means DOMPurify unavailable → fail closed with textContent.
+		var safeValue = sanitizeHtml(value);
+		if (safeValue !== null) {
+			var appendRange = editorDoc.createRange();
+			appendRange.selectNodeContents(editorDoc.body);
+			var appendFrag = appendRange.createContextualFragment(safeValue);
+			editorDoc.body.appendChild(appendFrag);
+		} else {
+			editorDoc.body.appendChild(editorDoc.createTextNode(value));
+		}
 	}
 	// Return focus to the editor iframe so the user can continue typing
 	// immediately after a sidebar button inserts content
@@ -595,22 +634,25 @@ function viewsource(source) {
 		document.getElementById("control3").style.visibility="hidden";
 		document.getElementById("control4").style.visibility="hidden";
 	} else {
-		var editorBody = document.getElementById(cfg_editorname).contentWindow.document.body;
-		// Read the raw HTML source text from the source-view editor using textContent
-		var sourceText = editorBody.textContent;
-		var convertedHTML = jQuery().convertImagePaths(sourceText);
-		// Use DOMParser + importNode to populate the editor body via safe DOM APIs,
-		// avoiding direct assignment of DOM-sourced text to innerHTML (prevents xss-through-dom)
+		// Read the raw HTML source text that was being edited in source view
+		var sourceText = document.getElementById(cfg_editorname).contentWindow.document.body.textContent;
+		var convertedHtml = jQuery().convertImagePaths(sourceText);
+		// Sanitize before parsing — DOMParser preserves inline event handlers (onerror, onclick)
+		// and javascript: URLs; DOMPurify removes them. Falls back to unsanitized if DOMPurify
+		// is unavailable, which still avoids the original Range.toString() → innerHTML taint path.
+		var sanitizedHtml = sanitizeHtml(convertedHtml);
+		var htmlToParse = sanitizedHtml !== null ? sanitizedHtml : convertedHtml;
+		// Use DOMParser to reconstruct the DOM from the source view HTML, preventing
+		// DOM text from being reinterpreted as HTML without going through a parser context
 		var parser = new DOMParser();
-		var parsedDoc = parser.parseFromString(convertedHTML, 'text/html');
-		while (editorBody.firstChild) {
-			editorBody.removeChild(editorBody.firstChild);
-		}
-		var docFrag = editorBody.ownerDocument.createDocumentFragment();
-		while (parsedDoc.body.firstChild) {
-			docFrag.appendChild(editorBody.ownerDocument.importNode(parsedDoc.body.firstChild, true));
-		}
-		editorBody.appendChild(docFrag);
+		var parsedDoc = parser.parseFromString('<!DOCTYPE html><html><body>' + htmlToParse + '</body></html>', 'text/html');
+		var editorBody = document.getElementById(cfg_editorname).contentWindow.document.body;
+		editorBody.textContent = '';
+		var fragment = document.getElementById(cfg_editorname).contentWindow.document.createDocumentFragment();
+		Array.prototype.forEach.call(parsedDoc.body.childNodes, function (node) {
+			fragment.appendChild(editorBody.ownerDocument.importNode(node, true));
+		});
+		editorBody.appendChild(fragment);
 		document.getElementById("control1").style.visibility="visible";
 		document.getElementById("control2").style.visibility="visible";
 		document.getElementById("control3").style.visibility="visible";
@@ -964,7 +1006,22 @@ function submitFaxButton() {
 			$.ajax({
 				url : "efmformrtl_templates.jsp",
 				success : function(data) {
-					$("#template").html(data);
+					var cleanData = sanitizeHtml(data, {ALLOWED_TAGS: ['option'], ALLOWED_ATTR: ['value', 'selected']});
+					if (cleanData !== null) {
+						$("#template").html(cleanData);
+					} else {
+						// DOMPurify not available — fallback safely constructs <option> elements
+						var parser = new DOMParser();
+						var doc = parser.parseFromString(data, 'text/html');
+						var templateSelect = $("#template").empty();
+						doc.querySelectorAll('option').forEach(function(opt) {
+							var safeOpt = document.createElement('option');
+							safeOpt.value = opt.value;
+							safeOpt.textContent = opt.textContent;
+							if (opt.selected) safeOpt.selected = true;
+							templateSelect.append(safeOpt);
+						});
+					}
 					loadDefaultTemplate();
 				},
 				error : function(xhr, status, error) {
@@ -1231,7 +1288,7 @@ function collapseFooter() {
          */
         function consultantSearch(term) {
             if (term.length < 2) {
-                document.getElementById('tempBin').innerHTML = "You must enter at least 2 characters of a patients name!";
+                document.getElementById('tempBin').textContent = "You must enter at least 2 characters of a patient's name!";
                 return false;
             }
 
@@ -1332,7 +1389,7 @@ function collapseFooter() {
                 document.getElementById("tempBin").style.display = 'block';
             } else if (a === 0 && searchDropDownFlag === false) {
                 document.getElementById("tempBin").style.display = 'none';
-                document.getElementById("tempBin").innerHTML = "You must enter at least 2 characters of a patients name!";
+                document.getElementById("tempBin").textContent = "You must enter at least 2 characters of a patient's name!";
             }
         }
 
