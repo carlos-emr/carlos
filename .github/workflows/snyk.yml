@@ -5,6 +5,12 @@ on:
   pull_request:
     branches: [develop]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   snyk-dependencies:
     name: Dependency Vulnerabilities (SCA)
@@ -20,6 +26,7 @@ jobs:
         uses: snyk/actions/maven-3-jdk-21@v1
         continue-on-error: true
         env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           args: --sarif-file-output=snyk-sca.sarif
@@ -43,6 +50,7 @@ jobs:
         uses: snyk/actions/maven-3-jdk-21@v1
         continue-on-error: true
         env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           command: code test

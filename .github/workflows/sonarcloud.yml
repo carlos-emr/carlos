@@ -36,6 +36,11 @@ on:
       - develop
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ${{ github.repository_owner }}
 
@@ -68,6 +73,7 @@ jobs:
         id: pull-image
         continue-on-error: true
         env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev:latest
         run: |
           echo "Attempting to pull pre-built image from $IMAGE..."
@@ -154,6 +160,7 @@ jobs:
       - name: Build and analyze (Push to develop)
         if: github.event_name == 'push'
         env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
@@ -174,6 +181,7 @@ jobs:
       - name: Build and analyze (Pull Request)
         if: github.event_name == 'pull_request'
         env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}

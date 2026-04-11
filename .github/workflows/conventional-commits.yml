@@ -31,6 +31,12 @@ on:
       - community/*/develop
       - community/*/staging/*
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   conventional-commits:
     name: Commit Message Format
@@ -45,6 +51,7 @@ jobs:
 
       - name: Check commit message format
         env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
