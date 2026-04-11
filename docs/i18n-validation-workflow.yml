@@ -9,7 +9,7 @@
 # What this workflow checks:
 #   1. All locale files (es, fr, pl, pt_BR) have all English keys (no missing translations)
 #   2. No locale file has orphaned keys absent from English
-#   3. All .properties files are ISO 8859-1 compliant (no raw non-ASCII bytes)
+#   3. All .properties files are ISO 8859-1 compliant (no raw non-ASCII bytes) or UTF-8
 #   4. Any JSP using fmt:message has a fmt:setBundle declaration
 
 name: i18n Validation
@@ -95,7 +95,8 @@ jobs:
             escaped_key=$(printf '%s' "$key" | sed 's/[.[\^$*+?{}|()/\\]/\\&/g')
             for locale in $LOCALES; do
               locale_file="${RESOURCES}/oscarResources_${locale}.properties"
-              if ! grep -qE "^[[:space:]]*${escaped_key}[[:space:]]*[=:]" "$locale_file"; then
+              if ! sed -E '/^[[:space:]]*[#!]/d;/^[[:space:]]*$/d;/^[[:space:]]/d;s/[[:space:]]*[=:[:space:]].*$//;s/[[:space:]]*$//' "$locale_file" \
+                 | grep -Fqx "$key"; then
                 echo "MISSING: key '$key' not found in ${locale_file}"
                 FAILED=true
               fi
