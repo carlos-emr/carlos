@@ -86,37 +86,13 @@
             }
         };
 
-        String appointmentNo = request.getParameter("appointment_no");
-        if (appointmentNo != null && !appointmentNo.matches("\\d+")) {
-            appointmentNo = null;
-        }
-
         String formId = request.getParameter("formId");
         if (formId != null && !formId.matches("\\d+")) {
-            formId = null;
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return;
         }
 
-        StringBuilder safeForwardQuery = new StringBuilder();
-        if (demoNo != null) {
-            safeForwardQuery.append("demographic_no=")
-                .append(URLEncoder.encode(demoNo, "UTF-8"));
-        }
-        if (appointmentNo != null) {
-            if (safeForwardQuery.length() > 0) {
-                safeForwardQuery.append("&");
-            }
-            safeForwardQuery.append("appointment_no=")
-                .append(URLEncoder.encode(appointmentNo, "UTF-8"));
-        }
-        if (formId != null) {
-            if (safeForwardQuery.length() > 0) {
-                safeForwardQuery.append("&");
-            }
-            safeForwardQuery.append("formId=")
-                .append(URLEncoder.encode(formId, "UTF-8"));
-        }
-
-        String[] formPath = (new FrmData()).getShortcutFormValue(demoNo, strFrm); // deepcode ignore SqlInjection: demoNo validated as numeric; table name in FrmData validated by regex
+        String[] formPath = (new FrmData()).getShortcutFormValue(demoNo, strFrm); // deepcode ignore SqlInjection: demoNo validated as digits-only (line 56); formName used in parameterized DAO query; table name in FrmData validated by regex
         formPath[0] = formPath[0].trim();
 
         // Normalize the deprecated "../" prefix used in older DB entries
@@ -158,11 +134,15 @@
         }
 
         String appointmentNo = request.getParameter("appointmentNo");
+        if (appointmentNo != null && !appointmentNo.matches("\\d+")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return;
+        }
 
         String nextPage = formPath[0] +
-                request.getParameter("demographic_no") +
+                demoNo +
                 ((appointmentNo != null) ? "&appointmentNo=" + appointmentNo : "") +
-                ((request.getParameter("formId") != null) ? "&formId=" + request.getParameter("formId") : "&formId=" + formPath[1]);
+                ((formId != null) ? "&formId=" + formId : "&formId=" + formPath[1]);
         MiscUtils.getLogger().info("Forwarding to page : {}", LogSanitizer.sanitize(nextPage));
         request.getRequestDispatcher(nextPage).include(request, response);
         return;
