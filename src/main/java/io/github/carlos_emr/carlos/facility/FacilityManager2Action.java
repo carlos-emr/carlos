@@ -123,7 +123,7 @@ public class FacilityManager2Action extends ActionSupport {
 
         // if we just updated our current facility, refresh local cached data in the session / thread local variable
         if (loggedInInfo.getCurrentFacility().getId().intValue() == facility.getId().intValue()) {
-            // nosemgrep: tainted-session-from-http-request -- facility fields from admin form, persisted/merged to DB above; admin-only save() action
+            // nosemgrep: tainted-session-from-http-request -- facility fields from admin form, persisted/merged to DB above; admin-restricted via Struts URL mapping
             request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility);
             loggedInInfo.setCurrentFacility(facility);
         }

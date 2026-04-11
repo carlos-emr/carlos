@@ -113,7 +113,7 @@ public class FrmRourke2006Record extends FrmRecord {
         ResultSet rs;
         String str = "M";
         try {
-            rs = DBHandler.GetSQL("select sex from demographic where demographic_no = " + demo);
+            rs = DBHandler.GetPreSQL("select sex from demographic where demographic_no = ?", demo);
             if (rs.next()) {
                 str = Misc.getString(rs, "sex");
                 if (str.equalsIgnoreCase("F")) {

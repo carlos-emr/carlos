@@ -65,10 +65,10 @@ public class EctAddMeasurementGroup2Action extends ActionSupport {
 
             String groupName = this.getGroupName();
             // CWE-501: validate groupName BEFORE any use or session storage
-            if (groupName != null && (groupName.length() > 100 || !groupName.matches("[\\w\\s\\-\\.]+"))) {
+            if (groupName != null && (groupName.length() > 100 || !groupName.matches("[^\\p{Cntrl}]+"))) {
                 throw new SecurityException("Invalid measurement group name");
             }
-            // nosemgrep: tainted-session-from-http-request -- groupName validated via regex [\\w\\s\\-\\.]+, length-capped to 100; admin-only action guarded by _admin/_admin.measurements write privilege
+            // nosemgrep: tainted-session-from-http-request -- groupName validated via regex [^\\p{Cntrl}]+, length-capped to 100; admin-only action guarded by _admin/_admin.measurements write privilege
             request.getSession().setAttribute("groupName", groupName);
 
             String requestId = "";

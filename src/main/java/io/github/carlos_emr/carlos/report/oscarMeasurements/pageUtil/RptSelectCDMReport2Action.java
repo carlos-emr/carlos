@@ -64,7 +64,7 @@ public final class RptSelectCDMReport2Action extends ActionSupport {
         String CDMgroup = (String) this.getValue("CDMgroup");
 
         // CWE-501: validate CDMgroup at trust boundary -- reject control chars and excessive length
-        if (CDMgroup != null && (CDMgroup.length() > 100 || !CDMgroup.matches("[\\w\\s\\-\\.]+"))) {
+        if (CDMgroup != null && (CDMgroup.length() > 100 || !CDMgroup.matches("[^\\p{Cntrl}]+"))) {
             throw new SecurityException("Invalid CDM group name");
         }
 
@@ -87,7 +87,7 @@ public final class RptSelectCDMReport2Action extends ActionSupport {
         String lastYear = now.get(Calendar.YEAR) - 1 + "-" + (now.get(Calendar.MONTH) + 1) + "-" + now.get(Calendar.DATE);
 
         session.setAttribute("measurementTypes", hd); // nosemgrep: tainted-session-from-http-request -- DAO-sourced measurement types handler
-        // nosemgrep: tainted-session-from-http-request -- CDMgroup validated via regex [\\w\\s\\-\\.]+, length-capped to 100; action guarded by _report read privilege
+        // nosemgrep: tainted-session-from-http-request -- CDMgroup validated via regex [^\\p{Cntrl}]+, length-capped to 100; action guarded by _report read privilege
         session.setAttribute("CDMGroup", CDMgroup);
         session.setAttribute("today", today); // nosemgrep: tainted-session-from-http-request -- server-generated date string from GregorianCalendar
         session.setAttribute("lastYear", lastYear); // nosemgrep: tainted-session-from-http-request -- server-generated date string from GregorianCalendar

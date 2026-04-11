@@ -70,14 +70,28 @@ public class EctSelectMeasurementGroup2Action extends ActionSupport {
 
         // CWE-501: validate groupName at trust boundary — reject control chars and excessive length
         if (groupName == null || groupName.isEmpty() || groupName.length() > 100
-                || !groupName.matches("[\\w\\s\\-\\.]+")) {
+                || !groupName.matches("[^\\p{Cntrl}]+")) {
             throw new SecurityException("Invalid measurement group name");
         }
 
         MiscUtils.getLogger().debug("The forward message is: " + forward);
 
         HttpSession session = request.getSession();
-        // nosemgrep: tainted-session-from-http-request -- groupName validated via regex [\\w\\s\\-\\.]+, length-capped to 100
+
+        // Delete requires admin privilege check BEFORE any session mutation
+        if (forward.compareTo("delete") == 0) {
+            if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)
+                    && !securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
+                throw new SecurityException("missing required sec object (_admin.measurements)");
+            }
+            // nosemgrep: tainted-session-from-http-request -- groupName validated via regex [^\\p{Cntrl}]+, length-capped to 100; admin privilege verified above
+            session.setAttribute("groupName", groupName);
+            deleteGroup(groupName);
+            return "delete";
+        }
+
+        // For non-delete paths, store validated groupName for navigation
+        // nosemgrep: tainted-session-from-http-request -- groupName validated via regex [^\\p{Cntrl}]+, length-capped to 100
         session.setAttribute("groupName", groupName);
 
         if (forward.compareTo("style") == 0) {
@@ -90,14 +104,6 @@ public class EctSelectMeasurementGroup2Action extends ActionSupport {
             request.setAttribute("allStyleSheets", allStyleSheets);
             request.setAttribute("groupName", groupName);
             return "style";
-        } else if (forward.compareTo("delete") == 0) {
-            // Delete is a write operation — require admin privilege (matches EctAddMeasurementGroup2Action pattern)
-            if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)
-                    && !securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
-                throw new SecurityException("missing required sec object (_admin.measurements)");
-            }
-            deleteGroup(groupName);
-            return "delete";
         }
         if (forward.compareTo("dsHTML") == 0) {
 

@@ -55,8 +55,10 @@ public class ApptUtil {
     private static final Pattern SAFE_DATE = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
     // Time format: HH:MM or HH:MM:SS
     private static final Pattern SAFE_TIME = Pattern.compile("[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?");
-    // Safe text pattern: any character except ASCII control chars (allows Unicode for bilingual Canadian EMR)
+    // Safe single-line text: any character except control chars (allows Unicode for bilingual Canadian EMR)
     private static final Pattern SAFE_TEXT = Pattern.compile("[^\\p{Cntrl}]*");
+    // Safe multiline text: allows \n \r \t (for textarea-backed fields like notes/remarks) but rejects null bytes and other control chars
+    private static final Pattern SAFE_MULTILINE = Pattern.compile("[^\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]*", Pattern.DOTALL);
     // Numeric patterns for structured fields
     private static final Pattern SAFE_DURATION = Pattern.compile("\\d{1,4}");
     private static final Pattern SAFE_REASON_CODE = Pattern.compile("[a-zA-Z0-9]{1,20}");
@@ -79,6 +81,18 @@ public class ApptUtil {
         String capped = value.length() > maxLen ? value.substring(0, maxLen) : value;
         if (!SAFE_TEXT.matcher(capped).matches()) {
             logger.warn("Rejected text with control characters at trust boundary");
+            return null;
+        }
+        return capped;
+    }
+
+    private static String sanitizeMultilineText(String value, int maxLen) {
+        if (value == null) {
+            return null;
+        }
+        String capped = value.length() > maxLen ? value.substring(0, maxLen) : value;
+        if (!SAFE_MULTILINE.matcher(capped).matches()) {
+            logger.warn("Rejected multiline text with control characters at trust boundary");
             return null;
         }
         return capped;
@@ -109,14 +123,14 @@ public class ApptUtil {
         obj.setReasonCode(validateOptional(request.getParameter("reasonCode"), SAFE_REASON_CODE, "reasonCode"));
         // Free-text fields: length-capped and control characters rejected
         obj.setName(sanitizeText(request.getParameter("keyword"), MAX_FIELD_LEN));
-        obj.setNotes(sanitizeText(request.getParameter("notes"), MAX_NOTES_LEN));
+        obj.setNotes(sanitizeMultilineText(request.getParameter("notes"), MAX_NOTES_LEN));
         obj.setReason(sanitizeText(request.getParameter("reason"), MAX_FIELD_LEN));
         obj.setLocation(sanitizeText(request.getParameter("location"), MAX_FIELD_LEN));
         obj.setResources(sanitizeText(request.getParameter("resources"), MAX_FIELD_LEN));
         obj.setType(sanitizeText(request.getParameter("type"), MAX_FIELD_LEN));
         obj.setStyle(sanitizeText(request.getParameter("style"), MAX_FIELD_LEN));
         obj.setBilling(sanitizeText(request.getParameter("billing"), MAX_FIELD_LEN));
-        obj.setRemarks(sanitizeText(request.getParameter("remarks"), MAX_FIELD_LEN));
+        obj.setRemarks(sanitizeMultilineText(request.getParameter("remarks"), MAX_FIELD_LEN));
         obj.setUrgency(sanitizeText(request.getParameter("urgency"), MAX_FIELD_LEN));
         // nosemgrep: tainted-session-from-http-request -- numeric IDs validated via regex; status validated against [a-zA-Z]{1,2};
         // date/time validated against format patterns; free-text fields length-capped and control characters rejected via SAFE_TEXT
