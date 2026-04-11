@@ -434,9 +434,8 @@ public class BillingReProcessBill2Action extends ActionSupport {
      * @return String
      */
     private String getPersistedBillType(String billingmasterNo) {
-        String qry = "select billingstatus from billingmaster where billingmaster.billingmaster_no = " +
-                billingmasterNo;
-        String row[] = SqlUtils.getRow(qry);
+        String qry = "select billingstatus from billingmaster where billingmaster.billingmaster_no = ?";
+        String row[] = SqlUtils.getRow(qry, billingmasterNo);
         String ret = null;
         if (row != null) {
             ret = row[0];
