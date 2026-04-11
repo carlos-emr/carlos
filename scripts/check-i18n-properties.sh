@@ -37,8 +37,22 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --show-missing)   SHOW_MISSING=true;    shift ;;
         --show-orphaned)  SHOW_ORPHANED=true;   shift ;;
-        --output)         OUTPUT_FILE="$2";     shift 2 ;;
-        --max-list)       MAX_LIST="$2";        shift 2 ;;
+        --output)
+            if [[ -z "${2:-}" || "$2" == --* ]]; then
+                echo "ERROR: --output requires a file path argument" >&2
+                exit 1
+            fi
+            OUTPUT_FILE="$2"
+            shift 2
+            ;;
+        --max-list)
+            if [[ -z "${2:-}" || "$2" == --* ]]; then
+                echo "ERROR: --max-list requires a numeric argument" >&2
+                exit 1
+            fi
+            MAX_LIST="$2"
+            shift 2
+            ;;
         --help|-h)
             echo "Usage: $0 [OPTIONS]"
             echo ""
@@ -77,11 +91,13 @@ extract_keys() {
     sort -u
 }
 
-# Count raw non-ASCII bytes in a file (indicates potential UTF-8 mis-encoding).
-# Java Properties.load() expects ISO 8859-1; raw bytes > 0x7F should be \uXXXX escapes.
+# Count raw non-ASCII bytes in a file.
+# Returns 0 when clean; always returns a plain integer (never "0\n0").
 count_non_ascii_lines() {
     local file="$1"
-    LC_ALL=C grep -cP '[\x80-\xFF]' "$file" 2>/dev/null || echo 0
+    local result
+    result=$(LC_ALL=C grep -cP '[\x80-\xFF]' "$file" 2>/dev/null) || true
+    echo "${result:-0}"
 }
 
 # Locale label from filename: oscarResources_fr.properties → "fr"

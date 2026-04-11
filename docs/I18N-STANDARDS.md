@@ -19,7 +19,7 @@ i18n coverage gaps identified by the audit tooling.
 5. [Message Usage Patterns](#message-usage-patterns)
 6. [Multiline and Parameterized Messages](#multiline-and-parameterized-messages)
 7. [JavaScript i18n Pattern](#javascript-i18n-pattern)
-8. [ISO 8859-1 Encoding Requirements](#iso-8859-1-encoding-requirements)
+8. [UTF-8 Encoding Requirements (Java 21)](#utf-8-encoding-requirements-java-21)
 9. [CI Validation](#ci-validation)
 10. [Domain Priority Order](#domain-priority-order)
 
@@ -436,7 +436,7 @@ The workflow runs on every PR that touches `.properties` files or JSPs and enfor
 |-----|---------------|-----------|
 | **`i18n-key-parity`** | Full properties sync across all 5 locales | Any missing or orphaned keys |
 | **`i18n-new-key-parity`** | New English keys in the PR diff have matching entries in all locales | Keys added to English only |
-| **`i18n-encoding`** | No raw non-ASCII bytes in any `.properties` file | Files saved as UTF-8 |
+| **`i18n-encoding`** | All `.properties` files are valid UTF-8 | Files with invalid UTF-8 encoding |
 | **`i18n-jsp-bundle`** | Changed JSPs using `fmt:message` have `fmt:setBundle`; no hardcoded `lang="en"` | Missing bundle declaration or static lang |
 
 ### How to Fix Each Failure
@@ -448,11 +448,11 @@ all other locales:
 admin.newFeature.btnActivate=Activate    # TODO: translate
 ```
 
-**Encoding violation** — A `.properties` file was saved as UTF-8:
+**Encoding violation** — A `.properties` file is not valid UTF-8:
 ```bash
-# Identify offending lines
-LC_ALL=C grep -nP '[\x80-\xFF]' src/main/resources/oscarResources_fr.properties
-# Fix: replace raw char with \uXXXX escape (see encoding table in this doc)
+# Validate UTF-8 encoding
+iconv -f UTF-8 -t UTF-8 src/main/resources/oscarResources_fr.properties >/dev/null
+# Fix: ensure your editor/IDE is configured to save the file as UTF-8
 ```
 
 **Missing fmt:setBundle** — A new or modified JSP uses `fmt:message` without a bundle:

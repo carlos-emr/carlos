@@ -38,8 +38,10 @@ jobs:
       - name: Run properties key parity check
         id: parity_check
         run: |
+          set +e
           ./scripts/check-i18n-properties.sh --output /tmp/i18n-parity-report.txt
           EXIT_CODE=$?
+          set -e
           cat /tmp/i18n-parity-report.txt
           exit $EXIT_CODE
 
@@ -89,9 +91,11 @@ jobs:
           RESOURCES="src/main/resources"
 
           while IFS= read -r key; do
+            # Escape regex metacharacters in key to avoid false matches (e.g. '.' matching any char)
+            escaped_key=$(printf '%s' "$key" | sed 's/[.[\^$*+?{}|()/\\]/\\&/g')
             for locale in $LOCALES; do
               locale_file="${RESOURCES}/oscarResources_${locale}.properties"
-              if ! grep -qE "^[[:space:]]*${key}[[:space:]]*[=:]" "$locale_file"; then
+              if ! grep -qE "^[[:space:]]*${escaped_key}[[:space:]]*[=:]" "$locale_file"; then
                 echo "MISSING: key '$key' not found in ${locale_file}"
                 FAILED=true
               fi
@@ -108,30 +112,29 @@ jobs:
           echo "All new English keys are present in all locale files."
 
   i18n-encoding:
-    name: ISO 8859-1 Encoding Compliance
+    name: UTF-8 Encoding Compliance
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Check for raw non-ASCII bytes in properties files
+      - name: Check properties files are valid UTF-8
         run: |
           FAILED=false
           for f in src/main/resources/oscarResources_*.properties; do
-            COUNT=$(LC_ALL=C grep -cP '[\x80-\xFF]' "$f" 2>/dev/null || echo 0)
-            if [ "$COUNT" -gt 0 ]; then
-              echo "ENCODING VIOLATION: $f — $COUNT line(s) with raw non-ASCII bytes"
-              echo "Fix: Replace raw characters with \\uXXXX escapes (e.g. é → \\u00e9)"
+            if ! iconv -f UTF-8 -t UTF-8 "$f" >/dev/null 2>&1; then
+              echo "ENCODING VIOLATION: $f is not valid UTF-8"
+              echo "Fix: Ensure the file is saved with UTF-8 encoding in your editor/IDE"
               FAILED=true
             fi
           done
           if [ "$FAILED" = "true" ]; then
             echo ""
-            echo "See: docs/I18N-STANDARDS.md#iso-8859-1-encoding-requirements"
+            echo "See: docs/I18N-STANDARDS.md#utf-8-encoding-requirements-java-21"
             exit 1
           fi
-          echo "All properties files pass ISO 8859-1 encoding check."
+          echo "All properties files are valid UTF-8."
 
   i18n-jsp-bundle:
     name: JSP fmt:setBundle Check
@@ -140,6 +143,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Check new/modified JSPs for missing fmt:setBundle
         run: |

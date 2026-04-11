@@ -26,6 +26,7 @@ top of the file. Place it alongside existing `c:`, `fn:`, and OWASP encoder decl
 ```
 
 - [ ] `fmt` taglib declaration added after other taglib declarations
+- [ ] OWASP encoder taglib present: `<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>` (required for `${e:forHtmlAttribute(...)}` and related EL functions used in Steps 6–7)
 
 ### Step 2: Add the Bundle Declaration
 
@@ -75,13 +76,15 @@ For each hardcoded string:
 
 1. Choose the correct key name using the `<domain>.<jspFilename>.<elementDescription>`
    convention. Check `global.*` keys first — avoid creating duplicates.
-2. Add the key to **all five locale files** in a single commit:
+2. Add the key to **all five locale files** in a single commit. For non-English locales,
+   add a `# TODO: translate` comment on the **preceding line** (not appended to the value —
+   inline `# ...` text is not a comment in `.properties` syntax and becomes part of the value):
    - `oscarResources_en.properties` — with the English value
-   - `oscarResources_es.properties` — English value + `# TODO: translate`
-   - `oscarResources_fr.properties` — English value + `# TODO: translate`
-   - `oscarResources_pl.properties` — English value + `# TODO: translate`
-   - `oscarResources_pt_BR.properties` — English value + `# TODO: translate`
-3. Values containing non-ASCII characters must use `\uXXXX` Unicode escapes.
+   - `oscarResources_es.properties` — English value as placeholder, preceded by `# TODO: translate`
+   - `oscarResources_fr.properties` — English value as placeholder, preceded by `# TODO: translate`
+   - `oscarResources_pl.properties` — English value as placeholder, preceded by `# TODO: translate`
+   - `oscarResources_pt_BR.properties` — English value as placeholder, preceded by `# TODO: translate`
+3. Non-ASCII characters may appear directly in UTF-8 files; `\uXXXX` escapes are also valid.
 
 ```properties
 # oscarResources_en.properties
@@ -89,8 +92,10 @@ admin.configureFax.title=Configure Fax Settings
 admin.configureFax.btnSave=Save Configuration
 
 # oscarResources_fr.properties
-admin.configureFax.title=Configure Fax Settings    # TODO: translate
-admin.configureFax.btnSave=Save Configuration      # TODO: translate
+# TODO: translate
+admin.configureFax.title=Configure Fax Settings
+# TODO: translate
+admin.configureFax.btnSave=Save Configuration
 ```
 
 - [ ] Keys added to `oscarResources_en.properties`

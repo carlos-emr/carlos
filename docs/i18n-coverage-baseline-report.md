@@ -36,7 +36,7 @@ in English. The largest untranslated areas are `form/` (clinical forms, 172 file
 
 | Domain | Total | None | Partial | Full | % Done |
 |--------|-------|------|---------|------|--------|
-| `admin/` | 65 | 22 | 18 | 25 | 34% full |
+| `admin/` | 65 | 22 | 18 | 25 | 38% full |
 | `appointment/` | 22 | 4 | 5 | 13 | 59% full |
 | `billing/` | 181 | 106 | 59 | 16 | 9% full |
 | `casemgmt/` | 44 | 32 | 8 | 4 | 9% full |
@@ -58,6 +58,11 @@ in English. The largest untranslated areas are `form/` (clinical forms, 172 file
 | `schedule/` | 12 | 1 | 2 | 9 | 75% full |
 | `tickler/` | 8 | 3 | 2 | 3 | 38% full |
 | `WEB-INF/` | 87 | 40 | 29 | 18 | 21% full |
+| *(other/root)* | 87 | — | — | — | — |
+
+> **Note:** The domain table covers 1,003 files across named domains. The executive
+> summary total of 1,090 includes an additional 87 files in root-level webapp paths
+> and unlisted subdirectories, reflected in the *(other/root)* row above.
 
 ---
 
@@ -235,7 +240,7 @@ last bulk Polish translation update. Recommend a targeted batch update.
 
 1. **Add 12 universal-gap keys** to all 4 non-English locales (~5 min)
 2. **Add 31 missing es/pt_BR keys** (all in `dms.*` and `messenger.*`) to Spanish and Portuguese
-3. **Add 12 missing fr keys** (gender + inboxhub) to French
+3. **Verify French is complete** after step 1 — the 12 universal-gap keys cover the French gap entirely
 
 ### Phase 1 Conversion Targets
 

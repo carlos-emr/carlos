@@ -17,13 +17,22 @@
 echo "=== Comprehensive JSP Taglib Checker ==="
 echo
 
+# tags: regex pattern matching either legacy java.sun.com or modern Jakarta namespace URIs
 declare -A tags=(
-    # JSTL tags
-    ["fmt"]="http://java.sun.com/jsp/jstl/fmt"
-    ["c"]="http://java.sun.com/jsp/jstl/core"
-    ["fn"]="http://java.sun.com/jsp/jstl/functions"
-    ["sql"]="http://java.sun.com/jsp/jstl/sql"
-    ["x"]="http://java.sun.com/jsp/jstl/xml"
+    ["fmt"]="java\.sun\.com/jsp/jstl/fmt|jakarta\.tags\.fmt"
+    ["c"]="java\.sun\.com/jsp/jstl/core|jakarta\.tags\.core"
+    ["fn"]="java\.sun\.com/jsp/jstl/functions|jakarta\.tags\.functions"
+    ["sql"]="java\.sun\.com/jsp/jstl/sql|jakarta\.tags\.sql"
+    ["x"]="java\.sun\.com/jsp/jstl/xml|jakarta\.tags\.xml"
+)
+
+# Recommended Jakarta namespace URIs for suggestions
+declare -A tag_uris=(
+    ["fmt"]="jakarta.tags.fmt"
+    ["c"]="jakarta.tags.core"
+    ["fn"]="jakarta.tags.functions"
+    ["sql"]="jakarta.tags.sql"
+    ["x"]="jakarta.tags.xml"
 )
 
 # Patterns for taglib include files
@@ -70,8 +79,8 @@ while IFS= read -r -d '' file; do
                     continue
                 fi
 
-                # Check if taglib is declared (and not commented out)
-                if ! grep -v '<!--' "$file" | grep -q "taglib.*${tags[$prefix]}"; then
+                # Check if taglib is declared (and not commented out) — match either URI form
+                if ! grep -v '<!--' "$file" | grep -qE "taglib.*${tags[$prefix]}"; then
                     missing+=("$prefix")
                 fi
             fi
@@ -82,7 +91,7 @@ while IFS= read -r -d '' file; do
             echo "   Missing taglib(s): ${missing[*]}"
             echo "   Add these declarations at the top:"
             for prefix in "${missing[@]}"; do
-                echo "      <%@ taglib uri=\"${tags[$prefix]}\" prefix=\"$prefix\" %>"
+                echo "      <%@ taglib uri=\"${tag_uris[$prefix]}\" prefix=\"$prefix\" %>"
             done
             echo
             ((found_issues++))
@@ -93,9 +102,10 @@ while IFS= read -r -d '' file; do
     if [ "$CHECK_I18N" = true ]; then
 
         # i18n Check 1: fmt: tag used but no fmt:setBundle declared
-        # Skip files that include a taglib header (inherited bundle from include)
-        if [ -z "$has_taglib_include" ]; then
-            if grep -q 'fmt:message' "$file" && ! grep -q 'fmt:setBundle' "$file"; then
+        # Skip only if the file explicitly includes taglibs.jsp (which declares the bundle centrally)
+        # Other taglib includes (CSS/JS fragments) do NOT inherit the bundle declaration
+        if grep -q 'fmt:message' "$file" && ! grep -q 'fmt:setBundle' "$file"; then
+            if ! grep -qE '<%@[[:space:]]*include[^>]+taglibs\.jsp|<jsp:include[^>]+taglibs\.jsp' "$file" 2>/dev/null; then
                 file_i18n_issues+=("MISSING fmt:setBundle: file uses fmt:message but has no fmt:setBundle declaration")
                 file_i18n_issues+=("  Fix: Add <fmt:setBundle basename=\"oscarResources\"/> after taglib declarations, before <!DOCTYPE>")
             fi
@@ -108,8 +118,9 @@ while IFS= read -r -d '' file; do
         fi
 
         # i18n Check 3: Repeated inline fmt:setBundle (legacy pattern to consolidate)
-        inline_bundle_count=$(grep -cE 'fmt:setBundle[^/]*/>[[:space:]]*<fmt:message' "$file" 2>/dev/null || echo 0)
-        if [ "${inline_bundle_count:-0}" -gt 0 ]; then
+        inline_bundle_count=$(grep -cE 'fmt:setBundle[^/]*/>[[:space:]]*<fmt:message' "$file" 2>/dev/null || true)
+        inline_bundle_count="${inline_bundle_count:-0}"
+        if [ "$inline_bundle_count" -gt 0 ]; then
             file_i18n_issues+=("LEGACY BUNDLE PATTERN: $inline_bundle_count inline fmt:setBundle+fmt:message pair(s) found")
             file_i18n_issues+=("  Fix: Move fmt:setBundle to a single declaration before <!DOCTYPE> and remove inline occurrences")
             file_i18n_issues+=("  See: docs/I18N-STANDARDS.md#bundle-declaration-rule")
@@ -167,8 +178,8 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
         unused=()
         
         for prefix in "${!tags[@]}"; do
-            # Check if taglib is declared
-            if grep -q "taglib.*${tags[$prefix]}" "$file"; then
+            # Check if taglib is declared (either URI form)
+            if grep -qE "taglib.*${tags[$prefix]}" "$file"; then
                 # Check if tag is actually used
                 if ! grep -qiE "<\s*${prefix}\s*:|[\$\{]${prefix}:" "$file"; then
                     unused+=("$prefix")

@@ -34,8 +34,22 @@ OUTPUT_FILE="${PROJECT_ROOT}/i18n-coverage-report.csv"
 # ── Argument Parsing ──────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --output)      OUTPUT_FILE="$2";  shift 2 ;;
-        --webapp-dir)  WEBAPP_DIR="$2";   shift 2 ;;
+        --output)
+            if [[ -z "${2:-}" || "$2" == --* ]]; then
+                echo "ERROR: --output requires a file path argument" >&2
+                exit 1
+            fi
+            OUTPUT_FILE="$2"
+            shift 2
+            ;;
+        --webapp-dir)
+            if [[ -z "${2:-}" || "$2" == --* ]]; then
+                echo "ERROR: --webapp-dir requires a directory path argument" >&2
+                exit 1
+            fi
+            WEBAPP_DIR="$2"
+            shift 2
+            ;;
         --help|-h)
             echo "Usage: $0 [--output FILE] [--webapp-dir DIR]"
             echo ""
@@ -106,9 +120,9 @@ count_hardcoded() {
 
     # 5. <input type="submit/button/reset"> with plain value attribute
     #    Match in either attribute order; handle optional whitespace around '='
-    #    and both single/double quotes
+    #    and both single/double quotes; second alternation anchored to <input
     n=$(count_filtered_lines "$file" \
-        '<input[^>]+type[[:space:]]*=[[:space:]]*"(submit|button|reset)"[^>]+value[[:space:]]*=[[:space:]]*"[A-Za-z][a-z]+"|value[[:space:]]*=[[:space:]]*"[A-Za-z][a-z]+"[^>]+type[[:space:]]*=[[:space:]]*"(submit|button|reset)"' \
+        "<input[^>]+type[[:space:]]*=[[:space:]]*[\"'](submit|button|reset)[\"'][^>]+value[[:space:]]*=[[:space:]]*[\"'][A-Za-z][a-z]+[\"']|<input[^>]+value[[:space:]]*=[[:space:]]*[\"'][A-Za-z][a-z]+[\"'][^>]+type[[:space:]]*=[[:space:]]*[\"'](submit|button|reset)[\"']" \
         '\$\{[^}]*\}|fmt:message')
     total=$((total + n))
 
@@ -161,10 +175,14 @@ while IFS= read -r -d '' file; do
     # Normalise Windows-style backslashes if present
     rel_path="${rel_path//\\//}"
 
-    # Domain = first subdirectory under webapp/  (e.g. "admin", "demographic")
-    domain="${rel_path#src/main/webapp/}"
-    domain="${domain%%/*}"
-    [ -z "$domain" ] || [ "$domain" = "${rel_path#src/main/webapp/}" ] && domain="root"
+    # Domain = first subdirectory under the configured webapp dir (e.g. "admin", "demographic")
+    # Derived from file path using WEBAPP_DIR variable so --webapp-dir overrides work correctly
+    path_in_webapp="${file#${WEBAPP_DIR}/}"
+    path_in_webapp="${path_in_webapp//\\//}"
+    domain="${path_in_webapp%%/*}"
+    if [ -z "$domain" ] || [ "$domain" = "$path_in_webapp" ]; then
+        domain="root"
+    fi
 
     # ── Count fmt:message uses (i18n coverage) ──────────────────────────────
     i18n_count=$(grep -c 'fmt:message' "$file" 2>/dev/null) || true
