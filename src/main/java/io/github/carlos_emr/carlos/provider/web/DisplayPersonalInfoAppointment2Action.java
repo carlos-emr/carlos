@@ -65,6 +65,7 @@ public class DisplayPersonalInfoAppointment2Action extends ActionSupport {
             showPersonal = !showPersonal;
         }
 
+        // nosemgrep: tainted-session-from-http-request — showPersonal is a Boolean toggled from existing session state, not user input
         request.getSession().setAttribute("showPersonal", showPersonal);
 
         return null;

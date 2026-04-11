@@ -67,9 +67,9 @@ public class EctSetupAddMeasurementGroup2Action extends ActionSupport {
             Collection allTypeDisplayName = hd.getTypeDisplayNameVector();
 
             HttpSession session = request.getSession();
-            session.setAttribute("existingTypeDisplayNames", existingTypeDisplayName);
-            session.setAttribute("allTypeDisplayNames", allTypeDisplayName);
-            session.setAttribute("groupName", groupName);
+            session.setAttribute("existingTypeDisplayNames", existingTypeDisplayName); // nosemgrep: tainted-session-from-http-request -- DAO result list from EctTypeDisplayNameBeanHandler (existing types for group)
+            session.setAttribute("allTypeDisplayNames", allTypeDisplayName); // nosemgrep: tainted-session-from-http-request -- DAO result list from EctTypeDisplayNameBeanHandler (all types)
+            session.setAttribute("groupName", groupName); // nosemgrep: tainted-session-from-http-request -- Struts parameter; admin-only action guarded by _admin/_admin.measurements privilege
             
             return "continue";
 

@@ -77,7 +77,7 @@ public class EctDefineNewMeasurementGroup2Action extends ActionSupport {
             }
 
             HttpSession session = request.getSession();
-            session.setAttribute("groupName", groupName);
+            session.setAttribute("groupName", groupName); // nosemgrep: tainted-session-from-http-request -- Struts parameter validated by EctValidation.matchRegExp before use; admin-only action
 
             return "continue";
 

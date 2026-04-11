@@ -77,7 +77,7 @@ public class ReSubmit2Action extends ActionSupport {
 
             List<DetailDataCustom> resourceList = getResourceList();
 
-            request.getSession().setAttribute("resourceListSent", resourceList);
+            request.getSession().setAttribute("resourceListSent", resourceList); // nosemgrep: tainted-session-from-http-request -- MCEDT resource list from EDT service response
 
             return SUCCESS;
         } catch (Exception e) {
@@ -103,11 +103,11 @@ public class ReSubmit2Action extends ActionSupport {
                 BigInteger resultSize = null;
                 if (result != null)
                     resultSize = result.getResultSize();
-                request.getSession().setAttribute("resultSize", resultSize);
+                request.getSession().setAttribute("resultSize", resultSize); // nosemgrep: tainted-session-from-http-request -- computed list size, not from user input
 
                 if (request.getSession().getAttribute("resourceTypeList") == null) {
                     this.setTypeListResult(ActionUtils.getTypeList(request, delegate));
-                    request.getSession().setAttribute("resourceTypeList", this.getTypeListResult());
+                    request.getSession().setAttribute("resourceTypeList", this.getTypeListResult()); // nosemgrep: tainted-session-from-http-request -- MCEDT type list from EDT service response
                 } else {
                     this.setTypeListResult((TypeListResult) request.getSession().getAttribute("resourceTypeList"));
                 }

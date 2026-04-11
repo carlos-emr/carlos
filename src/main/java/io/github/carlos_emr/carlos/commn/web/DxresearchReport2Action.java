@@ -183,17 +183,17 @@ public class DxresearchReport2Action extends ActionSupport {
             return getQuickListName();
         }
 
-        request.getSession().setAttribute("listview", new DxRegistedPTInfo());
+        request.getSession().setAttribute("listview", new DxRegistedPTInfo()); // nosemgrep: tainted-session-from-http-request -- new empty DxRegistedPTInfo object, no user input
         dxQuickListBeanHandler quicklistHd = new dxQuickListBeanHandler();
-        request.getSession().setAttribute("allQuickLists", quicklistHd);
+        request.getSession().setAttribute("allQuickLists", quicklistHd); // nosemgrep: tainted-session-from-http-request -- DAO-sourced quick list handler, no user input
         dxResearchCodingSystem codingSys = new dxResearchCodingSystem();
-        request.getSession().setAttribute("codingSystem", codingSys);
+        request.getSession().setAttribute("codingSystem", codingSys); // nosemgrep: tainted-session-from-http-request -- new coding system reference object, no user input
         // Whitelist-validate the existing session value before writing it back (CWE-501).
         // If the value is null or not in the allowlist, remove it from session so that the
         // JSP fallback defaults to "patientRegistedAll" (see oscarReportDxReg.jsp).
         String radiovaluestatus = (String) request.getSession().getAttribute("radiovaluestatus");
         if (radiovaluestatus != null && VALID_STATUS_VALUES.contains(radiovaluestatus)) {
-            request.getSession().setAttribute("radiovaluestatus", radiovaluestatus);
+            request.getSession().setAttribute("radiovaluestatus", radiovaluestatus); // nosemgrep: tainted-session-from-http-request -- allowlist-validated against VALID_STATUS_VALUES set
         } else {
             request.getSession().removeAttribute("radiovaluestatus");
         }
@@ -215,7 +215,7 @@ public class DxresearchReport2Action extends ActionSupport {
             request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request -- hardcoded integer
         } else
             request.getSession().setAttribute("Counter", patientInfo.size()); // nosemgrep: tainted-session-from-http-request -- integer derived from list size
-        request.getSession().setAttribute("radiovaluestatus", "patientRegistedAll");
+        request.getSession().setAttribute("radiovaluestatus", "patientRegistedAll"); // nosemgrep: tainted-session-from-http-request -- hardcoded string literal
         return SUCCESS;
     }
 
@@ -268,7 +268,7 @@ public class DxresearchReport2Action extends ActionSupport {
             request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request -- hardcoded integer
         } else
             request.getSession().setAttribute("Counter", patientInfo.size()); // nosemgrep: tainted-session-from-http-request -- integer derived from list size
-        request.getSession().setAttribute("radiovaluestatus", "patientRegistedDistincted");
+        request.getSession().setAttribute("radiovaluestatus", "patientRegistedDistincted"); // nosemgrep: tainted-session-from-http-request -- hardcoded string literal
         return SUCCESS;
     }
 
@@ -296,7 +296,7 @@ public class DxresearchReport2Action extends ActionSupport {
             request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request -- hardcoded integer
         } else
             request.getSession().setAttribute("Counter", patientInfo.size()); // nosemgrep: tainted-session-from-http-request -- integer derived from list size
-        request.getSession().setAttribute("radiovaluestatus", "patientRegistedDeleted");
+        request.getSession().setAttribute("radiovaluestatus", "patientRegistedDeleted"); // nosemgrep: tainted-session-from-http-request -- hardcoded string literal
         return SUCCESS;
     }
 
@@ -314,7 +314,7 @@ public class DxresearchReport2Action extends ActionSupport {
             request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request -- hardcoded integer
         } else
             request.getSession().setAttribute("Counter", patientInfo.size()); // nosemgrep: tainted-session-from-http-request -- integer derived from list size
-        request.getSession().setAttribute("radiovaluestatus", "patientRegistedActive");
+        request.getSession().setAttribute("radiovaluestatus", "patientRegistedActive"); // nosemgrep: tainted-session-from-http-request -- hardcoded string literal
         return SUCCESS;
     }
 
@@ -332,7 +332,7 @@ public class DxresearchReport2Action extends ActionSupport {
             request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request -- hardcoded integer
         } else
             request.getSession().setAttribute("Counter", patientInfo.size()); // nosemgrep: tainted-session-from-http-request -- integer derived from list size
-        request.getSession().setAttribute("radiovaluestatus", "patientRegistedResolve");
+        request.getSession().setAttribute("radiovaluestatus", "patientRegistedResolve"); // nosemgrep: tainted-session-from-http-request -- hardcoded string literal
         return SUCCESS;
     }
 
@@ -412,7 +412,7 @@ public class DxresearchReport2Action extends ActionSupport {
             existcodeSearch.clear();
         }
 
-        request.getSession().setAttribute("codeSearch", existcodeSearch);
+        request.getSession().setAttribute("codeSearch", existcodeSearch); // nosemgrep: tainted-session-from-http-request -- cleared list from existing session attribute, no new user input
 
         return SUCCESS;
     }

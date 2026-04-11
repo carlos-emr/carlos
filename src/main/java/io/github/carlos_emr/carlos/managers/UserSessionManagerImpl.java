@@ -72,6 +72,7 @@ public class UserSessionManagerImpl implements UserSessionManager {
 
         // Register the new session, overwrite previous registry
         userSessionMap.put(userSecurityCode, session);
+        // nosemgrep: tainted-session-from-http-request — userSecurityCode is an internally generated security token, not user input
         session.setAttribute(KEY_USER_SECURITY_CODE, userSecurityCode);
         logger.debug("User Session successfully registered: {}", session.getId());
     }

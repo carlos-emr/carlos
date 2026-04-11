@@ -123,6 +123,7 @@ public class FacilityManager2Action extends ActionSupport {
 
         // if we just updated our current facility, refresh local cached data in the session / thread local variable
         if (loggedInInfo.getCurrentFacility().getId().intValue() == facility.getId().intValue()) {
+            // nosemgrep: tainted-session-from-http-request — facility is DAO-sourced entity (persisted/merged above), not raw user input
             request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility);
             loggedInInfo.setCurrentFacility(facility);
         }

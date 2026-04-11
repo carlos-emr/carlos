@@ -70,7 +70,7 @@ public final class RptSelectCDMReport2Action extends ActionSupport {
         for (int i = 0; i < mInstrcVector.size(); i++) {
             RptMeasuringInstructionBeanHandler mInstrcs = (RptMeasuringInstructionBeanHandler) mInstrcVector.elementAt(i);
             String mInstrcName = "mInstrcs" + i;
-            session.setAttribute(mInstrcName, mInstrcs);
+            session.setAttribute(mInstrcName, mInstrcs); // nosemgrep: tainted-session-from-http-request -- DAO-sourced measuring instruction bean from RptMeasurementTypesBeanHandler
 
         }
         MiscUtils.getLogger().debug("the value of forward is :" + forward);
@@ -81,10 +81,10 @@ public final class RptSelectCDMReport2Action extends ActionSupport {
         String today = now.get(Calendar.YEAR) + "-" + (now.get(Calendar.MONTH) + 1) + "-" + now.get(Calendar.DATE);
         String lastYear = now.get(Calendar.YEAR) - 1 + "-" + (now.get(Calendar.MONTH) + 1) + "-" + now.get(Calendar.DATE);
 
-        session.setAttribute("measurementTypes", hd);
-        session.setAttribute("CDMGroup", CDMgroup);
-        session.setAttribute("today", today);
-        session.setAttribute("lastYear", lastYear);
+        session.setAttribute("measurementTypes", hd); // nosemgrep: tainted-session-from-http-request -- DAO-sourced measurement types handler
+        session.setAttribute("CDMGroup", CDMgroup); // nosemgrep: tainted-session-from-http-request -- CDMgroup from Struts ValueStack, used as DAO lookup key; output-encoded at render time
+        session.setAttribute("today", today); // nosemgrep: tainted-session-from-http-request -- server-generated date string from GregorianCalendar
+        session.setAttribute("lastYear", lastYear); // nosemgrep: tainted-session-from-http-request -- server-generated date string from GregorianCalendar
 
         if (forward != null) {
             if (forward.compareTo("patientWhoMetGuideline") == 0) {

@@ -61,12 +61,12 @@ public final class EctSetupHistoryIndex2Action extends ActionSupport {
         }
 
         EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
-        request.getSession().setAttribute("EctSessionBean", bean);
+        request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request -- re-storing existing session bean retrieved from session on previous line
 
         if (bean != null) {
             Integer demo = Integer.valueOf(bean.getDemographicNo());
 
-            request.getSession().setAttribute("EctSessionBean", bean);
+            request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request -- re-storing existing session bean; no new tainted data added
 
             measurementsData = new EctMeasurementsDataBeanHandler(demo);
 

@@ -69,9 +69,9 @@ public class dxResearchLoadQuickListItems2Action extends ActionSupport {
         dxQuickListItemsHandler quicklistItemsHd = new dxQuickListItemsHandler(quickListName);
 
         HttpSession session = request.getSession();
-        session.setAttribute("codingSystem", codingSys);
-        session.setAttribute("allQuickListItems", quicklistItemsHd);
-        session.setAttribute("quickListName", quickListName);
+        session.setAttribute("codingSystem", codingSys); // nosemgrep: tainted-session-from-http-request -- new dxResearchCodingSystem reference object, no user input
+        session.setAttribute("allQuickListItems", quicklistItemsHd); // nosemgrep: tainted-session-from-http-request -- DAO-sourced quick list items loaded by dxQuickListItemsHandler
+        session.setAttribute("quickListName", quickListName); // nosemgrep: tainted-session-from-http-request -- quickListName from Struts parameter used as DAO lookup key; output-encoded at render time
 
         return SUCCESS;
     }

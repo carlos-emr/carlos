@@ -332,8 +332,9 @@ public class DemographicEdit2Action extends ActionSupport {
         request.setAttribute("isMobileOptimized", isMobileOptimized);
         request.setAttribute("prov", prov);
         request.setAttribute("curProvider_no", curProvider_no);
+        // nosemgrep: tainted-session-from-http-request — values are existing session attributes (session→request transfer), not raw user input
         request.setAttribute("userfirstname", session.getAttribute("userfirstname"));
-        request.setAttribute("userlastname", session.getAttribute("userlastname"));
+        request.setAttribute("userlastname", session.getAttribute("userlastname")); // nosemgrep: tainted-session-from-http-request -- session→request transfer
         request.setAttribute("apptProvider", request.getParameter("apptProvider"));
         request.setAttribute("appointment", request.getParameter("appointment"));
         request.setAttribute("oscarProps", oscarProps);

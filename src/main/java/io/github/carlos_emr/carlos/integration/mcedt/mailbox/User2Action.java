@@ -56,7 +56,7 @@ public class User2Action extends ActionSupport {
         if ("cancel".equals(request.getParameter("method"))) {
             return cancel();
         }
-        request.getSession().setAttribute("mcedtUsername", CarlosProperties.getInstance().getProperty("mcedt.service.user"));
+        request.getSession().setAttribute("mcedtUsername", CarlosProperties.getInstance().getProperty("mcedt.service.user")); // nosemgrep: tainted-session-from-http-request -- value from application properties
 
         if (request.getSession().getAttribute("isPassChange") != null) {
             request.getSession().removeAttribute("isPassChange");
@@ -75,9 +75,9 @@ public class User2Action extends ActionSupport {
             }
             prop.setValue(this.getPassword());
             userPropertyDAO.saveProp(prop);
-            request.getSession().setAttribute("isPassChange", "true");
+            request.getSession().setAttribute("isPassChange", "true"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
         } catch (Exception e) {
-            request.getSession().setAttribute("isPassChange", "false");
+            request.getSession().setAttribute("isPassChange", "false"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
         }
 
         return SUCCESS;

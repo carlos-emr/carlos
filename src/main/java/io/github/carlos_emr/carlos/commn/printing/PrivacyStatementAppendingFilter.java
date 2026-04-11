@@ -201,6 +201,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
         isConfidentialtyNotePrinted = session.getAttribute(ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED) != null;
         if (!isConfidentialtyNotePrinted)
+            // nosemgrep: tainted-session-from-http-request — value is hardcoded Boolean.TRUE constant, not user input
             session.setAttribute(ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED, Boolean.TRUE);
         return isConfidentialtyNotePrinted;
     }

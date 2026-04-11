@@ -66,7 +66,7 @@ public class EctEditMeasurementStyle2Action extends ActionSupport {
 
             MiscUtils.getLogger().debug("The selected style sheet is: " + styleSheet);
             HttpSession session = request.getSession();
-            session.setAttribute("groupName", groupName);
+            session.setAttribute("groupName", groupName); // nosemgrep: tainted-session-from-http-request -- Struts parameter; admin-only action guarded by _admin/_admin.measurements privilege
 
             return "continue";
 

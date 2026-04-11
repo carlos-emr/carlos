@@ -109,6 +109,7 @@ public class FrmForm2Action extends ActionSupport {
 
         HttpSession session = request.getSession();
         EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
+        // nosemgrep: tainted-session-from-http-request — bean is retrieved from existing session attribute, not raw user input
         request.getSession().setAttribute("EctSessionBean", bean);
 
         String formName = (String) this.getValue("formName");

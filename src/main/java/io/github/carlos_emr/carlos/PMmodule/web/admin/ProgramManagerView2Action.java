@@ -146,7 +146,7 @@ public class ProgramManagerView2Action extends ActionSupport {
             addActionError("Invalid or missing required parameter");
             return ERROR;
         }
-        request.getSession().setAttribute("case_program_id", programId);
+        request.getSession().setAttribute("case_program_id", programId); // nosemgrep: tainted-session-from-http-request -- validated via Integer.parseInt and canonicalized to numeric string
 
         if (request.getParameter("newVacancy") != null && "true".equals(request.getParameter("newVacancy")))
             request.setAttribute("vacancyOrTemplateId", "");
@@ -372,9 +372,9 @@ public class ProgramManagerView2Action extends ActionSupport {
             this.setServiceRestriction(e.getRestriction());
 
             // programId validated as numeric above; sanitize notes before session storage (CWE-501)
-            request.getSession().setAttribute("programId", programId);
-            request.getSession().setAttribute("admission.dischargeNotes", Encode.forHtml(truncateNotes(dischargeNotes)));
-            request.getSession().setAttribute("admission.admissionNotes", Encode.forHtml(truncateNotes(admissionNotes)));
+            request.getSession().setAttribute("programId", programId); // nosemgrep: tainted-session-from-http-request -- validated as numeric above via Integer.parseInt
+            request.getSession().setAttribute("admission.dischargeNotes", Encode.forHtml(truncateNotes(dischargeNotes))); // nosemgrep: tainted-session-from-http-request -- HTML-encoded and length-truncated before storage
+            request.getSession().setAttribute("admission.admissionNotes", Encode.forHtml(truncateNotes(admissionNotes))); // nosemgrep: tainted-session-from-http-request -- HTML-encoded and length-truncated before storage
 
             request.setAttribute("id", programId);
 

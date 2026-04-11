@@ -111,6 +111,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
         String demo = request.getParameter("demographic_no");
         String providerNo = (String) session.getAttribute("user");
         if (demo == null || bean != null) {
+            // nosemgrep: tainted-session-from-http-request — bean is retrieved from existing session attribute, not raw user input
             request.getSession().setAttribute("EctSessionBean", bean);
             demo = bean.getDemographicNo();
 

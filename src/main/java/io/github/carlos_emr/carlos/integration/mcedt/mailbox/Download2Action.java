@@ -94,7 +94,7 @@ public class Download2Action extends ActionSupport {
             if (request.getSession().getAttribute("resourceTypeList") == null) {
                 EDTDelegate delegate = DelegateFactory.getEDTDelegateInstance();
                 this.setTypeListResult(getTypeList(request, delegate));
-                request.getSession().setAttribute("resourceTypeList", this.getTypeListResult());
+                request.getSession().setAttribute("resourceTypeList", this.getTypeListResult()); // nosemgrep: tainted-session-from-http-request -- MCEDT type list from EDT service response
             } else {
                 this.setTypeListResult((TypeListResult) request.getSession().getAttribute("resourceTypeList"));
             }
@@ -112,10 +112,10 @@ public class Download2Action extends ActionSupport {
                     resourceList.get(0).setDownloadStatus("Downloading");
                     this.setData(resourceList);
 
-                    request.getSession().setAttribute("resourceList", resourceList);
-                    request.getSession().setAttribute("resourceID", resourceList.get(0).getResourceID());
+                    request.getSession().setAttribute("resourceList", resourceList); // nosemgrep: tainted-session-from-http-request -- MCEDT resource list from EDT service response
+                    request.getSession().setAttribute("resourceID", resourceList.get(0).getResourceID()); // nosemgrep: tainted-session-from-http-request -- resource ID from EDT service response object
                 } else {
-                    request.getSession().setAttribute("resourceID", BigInteger.ZERO);
+                    request.getSession().setAttribute("resourceID", BigInteger.ZERO); // nosemgrep: tainted-session-from-http-request -- hardcoded zero constant
                 }
                 this.setDetail(result);
             }
@@ -176,7 +176,7 @@ public class Download2Action extends ActionSupport {
                     //ActionUtils.setDetails(request, result);
                     Collections.sort(resourceList, DetailDataCustom.ResourceIdComparator);
                     this.setData(resourceList);
-                    request.getSession().setAttribute("resourceList", resourceList);
+                    request.getSession().setAttribute("resourceList", resourceList); // nosemgrep: tainted-session-from-http-request -- MCEDT resource list from EDT service response
                 }
             }
 
@@ -261,14 +261,14 @@ public class Download2Action extends ActionSupport {
             for (DetailDataCustom detailDatak : resourceList) {
                 if (detailDatak.getDownloadStatus().equals("Waiting")) {
                     detailDatak.setDownloadStatus("Downloading");
-                    request.getSession().setAttribute("resourceID", detailDatak.getResourceID());
+                    request.getSession().setAttribute("resourceID", detailDatak.getResourceID()); // nosemgrep: tainted-session-from-http-request -- resource ID from EDT service response object
                     isFileToWating = true;
                     break;
                 }
             }
 
             if (!isFileToWating) {
-                request.getSession().setAttribute("resourceID", BigInteger.ZERO);
+                request.getSession().setAttribute("resourceID", BigInteger.ZERO); // nosemgrep: tainted-session-from-http-request -- hardcoded zero constant
                 ActionUtils.removeResourceList(request);
             }
 
@@ -394,7 +394,7 @@ public class Download2Action extends ActionSupport {
     public String changeDisplay() throws Exception {
         List<DetailDataCustom> resourceList = getResourceList();
 
-        request.getSession().setAttribute("resourceListSent", resourceList);
+        request.getSession().setAttribute("resourceListSent", resourceList); // nosemgrep: tainted-session-from-http-request -- MCEDT resource list from EDT service response
 
         return SUCCESS;
     }
@@ -415,7 +415,7 @@ public class Download2Action extends ActionSupport {
 
                 if (request.getSession().getAttribute("resourceTypeList") == null) {
                     this.setTypeListResult(ActionUtils.getTypeList(request, delegate));
-                    request.getSession().setAttribute("resourceTypeList", this.getTypeListResult());
+                    request.getSession().setAttribute("resourceTypeList", this.getTypeListResult()); // nosemgrep: tainted-session-from-http-request -- MCEDT type list from EDT service response
                 } else {
                     this.setTypeListResult((TypeListResult) request.getSession().getAttribute("resourceTypeList"));
                 }
@@ -435,7 +435,7 @@ public class Download2Action extends ActionSupport {
 
                     if (resourceList.size() > 0) {
                         //Collections.sort(resourceList, DetailDataCustom.ResourceIdComparator);
-                        request.getSession().setAttribute("resourceListDL", resourceList);
+                        request.getSession().setAttribute("resourceListDL", resourceList); // nosemgrep: tainted-session-from-http-request -- MCEDT resource list from EDT service response
                     }
                 } else if (result.getResultSize() == null) {
                     request.getSession().removeAttribute("resourceListDL");

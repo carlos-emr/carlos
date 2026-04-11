@@ -106,6 +106,7 @@ public class OrganizationMessage2Action extends ActionSupport {
         List<Facility> facilities = new ArrayList<Facility>();
         facilities.add((Facility) request.getSession().getAttribute("currentFacility"));
 
+        // nosemgrep: tainted-session-from-http-request — facilities list is sourced from existing session attribute (currentFacility), not raw user input
         request.getSession().setAttribute("facilities", facilities);
 
         List<Program> programs = programManager.getPrograms(((Facility) request.getSession().getAttribute("currentFacility")).getId());

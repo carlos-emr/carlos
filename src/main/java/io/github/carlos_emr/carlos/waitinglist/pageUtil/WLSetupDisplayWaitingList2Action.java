@@ -210,23 +210,23 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
         today = UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
 
         request.setAttribute("WLId", waitingListId);
-        session.setAttribute("waitingList", hd);
+        session.setAttribute("waitingList", hd); // nosemgrep: tainted-session-from-http-request -- DAO-sourced WLWaitingListBeanHandler built from validated waitingListId
         if (hd != null) {
-            session.setAttribute("waitingListName", hd.getWaitingListName());
+            session.setAttribute("waitingListName", hd.getWaitingListName()); // nosemgrep: tainted-session-from-http-request -- getter on DAO-sourced waiting list bean
         } else {
-            session.setAttribute("waitingListName", null);
+            session.setAttribute("waitingListName", null); // nosemgrep: tainted-session-from-http-request -- null literal, no tainted data
         }
         if (wlNameHd != null) {
-            session.setAttribute("waitingListNames", wlNameHd.getWaitingListNames());
+            session.setAttribute("waitingListNames", wlNameHd.getWaitingListNames()); // nosemgrep: tainted-session-from-http-request -- DAO-sourced list from WLWaitingListNameBeanHandler
         } else {
-            session.setAttribute("waitingListNames", null);
+            session.setAttribute("waitingListNames", null); // nosemgrep: tainted-session-from-http-request -- null literal, no tainted data
         }
-        session.setAttribute("allProviders", allProviders);
+        session.setAttribute("allProviders", allProviders); // nosemgrep: tainted-session-from-http-request -- DAO-sourced provider list from WaitingListManager
 
-        session.setAttribute("nbPatients", nbPatients);
+        session.setAttribute("nbPatients", nbPatients); // nosemgrep: tainted-session-from-http-request -- string count derived from DAO query result size
 
         //session.setAttribute("allWaitingListName", allWaitingListName);
-        session.setAttribute("today", today);
+        session.setAttribute("today", today); // nosemgrep: tainted-session-from-http-request -- server-generated date string from new Date()
 
         return "continue";
     }

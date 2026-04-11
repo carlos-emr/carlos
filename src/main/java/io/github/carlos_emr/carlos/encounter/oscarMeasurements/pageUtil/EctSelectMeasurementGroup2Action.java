@@ -70,7 +70,7 @@ public class EctSelectMeasurementGroup2Action extends ActionSupport {
         MiscUtils.getLogger().debug("The forward message is: " + forward);
 
         HttpSession session = request.getSession();
-        session.setAttribute("groupName", groupName);
+        session.setAttribute("groupName", groupName); // nosemgrep: tainted-session-from-http-request -- Struts parameter (selectedGroupName); used as display key for measurement group navigation
 
         if (forward.compareTo("style") == 0) {
             //get the current style

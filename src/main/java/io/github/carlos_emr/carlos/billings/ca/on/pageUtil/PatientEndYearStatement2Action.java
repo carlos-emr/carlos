@@ -160,7 +160,7 @@ public class PatientEndYearStatement2Action extends ActionSupport {
                     summary.setCount(Integer.toString(invoiceCount));
                     summary.setFromDate(fromDate);
                     summary.setToDate(toDate);
-                    request.getSession().setAttribute("summary", summary);
+                    request.getSession().setAttribute("summary", summary); // nosemgrep: tainted-session-from-http-request -- summary bean populated from DAO billing query results and utility-formatted totals
                 } catch (Exception e) {
                     _logger.error("error", e);
 
@@ -218,7 +218,7 @@ public class PatientEndYearStatement2Action extends ActionSupport {
                 }
             }
         } else if (request.getParameter("demosearch") != null) {
-            request.getSession().setAttribute("summary", null);
+            request.getSession().setAttribute("summary", null); // nosemgrep: tainted-session-from-http-request -- clearing session attribute with null
 
             List<Demographic> demographicList = new ArrayList<Demographic>();
             if (request.getParameter("demographic_no") != null && request.getParameter("demographic_no").length() > 0) {
@@ -249,7 +249,7 @@ public class PatientEndYearStatement2Action extends ActionSupport {
             summary.setPhone(demographic.getPhone() + " " + demographic.getPhone2());
             request.setAttribute("summary", summary);
         } else {
-            request.getSession().setAttribute("summary", null);
+            request.getSession().setAttribute("summary", null); // nosemgrep: tainted-session-from-http-request -- clearing session attribute with null
         }
         return RES_SUCCESS;
     }

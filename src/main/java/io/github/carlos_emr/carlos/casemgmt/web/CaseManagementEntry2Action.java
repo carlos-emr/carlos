@@ -390,6 +390,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         // get an existing non-temp note?
         else if (nId != null && !"null".equalsIgnoreCase(nId) && Integer.parseInt(nId) > 0) {
             logger.debug("Using nId {} to fetch note", LogSanitizer.sanitize(nId));
+            // nosemgrep: tainted-session-from-http-request — value is hardcoded literal "false", not user input
             session.setAttribute("newNote", "false");
             note = caseManagementMgr.getNote(nId);
 
@@ -2326,6 +2327,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         String ajax = request.getParameter("ajax");
         if (ajax != null && ajax.equalsIgnoreCase("true")) {
+            // nosemgrep: tainted-session-from-http-request — sessionFrm is an existing session-scoped form bean, not raw user input
             request.setAttribute("caseManagementEntryForm", sessionFrm);
             return "issueList_ajax";
         } else return "view";
@@ -2443,6 +2445,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (curIssues != null) {
             sessionFrm.setIssueCheckList(curIssues);
         }
+        // nosemgrep: tainted-session-from-http-request — sessionFrm is an existing session-scoped form bean, not raw user input
         request.setAttribute("caseManagementEntryForm", sessionFrm);
 
         return "issueList_ajax";
@@ -2506,6 +2509,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         String ajax = request.getParameter("ajax");
         if (ajax != null && ajax.equalsIgnoreCase("true")) {
+            // nosemgrep: tainted-session-from-http-request — sessionFrm is an existing session-scoped form bean, not raw user input
             request.setAttribute("caseManagementEntryForm", sessionFrm);
             return "issueList_ajax";
         } else return "view";
@@ -2588,6 +2592,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         String ajax = request.getParameter("ajax");
         if (ajax != null && ajax.equalsIgnoreCase("true")) {
+            // nosemgrep: tainted-session-from-http-request — sessionFrm is an existing session-scoped form bean, not raw user input
             request.setAttribute("caseManagementEntryForm", sessionFrm);
             return "issueList_ajax";
         } else return "view";

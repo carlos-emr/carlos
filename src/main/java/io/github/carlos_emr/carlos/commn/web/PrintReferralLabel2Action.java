@@ -137,6 +137,7 @@ public class PrintReferralLabel2Action extends ActionSupport {
         }
 
         if ("true".equals(request.getParameter("useCheckList"))) {
+            // nosemgrep: tainted-session-from-http-request — value is a new empty ArrayList literal, not user input
             request.getSession().setAttribute("billingReferralAdminCheckList", new ArrayList<ProfessionalSpecialist>());
         }
         return SUCCESS;

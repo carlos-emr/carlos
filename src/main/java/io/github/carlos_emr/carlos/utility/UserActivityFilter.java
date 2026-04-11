@@ -85,6 +85,7 @@ public final class UserActivityFilter implements Filter {
                     redirectToLogout = true;
                 } else if (isUserRequest(httpRequest)) {
                     // Reset activity timer in session
+                    // nosemgrep: tainted-session-from-http-request — now is System.currentTimeMillis(), a server-generated timestamp
                     session.setAttribute(LAST_USER_ACTIVITY, now);
                 }
             }

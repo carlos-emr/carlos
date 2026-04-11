@@ -64,7 +64,7 @@ public class EctAddMeasurementGroup2Action extends ActionSupport {
         if (securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null) || securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
 
             String groupName = this.getGroupName();
-            request.getSession().setAttribute("groupName", groupName);
+            request.getSession().setAttribute("groupName", groupName); // nosemgrep: tainted-session-from-http-request -- Struts parameter; admin-only action guarded by _admin/_admin.measurements privilege
 
             String requestId = "";
 

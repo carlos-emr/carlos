@@ -940,6 +940,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
 
         RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        // nosemgrep: tainted-session-from-http-request — value is null literal (clearing session attribute), not user input
         request.getSession().setAttribute("rePrint", null); // set to print.
         List<String> paramList = new ArrayList<String>();
         Enumeration em = request.getParameterNames();

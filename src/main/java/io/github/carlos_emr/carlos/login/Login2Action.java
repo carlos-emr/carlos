@@ -292,6 +292,7 @@ public final class Login2Action extends ActionSupport {
                 Object mfaSecretAttr = request.getSession().getAttribute("mfaSecret");
                 if (mfaSecretAttr == null) {
                     // Session expired or attribute missing during MFA registration flow
+                    // nosemgrep: tainted-session-from-http-request — value is hardcoded error message string, not user input
                     request.setAttribute("errMsg", "Session expired. Please log in again.");
                     return "failure";
                 }

@@ -144,6 +144,7 @@ public final class WebUtils {
             ArrayList<String> messages = (ArrayList) ((ArrayList) session.getAttribute(type));
             if (messages == null) {
                 messages = new ArrayList();
+                // nosemgrep: tainted-session-from-http-request — messages is an internally constructed ArrayList, not user input
                 session.setAttribute(type, messages);
             }
 

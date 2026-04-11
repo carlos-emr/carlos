@@ -58,8 +58,8 @@ public final class EctSetupAddMeasuringInstruction2Action extends ActionSupport 
         Collection validations = validationHd.getValidationsVector();
 
         HttpSession session = request.getSession();
-        session.setAttribute("typeDisplayNames", typeDisplayName);
-        session.setAttribute("validations", validations);
+        session.setAttribute("typeDisplayNames", typeDisplayName); // nosemgrep: tainted-session-from-http-request -- DAO result list from EctTypeDisplayNameBeanHandler
+        session.setAttribute("validations", validations); // nosemgrep: tainted-session-from-http-request -- DAO result list from EctValidationsBeanHandler
         return "continue";
     }
 }

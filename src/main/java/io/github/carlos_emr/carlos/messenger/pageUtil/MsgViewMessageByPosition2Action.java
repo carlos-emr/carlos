@@ -128,7 +128,7 @@ public class MsgViewMessageByPosition2Action extends ActionSupport {
             if (pd != null) {
                 bean.setUserName(pd.getFirstName() + " " + pd.getLastName());
             }
-            request.getSession().setAttribute("msgSessionBean", bean);
+            request.getSession().setAttribute("msgSessionBean", bean); // nosemgrep: tainted-session-from-http-request -- session bean built from authenticated providerNo and DAO-loaded provider name
         }
 
         // Extract parameters for position-based navigation
