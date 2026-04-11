@@ -34,6 +34,8 @@ in English. The largest untranslated areas are `form/` (clinical forms, 172 file
 
 ### Summary Table
 
+The `other/` row includes miscellaneous domains with fewer than 8 files each (e.g., `renal/`, `eyeform/`, `loginExt/`, `fax/`, `integrator/`, `decision/`, `publicaccess/`, `print/`, `logout/`, `share/`, `PMmodule/`, etc.).
+
 | Domain | Total | None | Partial | Full | % Done |
 |--------|-------|------|---------|------|--------|
 | `admin/` | 65 | 22 | 18 | 25 | 38% full |
@@ -58,11 +60,12 @@ in English. The largest untranslated areas are `form/` (clinical forms, 172 file
 | `schedule/` | 12 | 1 | 2 | 9 | 75% full |
 | `tickler/` | 8 | 3 | 2 | 3 | 38% full |
 | `WEB-INF/` | 87 | 40 | 29 | 18 | 21% full |
-| *(other/root)* | 87 | — | — | — | — |
+| `other/` | 87 | 48 | 16 | 23 | 26% full |
+| **Total** | **1,090** | **524** | **357** | **209** | **19% full** |
 
 > **Note:** The domain table covers 1,003 files across named domains. The executive
 > summary total of 1,090 includes an additional 87 files in root-level webapp paths
-> and unlisted subdirectories, reflected in the *(other/root)* row above.
+> and unlisted subdirectories, reflected in the `other/` row above.
 
 ---
 

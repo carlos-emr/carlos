@@ -19,11 +19,12 @@ echo
 
 # tags: regex pattern matching either legacy java.sun.com or modern Jakarta namespace URIs
 declare -A tags=(
-    ["fmt"]="java\.sun\.com/jsp/jstl/fmt|jakarta\.tags\.fmt"
-    ["c"]="java\.sun\.com/jsp/jstl/core|jakarta\.tags\.core"
-    ["fn"]="java\.sun\.com/jsp/jstl/functions|jakarta\.tags\.functions"
-    ["sql"]="java\.sun\.com/jsp/jstl/sql|jakarta\.tags\.sql"
-    ["x"]="java\.sun\.com/jsp/jstl/xml|jakarta\.tags\.xml"
+    # JSTL tags (legacy java.sun.com and Jakarta namespaces)
+    ["fmt"]="(http://java\\.sun\\.com/jsp/jstl/fmt|jakarta\\.tags\\.fmt)"
+    ["c"]="(http://java\\.sun\\.com/jsp/jstl/core|jakarta\\.tags\\.core)"
+    ["fn"]="(http://java\\.sun\\.com/jsp/jstl/functions|jakarta\\.tags\\.functions)"
+    ["sql"]="(http://java\\.sun\\.com/jsp/jstl/sql|jakarta\\.tags\\.sql)"
+    ["x"]="(http://java\\.sun\\.com/jsp/jstl/xml|jakarta\\.tags\\.xml)"
 )
 
 # Recommended Jakarta namespace URIs for suggestions
@@ -167,16 +168,16 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo
     echo "=== Checking for Unused Taglibs ==="
     echo
-    
+
     unused_count=0
     while IFS= read -r -d '' file; do
         # Skip taglib include files themselves (they're meant to be included, not use tags)
         if echo "$file" | grep -qE "${TAGLIB_INCLUDES}"; then
             continue
         fi
-        
+
         unused=()
-        
+
         for prefix in "${!tags[@]}"; do
             # Check if taglib is declared (either URI form)
             if grep -qE "taglib.*${tags[$prefix]}" "$file"; then
@@ -186,7 +187,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
                 fi
             fi
         done
-        
+
         if [ ${#unused[@]} -gt 0 ]; then
             echo "$file"
             echo "   Unused taglib(s): ${unused[*]}"
@@ -194,6 +195,6 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
             ((unused_count++))
         fi
     done < <(find . \( -name "*.jsp" -o -name "*.jspf" -o -name "*.tag" \) -type f -print0)
-    
+
     echo "Files with unused taglibs: $unused_count"
 fi
