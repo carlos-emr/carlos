@@ -794,7 +794,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
                 preparedStmt.setTimestamp(i + 1, param.getTimestampValue());
             }
         }
-        return (preparedStmt.executeUpdate()); // nosemgrep: formatted-sql-string — part of PreparedStatement chain; params bound via setString/setDate/setInt
+        return (preparedStmt.executeUpdate());
     }
 
 }
