@@ -31,6 +31,7 @@
 
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -179,8 +180,8 @@ public interface ProviderDao {
      * Returns provider summaries for the given provider numbers as a map keyed
      * by provider number. Useful for batch lookups to avoid N+1 queries.
      *
-     * @param providerNumbers List of String provider numbers to look up
+     * @param providerNumbers Collection of String provider numbers to look up (List or Set both accepted)
      * @return Map of providerNo to ProviderSummaryDTO
      */
-    public Map<String, ProviderSummaryDTO> getProviderSummariesByIds(List<String> providerNumbers);
+    public Map<String, ProviderSummaryDTO> getProviderSummariesByIds(Collection<String> providerNumbers);
 }

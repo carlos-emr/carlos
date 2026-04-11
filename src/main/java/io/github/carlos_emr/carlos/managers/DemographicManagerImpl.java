@@ -127,7 +127,11 @@ public class DemographicManagerImpl implements DemographicManager {
 	 */
      @Override
      public Demographic getDemographic(LoggedInInfo loggedInInfo, Integer demographicId) throws PatientDirectiveException {
-        checkPrivilege(loggedInInfo, SecurityInfoManager.READ, (demographicId != null) ? demographicId : null); 
+        if (demographicId != null) {
+            checkPrivilege(loggedInInfo, SecurityInfoManager.READ, demographicId);
+        } else {
+            checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+        }
         Demographic demographic = demographicDao.getDemographicById(demographicId); 
         if (demographic != null) {
 			this.getMRP(loggedInInfo, demographic);
@@ -1277,7 +1281,11 @@ public class DemographicManagerImpl implements DemographicManager {
 
     @Override
     public DemographicHeaderDTO getDemographicHeader(LoggedInInfo loggedInInfo, Integer demographicId) {
-        checkPrivilege(loggedInInfo, SecurityInfoManager.READ, (demographicId != null) ? demographicId : null);
+        if (demographicId != null) {
+            checkPrivilege(loggedInInfo, SecurityInfoManager.READ, demographicId);
+        } else {
+            checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+        }
         return demographicDao.getDemographicHeader(demographicId);
     }
 

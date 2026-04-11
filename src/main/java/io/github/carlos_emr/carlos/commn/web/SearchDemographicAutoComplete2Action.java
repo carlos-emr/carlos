@@ -33,8 +33,10 @@ package io.github.carlos_emr.carlos.commn.web;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -165,16 +167,19 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 
         // Batch-load all referenced provider numbers in a single query instead of N+1 RxProviderData lookups
-        List<String> providerNos = new ArrayList<>();
+        Set<String> providerNos = new LinkedHashSet<>();
         for (Demographic demo : list) {
             if (demo.getProviderNo() != null && !demo.getProviderNo().isEmpty()) {
                 providerNos.add(demo.getProviderNo());
             }
         }
         boolean workflowEnhance = CarlosProperties.getInstance().isPropertyActive("workflow_enhance");
+        // Cache DemographicCust records fetched during workflow pre-pass to avoid a second query per patient in the render loop
+        Map<Integer, DemographicCust> dcMap = new HashMap<>();
         if (workflowEnhance) {
             for (Demographic demo : list) {
                 DemographicCust dc = demographicCustDao.find(demo.getDemographicNo());
+                dcMap.put(demo.getDemographicNo(), dc);
                 if (dc != null) {
                     String n = StringUtils.trimToNull(dc.getNurse());
                     String r = StringUtils.trimToNull(dc.getResident());
@@ -204,7 +209,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             h.put("hin", demo.getHin() != null ? demo.getHin() : "");
             h.put("address", demo.getAddress() != null ? demo.getAddress() : "");
 
-            if (demo.getProviderNo() != null) {
+            if (demo.getProviderNo() != null && !demo.getProviderNo().isEmpty()) {
                 h.put("providerNo", demo.getProviderNo());
                 ProviderSummaryDTO prov = providerMap.get(demo.getProviderNo());
                 if (prov != null) {
@@ -212,7 +217,10 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
                 }
             }
 
-            DemographicCust demographicCust = demographicCustDao.find(demo.getDemographicNo());
+            // Reuse cached DemographicCust from workflow pre-pass if available, otherwise fetch once
+            DemographicCust demographicCust = dcMap.containsKey(demo.getDemographicNo())
+                    ? dcMap.get(demo.getDemographicNo())
+                    : demographicCustDao.find(demo.getDemographicNo());
 
             String alertText = (demographicCust != null && demographicCust.getAlert() != null) ? demographicCust.getAlert() : "";
             h.put("alert", alertText);

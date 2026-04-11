@@ -151,12 +151,21 @@ public class DemographicListItemDTO implements Serializable {
      * @return String the formatted name
      */
     public String getFormattedName() {
+        if (lastName == null && firstName == null) {
+            return "N/A";
+        }
         StringBuilder sb = new StringBuilder();
-        if (lastName != null) sb.append(lastName);
-        sb.append(", ");
-        if (firstName != null) sb.append(firstName);
-        if (alias != null && !alias.isEmpty()) {
-            sb.append(" (").append(alias).append(")");
+        if (lastName != null) {
+            sb.append(lastName.trim());
+        }
+        if (firstName != null) {
+            if (sb.length() > 0) {
+                sb.append(", ");
+            }
+            sb.append(firstName.trim());
+        }
+        if (alias != null && !alias.trim().isEmpty()) {
+            sb.append(" (").append(alias.trim()).append(")");
         }
         return sb.toString();
     }

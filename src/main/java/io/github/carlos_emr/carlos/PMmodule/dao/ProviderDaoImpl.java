@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.PMmodule.dao;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -771,7 +772,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
     }
 
     @Override
-    public Map<String, ProviderSummaryDTO> getProviderSummariesByIds(List<String> providerNumbers) {
+    public Map<String, ProviderSummaryDTO> getProviderSummariesByIds(Collection<String> providerNumbers) {
         Map<String, ProviderSummaryDTO> map = new HashMap<>();
         if (providerNumbers == null || providerNumbers.isEmpty()) {
             return map;

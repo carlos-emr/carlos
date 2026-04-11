@@ -116,10 +116,19 @@ public class DemographicHeaderDTO implements Serializable {
      * @return String the formatted name
      */
     public String getFormattedName() {
+        if (lastName == null && firstName == null) {
+            return "N/A";
+        }
         StringBuilder sb = new StringBuilder();
-        if (lastName != null) sb.append(lastName);
-        sb.append(", ");
-        if (firstName != null) sb.append(firstName);
+        if (lastName != null) {
+            sb.append(lastName.trim());
+        }
+        if (firstName != null) {
+            if (sb.length() > 0) {
+                sb.append(", ");
+            }
+            sb.append(firstName.trim());
+        }
         return sb.toString();
     }
 
@@ -151,7 +160,7 @@ public class DemographicHeaderDTO implements Serializable {
                     Integer.parseInt(monthOfBirth),
                     Integer.parseInt(dateOfBirth));
             return String.valueOf(Period.between(dob, LocalDate.now()).getYears());
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException | java.time.DateTimeException e) {
             return "";
         }
     }
