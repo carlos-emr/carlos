@@ -44,7 +44,6 @@ import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupStyleDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementGroup;
 import io.github.carlos_emr.carlos.commn.model.MeasurementGroupStyle;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -72,8 +71,7 @@ public class EctSelectMeasurementGroup2Action extends ActionSupport {
         // CWE-501: validate groupName at trust boundary — reject control chars and excessive length
         if (groupName == null || groupName.isEmpty() || groupName.length() > 100
                 || !groupName.matches("[\\w\\s\\-\\.]+")) {
-            MiscUtils.getLogger().warn("Rejected invalid measurement group name: {}", LogSanitizer.sanitize(groupName));
-            return ERROR;
+            throw new SecurityException("Invalid measurement group name");
         }
 
         MiscUtils.getLogger().debug("The forward message is: " + forward);

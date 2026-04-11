@@ -38,9 +38,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListItemsHandler;
@@ -66,11 +64,10 @@ public class dxResearchLoadQuickListItems2Action extends ActionSupport {
         //request.getSession().setAttribute("dxResearchLoadQuickListItemsFrm", frm);
         String quickListName = getQuickListName();
 
-        // CWE-501: validate quickListName at trust boundary — reject control chars and excessive length
+        // CWE-501: validate quickListName at trust boundary -- reject control chars and excessive length
         if (quickListName == null || quickListName.isEmpty() || quickListName.length() > 100
                 || !quickListName.matches("[\\w\\s\\-\\.]+")) {
-            MiscUtils.getLogger().warn("Rejected invalid quickListName: {}", LogSanitizer.sanitize(quickListName));
-            return ERROR;
+            throw new RuntimeException("Invalid quick list name");
         }
 
         dxResearchCodingSystem codingSys = new dxResearchCodingSystem();

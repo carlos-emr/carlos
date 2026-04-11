@@ -166,8 +166,8 @@ public class EctDisplayAction extends ActionSupport {
             bean.appointmentNo = apptNoParam;
             bean.curProviderNo = request.getParameter("curProviderNo");
             if (bean.curProviderNo != null && !bean.curProviderNo.isEmpty() && !bean.curProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
-                logger.warn("Invalid curProviderNo: {}", LogSanitizer.sanitize(bean.curProviderNo));
-                return "error";
+                logger.warn("Invalid curProviderNo rejected, falling back to logged-in provider: {}", LogSanitizer.sanitize(bean.curProviderNo));
+                bean.curProviderNo = null;
             }
             // Fall back to authenticated provider — the logged-in user IS the provider unless viewing another provider's schedule
             if (bean.curProviderNo == null || bean.curProviderNo.trim().isEmpty()) {
@@ -175,26 +175,55 @@ public class EctDisplayAction extends ActionSupport {
             }
             // CWE-501 trust boundary: validate structured fields, sanitize free-text
             String reasonParam = request.getParameter("reason");
-            bean.reason = (reasonParam != null && SAFE_TEXT.matcher(reasonParam).matches() && reasonParam.length() <= 255) ? reasonParam : null;
+            if (reasonParam != null && (!SAFE_TEXT.matcher(reasonParam).matches() || reasonParam.length() > 255)) {
+                logger.warn("Rejected invalid reason at trust boundary");
+                reasonParam = null;
+            }
+            bean.reason = reasonParam;
             String encTypeParam = request.getParameter("encType");
-            bean.encType = (encTypeParam != null && encTypeParam.matches("[a-zA-Z0-9_ ]{1,50}")) ? encTypeParam : null;
+            if (encTypeParam != null && !encTypeParam.matches("[a-zA-Z0-9_ ]{1,50}")) {
+                logger.warn("Rejected invalid encType at trust boundary: {}", LogSanitizer.sanitize(encTypeParam));
+                encTypeParam = null;
+            }
+            bean.encType = encTypeParam;
             bean.userName = request.getParameter("userName");
             if (bean.userName == null) {
                 bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " " + ((String) request.getSession().getAttribute("userlastname"));
             } else if (!SAFE_TEXT.matcher(bean.userName).matches() || bean.userName.length() > 100) {
-                bean.userName = null;
+                logger.warn("Rejected invalid userName at trust boundary, falling back to session-derived name");
+                bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " " + ((String) request.getSession().getAttribute("userlastname"));
             }
 
             String apptDateParam = request.getParameter("appointmentDate");
-            bean.appointmentDate = (apptDateParam != null && SAFE_DATE.matcher(apptDateParam).matches()) ? apptDateParam : null;
+            if (apptDateParam != null && !SAFE_DATE.matcher(apptDateParam).matches()) {
+                logger.warn("Rejected invalid appointmentDate at trust boundary: {}", LogSanitizer.sanitize(apptDateParam));
+                apptDateParam = null;
+            }
+            bean.appointmentDate = apptDateParam;
             String startTimeParam = request.getParameter("startTime");
-            bean.startTime = (startTimeParam != null && SAFE_TIME.matcher(startTimeParam).matches()) ? startTimeParam : null;
+            if (startTimeParam != null && !SAFE_TIME.matcher(startTimeParam).matches()) {
+                logger.warn("Rejected invalid startTime at trust boundary: {}", LogSanitizer.sanitize(startTimeParam));
+                startTimeParam = null;
+            }
+            bean.startTime = startTimeParam;
             String statusParam = request.getParameter("status");
-            bean.status = (statusParam != null && SAFE_STATUS.matcher(statusParam).matches()) ? statusParam : null;
+            if (statusParam != null && !SAFE_STATUS.matcher(statusParam).matches()) {
+                logger.warn("Rejected invalid status at trust boundary: {}", LogSanitizer.sanitize(statusParam));
+                statusParam = null;
+            }
+            bean.status = statusParam;
             String dateParam = request.getParameter("date");
-            bean.date = (dateParam != null && SAFE_DATE.matcher(dateParam).matches()) ? dateParam : null;
+            if (dateParam != null && !SAFE_DATE.matcher(dateParam).matches()) {
+                logger.warn("Rejected invalid date at trust boundary: {}", LogSanitizer.sanitize(dateParam));
+                dateParam = null;
+            }
+            bean.date = dateParam;
             bean.check = "myCheck";
             bean.oscarMsgID = request.getParameter("msgId");
+            if (bean.oscarMsgID != null && !bean.oscarMsgID.matches("\\d+")) {
+                logger.warn("Invalid msgId: {}", LogSanitizer.sanitize(bean.oscarMsgID));
+                bean.oscarMsgID = null;
+            }
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
             // nosemgrep: tainted-session-from-http-request -- demographicNo/appointmentNo validated numeric;
             // status validated [a-zA-Z]{1,2}; dates validated YYYY-MM-DD; time validated HH:MM; encType validated alphanumeric;

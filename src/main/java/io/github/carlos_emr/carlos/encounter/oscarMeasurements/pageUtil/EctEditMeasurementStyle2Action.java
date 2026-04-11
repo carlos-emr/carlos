@@ -62,15 +62,15 @@ public class EctEditMeasurementStyle2Action extends ActionSupport {
 
         if (securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null) || securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
 
+            // CWE-501: validate groupName BEFORE any use or session storage
+            if (groupName != null && (groupName.length() > 100 || !groupName.matches("[\\w\\s\\-\\.]+"))) {
+                throw new SecurityException("Invalid measurement group name");
+            }
+
             changeCSS(groupName, styleSheet);
 
-            MiscUtils.getLogger().debug("The selected style sheet is: " + styleSheet);
+            MiscUtils.getLogger().debug("The selected style sheet is: {}", styleSheet);
             HttpSession session = request.getSession();
-            // CWE-501: validate groupName before session storage
-            if (groupName != null && (groupName.length() > 100 || !groupName.matches("[\\w\\s\\-\\.]+"))) {
-                MiscUtils.getLogger().warn("Rejected invalid groupName at trust boundary");
-                return ERROR;
-            }
             // nosemgrep: tainted-session-from-http-request -- groupName validated via regex [\\w\\s\\-\\.]+, length-capped to 100; admin-only action guarded by _admin/_admin.measurements write privilege
             session.setAttribute("groupName", groupName);
 

@@ -250,8 +250,9 @@ public class EctIncomingEncounter2Action extends ActionSupport {
                 bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " "
                         + ((String) request.getSession().getAttribute("userlastname"));
             } else if (!SAFE_TEXT.matcher(bean.userName).matches() || bean.userName.length() > 100) {
-                log.warn("Rejected invalid userName at trust boundary");
-                bean.userName = null;
+                log.warn("Rejected invalid userName at trust boundary, falling back to session-derived name");
+                bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " "
+                        + ((String) request.getSession().getAttribute("userlastname"));
             }
 
             String apptDateParam = request.getParameter("appointmentDate");

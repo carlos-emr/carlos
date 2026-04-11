@@ -37,7 +37,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -64,10 +63,9 @@ public final class RptSelectCDMReport2Action extends ActionSupport {
         HttpSession session = request.getSession();
         String CDMgroup = (String) this.getValue("CDMgroup");
 
-        // CWE-501: validate CDMgroup at trust boundary — reject control chars and excessive length
+        // CWE-501: validate CDMgroup at trust boundary -- reject control chars and excessive length
         if (CDMgroup != null && (CDMgroup.length() > 100 || !CDMgroup.matches("[\\w\\s\\-\\.]+"))) {
-            MiscUtils.getLogger().warn("Rejected invalid CDMgroup: {}", LogSanitizer.sanitize(CDMgroup));
-            return ERROR;
+            throw new SecurityException("Invalid CDM group name");
         }
 
         MiscUtils.getLogger().debug("The selected group is {}", CDMgroup);

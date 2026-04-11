@@ -238,7 +238,8 @@ public class FacilityManager2Action extends ActionSupport {
 
             // if we just updated our current facility, refresh local cached data in the session / thread local variable
             if (loggedInInfo.getCurrentFacility().getId().intValue() == facility.getId().intValue()) {
-                request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility); // nosemgrep: tainted-session-from-http-request -- DAO-persisted facility entity refreshed after save for current session
+                // nosemgrep: tainted-session-from-http-request -- facility fields from admin form, persisted/merged to DB above; admin-only save() action guarded by privilege check
+                request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility);
                 loggedInInfo.setCurrentFacility(facility);
             }
 
