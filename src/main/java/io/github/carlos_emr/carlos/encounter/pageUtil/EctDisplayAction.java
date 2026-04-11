@@ -134,8 +134,7 @@ public class EctDisplayAction extends ActionSupport {
         if (rebuildBean) {
             demoNoParam = request.getParameter("demographicNo");
             if (demoNoParam != null && !demoNoParam.isEmpty() && !demoNoParam.matches("\\d+")) {
-                logger.warn("Invalid non-numeric demographicNo: {}", LogSanitizer.sanitize(demoNoParam));
-                return "error";
+                throw new SecurityException("Invalid non-numeric demographicNo");
             }
         } else {
             demoNoParam = bean.demographicNo;
@@ -160,8 +159,7 @@ public class EctDisplayAction extends ActionSupport {
             bean.demographicNo = demoNoParam;
             String apptNoParam = request.getParameter("appointmentNo");
             if (apptNoParam != null && !apptNoParam.isEmpty() && !apptNoParam.matches("\\d+")) {
-                logger.warn("Invalid non-numeric appointmentNo: {}", LogSanitizer.sanitize(apptNoParam));
-                return "error";
+                throw new SecurityException("Invalid non-numeric appointmentNo");
             }
             bean.appointmentNo = apptNoParam;
             bean.curProviderNo = request.getParameter("curProviderNo");
