@@ -76,9 +76,7 @@ For each hardcoded string:
 
 1. Choose the correct key name using the `<domain>.<jspFilename>.<elementDescription>`
    convention. Check `global.*` keys first — avoid creating duplicates.
-2. Add the key to **all five locale files** in a single commit. For non-English locales,
-   add a `# TODO: translate` comment on the **preceding line** (not appended to the value —
-   inline `# ...` text is not a comment in `.properties` syntax and becomes part of the value):
+2. Add the key to **all five locale files** in a single commit. 
    - `oscarResources_en.properties` — with the English value
    - `oscarResources_es.properties` — with the Spanish value
    - `oscarResources_fr.properties` — with the French value
