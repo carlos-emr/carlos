@@ -1993,7 +1993,7 @@
                                                         %>
                                                         <!-- Short letters -->
                                                         <a class="apptStatus" href="javascript:void(0)"
-                                                           onclick="postViaForm('providercontrol.jsp?appointment_no=<%=appointment.getId()%>&amp;provider_no=<%=curProvider_no[nProvider]%>&amp;status=&amp;statusch=<%=nextStatus%>&amp;year=<%=year%>&amp;month=<%=month%>&amp;day=<%=day%>&amp;<%=viewString%>&amp;displaymode=addstatus&amp;dboperation=updateapptstatus&amp;viewall=${e:forJavaScriptAttribute(not empty param.viewall ? param.viewall : '0')}<%= isWeekView ? "&amp;viewWeek=1" : "" %>');"
+                                                           onclick="postViaForm('providercontrol.jsp?appointment_no=<%=appointment.getId()%>&amp;provider_no=<%=curProvider_no[nProvider]%>&amp;status=&amp;statusch=<%=nextStatus%>&amp;year=<%=year%>&amp;month=<%=month%>&amp;day=<%=day%>&amp;<%=viewString%>&amp;displaymode=addstatus&amp;dboperation=updateapptstatus&amp;viewall=${e:forUriComponent(not empty param.viewall ? param.viewall : '0')}<%= isWeekView ? "&amp;viewWeek=1" : "" %>');"
                                                            title='<%= Encode.forHtmlAttribute(as.getTitleString(request.getLocale())) %>'>
                                                             <%
                                                                 }
