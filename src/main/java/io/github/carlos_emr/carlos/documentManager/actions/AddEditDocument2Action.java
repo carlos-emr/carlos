@@ -168,6 +168,12 @@ public class AddEditDocument2Action extends ActionSupport {
         LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
         String providerId = request.getParameter("providers");
 
+        if (doc_no == null || doc_no.trim().isEmpty()) {
+            MiscUtils.getLogger().error("Empty or null document ID returned from addDocumentSQL");
+            response.sendError(500, "Invalid document ID");
+            return null;
+        }
+
         Integer docNoInt;
         try {
             docNoInt = Integer.parseInt(doc_no.trim());
@@ -198,11 +204,10 @@ public class AddEditDocument2Action extends ActionSupport {
                     qid = null;
                 }
                 if (qid != null && qid > 0) {
-                    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-                    QueueDao queueDao = (QueueDao) ctx.getBean(QueueDao.class);
+                    QueueDao queueDao = SpringUtils.getBean(QueueDao.class);
                     String queueName = queueDao.getQueueName(qid);
                     if (queueName != null && !queueName.isEmpty()) {
-                        QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
+                        QueueDocumentLinkDao queueDocumentLinkDAO = SpringUtils.getBean(QueueDocumentLinkDao.class);
                         queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, docNoInt);
                         request.getSession().setAttribute("preferredQueue", String.valueOf(qid));
                     } else {
