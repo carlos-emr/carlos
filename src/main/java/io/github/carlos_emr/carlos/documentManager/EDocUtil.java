@@ -1203,13 +1203,13 @@ public final class EDocUtil {
      *
      * @param fileName Name of the file to use for saving the content
      * @param content  Content to be saved into the file
-     * @throws IOException IOException is thrown in case of any save errors
-     * @throws SecurityException if the filename fails path validation (e.g. traversal attempt or hidden file)
+     * @throws IOException       IOException is thrown in case of any save errors
+     * @throws SecurityException if the fileName contains path traversal sequences
      */
     public static void writeDocContent(String fileName, byte[] content) throws IOException {
         String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        File file = new File(docDir, fileName);
-        // Validation is performed by writeContent() via PathValidationUtils
+        File docDirFile = new File(docDir);
+        File file = PathValidationUtils.validatePath(fileName, docDirFile);
         writeContent(file.getAbsolutePath(), content);
     }
 

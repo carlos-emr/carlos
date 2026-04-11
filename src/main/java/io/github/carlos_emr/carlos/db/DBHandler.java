@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+ *
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -79,8 +79,14 @@ public final class DBHandler {
 			stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement(ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
 		}
 
-		ResultSet rs = stmt.executeQuery(SQLStatement); // nosemgrep: formatted-sql-string — deprecated infrastructure wrapper; callers are being migrated to GetPreSQL // codeql[java/sql-injection]
-		return rs;
+		ResultSet rs;
+		try {
+			rs = stmt.executeQuery(SQLStatement); // nosemgrep: formatted-sql-string — deprecated infrastructure wrapper; callers are being migrated to GetPreSQL // codeql[java/sql-injection]
+		} catch (SQLException e) {
+			stmt.close();
+			throw e;
+		}
+		return StatementClosingResultSet.wrap(rs, stmt);
 	}
 
 	private static void bindParams(PreparedStatement ps, Object... params) throws SQLException {
@@ -103,8 +109,15 @@ public final class DBHandler {
 			.getThreadLocalDbConnection()
 			.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE,
 				updatable ? ResultSet.CONCUR_UPDATABLE : ResultSet.CONCUR_READ_ONLY);
-		bindParams(ps, params);
-		return ps.executeQuery();
+		ResultSet rs;
+		try {
+			bindParams(ps, params);
+			rs = ps.executeQuery();
+		} catch (SQLException e) {
+			ps.close();
+			throw e;
+		}
+		return StatementClosingResultSet.wrap(rs, ps);
 	}
 
 }

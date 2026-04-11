@@ -204,26 +204,52 @@ public class BatchBill2Action extends ActionSupport {
     }
 
     //Add demographic to batch billing table and allow update of record if already present
-    public String add() throws ParseException {
+    public String add() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
         BatchBillingDAO batchBillingDAO = (BatchBillingDAO) SpringUtils.getBean(BatchBillingDAO.class);
-        Integer demographicNo = Integer.parseInt(request.getParameter("demographic_no").trim());
-        String billingProviderNo = request.getParameter("providers").trim();
-        String creatorProviderNo = request.getParameter("creator").trim();
-        String service_code = request.getParameter("xml_other1");
-        String dxcode = request.getParameter("xml_diagnostic_detail");
+        String demographicNoParam = request.getParameter("demographic_no");
+        if (demographicNoParam == null || demographicNoParam.trim().isEmpty()) {
+            request.setAttribute("error", "Missing required parameter: demographic_no");
+            return "error";
+        }
+        int demographicNo;
+        try {
+            demographicNo = Integer.parseInt(demographicNoParam.trim());
+        } catch (NumberFormatException e) {
+            request.setAttribute("error", "Invalid demographic_no format");
+            return "error";
+        }
+        String providersParam = request.getParameter("providers");
+        String billingProviderNo = providersParam != null ? providersParam.trim() : "";
+        String creatorParam = request.getParameter("creator");
+        String creatorProviderNo = creatorParam != null ? creatorParam.trim() : "";
+        // service_code may be absent for bulk batch billing entries; passed through as-is, no downstream validation
+        String serviceCodeParam = request.getParameter("xml_other1");
+        String service_code = serviceCodeParam != null ? serviceCodeParam.trim() : null;
+        String dxcodeRaw = request.getParameter("xml_diagnostic_detail");
+        String dxcode = dxcodeRaw != null ? dxcodeRaw : "";
         String createdDate = request.getParameter("createdate");
-        Date date = DateUtils.parseDate(createdDate, new String[]{"yyyy/MM/dd HH:mm:ss"});
+        if (createdDate == null || createdDate.trim().isEmpty()) {
+            request.setAttribute("error", "Missing required parameter: createdate");
+            return "error";
+        }
+        final String createdDateFormat = "yyyy/MM/dd HH:mm:ss";
+        Date date;
+        try {
+            date = DateUtils.parseDate(createdDate, new String[]{createdDateFormat});
+        } catch (ParseException e) {
+            request.setAttribute("error", "Invalid date format for createdate. Expected format: " + createdDateFormat);
+            return "error";
+        }
         Timestamp created = new Timestamp(date.getTime());
         int pipePos;
 
         if ((pipePos = dxcode.indexOf("|")) != -1) {
-            String tmp = dxcode.substring(0, pipePos);
-            dxcode = tmp;
+            dxcode = dxcode.substring(0, pipePos);
         }
 
         List<BatchBilling> batchBillingList = batchBillingDAO.find(demographicNo, service_code);

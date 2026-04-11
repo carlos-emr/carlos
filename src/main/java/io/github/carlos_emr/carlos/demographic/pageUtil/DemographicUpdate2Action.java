@@ -55,6 +55,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -91,7 +92,7 @@ public class DemographicUpdate2Action extends ActionSupport {
      *         {@code _demographic} write privilege
      */
     @Override
-    public String execute() {
+    public String execute() throws IOException {
         if (!"POST".equals(request.getMethod())) {
             return "methodNotAllowed";
         }

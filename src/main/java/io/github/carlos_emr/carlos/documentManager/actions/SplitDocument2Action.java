@@ -18,7 +18,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
@@ -148,7 +147,6 @@ public class SplitDocument2Action extends ActionSupport {
 
                 String newDocNo = EDocUtil.addDocumentSQL(newDoc);
 
-                File docDir = new File(docdownload);
                 // Validate the user-sourced filename component to prevent path traversal;
                 // docdownload (the base directory) comes from server-side configuration.
                 File safeFile = PathValidationUtils.validatePath(newDoc.getFileName(), docDir);
