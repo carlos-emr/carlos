@@ -123,7 +123,7 @@ public class SQLReporter implements Reporter {
             sql = parameterizedResult[0];
             sqlParams = extractParams(parameterizedResult);
         } else {
-            MiscUtils.getLogger().error("Report template {} uses unsupported legacy non-parameterized report type. Refusing to execute.", templateId);
+            MiscUtils.getLogger().error("Report template {} uses unsupported legacy non-parameterized report type. Refusing to execute.", Encode.forJava(templateId));
             request.setAttribute("errormsg", "Error: This report template uses a legacy format that is no longer supported. Please contact your administrator to update the template.");
             request.setAttribute("templateid", templateId);
             return false;
@@ -179,7 +179,7 @@ public class SQLReporter implements Reporter {
                 x++;
             }
         } else {
-            MiscUtils.getLogger().error("Report template {} uses unsupported legacy non-parameterized report type (sequenced). Refusing to execute.", templateId);
+            MiscUtils.getLogger().error("Report template {} uses unsupported legacy non-parameterized report type (sequenced). Refusing to execute.", Encode.forJava(templateId));
             request.setAttribute("errormsg", "Error: This report template uses a legacy format that is no longer supported. Please contact your administrator to update the template.");
             request.setAttribute("templateid", templateId);
             return false;

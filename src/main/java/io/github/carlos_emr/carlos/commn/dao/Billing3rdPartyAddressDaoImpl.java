@@ -52,7 +52,7 @@ public class Billing3rdPartyAddressDaoImpl extends AbstractDaoImpl<Billing3rdPar
 
     /** Allowlisted column names for the WHERE clause search mode. */
     private static final Set<String> VALID_SEARCH_MODES = Set.of(
-        "search_name", "company_name", "attention", "address", "city", "province",
+        "company_name", "attention", "address", "city", "province",
         "postcode", "telephone", "fax"
     );
 
