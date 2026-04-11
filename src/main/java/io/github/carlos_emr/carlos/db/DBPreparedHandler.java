@@ -39,6 +39,7 @@ import java.util.Locale;
 
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * deprecated Use JPA instead, no new code should be written against this class.
@@ -293,6 +294,7 @@ public final class DBPreparedHandler {
             }
             return pno;
         } catch (Exception ex) {
+            MiscUtils.getLogger().error("Failed to generate new provider number", ex);
             return "";
         }
     }

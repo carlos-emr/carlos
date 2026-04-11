@@ -65,9 +65,9 @@ public class RptDownloadCSVServlet extends HttpServlet {
         try {
             in = request.getParameter("demoReport") != null ? demoReport(request) : formReport(request);
         } catch (ServletException e1) {
-            _logger.error("RptDownloadCSVServlet service() - form report");
+            _logger.error("RptDownloadCSVServlet service() - form report failed", e1);
         } catch (Exception e1) {
-            _logger.error("RptDownloadCSVServlet service() - form report");
+            _logger.error("RptDownloadCSVServlet service() - report generation failed", e1);
         }
 
 
@@ -321,7 +321,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 if (strFilter.indexOf("formBCBirthSumMo") > 0) {
                     ResultSet rs = DBHelp.searchDBRecord("select distinct demographic_no from formBCBirthSumMo");
                     String sBirthSumNo = "";
-                    while (rs.next()) {
+                    if (rs != null) while (rs.next()) {
                         sBirthSumNo += (sBirthSumNo.length() > 0 ? "," : "") + rs.getInt("demographic_no");
                     }
                     sBirthSumNo = sBirthSumNo.length() > 0 ? sBirthSumNo : "0";
@@ -389,7 +389,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                             params[k + 1] = demoNoList.get(k);
                         }
                         ResultSet rs = DBHelp.searchDBRecord(sql, params);
-                        while (rs.next()) {
+                        if (rs != null) while (rs.next()) {
                             propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
                         }
                     }
@@ -411,7 +411,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 MiscUtils.getLogger().debug(" demographic and demographicExt subQuery: " + subQuery);
                 java.util.List<String> subDemoNoList = new java.util.ArrayList<>();
                 rs = DBHelp.searchDBRecord(subQuery, new Object[0]); // nosemgrep: formatted-sql-string — report filter SQL; values escaped by RptReportCreator.getWhereValueClause
-                while (rs.next()) {
+                if (rs != null) while (rs.next()) {
                     subDemoNoList.add(String.valueOf(rs.getInt("demographic.demographic_no")));
                 }
                 // Build comma-separated string for RptReportCreator.query() which doesn't support parameterized IN
@@ -430,7 +430,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                         }
                         MiscUtils.getLogger().debug(" demographic and demographicExt: " + sql);
                         rs = DBHelp.searchDBRecord(sql, params);
-                        while (rs.next()) {
+                        if (rs != null) while (rs.next()) {
                             propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
                         }
                     }
@@ -476,7 +476,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
             MiscUtils.getLogger().debug(" demographic and " + ARTYPE + " subQuery: " + subQuery);
             String subFormId = "";
             ResultSet rs = DBHelp.searchDBRecord(subQuery, new Object[0]); // nosemgrep: formatted-sql-string — report filter SQL; values escaped by RptReportCreator.getWhereValueClause
-            while (rs.next()) {
+            if (rs != null) while (rs.next()) {
                 subFormId += (subFormId.length() > 0 ? "," : "") + rs.getInt("max(ID)");
             }
 
@@ -515,7 +515,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 MiscUtils.getLogger().debug(" demographic and " + ARTYPE + " subQuery: " + subQuery);
                 String subFormId = "";
                 ResultSet rs = DBHelp.searchDBRecord(subQuery, new Object[0]); // nosemgrep: formatted-sql-string — report filter SQL; values escaped by RptReportCreator.getWhereValueClause
-                while (rs.next()) {
+                if (rs != null) while (rs.next()) {
                     subFormId += (subFormId.length() > 0 ? "," : "") + rs.getInt("max(ID)");
                 }
 
@@ -560,7 +560,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                             params[k + 1] = demoNoList.get(k);
                         }
                         rs = DBHelp.searchDBRecord(sql, params);
-                        while (rs.next()) {
+                        if (rs != null) while (rs.next()) {
                             propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
                         }
                     }
@@ -584,7 +584,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 MiscUtils.getLogger().debug(" demographic and demographicExt subQuery: " + subQuery);
                 java.util.List<String> subDemoNoList = new java.util.ArrayList<>();
                 rs = DBHelp.searchDBRecord(subQuery, new Object[0]); // nosemgrep: formatted-sql-string — report filter SQL; values escaped by RptReportCreator.getWhereValueClause
-                while (rs.next()) {
+                if (rs != null) while (rs.next()) {
                     subDemoNoList.add(String.valueOf(rs.getInt("demographic.demographic_no")));
                 }
                 // get value for spec
@@ -600,7 +600,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                             params[k + 1] = subDemoNoList.get(k);
                         }
                         rs = DBHelp.searchDBRecord(sql, params);
-                        while (rs.next()) {
+                        if (rs != null) while (rs.next()) {
                             propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
                         }
                     }
@@ -617,7 +617,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 MiscUtils.getLogger().debug(" demographic and " + ARTYPE + " subQuery: " + subQuery);
                 String subFormId = "";
                 rs = DBHelp.searchDBRecord(subQuery, new Object[0]); // nosemgrep: formatted-sql-string — report filter SQL; values escaped by RptReportCreator.getWhereValueClause
-                while (rs.next()) {
+                if (rs != null) while (rs.next()) {
                     subFormId += (subFormId.length() > 0 ? "," : "") + rs.getInt("max(ID)");
                 }
 

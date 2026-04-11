@@ -72,7 +72,7 @@ public class FrmCaregiverRecord extends FrmRecord {
             rs.close();
         } else {
             sql = "SELECT * FROM formCaregiver WHERE demographic_no = ? AND ID = ?";
-            rs = DBHandler.GetPreSQL(sql, demographicNo);
+            rs = DBHandler.GetPreSQL(sql, demographicNo, existingID);
 
             if (rs.next()) {
                 MiscUtils.getLogger().debug("getting metaData");

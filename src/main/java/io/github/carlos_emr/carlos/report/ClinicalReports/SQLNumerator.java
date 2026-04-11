@@ -83,7 +83,7 @@ public class SQLNumerator implements Numerator {
                     outputfields[0] = str;
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                MiscUtils.getLogger().error("Clinical report numerator query failed — patient may be excluded from results", e);
             }
         }
     }
@@ -194,7 +194,7 @@ public class SQLNumerator implements Numerator {
                     replaceKeys[0] = str;
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                MiscUtils.getLogger().error("Clinical report numerator query failed — patient may be excluded from results", e);
             }
         }
     }

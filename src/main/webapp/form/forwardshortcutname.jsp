@@ -71,17 +71,19 @@
             @Override
             public String[] getParameterValues(String name) {
                 if ("demographic_no".equals(name)) {
-                    return validatedDemoNo == null ? null : new String[] { validatedDemoNo };
+                    return validatedDemoNo != null ? new String[] { validatedDemoNo } : super.getParameterValues(name);
                 }
                 return super.getParameterValues(name);
             }
 
             @Override
             public java.util.Map<String, String[]> getParameterMap() {
+                if (validatedDemoNo == null) {
+                    return super.getParameterMap();
+                }
                 java.util.Map<String, String[]> parameterMap =
                         new java.util.HashMap<String, String[]>(super.getParameterMap());
-                parameterMap.put("demographic_no",
-                        validatedDemoNo == null ? null : new String[] { validatedDemoNo });
+                parameterMap.put("demographic_no", new String[] { validatedDemoNo });
                 return java.util.Collections.unmodifiableMap(parameterMap);
             }
         };

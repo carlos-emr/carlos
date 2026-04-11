@@ -78,7 +78,7 @@ public class FrmMentalHealthRecord extends FrmRecord {
 
             ResultSet rs = null;
             sql = "SELECT roster_status FROM demographic WHERE demographic_no = ?";
-            rs = DBHandler.GetPreSQL(sql, demographicNo, existingID);
+            rs = DBHandler.GetPreSQL(sql, demographicNo);
             if (rs.next()) {
                 props.setProperty("demo_roster_status", Misc.getString(rs, "roster_status"));
             }

@@ -467,7 +467,9 @@ public class FrmRecordHelp {
                 } else {
                     result = new SimpleDateFormat(_newDateFormat).parse(value);
                 }
-            } catch (ParseException e) { /* do nothing, keep result == null */ }
+            } catch (ParseException e) {
+                MiscUtils.getLogger().debug("Unparseable date for field {}: {}", fieldName, value);
+            }
         }
         return result;
     }

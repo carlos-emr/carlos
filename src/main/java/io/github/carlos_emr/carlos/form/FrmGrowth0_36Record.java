@@ -62,7 +62,7 @@ public class FrmGrowth0_36Record extends FrmRecord {
             props = (frh).getFormRecord(sql, demographicNo, existingID);
 
             sql = "SELECT sex, year_of_birth, month_of_birth, date_of_birth FROM demographic WHERE demographic_no = ?";
-            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo, existingID);
+            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo);
             if (rs.next()) {
                 java.util.Date date = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), rs
                         .getString("month_of_birth"), Misc.getString(rs, "date_of_birth"));

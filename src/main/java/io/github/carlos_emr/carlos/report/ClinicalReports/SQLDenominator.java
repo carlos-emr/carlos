@@ -93,7 +93,7 @@ public class SQLDenominator implements Denominator {
             }
             rs.close();
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Clinical report denominator query failed — results may be incomplete", e);
         }
         return list;
     }

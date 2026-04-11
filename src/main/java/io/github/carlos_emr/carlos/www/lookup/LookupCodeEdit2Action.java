@@ -97,13 +97,13 @@ public class LookupCodeEdit2Action extends ActionSupport {
         boolean isNew = this.isNewCode();
 
         if (tableDef == null || Utility.IsEmpty(tableDef.getTableId()) || !tableDef.getTableId().matches("^[A-Z0-9_]+$")) {
-            addActionMessage(getText("error.lookup.duplicate"));
+            addActionMessage("Invalid lookup table identifier.");
             return "edit";
         }
 
         LookupTableDefValue trustedTableDef = lookupManager.GetLookupTableDef(tableDef.getTableId());
         if (trustedTableDef == null) {
-            addActionMessage(getText("error.lookup.duplicate"));
+            addActionMessage("Lookup table not found.");
             return "edit";
         }
         tableDef = trustedTableDef;
@@ -114,7 +114,7 @@ public class LookupCodeEdit2Action extends ActionSupport {
         // .val values are applied from the request below.
         fieldDefList = lookupManager.LoadFieldDefList(tableDef.getTableId());
         if (fieldDefList == null || fieldDefList.isEmpty()) {
-            addActionMessage(getText("error.lookup.duplicate"));
+            addActionMessage("Lookup table has no field definitions.");
             return "edit";
         }
 

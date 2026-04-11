@@ -205,6 +205,10 @@ public final class RptReportCreator {
 
         ResultSet rs = DBHelp.searchDBRecord(sql, params); // nosemgrep: formatted-sql-string — admin report template SQL; table names validated by RptFormQuery.validateTableName; filter values escaped by getWhereValueClause
         MiscUtils.getLogger().debug(" tempVal: " + sql);
+        if (rs == null) {
+            MiscUtils.getLogger().error("Database query failed for sub-query");
+            return ret;
+        }
         while (rs.next()) {
             if ("0".equals(ret)) {
                 ret = "";
@@ -224,6 +228,10 @@ public final class RptReportCreator {
         Properties prop = null;
 
         ResultSet rs = DBHelp.searchDBRecord(sql, params); // nosemgrep: formatted-sql-string — admin report template SQL; table names validated by RptFormQuery.validateTableName; filter values escaped by getWhereValueClause
+        if (rs == null) {
+            MiscUtils.getLogger().error("Database query failed for report query");
+            return ret;
+        }
         while (rs.next()) {
             prop = new Properties();
             for (int i = 0; i < vecFieldName.size(); i++) {
