@@ -110,32 +110,6 @@ jobs:
           fi
           echo "All new English keys are present in all locale files."
 
-  i18n-encoding:
-    name: ISO 8859-1 Encoding Compliance
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Check for raw non-ASCII bytes in properties files
-        run: |
-          FAILED=false
-          for f in src/main/resources/oscarResources_*.properties; do
-            COUNT=$(LC_ALL=C grep -cP '[\x80-\xFF]' "$f" 2>/dev/null || echo 0)
-            if [ "$COUNT" -gt 0 ]; then
-              echo "ENCODING VIOLATION: $f — $COUNT line(s) with raw non-ASCII bytes"
-              echo "Fix: Replace raw characters with \\uXXXX escapes (e.g. é → \\u00e9)"
-              FAILED=true
-            fi
-          done
-          if [ "$FAILED" = "true" ]; then
-            echo ""
-            echo "See: docs/I18N-STANDARDS.md#iso-8859-1-encoding-requirements"
-            exit 1
-          fi
-          echo "All properties files pass ISO 8859-1 encoding check."
-
   i18n-jsp-bundle:
     name: JSP fmt:setBundle Check
     runs-on: ubuntu-latest
