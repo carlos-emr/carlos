@@ -652,6 +652,22 @@ class WafFilterUnitTest {
             verify(response).sendError(anyInt(), anyString());
             verify(chain, never()).doFilter(request, response);
         }
+
+        @Test
+        @DisplayName("should detect CRLF injection when encoded CRLF is in raw query string (not a param value)")
+        void shouldDetectCrlf_whenEncodedCrLfInRawQueryString() throws Exception {
+            // Simulates: GET /search.do?%0d%0aContent-Type:%20text/html
+            // The CRLF is in the query string itself, not parsed as a named parameter value.
+            // This tests that the CRLF check on the raw query string fires (S1 fix).
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getQueryString()).thenReturn("%0d%0aContent-Type:%20text/html");
+            when(request.getParameterNames()).thenReturn(Collections.emptyEnumeration());
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
     }
 
     // =========================================================================
