@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderFacility;
 import io.github.carlos_emr.carlos.commn.model.ProviderFacilityPK;
 import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -743,5 +744,45 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         }
 
         return providerNameMap;
+    }
+
+    // --- DTO projection methods ---
+
+    @Override
+    public List<ProviderSummaryDTO> getActiveProviderSummaries() {
+        Query<ProviderSummaryDTO> query = currentSession().createQuery(
+                "SELECT NEW io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO(p.ProviderNo, p.LastName, p.FirstName, p.Specialty, p.Status, p.Team) FROM Provider p WHERE p.Status = '1' ORDER BY p.LastName, p.FirstName",
+                ProviderSummaryDTO.class);
+        return query.list();
+    }
+
+    @Override
+    public ProviderSummaryDTO getProviderSummary(String providerNo) {
+        if (providerNo == null || providerNo.isEmpty()) {
+            return null;
+        }
+        Query<ProviderSummaryDTO> query = currentSession().createQuery(
+                "SELECT NEW io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO(p.ProviderNo, p.LastName, p.FirstName, p.Specialty, p.Status, p.Team) FROM Provider p WHERE p.ProviderNo = :providerNo",
+                ProviderSummaryDTO.class);
+        query.setParameter("providerNo", providerNo);
+        query.setMaxResults(1);
+        List<ProviderSummaryDTO> results = query.list();
+        return results.isEmpty() ? null : results.get(0);
+    }
+
+    @Override
+    public Map<String, ProviderSummaryDTO> getProviderSummariesByIds(List<String> providerNumbers) {
+        Map<String, ProviderSummaryDTO> map = new HashMap<>();
+        if (providerNumbers == null || providerNumbers.isEmpty()) {
+            return map;
+        }
+        Query<ProviderSummaryDTO> query = currentSession().createQuery(
+                "SELECT NEW io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO(p.ProviderNo, p.LastName, p.FirstName, p.Specialty, p.Status, p.Team) FROM Provider p WHERE p.ProviderNo IN (:providerNumbers)",
+                ProviderSummaryDTO.class);
+        query.setParameterList("providerNumbers", providerNumbers);
+        for (ProviderSummaryDTO dto : query.list()) {
+            map.put(dto.getProviderNo(), dto);
+        }
+        return map;
     }
 }

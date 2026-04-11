@@ -65,6 +65,8 @@ import io.github.carlos_emr.carlos.commn.Gender;
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
+import io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO;
+import io.github.carlos_emr.carlos.demographic.dto.DemographicListItemDTO;
 import io.github.carlos_emr.carlos.event.DemographicCreateEvent;
 import io.github.carlos_emr.carlos.event.DemographicUpdateEvent;
 import io.github.carlos_emr.carlos.integration.hl7.generators.HL7A04Generator;
@@ -2980,6 +2982,49 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             startIndex,
             numToReturn,
             true);
+    }
+
+    // --- DTO projection methods ---
+
+    @Override
+    public DemographicHeaderDTO getDemographicHeader(Integer demographicNo) {
+        if (demographicNo == null) {
+            return null;
+        }
+        Query<DemographicHeaderDTO> query = currentSession().createQuery(
+                "SELECT NEW io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO(d.DemographicNo, d.LastName, d.FirstName, d.Sex, d.SexDesc, d.YearOfBirth, d.MonthOfBirth, d.DateOfBirth, d.Hin, d.Ver, d.HcType, d.ChartNo, d.PatientStatus, d.RosterStatus, d.ProviderNo, p.LastName, p.FirstName) FROM Demographic d LEFT JOIN Provider p ON p.ProviderNo = d.ProviderNo WHERE d.DemographicNo = :demoNo",
+                DemographicHeaderDTO.class);
+        query.setParameter("demoNo", demographicNo);
+        query.setMaxResults(1);
+        List<DemographicHeaderDTO> results = query.list();
+        return results.isEmpty() ? null : results.get(0);
+    }
+
+    @Override
+    public List<DemographicListItemDTO> searchDemographicDTOByName(String searchString, int limit, int offset,
+                                                                    String providerNo, boolean outOfDomain) {
+        String baseQuery = "SELECT NEW io.github.carlos_emr.carlos.demographic.dto.DemographicListItemDTO(d.DemographicNo, d.LastName, d.FirstName, d.Alias, d.Sex, d.YearOfBirth, d.MonthOfBirth, d.DateOfBirth, d.PatientStatus, d.RosterStatus, d.ProviderNo, d.ChartNo, d.Phone, d.Email, d.Hin, d.Address) FROM Demographic d WHERE d.LastName like :lastName";
+        String[] name = Objects.requireNonNullElse(searchString, "").split(",");
+        boolean hasFirstName = name.length == 2;
+
+        if (hasFirstName) {
+            baseQuery = baseQuery.concat(" and (d.FirstName like :firstName or d.Alias like :firstName)");
+        }
+        if (providerNo != null && !outOfDomain) {
+            baseQuery = baseQuery.concat(" AND d.id IN (select distinct a.clientId from ProgramProvider pp,Admission a WHERE pp.ProgramId=a.programId AND pp.ProviderNo=:providerNo)");
+        }
+
+        Query<DemographicListItemDTO> query = currentSession().createQuery(baseQuery, DemographicListItemDTO.class);
+        query.setParameter("lastName", name[0].trim() + "%");
+        if (hasFirstName) {
+            query.setParameter("firstName", name[1].trim() + "%");
+        }
+        if (providerNo != null && !outOfDomain) {
+            query.setParameter("providerNo", providerNo);
+        }
+        query.setFirstResult(offset);
+        query.setMaxResults(limit);
+        return query.list();
     }
 
 }

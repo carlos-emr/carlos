@@ -35,6 +35,8 @@ package io.github.carlos_emr.carlos.managers;
 import io.github.carlos_emr.carlos.commn.Gender;
 import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.commn.model.*;
+import io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO;
+import io.github.carlos_emr.carlos.demographic.dto.DemographicListItemDTO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchRequest;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult;
@@ -224,4 +226,29 @@ public interface DemographicManager {
     public String getNextAppointmentDate(LoggedInInfo loggedInInfo, Integer demographicNo);
 
     public String getNextAppointmentDate(LoggedInInfo loggedInInfo, Demographic demographic);
+
+    // --- DTO projection methods ---
+
+    /**
+     * Returns a lightweight demographic header for encounter/chart display.
+     * Includes pre-joined provider name. Enforces read privilege check.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context
+     * @param demographicId Integer the patient demographic number
+     * @return DemographicHeaderDTO the header data, or null if not found
+     */
+    public DemographicHeaderDTO getDemographicHeader(LoggedInInfo loggedInInfo, Integer demographicId);
+
+    /**
+     * Searches demographics by name and returns lightweight list item DTOs.
+     * Enforces read privilege check.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context
+     * @param searchString String the name search string
+     * @param startIndex int starting position
+     * @param itemsToReturn int maximum results
+     * @return List of DemographicListItemDTO matching the search
+     */
+    public List<DemographicListItemDTO> searchDemographicDTOs(LoggedInInfo loggedInInfo, String searchString,
+                                                              int startIndex, int itemsToReturn);
 }

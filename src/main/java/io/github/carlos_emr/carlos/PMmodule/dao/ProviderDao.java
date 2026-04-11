@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.model.security.SecProvider;
@@ -153,4 +154,33 @@ public interface ProviderDao {
     public List<Provider> getProvidersByIds(List<String> providerNumbers);
 
     public Map<String, String> getProviderNamesByIdsAsMap(List<String> providerNumbers);
+
+    // --- DTO projection methods ---
+
+    /**
+     * Returns all active providers as lightweight summary DTOs using JPQL constructor
+     * expression projection. Fetches only name, specialty, status, and team fields,
+     * ordered by last name.
+     *
+     * @return List of ProviderSummaryDTO for all active providers
+     */
+    public List<ProviderSummaryDTO> getActiveProviderSummaries();
+
+    /**
+     * Returns a single provider as a lightweight summary DTO, or null if the
+     * provider number does not exist.
+     *
+     * @param providerNo String the provider number to look up
+     * @return ProviderSummaryDTO the provider summary, or null if not found
+     */
+    public ProviderSummaryDTO getProviderSummary(String providerNo);
+
+    /**
+     * Returns provider summaries for the given provider numbers as a map keyed
+     * by provider number. Useful for batch lookups to avoid N+1 queries.
+     *
+     * @param providerNumbers List of String provider numbers to look up
+     * @return Map of providerNo to ProviderSummaryDTO
+     */
+    public Map<String, ProviderSummaryDTO> getProviderSummariesByIds(List<String> providerNumbers);
 }

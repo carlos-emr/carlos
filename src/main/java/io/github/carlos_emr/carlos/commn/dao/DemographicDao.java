@@ -39,6 +39,8 @@ import io.github.carlos_emr.carlos.PMmodule.web.formbean.ClientSearchFormBean;
 import io.github.carlos_emr.carlos.commn.Gender;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
+import io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO;
+import io.github.carlos_emr.carlos.demographic.dto.DemographicListItemDTO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchRequest;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult;
@@ -446,4 +448,29 @@ public interface DemographicDao {
     public List<Demographic> findByPhone(String phone, String start, int numToReturn);
 
     public List<Demographic> findByHin(String hin, String start, int numToReturn);
+
+    // --- DTO projection methods ---
+
+    /**
+     * Returns a demographic header DTO with pre-joined provider name for
+     * encounter/chart page display. Uses JPQL constructor expression projection.
+     *
+     * @param demographicNo Integer the patient demographic number
+     * @return DemographicHeaderDTO the header data, or null if not found
+     */
+    public DemographicHeaderDTO getDemographicHeader(Integer demographicNo);
+
+    /**
+     * Searches demographics by name and returns lightweight list item DTOs.
+     * Uses JPQL constructor expression projection to avoid loading full entities.
+     *
+     * @param searchString String the name search string (last,first or last first)
+     * @param limit int maximum number of results
+     * @param offset int starting position
+     * @param providerNo String the logged-in provider number for domain filtering
+     * @param outOfDomain boolean whether to include out-of-domain patients
+     * @return List of DemographicListItemDTO matching the search criteria
+     */
+    public List<DemographicListItemDTO> searchDemographicDTOByName(String searchString, int limit, int offset,
+                                                                    String providerNo, boolean outOfDomain);
 }

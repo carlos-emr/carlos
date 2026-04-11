@@ -40,6 +40,8 @@ import io.github.carlos_emr.carlos.commn.Gender;
 import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.commn.model.Demographic.PatientStatus;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DemographicExtKey;
+import io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO;
+import io.github.carlos_emr.carlos.demographic.dto.DemographicListItemDTO;
 import io.github.carlos_emr.carlos.utility.DemographicContactCreator;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -1269,6 +1271,22 @@ public class DemographicManagerImpl implements DemographicManager {
         String appointmentString = getNextAppointmentDate(loggedInInfo, demographic.getDemographicNo());
         demographic.setNextAppointment(appointmentString);
         return appointmentString;
+    }
+
+    // --- DTO projection methods ---
+
+    @Override
+    public DemographicHeaderDTO getDemographicHeader(LoggedInInfo loggedInInfo, Integer demographicId) {
+        checkPrivilege(loggedInInfo, SecurityInfoManager.READ, (demographicId != null) ? demographicId : null);
+        return demographicDao.getDemographicHeader(demographicId);
+    }
+
+    @Override
+    public List<DemographicListItemDTO> searchDemographicDTOs(LoggedInInfo loggedInInfo, String searchString,
+                                                              int startIndex, int itemsToReturn) {
+        checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+        return demographicDao.searchDemographicDTOByName(searchString, itemsToReturn, startIndex, providerNo, false);
     }
 
 }
