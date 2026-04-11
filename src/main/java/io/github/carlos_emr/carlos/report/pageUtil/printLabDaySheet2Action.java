@@ -43,7 +43,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
-import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -108,7 +108,7 @@ public class printLabDaySheet2Action extends ActionSupport {
                     if (resolved != null) {
                         safeXmlStyleFile = resolved;
                     } else {
-                        logger.error("Invalid xmlStyle parameter rejected: {}", Encode.forJava(baseName));
+                        logger.error("Invalid xmlStyle parameter rejected: {}", LogSanitizer.sanitize(baseName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     }
                 }
                 

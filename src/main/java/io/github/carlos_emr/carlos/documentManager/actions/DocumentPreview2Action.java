@@ -311,14 +311,14 @@ public class DocumentPreview2Action extends ActionSupport {
             }
             
             if (!isValidPath) {
-                logger.error("Access denied: Path traversal attempt detected for path: {}", LogSanitizer.sanitize(pdfPathString));
+                logger.error("Access denied: Path traversal attempt detected for path: {}", LogSanitizer.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 return;
             }
             
             // Additional check: ensure the file exists and is a regular file
             if (!Files.exists(canonicalPdfPath) || !Files.isRegularFile(canonicalPdfPath)) {
-                logger.error("PDF file not found or is not a regular file: {}", LogSanitizer.sanitize(pdfPathString));
+                logger.error("PDF file not found or is not a regular file: {}", LogSanitizer.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 response.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }

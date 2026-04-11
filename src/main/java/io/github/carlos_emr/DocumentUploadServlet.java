@@ -102,7 +102,7 @@ public class DocumentUploadServlet extends HttpServlet {
             // Validate and sanitize the filename to prevent path traversal
             String sanitizedFilename = FilenameUtils.getName(providedFilename);
             if (sanitizedFilename == null || sanitizedFilename.isEmpty()) {
-                MiscUtils.getLogger().error("Invalid filename provided: {}", LogSanitizer.sanitize(providedFilename));
+                MiscUtils.getLogger().error("Invalid filename provided: {}", LogSanitizer.sanitize(providedFilename)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 return;
             }
 
@@ -128,7 +128,7 @@ public class DocumentUploadServlet extends HttpServlet {
 
                 // Verify the file exists before copying
                 if (!providedFile.exists()) {
-                    MiscUtils.getLogger().error("File not found: {}", LogSanitizer.sanitize(sanitizedFilename));
+                    MiscUtils.getLogger().error("File not found: {}", LogSanitizer.sanitize(sanitizedFilename)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     return;
                 }
 

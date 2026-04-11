@@ -98,7 +98,7 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
                 prop.setName("aua_valid_duration");
                 prop.setValue(validDurationNumber + " " + validDurationPeriod);
             } else {
-                _logger.error("Not a valid Period :{}", LogSanitizer.sanitize(validDurationPeriod));
+                _logger.error("Not a valid Period :{}", LogSanitizer.sanitize(validDurationPeriod)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             }
         }
 

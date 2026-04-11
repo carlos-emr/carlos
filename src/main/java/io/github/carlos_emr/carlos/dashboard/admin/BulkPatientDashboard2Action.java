@@ -185,7 +185,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             messageHandler.notifyProvider(subject, message, mrp, null); //patientIdList);
         }
 
-        logger.info("Bulk disease registry addition notification sent for ICD9 code {} to provider(s)", LogSanitizer.sanitize(icd9code));
+        logger.info("Bulk disease registry addition notification sent for ICD9 code {} to provider(s)", LogSanitizer.sanitize(icd9code)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 
         return null;
     }

@@ -731,7 +731,7 @@ public class FaxManagerImpl implements FaxManager {
             success = success && !reSentFaxJob.getStatus().equals(STATUS.ERROR);
 
         } else {
-            logger.error("Cannot resend fax: no fax job found for id {}", LogSanitizer.sanitize(jobId));
+            logger.error("Cannot resend fax: no fax job found for id {}", LogSanitizer.sanitize(jobId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         }
 
         return success;
@@ -789,7 +789,7 @@ public class FaxManagerImpl implements FaxManager {
 
         // Check for path traversal patterns
         if (filePath.contains("..") || filePath.contains("~")) {
-            logger.error("Path traversal attempt detected: {}", LogSanitizer.sanitize(filePath));
+            logger.error("Path traversal attempt detected: {}", LogSanitizer.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             throw new SecurityException("Invalid file path detected: path traversal patterns not allowed");
         }
 
@@ -844,7 +844,7 @@ public class FaxManagerImpl implements FaxManager {
 
         // Ensure the file exists and is a regular file
         if (!Files.exists(resolvedPath) || !Files.isRegularFile(resolvedPath)) {
-            logger.error("File not found or is not a regular file: {}", LogSanitizer.sanitize(filePath));
+            logger.error("File not found or is not a regular file: {}", LogSanitizer.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             throw new IOException("File not found or is not a regular file");
         }
 

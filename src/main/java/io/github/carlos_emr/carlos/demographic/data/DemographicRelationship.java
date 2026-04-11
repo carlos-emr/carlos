@@ -109,7 +109,7 @@ public class DemographicRelationship {
 		Relationships r = dao.findActive(ConversionUtils.fromIntString(id));
 		ArrayList<Map<String, String>> list = new ArrayList<Map<String, String>>();
 		if (r == null) {
-			MiscUtils.getLogger().warn("Unable to find demographic relationship for ID {}", LogSanitizer.sanitize(id));
+			MiscUtils.getLogger().warn("Unable to find demographic relationship for ID {}", LogSanitizer.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 			return list;
 		}
 
