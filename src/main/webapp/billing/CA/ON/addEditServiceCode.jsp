@@ -300,10 +300,11 @@
 
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageBillingServiceCode"/></title>
+        <title><fmt:message key="admin.admin.manageBillingServiceCode"/></title>
         <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
         <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
@@ -454,7 +455,7 @@
 
     </head>
     <body onLoad="setfocus()">
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageBillingServiceCode"/></h3>
+    <h3><fmt:message key="admin.admin.manageBillingServiceCode"/></h3>
 
 
     <div class="container-fluid card card-body bg-body-tertiary">
@@ -566,14 +567,14 @@
                 <br>
                 <input type="hidden" id="action" name="action" value=''> <input class="btn btn-secondary" type="submit"
                                                                                 name="submitFrm"
-                                                                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>"
+                                                                                value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
                                                                                 onclick="document.getElementById('action').value='<%=Encode.forJavaScript(action)%>';return onSave();">
 
                 <%
                     if (!action2.equals("")) {
                 %>
                 <input class="btn btn-secondary" type="submit" name="submitFrm"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnAdd"/>"
+                       value="<fmt:message key="admin.resourcebaseurl.btnAdd"/>"
                        onclick="document.getElementById('action').value='<%=Encode.forJavaScript(action2)%>';return onSave();">
                 <%}%>
             </div>

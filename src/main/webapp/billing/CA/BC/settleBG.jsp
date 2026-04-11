@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@taglib uri="jakarta.tags.core" prefix="c" %>
 <%@page import="io.github.carlos_emr.carlos.billing.ca.bc.MSP.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile" %>
@@ -33,7 +34,7 @@
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-<h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.settlePaidClaims"/></h3>
+<h3><fmt:message key="admin.admin.settlePaidClaims"/></h3>
 
 <div class="container-fluid card card-body bg-body-tertiary">
     <%

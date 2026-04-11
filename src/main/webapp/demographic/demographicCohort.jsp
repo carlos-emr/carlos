@@ -51,6 +51,7 @@
 <%@ page import="java.util.ArrayList" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -126,8 +127,8 @@
                 demoSets.addDemographicSet(setName, arrDemo);
                 arrCurDemoSets.add(setName);
     %>
-    <p style="font-size:small; font-variant:small-caps"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiccohort.saved"/> <%=Encode.forHtml(demoData.getDemographic(loggedInInfo, demoNo).getFirstName() + " " + demoData.getDemographic(loggedInInfo, demoNo).getLastName())%>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiccohort.to"/> <%=Encode.forHtml(setName)%>
+    <p style="font-size:small; font-variant:small-caps"><fmt:message key="demographic.demographiccohort.saved"/> <%=Encode.forHtml(demoData.getDemographic(loggedInInfo, demoNo).getFirstName() + " " + demoData.getDemographic(loggedInInfo, demoNo).getLastName())%>
+        <fmt:message key="demographic.demographiccohort.to"/> <%=Encode.forHtml(setName)%>
     </p>
     <%
             }
@@ -135,13 +136,13 @@
         java.util.List<String> arrDemoSets = demoSets.getDemographicSets();
         pageContext.setAttribute("arrDemoSets", arrDemoSets);
     %>
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiccohort.currentpatientset"/></h3>
+    <h3><fmt:message key="demographic.demographiccohort.currentpatientset"/></h3>
     <ul>
         <c:forEach var="set" items="${curSets}">
             <li><c:out value="${set}"/></li>
         </c:forEach>
     </ul>
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiccohort.addtopatientset"/></h3>
+    <h3><fmt:message key="demographic.demographiccohort.addtopatientset"/></h3>
     <ul>
         <c:forEach var="set" items="${arrDemoSets}">
             <li><a href="<%= request.getContextPath() %>/demographic/demographicCohort.jsp?demographic_no=<%= Encode.forUriComponent(demoNo) %>&setName=<c:out value="${set}"/>"><c:out
@@ -151,9 +152,9 @@
     <br>
     <form method="get" action="demographicCohort.jsp">
         <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demoNo) %>">
-        <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiccohort.newpatientset"/></h3>
+        <h3><fmt:message key="demographic.demographiccohort.newpatientset"/></h3>
         <input type="text" name="setName">&nbsp;<input type="submit"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiccohort.save"/>">
+                                                       value="<fmt:message key="demographic.demographiccohort.save"/>">
     </form>
 </div>
 </body>

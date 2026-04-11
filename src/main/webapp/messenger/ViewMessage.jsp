@@ -78,12 +78,12 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<fmt:setBundle basename="oscarResources"/>
 <%
     // Retrieve user information from session
     String providerNo = (String) session.getAttribute("providerNo");

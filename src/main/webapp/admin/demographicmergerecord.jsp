@@ -33,6 +33,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -132,7 +133,7 @@
 
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mergeRec"/></title>
+    <title><fmt:message key="admin.admin.mergeRec"/></title>
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     <script language="JavaScript">
         function setfocus() {
@@ -199,7 +200,7 @@
 </head>
 <body onLoad="setfocus()">
 <div class="container-fluid card card-body bg-body-tertiary">
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mergeRec"/></h3>
+    <h3><fmt:message key="admin.admin.mergeRec"/></h3>
 
     <form method="post" name="titlesearch" action="demographicmergerecord.jsp" class="d-flex flex-wrap align-items-center gap-2"
           onSubmit="return checkTypeIn()">

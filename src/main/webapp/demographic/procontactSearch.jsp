@@ -57,6 +57,7 @@
 <%@ page import="org.apache.commons.text.WordUtils" %>
 
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     if (session.getAttribute("user") == null) {
@@ -179,8 +180,8 @@
                             <td>&nbsp;</td>
                             <td>&nbsp;</td>
                             <td style="text-align: right"><a
-                                    href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                                    href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
+                                    href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
+                                    href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a></td>
                         </tr>
                     </table>
                 </td>
@@ -260,7 +261,7 @@
             if (nItems == 0 && nLastPage <= 0) {
         %>
         <tr>
-            <td colspan="3"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.noResultsWereFound"/></td>
+            <td colspan="3"><fmt:message key="demographic.search.noResultsWereFound"/></td>
         </tr>
         <% } %>
 
@@ -270,14 +271,14 @@
                     if (nLastPage >= 0) {
                 %>
                 <td><input type="submit" class="mbttn" name="submit"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/>"
+                           value="<fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/>"
                            onClick="last()"></td>
                 <%
                     }
                     if (nItems == Integer.parseInt(strLimit2)) {
                 %>
                 <td><input type="submit" class="mbttn" name="submit"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/>"
+                           value="<fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/>"
                            onClick="next()"></td>
                 <%
                     }

@@ -32,6 +32,7 @@
 <html>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 
@@ -106,7 +107,7 @@
             <label class="form-label" for="zippedForm">Import eForm:</label>
             <input type="file" class="input-file" id="zippedForm" name="zippedForm" size="50" required/>
             <span style="color:red;">
-		         <i class="fa-solid fa-triangle-exclamation" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"></i>
+		         <i class="fa-solid fa-triangle-exclamation" title="<fmt:message key="global.uploadWarningBody"/>"></i>
 		         </span>
             <input type="submit" name="subm" value="Import" class="btn btn-primary upload" disabled>
         </div>

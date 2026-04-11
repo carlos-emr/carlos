@@ -30,6 +30,7 @@
 --%>
 
 <%@ include file="/casemgmt/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <%
@@ -49,7 +50,7 @@
     <head>
         <%@ include file="/includes/global-head.jspf" %>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setNoteStaleDate.title"/></title>
+        <title><fmt:message key="provider.setNoteStaleDate.title"/></title>
 
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
@@ -77,8 +78,8 @@
 
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setNoteStaleDate.msgPrefs"/></td>
-            <td style="color: white" class="MainTableTopRowRightColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setNoteStaleDate.msgProviderStaleDate"/></td>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="provider.setNoteStaleDate.msgPrefs"/></td>
+            <td style="color: white" class="MainTableTopRowRightColumn"><fmt:message key="provider.setNoteStaleDate.msgProviderStaleDate"/></td>
         </tr>
         <tr>
             <td class="MainTableLeftColumn">&nbsp;</td>
@@ -92,7 +93,7 @@
                     <input type="hidden" name="dateProperty.name" value="staleNoteDate"/>
                     <input type="hidden" name="dateProperty.providerNo" value="${providerNo}"/>
 
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setNoteStaleDate.msgEdit"/>
+                    <fmt:message key="provider.setNoteStaleDate.msgEdit"/>
                     <select name="dateProperty.value" id="dateProperty.value">
                         <c:forEach var="opt" items="${staleDateOptions}">
                             <option value="${opt.value}" <c:if test="${opt.value == dateProperty.value}">selected</c:if>>${opt.label}</option>
@@ -112,12 +113,12 @@
                     <br/>
 
                     <input type="submit"
-                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setNoteStaleDate.btnSubmit"/>"/>
+                        value="<fmt:message key="provider.setNoteStaleDate.btnSubmit"/>"/>
                     <input type="submit" onclick="document.getElementById('method').value='remove';"
-                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setNoteStaleDate.btnReset"/>"/>
+                        value="<fmt:message key="provider.setNoteStaleDate.btnReset"/>"/>
                 </form> <%
             } else {
-            %>  <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setNoteStaleDate.msgSuccess"/>
+            %>  <fmt:message key="provider.setNoteStaleDate.msgSuccess"/>
                 <br>
 
                 <%

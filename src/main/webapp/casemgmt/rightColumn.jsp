@@ -31,6 +31,7 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
@@ -66,7 +67,7 @@
 
     <div id="rightColLoader" style="width: 100%;">
         <h3 style="width: 100%; background-color: #CCCCFF;">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.LeftNavBar.msgLoading"/></h3>
+            <fmt:message key="encounter.LeftNavBar.msgLoading"/></h3>
     </div>
 </body>
 </html>

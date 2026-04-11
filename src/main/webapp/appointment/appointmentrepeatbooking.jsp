@@ -55,6 +55,7 @@
          errorPage="/errorpage.jsp" %>
 <%@ page import="org.owasp.csrfguard.CsrfGuard" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
@@ -230,7 +231,7 @@
 
         if (bSucc) {
 %>
-<h1><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgAddSuccess"/></h1>
+<h1><fmt:message key="appointment.appointmentgrouprecords.msgAddSuccess"/></h1>
 <script LANGUAGE="JavaScript">
     self.opener.refresh();
     self.close();
@@ -239,7 +240,7 @@
 } else {
 %>
 <p>
-<h1><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgAddFailure"/></h1>
+<h1><fmt:message key="appointment.appointmentgrouprecords.msgAddFailure"/></h1>
 
 <%
         }
@@ -249,8 +250,7 @@
 <html>
     <head>
         <%@ include file="/includes/global-head.jspf" %>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.title"/></title>
-        <fmt:setBundle basename="oscarResources"/>
+        <title><fmt:message key="appointment.appointmentgrouprecords.title"/></title>
         <fmt:message key="appointment.appointmentgrouprecords.msgExitConfirmation" var="msgExitConfirmation"/>
         <fmt:message key="appointment.appointmentgrouprecords.msgDeleteConfirmation" var="msgDeleteConfirmation"/>
         <script type="text/javascript">
@@ -288,7 +288,7 @@
                     <path d="M11 6.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5z"/>
                     <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5M1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4z"/>
                 </svg>
-                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.title"/>
+                &nbsp;<fmt:message key="appointment.appointmenteditrepeatbooking.title"/>
             </h4>
         </div>
 
@@ -299,9 +299,8 @@
 
             <div class="bg-light border rounded p-3 mb-3">
                 <div class="mb-3">
-                    <label class="form-label fw-bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.howoften"/></label>
+                    <label class="form-label fw-bold"><fmt:message key="appointment.appointmenteditrepeatbooking.howoften"/></label>
                     <div class="ms-2">
-                        <fmt:setBundle basename="oscarResources"/>
                         <fmt:message key="day" var="labelDay"/>
                         <fmt:message key="week" var="labelWeek"/>
                         <fmt:message key="month" var="labelMonth"/>
@@ -334,7 +333,7 @@
                 </div>
 
                 <div class="row mb-3">
-                    <label class="col-sm-3 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.every"/></label>
+                    <label class="col-sm-3 col-form-label"><fmt:message key="appointment.appointmenteditrepeatbooking.every"/></label>
                     <div class="col-sm-9 d-flex align-items-center gap-2">
                         <select name="everyNum" class="form-select form-select-sm" style="width: 70px;">
                             <%
@@ -350,7 +349,7 @@
                 </div>
 
                 <div class="row mb-2">
-                    <label class="col-sm-3 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.endon"/></label>
+                    <label class="col-sm-3 col-form-label"><fmt:message key="appointment.appointmenteditrepeatbooking.endon"/></label>
                     <div class="col-sm-9">
                         <input type="date" id="endDate" name="endDate" class="form-control form-control-sm" style="width: 170px;"
                                value="<%=request.getParameter("appointment_date") != null ? Encode.forHtmlAttribute(request.getParameter("appointment_date")) : UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd")%>">
@@ -363,20 +362,20 @@
                     <% if (bEdit) { %>
                     <input type="button" class="btn btn-primary btn-sm"
                            onclick="document.forms['groupappt'].groupappt.value='Group Update'; document.forms['groupappt'].submit();"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupUpdate"/>">
+                           value="<fmt:message key="appointment.appointmentgrouprecords.btnGroupUpdate"/>">
                     <input type="button" class="btn btn-secondary btn-sm"
                            onclick="document.forms['groupappt'].groupappt.value='Group Cancel'; document.forms['groupappt'].submit();"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>">
+                           value="<fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>">
                     <input type="button" class="btn btn-danger btn-sm"
                            onclick="onButDelete(); document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>">
+                           value="<fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>">
                     <% } else { %>
                     <input type="button" class="btn btn-primary btn-sm"
                            onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>">
+                           value="<fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>">
                     <% } %>
                     <input type="button" class="btn btn-secondary btn-sm"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
+                           value="<fmt:message key="global.btnBack"/>"
                            onClick="window.history.go(-1);return false;">
                 </div>
             </div>

@@ -28,6 +28,7 @@
 
 --%>
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     //
@@ -55,7 +56,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCalendarPopup.title"/></title>
+        <title><fmt:message key="billing.billingCalendarPopup.title"/></title>
         <script language="JavaScript">
             <!--
 
@@ -94,10 +95,10 @@
             <td BGCOLOR="#FFD7C4" width="50%" align="center"><a
                     href="oscarCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=-1&type=<%= Encode.forUriComponent(type) %>&openerForm=<%= Encode.forUriComponent(openerForm) %>&openerElement=<%= Encode.forUriComponent(openerElement) %>">
                 &nbsp;&nbsp;<img src="<%= request.getContextPath() %>/images/previous.gif" WIDTH="10" HEIGHT="9"
-                                 BORDER="0" ALT="View Last Month" vspace="2"> <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCalendarPopup.btnLast"/>&nbsp;&nbsp; </a> <b><span
+                                 BORDER="0" ALT="View Last Month" vspace="2"> <fmt:message key="billing.billingCalendarPopup.btnLast"/>&nbsp;&nbsp; </a> <b><span
                     CLASS=title><%=year%>-<%=month%></span></b> <a
                     href="oscarCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=1&type=<%= Encode.forUriComponent(type) %>&openerForm=<%= Encode.forUriComponent(openerForm) %>&openerElement=<%= Encode.forUriComponent(openerElement) %>">
-                &nbsp;&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCalendarPopup.btnNext"/>
+                &nbsp;&nbsp;<fmt:message key="billing.billingCalendarPopup.btnNext"/>
                 <img src="<%= request.getContextPath() %>/images/next.gif" WIDTH="10" HEIGHT="9" BORDER="0"
                      ALT="View Next Month" vspace="2">&nbsp;&nbsp;</a></td>
         </TR>
@@ -107,14 +108,14 @@
            bgcolor="silver">
         <tr bgcolor="#FOFOFO" align="center">
             <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"
-                                    color="red"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCalendarPopup.msgSun"/></font></td>
-            <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCalendarPopup.msgMon"/></font></td>
-            <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCalendarPopup.msgTue"/></font></td>
-            <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCalendarPopup.msgWed"/></font></td>
-            <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCalendarPopup.msgThu"/></font></td>
-            <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCalendarPopup.msgFri"/></font></td>
+                                    color="red"><fmt:message key="billing.billingCalendarPopup.msgSun"/></font></td>
+            <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"><fmt:message key="billing.billingCalendarPopup.msgMon"/></font></td>
+            <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"><fmt:message key="billing.billingCalendarPopup.msgTue"/></font></td>
+            <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"><fmt:message key="billing.billingCalendarPopup.msgWed"/></font></td>
+            <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"><fmt:message key="billing.billingCalendarPopup.msgThu"/></font></td>
+            <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"><fmt:message key="billing.billingCalendarPopup.msgFri"/></font></td>
             <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"
-                                    color="green"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCalendarPopup.msgSat"/></font></td>
+                                    color="green"><fmt:message key="billing.billingCalendarPopup.msgSat"/></font></td>
         </tr>
 
         <%
@@ -162,7 +163,7 @@
         <tr>
             <td bgcolor="#FFD7C4">
                 <div align="center"><input type="button" name="Cancel"
-                                           value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCalendarPopup.btnExit"/> "
+                                           value=" <fmt:message key="billing.billingCalendarPopup.btnExit"/> "
                                            onClick="window.close()"></div>
             </td>
         </tr>

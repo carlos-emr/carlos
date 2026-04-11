@@ -31,6 +31,7 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -65,7 +66,7 @@
         <td>&nbsp;</td>
         <td class="white">
             <p>&nbsp;<br>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform_add.formDefaultBillType"/>
+                <fmt:message key="billing.manageBillingform_add.formDefaultBillType"/>
                 :<br>
                 <input type="hidden" name="bill_servicetype" value="<%=Encode.forHtmlAttribute(type_id)%>">
                 <input type="hidden" name="billtype_old" value="<%=Encode.forHtmlAttribute(billtype)%>">

@@ -58,6 +58,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ include file="/common/webAppContextAndSuperMgr.jsp" %>
 
@@ -120,9 +121,9 @@
                         <th colspan="3"><%=appt.getName()%></th>
                     </tr>
                      <tr style="font-family: arial, sans-serif; font-size: 12pt;" >
-                <th style="padding-right: 10px"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formDate"/></th>
-                 <th width="60" style="padding-right: 10px"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formStartTime"/></th>
-                <th width="120" style="padding-right: 10px"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgProvider"/></th>
+                <th style="padding-right: 10px"><fmt:message key="Appointment.formDate"/></th>
+                 <th width="60" style="padding-right: 10px"><fmt:message key="Appointment.formStartTime"/></th>
+                <th width="120" style="padding-right: 10px"><fmt:message key="appointment.addappointment.msgProvider"/></th>
 
                     </tr>
                 <%
@@ -157,7 +158,7 @@
             %>
 
                     <tr class="DoNotPrint">
-                <td style="padding-left: 10px"><input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>" onClick="window.print();"></td>
+                <td style="padding-left: 10px"><input type="button" value="<fmt:message key="global.btnPrint"/>" onClick="window.print();"></td>
                         <td>&nbsp;</td>
                 <td>&nbsp;</td>
                     </tr>
@@ -246,9 +247,9 @@
         </table>
 
         <div class="DoNotPrint">
-            <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>" onClick="window.close();">
+            <input type="button" value="<fmt:message key="global.btnClose"/>" onClick="window.close();">
             &nbsp;
-            <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>" onClick="window.print();">
+            <input type="button" value="<fmt:message key="global.btnPrint"/>" onClick="window.print();">
         </div>
         </form>
     </center>

@@ -92,6 +92,7 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -201,7 +202,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.title"/></title>
+        <title><fmt:message key="tickler.ticklerAdd.title"/></title>
 
         <%
             java.util.ResourceBundle oscarBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
@@ -656,7 +657,7 @@
     <body onload="initTicklerAdd();initResize()">
     <div class="container" style="max-width: 860px;">
         <div class="page-header-bar">
-            <h2 class="page-header-title"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.titleHeading"/></h2>
+            <h2 class="page-header-title"><fmt:message key="tickler.ticklerAdd.titleHeading"/></h2>
         </div>
         <%
             String searchMode = request.getParameter("search_mode");
@@ -696,14 +697,14 @@
                     </td>
                 </tr>
                 <tr>
-                    <td style="width: 35%;" class="tickler-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.formDemoName"/>:</td>
+                    <td style="width: 35%;" class="tickler-label"><fmt:message key="tickler.ticklerAdd.formDemoName"/>:</td>
                     <td style="width: 65%;">
 
                         <div class="input-group">
                             <input type="text" class="form-control" name="keyword" placeholder="<fmt:message key='tickler.ticklerAdd.phSearchDemographic'/>"
                                    size="25" value="<%=Encode.forHtmlAttribute(demoName)%>">
                             <input type="submit" name="Submit" class="btn btn-primary"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnSearch"/>">
+                                   value="<fmt:message key="tickler.ticklerAdd.btnSearch"/>">
                         </div>
 
                     </td>
@@ -719,7 +720,7 @@
             <table class="table table-sm">
 
                 <tr>
-                    <td style="width: 35%;" class="tickler-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.formChartNo"/>:</td>
+                    <td style="width: 35%;" class="tickler-label"><fmt:message key="tickler.ticklerAdd.formChartNo"/>:</td>
                     <%
                         String demoNoParam = request.getParameter("demographic_no");
                         String demoNoValue = (bFirstDisp || demoNoParam == null || demoNoParam.isEmpty()) ? "" : Encode.forHtmlAttribute(demoNoParam);
@@ -730,7 +731,7 @@
                 </tr>
 
                 <tr>
-                    <td class="tickler-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.formServiceDate"/></td>
+                    <td class="tickler-label"><fmt:message key="tickler.ticklerAdd.formServiceDate"/></td>
                     <td><input type="date" class="form-control" name="xml_appointment_date"
                                value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>">
                             <div id="quickPickDateOptions" class="grid">
@@ -739,18 +740,18 @@
                         </td>
                 </tr>
                 <tr>
-                    <td class="tickler-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.Priority"/>:</td>
+                    <td class="tickler-label"><fmt:message key="tickler.ticklerMain.Priority"/>:</td>
                     <td>
                         <select name="priority" class="form-select">
-                            <option value="<%=Encode.forHtmlAttribute(oscarBundle.getString("tickler.ticklerMain.priority.high"))%>" <%=priority.equals("High")?"selected":""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.priority.high"/></option>
-                            <option value="<%=Encode.forHtmlAttribute(oscarBundle.getString("tickler.ticklerMain.priority.normal"))%>" <%=priority.equals("Normal")?"selected":""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.priority.normal"/></option>
-                            <option value="<%=Encode.forHtmlAttribute(oscarBundle.getString("tickler.ticklerMain.priority.low"))%>" <%=priority.equals("Low")?"selected":""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.priority.low"/></option>
+                            <option value="<%=Encode.forHtmlAttribute(oscarBundle.getString("tickler.ticklerMain.priority.high"))%>" <%=priority.equals("High")?"selected":""%>><fmt:message key="tickler.ticklerMain.priority.high"/></option>
+                            <option value="<%=Encode.forHtmlAttribute(oscarBundle.getString("tickler.ticklerMain.priority.normal"))%>" <%=priority.equals("Normal")?"selected":""%>><fmt:message key="tickler.ticklerMain.priority.normal"/></option>
+                            <option value="<%=Encode.forHtmlAttribute(oscarBundle.getString("tickler.ticklerMain.priority.low"))%>" <%=priority.equals("Low")?"selected":""%>><fmt:message key="tickler.ticklerMain.priority.low"/></option>
                         </select>
                     </td>
                 </tr>
 
                 <tr>
-                    <td class="tickler-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.assignTaskTo"/>:</td>
+                    <td class="tickler-label"><fmt:message key="tickler.ticklerAdd.assignTaskTo"/>:</td>
                     <td>
                         <% if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) { // multisite start ==========================================
                             SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
@@ -804,7 +805,7 @@
 
                         <div id="selectWrapper">
                             <select id="site" class="form-select" name="site" onchange="changeSite(this)">
-                                <option value="none" style="background-color: white"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.selectClinic"/></option>
+                                <option value="none" style="background-color: white"><fmt:message key="tickler.ticklerAdd.selectClinic"/></option>
                                 <%
                                     for (int i = 0; i < sites.size(); i++) {
                                 %>
@@ -816,12 +817,12 @@
 
                             <select name="task_assigned_to" id="task_assigned_to" class="form-select"></select>
 
-                            <h4 id="preferenceLink" style="display:none"><small><a href="#" onclick="toggleWrappers()"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.linkPreference"/></a></small>
+                            <h4 id="preferenceLink" style="display:none"><small><a href="#" onclick="toggleWrappers()"><fmt:message key="tickler.ticklerAdd.linkPreference"/></a></small>
                             </h4>
                         </div>
 
                         <div id="nameWrapper" style="display:none">
-                            <h4><% if (taskToIsMRP) { %><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.msgPreferenceMRP"/><% } else { %><%=Encode.forHtml(taskToName)%><% } %> <small><a href="#" onclick="toggleWrappers()"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.linkChange"/></a></small></h4>
+                            <h4><% if (taskToIsMRP) { %><fmt:message key="tickler.ticklerAdd.msgPreferenceMRP"/><% } else { %><%=Encode.forHtml(taskToName)%><% } %> <small><a href="#" onclick="toggleWrappers()"><fmt:message key="tickler.ticklerAdd.linkChange"/></a></small></h4>
                             <input type="hidden" id="taskToBin" value="<%=Encode.forHtmlAttribute(taskTo)%>">
                             <% String taskToNameBinValue = taskToIsMRP ? oscarBundle.getString("tickler.ticklerAdd.msgPreferenceMRP") : taskToName; %>
                             <input type="hidden" id="taskToNameBin" value="<%=Encode.forHtmlAttribute(taskToNameBinValue)%>">
@@ -899,7 +900,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="tickler-label"><a href="#" onclick="openBrWindow('./ticklerSuggestedText.jsp','','width=680,height=400')" style="font-weight:bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerEdit.suggestedText"/></a>:</td>
+                    <td class="tickler-label"><a href="#" onclick="openBrWindow('./ticklerSuggestedText.jsp','','width=680,height=400')" style="font-weight:bold"><fmt:message key="tickler.ticklerEdit.suggestedText"/></a>:</td>
                     <td>
                         <select name="suggestedText" class="form-select" onchange="pasteMessageText()">
                             <option value="">---</option>
@@ -914,7 +915,7 @@
                 </tr>
 
                 <tr>
-                    <td class="tickler-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.formReminder"/>:</td>
+                    <td class="tickler-label"><fmt:message key="tickler.ticklerAdd.formReminder"/>:</td>
                     <td><textarea name="ticklerMessage" id="ticklerMessage" class="form-control"></textarea>
                     </td>
                 </tr>
@@ -922,13 +923,13 @@
             </table>
             <div class="action-bar-bottom">
                 <input type="button" name="Button" class="btn btn-primary"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnSubmit"/>"
+                       value="<fmt:message key="tickler.ticklerAdd.btnSubmit"/>"
                        onclick="validate(this.form);">
                 <input type="button" name="Button" class="btn btn-secondary"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnWriteSubmit"/>"
+                       value="<fmt:message key="tickler.ticklerAdd.btnWriteSubmit"/>"
                        onclick="validate(this.form, true)">
                 <input type="button" name="Button" class="btn btn-secondary"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
+                       value="<fmt:message key="global.btnBack"/>"
                        onclick="window.close()">
             </div>
         </form>

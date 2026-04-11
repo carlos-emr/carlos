@@ -31,6 +31,7 @@
 
 <%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat,io.github.carlos_emr.carlos.event.EventService" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
@@ -77,7 +78,7 @@
     } else {
 %>
 <p>
-<h1><fmt:setBundle basename="oscarResources"/><fmt:message key="AddProviderStatus.msgAddFailure"/></h1>
+<h1><fmt:message key="AddProviderStatus.msgAddFailure"/></h1>
 
 <%
     }

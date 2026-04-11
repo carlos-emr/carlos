@@ -42,6 +42,7 @@
 <%@ page contentType="text/html;charset=UTF-8" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <html>
     <head>
@@ -52,14 +53,14 @@
         <table border="0" cellspacing="0" cellpadding="0" width="90%">
             <tr bgcolor="#486ebd">
                 <th align="CENTER"><font face="Helvetica" color="#FFFFFF">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentupdatearecord.msgMainLabel"/></font></th>
+                    <fmt:message key="appointment.appointmentupdatearecord.msgMainLabel"/></font></th>
             </tr>
         </table>
 
         <c:choose>
             <c:when test="${success}">
                 <p>
-                <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentupdatearecord.msgUpdateSuccess"/></h1>
+                <h1><fmt:message key="appointment.appointmentupdatearecord.msgUpdateSuccess"/></h1>
                 <script language="JavaScript">
                     <c:if test="${printReceipt}">
                     popupPage(350, 750, 'printappointment.jsp?appointment_no=${e:forJavaScript(appointmentNo)}');
@@ -70,14 +71,14 @@
             </c:when>
             <c:otherwise>
                 <p>
-                <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentupdatearecord.msgUpdateFailure"/></h1>
+                <h1><fmt:message key="appointment.appointmentupdatearecord.msgUpdateFailure"/></h1>
             </c:otherwise>
         </c:choose>
 
         <p></p>
         <hr width="90%"/>
         <form>
-            <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>" onClick="closeit()">
+            <input type="button" value="<fmt:message key="global.btnClose"/>" onClick="closeit()">
         </form>
     </center>
     </body>

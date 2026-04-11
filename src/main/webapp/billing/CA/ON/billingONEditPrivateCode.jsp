@@ -159,12 +159,13 @@
     }
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <!DOCTYPE html>
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.managePrivBillingCode"/></title>
+        <title><fmt:message key="admin.admin.managePrivBillingCode"/></title>
 
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
@@ -275,7 +276,7 @@
     </head>
     <body>
 
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.managePrivBillingCode"/></h3>
+    <h3><fmt:message key="admin.admin.managePrivBillingCode"/></h3>
 
     <div class="container-fluid">
 
@@ -363,7 +364,7 @@
                 <input class="btn btn-secondary" type="submit" name="submit" value="Delete" onclick="javascript:return onDelete();">
                 <input type="hidden" name="action" value='<%=Encode.forHtmlAttribute(action)%>'>
                 <input class="btn btn-secondary" type="submit" name="submit"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>"
+                       value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
                        onclick="javascript:return onSave();">
             </form>
         </div><!--edit/add well-->

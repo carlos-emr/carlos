@@ -40,6 +40,7 @@
 <%@ page contentType="text/html;charset=UTF-8" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <html>
     <head>
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
@@ -49,14 +50,14 @@
         <table border="0" cellspacing="0" cellpadding="0" width="90%">
             <tr bgcolor="#486ebd">
                 <th align="CENTER"><font face="Helvetica" color="#FFFFFF">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentdeletearecord.msgLabel"/></font></th>
+                    <fmt:message key="appointment.appointmentdeletearecord.msgLabel"/></font></th>
             </tr>
         </table>
 
         <c:choose>
             <c:when test="${success}">
                 <p>
-                <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentdeletearecord.msgDeleteSuccess"/></h1>
+                <h1><fmt:message key="appointment.appointmentdeletearecord.msgDeleteSuccess"/></h1>
                 <script language="JavaScript">
                     self.opener.refresh();
                     self.close();
@@ -64,14 +65,14 @@
             </c:when>
             <c:otherwise>
                 <p>
-                <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentdeletearecord.msgDeleteFailure"/></h1>
+                <h1><fmt:message key="appointment.appointmentdeletearecord.msgDeleteFailure"/></h1>
             </c:otherwise>
         </c:choose>
 
         <p></p>
         <hr width="90%"/>
         <form>
-            <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>" onClick="closeit()">
+            <input type="button" value="<fmt:message key="global.btnClose"/>" onClick="closeit()">
         </form>
     </center>
     </body>

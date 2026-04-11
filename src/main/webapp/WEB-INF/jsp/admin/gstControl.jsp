@@ -27,6 +27,7 @@
         import="java.util.*,io.github.carlos_emr.carlos.report.data.*, java.util.Properties, io.github.carlos_emr.carlos.billing.ca.on.administration.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -65,12 +66,12 @@
         }
     </script>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageGSTControl"/></title>
+        <title><fmt:message key="admin.admin.manageGSTControl"/></title>
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     </head>
     <body onload="loadData()">
 
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageGSTControl"/></h3>
+    <h3><fmt:message key="admin.admin.manageGSTControl"/></h3>
 
     <form action="<%=request.getContextPath() %>/admin/GstControl.do" method="post">
         GST:<br>

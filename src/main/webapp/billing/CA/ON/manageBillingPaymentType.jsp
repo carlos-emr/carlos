@@ -33,6 +33,7 @@
 <%@ page import="java.util.List" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.BillingPaymentType" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <html>
 <head>
@@ -53,7 +54,7 @@
             jQuery('#tblBillType').DataTable({
                 "order": [],
                 "language": {
-                    "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18n.datatablescode"/>.json"
+                    "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
                 }
             });
         });

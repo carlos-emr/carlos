@@ -38,6 +38,7 @@ Required Parameters to plug-in:
 
  --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
@@ -48,7 +49,7 @@ Required Parameters to plug-in:
             ${ quickList }
             <div class="card">
                 <div class="card-body">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.quickList"/>
+                    <fmt:message key="oscarResearch.oscarDxResearch.quickList"/>
                     <small class="float-end">
                         <a class="oscar-dialog-link" href="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchCustomization.jsp">
                             add/edit

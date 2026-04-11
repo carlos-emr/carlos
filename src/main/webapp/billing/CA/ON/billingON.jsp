@@ -30,6 +30,7 @@
 <!DOCTYPE html>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -601,7 +602,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
-<fmt:setBundle basename="oscarResources"/>
 <html>
 <head>
     <title><fmt:message key="oscar.billing.ca.on.billingON.title"/></title>

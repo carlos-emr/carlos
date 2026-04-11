@@ -30,6 +30,7 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <hr width="100%">
@@ -37,8 +38,8 @@
     <tr>
         <td><a href=# onClick="javascript:history.go(-1);return false;">
             <img src="<%= request.getContextPath() %>/images/leftarrow.gif" border="0" width="25" height="20"
-                 align="absmiddle"> <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zfooterbackclose.btnBack"/> </a></td>
-        <td align="right"><a href="" onClick="self.close();"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zfooterbackclose.btnClose"/><img
+                 align="absmiddle"> <fmt:message key="demographic.zfooterbackclose.btnBack"/> </a></td>
+        <td align="right"><a href="" onClick="self.close();"><fmt:message key="demographic.zfooterbackclose.btnClose"/><img
                 src="<%= request.getContextPath() %>/images/rightarrow.gif" border="0" width="25" height="20"
                 align="absmiddle"></a></td>
     </tr>

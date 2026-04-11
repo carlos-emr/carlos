@@ -52,6 +52,7 @@
 <%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.commn.OtherIdManager" %>
 <%@ page import="io.github.carlos_emr.carlos.event.EventService" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
@@ -75,7 +76,7 @@
         <table border="0" cellspacing="0" cellpadding="0" width="90%">
             <tr bgcolor="#486ebd">
                 <th align="CENTER"><font face="Helvetica" color="#FFFFFF">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentupdatearecord.msgMainLabel"/></font></th>
+                    <fmt:message key="appointment.appointmentupdatearecord.msgMainLabel"/></font></th>
             </tr>
         </table>
         <%
@@ -136,7 +137,7 @@
             if (rowsAffected == 1) {
         %>
         <p>
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentupdatearecord.msgUpdateSuccess"/></h1>
+        <h1><fmt:message key="appointment.appointmentupdatearecord.msgUpdateSuccess"/></h1>
 
         <script LANGUAGE="JavaScript">
             <%
@@ -160,7 +161,7 @@
         } else {
         %>
         <p>
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentupdatearecord.msgUpdateFailure"/></h1>
+        <h1><fmt:message key="appointment.appointmentupdatearecord.msgUpdateFailure"/></h1>
 
         <%
             }
@@ -168,7 +169,7 @@
         <p></p>
         <hr width="90%"/>
         <form>
-            <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>" onClick="closeit()">
+            <input type="button" value="<fmt:message key="global.btnClose"/>" onClick="closeit()">
         </form>
     </center>
     </body>

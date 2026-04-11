@@ -45,6 +45,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*" %>
@@ -110,7 +111,7 @@
 
     <!-- language for the calendar -->
     <script type="text/javascript"
-            src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+            src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
 
     <!-- the following script defines the Calendar.setup helper function, which makes
            adding a calendar a matter of 1 or 2 lines of code. -->
@@ -272,7 +273,7 @@
             if (checkMeasures()) {
                 popPage(url, name);
             } else {
-                alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.frmError"/>');
+                alert('<fmt:message key="encounter.formRourke2006.frmError"/>');
             }
         }
 
@@ -777,7 +778,7 @@
                 document.forms["frmP1"].submit();
             }
         } else {
-            alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.frmError"/>');
+            alert('<fmt:message key="encounter.formRourke2006.frmError"/>');
         }
         return false;
     }
@@ -791,7 +792,7 @@
                 document.forms["frmP1"].submit();
             }
         } else {
-            alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.frmError"/>');
+            alert('<fmt:message key="encounter.formRourke2006.frmError"/>');
         }
         return false;
     }

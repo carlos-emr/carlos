@@ -48,8 +48,8 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page errorPage="/errorpage.jsp" %>
 
 <%@ page import="java.util.*" %>

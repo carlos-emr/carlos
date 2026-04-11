@@ -47,6 +47,7 @@
 <%@ page
         import="java.util.*,io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%
@@ -100,14 +101,14 @@
 <head>
     <script type="text/javascript" src="<%= request.getContextPath()%>/js/global.js"></script>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.chartDrugProfile.title"/></title>
+    <title><fmt:message key="oscarRx.chartDrugProfile.title"/></title>
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 </head>
 
 <script language="JavaScript">
     function getComment() {
-        var commentVal = prompt('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.msgComment"/>', '');
+        var commentVal = prompt('<fmt:message key="oscarMDS.segmentDisplay.msgComment"/>', '');
         document.acknowledgeForm.comment.value = commentVal;
         return true;
     }
@@ -129,12 +130,12 @@
                    bgcolor="black">
                 <tr>
                     <td width="66%" align="left" class="Cell">
-                        <div style="color:white;margin-left:5px;" class="Field2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDetailResults"/></div>
+                        <div style="color:white;margin-left:5px;" class="Field2"><fmt:message key="oscarMDS.segmentDisplay.formDetailResults"/></div>
                     </td>
                     <td align="right">
 
-                        <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>" onClick="window.close()"/>
-                        <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>" onClick="window.print()"/>
+                        <input type="button" value="<fmt:message key="global.btnClose"/>" onClick="window.close()"/>
+                        <input type="button" value="<fmt:message key="global.btnPrint"/>" onClick="window.print()"/>
 
 
                     </td>

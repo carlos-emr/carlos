@@ -31,6 +31,7 @@
 <%@ page
         import="io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.clinic.ClinicData, java.util.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -83,7 +84,6 @@
 %>
 
 
-<fmt:setBundle basename="oscarResources"/>
 <html>
 
     <head>

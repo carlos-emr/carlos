@@ -33,17 +33,18 @@
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.pageUtil.*" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %> 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 
 
 
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSelectForm"/></title>
+        <title><fmt:message key="admin.admin.btnSelectForm"/></title>
     </head>
 
     <body>
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSelectForm"/></h3>
+    <h3><fmt:message key="admin.admin.btnSelectForm"/></h3>
 
     <div class="card card-body bg-body-tertiary">
 
@@ -60,9 +61,9 @@
                                 <td>
                                     <table>
                                         <tr>
-                                            <th align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.form.msgAllAvailableForms"/></th>
+                                            <th align="left"><fmt:message key="encounter.form.msgAllAvailableForms"/></th>
                                             <th></th>
-                                            <th align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.form.msgSelectedForms"/></th>
+                                            <th align="left"><fmt:message key="encounter.form.msgSelectedForms"/></th>
                                         </tr>
                                         <td><select multiple="true" name="selectedAddTypes"
                                                          size="10" style="width:150">
@@ -80,14 +81,14 @@
                                                 <tr>
                                                     <td><input type="button" name="button" id="add" class="btn function"
                                                                style="width:80px"
-                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.MeasurementsAction.addBtn"/> >>"
+                                                               value="<fmt:message key="encounter.oscarMeasurements.MeasurementsAction.addBtn"/> >>"
                                                     /></td>
                                                 </tr>
                                                 <tr>
                                                     <td>
                                                         <input type="button" name="button" class="btn function"
                                                                id="delete" style="width:80px"
-                                                               value="<< <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.MeasurementsAction.deleteBtn"/>"/>
+                                                               value="<< <fmt:message key="encounter.oscarMeasurements.MeasurementsAction.deleteBtn"/>"/>
                                                     </td>
                                                 </tr>
                                             </table>

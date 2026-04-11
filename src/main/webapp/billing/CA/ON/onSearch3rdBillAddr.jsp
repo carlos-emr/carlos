@@ -69,6 +69,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <html>
     <head>
@@ -227,7 +228,7 @@
         %> <%
         if (nItems == 0 && nLastPage <= 0) {
 
-    %> <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.noResultsWereFound"/> <%
+    %> <fmt:message key="demographic.search.noResultsWereFound"/> <%
         }
     %>
         <script language="JavaScript">
@@ -250,13 +251,13 @@
                 if (nLastPage >= 0) {
 
             %> <input type="submit" class="mbttn" name="submit"
-                      value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/>"
+                      value="<fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/>"
                       onClick="last()"> <%
             }
             if (nItems == Integer.parseInt(strLimit2)) {
 
         %> <input type="submit" class="mbttn" name="submit"
-                  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/>"
+                  value="<fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/>"
                   onClick="next()"> <%
             }
         %>

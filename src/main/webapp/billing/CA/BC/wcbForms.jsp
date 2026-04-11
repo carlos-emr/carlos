@@ -55,6 +55,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@taglib uri="jakarta.tags.core" prefix="c" %>
 <%@taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String demographicNo = request.getParameter("demographicNo");
     String wcbid = request.getParameter("wcbid");
@@ -107,7 +108,7 @@
                 if (wcb.verifyFormNotNeeded() != null && wcb.verifyFormNotNeeded().size() > 0) {
                     List<String> errs = wcb.verifyFormNotNeeded();
             %>
-            <td title="header=[To bill WCB without a form the following is needed] body=[<%for (String s : errs) { %><fmt:setBundle basename="oscarResources"/><fmt:message key="<%=s%>"/><%  }%>]">
+            <td title="header=[To bill WCB without a form the following is needed] body=[<%for (String s : errs) { %><fmt:message key="<%=s%>"/><%  }%>]">
                     <%}else{%>
             <td>
                 <%}%>
@@ -120,7 +121,7 @@
                 if (wcb.verifyEverythingOnForm() != null && wcb.verifyEverythingOnForm().size() > 0) {
                     List<String> errs = wcb.verifyEverythingOnForm();
             %>
-            <td title="header=[To bill WCB with a form the following is needed] body=[<%for (String s : errs) { %><fmt:setBundle basename="oscarResources"/><fmt:message key="<%=s%>"/><%  }%>]">
+            <td title="header=[To bill WCB with a form the following is needed] body=[<%for (String s : errs) { %><fmt:message key="<%=s%>"/><%  }%>]">
                     <%}else{%>
             <td>
                 <%}%>

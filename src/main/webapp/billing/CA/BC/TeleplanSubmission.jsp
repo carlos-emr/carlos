@@ -55,6 +55,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillActivityDAO" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
@@ -157,7 +158,7 @@
 </head>
 
 <body>
-<h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.genTeleplanFile2"/></h3>
+<h3><fmt:message key="admin.admin.genTeleplanFile2"/></h3>
 
 <div class="container-fluid card card-body bg-body-tertiary">
     <div id="Layer2"
