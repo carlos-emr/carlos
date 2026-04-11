@@ -70,6 +70,7 @@
 
 <!-- Struts for i18n -->
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
@@ -449,7 +450,6 @@
     <c:set var="masterLinkRights" value="true" scope="page"/>
 </security:oscarSec>
 
-<fmt:setBundle basename="oscarResources"/>
 
 <html>
     <head>

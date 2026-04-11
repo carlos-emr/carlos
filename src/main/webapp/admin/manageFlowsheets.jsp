@@ -47,6 +47,7 @@
 
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.reportByTemplate.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
@@ -76,7 +77,6 @@
 
 %>
 
-<fmt:setBundle basename="oscarResources"/>
 
 <html>
     <head>

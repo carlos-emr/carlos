@@ -23,9 +23,8 @@ public class FrmInvoiceRecord extends FrmRecord {
 
         if (existingID <= 0) {
 
-            String sql = "SELECT demographic_no, last_name, first_name, sex, address, city, province, postal, phone, phone2, year_of_birth, month_of_birth, date_of_birth, hin, ver, hc_type FROM demographic WHERE demographic_no = "
-                    + demographicNo;
-            ResultSet rs = DBHandler.GetSQL(sql);
+            String sql = "SELECT demographic_no, last_name, first_name, sex, address, city, province, postal, phone, phone2, year_of_birth, month_of_birth, date_of_birth, hin, ver, hc_type FROM demographic WHERE demographic_no = ?";
+            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo);
             if (rs.next()) {
                 java.util.Date date = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), rs
                         .getString("month_of_birth"), Misc.getString(rs, "date_of_birth"));
@@ -51,11 +50,10 @@ public class FrmInvoiceRecord extends FrmRecord {
             }
             rs.close();
         } else {
-            String sql = "SELECT * FROM formInvoice WHERE demographic_no = " + demographicNo + " AND ID = "
-                    + existingID;
+            String sql = "SELECT * FROM formInvoice WHERE demographic_no = ? AND ID = ?";
             FrmRecordHelp frh = new FrmRecordHelp();
             frh.setDateFormat(_dateFormat);
-            props = (frh).getFormRecord(sql);
+            props = (frh).getFormRecord(sql, demographicNo, existingID);
         }
 
         return props;
@@ -63,18 +61,18 @@ public class FrmInvoiceRecord extends FrmRecord {
 
     public int saveFormRecord(Properties props) throws SQLException {
         String demographic_no = props.getProperty("demographic_no");
-        String sql = "SELECT * FROM formInvoice WHERE demographic_no=" + demographic_no + " AND ID=0";
+        String sql = "SELECT * FROM formInvoice WHERE demographic_no=? AND ID=0";
 
         FrmRecordHelp frh = new FrmRecordHelp();
         frh.setDateFormat(_dateFormat);
-        return ((frh).saveFormRecord(props, sql));
+        return ((frh).saveFormRecord(props, sql, demographic_no));
     }
 
     public Properties getPrintRecord(int demographicNo, int existingID) throws SQLException {
-        String sql = "SELECT * FROM formInvoice WHERE demographic_no = " + demographicNo + " AND ID = " + existingID;
+        String sql = "SELECT * FROM formInvoice WHERE demographic_no = ? AND ID = ?";
         FrmRecordHelp frh = new FrmRecordHelp();
         frh.setDateFormat(_dateFormat);
-        return ((frh).getPrintRecord(sql));
+        return ((frh).getPrintRecord(sql, demographicNo, existingID));
     }
 
     public String findActionValue(String submit) throws SQLException {

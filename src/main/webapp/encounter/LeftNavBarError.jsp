@@ -30,8 +30,9 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
-<h3><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.LeftNavBar.ErrorH3"/></h3>
+<h3><fmt:message key="encounter.LeftNavBar.ErrorH3"/></h3>
 
 Could not retrieve data for
 <%=request.getAttribute("navbarName")%>

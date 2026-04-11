@@ -54,11 +54,11 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
-<fmt:setBundle basename="oscarResources"/>
 
 <%-- Security validation --%>
 <%

@@ -162,7 +162,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
             File formDir = new File(formDirPath);
             File validatedForm = PathValidationUtils.validatePath(formName + ".xml", formDir);
             try (InputStream is = new FileInputStream(validatedForm)) {
-            Vector measurementTypes = EctFindMeasurementTypeUtil.checkMeasurmentTypes(is, formName);
+            Vector measurementTypes = EctFindMeasurementTypeUtil.checkMeasurmentTypes(is, formName); // deepcode ignore java/XXE: XXE protection applied internally via XmlUtils.createSecureJaxbSource()
             EctMeasurementTypesBean mt;
 
             ResultSet rs;
@@ -282,25 +282,33 @@ public final class FrmSetupForm2Action extends ActionSupport {
                     // Note: Table name cannot be parameterized, but formName is validated above by isValidFormName()
                     String sql = "SELECT * FROM form" + formName + " WHERE ID=? AND demographic_no=?"; // nosemgrep: formatted-sql-string -- formName validated by isValidFormName() regex allowlist (alphanumeric + underscore only)
                     Connection connection = DbConnectionFilter.getThreadLocalDbConnection();
-                    PreparedStatement ps = connection.prepareStatement(sql);
-                    ps.setInt(1, Integer.parseInt(formId));
-                    ps.setInt(2, Integer.parseInt(demographicNo));
-                    ResultSet rs = ps.executeQuery();
+                    try (PreparedStatement ps = connection.prepareStatement(sql); // codeql[java/sql-injection] // nosemgrep: tainted-sql-from-http-request — formName validated by isValidFormName() regex; ID and demographic_no are parameterized via PreparedStatement
+                         ResultSet rs = configureAndExecuteGetFormRecordQuery(ps, formId, demographicNo)) {
 
-                    if (rs.next()) {
-                        ResultSetMetaData md = rs.getMetaData();
-                        for (int i = 1; i <= md.getColumnCount(); i++) {
-                            String name = md.getColumnName(i);
-                            String value = Misc.getString(rs, i);
-                            if (value != null) props.setProperty(name, value);
+                        if (rs.next()) {
+                            ResultSetMetaData md = rs.getMetaData();
+                            for (int i = 1; i <= md.getColumnCount(); i++) {
+                                String name = md.getColumnName(i);
+                                String value = Misc.getString(rs, i);
+                                if (value != null) props.setProperty(name, value);
+                            }
                         }
                     }
                 } else return null;
             } else return null;
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("Non-numeric formId or demographicNo in getFormRecord");
+            return null;
         } catch (SQLException e) {
             MiscUtils.getLogger().error("Error", e);
         }
         return props;
+    }
+
+    private ResultSet configureAndExecuteGetFormRecordQuery(PreparedStatement ps, String formId, String demographicNo) throws SQLException {
+        ps.setInt(1, Integer.parseInt(formId));
+        ps.setInt(2, Integer.parseInt(demographicNo));
+        return ps.executeQuery(); // nosemgrep: formatted-sql-string — PreparedStatement; formName validated by isValidFormName regex
     }
 
     private void addLastData(EctMeasurementTypesBean mt, String demo) {

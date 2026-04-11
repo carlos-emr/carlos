@@ -29,9 +29,9 @@
 
 <%@ page contentType="text/html;charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-
-
 <fmt:setBundle basename="oscarResources"/>
+
+
 
 <html>
 <body>

@@ -28,6 +28,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
@@ -130,7 +131,7 @@
 
         </script>
 
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.title"/></title>
+        <title><fmt:message key="demographic.demographicaddrecordhtm.title"/></title>
 
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
@@ -141,7 +142,7 @@
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
        adding a calendar a matter of 1 or 2 lines of code. -->
@@ -175,7 +176,7 @@
                         typeInOK = true;
                     }
                     if (dob.value.length != 10) {
-                        alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgWrongDOB"/>");
+                        alert("<fmt:message key="demographic.search.msgWrongDOB"/>");
                         typeInOK = false;
                     }
 
@@ -192,7 +193,7 @@
                         typeInOK = true;
                     }
                 }
-                if (!typeInOK) alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgMissingFields"/>");
+                if (!typeInOK) alert("<fmt:message key="demographic.demographicaddrecordhtm.msgMissingFields"/>");
                 return typeInOK;
             }
 
@@ -669,7 +670,7 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
     <body>
     <table>
         <tr bgcolor="#CCCCFF">
-            <th class="subject"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgMainLabel"/></th>
+            <th class="subject"><fmt:message key="demographic.demographicaddrecordhtm.msgMainLabel"/></th>
         </tr>
     </table>
 

@@ -45,6 +45,7 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.Set, java.util.List, java.util.Iterator" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue" %>
@@ -140,7 +141,7 @@
          alt="Minimize Display" onclick='resetView(true, true, event)'
          style='float: right; margin-right: 5px;'
          src='<c:out value="${ctx}"/>/encounter/graphics/triangle_up.gif'/>
-    <span id="txt<c:out value="${Note.id}"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.msgLocked"/> <%=DateUtils.getDate(note.getUpdate_date(), dateFormat)%>
+    <span id="txt<c:out value="${Note.id}"/>"><fmt:message key="encounter.Index.msgLocked"/> <%=DateUtils.getDate(note.getUpdate_date(), dateFormat)%>
 	<c:out value="${provName}"/></span>
     <p id="passwdError" style="color: red;">Incorrect password</p>
     <p id='passwdPara' class="passwd">Password:&nbsp;<input
@@ -148,7 +149,7 @@
             id='passwd' size='16'>&nbsp; <input id='btnUnlock'
                                                 type='button'
                                                 onclick="return unlock_ajax('<c:out value="n${Note.id}"/>');"
-                                                value='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnUnLock"/>'>
+                                                value='<fmt:message key="encounter.Index.btnUnLock"/>'>
     </p>
     <script type="text/javascript">
         document.getElementById('passwd').focus();

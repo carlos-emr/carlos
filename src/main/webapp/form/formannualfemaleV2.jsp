@@ -49,6 +49,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 
@@ -74,7 +75,7 @@
         function popupOscarCon(vheight, vwidth, varpage) {
             var page = varpage;
             windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes, screenX=0,screenY=0,top=0,left=0";
-            var popup = window.open(varpage, "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.msgOscarConsultation"/>", windowprops);
+            var popup = window.open(varpage, "<fmt:message key="encounter.Index.msgOscarConsultation"/>", windowprops);
             popup.focus();
         }
 

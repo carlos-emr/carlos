@@ -48,6 +48,7 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.ManageLetters" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <html>
     <head>
@@ -83,7 +84,7 @@
                     <td style="width:120px; font-weight:bold;">Select Letter:</td>
                     <td>
                         <input type="file" name="reportFile" value="upload"/>
-                        <span title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"
+                        <span title="<fmt:message key="global.uploadWarningBody"/>"
                               style="vertical-align:middle; cursor:pointer;">
                             <img border="0" src="<%= request.getContextPath() %>/images/icon_alertsml.gif"/>
                         </span>

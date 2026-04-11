@@ -52,6 +52,7 @@
         import="io.github.carlos_emr.carlos.demographic.data.*, io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%
@@ -99,13 +100,13 @@
             <td align="center" class="menuLayer"><a
                     href="javascript: function myFunction() {return false; }"
                     onclick="popperup(650,775,'https://www.mcw.edu/calculators/body-mass-index','BodyMassIndex');">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.bodyMass"/> </a></td>
+                <fmt:message key="encounter.Index.bodyMass"/> </a></td>
         </tr>
         <tr>
             <td align="center" class="menuLayer"><a
                     href="javascript: function myFunction() {return false; }"
                     onclick="popperup(525,775,'${ctx}/encounter/calculators/CoronaryArteryDiseaseRiskPrediction.jsp?sex=${sexEncoded}&age=${ageEncoded}','CoronaryArteryDiseaseRisk');">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.coronary"/> </a></td>
+                <fmt:message key="encounter.Index.coronary"/> </a></td>
         </tr>
         <tr>
             <td align="center" class="menuLayer"><a
@@ -125,25 +126,25 @@
             <td align="center" class="menuLayer"><a
                     href="javascript: function myFunction() {return false; }"
                     onclick="popperup(525,775,'${ctx}/encounter/calculators/OsteoporoticFracture.jsp?sex=${sexEncoded}&age=${ageEncoded}','OsteoporoticFracture');">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.msgOsteoporotic"/> </a></td>
+                <fmt:message key="encounter.Index.msgOsteoporotic"/> </a></td>
         </tr>
         <tr>
             <td align="center" class="menuLayer"><a
                     href="javascript: function myFunction() {return false; }"
                     onclick="popperup(650,775,'https://www.mcw.edu/calculators/pregnancy-date','PregancyCalculator');">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.pregnancy"/> </a></td>
+                <fmt:message key="encounter.Index.pregnancy"/> </a></td>
         </tr>
         <tr>
             <td align="center" class="menuLayer"><a
                     href="javascript: function myFunction() {return false; }"
                     onclick="popperup(400,500,'${ctx}/encounter/calculators/SimpleCalculator.jsp','SimpleCalc');">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.simpleCalculator"/> </a></td>
+                <fmt:message key="encounter.Index.simpleCalculator"/> </a></td>
         </tr>
         <tr>
             <td align="center" class="menuLayer"><a
                     href="javascript: function myFunction() {return false; }"
                     onclick="popperup(650,775,'${ctx}/encounter/calculators/GeneralCalculators.jsp','GeneralConversions'); ">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.generalConversions"/> </a></td>
+                <fmt:message key="encounter.Index.generalConversions"/> </a></td>
         </tr>
     </table>
     </body>

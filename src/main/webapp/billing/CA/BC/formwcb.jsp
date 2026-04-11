@@ -56,6 +56,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.WcbHelper" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
@@ -102,7 +103,7 @@
         <script src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
         <script src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
         <script
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"
                 type="text/javascript"></script>
         <script src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"
                 type="text/javascript"></script>

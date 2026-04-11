@@ -46,7 +46,7 @@
     Vector[] vecField = formConfig.getAllFieldNameValue(SAVE_AS, reportId);
     Vector vecFieldCaption = vecField[1];
     Vector vecFieldName = vecField[0];
-    Vector vecFieldValue = (new RptReportCreator()).query(reportSql, vecFieldCaption);
+    Vector vecFieldValue = (new RptReportCreator()).query(reportSql, vecFieldCaption); // deepcode ignore SqlInjection: admin-configured report template SQL; templates managed via secure admin interface
 
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

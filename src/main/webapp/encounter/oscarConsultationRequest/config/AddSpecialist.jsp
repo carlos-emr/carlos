@@ -49,6 +49,7 @@
 
 <%@ page import="java.util.ResourceBundle" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddSpecialistForm" %>
 <%@page import="java.util.List" %>
@@ -90,7 +91,6 @@
             && !"off".equalsIgnoreCase(cpsoSearchRaw)
             && !"0".equals(cpsoSearchRaw);
 %>
-<fmt:setBundle basename="oscarResources"/>
 
 <%
     ResourceBundle oscarR = ResourceBundle.getBundle("oscarResources", request.getLocale());

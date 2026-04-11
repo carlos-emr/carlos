@@ -81,6 +81,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="org.owasp.csrfguard.CsrfGuard" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 
@@ -305,7 +306,7 @@
 
         if (bSucc) {
 %>
-<h1><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgAddSuccess"/></h1>
+<h1><fmt:message key="appointment.appointmentgrouprecords.msgAddSuccess"/></h1>
 <script LANGUAGE="JavaScript">
     self.opener.refresh();
     self.close();
@@ -314,7 +315,7 @@
 } else {
 %>
 <p>
-<h1><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgAddFailure"/></h1>
+<h1><fmt:message key="appointment.appointmentgrouprecords.msgAddFailure"/></h1>
 
 <%
         }
@@ -324,7 +325,7 @@
 <html>
     <head>
         <%@ include file="/includes/global-head.jspf" %>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.title"/></title>
+        <title><fmt:message key="appointment.appointmentgrouprecords.title"/></title>
         <style>
             .provider-current { background-color: var(--carlos-bg-light, #e8f0fe); }
             .provider-available { background-color: #f8f9fa; }
@@ -379,7 +380,7 @@
             }
 
             function onExit() {
-                if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgExitConfirmation"/>")) {
+                if (confirm("<fmt:message key="appointment.appointmentgrouprecords.msgExitConfirmation"/>")) {
                     window.close()
                 }
             }
@@ -392,7 +393,7 @@
 
             function onSub() {
                 if (saveTemp == 1) {
-                    return (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgDeleteConfirmation"/>"));
+                    return (confirm("<fmt:message key="appointment.appointmentgrouprecords.msgDeleteConfirmation"/>"));
                 }
             }
         </script>
@@ -406,7 +407,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="page-header-icon">
                     <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5"/>
                 </svg>
-                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgLabel"/>
+                &nbsp;<fmt:message key="appointment.appointmentgrouprecords.msgLabel"/>
             </h4>
         </div>
 
@@ -494,22 +495,22 @@
                 <span class="badge bg-info text-dark"><%=Encode.forHtml(eStartTime == null ? "" : eStartTime)%> - <%=Encode.forHtml(eEndTime == null ? "" : eEndTime)%></span>
                 <span class="fw-bold"><%=Encode.forHtml(UtilMisc.toUpperLowerCase(eName == null ? "" : eName))%></span>
             </div>
-            <span class="badge bg-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.legendGroup"/> <%=Encode.forHtml(mygroupno)%></span>
+            <span class="badge bg-primary"><fmt:message key="appointment.appointmentgrouprecords.legendGroup"/> <%=Encode.forHtml(mygroupno)%></span>
         </div>
 
         <div class="d-flex gap-3 mb-2 small">
-            <span><span class="d-inline-block border rounded px-2 me-1 provider-current">&nbsp;</span> <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.legendCurrentProvider"/></span>
-            <span><span class="d-inline-block border rounded px-2 me-1 provider-available">&nbsp;</span> <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.legendAvailable"/></span>
-            <span><span class="d-inline-block border rounded px-2 me-1 provider-unavailable">&nbsp;</span> <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.legendUnavailable"/></span>
+            <span><span class="d-inline-block border rounded px-2 me-1 provider-current">&nbsp;</span> <fmt:message key="appointment.appointmentgrouprecords.legendCurrentProvider"/></span>
+            <span><span class="d-inline-block border rounded px-2 me-1 provider-available">&nbsp;</span> <fmt:message key="appointment.appointmentgrouprecords.legendAvailable"/></span>
+            <span><span class="d-inline-block border rounded px-2 me-1 provider-unavailable">&nbsp;</span> <fmt:message key="appointment.appointmentgrouprecords.legendUnavailable"/></span>
         </div>
 
         <table class="table table-sm table-bordered mb-0">
             <thead class="table-light">
             <tr>
-                <th style="width:30%"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgProviderName"/></th>
-                <th style="width:11%" class="text-center"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgFirstAppointment"/></th>
-                <th style="width:11%" class="text-center"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgSecondAppointment"/></th>
-                <th style="width:48%"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgExistedAppointment"/></th>
+                <th style="width:30%"><fmt:message key="appointment.appointmentgrouprecords.msgProviderName"/></th>
+                <th style="width:11%" class="text-center"><fmt:message key="appointment.appointmentgrouprecords.msgFirstAppointment"/></th>
+                <th style="width:11%" class="text-center"><fmt:message key="appointment.appointmentgrouprecords.msgSecondAppointment"/></th>
+                <th style="width:48%"><fmt:message key="appointment.appointmentgrouprecords.msgExistedAppointment"/></th>
             </tr>
             </thead>
             <tbody>
@@ -569,12 +570,12 @@
             <tfoot>
             <tr class="table-light">
                 <td class="text-end" colspan="2">
-                    <a href="#" onClick='checkAll("one", "true", "two"); return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnCheckAll"/></a>
-                    | <a href="#" onClick='checkAll("one", "false", "two"); return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnClearAll"/></a>
+                    <a href="#" onClick='checkAll("one", "true", "two"); return false;'><fmt:message key="appointment.appointmentgrouprecords.btnCheckAll"/></a>
+                    | <a href="#" onClick='checkAll("one", "false", "two"); return false;'><fmt:message key="appointment.appointmentgrouprecords.btnClearAll"/></a>
                 </td>
                 <td colspan="2">
-                    <a href="#" onClick='checkAll("two", "true", "one"); return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnCheckAll"/></a>
-                    | <a href="#" onClick='checkAll("two", "false", "one"); return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnClearAll"/></a>
+                    <a href="#" onClick='checkAll("two", "true", "one"); return false;'><fmt:message key="appointment.appointmentgrouprecords.btnCheckAll"/></a>
+                    | <a href="#" onClick='checkAll("two", "false", "one"); return false;'><fmt:message key="appointment.appointmentgrouprecords.btnClearAll"/></a>
                 </td>
             </tr>
             </tfoot>
@@ -583,7 +584,6 @@
         <div class="d-flex justify-content-between align-items-center mt-3">
             <div>
                 <% if (bEdit) { %>
-                <fmt:setBundle basename="oscarResources"/>
                 <fmt:message key="appointment.appointmentgrouprecords.btnGroupUpdate" var="btnGroupUpdate"/>
                 <fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel" var="btnGroupCancel"/>
                 <fmt:message key="appointment.appointmentgrouprecords.msgDeleteConfirmation" var="msgDeleteConfirmation"/>
@@ -598,13 +598,11 @@
                        onclick="if(!confirm('${e:forJavaScript(msgDeleteConfirmation)}')){return false;} document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
                        value="${e:forHtmlAttribute(btnGroupDelete)}">
                 <% } else { %>
-                <fmt:setBundle basename="oscarResources"/>
                 <fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt" var="btnAddGroupAppt"/>
                 <input type="button" class="btn btn-primary btn-sm"
                        onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();"
                        value="${e:forHtmlAttribute(btnAddGroupAppt)}">
                 <% } %>
-                <fmt:setBundle basename="oscarResources"/>
                 <fmt:message key="global.btnBack" var="btnBack"/>
                 <input type="button" class="btn btn-secondary btn-sm"
                        value="${e:forHtmlAttribute(btnBack)}"

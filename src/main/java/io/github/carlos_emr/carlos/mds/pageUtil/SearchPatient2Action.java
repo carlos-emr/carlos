@@ -119,7 +119,7 @@ public class SearchPatient2Action extends ActionSupport {
 
         // Validate required parameters (name is optional, only used for keyword search)
         if (labNo == null || labType == null) {
-            MiscUtils.getLogger().error("Missing required parameters in SearchPatient2Action: labNo={}, labType={}", LogSanitizer.sanitize(labNo), LogSanitizer.sanitize(labType));
+            MiscUtils.getLogger().error("Missing required parameters in SearchPatient2Action: labNo={}, labType={}", LogSanitizer.sanitize(labNo), LogSanitizer.sanitize(labType)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             response.sendRedirect(contextPath + PATIENT_SEARCH_URL);
             return NONE;
         }

@@ -192,7 +192,7 @@ public class ManageDocument2Action extends ActionSupport {
             }
         }
 
-        log.error("No valid method found and insufficient parameters for documentUpdate. Method: {}", LogSanitizer.sanitize(method)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+        log.error("No valid method found and insufficient parameters for documentUpdate. Method: {}", LogSanitizer.sanitize(method)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         addActionError("Invalid request. The requested operation could not be performed.");
         return "error";
     }
@@ -246,7 +246,7 @@ public class ManageDocument2Action extends ActionSupport {
                     if (proNo != null && proNo.matches("^[a-zA-Z0-9_-]+$")) {
                         providerInboxRoutingDAO.addToProviderInbox(proNo, Integer.parseInt(documentId), LabResultData.DOCUMENT);
                     } else {
-                        log.warn("Invalid provider number format: {}", LogSanitizer.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                        log.warn("Invalid provider number format: {}", LogSanitizer.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     }
                 }
 
@@ -462,7 +462,7 @@ public class ManageDocument2Action extends ActionSupport {
                     if (proNo != null && proNo.matches("^[a-zA-Z0-9_-]+$")) {
                         providerInboxRoutingDAO.addToProviderInbox(proNo, Integer.parseInt(documentId), LabResultData.DOCUMENT);
                     } else {
-                        log.warn("Invalid provider number format: {}", LogSanitizer.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                        log.warn("Invalid provider number format: {}", LogSanitizer.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     }
                 }
             } catch (NumberFormatException e) {

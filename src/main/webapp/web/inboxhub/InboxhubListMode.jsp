@@ -15,8 +15,8 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-
 <fmt:setBundle basename="oscarResources"/>
+
 
 <c:if test="${page eq 1}">
 <div class="inbox-toolbar">

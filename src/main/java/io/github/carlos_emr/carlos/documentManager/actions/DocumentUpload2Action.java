@@ -121,7 +121,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     boolean success = writeToIncomingDocs(docFile, queueId, destFolder, sanitizedFileName);
                     if (!success) {
                         map.put("error", "Failed to write file. Please contact administrator");
-                        MiscUtils.getLogger().error("Failed to write file to {}", LogSanitizer.sanitize(destFolder));
+                        MiscUtils.getLogger().error("Failed to write file to {}", LogSanitizer.sanitize(destFolder)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     } else {
                         map.put("name", docFile.getName());
                         map.put("size", docFile.length());

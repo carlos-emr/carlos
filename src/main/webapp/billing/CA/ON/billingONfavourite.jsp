@@ -222,6 +222,7 @@
     }
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <html>
     <head>
@@ -431,10 +432,10 @@
                 <td style="text-align:center" class="myGreen" colspan="2"><input
                         type="hidden" name="action" value='<%=Encode.forHtmlAttribute(action)%>'> <input
                         type="submit" name="submit" class="btn btn-primary"
-                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>"
+                        value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
                         onclick="javascript:return onSave();"> <input class="btn btn-secondary" type="button"
                                                                       name="Cancel"
-                                                                      value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnExit"/>"
+                                                                      value="<fmt:message key="admin.resourcebaseurl.btnExit"/>"
                                                                       onClick="window.close()"></td>
             </tr>
         </table>

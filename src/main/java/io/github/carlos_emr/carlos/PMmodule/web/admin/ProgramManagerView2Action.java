@@ -135,7 +135,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         }
         // Validate programId is present and numeric before storing in session (CWE-501: Trust Boundary Violation)
         if (programId == null || programId.isBlank() || !programId.matches("\\d+")) {
-            logger.error("Invalid or missing programId: {}", LogSanitizer.sanitize(String.valueOf(programId)));
+            logger.error("Invalid or missing programId: {}", LogSanitizer.sanitize(String.valueOf(programId))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             addActionError("Invalid or missing required parameter");
             return ERROR;
         }
@@ -341,7 +341,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         ProgramQueue queue = programQueueManager.getProgramQueue(String.valueOf(queueIdLong));
         Program fullProgram = programManager.getProgram(String.valueOf(programId));
         if (fullProgram == null) {
-            logger.warn("No program found for programId received for admission: {}", LogSanitizer.sanitize(String.valueOf(programId)));
+            logger.warn("No program found for programId received for admission: {}", LogSanitizer.sanitize(String.valueOf(programId))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return view();
         }
         String dischargeNotes = request.getParameter("admission.dischargeNotes");
@@ -522,7 +522,7 @@ public class ProgramManagerView2Action extends ActionSupport {
                 String admissionId = name.substring(8);
                 Admission admission = admissionManager.getAdmission(Long.valueOf(admissionId));
                 if (admission == null) {
-                    logger.warn("admission #{} not found.", LogSanitizer.sanitize(admissionId));
+                    logger.warn("admission #{} not found.", LogSanitizer.sanitize(admissionId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     continue;
                 }
 

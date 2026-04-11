@@ -38,6 +38,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 import java.util.Vector;
 
@@ -84,7 +85,7 @@ public final class BillingONSave2Action extends ActionSupport {
                 && !rawUrlBack.contains("\r")
                 && !rawUrlBack.contains("\n")) ? rawUrlBack : "";
         if (rawUrlBack != null && safeUrlBack.isEmpty()) {
-            LogManager.getLogger(BillingONSave2Action.class).warn("Rejected url_back parameter: {}", Encode.forJava(rawUrlBack));
+            LogManager.getLogger(BillingONSave2Action.class).warn("Rejected url_back parameter: {}", LogSanitizer.sanitize(rawUrlBack)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         }
         request.setAttribute("safeUrlBack", safeUrlBack);
 

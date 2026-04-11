@@ -63,6 +63,7 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -73,7 +74,7 @@
     <security:oscarSec roleName="${ sessionScope.userrole }" objectName="_admin" rights="r" reverse="${ false }">
 
         <head>
-            <title><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.config.MessengerAdmin.title"/></title>
+            <title><fmt:message key="messenger.config.MessengerAdmin.title"/></title>
 
             <script type="text/javascript"
                     src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>

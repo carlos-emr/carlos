@@ -52,6 +52,7 @@
 </security:oscarSec>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction,io.github.carlos_emr.carlos.log.LogConst" %>
@@ -78,7 +79,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotdeleterecord.title"/></title>
+        <title><fmt:message key="admin.lotdeleterecord.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
     </head>
 
@@ -87,7 +88,7 @@
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">
                 <th><font face="Helvetica" color="#FFFFFF">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotdeleterecord.description"/>
+                    <fmt:message key="admin.lotdeleterecord.description"/>
                 </font></th>
             </tr>
         </table>
@@ -97,7 +98,7 @@
             List<String> lotnrs = PreventionsLotNrsDao.findLotNrs(prevention, false);
             if (!lotnrs.contains(lotNr)) {
         %>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotdeleterecord.msgNonExistentLotnr"/>
+        <fmt:message key="admin.lotdeleterecord.msgNonExistentLotnr"/>
         <%
         } else {
             PreventionsLotNrs p = PreventionsLotNrsDao.findByName(prevention, lotNr, false);
@@ -109,11 +110,11 @@
             lotnrs = PreventionsLotNrsDao.findLotNrs(prevention, false);
             if (!lotnrs.contains(lotNr)) {
         %>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotdeleterecord.msgDeletionSuccess"/>
+        <fmt:message key="admin.lotdeleterecord.msgDeletionSuccess"/>
         <%
         } else {
         %>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotdeleterecord.msgDeletionFailure"/>
+        <fmt:message key="admin.lotdeleterecord.msgDeletionFailure"/>
         <%
                 }
             }

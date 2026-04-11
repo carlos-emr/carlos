@@ -31,6 +31,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -53,7 +54,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="AddReaction.title"/></title>
+        <title><fmt:message key="AddReaction.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
         <c:if test="${empty RxSessionBean}">
@@ -120,8 +121,8 @@
                        height="100%">
                     <tr>
                         <td width="0%" valign="top">
-                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/oscarRx/SearchDrug3.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a>&nbsp;&gt;&nbsp; <a
-                                    href="<%= request.getContextPath() %>/oscarRx/ShowAllergies2.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:setBundle basename="oscarResources"/><fmt:message key="AddReaction.title"/></b></div>
+                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/oscarRx/SearchDrug3.jsp"> <fmt:message key="SearchDrug.title"/></a>&nbsp;&gt;&nbsp; <a
+                                    href="<%= request.getContextPath() %>/oscarRx/ShowAllergies2.jsp"> <fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:message key="AddReaction.title"/></b></div>
                         </td>
                     </tr>
                     <!----Start new rows here-->
@@ -215,7 +216,7 @@
                                         <script type="text/javascript"
                                                 src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
                                         <script type="text/javascript"
-                                                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+                                                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
                                         <script type="text/javascript"
                                                 src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
                                         <script type="text/javascript">
@@ -245,14 +246,14 @@
 
 
                                 <tr valign="center">
-                                    <td><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.lifestage.title"/>:</span>
+                                    <td><span class="label"><fmt:message key="encounter.lifestage.title"/>:</span>
                                         <select name="lifeStage">
-                                            <option value="" <%="".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.lifestage.opt.notset"/></option>
-                                            <option value="N" <%="N".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.lifestage.opt.newborn"/></option>
-                                            <option value="I" <%="I".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.lifestage.opt.infant"/></option>
-                                            <option value="C" <%="C".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.lifestage.opt.child"/></option>
-                                            <option value="T" <%="T".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.lifestage.opt.adolescent"/></option>
-                                            <option value="A" <%="A".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.lifestage.opt.adult"/></option>
+                                            <option value="" <%="".equals(lifeStage) ? "selected" : ""%>><fmt:message key="encounter.lifestage.opt.notset"/></option>
+                                            <option value="N" <%="N".equals(lifeStage) ? "selected" : ""%>><fmt:message key="encounter.lifestage.opt.newborn"/></option>
+                                            <option value="I" <%="I".equals(lifeStage) ? "selected" : ""%>><fmt:message key="encounter.lifestage.opt.infant"/></option>
+                                            <option value="C" <%="C".equals(lifeStage) ? "selected" : ""%>><fmt:message key="encounter.lifestage.opt.child"/></option>
+                                            <option value="T" <%="T".equals(lifeStage) ? "selected" : ""%>><fmt:message key="encounter.lifestage.opt.adolescent"/></option>
+                                            <option value="A" <%="A".equals(lifeStage) ? "selected" : ""%>><fmt:message key="encounter.lifestage.opt.adult"/></option>
                                         </select>
                                     </td>
                                 </tr>

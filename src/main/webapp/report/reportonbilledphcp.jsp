@@ -42,6 +42,7 @@
 <%@ page import="java.sql.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     try {
@@ -52,7 +53,7 @@
 
         sql += "where u.provider_no=p.provider_no  order by p.first_name, p.last_name";
 
-        ResultSet rs = dbObj.queryResults(sql);
+        ResultSet rs = dbObj.queryResults(sql, new DBPreparedHandlerParam[0]);
 
         while (rs.next()) {
             prop = new Properties();
@@ -74,6 +75,7 @@
         }
 %>
 <%@page import="io.github.carlos_emr.carlos.db.DBPreparedHandler" %>
+<%@page import="io.github.carlos_emr.carlos.db.DBPreparedHandlerParam" %>
 
 <%@page import="io.github.carlos_emr.Misc" %>
 <html>
@@ -88,7 +90,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
         <!-- the following script defines the Calendar.setup helper function, which makes
                adding a calendar a matter of 1 or 2 lines of code. -->
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
@@ -217,7 +219,7 @@
                 int indexNum = 0;
                 Vector vec = new Vector();
                 sql = "select * from dxphcpgroup order by dxcode, level1, level2 ";
-                rs = dbObj.queryResults(sql);
+                rs = dbObj.queryResults(sql, new DBPreparedHandlerParam[0]);
                 while (rs.next()) {
                     prop = new Properties();
                     prop.setProperty("dxcode", "" + rs.getInt("dxcode"));

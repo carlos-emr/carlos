@@ -35,9 +35,11 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Locale;
 
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * deprecated Use JPA instead, no new code should be written against this class.
@@ -160,7 +162,7 @@ public final class DBPreparedHandler {
     }
 
     synchronized public ResultSet queryResults(String preparedSQL, DBPreparedHandlerParam[] param) throws SQLException { // nosemgrep: formatted-sql-string -- parameterized query infrastructure; params are bound via PreparedStatement
-        preparedStmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(preparedSQL);
+        preparedStmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(preparedSQL); // codeql[java/sql-injection] — parameterized infrastructure; params bound via setString/setDate/setInt below
         for (int i = 0; i < param.length; i++) {
             if (param[i].getParamType().equals(DBPreparedHandlerParam.PARAM_STRING)) {
                 preparedStmt.setString((i + 1), param[i].getStringValue());
@@ -215,26 +217,66 @@ public final class DBPreparedHandler {
         return new Object[]{rs, preparedStmt};
     }
 
-    synchronized public Object[] queryResultsCaisi(String preparedSQL) throws SQLException {
-        stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement();
-        rs = stmt.executeQuery(preparedSQL);
-        return new Object[]{rs, stmt};
-    }
+    // queryResultsCaisi(String) removed — all callers migrated to parameterized overloads.
 
-    synchronized public ResultSet queryResults(String preparedSQL) throws SQLException { // nosemgrep: formatted-sql-string -- infrastructure wrapper; callers should migrate to parameterized variant
-        stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement();
-        rs = stmt.executeQuery(preparedSQL);
-        return rs;
-    }
-
-    synchronized public ResultSet queryResults_paged(String preparedSQL, int iOffSet) throws SQLException {
-        stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement();
-        rs = stmt.executeQuery(preparedSQL);
-        for (int i = 1; i <= iOffSet; i++) {
-            if (rs.next() == false) break;
+    /**
+     * Defense-in-depth guard for the admin report SQL execution path.
+     * Restricts to SELECT-only and blocks known injection patterns including
+     * UNION-based injection, DDL statements, and file operations.
+     *
+     * <p>This method is retained solely for the admin "query-by-example" report
+     * feature ({@code RptByExampleData}). All other callers should use the
+     * parameterized overloads.</p>
+     */
+    private void validateSafeSelectQuery(String sql) throws SQLException {
+        if (sql == null || sql.trim().isEmpty()) {
+            throw new SQLException("SQL query must not be empty");
         }
+
+        String normalized = sql.trim().toLowerCase(Locale.ROOT);
+        if (!normalized.startsWith("select")) {
+            throw new SQLException("Only SELECT statements are allowed");
+        }
+
+        if (normalized.contains(";") || normalized.contains("--") || normalized.contains("/*") || normalized.contains("*/")) {
+            throw new SQLException("Unsafe SQL detected: comment or statement separator");
+        }
+
+        if (normalized.contains("' or '") || normalized.contains("\" or \"") || normalized.contains(" or 1=1")) {
+            throw new SQLException("Potential SQL injection pattern detected");
+        }
+
+        // Block UNION-based injection (most common bypass of older denylist)
+        if (normalized.matches(".*\\bunion\\b.*")) {
+            throw new SQLException("Unsafe SQL detected: UNION not permitted");
+        }
+
+        // Block DDL and DML keywords that should never appear in a reporting SELECT.
+        // Uses word boundary patterns to avoid false positives on column names like "last_update".
+        String[] blockedPatterns = {"\\binsert\\b", "\\bupdate\\b", "\\bdelete\\b", "\\bdrop\\b",
+                "\\balter\\b", "\\bcreate\\b", "\\btruncate\\b", "\\bgrant\\b", "\\brevoke\\b",
+                "\\bexec\\b", "\\bexecute\\b",
+                "into outfile", "into dumpfile", "load_file", "load data"};
+        for (String pattern : blockedPatterns) {
+            if (normalized.matches(".*" + pattern + ".*")) {
+                throw new SQLException("Unsafe SQL detected: prohibited keyword");
+            }
+        }
+    }
+
+    /**
+     * Executes a dynamic SQL SELECT query with denylist-based validation.
+     * <p><strong>Sole authorized caller: {@code RptByExampleData}</strong> (admin report tool).
+     * All other code must use the parameterized overloads. Do not add new callers.</p>
+     */
+    synchronized public ResultSet queryResults(String preparedSQL) throws SQLException { // nosemgrep: formatted-sql-string — sole caller is RptByExampleData (admin report); validated by validateSafeSelectQuery denylist
+        validateSafeSelectQuery(preparedSQL);
+        stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement();
+        rs = stmt.executeQuery(preparedSQL); // codeql[java/sql-injection] — admin-only dynamic SQL; validated by validateSafeSelectQuery
         return rs;
     }
+
+    // queryResults_paged(String, int) removed — all callers migrated to parameterized overloads.
 
     public synchronized String getNewProviderNo() {
         try {
@@ -252,6 +294,7 @@ public final class DBPreparedHandler {
             }
             return pno;
         } catch (Exception ex) {
+            MiscUtils.getLogger().error("Failed to generate new provider number", ex);
             return "";
         }
     }

@@ -47,9 +47,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * <p>Verifies that the filter:
  * <ul>
  *   <li>Allows round-trip deserialization of {@code HashMap<String, String>} — the exact
- *       type serialized by {@link TraceDataProcessor}. This confirms that HashMap's custom
- *       {@code writeObject}/{@code readObject} serialization protocol does not require
- *       internal classes (e.g. {@code HashMap$Node}) to appear in the filter stream.</li>
+ *       type serialized by {@link TraceDataProcessor}. In Java 21+, HashMap's
+ *       {@code readObject} validates its internal bucket array via
+ *       {@code checkArray(s, Map.Entry[].class, cap)}, so the filter must also allow
+ *       {@code Map.Entry[]}.</li>
  *   <li>Rejects deserialization of types not on the allowlist (e.g. {@link ArrayList}).</li>
  * </ul>
  *

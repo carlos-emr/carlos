@@ -33,6 +33,7 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/errorpage.jsp" %>
 <%@ include file="/admin/dbconnection.jsp" %>
@@ -54,7 +55,7 @@
 
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddBillingLocation"/></title>
+        <title><fmt:message key="admin.admin.btnAddBillingLocation"/></title>
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
         <script language="JavaScript">
             <!--
@@ -85,7 +86,7 @@
 
             function validateServiceType() {
                 if (document.servicetypeform.typeid.value == "MFP") {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingLocation.msgServiceTypeExists"/>");
+                    alert("<fmt:message key="billing.manageBillingLocation.msgServiceTypeExists"/>");
                     return false;
                 } else {
                     return true;
@@ -115,14 +116,14 @@
     </head>
 
     <body>
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddBillingLocation"/></h3>
+    <h3><fmt:message key="admin.admin.btnAddBillingLocation"/></h3>
     <div class="container-fluid card card-body bg-body-tertiary">
         <table>
             <tr>
                 <td width="3%"></td>
                 <td width="30%" align="left" valign="top">
                     <form name="serviceform" method="post"
-                          action="DbManageBillingLocation.do"><B><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingLocation.msgCodeDescription"/></B> <br>
+                          action="DbManageBillingLocation.do"><B><fmt:message key="billing.manageBillingLocation.msgCodeDescription"/></B> <br>
                         <input style="width:40px" type="text" name="location1" size="4"> <input type="text"
                                                                                                 name="location1desc"
                                                                                                 size="30"> <br>
@@ -140,7 +141,7 @@
                                                                                                 size="30"> <br>
                         <br>
                         <input class="btn btn-primary" type="submit" name="action"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingLocation.btnAdd"/>">
+                               value="<fmt:message key="billing.manageBillingLocation.btnAdd"/>">
                         <br>
                         </p>
                     </form>
@@ -150,8 +151,8 @@
 
                     <table class="table table-striped  table-sm">
                         <tr>
-                            <th width="6%"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingLocation.msgClinicLocation"/></th>
-                            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingLocation.msgDescription"/></th>
+                            <th width="6%"><fmt:message key="billing.manageBillingLocation.msgClinicLocation"/></th>
+                            <th><fmt:message key="billing.manageBillingLocation.msgDescription"/></th>
                             <th>Action</th>
                         </tr>
 

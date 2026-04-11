@@ -49,6 +49,7 @@
 <%@ page
         import="io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.workflow.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 
 <%--
@@ -150,7 +151,7 @@
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>

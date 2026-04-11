@@ -66,8 +66,8 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-
 <fmt:setBundle basename="oscarResources"/>
+
 
 <!DOCTYPE html>
 <html>

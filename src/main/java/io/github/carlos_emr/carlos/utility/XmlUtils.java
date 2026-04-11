@@ -312,7 +312,7 @@ public final class XmlUtils {
     public static SAXSource createSecureJaxbSource(InputStream inputStream) throws ParserConfigurationException, SAXException {
         SAXParserFactory spf = createSecureSAXParserFactory();
         spf.setNamespaceAware(true);
-        XMLReader xr = spf.newSAXParser().getXMLReader();
+        XMLReader xr = spf.newSAXParser().getXMLReader(); // nosemgrep: xmlreader-xxe, xmlreader-xxe-parameter-entities -- XXE protection applied by createSecureSAXParserFactory() above
         return new SAXSource(xr, new InputSource(inputStream));
     }
 

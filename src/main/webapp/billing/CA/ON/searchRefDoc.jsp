@@ -155,13 +155,14 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <!DOCTYPE html>
 <html>
     <head>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.optChooseSpec"/></title>
+        <title><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.optChooseSpec"/></title>
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
@@ -220,29 +221,29 @@
         <script>
             jQuery(document).ready(function () {
                 jQuery('#tblDocs').DataTable({
-                    "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.LeftNavBar.AllLabs"/>"]],
+                    "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "<fmt:message key="encounter.LeftNavBar.AllLabs"/>"]],
                     "order": [],
                     "language": {
-                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18n.datatablescode"/>.json"
+                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
                     }
                 });
             });
         </script>
     </head>
     <body>
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.optChooseSpec"/></h3>&nbsp;<%= Encode.forHtml(keyword == null ? "" : keyword) %>&nbsp;<input
-            type="button" class="btn-link" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.formAllProviders"/>"
+    <h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.optChooseSpec"/></h3>&nbsp;<%= Encode.forHtml(keyword == null ? "" : keyword) %>&nbsp;<input
+            type="button" class="btn-link" value="<fmt:message key="report.reportindex.formAllProviders"/>"
             onclick="location = location.href.replace(/(\?|\&)(keyword)([^&]*)/, '').replace(/(\?|\&)(submit)([^&]*)/, '');">
     <div class="container-fluid">
         <table style="width:100%" id="tblDocs" class="table table-sm">
             <thead>
             <tr class="title">
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.referralNo"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.lastName"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.firstName"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.specialistType"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.phone"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.address"/></th>
+                <th><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.referralNo"/></th>
+                <th><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.lastName"/></th>
+                <th><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.firstName"/></th>
+                <th><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.specialistType"/></th>
+                <th><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.phone"/></th>
+                <th><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.address"/></th>
             </tr>
             </thead>
             <tbody>
@@ -271,7 +272,7 @@
                 </td>
                 <td><%=Encode.forHtml(prop.getProperty("specialty", ""))%>
                 </td>
-                <td title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.fax"/> <%=Encode.forHtml(prop.getProperty("to_fax", ""))%>"><%=Encode.forHtml(prop.getProperty("phone", ""))%>
+                <td title="<fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.fax"/> <%=Encode.forHtml(prop.getProperty("to_fax", ""))%>"><%=Encode.forHtml(prop.getProperty("phone", ""))%>
                 </td>
                 <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
                     title="<%=Encode.forHtml(prop.getProperty("to_address", ""))%>"><%=Encode.forHtml(prop.getProperty("to_address", ""))%>
@@ -282,7 +283,7 @@
         </table>
         <br>
         <a class="btn btn-secondary"
-           href="${pageContext.request.contextPath}/encounter/oscarConsultationRequest/config/EditSpecialists.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.title"/></a>
+           href="${pageContext.request.contextPath}/encounter/oscarConsultationRequest/config/EditSpecialists.jsp"><fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.title"/></a>
 
     </div>
     </body>

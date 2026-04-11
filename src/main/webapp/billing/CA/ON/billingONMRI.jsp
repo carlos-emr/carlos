@@ -39,6 +39,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%@ include file="/admin/dbconnection.jsp" %>
@@ -94,7 +95,7 @@
 %>
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnGenerateOHIPDiskette"/></title>
+    <title><fmt:message key="admin.admin.btnGenerateOHIPDiskette"/></title>
 
     <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
@@ -209,7 +210,7 @@
 
 <body>
 
-<h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnGenerateOHIPDiskette"/></h3>
+<h3><fmt:message key="admin.admin.btnGenerateOHIPDiskette"/></h3>
 
 <div class="container-fluid">
 

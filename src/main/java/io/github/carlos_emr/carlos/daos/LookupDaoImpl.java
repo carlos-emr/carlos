@@ -258,29 +258,62 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         return HqlQueryHelper.find(currentSession(), sSql, params);
     }
 
+    /**
+     * Validates that a SQL identifier (table or column name) contains only safe characters.
+     * Allows dotted identifiers (e.g. {@code table.column}).
+     *
+     * <p>Note: {@code LookupCodeEdit2Action} also validates {@code tableId} with a stricter
+     * {@code ^[A-Z0-9_]+$} regex before it reaches this DAO. This method provides a
+     * second layer of defense for all identifier usage within the DAO.</p>
+     */
+    private String validateSqlIdentifier(String identifier) {
+        if (identifier == null || !identifier.matches("^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$")) {
+            MiscUtils.getLogger().error("Invalid SQL identifier rejected in lookup configuration");
+            throw new IllegalArgumentException("Invalid SQL identifier in lookup configuration");
+        }
+        return identifier;
+    }
+
+    /**
+     * Validates a field SQL expression from {@code FieldDefValue.getFieldSQL()}.
+     * Allows simple identifiers, dotted identifiers, and SQL function expressions
+     * like {@code IFNULL(buf1,'')} that are stored in the {@code lookupfielddef.fieldsql}
+     * column (varchar 32). Only alphanumeric characters, underscores, dots, parentheses,
+     * single-quoted string literals, commas, and whitespace are permitted.
+     */
+    private String validateFieldSql(String fieldSql) {
+        if (fieldSql == null || !fieldSql.matches("^[A-Za-z_][A-Za-z0-9_.,() ']*$")) {
+            MiscUtils.getLogger().error("Invalid field SQL expression rejected in lookup configuration");
+            throw new IllegalArgumentException("Invalid field SQL expression in lookup configuration");
+        }
+        return fieldSql;
+    }
+
     @Override
     public List GetCodeFieldValues(LookupTableDefValue tableDef, String code) {
         // tableName and field SQL come from LookupTableDef/FieldDefValue database config,
         // not from direct user input, so second-order injection risk is low.  The user-supplied
         // code value is parameterized below.
-        String tableName = tableDef.getTableName();
+        String tableName = validateSqlIdentifier(tableDef.getTableName());
         List fs = LoadFieldDefList(tableDef.getTableId());
+        if (fs.isEmpty()) return fs;
         String idFieldName = "";
 
         String sql = "select ";
         for (int i = 0; i < fs.size(); i++) {
             FieldDefValue fdv = (FieldDefValue) fs.get(i);
+            String fieldSql = validateFieldSql(fdv.getFieldSQL());
             if (fdv.getGenericIdx() == 1)
-                idFieldName = fdv.getFieldSQL();
+                idFieldName = fieldSql;
             if (i == 0) {
-                sql += fdv.getFieldSQL();
+                sql += fieldSql;
             } else {
-                sql += "," + fdv.getFieldSQL();
+                sql += "," + fieldSql;
             }
         }
         sql += " from " + tableName + " s";
         // Use a parameterized placeholder for the code value to prevent SQL injection.
-        sql += " where " + idFieldName + "=?";
+        sql += " where " + validateSqlIdentifier(idFieldName) + "=?";
         DBPreparedHandler db = new DBPreparedHandler();
         try {
             DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[]{ new DBPreparedHandlerParam(code) };
@@ -315,22 +348,24 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
 
     @Override
     public List<List> GetCodeFieldValues(LookupTableDefValue tableDef) {
-        String tableName = tableDef.getTableName();
+        String tableName = validateSqlIdentifier(tableDef.getTableName());
         List fs = LoadFieldDefList(tableDef.getTableId());
+        if (fs.isEmpty()) return new ArrayList<List>();
         ArrayList<List> codes = new ArrayList<List>();
         String sql = "select ";
         for (int i = 0; i < fs.size(); i++) {
             FieldDefValue fdv = (FieldDefValue) fs.get(i);
+            String fieldSql = validateFieldSql(fdv.getFieldSQL());
             if (i == 0) {
-                sql += fdv.getFieldSQL();
+                sql += fieldSql;
             } else {
-                sql += "," + fdv.getFieldSQL();
+                sql += "," + fieldSql;
             }
         }
         sql += " from " + tableName;
         DBPreparedHandler db = new DBPreparedHandler();
         try {
-            ResultSet rs = db.queryResults(sql);
+            ResultSet rs = db.queryResults(sql, new DBPreparedHandlerParam[0]);
             while (rs.next()) {
                 for (int i = 0; i < fs.size(); i++) {
                     FieldDefValue fdv = (FieldDefValue) fs.get(i);
@@ -353,12 +388,14 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         return codes;
     }
 
-    private int GetNextId(String idFieldName, String tableName) throws SQLException {
+    private int GetNextId(String idFieldName, String tableName) throws SQLException { // identifiers validated below
+        validateSqlIdentifier(idFieldName);
+        validateSqlIdentifier(tableName);
         String sql = "select max(" + idFieldName + ")";
         sql += " from " + tableName;
         DBPreparedHandler db = new DBPreparedHandler();
 
-        ResultSet rs = db.queryResults(sql);
+        ResultSet rs = db.queryResults(sql, new DBPreparedHandlerParam[0]);
         int id = 0;
         if (rs.next())
             id = rs.getInt(1);
@@ -459,7 +496,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
     }
 
     private String InsertCodeValue(LookupTableDefValue tableDef, List fieldDefList) throws SQLException {
-        String tableName = tableDef.getTableName();
+        String tableName = validateSqlIdentifier(tableDef.getTableName());
         String idFieldVal = "";
 
         DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[fieldDefList.size()];
@@ -467,7 +504,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         String sql = "insert into  " + tableName + "(";
         for (int i = 0; i < fieldDefList.size(); i++) {
             FieldDefValue fdv = (FieldDefValue) fieldDefList.get(i);
-            sql += fdv.getFieldSQL() + ",";
+            sql += validateSqlIdentifier(fdv.getFieldSQL()) + ",";
             phs += "?,";
             if (fdv.getGenericIdx() == 1) {
                 if (fdv.isAuto()) {
@@ -503,7 +540,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
     }
 
     private String UpdateCodeValue(LookupTableDefValue tableDef, List fieldDefList) throws SQLException {
-        String tableName = tableDef.getTableName();
+        String tableName = validateSqlIdentifier(tableDef.getTableName());
         String idFieldName = "";
         String idFieldVal = "";
 
@@ -511,12 +548,13 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         String sql = "update " + tableName + " set ";
         for (int i = 0; i < fieldDefList.size(); i++) {
             FieldDefValue fdv = (FieldDefValue) fieldDefList.get(i);
+            String fieldSql = validateSqlIdentifier(fdv.getFieldSQL());
             if (fdv.getGenericIdx() == 1) {
-                idFieldName = fdv.getFieldSQL();
+                idFieldName = fieldSql;
                 idFieldVal = fdv.getVal();
             }
 
-            sql += fdv.getFieldSQL() + "=?,";
+            sql += fieldSql + "=?,";
             if ("S".equals(fdv.getFieldType())) {
                 params[i] = new DBPreparedHandlerParam(fdv.getVal());
             } else if ("D".equals(fdv.getFieldType())) {
@@ -777,8 +815,9 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         this.providerDao = providerDao;
     }
 
-    private int queryExecuteUpdate(String preparedSQL, DBPreparedHandlerParam[] params) throws SQLException { // nosemgrep: formatted-sql-string -- parameterized query infrastructure; params are bound via PreparedStatement
-        PreparedStatement preparedStmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(preparedSQL);
+    private int queryExecuteUpdate(String preparedSQL, DBPreparedHandlerParam[] params) throws SQLException {
+        // nosemgrep: formatted-sql-string — parameterized query infrastructure; all caller-supplied values are bound via PreparedStatement below
+        PreparedStatement preparedStmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(preparedSQL); // codeql[java/sql-injection] — parameterized; params bound via setString/setInt/setDate/setTimestamp loop below
         for (int i = 0; i < params.length; i++) {
             DBPreparedHandlerParam param = params[i];
 

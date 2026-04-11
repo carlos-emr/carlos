@@ -91,7 +91,7 @@ public class ImportLogDownload2Action extends ActionSupport {
             String sanitizedFilename = FilenameUtils.getName(importLogParam);
             
             if (sanitizedFilename == null || sanitizedFilename.isEmpty()) {
-                logger.warn("Invalid import log filename: {}", LogSanitizer.sanitize(importLogParam));
+                logger.warn("Invalid import log filename: {}", LogSanitizer.sanitize(importLogParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 return "error";
             }
             
@@ -108,7 +108,7 @@ public class ImportLogDownload2Action extends ActionSupport {
 
             // Check if file is readable
             if (!importLogFile.canRead()) {
-                logger.warn("Import log file not readable: {}", LogSanitizer.sanitize(sanitizedFilename));
+                logger.warn("Import log file not readable: {}", LogSanitizer.sanitize(sanitizedFilename)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 return "error";
             }
             

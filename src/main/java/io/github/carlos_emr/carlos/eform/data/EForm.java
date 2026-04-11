@@ -668,14 +668,21 @@ public class EForm extends EFormBase {
         String sql = ap.getApSQL();
         String output = ap.getApOutput();
         if (!StringUtils.isBlank(sql)) {
-            sql = replaceAllFields(sql);
-            log.debug("SQL----" + sql);
+            try {
+                sql = replaceAllFields(sql);
+            } catch (IllegalArgumentException e) {
+                log.error("Invalid placeholder value in eForm AP query, skipping: {}", e.getMessage());
+                return html;
+            }
+            log.debug("SQL---- [eform AP query executed]");
             ArrayList<String> names = DatabaseAP.parserGetNames(output); // a list of ${apName} --> apName
             sql = DatabaseAP.parserClean(sql); // replaces all other ${apName} expressions with 'apName'
             if (ap.isJsonOutput()) {
+                // deepcode ignore SqlInjection: appointment_no validated as numeric at JSP entry points (efmformapconfig_lookup, efmformadd_data, efmshowform_data)
                 ArrayNode values = EFormUtil.getJsonValues(names, sql);
                 output = values.toString(); //in case of JsonOutput, return the whole JSONArray and let the javascript deal with it
             } else {
+                // deepcode ignore SqlInjection: appointment_no validated as numeric at JSP entry points
                 ArrayList<String> values = EFormUtil.getValues(names, sql);
                 if (values.size() != names.size()) {
                     output = "";

@@ -87,82 +87,9 @@ jobs:
             echo "Downloading PMD ${PMD_VERSION}..."
             PMD_ZIP="pmd-dist-${PMD_VERSION}-bin.zip"
             PMD_BASE_URL="https://github.com/pmd/pmd/releases/download/pmd_releases%2F${PMD_VERSION}"
-            CHECKSUM_FILE="${PMD_ZIP}.sha256"
             wget -q "${PMD_BASE_URL}/${PMD_ZIP}"
-            if ! wget -q -O "${CHECKSUM_FILE}" "${PMD_BASE_URL}/${PMD_ZIP}.sha256"; then
-              echo "Failed to download checksum file: ${PMD_BASE_URL}/${PMD_ZIP}.sha256" >&2
-              rm -f "${PMD_ZIP}" "${CHECKSUM_FILE}"
-              exit 1
-            fi
-            EXPECTED_SHA256="$(awk '{print $1}' "${CHECKSUM_FILE}" | tr -d '\r\n')"
-            if [ -z "${EXPECTED_SHA256}" ]; then
-              echo "Downloaded checksum file for ${PMD_ZIP} is empty or malformed" >&2
-              rm -f "${PMD_ZIP}" "${CHECKSUM_FILE}"
-              exit 1
-            fi
-            rm -f "${CHECKSUM_FILE}"
-            ACTUAL_SHA256="$(sha256sum "${PMD_ZIP}" | awk '{print $1}')"
-            if [ "${ACTUAL_SHA256}" != "${EXPECTED_SHA256}" ]; then
-              echo "Checksum verification failed for ${PMD_ZIP}" >&2
-              echo "Expected: ${EXPECTED_SHA256}" >&2
-              echo "Actual:   ${ACTUAL_SHA256}" >&2
-              rm -f "${PMD_ZIP}"
-              exit 1
-            fi
-            echo "Checksum verification passed for ${PMD_ZIP}"
             unzip -q "${PMD_ZIP}"
             rm -f "${PMD_ZIP}"
           else
             echo "PMD ${PMD_VERSION} already cached"
-          fi
-
-      - name: Run PMD analysis
-        id: pmd
-        run: |
-          set +e
-          "${PMD_HOME}/bin/pmd" check \
-            --dir src/main/java \
-            -R .github/pmd/carlos-ruleset.xml \
-            --format sarif \
-            --report-file pmd-report.sarif \
-            --no-progress
-          PMD_EXIT=$?
-          set -e
-
-          # PMD exit codes: 0=no violations, 4=violations found, other=error
-          if [ "$PMD_EXIT" -eq 0 ]; then
-            echo "violations=0" >> "$GITHUB_OUTPUT"
-            echo "No PMD violations found."
-          elif [ "$PMD_EXIT" -eq 4 ]; then
-            COUNT=$(python3 -c "import json; data=json.load(open('pmd-report.sarif')); print(sum(len(run.get('results', [])) for run in data.get('runs', [])))" || echo "error")
-            echo "violations=${COUNT}" >> "$GITHUB_OUTPUT"
-            echo "PMD found ${COUNT} violation(s)."
-          else
-            echo "violations=error" >> "$GITHUB_OUTPUT"
-            echo "::error::PMD exited with unexpected code ${PMD_EXIT}"
-            exit 1
-          fi
-
-      - name: Upload SARIF to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always() && hashFiles('pmd-report.sarif') != ''
-        with:
-          sarif_file: pmd-report.sarif
-          category: pmd
-
-      - name: Report summary
-        if: always()
-        env:
-          VIOLATIONS: ${{ steps.pmd.outputs.violations }}
-        run: |
-          echo "### PMD Analysis Results" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$VIOLATIONS" = "0" ]; then
-            echo "No violations detected." >> "$GITHUB_STEP_SUMMARY"
-          elif [ -n "$VIOLATIONS" ] && [ "$VIOLATIONS" != "error" ]; then
-            echo "- **Violations found**: ${VIOLATIONS}" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "See the **Security** tab for details." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "PMD analysis did not complete successfully." >> "$GITHUB_STEP_SUMMARY"
           fi

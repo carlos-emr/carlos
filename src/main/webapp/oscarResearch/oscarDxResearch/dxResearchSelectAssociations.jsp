@@ -44,9 +44,9 @@
     @since 2006-01-01 (original OSCAR implementation)
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
-<fmt:setBundle basename="oscarResources"/>
 <fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.issueList" var="i18nIssueList"/>
 <fmt:message key="global.disease" var="i18nDiseaseRegistry"/>
 <fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.codeType" var="i18nCodeType"/>
@@ -59,7 +59,7 @@
 <html>
     <head>
         <%@ include file="/includes/global-head.jspf" %>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.selectAssociations"/></title>
+        <title><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.selectAssociations"/></title>
 
         <script type="text/javascript">
             var i18n = {
@@ -160,7 +160,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="page-header-icon" viewBox="0 0 16 16">
                     <path d="M1 11.5a.5.5 0 0 0 .7.5L8 8.9l6.3 3.1a.5.5 0 0 0 .7-.5V4.5a.5.5 0 0 0-.7-.5L8 7.1 1.7 4a.5.5 0 0 0-.7.5z"/>
                 </svg>
-                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.selectAssociations"/>
+                &nbsp;<fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.selectAssociations"/>
             </h4>
         </div>
 

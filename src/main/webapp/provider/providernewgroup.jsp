@@ -32,6 +32,7 @@
 <%@ page import="java.util.*,java.sql.*" errorPage="/errorpage.jsp" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -52,7 +53,7 @@
 <html>
     <head>
         <%@ include file="/includes/global-head.jspf" %>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providernewgroup.title"/></title>
+        <title><fmt:message key="provider.providernewgroup.title"/></title>
         <script type="text/javascript">
             function setfocus() {
                 this.focus();
@@ -100,7 +101,7 @@
                     <path d="M6 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H1s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C9.516 10.68 8.289 10 6 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/>
                     <path fill-rule="evenodd" d="M13.5 5a.5.5 0 0 1 .5.5V7h1.5a.5.5 0 0 1 0 1H14v1.5a.5.5 0 0 1-1 0V8h-1.5a.5.5 0 0 1 0-1H13V5.5a.5.5 0 0 1 .5-.5"/>
                 </svg>
-                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providernewgroup.msgTitle"/>
+                &nbsp;<fmt:message key="provider.providernewgroup.msgTitle"/>
             </h4>
         </div>
 
@@ -111,10 +112,10 @@
 
         <div class="bg-light border rounded p-3 mb-3">
             <div class="row mb-3">
-                <label class="col-sm-3 col-form-label fw-bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providernewgroup.msgGroupNo"/></label>
+                <label class="col-sm-3 col-form-label fw-bold"><fmt:message key="provider.providernewgroup.msgGroupNo"/></label>
                 <div class="col-sm-9 d-flex align-items-center gap-2">
                     <input type="text" name="mygroup_no" class="form-control form-control-sm" style="width: 120px;" maxlength="10">
-                    <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providernewgroup.msgMaxChars"/></small>
+                    <small class="text-muted"><fmt:message key="provider.providernewgroup.msgMaxChars"/></small>
                 </div>
             </div>
 
@@ -157,9 +158,9 @@
 
         <div class="d-flex align-items-center">
             <input type="submit" class="btn btn-primary btn-sm"
-                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providernewgroup.btnSave"/>">
+                   value="<fmt:message key="provider.providernewgroup.btnSave"/>">
             <input type="button" class="btn btn-secondary btn-sm ms-2"
-                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
+                   value="<fmt:message key="global.btnBack"/>"
                    onClick="window.history.go(-1);return false;">
         </div>
 
