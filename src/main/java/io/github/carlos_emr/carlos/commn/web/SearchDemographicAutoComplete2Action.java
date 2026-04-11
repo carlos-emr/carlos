@@ -174,20 +174,18 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             }
         }
         boolean workflowEnhance = CarlosProperties.getInstance().isPropertyActive("workflow_enhance");
-        // Cache DemographicCust records fetched during workflow pre-pass to avoid a second query per patient in the render loop
+        // Pre-load all DemographicCust records to avoid N+1 queries in the render loop
         Map<Integer, DemographicCust> dcMap = new HashMap<>();
-        if (workflowEnhance) {
-            for (Demographic demo : list) {
-                DemographicCust dc = demographicCustDao.find(demo.getDemographicNo());
-                dcMap.put(demo.getDemographicNo(), dc);
-                if (dc != null) {
-                    String n = StringUtils.trimToNull(dc.getNurse());
-                    String r = StringUtils.trimToNull(dc.getResident());
-                    String m = StringUtils.trimToNull(dc.getMidwife());
-                    if (n != null) providerNos.add(n);
-                    if (r != null) providerNos.add(r);
-                    if (m != null) providerNos.add(m);
-                }
+        for (Demographic demo : list) {
+            DemographicCust dc = demographicCustDao.find(demo.getDemographicNo());
+            dcMap.put(demo.getDemographicNo(), dc);
+            if (workflowEnhance && dc != null) {
+                String n = StringUtils.trimToNull(dc.getNurse());
+                String r = StringUtils.trimToNull(dc.getResident());
+                String m = StringUtils.trimToNull(dc.getMidwife());
+                if (n != null) providerNos.add(n);
+                if (r != null) providerNos.add(r);
+                if (m != null) providerNos.add(m);
             }
         }
         Map<String, ProviderSummaryDTO> providerMap = providerNos.isEmpty()
@@ -217,10 +215,8 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
                 }
             }
 
-            // Reuse cached DemographicCust from workflow pre-pass if available, otherwise fetch once
-            DemographicCust demographicCust = dcMap.containsKey(demo.getDemographicNo())
-                    ? dcMap.get(demo.getDemographicNo())
-                    : demographicCustDao.find(demo.getDemographicNo());
+            // Reuse pre-loaded DemographicCust from the cache
+            DemographicCust demographicCust = dcMap.get(demo.getDemographicNo());
 
             String alertText = (demographicCust != null && demographicCust.getAlert() != null) ? demographicCust.getAlert() : "";
             h.put("alert", alertText);

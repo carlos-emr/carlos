@@ -2986,6 +2986,14 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
     // --- DTO projection methods ---
 
+    /**
+     * Returns a lightweight header projection for a single demographic, including
+     * the most responsible provider's name via a LEFT JOIN.
+     *
+     * @param demographicNo Integer the demographic ID to retrieve
+     * @return DemographicHeaderDTO the header projection, or {@code null} if not found or demographicNo is null
+     * @since 2026-04-11
+     */
     @Override
     public DemographicHeaderDTO getDemographicHeader(Integer demographicNo) {
         if (demographicNo == null) {
@@ -3000,6 +3008,19 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return results.isEmpty() ? null : results.get(0);
     }
 
+    /**
+     * Searches demographics by name and returns lightweight list item projections.
+     * Supports "lastName" or "lastName,firstName" format. Results are ordered by
+     * last name then first name ascending.
+     *
+     * @param searchString String the search string in "lastName" or "lastName,firstName" format
+     * @param limit int maximum number of results to return
+     * @param offset int starting position for pagination
+     * @param providerNo String the provider number for program domain restriction (can be null to skip)
+     * @param outOfDomain boolean if true, skip program domain restriction even when providerNo is set
+     * @return List of DemographicListItemDTO matching demographics, ordered by name
+     * @since 2026-04-11
+     */
     @Override
     public List<DemographicListItemDTO> searchDemographicDTOByName(String searchString, int limit, int offset,
                                                                     String providerNo, boolean outOfDomain) {
@@ -3013,6 +3034,7 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         if (providerNo != null && !outOfDomain) {
             baseQuery = baseQuery.concat(" AND d.id IN (" + PROGRAM_DOMAIN_RESTRICTION + ")");
         }
+        baseQuery = baseQuery.concat(" ORDER BY d.LastName ASC, d.FirstName ASC");
 
         Query<DemographicListItemDTO> query = currentSession().createQuery(baseQuery, DemographicListItemDTO.class);
         query.setParameter("lastName", name[0].trim() + "%");

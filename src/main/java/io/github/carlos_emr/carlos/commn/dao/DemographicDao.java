@@ -456,7 +456,8 @@ public interface DemographicDao {
      * encounter/chart page display. Uses JPQL constructor expression projection.
      *
      * @param demographicNo Integer the patient demographic number
-     * @return DemographicHeaderDTO the header data, or null if not found
+     * @return DemographicHeaderDTO the header data, or {@code null} if not found or demographicNo is null
+     * @since 2026-04-11
      */
     public DemographicHeaderDTO getDemographicHeader(Integer demographicNo);
 
@@ -464,12 +465,13 @@ public interface DemographicDao {
      * Searches demographics by name and returns lightweight list item DTOs.
      * Uses JPQL constructor expression projection to avoid loading full entities.
      *
-     * @param searchString String the name search string (last,first or last first)
+     * @param searchString String the name search string in "lastName" or "lastName,firstName" format
      * @param limit int maximum number of results
      * @param offset int starting position
      * @param providerNo String the logged-in provider number for domain filtering
      * @param outOfDomain boolean whether to include out-of-domain patients
-     * @return List of DemographicListItemDTO matching the search criteria
+     * @return List of DemographicListItemDTO matching the search criteria, ordered by last name then first name
+     * @since 2026-04-11
      */
     public List<DemographicListItemDTO> searchDemographicDTOByName(String searchString, int limit, int offset,
                                                                     String providerNo, boolean outOfDomain);

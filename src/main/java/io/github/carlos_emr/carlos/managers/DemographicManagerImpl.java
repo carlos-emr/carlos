@@ -1279,13 +1279,14 @@ public class DemographicManagerImpl implements DemographicManager {
 
     // --- DTO projection methods ---
 
+    /** {@inheritDoc} */
     @Override
     public DemographicHeaderDTO getDemographicHeader(LoggedInInfo loggedInInfo, Integer demographicId) {
-        if (demographicId != null) {
-            checkPrivilege(loggedInInfo, SecurityInfoManager.READ, demographicId);
-        } else {
+        if (demographicId == null) {
             checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+            return null;
         }
+        checkPrivilege(loggedInInfo, SecurityInfoManager.READ, demographicId);
         DemographicHeaderDTO result = demographicDao.getDemographicHeader(demographicId);
         if (result != null) {
             LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.getDemographicHeader",
@@ -1294,6 +1295,7 @@ public class DemographicManagerImpl implements DemographicManager {
         return result;
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<DemographicListItemDTO> searchDemographicDTOs(LoggedInInfo loggedInInfo, String searchString,
                                                               int startIndex, int itemsToReturn) {
