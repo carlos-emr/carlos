@@ -372,45 +372,37 @@ strings into JavaScript. Never use `${someVar}` directly inside `<script>` block
 
 ---
 
-## ISO 8859-1 Encoding Requirements
+## UTF-8 Encoding Requirements (Java 21)
 
-Java's `Properties.load()` reads files as **ISO 8859-1** by default. Any non-ASCII
-character in a `.properties` file must be expressed as a Unicode escape sequence.
+Since Java 9, `ResourceBundle.getBundle()` — the primary mechanism used by JSP
+`<fmt:message>` tags — reads `.properties` files as **UTF-8** by default. CARLOS
+runs on Java 21, so all `oscarResources_*.properties` files must be saved as UTF-8.
+The old `Properties.load()` ISO 8859-1 default no longer applies to
+`ResourceBundle`-based loading.
 
 ### Encoding Rules
 
-1. All `oscarResources_*.properties` files must be saved with ISO 8859-1 (or ASCII) encoding.
-2. Characters outside the ASCII range (U+0000–U+007F) must be escaped as `\uXXXX`.
-3. Do not save properties files as UTF-8, even if the characters display correctly in your
-   editor — Java will silently misread multi-byte sequences.
+1. All `oscarResources_*.properties` files must be saved with **UTF-8** encoding.
+2. Non-ASCII characters (accented letters, special symbols) may appear directly in
+   the file without `\uXXXX` escaping.
+3. Do **not** use ISO 8859-1 or ASCII-only encoding — doing so will cause
+   `ResourceBundle` to misread multi-byte characters on Java 9+.
+4. `\uXXXX` escape sequences remain valid and will continue to work, but they are no
+   longer required for non-ASCII content.
 
-### Unicode Escape Reference
+### UTF-8 Character Examples
 
-| Character | Unicode | Escape | Example |
-|-----------|---------|--------|---------|
-| é (e acute) | U+00E9 | `\u00e9` | `oscarResources_fr.properties: label=Journ\u00e9e` |
-| à (a grave) | U+00E0 | `\u00e0` | `Nom \u00e0` |
-| ç (c cedilla) | U+00E7 | `\u00e7` | `Fran\u00e7ais` |
-| ó (o acute) | U+00F3 | `\u00f3` | `D\u00f3nde` |
-| ñ (n tilde) | U+00F1 | `\u00f1` | `Espa\u00f1ol` |
-| ł (l with stroke) | U+0142 | `\u0142` | Polish `\u0142` |
+| Character | Direct UTF-8 | `\uXXXX` equivalent (still valid) |
+|-----------|-------------|-----------------------------------|
+| é (e acute) | `é` | `\u00e9` |
+| à (a grave) | `à` | `\u00e0` |
+| ç (c cedilla) | `ç` | `\u00e7` |
+| ó (o acute) | `ó` | `\u00f3` |
+| ñ (n tilde) | `ñ` | `\u00f1` |
+| ł (l with stroke) | `ł` | `\u0142` |
 
-### Generating Escape Sequences
-
-Use Java's `native2ascii` tool (JDK) or an IDE plugin:
-
-```bash
-# Convert a UTF-8 file to ASCII with \uXXXX escapes
-native2ascii -encoding UTF-8 oscarResources_fr_utf8.properties oscarResources_fr.properties
-```
-
-Or in Python (for quick escaping of a single value):
-```python
-# Escape a UTF-8 string to Java properties format
-s = "Journée"
-print(s.encode('unicode_escape').decode('ascii'))
-# Output: Journ\xe9e  (note: \\u00e9 format for Java uses \u, not \x)
-```
+**Preferred**: use direct UTF-8 characters in new translations for readability.
+**Acceptable**: `\uXXXX` escapes in existing files (no migration required).
 
 ### Validation
 
@@ -420,8 +412,8 @@ Run the encoding check script before committing any properties file changes:
 ./scripts/check-i18n-properties.sh
 ```
 
-The `ISO 8859-1 Encoding Compliance` section of the report flags files with raw
-non-ASCII bytes. All current locale files are clean as of April 2026 (baseline).
+The `Encoding Compliance` section of the report flags files with encoding issues.
+All current locale files are clean as of April 2026 (baseline).
 
 ---
 

@@ -155,12 +155,15 @@ jobs:
           FAILED=false
           for jsp in $CHANGED_JSPS; do
             [ ! -f "$jsp" ] && continue
-            # If the file uses fmt:message but has no fmt:setBundle, flag it
+            # If the file uses fmt:message but has no fmt:setBundle, flag it.
+            # Exception: skip files that include a shared taglib header (taglibs.jsp)
+            # which is expected to declare the bundle centrally.
             if grep -q 'fmt:message' "$jsp" && \
                ! grep -q 'fmt:setBundle' "$jsp" && \
-               ! grep -qE '<%@[[:space:]]*include' "$jsp"; then
+               ! grep -qE '<%@[[:space:]]*include[^>]+taglibs\.jsp' "$jsp"; then
               echo "MISSING fmt:setBundle: $jsp"
               echo "  Fix: Add <fmt:setBundle basename=\"oscarResources\"/> after taglib declarations."
+              echo "  Or include a shared taglib header that declares the bundle (e.g. taglibs.jsp)."
               FAILED=true
             fi
           done

@@ -105,19 +105,28 @@ count_hardcoded() {
     total=$((total + n))
 
     # 5. <input type="submit/button/reset"> with plain value attribute
-    #    Match in either attribute order
+    #    Match in either attribute order; handle optional whitespace around '='
+    #    and both single/double quotes
     n=$(count_filtered_lines "$file" \
-        '<input[^>]+(type="(submit|button|reset)")[^>]+value="[A-Za-z][a-z]+|value="[A-Za-z][a-z]+"[^>]+type="(submit|button|reset)"' \
+        '<input[^>]+type[[:space:]]*=[[:space:]]*"(submit|button|reset)"[^>]+value[[:space:]]*=[[:space:]]*"[A-Za-z][a-z]+"|value[[:space:]]*=[[:space:]]*"[A-Za-z][a-z]+"[^>]+type[[:space:]]*=[[:space:]]*"(submit|button|reset)"' \
         '\$\{[^}]*\}|fmt:message')
     total=$((total + n))
 
-    # 6. title="..." attributes with plain text (≥4 chars, not starting with EL)
-    n=$(grep -oE 'title="[^"$<{%][^"]{3,}"' "$file" 2>/dev/null | \
+    # 6. title="..." or title='...' attributes with plain text (≥4 chars, not starting with EL)
+    #    Handle optional whitespace around '=' and both single/double quotes
+    n=$(grep -oE 'title[[:space:]]*=[[:space:]]*"[^"$<{%][^"]{3,}"' "$file" 2>/dev/null | \
+        grep -cE '[A-Za-z]{3}' 2>/dev/null) || true
+    total=$((total + ${n:-0}))
+    n=$(grep -oE "title[[:space:]]*=[[:space:]]*'[^'\$<{%][^']{3,}'" "$file" 2>/dev/null | \
         grep -cE '[A-Za-z]{3}' 2>/dev/null) || true
     total=$((total + ${n:-0}))
 
-    # 7. placeholder="..." attributes with plain text
-    n=$(grep -oE 'placeholder="[^"$<{%][^"]{3,}"' "$file" 2>/dev/null | \
+    # 7. placeholder="..." or placeholder='...' attributes with plain text
+    #    Handle optional whitespace around '=' and both single/double quotes
+    n=$(grep -oE 'placeholder[[:space:]]*=[[:space:]]*"[^"$<{%][^"]{3,}"' "$file" 2>/dev/null | \
+        grep -cE '[A-Za-z]{3}' 2>/dev/null) || true
+    total=$((total + ${n:-0}))
+    n=$(grep -oE "placeholder[[:space:]]*=[[:space:]]*'[^'\$<{%][^']{3,}'" "$file" 2>/dev/null | \
         grep -cE '[A-Za-z]{3}' 2>/dev/null) || true
     total=$((total + ${n:-0}))
 
@@ -155,7 +164,7 @@ while IFS= read -r -d '' file; do
     # Domain = first subdirectory under webapp/  (e.g. "admin", "demographic")
     domain="${rel_path#src/main/webapp/}"
     domain="${domain%%/*}"
-    [ -z "$domain" ] || [ "$domain" = "$rel_path" ] && domain="root"
+    [ -z "$domain" ] || [ "$domain" = "${rel_path#src/main/webapp/}" ] && domain="root"
 
     # ── Count fmt:message uses (i18n coverage) ──────────────────────────────
     i18n_count=$(grep -c 'fmt:message' "$file" 2>/dev/null) || true
