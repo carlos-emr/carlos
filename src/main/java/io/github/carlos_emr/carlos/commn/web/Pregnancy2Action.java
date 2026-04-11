@@ -361,6 +361,9 @@ public class Pregnancy2Action extends ActionSupport {
     }
 
     public String getAllergies() throws IOException {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "r", null)) {
+            throw new SecurityException("missing required sec object (_form)");
+        }
         Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
         AllergyDao allergyDao = SpringUtils.getBean(AllergyDao.class);
         List<Allergy> allergies = allergyDao.findActiveAllergies(demographicNo);
@@ -381,6 +384,9 @@ public class Pregnancy2Action extends ActionSupport {
     }
 
     public String getMeds() throws IOException {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "r", null)) {
+            throw new SecurityException("missing required sec object (_form)");
+        }
         Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
         DrugDao drugDao = SpringUtils.getBean(DrugDao.class);
         List<Drug> drugs = drugDao.findByDemographicId(demographicNo, false);
@@ -493,6 +499,9 @@ public class Pregnancy2Action extends ActionSupport {
     }
 
     public String getMeasurementsAjax() throws IOException {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "r", null)) {
+            throw new SecurityException("missing required sec object (_form)");
+        }
         String demographicNo = request.getParameter("demographicNo");
         String type = request.getParameter("type");
 
@@ -847,6 +856,9 @@ Repeat antibody screen
     }
 
     public String getPrintData() throws IOException {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "r", null)) {
+            throw new SecurityException("missing required sec object (_form)");
+        }
         PrintResourceLogDao dao = SpringUtils.getBean(PrintResourceLogDao.class);
         ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
         String resourceName = request.getParameter("resourceName");

@@ -320,6 +320,7 @@ public class ManageDocument2Action extends ActionSupport {
         ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
             response.setContentType("application/json;charset=UTF-8");
+            // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type; patientId is validated numeric
             response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             MiscUtils.getLogger().error("IOException writing JSON response in documentUpdateAjax", e);
