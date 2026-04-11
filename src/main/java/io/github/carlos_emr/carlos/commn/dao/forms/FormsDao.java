@@ -164,7 +164,7 @@ public class FormsDao {
             throw new IllegalArgumentException("Parameters must be provided in name-value pairs");
         }
 
-        // nosemgrep: jpa-sqli — this utility binds named parameters below; the SQL string itself must already use parameter placeholders (callers' responsibility)
+        // nosemgrep: jpa-sqli -- this utility binds named parameters below; the SQL string itself must already use parameter placeholders (callers' responsibility)
         Query query = entityManager.createNativeQuery(sql);
 
         for (int i = 0; i < params.length; i += 2) {
@@ -186,7 +186,7 @@ public class FormsDao {
      */
     @SuppressWarnings("rawtypes")
     public List<Object[]> runParameterizedNativeQuery(String sql, Map<String, Object> params) {
-        // nosemgrep: jpa-sqli — this utility binds named parameters below; the SQL string itself must already use parameter placeholders (callers' responsibility)
+        // nosemgrep: jpa-sqli -- this utility binds named parameters below; the SQL string itself must already use parameter placeholders (callers' responsibility)
         Query query = entityManager.createNativeQuery(sql);
 
         if (params != null) {

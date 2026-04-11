@@ -370,7 +370,7 @@ public final class MessageUploader {
         }
 
         if (limit != null && limit.intValue() > 0) {
-            sqlLimit = " limit " + limit.intValue(); // nosemgrep: formatted-sql-string — integer value, not user string
+            sqlLimit = " limit " + limit.intValue(); // nosemgrep: formatted-sql-string -- integer value, not user string
         }
 
         if (orderByLength) {
@@ -388,11 +388,11 @@ public final class MessageUploader {
                                 practitionerNum.insert(0, "0");
                             }
                         }
-                        sql = "select provider_no from provider where " + sqlSearchOn + " = ?" + sqlOrderByLength + sqlLimit; // nosemgrep: formatted-sql-string — sqlSearchOn is whitelisted above
+                        sql = "select provider_no from provider where " + sqlSearchOn + " = ?" + sqlOrderByLength + sqlLimit; // nosemgrep: formatted-sql-string -- sqlSearchOn is whitelisted above
                         pstmt = conn.prepareStatement(sql);
                         pstmt.setString(1, practitionerNum.toString());
                     } else {
-                        sql = "select provider_no from provider where " + sqlSearchOn + " LIKE ?" + sqlOrderByLength + sqlLimit; // nosemgrep: formatted-sql-string — sqlSearchOn is whitelisted above
+                        sql = "select provider_no from provider where " + sqlSearchOn + " LIKE ?" + sqlOrderByLength + sqlLimit; // nosemgrep: formatted-sql-string -- sqlSearchOn is whitelisted above
                         pstmt = conn.prepareStatement(sql);
                         pstmt.setString(1, (String) docNums.get(i));
                     }

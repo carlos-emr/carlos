@@ -294,7 +294,7 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         }
 
         @Override
-        public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException { // nosemgrep: hibernate-sqli — JDBC connection wrapper delegates to underlying connection; not the source of SQL construction
+        public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException { // nosemgrep: hibernate-sqli -- JDBC connection wrapper delegates to underlying connection; not the source of SQL construction
             return connection.prepareStatement(sql, resultSetType, resultSetConcurrency);
         }
 
@@ -311,7 +311,7 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         }
 
         @Override
-        public PreparedStatement prepareStatement(String sql) throws SQLException { // nosemgrep: hibernate-sqli — JDBC connection wrapper delegates to underlying connection; not the source of SQL construction
+        public PreparedStatement prepareStatement(String sql) throws SQLException { // nosemgrep: hibernate-sqli -- JDBC connection wrapper delegates to underlying connection; not the source of SQL construction
             return connection.prepareStatement(sql);
         }
 

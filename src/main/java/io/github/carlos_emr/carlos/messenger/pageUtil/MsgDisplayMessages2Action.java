@@ -177,7 +177,7 @@ public class MsgDisplayMessages2Action extends ActionSupport {
             bean = new MsgSessionBean();
             bean.setProviderNo(loggedInProviderNo);
             bean.setUserName(p.getFirstName() + " " + p.getLastName());
-            request.getSession().setAttribute("msgSessionBean", bean);
+            request.getSession().setAttribute("msgSessionBean", bean); // nosemgrep: tainted-session-from-http-request -- session bean built from authenticated providerNo and DAO-loaded provider name
         }
 
         // Process user actions based on button clicks

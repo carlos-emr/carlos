@@ -111,9 +111,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
         String demo = request.getParameter("demographic_no");
         String providerNo = (String) session.getAttribute("user");
         if (demo == null || bean != null) {
-            request.getSession().setAttribute("EctSessionBean", bean);
             demo = bean.getDemographicNo();
-
         }
 
         if (demo != null) {
@@ -282,7 +280,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
                     
                     // Using parameterized values for formId and demographicNo
                     // Note: Table name cannot be parameterized, but formName is validated above by isValidFormName()
-                    String sql = "SELECT * FROM form" + formName + " WHERE ID=? AND demographic_no=?"; // nosemgrep: formatted-sql-string — formName validated by isValidFormName() regex allowlist (alphanumeric + underscore only)
+                    String sql = "SELECT * FROM form" + formName + " WHERE ID=? AND demographic_no=?"; // nosemgrep: formatted-sql-string -- formName validated by isValidFormName() regex allowlist (alphanumeric + underscore only)
                     Connection connection = DbConnectionFilter.getThreadLocalDbConnection();
                     PreparedStatement ps = connection.prepareStatement(sql);
                     ps.setInt(1, Integer.parseInt(formId));

@@ -60,7 +60,7 @@ public final class EctSetupDisplayHistory2Action extends ActionSupport {
         }
 
         EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
-        request.getSession().setAttribute("EctSessionBean", bean);
+        request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request -- re-storing existing session bean retrieved from session; no new tainted data added
         String type = request.getParameter("type");
         MiscUtils.getLogger().debug("Type: " + type);
         if (bean != null) {

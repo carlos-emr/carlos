@@ -194,7 +194,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         ArrayList<LookupCodeValue> list = new ArrayList<LookupCodeValue>();
 
         try {
-            ResultSet rs = db.queryResults(sSQL, pars); // nosemgrep: formatted-sql-string — table/column names from internal LookupTableDef config, values bound via DBPreparedHandler
+            ResultSet rs = db.queryResults(sSQL, pars); // nosemgrep: formatted-sql-string -- table/column names from internal LookupTableDef config, values bound via DBPreparedHandler
             while (rs.next()) {
                 LookupCodeValue lv = new LookupCodeValue();
                 lv.setPrefix(tableId);
@@ -777,7 +777,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         this.providerDao = providerDao;
     }
 
-    private int queryExecuteUpdate(String preparedSQL, DBPreparedHandlerParam[] params) throws SQLException { // nosemgrep: formatted-sql-string — parameterized query infrastructure; params are bound via PreparedStatement
+    private int queryExecuteUpdate(String preparedSQL, DBPreparedHandlerParam[] params) throws SQLException { // nosemgrep: formatted-sql-string -- parameterized query infrastructure; params are bound via PreparedStatement
         PreparedStatement preparedStmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(preparedSQL);
         for (int i = 0; i < params.length; i++) {
             DBPreparedHandlerParam param = params[i];

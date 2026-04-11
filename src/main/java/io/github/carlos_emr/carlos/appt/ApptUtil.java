@@ -28,6 +28,7 @@
 package io.github.carlos_emr.carlos.appt;
 
 import java.util.List;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -48,11 +49,53 @@ public class ApptUtil {
     private static final int MAX_FIELD_LEN = 255;
     private static final int MAX_NOTES_LEN = 2000;
 
-    private static String cap(String value, int maxLen) {
+    // CWE-501 trust boundary validation: appointment status is 1-2 alpha chars (e.g. t,T,H,P,E,N,C,B + optional S/V modifier)
+    private static final Pattern SAFE_STATUS = Pattern.compile("[a-zA-Z]{1,2}");
+    // Date format: YYYY-MM-DD or similar date strings used by appointment UI
+    private static final Pattern SAFE_DATE = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
+    // Time format: HH:MM or HH:MM:SS
+    private static final Pattern SAFE_TIME = Pattern.compile("[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?");
+    // Safe single-line text: any character except control chars (allows Unicode for bilingual Canadian EMR)
+    private static final Pattern SAFE_TEXT = Pattern.compile("[^\\p{Cntrl}]*");
+    // Safe multiline text: allows \n \r \t (for textarea-backed fields like notes/remarks) but rejects null bytes and other control chars
+    private static final Pattern SAFE_MULTILINE = Pattern.compile("[^\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]*", Pattern.DOTALL);
+    // Numeric patterns for structured fields
+    private static final Pattern SAFE_DURATION = Pattern.compile("\\d{1,4}");
+    private static final Pattern SAFE_REASON_CODE = Pattern.compile("[a-zA-Z0-9]{1,20}");
+
+    private static String validateOptional(String value, Pattern pattern, String fieldName) {
+        if (value == null || value.isEmpty()) {
+            return value;
+        }
+        if (!pattern.matcher(value).matches()) {
+            logger.warn("Rejected invalid {} at trust boundary: {}", fieldName, LogSanitizer.sanitize(value));
+            return null;
+        }
+        return value;
+    }
+
+    private static String sanitizeText(String value, int maxLen) {
         if (value == null) {
             return null;
         }
-        return value.length() > maxLen ? value.substring(0, maxLen) : value;
+        String capped = value.length() > maxLen ? value.substring(0, maxLen) : value;
+        if (!SAFE_TEXT.matcher(capped).matches()) {
+            logger.warn("Rejected text with control characters at trust boundary");
+            return null;
+        }
+        return capped;
+    }
+
+    private static String sanitizeMultilineText(String value, int maxLen) {
+        if (value == null) {
+            return null;
+        }
+        String capped = value.length() > maxLen ? value.substring(0, maxLen) : value;
+        if (!SAFE_MULTILINE.matcher(capped).matches()) {
+            logger.warn("Rejected multiline text with control characters at trust boundary");
+            return null;
+        }
+        return capped;
     }
 
     public static void copyAppointmentIntoSession(HttpServletRequest request) {
@@ -69,26 +112,29 @@ public class ApptUtil {
         }
 
         ApptData obj = new ApptData();
-        obj.setAppointment_date(cap(request.getParameter("appointment_date"), MAX_FIELD_LEN));
-        obj.setStart_time(cap(request.getParameter("start_time"), MAX_FIELD_LEN));
-        obj.setEnd_time(cap(request.getParameter("end_time"), MAX_FIELD_LEN));
-        obj.setName(cap(request.getParameter("keyword"), MAX_FIELD_LEN));
+        // Structured fields: validated against expected formats
+        obj.setAppointment_date(validateOptional(request.getParameter("appointment_date"), SAFE_DATE, "appointment_date"));
+        obj.setStart_time(validateOptional(request.getParameter("start_time"), SAFE_TIME, "start_time"));
+        obj.setEnd_time(validateOptional(request.getParameter("end_time"), SAFE_TIME, "end_time"));
         obj.setDemographic_no(demoNoParam);
-        obj.setNotes(cap(request.getParameter("notes"), MAX_NOTES_LEN));
-        obj.setReason(cap(request.getParameter("reason"), MAX_FIELD_LEN));
-        obj.setLocation(cap(request.getParameter("location"), MAX_FIELD_LEN));
-        obj.setResources(cap(request.getParameter("resources"), MAX_FIELD_LEN));
-        obj.setType(cap(request.getParameter("type"), MAX_FIELD_LEN));
-        obj.setStyle(cap(request.getParameter("style"), MAX_FIELD_LEN));
-        obj.setBilling(cap(request.getParameter("billing"), MAX_FIELD_LEN));
-        obj.setStatus(cap(request.getParameter("status"), MAX_FIELD_LEN));
-        obj.setRemarks(cap(request.getParameter("remarks"), MAX_FIELD_LEN));
-        obj.setDuration(cap(request.getParameter("duration"), MAX_FIELD_LEN));
         obj.setChart_no(chartNo);
-        obj.setUrgency(cap(request.getParameter("urgency"), MAX_FIELD_LEN));
-        obj.setReasonCode(cap(request.getParameter("reasonCode"), MAX_FIELD_LEN));
-        // numeric ID fields validated above; display strings length-capped to prevent oversized session storage
-        request.getSession().setAttribute(SESSION_APPT_BEAN, obj); // nosemgrep: tainted-session-from-http-request
+        obj.setStatus(validateOptional(request.getParameter("status"), SAFE_STATUS, "status"));
+        obj.setDuration(validateOptional(request.getParameter("duration"), SAFE_DURATION, "duration"));
+        obj.setReasonCode(validateOptional(request.getParameter("reasonCode"), SAFE_REASON_CODE, "reasonCode"));
+        // Free-text fields: length-capped and control characters rejected
+        obj.setName(sanitizeText(request.getParameter("keyword"), MAX_FIELD_LEN));
+        obj.setNotes(sanitizeMultilineText(request.getParameter("notes"), MAX_NOTES_LEN));
+        obj.setReason(sanitizeText(request.getParameter("reason"), MAX_FIELD_LEN));
+        obj.setLocation(sanitizeText(request.getParameter("location"), MAX_FIELD_LEN));
+        obj.setResources(sanitizeText(request.getParameter("resources"), MAX_FIELD_LEN));
+        obj.setType(sanitizeText(request.getParameter("type"), MAX_FIELD_LEN));
+        obj.setStyle(sanitizeText(request.getParameter("style"), MAX_FIELD_LEN));
+        obj.setBilling(sanitizeText(request.getParameter("billing"), MAX_FIELD_LEN));
+        obj.setRemarks(sanitizeMultilineText(request.getParameter("remarks"), MAX_FIELD_LEN));
+        obj.setUrgency(sanitizeText(request.getParameter("urgency"), MAX_FIELD_LEN));
+        // nosemgrep: tainted-session-from-http-request -- numeric IDs validated via regex; status validated against [a-zA-Z]{1,2};
+        // date/time validated against format patterns; free-text fields length-capped and control characters rejected via SAFE_TEXT
+        request.getSession().setAttribute(SESSION_APPT_BEAN, obj);
     }
 
     public static ApptData getAppointmentFromSession(HttpServletRequest request) {

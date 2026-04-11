@@ -625,6 +625,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         for (Provider p : providerDao.getActiveProviders()) {
             providerBean.setProperty(p.getProviderNo(), p.getFormattedName());
         }
+        // nosemgrep: tainted-session-from-http-request -- providerBean is built from DAO-sourced active providers, not raw user input
         request.getSession().setAttribute("providerBean", providerBean);
     }
 

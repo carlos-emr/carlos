@@ -104,7 +104,7 @@ public final class DBHandler {
 		return GetPreSQL(sql, false, params);
 	}
 
-	public static ResultSet GetPreSQL(String sql, boolean updatable, Object... params) throws SQLException { // nosemgrep: formatted-sql-string — this IS the parameterized query method; params are bound via PreparedStatement
+	public static ResultSet GetPreSQL(String sql, boolean updatable, Object... params) throws SQLException { // nosemgrep: formatted-sql-string -- this IS the parameterized query method; params are bound via PreparedStatement
 		PreparedStatement ps = DbConnectionFilter
 			.getThreadLocalDbConnection()
 			.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE,

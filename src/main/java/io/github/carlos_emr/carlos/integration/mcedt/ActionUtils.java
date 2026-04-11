@@ -53,7 +53,7 @@ class ActionUtils {
     }
 
     static void setDetails(HttpServletRequest request, Detail detail) {
-        request.getSession().setAttribute(McedtConstants.SESSION_KEY_RESOURCE_LIST, detail);
+        request.getSession().setAttribute(McedtConstants.SESSION_KEY_RESOURCE_LIST, detail); // nosemgrep: tainted-session-from-http-request -- MCEDT resource list from EDT service response
     }
 
     static void removeDetails(HttpServletRequest request) {
@@ -93,7 +93,7 @@ class ActionUtils {
         List<T> result = (List<T>) session.getAttribute(sessionKey);
         if (result == null) {
             result = new ArrayList<T>();
-            session.setAttribute(sessionKey, result);
+            session.setAttribute(sessionKey, result); // nosemgrep: tainted-session-from-http-request -- initialized empty list, not from user input
         }
         return result;
     }
@@ -117,7 +117,7 @@ class ActionUtils {
     }
 
     static void setTypeList(HttpServletRequest request, TypeListResult result) {
-        request.getSession().setAttribute(McedtConstants.SESSION_KEY_TYPE_LIST, result);
+        request.getSession().setAttribute(McedtConstants.SESSION_KEY_TYPE_LIST, result); // nosemgrep: tainted-session-from-http-request -- MCEDT type list from EDT service response
     }
 
     static void removeTypeList(HttpServletRequest request) {

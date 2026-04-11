@@ -310,9 +310,17 @@ public class EctSaveEncounter2Action extends ActionSupport {
             }
             bean.setApptNo(apptNoParam);
             bean.setApptDate(sessionbean.appointmentDate);
-            bean.setApptStatus(httpservletrequest.getParameter("status"));
+            // CWE-501: validate status against appointment status pattern before session storage
+            String statusParam = httpservletrequest.getParameter("status");
+            if (statusParam != null && !statusParam.matches("[a-zA-Z]{1,2}")) {
+                log.warn("Rejected invalid appointment status at trust boundary");
+                statusParam = null;
+            }
+            bean.setApptStatus(statusParam);
             httpservletrequest.setAttribute("encounter", "true");
-            httpservletrequest.getSession().setAttribute("billingSessionBean", bean); // nosemgrep: tainted-session-from-http-request
+            // nosemgrep: tainted-session-from-http-request -- appointment_no validated numeric above; apptProvider/patientName/patientNo
+            // from authenticated EctSessionBean; billRegion/billForm from server config; apptDate from session; status validated [a-zA-Z]{1,2}
+            httpservletrequest.getSession().setAttribute("billingSessionBean", bean);
             forward = "bill";
         } else if (httpservletrequest.getParameter("btnPressed").equals("Sign,Save and Exit")) {
             forward = "success";

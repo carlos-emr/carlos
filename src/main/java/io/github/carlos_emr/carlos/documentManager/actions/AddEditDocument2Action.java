@@ -181,7 +181,8 @@ public class AddEditDocument2Action extends ActionSupport {
             Integer qid = Integer.parseInt(queueId.trim());
             Integer did = Integer.parseInt(doc_no.trim());
             queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
-            request.getSession().setAttribute("preferredQueue", queueId);
+            // nosemgrep: tainted-session-from-http-request -- queueId validated via Integer.parseInt and canonicalized to numeric string; stored after successful DAO operation
+            request.getSession().setAttribute("preferredQueue", String.valueOf(qid));
         }
 
         return null;

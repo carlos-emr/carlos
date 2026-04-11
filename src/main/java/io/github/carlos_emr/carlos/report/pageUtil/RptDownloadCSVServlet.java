@@ -441,7 +441,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
 
                 //sTempEle = sSpecSelect.length()>0? (","+sSpecSelect) : "";
                 sql = "select demographic.demographic_no," + sDemoSelect + " from demographic where ";
-                sql += " demographic.demographic_no in (" + subFormDemoNo + ") " + ORDER_BY; // nosemgrep: tainted-sql-from-http-request — subFormDemoNo built from rs.getInt() (integer-only); RptReportCreator.query() does not support parameterized IN
+                sql += " demographic.demographic_no in (" + subFormDemoNo + ") " + ORDER_BY; // nosemgrep: tainted-sql-from-http-request -- subFormDemoNo built from rs.getInt() (integer-only); RptReportCreator.query() does not support parameterized IN
                 MiscUtils.getLogger().debug(" demographic and demographicExt: " + sql);
 
                 temp = sDemoSelect.replaceAll("demographic.", "").split(",");
@@ -625,8 +625,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 subFormId = subFormId.length() > 0 ? subFormId : "0";
                 String subFormDemoNo = subDemoNoList.isEmpty() ? "0" : String.join(",", subDemoNoList);
                 sql = "select demographic.demographic_no," + sDemoSelect + sTempEle + " from demographic," + ARTYPE + " where ";
-                sql += " demographic.demographic_no in (" + subFormDemoNo + ") and "; // nosemgrep: tainted-sql-from-http-request — subFormDemoNo built from rs.getInt() (integer-only)
-                sql += " " + ARTYPE + ".ID in (" + subFormId + ") and demographic.demographic_no=" + ARTYPE + ".demographic_no " + ORDER_BY; // nosemgrep: tainted-sql-from-http-request — subFormId built from rs.getInt() (integer-only)
+                sql += " demographic.demographic_no in (" + subFormDemoNo + ") and "; // nosemgrep: tainted-sql-from-http-request -- subFormDemoNo built from rs.getInt() (integer-only)
+                sql += " " + ARTYPE + ".ID in (" + subFormId + ") and demographic.demographic_no=" + ARTYPE + ".demographic_no " + ORDER_BY; // nosemgrep: tainted-sql-from-http-request -- subFormId built from rs.getInt() (integer-only)
                 MiscUtils.getLogger().debug(" total: " + sql);
 
                 temp = sDemoSelect.replaceAll("demographic.", "").split(",");

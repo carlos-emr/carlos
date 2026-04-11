@@ -128,7 +128,7 @@ public class MsgViewMessageByPosition2Action extends ActionSupport {
             if (pd != null) {
                 bean.setUserName(pd.getFirstName() + " " + pd.getLastName());
             }
-            request.getSession().setAttribute("msgSessionBean", bean);
+            request.getSession().setAttribute("msgSessionBean", bean); // nosemgrep: tainted-session-from-http-request -- session bean built from authenticated providerNo and DAO-loaded provider name
         }
 
         // Extract parameters for position-based navigation
@@ -143,7 +143,7 @@ public class MsgViewMessageByPosition2Action extends ActionSupport {
         // The returned value is always a safe, hard-coded SQL fragment (never the raw user input).
         String safeOrderBy = displayMsgBean.getOrderBy(orderBy);
 
-        // nosemgrep: formatted-sql-string — safeOrderBy is resolved from an allowlist in MsgDisplayMessagesBean.getOrderBy(), never raw user input
+        // nosemgrep: formatted-sql-string -- safeOrderBy is resolved from an allowlist in MsgDisplayMessagesBean.getOrderBy(), never raw user input
         String sql = "select m.messageid "
                 + "from messagetbl m, msgDemoMap mapp where mapp.demographic_no = :demographic_no "
                 + "and m.messageid = mapp.messageID order by " + safeOrderBy;

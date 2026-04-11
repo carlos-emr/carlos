@@ -560,7 +560,7 @@ public class EFormPDFServlet extends HttpServlet {
 
                 //if this is the first measurement of the section init array
                 while (xMeasurementValues.get(page).size() <= section) {
-                    MiscUtils.getLogger().debug("Adding section {}", LogSanitizer.sanitize(section));
+                    MiscUtils.getLogger().debug("Adding section {}", LogSanitizer.sanitize(String.valueOf(section)));
                     List<List<String>> list = xMeasurementValues.get(page);
                     list.add(new ArrayList<String>());
                 }

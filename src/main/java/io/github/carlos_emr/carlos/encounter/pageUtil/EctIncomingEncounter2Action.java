@@ -82,6 +82,7 @@ import org.owasp.encoder.Encode;
 
 import java.util.Properties;
 import java.util.Vector;
+import java.util.regex.Pattern;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -89,6 +90,14 @@ import org.apache.struts2.ServletActionContext;
 public class EctIncomingEncounter2Action extends ActionSupport {
 
     private static Logger log = MiscUtils.getLogger();
+
+    // CWE-501 trust boundary validation patterns
+    private static final Pattern SAFE_STATUS = Pattern.compile("[a-zA-Z]{1,2}");
+    private static final Pattern SAFE_DATE = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
+    private static final Pattern SAFE_TIME = Pattern.compile("[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?");
+    // Any character except ASCII control chars (allows Unicode for bilingual Canadian EMR)
+    private static final Pattern SAFE_TEXT = Pattern.compile("[^\\p{Cntrl}]*");
+    private static final Set<String> VALID_SOURCES = Set.of("encounter", "messenger");
     private CaseManagementNoteDAO caseManagementNoteDao = SpringUtils.getBean(CaseManagementNoteDAO.class);
     private CaseManagementManager caseManagementMgr = SpringUtils.getBean(CaseManagementManager.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -229,32 +238,48 @@ public class EctIncomingEncounter2Action extends ActionSupport {
                 }
             }
 
-            bean.reason = request.getParameter("reason");
-            bean.reasonCode = request.getParameter("reasonCode");
-            bean.encType = request.getParameter("encType");
+            // CWE-501 trust boundary: validate structured fields, sanitize free-text
+            String reasonParam = request.getParameter("reason");
+            bean.reason = (reasonParam != null && SAFE_TEXT.matcher(reasonParam).matches()) ? reasonParam.substring(0, Math.min(reasonParam.length(), 255)) : null;
+            String reasonCodeParam = request.getParameter("reasonCode");
+            bean.reasonCode = (reasonCodeParam != null && reasonCodeParam.matches("[a-zA-Z0-9]{1,20}")) ? reasonCodeParam : null;
+            String encTypeParam = request.getParameter("encType");
+            bean.encType = (encTypeParam != null && encTypeParam.matches("[a-zA-Z0-9_ ]{1,50}")) ? encTypeParam : null;
             bean.userName = request.getParameter("userName");
             if (bean.userName == null) {
                 bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " "
                         + ((String) request.getSession().getAttribute("userlastname"));
+            } else if (!SAFE_TEXT.matcher(bean.userName).matches() || bean.userName.length() > 100) {
+                log.warn("Rejected invalid userName at trust boundary, falling back to session-derived name");
+                bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " "
+                        + ((String) request.getSession().getAttribute("userlastname"));
             }
 
-            bean.appointmentDate = request.getParameter("appointmentDate");
-            bean.startTime = request.getParameter("startTime");
-            bean.status = request.getParameter("status");
-            bean.date = request.getParameter("date");
+            String apptDateParam = request.getParameter("appointmentDate");
+            bean.appointmentDate = (apptDateParam != null && SAFE_DATE.matcher(apptDateParam).matches()) ? apptDateParam : null;
+            String startTimeParam = request.getParameter("startTime");
+            bean.startTime = (startTimeParam != null && SAFE_TIME.matcher(startTimeParam).matches()) ? startTimeParam : null;
+            String statusParam = request.getParameter("status");
+            bean.status = (statusParam != null && SAFE_STATUS.matcher(statusParam).matches()) ? statusParam : null;
+            String dateParam = request.getParameter("date");
+            bean.date = (dateParam != null && SAFE_DATE.matcher(dateParam).matches()) ? dateParam : null;
             bean.check = "myCheck";
             bean.oscarMsgID = request.getParameter("msgId");
             if (bean.oscarMsgID != null && !bean.oscarMsgID.matches("\\d+")) {
                 log.warn("Invalid msgId: {}", LogSanitizer.sanitize(bean.oscarMsgID));
                 return "failure";
             }
-            if (request.getParameter("source") != null) {
-                bean.source = request.getParameter("source");
+            String sourceParam = request.getParameter("source");
+            if (sourceParam != null) {
+                bean.source = VALID_SOURCES.contains(sourceParam) ? sourceParam : null;
             }
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
-            // demographicNo validated as numeric at method entry; other bean fields (reason, encType, userName, etc.) are unsanitized request params — consuming JSPs MUST use OWASP encoding when rendering
-            request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request
-            request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request
+            // nosemgrep: tainted-session-from-http-request -- demographicNo/appointmentNo/curProviderNo validated as numeric/alphanumeric;
+            // status validated [a-zA-Z]{1,2}; dates validated YYYY-MM-DD; times validated HH:MM; encType validated alphanumeric;
+            // source whitelisted to {"encounter","messenger"}; reason/userName sanitized for control chars and length-capped;
+            // eChartId is server-generated from setUpEncounterPage()
+            request.getSession().setAttribute("EctSessionBean", bean);
+            request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request -- server-generated ID from EctSessionBean.setUpEncounterPage()
 
             long notesCount = caseManagementNoteDao.getNotesCountByDemographicId(bean.getDemographicNo());
             if (notesCount == 0

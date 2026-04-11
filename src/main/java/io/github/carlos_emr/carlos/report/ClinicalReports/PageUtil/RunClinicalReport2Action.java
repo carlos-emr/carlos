@@ -206,7 +206,7 @@ public class RunClinicalReport2Action extends ActionSupport {
             arrList = new ArrayList();
         }
         arrList.add(re);
-        request.getSession().setAttribute("ClinicalReports", arrList);
+        request.getSession().setAttribute("ClinicalReports", arrList); // nosemgrep: tainted-session-from-http-request -- arrList contains ReportEvaluator results computed server-side from DAO queries
 
         request.setAttribute("extraValues", extraVal);
         request.setAttribute("name", re.getName());

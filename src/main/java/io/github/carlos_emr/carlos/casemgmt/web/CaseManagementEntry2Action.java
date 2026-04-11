@@ -390,6 +390,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         // get an existing non-temp note?
         else if (nId != null && !"null".equalsIgnoreCase(nId) && Integer.parseInt(nId) > 0) {
             logger.debug("Using nId {} to fetch note", LogSanitizer.sanitize(nId));
+            // nosemgrep: tainted-session-from-http-request -- value is hardcoded literal "false", not user input
             session.setAttribute("newNote", "false");
             note = caseManagementMgr.getNote(nId);
 
@@ -422,7 +423,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
          * do the restore if(restore != null && restore.booleanValue() == true) { String tmpsavenote = this.caseManagementMgr.restoreTmpSave(providerNo,demono,programId); if(tmpsavenote != null) { note.setNote(tmpsavenote); } }
          */
         logger.debug("Set Encounter Type: {}", LogSanitizer.sanitize(note.getEncounter_type()));
-        logger.debug("Fetched Note {}", LogSanitizer.sanitize(note.getId()));
+        logger.debug("Fetched Note {}", LogSanitizer.sanitize(String.valueOf(note.getId())));
 
         logger.debug("Populate Note with editors");
         this.caseManagementMgr.getEditors(note);
@@ -989,7 +990,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             logAction = LogConst.ARCHIVE;
         }
 
-        logger.debug("Note archived {}", LogSanitizer.sanitize(note.isArchived()));
+        logger.debug("Note archived {}", LogSanitizer.sanitize(String.valueOf(note.isArchived())));
         String programId = (String) session.getAttribute("case_program_id");
         note.setProgram_no(programId);
 
@@ -1882,7 +1883,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
      */
     private boolean hasNoteLock(String demo) {
         HttpSession session = request.getSession();
-        CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo); // nosemgrep: tainted-session-from-http-request
+        CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo);
         try {
             if (casemgmtNoteLockSession == null) {
                 return false;
@@ -2545,7 +2546,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String majorParam = request.getParameter("issueCheckList[" + ind + "].issue.major");
         String resolvedParam = request.getParameter("issueCheckList[" + ind + "].issue.resolved");
 
-        logger.debug("issueChange for index {}: resolved={}", LogSanitizer.sanitize(ind), LogSanitizer.sanitize(resolvedParam));
+        logger.debug("issueChange for index {}: resolved={}", LogSanitizer.sanitize(String.valueOf(ind)), LogSanitizer.sanitize(resolvedParam));
 
         // Update the issue with the new values from the form
         if (acuteParam != null) {

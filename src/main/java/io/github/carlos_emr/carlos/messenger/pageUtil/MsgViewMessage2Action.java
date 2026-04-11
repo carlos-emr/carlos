@@ -241,7 +241,7 @@ public class MsgViewMessage2Action extends ActionSupport {
         request.getSession().setAttribute("viewMessageNo", canonicalMessageNo); // nosemgrep: tainted-session-from-http-request
         request.getSession().setAttribute("viewMessagePosition", messagePosition); // nosemgrep: tainted-session-from-http-request
         request.getSession().setAttribute("from", from); // nosemgrep: tainted-session-from-http-request -- whitelisted to "encounter"|"messenger"
-        request.getSession().setAttribute("providerNo", providerNo);
+        request.getSession().setAttribute("providerNo", providerNo); // nosemgrep: tainted-session-from-http-request -- authenticated provider number from LoggedInInfo session
 
         if (orderBy != null) {
             request.getSession().setAttribute("orderBy", orderBy); // nosemgrep: tainted-session-from-http-request
@@ -269,7 +269,7 @@ public class MsgViewMessage2Action extends ActionSupport {
 
         // Set today's date for display
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd-MMM-yyyy");
-        request.getSession().setAttribute("today", simpleDateFormat.format(new Date(System.currentTimeMillis())));
+        request.getSession().setAttribute("today", simpleDateFormat.format(new Date(System.currentTimeMillis()))); // nosemgrep: tainted-session-from-http-request -- server-generated formatted date from system clock
 
         // Validate boxType against allowlist before using in redirect URL
         if (!boxType.matches("[0-3]?")) {

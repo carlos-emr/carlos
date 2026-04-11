@@ -768,7 +768,7 @@ public class Contact2Action extends ActionSupport {
 
             demographicContactId = demographicContact.getId() + "";
 
-            logger.info("Linked contact id {}-{} with demographic {}", LogSanitizer.sanitize(contactType), LogSanitizer.sanitize(contactId), LogSanitizer.sanitize(demographic_no));
+            logger.info("Linked contact id {}-{} with demographic {}", LogSanitizer.sanitize(String.valueOf(contactType)), LogSanitizer.sanitize(String.valueOf(contactId)), LogSanitizer.sanitize(String.valueOf(demographic_no)));
 
             request.setAttribute("demographic_no", demographic_no);
             request.setAttribute("id", demographicContactId);

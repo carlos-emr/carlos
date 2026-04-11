@@ -2653,6 +2653,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                         } else {
                             setExportStatusCookie(response, "error");
+                            // nosemgrep: tainted-session-from-http-request -- value is hardcoded literal "No", not user input
                             request.getSession().setAttribute("pgp_ready", "No");
                             ffwd = "fail";
                         }
@@ -2667,6 +2668,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                             ffwd = "success";
                         } else {
                             setExportStatusCookie(response, "error");
+                            // nosemgrep: tainted-session-from-http-request -- value is hardcoded literal "No", not user input
                             request.getSession().setAttribute("pgp_ready", "No");
                             ffwd = "fail";
                         }

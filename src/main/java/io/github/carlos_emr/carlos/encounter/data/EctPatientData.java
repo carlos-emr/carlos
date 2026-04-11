@@ -54,8 +54,8 @@ public class EctPatientData {
         ResultSet rs = null;
         try {
 
-            rs = DBHandler.GetSQL("SELECT provider_no FROM demographic WHERE demographic_no = "
-                    + demographicNo);
+            rs = DBHandler.GetPreSQL("SELECT provider_no FROM demographic WHERE demographic_no = ?",
+                    demographicNo);
             if (rs.next())
                 ret = Misc.getString(rs, "provider_no");
 
