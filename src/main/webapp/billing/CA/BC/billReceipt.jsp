@@ -69,6 +69,7 @@
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     double totalPayments = 0;
     double totalRefunds = 0;
@@ -107,7 +108,7 @@
 <html>
     <head>
         <title>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.bc.title"/>
+            <fmt:message key="billing.bc.title"/>
         </title>
         <link rel="stylesheet" type="text/css" href="billReceiptPrint.css" id="printStyle" media="print"/>
         <style>
@@ -470,7 +471,7 @@
                                                     <td></td>
                                                     <td>Line#</td>
                                                     <td>
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.desc"/>
+                                                        <fmt:message key="billing.service.desc"/>
                                                     </td>
                                                     <td>Service Code</td>
                                                     <td>QTY</td>

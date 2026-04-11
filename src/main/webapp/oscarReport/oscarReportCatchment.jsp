@@ -52,6 +52,7 @@
 <body>
 
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}"
        scope="request"/>
 
@@ -103,11 +104,11 @@
 
 <div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.title"/>
+        <fmt:message key="oscarReport.oscarReportCatchment.title"/>
         <div class="float-end">
             <button name='print' onClick='window.print()' class="btn btn-secondary">
                 <i class="fa-solid fa-print"></i>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>
+                <fmt:message key="global.btnPrint"/>
             </button>
         </div>
     </h4>
@@ -116,16 +117,16 @@
 <table class="table table-bordered table-striped table-sm table-hover">
     <thead>
     <tr>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgDemographic"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgSex"/>
+        <th><fmt:message key="oscarReport.oscarReportCatchment.msgDemographic"/></th>
+        <th><fmt:message key="oscarReport.oscarReportCatchment.msgSex"/>
         </th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgDOB"/>
+        <th><fmt:message key="oscarReport.oscarReportCatchment.msgDOB"/>
         </th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgCity"/>
+        <th><fmt:message key="oscarReport.oscarReportCatchment.msgCity"/>
         </th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgProvince"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgPostal"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgStatus"/></th>
+        <th><fmt:message key="oscarReport.oscarReportCatchment.msgProvince"/></th>
+        <th><fmt:message key="oscarReport.oscarReportCatchment.msgPostal"/></th>
+        <th><fmt:message key="oscarReport.oscarReportCatchment.msgStatus"/></th>
     </tr>
     </thead>
     <%
@@ -172,7 +173,7 @@
             class="page-item <%=nItems == Integer.parseInt(strLimit2) ? "" : "disabled"%>">
         <a
                 href="${ctx}/oscarReport/oscarReportCatchment.jsp?limit1=<%=nNextPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>"
-                class="page-link contentLink"> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgNextPage"/> &rarr;
+                class="page-link contentLink"> <fmt:message key="oscarReport.oscarReportCatchment.msgNextPage"/> &rarr;
         </a>
     </li>
 </ul>

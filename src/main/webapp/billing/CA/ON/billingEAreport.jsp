@@ -23,6 +23,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
@@ -38,7 +39,7 @@
     <table width="100%" border="0" cellspacing="0" cellpadding="0">
         <tr>
             <td height="40" width="10%" class="Header"><input type='button'
-                                                              name='print' value='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>'
+                                                              name='print' value='<fmt:message key="global.btnPrint"/>'
                                                               onClick='window.print()'></td>
             <td width="90%" align="left" class="Header">oscar<font size="3">Billing</font>
             </td>
@@ -250,7 +251,7 @@
 
         <tr>
             <td><input type="button" name="Button"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>"
+                       value="<fmt:message key="global.btnClose"/>"
                        onClick="window.close()"></td>
         </tr>
 

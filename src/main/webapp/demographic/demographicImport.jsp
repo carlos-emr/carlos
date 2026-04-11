@@ -49,6 +49,7 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao, io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%
@@ -65,7 +66,7 @@
 <html>
     <head>
         <!--I18n-->
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DemoImport"/></title>
+        <title><fmt:message key="admin.admin.DemoImport"/></title>
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
@@ -194,12 +195,12 @@
     %>
 
     <div class="container-fluid card card-body bg-body-tertiary">
-        <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DemoImport"/></h3>
+        <h3><fmt:message key="admin.admin.DemoImport"/></h3>
 
         <form name="ImportDemographicDataForm" action="${pageContext.request.contextPath}/form/importUpload.do" method="POST"
                    enctype="multipart/form-data">
         <p><input type="file" name="importFile" id="importFile" multiple="multiple"/>
-            <span id="uploadWarn" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"
+            <span id="uploadWarn" title="<fmt:message key="global.uploadWarningBody"/>"
                   style="vertical-align:middle;font-family:arial;font-size:20px;font-weight:bold;color:#ABABAB;cursor:pointer"><img
                     border="0" src="<%= request.getContextPath() %>/images/icon_alertsml.gif"/></span></span>
 

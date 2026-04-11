@@ -90,11 +90,11 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <jsp:useBean id="providerBean" class="java.util.Properties"
              scope="session"/>
 <!DOCTYPE html>
-<fmt:setBundle basename="oscarResources"/>
 <fmt:message var="msgOnUnbilledText" key="provider.appointmentProviderAdminDay.onUnbilled"/>
 <fmt:message var="dtLanguageCode" key="global.i18n.datatablescode"/>
 <html>

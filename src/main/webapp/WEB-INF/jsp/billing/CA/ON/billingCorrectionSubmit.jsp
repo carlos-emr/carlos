@@ -12,11 +12,12 @@
     @since 2026
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrectionSubmit.title"/></title>
+    <title><fmt:message key="billing.billingCorrectionSubmit.title"/></title>
 </head>
 <body>
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
@@ -25,7 +26,7 @@
             <% if (request.getAttribute("correctionError") != null) { %>
                 Billing Correction Failed
             <% } else { %>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrectionSubmit.msgSuccessfull"/>
+                <fmt:message key="billing.billingCorrectionSubmit.msgSuccessfull"/>
             <% } %>
         </font></th>
     </tr>
@@ -34,9 +35,9 @@
 <form action="${pageContext.request.contextPath}/billing/CA/ON/billingCorrection.jsp">
     <input type="hidden" name="billing_no" value="">
     <% if (request.getAttribute("correctionError") == null) { %>
-    <input type="submit" value="<fmt:setBundle basename='oscarResources'/><fmt:message key='billing.billingCorrectionSubmit.btnCorrectAnother'/>" name="submit">
+    <input type="submit" value="<fmt:message key='billing.billingCorrectionSubmit.btnCorrectAnother'/>" name="submit">
     <% } %>
-    <input type="button" value="<fmt:setBundle basename='oscarResources'/><fmt:message key='billing.billingCorrectionSubmit.btnClose'/>" onClick="window.close()">
+    <input type="button" value="<fmt:message key='billing.billingCorrectionSubmit.btnClose'/>" onClick="window.close()">
 </form>
 </body>
 </html>

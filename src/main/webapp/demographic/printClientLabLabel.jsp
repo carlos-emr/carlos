@@ -44,6 +44,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
@@ -69,14 +70,14 @@
 %>
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="report.printLabel.title"/></title>
+        <title><fmt:message key="report.printLabel.title"/></title>
     </head>
     <body>
     <% if (!defaultPrinterName.isEmpty()) {
         if (silentPrint == true) {%>
-    <fmt:setBundle basename="oscarResources"/><fmt:message key="report.printLabel.SilentlyPrintToDefaultPrinter"/>
+    <fmt:message key="report.printLabel.SilentlyPrintToDefaultPrinter"/>
     <%} else {%>
-    <fmt:setBundle basename="oscarResources"/><fmt:message key="report.printLabel.DefaultPrinter"/>
+    <fmt:message key="report.printLabel.DefaultPrinter"/>
     <%}%>
     <%=defaultPrinterName%>
     <%}%>

@@ -34,13 +34,14 @@
 %>
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.pageUtil.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Measurements.msgDefineNewMeasurementGroup"/></title>
+        <title><fmt:message key="encounter.Measurements.msgDefineNewMeasurementGroup"/></title>
     </head>
 
     <body class="BodyStyle" vlink="#0000FF">
@@ -59,11 +60,11 @@
     <form action="${pageContext.request.contextPath}/encounter/oscarMeasurements/DefineNewMeasurementGroup.do" onsubmit="return validateForm()" method="post">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
-                <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Measurements.msgMeasurements"/></td>
+                <td class="MainTableTopRowLeftColumn"><fmt:message key="encounter.Measurements.msgMeasurements"/></td>
                 <td class="MainTableTopRowRightColumn" width="400">
                     <table class="TopStatusBar">
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Measurements.msgDefineNewMeasurementGroup"/></td>
+                            <td><fmt:message key="encounter.Measurements.msgDefineNewMeasurementGroup"/></td>
                         </tr>
                     </table>
                 </td>
@@ -78,14 +79,14 @@
                                     <tr>
                                         <td>
                                     <tr>
-                                        <td align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.addMeasurementGroup.createNewMeasurementGroupName"/>
+                                        <td align="left"><fmt:message key="encounter.oscarMeasurements.addMeasurementGroup.createNewMeasurementGroupName"/>
                                         </td>
                                     </tr>
                                     <tr>
                                         <td><input type="text" name="groupName" size="35" /></td>
                                     </tr>
                                     <tr>
-                                        <td align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.addMeasurementGroup.selectStyleSheet"/>
+                                        <td align="left"><fmt:message key="encounter.oscarMeasurements.addMeasurementGroup.selectStyleSheet"/>
                                         </td>
                                     </tr>
                                     <tr>
@@ -103,10 +104,10 @@
                                             <table>
                                                 <tr>
                                                     <td><input type="button" name="Button"
-                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>"
+                                                               value="<fmt:message key="global.btnClose"/>"
                                                                onClick="window.close()"></td>
                                                     <td><input type="submit" name="submit"
-                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.MeasurementsAction.continueBtn"/>"/>
+                                                               value="<fmt:message key="encounter.oscarMeasurements.MeasurementsAction.continueBtn"/>"/>
                                                     </td>
                                                 </tr>
                                             </table>

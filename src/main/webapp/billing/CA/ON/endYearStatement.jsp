@@ -25,6 +25,7 @@
 --%>
 <%@ page language="java" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri='jakarta.tags.core' prefix="c" %>
 <%@ page import="java.util.List" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -32,7 +33,7 @@
 
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.endYearStatement"/></title>
+    <title><fmt:message key="admin.admin.endYearStatement"/></title>
 
     <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
@@ -108,7 +109,7 @@
     }
 %>
 <body>
-<h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.endYearStatement"/></h3>
+<h3><fmt:message key="admin.admin.endYearStatement"/></h3>
 
 <div class="container-fluid">
 

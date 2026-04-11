@@ -30,9 +30,10 @@
 --%>
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/></title>
+    <title><fmt:message key="global.btnClose"/></title>
 
     <link href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 </head>
@@ -44,12 +45,12 @@
 
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.resources"/></h3>
+                    <h3 class="card-title"><fmt:message key="global.resources"/></h3>
                 </div>
                 <div class="card-body">
                     <%=session.getAttribute("oauthMessage") %>
                     <%session.removeAttribute("oauthMessage"); %>
-                    <a class="float-end" onclick="window.close()"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/></a>
+                    <a class="float-end" onclick="window.close()"><fmt:message key="global.btnClose"/></a>
                 </div>
             </div>
 

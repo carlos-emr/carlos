@@ -32,13 +32,14 @@
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ page import="java.lang.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.*" %>
 
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Measurements.msgProcessMeasurementsSubmission"/></title>
+        <title><fmt:message key="encounter.Measurements.msgProcessMeasurementsSubmission"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     </head>
 

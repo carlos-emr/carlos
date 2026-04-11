@@ -30,6 +30,7 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
@@ -109,7 +110,7 @@ function fallbackCopy(text) {
     <% if (CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
     <div>
         <a href="javascript:void(0);" onClick="popupPage(600,175,'Calculators','<c:out
-                value="${ctx}"/>/commons/omdDiseaseList.jsp?sex=<%=bean.patientSex%>&age=<%=demographic.getAge()%>'); return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Header.OntMD"/></a>
+                value="${ctx}"/>/commons/omdDiseaseList.jsp?sex=<%=bean.patientSex%>&age=<%=demographic.getAge()%>'); return false;"><fmt:message key="encounter.Header.OntMD"/></a>
     </div>
     <%}%>
 

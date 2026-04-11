@@ -47,10 +47,10 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
-<fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE html>
 <html>

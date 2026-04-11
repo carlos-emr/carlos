@@ -40,6 +40,7 @@
     @since 2026-04-04
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="java.net.URLEncoder" %>
@@ -63,7 +64,6 @@
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
         <tr bgcolor="#486ebd">
             <th align="CENTER"><font face="Helvetica" color="#FFFFFF">
-                <fmt:setBundle basename="oscarResources"/>
                 <fmt:message key="demographic.demographicaddarecord.title"/></font></th>
         </tr>
     </table>
@@ -103,12 +103,12 @@
 
     <%-- HIN duplicate result --%>
     <% if (hinDuplicateDemo != null) { %>
-    <span style="color:red;"><fmt:setBundle basename="oscarResources"/>
+    <span style="color:red;">
         <fmt:message key="demographic.demographicaddarecord.msgDuplicatedHINError"/></span><br>
     <fmt:message key="demographic.msgDuplicatedHINDetail"/>
     <a href="DemographicEdit.do?demographic_no=<%= Encode.forUriComponent(hinDuplicateDemo.getDemographicNo().toString()) %>">
         <%= Encode.forHtml(hinDuplicateDemo.getLastName() + ", " + hinDuplicateDemo.getFirstName()) %></a><br><br>
-    <a href="#" onClick="history.go(-1);return false;"><b>&lt;-<fmt:setBundle basename="oscarResources"/>
+    <a href="#" onClick="history.go(-1);return false;"><b>&lt;-
         <fmt:message key="global.btnBack"/></b></a>
     <% } else { %>
 
@@ -128,17 +128,15 @@
 
     <%-- Success message and links --%>
     <p>
-        <h2><fmt:setBundle basename="oscarResources"/>
+        <h2>
             <fmt:message key="demographic.demographicaddarecord.msgSuccessful"/></h2>
 
         <a href="DemographicEdit.do?demographic_no=<%=Encode.forUriComponent(dem != null ? dem : "")%>">
-            <fmt:setBundle basename="oscarResources"/>
             <fmt:message key="demographic.demographicaddarecord.goToRecord"/></a>
 
         <caisi:isModuleLoad moduleName="caisi">
             <br/>
             <a href="<%= request.getContextPath() %>/PMmodule/ClientManager.do?id=<%=Encode.forUriComponent(dem != null ? dem : "")%>">
-                <fmt:setBundle basename="oscarResources"/>
                 <fmt:message key="demographic.demographicaddarecord.goToCaisiRecord"/></a>
             (<a href="#" onclick="popup(700,1027,'DemographicEdit.do?demographic_no=<%=Encode.forUriComponent(dem != null ? dem : "")%>')">New Window</a>)
         </caisi:isModuleLoad>

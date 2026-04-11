@@ -92,6 +92,7 @@
 <%@page import="io.github.carlos_emr.carlos.managers.PreventionManager" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
@@ -199,7 +200,7 @@
 
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.index.oscarpreventiontitre"/></title>
+        <title><fmt:message key="oscarprevention.index.oscarpreventiontitre"/></title>
         <!--I18n-->
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
@@ -630,7 +631,7 @@
     %>
     <table class="MainTable" id="scrollNumber1">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumnx"><h3><i class="fa-solid fa-syringe"></i><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.index.oscarpreventiontitre"/></h3></td>
+            <td class="MainTableTopRowLeftColumnx"><h3><i class="fa-solid fa-syringe"></i><fmt:message key="oscarprevention.index.oscarpreventiontitre"/></h3></td>
             <td class="MainTableTopRowRightColumnx">
                 <table class="TopStatusBarx">
                     <tr>
@@ -769,7 +770,7 @@
                                             value="yes">
                     <a href="javascript: function myFunction() {return false; }"
                        onclick="javascript:popup(700,960,'<%=request.getContextPath()%>/encounter/immunization/initSchedule.do?demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>','oldImms')">Old
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="global.immunizations"/></a>
+                        <fmt:message key="global.immunizations"/></a>
                     <br>
                 </oscar:oscarPropertiesCheck></td>
 

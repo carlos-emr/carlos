@@ -25,6 +25,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
@@ -108,13 +109,13 @@
                                        value="add_record">
                                 <input type="hidden" name="displaymode" value="Add Record">
                                 <input type="submit" name="submit"
-                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.btnAddRecord"/>">
+                                       value="<fmt:message key="demographic.demographicaddrecordhtm.btnAddRecord"/>">
                                 <input type="button" name="Button"
-                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.btnSwipeCard"/>"
+                                       value="<fmt:message key="demographic.demographicaddrecordhtm.btnSwipeCard"/>"
                                        onclick="window.open('zadddemographicswipe.htm','', 'scrollbars=yes,resizable=yes,width=600,height=300')"
                                        ;>
                                 <input type="button" name="Button"
-                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.btnCancel"/>"
+                                       value="<fmt:message key="demographic.demographicaddrecordhtm.btnCancel"/>"
                                        onclick=self.close();>
                             </td>
                         </tr>
@@ -143,14 +144,14 @@
                         %>
 
                         <tr id="rowWithLastName">
-                            <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formLastName"/><span
+                            <td align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formLastName"/><span
                                     style="color:red;">:</span> </b></td>
                             <td id="lastName" align="left">
                                 <input type="text" name="last_name" id="last_name" onBlur="upCaseCtrl(this)"
                                        value="<%=Encode.forHtmlAttribute(lastNameVal)%>">
 
                             </td>
-                            <td align="right" id="firstNameLbl"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formFirstName"/><span
+                            <td align="right" id="firstNameLbl"><b><fmt:message key="demographic.demographicaddrecordhtm.formFirstName"/><span
                                     style="color:red;">:</span> </b></td>
                             <td id="firstName" align="left">
                                 <input type="text" name="first_name" id="first_name" onBlur="upCaseCtrl(this)"
@@ -158,67 +159,67 @@
                             </td>
                         </tr>
                         <tr>
-                            <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formMiddleNames"/>: </b></td>
+                            <td align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formMiddleNames"/>: </b></td>
                             <td id="middleName" align="left">
                                 <input type="text" name="middleNames" id="middleNames" onBlur="upCaseCtrl(this)"
                                        value="">
 
                             </td>
-                            <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formNameUsed"/>:
+                            <td align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formNameUsed"/>:
                             </b></td>
                             <td align="left">
                                 <input type="text" name="nameUsed" size="30" value="" onBlur="upCaseCtrl(this)"/>
                             </td>
                         </tr>
                         <tr>
-                            <td id="languageLbl" align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgDemoLanguage"/><font
+                            <td id="languageLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.msgDemoLanguage"/><font
                                     color="red">:</font></b></td>
                             <td id="languageCell" align="left">
                                 <select id="official_lang" name="official_lang">
                                     <option value="English" <%= vLocale.getLanguage().equals("en") ? " selected" : "" %>>
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceaddrecordhtm.msgEnglish"/></option>
+                                        <fmt:message key="demographic.demographiceaddrecordhtm.msgEnglish"/></option>
                                     <option value="French"  <%= vLocale.getLanguage().equals("fr") ? " selected" : "" %>>
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceaddrecordhtm.msgFrench"/></option>
+                                        <fmt:message key="demographic.demographiceaddrecordhtm.msgFrench"/></option>
                                 </select>
                             </td>
-                            <td id="titleLbl" align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgDemoTitle"/><font
+                            <td id="titleLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.msgDemoTitle"/><font
                                     color="red">:</font></b></td>
                             <td id="titleCell" align="left">
                                 <select id="title" name="title" onchange="checkTitleSex(value);">
-                                    <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgNotSet"/></option>
-                                    <option value="DR"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgDr"/></option>
-                                    <option value="MS"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgMs"/></option>
-                                    <option value="MISS"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgMiss"/></option>
-                                    <option value="MRS"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgMrs"/></option>
-                                    <option value="MR"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgMr"/></option>
-                                    <option value="MSSR"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgMssr"/></option>
-                                    <option value="PROF"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgProf"/></option>
-                                    <option value="REEVE"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgReeve"/></option>
-                                    <option value="REV"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgRev"/></option>
-                                    <option value="RT_HON"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgRtHon"/></option>
-                                    <option value="SEN"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgSen"/></option>
-                                    <option value="SGT"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgSgt"/></option>
-                                    <option value="SR"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgSr"/></option>
+                                    <option value=""><fmt:message key="demographic.demographicaddrecordhtm.msgNotSet"/></option>
+                                    <option value="DR"><fmt:message key="demographic.demographicaddrecordhtm.msgDr"/></option>
+                                    <option value="MS"><fmt:message key="demographic.demographicaddrecordhtm.msgMs"/></option>
+                                    <option value="MISS"><fmt:message key="demographic.demographicaddrecordhtm.msgMiss"/></option>
+                                    <option value="MRS"><fmt:message key="demographic.demographicaddrecordhtm.msgMrs"/></option>
+                                    <option value="MR"><fmt:message key="demographic.demographicaddrecordhtm.msgMr"/></option>
+                                    <option value="MSSR"><fmt:message key="demographic.demographicaddrecordhtm.msgMssr"/></option>
+                                    <option value="PROF"><fmt:message key="demographic.demographicaddrecordhtm.msgProf"/></option>
+                                    <option value="REEVE"><fmt:message key="demographic.demographicaddrecordhtm.msgReeve"/></option>
+                                    <option value="REV"><fmt:message key="demographic.demographicaddrecordhtm.msgRev"/></option>
+                                    <option value="RT_HON"><fmt:message key="demographic.demographicaddrecordhtm.msgRtHon"/></option>
+                                    <option value="SEN"><fmt:message key="demographic.demographicaddrecordhtm.msgSen"/></option>
+                                    <option value="SGT"><fmt:message key="demographic.demographicaddrecordhtm.msgSgt"/></option>
+                                    <option value="SR"><fmt:message key="demographic.demographicaddrecordhtm.msgSr"/></option>
 
-                                    <option value="MADAM"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgMadam"/></option>
-                                    <option value="MME"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgMme"/></option>
-                                    <option value="MLLE"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgMlle"/></option>
-                                    <option value="MAJOR"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgMajor"/></option>
-                                    <option value="MAYOR"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgMayor"/></option>
+                                    <option value="MADAM"><fmt:message key="demographic.demographicaddrecordhtm.msgMadam"/></option>
+                                    <option value="MME"><fmt:message key="demographic.demographicaddrecordhtm.msgMme"/></option>
+                                    <option value="MLLE"><fmt:message key="demographic.demographicaddrecordhtm.msgMlle"/></option>
+                                    <option value="MAJOR"><fmt:message key="demographic.demographicaddrecordhtm.msgMajor"/></option>
+                                    <option value="MAYOR"><fmt:message key="demographic.demographicaddrecordhtm.msgMayor"/></option>
 
-                                    <option value="BRO"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgBro"/></option>
-                                    <option value="CAPT"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgCapt"/></option>
-                                    <option value="Chief"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgChief"/></option>
-                                    <option value="Cst"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgCst"/></option>
-                                    <option value="Corp"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgCorp"/></option>
-                                    <option value="FR"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgFr"/></option>
-                                    <option value="HON"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgHon"/></option>
-                                    <option value="LT"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgLt"/></option>
+                                    <option value="BRO"><fmt:message key="demographic.demographicaddrecordhtm.msgBro"/></option>
+                                    <option value="CAPT"><fmt:message key="demographic.demographicaddrecordhtm.msgCapt"/></option>
+                                    <option value="Chief"><fmt:message key="demographic.demographicaddrecordhtm.msgChief"/></option>
+                                    <option value="Cst"><fmt:message key="demographic.demographicaddrecordhtm.msgCst"/></option>
+                                    <option value="Corp"><fmt:message key="demographic.demographicaddrecordhtm.msgCorp"/></option>
+                                    <option value="FR"><fmt:message key="demographic.demographicaddrecordhtm.msgFr"/></option>
+                                    <option value="HON"><fmt:message key="demographic.demographicaddrecordhtm.msgHon"/></option>
+                                    <option value="LT"><fmt:message key="demographic.demographicaddrecordhtm.msgLt"/></option>
                                 </select>
                             </td>
                         </tr>
                         <tr>
-                            <td id="spokenLbl" align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgSpoken"/>:</b></td>
+                            <td id="spokenLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.msgSpoken"/>:</b></td>
                             <td id="spokenCell"><select name="spoken_lang">
                                 <%for (String sp_lang : Util.spokenLangProperties.getLangSorted()) { %>
                                 <option value="<%=sp_lang %>"><%=sp_lang %>
@@ -231,11 +232,11 @@
                         </tr>
 
                         <tr valign="top">
-                            <td id="addrLbl" align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formAddress"/>: </b></td>
+                            <td id="addrLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formAddress"/>: </b></td>
                             <td id="addressCell" align="left"><input id="address" type="text" name="address" size=40/>
 
                             </td>
-                            <td id="cityLbl" align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formCity"/>: </b></td>
+                            <td id="cityLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formCity"/>: </b></td>
                             <td id="cityCell" align="left"><input type="text" id="city" name="city"
                                                                   value="<%=defaultCity %>"/></td>
                         </tr>
@@ -243,7 +244,7 @@
                         <tr valign="top">
                             <td id="provLbl" align="right"><b>
                                 <% if (oscarProps.getProperty("demographicLabelProvince") == null) { %>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formprovince"/>
+                                <fmt:message key="demographic.demographicaddrecordhtm.formprovince"/>
                                 <% } else {
                                     out.print(oscarProps.getProperty("demographicLabelProvince"));
                                 } %> : </b></td>
@@ -481,7 +482,7 @@
                             </td>
                             <td class="postalLbl" align="right">
                                 <b><% if (oscarProps.getProperty("demographicLabelPostal") == null) { %>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formPostal"/>
+                                    <fmt:message key="demographic.demographicaddrecordhtm.formPostal"/>
                                     <% if ("false".equals(CarlosProperties.getInstance().getProperty("skip_postal_code_validation", "false"))) { %>
                                     <span style="color:red">*</span>
                                     <% } %>
@@ -495,12 +496,12 @@
 
 
                         <tr valign="top">
-                            <td class="addrLbl" align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formResidentialAddress"/>: </b></td>
+                            <td class="addrLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formResidentialAddress"/>: </b></td>
                             <td class="addressCell" align="left"><input id="residentialAddress" type="text"
                                                                         name="residentialAddress" size=40/>
 
                             </td>
-                            <td class="cityLbl" align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formResidentialCity"/>: </b></td>
+                            <td class="cityLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formResidentialCity"/>: </b></td>
                             <td class="cityCell" align="left"><input type="text" id="residentialCity"
                                                                      name="residentialCity"
                                                                      value=""/></td>
@@ -508,7 +509,7 @@
 
                         <tr valign="top">
                             <td class="provLbl" align="right"><b>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formResidentialProvince"/> : </b>
+                                <fmt:message key="demographic.demographicaddrecordhtm.formResidentialProvince"/> : </b>
                             </td>
                             <td class="provCell" align="left">
                                 <%
@@ -743,7 +744,7 @@
                                 <% } %>
                             </td>
                             <td id="postalLbl" align="right"><b>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formResidentialPostal"/>
+                                <fmt:message key="demographic.demographicaddrecordhtm.formResidentialPostal"/>
                                 : </b></td>
                             <td id="postalCell" align="left"><input type="text" id="residentialPostal"
                                                                     name="residentialPostal"
@@ -751,37 +752,37 @@
                         </tr>
 
                         <tr valign="top">
-                            <td id="phoneLbl" align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formPhoneHome"/>: </b></td>
+                            <td id="phoneLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formPhoneHome"/>: </b></td>
                             <td id="phoneCell" align="left"><input type="text" id="phone" name="phone"
                                                                    onBlur="formatPhoneNum()"
                                                                    value="<%=props.getProperty("phoneprefix", "905-")%>">
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.Ext"/>:<input
+                                <fmt:message key="demographic.demographicaddrecordhtm.Ext"/>:<input
                                         type="text" id="hPhoneExt" name="hPhoneExt" value="" size="4"/></td>
-                            <td id="phoneWorkLbl" align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formPhoneWork"/>:</b></td>
+                            <td id="phoneWorkLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formPhoneWork"/>:</b></td>
                             <td id="phoneWorkCell" align="left"><input type="text" name="phone2"
-                                                                       onBlur="formatPhoneNum()" value=""> <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.Ext"/>:<input type="text"
+                                                                       onBlur="formatPhoneNum()" value=""> <fmt:message key="demographic.demographicaddrecordhtm.Ext"/>:<input type="text"
                                                                                            name="wPhoneExt" value=""
                                                                                            style="display: inline"
                                                                                            size="4"/></td>
                         </tr>
                         <tr valign="top">
-                            <td id="phoneCellLbl" align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formPhoneCell"/>: </b></td>
+                            <td id="phoneCellLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formPhoneCell"/>: </b></td>
                             <td id="phoneCellCell" align="left"><input type="text" name="demo_cell"
                                                                        onBlur="formatPhoneNum()"></td>
-                            <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formPhoneComment"/>: </b></td>
+                            <td align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formPhoneComment"/>: </b></td>
                             <td align="left" colspan="3">
                                 <textarea rows="2" cols="30" name="phoneComment"></textarea>
                             </td>
                         </tr>
                         <tr valign="top">
-                            <td id="newsletterLbl" align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formNewsLetter"/>: </b></td>
+                            <td id="newsletterLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formNewsLetter"/>: </b></td>
                             <td id="newsletterCell" align="left"><select name="newsletter">
-                                <option value="Unknown" selected><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formNewsLetter.optUnknown"/></option>
-                                <option value="No"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formNewsLetter.optNo"/></option>
-                                <option value="Paper"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formNewsLetter.optPaper"/></option>
-                                <option value="Electronic"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formNewsLetter.optElectronic"/></option>
+                                <option value="Unknown" selected><fmt:message key="demographic.demographicaddrecordhtm.formNewsLetter.optUnknown"/></option>
+                                <option value="No"><fmt:message key="demographic.demographicaddrecordhtm.formNewsLetter.optNo"/></option>
+                                <option value="Paper"><fmt:message key="demographic.demographicaddrecordhtm.formNewsLetter.optPaper"/></option>
+                                <option value="Electronic"><fmt:message key="demographic.demographicaddrecordhtm.formNewsLetter.optElectronic"/></option>
                             </select></td>
-                            <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.aboriginal"/>: </b>
+                            <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.aboriginal"/>: </b>
                             </td>
                             <td align="left">
                                 <select name="aboriginal">
@@ -791,12 +792,12 @@
                                 </select>
                         </tr>
                         <tr valign="top">
-                            <td id="emailLbl" align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formEMail"/>: </b></td>
+                            <td id="emailLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formEMail"/>: </b></td>
                             <td id="emailCell" align="left"><input type="text" id="email" name="email" value="">
                             </td>
                         </tr>
                         <tr valign="top">
-                            <td id="dobLbl" align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formDOB"/><span
+                            <td id="dobLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formDOB"/><span
                                     style="color:red;">:</span></b></td>
                             <td id="dobTbl" align="left">
                                 <table>
@@ -860,14 +861,14 @@
                             </td>
 
                             <td style="text-align: right;">
-                                <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formPronouns"/></strong>
+                                <strong><fmt:message key="demographic.demographicaddrecordhtm.formPronouns"/></strong>
                             </td>
                             <td style="text-align: left;">
                                 <input type="text" id="patientPronouns" name="pronouns"/>
                             </td>
                         </tr>
                         <tr>
-                            <td align="right" id="genderLbl"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formSex"/><font
+                            <td align="right" id="genderLbl"><b><fmt:message key="demographic.demographicaddrecordhtm.formSex"/><font
                                     color="red">:</font></b></td>
 
                             <% // Determine if curUser has selected a default sex in preferences
@@ -893,7 +894,7 @@
                             </td>
 
                             <td style="text-align: right;">
-                                <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formGender"/></strong>
+                                <strong><fmt:message key="demographic.demographicaddrecordhtm.formGender"/></strong>
                             </td>
                             <td style="text-align: left;">
                                 <input type="text" id="patientGender" name="gender"/>
@@ -902,13 +903,13 @@
 
 
                         <tr valign="top">
-                            <td align="right" id="hinLbl"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formHIN"/>: </b></td>
+                            <td align="right" id="hinLbl"><b><fmt:message key="demographic.demographicaddrecordhtm.formHIN"/>: </b></td>
                             <td align="left" id="hinVer">
                                 <input type="text" name="hin" id="hin" onfocus="autoFillHin()">
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formVer"/>:
+                                <fmt:message key="demographic.demographicaddrecordhtm.formVer"/>:
                                 <input type="text" id="ver" name="ver" value="" onBlur="upCaseCtrl(this)">
                             </td>
-                            <td id="effDateLbl" align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formEFFDate"/>: </b></td>
+                            <td id="effDateLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formEFFDate"/>: </b></td>
                             <td id="effDate" align="left">
                                 <input type="text" placeholder="yyyy" id="eff_date_year" name="eff_date_year"
                                        maxlength="4">
@@ -919,7 +920,7 @@
                             </td>
                         </tr>
                         <tr>
-                            <td id="hcTypeLbl" align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formHCType"/>: </b></td>
+                            <td id="hcTypeLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formHCType"/>: </b></td>
                             <td id="hcType">
 
                                 <select name="hc_type" id="hc_type">
@@ -1108,7 +1109,7 @@
                                 </select>
 
                             </td>
-                            <td id="renewDateLbl" align="right"><b>*<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formHCRenewDate"/>:</b></td>
+                            <td id="renewDateLbl" align="right"><b>*<fmt:message key="demographic.demographiceditdemographic.formHCRenewDate"/>:</b></td>
                             <td id="renewDate" align="left"><input type="text" placeholder="yyyy"
                                                                    id="hc_renew_date_year" name="hc_renew_date_year"
                                                                    size="4" maxlength="4" value="">
@@ -1120,11 +1121,11 @@
                         </tr>
                         <tr>
                             <td id="countryLbl" align="right">
-                                <b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgCountryOfOrigin"/>:</b>
+                                <b><fmt:message key="demographic.demographicaddrecordhtm.msgCountryOfOrigin"/>:</b>
                             </td>
                             <td id="countryCell">
                                 <select id="countryOfOrigin" name="countryOfOrigin">
-                                    <option value="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgNotSet"/></option>
+                                    <option value="-1"><fmt:message key="demographic.demographicaddrecordhtm.msgNotSet"/></option>
                                     <%for (CountryCode cc : countryList) { %>
                                     <option value="<%=cc.getCountryId()%>"><%=cc.getCountryName() %>
                                     </option>
@@ -1171,13 +1172,13 @@
                                 </jsp:include>
                             </oscar:oscarPropertiesCheck>
                                 <%-- END TOGGLE FIRST NATIONS MODULE --%>
-                            <td id="sinNoLbl" align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgSIN"/>:</b></td>
+                            <td id="sinNoLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.msgSIN"/>:</b></td>
                             <td id="sinNoCell" align="left">
                                 <input type="text" name="sin">
                             </td>
 
 
-                            <td id="cytologyLbl" align="right"><b> <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.cytolNum"/>:</b></td>
+                            <td id="cytologyLbl" align="right"><b> <fmt:message key="demographic.demographicaddrecordhtm.cytolNum"/>:</b></td>
                             <td id="cytologyCell" align="left">
                                 <input type="text" name="cytolNum">
 

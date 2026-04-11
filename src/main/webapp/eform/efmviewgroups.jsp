@@ -34,6 +34,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -74,9 +75,9 @@
     <input type="hidden" name="appointment" value="<%=Encode.forHtmlAttribute(appointment)%>">
     <input type="hidden" name="parentAjaxId" value="<%= Encode.forHtmlAttribute(parentAjaxId) %>">
     <div class="grouplist">
-        <div class="grouplistHeader"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgViewGroup"/>:</div>
+        <div class="grouplistHeader"><fmt:message key="eform.showmyform.msgViewGroup"/>:</div>
         <ul class="grouplist">
-            <li><a href="#" onclick="document.forms['groupselect'].submit()"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgShowAll"/></b></a></li>
+            <li><a href="#" onclick="document.forms['groupselect'].submit()"><b><fmt:message key="eform.showmyform.msgShowAll"/></b></a></li>
             <%
                 for (int i = 0; i < groups.size(); i++) {
                     String selected = "";
@@ -94,6 +95,6 @@
                            objectName="_admin,_admin.eform" rights="r" reverse="<%=false%>">
             <a href="#"
                onclick="popup(600, 1200, '<%= request.getContextPath() %>/administration/?show=Forms&load=Groups', 'editGroups')"
-               style="color: #835921;"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgEditGroups"/></a>
+               style="color: #835921;"><fmt:message key="eform.showmyform.msgEditGroups"/></a>
         </security:oscarSec></div>
 </form>

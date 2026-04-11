@@ -38,6 +38,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
@@ -246,7 +247,7 @@
         <input type="hidden" name="addIssue" value="null"/>
         <input type="hidden" name="deleteId" value="0"/>
 
-        <b><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.clientname"/>
+        <b><fmt:message key="casemanagementEntry.clientname"/>
             <I>
                 <c:if test="${not empty requestScope.demoName}">
                     <c:out value="${requestScope.demoName}"/>
@@ -277,18 +278,18 @@
             </I></b>
         <br><br>
 
-        <b><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.issueassociationview"/></b>
+        <b><fmt:message key="casemanagementEntry.issueassociationview"/></b>
 
         <table width="90%" border="0" cellpadding="0" cellspacing="1"
                bgcolor="#C0C0C0">
             <tr class="title">
                 <td></td>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.Issue"/></td>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.Acute"/></td>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.Certain"/></td>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.Major"/></td>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.Resolved"/></td>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.Type"/></td>
+                <td><fmt:message key="casemanagementEntry.Issue"/></td>
+                <td><fmt:message key="casemanagementEntry.Acute"/></td>
+                <td><fmt:message key="casemanagementEntry.Certain"/></td>
+                <td><fmt:message key="casemanagementEntry.Major"/></td>
+                <td><fmt:message key="casemanagementEntry.Resolved"/></td>
+                <td><fmt:message key="casemanagementEntry.Type"/></td>
                 <td></td>
             </tr>
 
@@ -354,7 +355,6 @@
                     </button>
                 </c:if>
                 <c:if test="${cbb.issueDisplay.location ne 'local'}">
-                    <fmt:setBundle basename="oscarResources" />
                     <fmt:message key="casemanagementEntry.activecommunityissue" />
                 </c:if>
             </td>
@@ -384,9 +384,9 @@
             <input type="submit" value="add new issue" onclick="this.form.method.value='addNewIssue';" />
         </security:oscarSec>
 
-        <p><b><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.progressnoteentryview"/> </b></p>
+        <p><b><fmt:message key="casemanagementEntry.progressnoteentryview"/> </b></p>
         <%if ("true".equalsIgnoreCase((String) request.getAttribute("change_flag"))) {%>
-        <span id="spanMsg" style="color:red"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.notenotsavedyet"/></span>
+        <span id="spanMsg" style="color:red"><fmt:message key="casemanagementEntry.notenotsavedyet"/></span>
         <%} else {%>
         <span id="spanMsg" style="color:blue">
             <c:if test="${not empty casemgmt}">
@@ -410,23 +410,23 @@
             </tr>
 
             <tr>
-                <td class="fieldTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.encountertype"/></td>
+                <td class="fieldTitle"><fmt:message key="casemanagementEntry.encountertype"/></td>
                 <td class="fieldValue"><select
                         name="caseNote.encounter_type" onchange="setChangeFlag(true);">
                     <option value="">&nbsp;</option>
-                    <option value="face to face encounter with client"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.facetofaceencounterwithclient"/></option>
-                    <option value="telephone encounter with client"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.telephoneencounterwithclient"/></option>
-                    <option value="encounter without client"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.encounterwithoutclient"/></option>
+                    <option value="face to face encounter with client"><fmt:message key="casemanagementEntry.facetofaceencounterwithclient"/></option>
+                    <option value="telephone encounter with client"><fmt:message key="casemanagementEntry.telephoneencounterwithclient"/></option>
+                    <option value="encounter without client"><fmt:message key="casemanagementEntry.encounterwithoutclient"/></option>
                 </select></td>
             </tr>
 
             <tr>
-                <td class="fieldTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.Sign"/></td>
+                <td class="fieldTitle"><fmt:message key="casemanagementEntry.Sign"/></td>
                 <td class="fieldValue"><input type="checkbox" name="sign" onchange="setChangeFlag(true);"/></td>
             </tr>
 
             <tr>
-                <td class="fieldTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.includecheckedissuesinnote"/></td>
+                <td class="fieldTitle"><fmt:message key="casemanagementEntry.includecheckedissuesinnote"/></td>
                 <td class="fieldValue"><input type="checkbox" name="includeIssue" onchange="setChangeFlag(true);"/></td>
             </tr>
 
@@ -437,7 +437,7 @@
                                               providerNo='<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>'
                                               demoNo='<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("demographicNo"))) %>' programId="<%=pId%>">
                         <tr>
-                            <td class="fieldTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.billing"/></td>
+                            <td class="fieldTitle"><fmt:message key="casemanagementEntry.billing"/></td>
 
                             <td class="fieldValue">
                                 ${e:forHtml(caseNote.billing_code)}
@@ -451,7 +451,7 @@
 
             <caisi:isModuleLoad moduleName="casemgmt.note.password.enabled">
                 <tr>
-                    <td class="fieldTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.password"/></td>
+                    <td class="fieldTitle"><fmt:message key="casemanagementEntry.password"/></td>
                     <td class="fieldValue"><input type="password" name="password" id="password"/></td>
                 </tr>
             </caisi:isModuleLoad>
@@ -473,7 +473,7 @@
 
 </security:oscarSec>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="u" reverse="true">
-    <b><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.encounterwithoutclient"/>You do not have permission to edit this note.</b>
+    <b><fmt:message key="casemanagementEntry.encounterwithoutclient"/>You do not have permission to edit this note.</b>
 </security:oscarSec>
 </body>
 </html>
