@@ -184,10 +184,10 @@ public class SubmitLabByForm2Action extends ActionSupport {
         if (hl7 != null) {
             int firstSep = hl7.indexOf('\r');
             if (firstSep <= 0) {
-                firstSep = hl7.indexOf('\n'); // NOSONAR javasecurity:S5145 — tainted data sanitized before reaching log statements
+                firstSep = hl7.indexOf('\n');
             }
             String mshSegment = firstSep > 0 ? hl7.substring(0, firstSep) : "[MSH extraction failed]";
-            logger.info("HL7 generated (length={}, MSH={})", hl7.length(), LogSanitizer.sanitize(mshSegment, 400));
+            logger.info("HL7 generated (length={}, MSH={})", hl7.length(), LogSanitizer.sanitize(mshSegment, 400)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         } else {
             logger.error("HL7 generation returned null for lab submission");
             addActionError("Failed to generate lab result. Please verify all required fields and try again.");
@@ -206,12 +206,12 @@ public class SubmitLabByForm2Action extends ActionSupport {
         try (FileInputStream fis = new FileInputStream(file)) {
             checkFileUploadedSuccessfully = FileUploadCheck.addFile(file.getName(), fis, providerNo);
         }
- // NOSONAR javasecurity:S5145 — tainted data sanitized before reaching log statements
+
         String outcome = null;
 
         if (checkFileUploadedSuccessfully != FileUploadCheck.UNSUCCESSFUL_SAVE) {
-            logger.info("filePath {}", LogSanitizer.sanitize(filePath));
-            logger.info("Type :{}", LogSanitizer.sanitize(labName));
+            logger.info("filePath {}", LogSanitizer.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.info("Type :{}", LogSanitizer.sanitize(labName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             MessageHandler msgHandler = HandlerClassFactory.getHandler(labName);
             if (msgHandler != null) {
                 logger.info("MESSAGE HANDLER {}", msgHandler.getClass().getName());
@@ -237,21 +237,21 @@ public class SubmitLabByForm2Action extends ActionSupport {
 	 * @param lab the Lab model containing patient and test data to include in the message
 	 * @return the generated HL7 message as a String
 	 */
-	private String generateHL7(Lab lab) { // NOSONAR javasecurity:S5145 — tainted data sanitized before reaching log statements
+	private String generateHL7(Lab lab) {
 		// Generate appropriate HL7 format based on lab type
 		String labType = lab.getLabName();
 		labType = labType == null ? "" : labType.trim().toUpperCase();
-		logger.info("Generating HL7 for lab type: [{}]", LogSanitizer.sanitize(labType));
+		logger.info("Generating HL7 for lab type: [{}]", LogSanitizer.sanitize(labType)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 
 		switch (labType) {
 			case "MDS":
 				return MDSLabHL7Generator.generate(lab);
-			case "GDML": // NOSONAR javasecurity:S5145 — tainted data sanitized before reaching log statements
+			case "GDML":
 				return GDMLLabHL7Generator.generate(lab);
 			case "CML":
 				return CMLLabHL7Generator.generate(lab);
 			default:
-				logger.error("Unsupported lab type: [{}]; defaulting to CML.", LogSanitizer.sanitize(labType));
+				logger.error("Unsupported lab type: [{}]; defaulting to CML.", LogSanitizer.sanitize(labType)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 				return CMLLabHL7Generator.generate(lab);
 		}
 	}

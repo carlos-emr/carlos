@@ -177,7 +177,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
         if (!result.isBlocked()) {
             return false;
         }
-        logger.warn("Cannot {} measurement {} - blocked at {} level", LogSanitizer.sanitize(action), LogSanitizer.sanitize(measurement), result.getBlockingLevel()); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+        logger.warn("Cannot {} measurement {} - blocked at {} level", LogSanitizer.sanitize(action), LogSanitizer.sanitize(measurement), LogSanitizer.sanitize(result.getBlockingLevel())); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         request.setAttribute("errorMessage",
             "Cannot " + Encode.forHtml(action) + " measurement: blocked at " + Encode.forHtml(result.getBlockingLevel()) + " level");
         setResponseAttributes(ctx);

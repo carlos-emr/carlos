@@ -105,7 +105,7 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
                     log.warn("WLSetupDisplayWaitingList2Action/execute(): invalid waitingListId '{}': must be a positive integer", LogSanitizer.sanitize(rawWaitingListId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 }
             } catch (NumberFormatException e) {
-                log.warn("WLSetupDisplayWaitingList2Action/execute(): invalid waitingListId '{}': not a valid integer", LogSanitizer.sanitize(rawWaitingListId));
+                log.warn("WLSetupDisplayWaitingList2Action/execute(): invalid waitingListId '{}': not a valid integer", LogSanitizer.sanitize(rawWaitingListId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             }
         }
 

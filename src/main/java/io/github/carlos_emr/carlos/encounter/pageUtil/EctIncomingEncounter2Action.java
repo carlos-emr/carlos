@@ -170,20 +170,20 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             // no date from search screen-keep old date
             // bean.date="";
             bean.appointmentNo = "0";
-            bean.check = "myCheck"; // NOSONAR javasecurity:S5145 — tainted data sanitized before reaching log statements
+            bean.check = "myCheck";
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
             // demographicNo validated as numeric at method entry; other bean fields are unsanitized — consuming JSPs MUST use OWASP encoding
             request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request
-        } else { // NOSONAR javasecurity:S5145 — tainted data sanitized before reaching log statements
+        } else {
             if ("yes".equals(request.getParameter("PEAttach"))) {
                 String selectClientmo = request.getParameter("selectId");
                 String lastId = request.getParameter("noteId");
                 if (selectClientmo == null || !selectClientmo.matches("\\d{1,9}")) {
-                    log.warn("Invalid selectId for PEAttach: {}", LogSanitizer.sanitize(selectClientmo));
+                    log.warn("Invalid selectId for PEAttach: {}", LogSanitizer.sanitize(selectClientmo)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     return "failure";
                 }
                 if (lastId == null || !lastId.matches("\\d{1,9}")) {
-                    log.warn("Invalid noteId for PEAttach: {}", LogSanitizer.sanitize(lastId));
+                    log.warn("Invalid noteId for PEAttach: {}", LogSanitizer.sanitize(lastId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     return "failure";
                 }
                 CaseManagementNote note = caseManagementNoteDao.getNote(Long.parseLong(lastId));
