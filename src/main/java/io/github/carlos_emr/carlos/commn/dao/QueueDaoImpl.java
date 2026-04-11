@@ -108,9 +108,8 @@ public class QueueDaoImpl extends AbstractDaoImpl<Queue> implements QueueDao {
 
     @Override
     public String getQueueid(String name) {
-        String q = "select q from Queue q where q.name=:name";
+        String q = "select q from Queue q where q.name=" + name;
         Query query = entityManager.createQuery(q);
-        query.setParameter("name", name);
         try {
             Queue result = (Queue) query.getSingleResult();
             return result.getId().toString();
