@@ -39,7 +39,7 @@
     <%response.sendRedirect(request.getContextPath() + "/logout.jsp");%>
 </security:oscarSec>
 
-<%@ page import="java.net.URLDecoder, io.github.carlos_emr.carlos.form.data.*" %>
+<%@ page import="java.net.URLDecoder, java.net.URLEncoder, io.github.carlos_emr.carlos.form.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.form.data.FrmData" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LogSanitizer" %>
 
@@ -49,8 +49,52 @@
     if (true) {
         out.clearBuffer();
         //forward to the current specified form, e.g. contextPath/form/formar.jsp?demographic_no=
-        String strFrm = URLDecoder.decode(request.getParameter("formname"), "UTF-8");
-        String[] formPath = (new FrmData()).getShortcutFormValue(request.getParameter("demographic_no"), strFrm);
+        String rawFormName = request.getParameter("formname");
+        String strFrm = rawFormName == null ? null : URLDecoder.decode(rawFormName, "UTF-8");
+
+        String demoNo = request.getParameter("demographic_no");
+        if (demoNo != null && !demoNo.matches("\\d+")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return;
+        }
+        final String validatedDemoNo = demoNo;
+        final jakarta.servlet.http.HttpServletRequest originalRequest = request;
+        request = new jakarta.servlet.http.HttpServletRequestWrapper(originalRequest) {
+            @Override
+            public String getParameter(String name) {
+                if ("demographic_no".equals(name)) {
+                    return validatedDemoNo;
+                }
+                return super.getParameter(name);
+            }
+
+            @Override
+            public String[] getParameterValues(String name) {
+                if ("demographic_no".equals(name)) {
+                    return validatedDemoNo != null ? new String[] { validatedDemoNo } : super.getParameterValues(name);
+                }
+                return super.getParameterValues(name);
+            }
+
+            @Override
+            public java.util.Map<String, String[]> getParameterMap() {
+                if (validatedDemoNo == null) {
+                    return super.getParameterMap();
+                }
+                java.util.Map<String, String[]> parameterMap =
+                        new java.util.HashMap<String, String[]>(super.getParameterMap());
+                parameterMap.put("demographic_no", new String[] { validatedDemoNo });
+                return java.util.Collections.unmodifiableMap(parameterMap);
+            }
+        };
+
+        String formId = request.getParameter("formId");
+        if (formId != null && !formId.matches("\\d+")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return;
+        }
+
+        String[] formPath = (new FrmData()).getShortcutFormValue(demoNo, strFrm); // deepcode ignore SqlInjection: demoNo validated as digits-only (line 56); formName used in parameterized DAO query (EncounterFormDao.findByFormName); table name from DB validated by regex [a-zA-Z][a-zA-Z0-9_]* at FrmData.java:214
         formPath[0] = formPath[0].trim();
 
         // Normalize the deprecated "../" prefix used in older DB entries
@@ -92,11 +136,15 @@
         }
 
         String appointmentNo = request.getParameter("appointmentNo");
+        if (appointmentNo != null && !appointmentNo.matches("\\d+")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return;
+        }
 
         String nextPage = formPath[0] +
-                request.getParameter("demographic_no") +
+                demoNo +
                 ((appointmentNo != null) ? "&appointmentNo=" + appointmentNo : "") +
-                ((request.getParameter("formId") != null) ? "&formId=" + request.getParameter("formId") : "&formId=" + formPath[1]);
+                ((formId != null) ? "&formId=" + formId : "&formId=" + formPath[1]);
         MiscUtils.getLogger().info("Forwarding to page : {}", LogSanitizer.sanitize(nextPage));
         request.getRequestDispatcher(nextPage).include(request, response);
         return;

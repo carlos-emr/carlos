@@ -52,7 +52,9 @@
     EForm form = null;
     form = new EForm(fid, demographic_no);
     form.setProviderNo(provider_no);  //needs providers for the action
-    form.setAppointmentNo(request.getParameter("appointment"));
+    String appointmentParam = request.getParameter("appointment");
+    if (appointmentParam != null && !appointmentParam.matches("\\d+")) { appointmentParam = null; } // validate numeric to prevent SQL injection
+    form.setAppointmentNo(appointmentParam);
 //form.setApptProvider(request.getParameter("apptProvider"));
     for (String key : keys) {
         ap = EFormLoader.getAP(key);
