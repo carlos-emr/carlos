@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.PMmodule.dao;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -48,6 +49,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderFacility;
 import io.github.carlos_emr.carlos.commn.model.ProviderFacilityPK;
 import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -743,5 +745,51 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         }
 
         return providerNameMap;
+    }
+
+    // --- DTO projection methods ---
+
+    private static final String ACTIVE_PROVIDER_SUMMARIES_HQL =
+            "SELECT NEW io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO(p.ProviderNo, p.LastName, p.FirstName, p.Specialty, p.Status, p.Team) FROM Provider p WHERE p.Status = '1' AND p.ProviderNo NOT LIKE '-%' ORDER BY p.LastName, p.FirstName";
+
+    private static final String PROVIDER_SUMMARY_BY_ID_HQL =
+            "SELECT NEW io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO(p.ProviderNo, p.LastName, p.FirstName, p.Specialty, p.Status, p.Team) FROM Provider p WHERE p.ProviderNo = :providerNo";
+
+    private static final String PROVIDER_SUMMARIES_BY_IDS_HQL =
+            "SELECT NEW io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO(p.ProviderNo, p.LastName, p.FirstName, p.Specialty, p.Status, p.Team) FROM Provider p WHERE p.ProviderNo IN (:providerNumbers)";
+
+    @Override
+    public List<ProviderSummaryDTO> getActiveProviderSummaries() {
+        Query<ProviderSummaryDTO> query = currentSession().createQuery(
+                ACTIVE_PROVIDER_SUMMARIES_HQL, ProviderSummaryDTO.class);
+        return query.list();
+    }
+
+    @Override
+    public ProviderSummaryDTO getProviderSummary(String providerNo) {
+        if (providerNo == null || providerNo.isEmpty()) {
+            return null;
+        }
+        Query<ProviderSummaryDTO> query = currentSession().createQuery(
+                PROVIDER_SUMMARY_BY_ID_HQL, ProviderSummaryDTO.class);
+        query.setParameter("providerNo", providerNo);
+        query.setMaxResults(1);
+        List<ProviderSummaryDTO> results = query.list();
+        return results.isEmpty() ? null : results.get(0);
+    }
+
+    @Override
+    public Map<String, ProviderSummaryDTO> getProviderSummariesByIds(Collection<String> providerNumbers) {
+        Map<String, ProviderSummaryDTO> map = new HashMap<>();
+        if (providerNumbers == null || providerNumbers.isEmpty()) {
+            return map;
+        }
+        Query<ProviderSummaryDTO> query = currentSession().createQuery(
+                PROVIDER_SUMMARIES_BY_IDS_HQL, ProviderSummaryDTO.class);
+        query.setParameterList("providerNumbers", providerNumbers);
+        for (ProviderSummaryDTO dto : query.list()) {
+            map.put(dto.getProviderNo(), dto);
+        }
+        return map;
     }
 }
