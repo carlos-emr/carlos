@@ -29,7 +29,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.io.PrintWriter;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -50,6 +49,7 @@ import org.apache.logging.log4j.Logger;
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.carlos.form.FrmRecord;
@@ -73,8 +73,6 @@ import org.openpdf.text.pdf.PdfContentByte;
 import org.openpdf.text.pdf.PdfImportedPage;
 import org.openpdf.text.pdf.PdfReader;
 import org.openpdf.text.pdf.PdfWriter;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
-
 /**
  * Servlet that generates PDF renditions of standard medical forms (Rourke growth charts,
  * BCAR antenatal records, and other configurable clinical forms).
@@ -209,12 +207,19 @@ public class FrmPDFServlet extends HttpServlet {
             LogAction.addLogSynchronous(loggedInInfo, "FrmPDFServlet", "formID=" + req.getParameter("formId") + ",form_class=" + req.getParameter("form_class"));
 
         } catch (DocumentException dex) {
-            res.setContentType("text/html");
-            PrintWriter writer = res.getWriter();
-            writer.println("Exception from: " + this.getClass().getName() + " " + dex.getClass().getName() + "<br>");
-            writer.println("<pre>");
-            writer.println(dex.getMessage());
-            writer.println("</pre>");
+            log.error("Document error generating form PDF", dex);
+            if (!res.isCommitted()) {
+                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
+            }
+        } catch (java.io.IOException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error in FrmPDFServlet", e);
+            if (!res.isCommitted()) {
+                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
+            }
         } finally {
             if (baosPDF != null) {
                 baosPDF.reset();

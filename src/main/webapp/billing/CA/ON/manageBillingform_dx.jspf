@@ -31,7 +31,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
-<form method="post" name="form1" action="dbManageBillingform_dx.jsp">
+<form method="post" name="form1" action="DbManageBillingformDx.do">
 <table width="75%" border="0" cellpadding="3" bgcolor="#9999CC">
 	<tr>
 

@@ -181,7 +181,7 @@
             <input type="hidden" name="emailErrorMessage" id="emailErrorMessage" value="${emailErrorMessage}"/>
             <input type="hidden" name="isEmailSuccessful" id="isEmailSuccessful" value="${isEmailSuccessful}"/>
             <input type="hidden" name="emailPatientChartOption" id="emailPatientChartOption"
-                   value="${ empty param.emailPatientChartOption ? emailPatientChartOption : param.emailPatientChartOption }"/>
+                   value="${ e:forHtmlAttribute(empty param.emailPatientChartOption ? emailPatientChartOption : param.emailPatientChartOption) }"/>
             <input type="hidden" name="totalSenderEmails" id="totalSenderEmails" value="${fn:length(senderAccounts)}"/>
             <input type="hidden" name="totalRecipintEmails" id="totalRecipintEmails"
                    value="${fn:length(receiverEmailList)}"/>
@@ -408,7 +408,7 @@
                                 <div class="col-sm-10">
                                     <input class="form-control" type="text" name="emailPDFPassword"
                                            id="emailPDFPassword" placeholder="YYYYMMDDHIN"
-                                           value='${ not empty param.passwordEmail ? param.passwordEmail : emailPDFPassword }'
+                                           value="${ e:forHtmlAttribute(not empty param.passwordEmail ? param.passwordEmail : emailPDFPassword) }"
                                            autocomplete="off"/>
                                     <div class="error-message" id="emailPDFPasswordError"></div>
                                 </div>

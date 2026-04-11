@@ -56,6 +56,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <jsp:useBean id="providerBean" class="java.util.Properties"
              scope="session"/>
 
@@ -148,7 +149,7 @@
             <div class="alert alert-success fade show">
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 <h4 class="alert-heading">Success!</h4>
-                <p>Patient set "<c:out value="${requestScope.setname}"/>" has been successfully deleted.</p>
+                <p>Patient set "${e:forHtml(requestScope.setname)}" has been successfully deleted.</p>
             </div>
             <% } %>
             <div class="row">

@@ -65,13 +65,12 @@ public class EctDisplayDxAction extends EctDisplayAction {
 
             //set lefthand module heading and link
             String winName = "Disease" + bean.demographicNo;
-            String url = "popupPage(580,900,'" + winName + "','" + request.getContextPath() + "/oscarResearch/dxresearch/setupDxResearch.do?demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&quickList=')";
+            String dxPath = request.getContextPath() + "/oscarResearch/dxresearch/setupDxResearch.do?demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&quickList=";
             Dao.setLeftHeading(getText("encounter.LeftNavBar.DxRegistry"));
-            Dao.setLeftURL(url);
+            Dao.setLeftPopup(580, 900, winName, dxPath);
 
             //set righthand link to same as left so we have visual consistency with other modules
-            url += "; return false;";
-            Dao.setRightURL(url);
+            Dao.setRightPopup(580, 900, winName, dxPath);
             Dao.setRightHeadingID(cmd);  //no menu so set div id to unique id for this action
 
             //grab all of the diseases associated with patient and add a list item for each

@@ -70,7 +70,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.RecycleBinDao" %>
 <%@ page import="org.springframework.dao.DataIntegrityViolationException" %>
 <%@ page import="org.springframework.web.util.HtmlUtils" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>

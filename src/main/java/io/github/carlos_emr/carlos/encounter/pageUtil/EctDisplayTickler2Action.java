@@ -62,14 +62,12 @@ public class EctDisplayTickler2Action extends EctDisplayAction {
             pathview = request.getContextPath() + "/tickler/ticklerMain.jsp?demoview=" + bean.demographicNo + "&parentAjaxId=" + cmd;
             pathedit = request.getContextPath() + "/tickler/ticklerAdd.jsp?bFirstDisp=false&demographic_no=" + bean.demographicNo + "&parentAjaxId=" + cmd;
 
-            String url = "popupPage(500,900,'" + winName + "','" + pathview + "')";
             Dao.setLeftHeading(getText("global.viewTickler"));
-            Dao.setLeftURL(url);
+            Dao.setLeftPopup(500, 900, winName, pathview);
 
             //set right hand heading link
             winName = "AddTickler" + bean.demographicNo;
-            url = "popupPage(500,600,'" + winName + "','" + pathedit + "'); return false;";
-            Dao.setRightURL(url);
+            Dao.setRightPopup(500, 600, winName, pathedit);
             Dao.setRightHeadingID(cmd); //no menu so set div id to unique id for this action
 
             String dateBegin = "1900-01-01";
@@ -83,6 +81,7 @@ public class EctDisplayTickler2Action extends EctDisplayAction {
             String itemHeader;
             String priority;
             String flag;
+            String url;
             int hash;
             long days;
             for (Tickler t : ticklers) {

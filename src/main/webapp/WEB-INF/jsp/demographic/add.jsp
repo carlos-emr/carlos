@@ -6,7 +6,6 @@
 <%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="java.util.Date" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -683,7 +682,7 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
         </tr>
         <tr>
             <td>
-                <form method="post" id="adddemographic" name="adddemographic" action="demographicaddarecord.jsp"
+                <form method="post" id="adddemographic" name="adddemographic" action="DemographicAddRecord.do"
 
                     <jsp:include page="add-form-personal.jsp"/>
                     <jsp:include page="add-form-clinical.jsp"/>

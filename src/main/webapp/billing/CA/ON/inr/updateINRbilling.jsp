@@ -134,7 +134,7 @@
 
 <table BORDER="0" CELLPADDING="1" CELLSPACING="0" WIDTH="100%"
        BGCOLOR="#C4D9E7">
-    <FORM NAME="serviceform" ACTION="dbUpdateINRbilling.jsp" METHOD="POST">
+    <FORM NAME="serviceform" ACTION="DbUpdateINRbilling.do" METHOD="POST">
         <tr valign="top">
             <td rowspan="2" ALIGN="right" valign="middle">
                 <div align="center">

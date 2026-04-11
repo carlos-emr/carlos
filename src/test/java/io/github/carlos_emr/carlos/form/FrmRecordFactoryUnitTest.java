@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for {@link FrmRecordFactory} whitelist validation.
@@ -83,8 +84,8 @@ class FrmRecordFactoryUnitTest {
         @Test
         @DisplayName("should not be modifiable at runtime")
         void shouldNotBeModifiable_atRuntime() {
-            assertThat(FrmRecordFactory.ALLOWED_FORM_CLASSES.getClass().getSimpleName())
-                    .containsIgnoringCase("unmodifiable");
+            assertThatThrownBy(() -> FrmRecordFactory.ALLOWED_FORM_CLASSES.add("ShouldNotBeAllowed"))
+                    .isInstanceOf(UnsupportedOperationException.class);
         }
     }
 

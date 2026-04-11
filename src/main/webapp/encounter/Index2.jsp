@@ -191,7 +191,7 @@
         <div class="action-errors">
             <ul>
                 <c:forEach var="error" items="${actionErrors}">
-                    <li><c:out value="${error}"/></li>
+                    <li>${e:forHtml(error)}</li>
                 </c:forEach>
             </ul>
         </div>

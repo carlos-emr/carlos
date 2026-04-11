@@ -33,7 +33,6 @@
 <%@ include file="/taglibs.jsp" %>
 <%@ page import="java.util.Properties" %>
 <%@ page import="java.util.List, io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ContactSpecialtyDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ContactSpecialty" %>
 

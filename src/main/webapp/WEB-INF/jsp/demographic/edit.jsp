@@ -16,7 +16,6 @@
 <%@ page import="java.text.DecimalFormat" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -103,7 +102,6 @@
     List<Provider> midwifes = (List<Provider>) request.getAttribute("midwifes");
     List<CountryCode> countryList = (List<CountryCode>) request.getAttribute("countryList");
     boolean hasImportExtra = Boolean.TRUE.equals(request.getAttribute("hasImportExtra"));
-    String annotation_display = (String) request.getAttribute("annotation_display");
     String usSigned = (String) request.getAttribute("usSigned");
     String privacyConsent = (String) request.getAttribute("privacyConsent");
     String informedConsent = (String) request.getAttribute("informedConsent");
@@ -275,7 +273,7 @@
        adding a calendar a matter of 1 or 2 lines of code. -->
         <script type="text/javascript" src="<%=request.getContextPath()%>/share/calendar/calendar-setup.js"></script>
 
-        <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/check_hin.js"></script>
 
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/popup.js"></script>

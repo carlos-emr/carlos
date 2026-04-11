@@ -31,6 +31,7 @@
 
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
 
@@ -68,7 +69,7 @@
             <td class="MainTableRightColumn">
                 <%if (request.getAttribute("status") == null) {%>
                 <form action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
-                    <input type="hidden" name="method" value="<c:out value="${method}"/>">
+                    <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
                     <input type="checkbox" name="dashboardShareProperty.checked" <c:if test="${dashboardShareProperty.checked}">checked</c:if> />
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.pref.dashboardShare"/>
                     <br/><br/>
