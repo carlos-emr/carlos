@@ -116,14 +116,27 @@ public class PatientListByAppt extends HttpServlet {
     /**
      * Escapes a value for RFC 4180 CSV output. Wraps the value in double-quotes
      * if it contains commas, double-quotes, or newlines, and escapes embedded
-     * double-quotes by doubling them.
+     * double-quotes by doubling them. Also prevents spreadsheet formula injection
+     * by prefixing values that start with formula trigger characters (=, +, -, @,
+     * tab, carriage return) with a single quote so spreadsheet applications treat
+     * them as literal text rather than formulas.
      *
      * @param value the raw field value; null is treated as an empty string
-     * @return the RFC 4180 escaped field value
+     * @return the RFC 4180 escaped field value, safe from formula injection
      */
     private static String escapeCsv(String value) {
         if (value == null) {
             return "";
+        }
+        // Prevent spreadsheet formula injection: values starting with these characters
+        // are interpreted as formulas by Excel/Google Sheets. Prefix with single-quote
+        // to force literal text treatment. Phone numbers (+1...) are a common real case.
+        if (!value.isEmpty()) {
+            char first = value.charAt(0);
+            if (first == '=' || first == '+' || first == '-' || first == '@'
+                    || first == '\t' || first == '\r') {
+                value = "'" + value;
+            }
         }
         boolean needsQuoting = value.contains(",") || value.contains("\"")
                 || value.contains("\n") || value.contains("\r");
