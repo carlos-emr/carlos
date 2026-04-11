@@ -62,7 +62,9 @@
     }
     SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
 %>
-<html>
+<fmt:setBundle basename="oscarResources"/>
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
     <head>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
     </head>
@@ -72,7 +74,7 @@
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">
                 <th align="CENTER"><font face="Helvetica" color="#FFFFFF">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitydelete.description"/></font></th>
+                    <fmt:message key="admin.securitydelete.description"/></font></th>
             </tr>
         </table>
         <%
@@ -88,12 +90,12 @@
             if (rowsAffected == 1) {
         %>
         <p>
-        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitydelete.msgDeletionSuccess"/>:
+        <h2><fmt:message key="admin.securitydelete.msgDeletionSuccess"/>:
             <%= Encode.forHtml(StringUtils.noNull(request.getParameter("keyword"))) %>.</h2>
         <%
         } else {
         %>
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitydelete.msgDeletionFailure"/>:
+        <h1><fmt:message key="admin.securitydelete.msgDeletionFailure"/>:
             <%= Encode.forHtml(StringUtils.noNull(request.getParameter("keyword"))) %>.</h1>
         <%
             }

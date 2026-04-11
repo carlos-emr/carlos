@@ -108,10 +108,11 @@
     }
 
 %>
+<fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.title"/></title>
+    <title><fmt:message key="admin.resourcebaseurl.title"/></title>
 
 
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
@@ -134,17 +135,17 @@
 
 <div class="container-fluid">
 
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBaseURLSetting"/></h3>
+    <h3><fmt:message key="admin.admin.btnBaseURLSetting"/></h3>
 
     <%if (request.getParameter("websiteSave") != null) {%>
     <div class="alert alert-success">
-        <strong>Success!</strong> Help link has been saved.
+        <strong><fmt:message key="admin.resourcebaseurl.labelSuccess"/></strong> <fmt:message key="admin.resourcebaseurl.msgHelpLinkSaved"/>
     </div>
     <%}%>
 
     <%if (request.getParameter("detailsSave") != null) {%>
     <div class="alert alert-success">
-        <strong>Success!</strong> Your new help details has been saved.
+        <strong><fmt:message key="admin.resourcebaseurl.labelSuccess"/></strong> <fmt:message key="admin.resourcebaseurl.msgHelpDetailsSaved"/>
     </div>
     <%}%>
 
@@ -155,16 +156,18 @@
         </div><!-- col-md-2 -->
 
         <div class="col-md-8" style="background-color:">
+            <fmt:message key="admin.resourcebaseurl.headingWebsite" var="headingWebsite"/>
+            <fmt:message key="admin.resourcebaseurl.formBaseUrlExample" var="formBaseUrlExample"/>
+            <fmt:message key="admin.resourcebaseurl.btnSave" var="btnSaveWebsite"/>
             <form method="post" name="baseurl" id="websiteForm" action="resourcebaseurl.jsp" class="d-flex flex-wrap align-items-center gap-2">
 
-                <h4>Website</h4>
-                <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.formBaseUrl"/><br>-->
+                <h4>${headingWebsite}</h4>
                 <input type="text" name="resource_baseurl" style="width:100%;margin-bottom:10px"
-                       placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.formBaseUrlExample"/>"
+                       placeholder="${formBaseUrlExample}"
                        value="<%if(resource_baseurl_value!=null){ out.print(Encode.forHtmlAttribute(resource_baseurl_value));}%>">
                 <div class="col-md-8">
                     <input type="submit" class="btn float-end" name="websiteSave" id="websiteSave"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>">
+                           value="${btnSaveWebsite}">
                 </div>
 
             </form>
@@ -180,16 +183,18 @@
         </div><!-- col-md-2 -->
 
         <div class="col-md-8" style="background-color:">
+            <fmt:message key="admin.resourcebaseurl.headingDetails" var="headingDetails"/>
+            <fmt:message key="admin.resourcebaseurl.btnSave" var="btnSaveDetails"/>
             <form method="post" name="baseurl" id="detailsForm" action="resourcebaseurl.jsp">
-                <h4>Details</h4>
+                <h4>${headingDetails}</h4>
                 <input type="hidden" name="resource_helpHtml" id="resource_helpHtml_hidden"/>
                 <div id="resource_helpHtml_editor" style="width:100%;min-height:160px"></div>
                 <div class="col-md-8" style="padding-left:0px;padding-right:0px;">
                     <div class="col-md-6" id="chars">
-                        <div class='alert alert-plain'>Character Limit = 2000</div>
+                        <div class='alert alert-plain'><fmt:message key="admin.resourcebaseurl.msgCharacterLimit"/></div>
                     </div>
                     <input type="submit" class="btn float-end" name="detailsSave" id="detailsSave"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>">
+                           value="${btnSaveDetails}">
                 </div>
             </form>
         </div><!-- col-md-8 -->

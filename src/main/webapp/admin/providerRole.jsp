@@ -28,8 +28,8 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<!DOCTYPE html>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle" %>
 <%@ page import="io.github.carlos_emr.*" %>
@@ -56,7 +56,6 @@
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     ProgramDao programDao = SpringUtils.getBean(ProgramDao.class);
     SecRoleDao secRoleDao = SpringUtils.getBean(SecRoleDao.class);
@@ -391,7 +390,9 @@
 
 
 %>
-<html>
+<fmt:setBundle basename="oscarResources"/>
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
 <head>
 
     <link href="${ pageContext.request.contextPath }/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
@@ -400,7 +401,7 @@
     <script src="${ pageContext.request.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="${ pageContext.request.contextPath }/library/jquery/jquery-compat.js"></script>
 
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="global.update"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.provider"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="role"/></title>
+    <title><fmt:message key="global.update"/> <fmt:message key="admin.admin.provider"/> <fmt:message key="role"/></title>
 
     <script>
 
@@ -449,7 +450,7 @@
             if(providerNo !== '' && roleName !== '') {
                 return true;
             } else {
-                alert('Please enter in a providers and a corresponding role');
+                alert('<%= Encode.forJavaScript(oscarRec.getString("admin.providerRole.jsMsgEnterProviderAndRole")) %>');
                 return false;
             }
         }
@@ -479,7 +480,7 @@
 
 <div id="header" class="navbar">
     <div class="container-fluid">
-        <div class="navbar-brand"><i class="fa-solid fa-lock"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="global.update"/>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.provider"/>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="role"/></div>
+        <div class="navbar-brand"><i class="fa-solid fa-lock"></i>&nbsp;<fmt:message key="global.update"/>&nbsp;<fmt:message key="admin.admin.provider"/>&nbsp;<fmt:message key="role"/></div>
     </div>
 </div>
 
@@ -495,9 +496,9 @@
 
         <div>
             <div class="input-group">
-                <input type="text" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providerrole.formSearch"/>" name="keyword"
+                <input type="text" placeholder="<fmt:message key="admin.providerrole.formSearch"/>" name="keyword"
                        value="<%=Encode.forHtmlAttribute(keyword)%>"/>
-                <input type="submit" class="btn btn-primary" name="search" value="Filter" >
+                <input type="submit" class="btn btn-primary" name="search" value="<fmt:message key="admin.providerRole.btnFilter"/>" >
             </div>
         </div>
 
@@ -507,22 +508,22 @@
 <table id="provTable" class="table table-striped table-hover table-sm">
     <thead>
     <tr>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.provider"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formFirstName"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formLastName"/></th>
+        <th><fmt:message key="admin.admin.provider"/></th>
+        <th><fmt:message key="admin.provider.formFirstName"/></th>
+        <th><fmt:message key="admin.provider.formLastName"/></th>
         <% if (newCaseManagement) { %>
         <th>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="role"/>
+            <fmt:message key="role"/>
         </th>
         <th>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.primaryEMR"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="role"/>
+            <fmt:message key="demographic.demographiceditdemographic.primaryEMR"/> <fmt:message key="role"/>
         </th>
         <% } else {%>
         <th>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="role"/>
+            <fmt:message key="role"/>
         </th>
         <%} %>
-        <th>Action</th>
+        <th><fmt:message key="admin.providerRole.thAction"/></th>
     </tr>
     </thead>
     <tbody>
@@ -574,11 +575,11 @@
                        value="<%= Encode.forHtmlAttribute(item.getProperty("role_name", ""))%>">
                 <div class="button-group">
                     <input type="submit" name="submit" class="btn btn-primary"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnAdd"/>" disabled="disabled">
+                           value="<fmt:message key="global.btnAdd"/>" disabled="disabled">
                     <input type="submit" name="buttonUpdate" class="btn btn-info"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.update"/>" <%= StringUtils.hasText(item.getProperty("role_id"))?"":"disabled"%>>
+                           value="<fmt:message key="global.update"/>" <%= StringUtils.hasText(item.getProperty("role_id"))?"":"disabled"%>>
                     <input type="submit" name="submit" class="btn btn-link" style="color:red;"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDelete"/>" <%= StringUtils.hasText(item.getProperty("role_id"))?"":"disabled"%>>
+                           value="<fmt:message key="global.btnDelete"/>" <%= StringUtils.hasText(item.getProperty("role_id"))?"":"disabled"%>>
                 </div>
             </td>
         </tr>
@@ -595,13 +596,13 @@
        <form name="myform" action="providerRole.jsp" method="POST" onSubmit="this.scrollPosition.value=window.scrollY">
         <table>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="global.update"/>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.primaryEMR"/>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="role"/></td>
+                <td><fmt:message key="global.update"/>&nbsp;<fmt:message key="demographic.demographiceditdemographic.primaryEMR"/>&nbsp;<fmt:message key="role"/></td>
             </tr>
             <tr>
                 <td>
-                    <label class="form-label" for="primaryRoleProvider"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.provider"/>:</label>
+                    <label class="form-label" for="primaryRoleProvider"><fmt:message key="admin.admin.provider"/>:</label>
                     <select id="primaryRoleProvider" name="primaryRoleProvider" onChange="primaryRoleChooseProvider()">
-                        <option value="">Select Below</option>
+                        <option value=""><fmt:message key="admin.providerRole.optionSelectBelow"/></option>
                         <%
                             List<String> temp1 = new ArrayList<String>();
                             for (Properties prop : vec) {
@@ -621,7 +622,7 @@
 
             <tr>
                 <td>
-                    <label class="form-label" for="primaryRoleRole"><fmt:setBundle basename="oscarResources"/><fmt:message key="role"/>:</label>
+                    <label class="form-label" for="primaryRoleRole"><fmt:message key="role"/>:</label>
                     <select id="primaryRoleRole" name="primaryRoleRole">
                     </select>
                 </td>
@@ -630,7 +631,7 @@
                 <td>
                     <input type="hidden" name="scrollPosition" class="scrollPosition" />
                     <input type="submit" name="buttonSetPrimaryRole"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.update"/>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.primaryEMR"/>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="role"/>"
+                           value="<fmt:message key="global.update"/>&nbsp;<fmt:message key="demographic.demographiceditdemographic.primaryEMR"/>&nbsp;<fmt:message key="role"/>"
                            class="btn btn-primary" onClick="return setPrimaryRole();">
                 </td>
             </tr>

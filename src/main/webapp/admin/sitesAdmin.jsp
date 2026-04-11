@@ -45,10 +45,11 @@
 
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
-<html>
+<fmt:setBundle basename="oscarResources"/>
+<html lang="${pageContext.request.locale.language}">
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Clinic</title>
+        <title><fmt:message key="admin.sitesAdmin.title"/></title>
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
 
@@ -61,11 +62,11 @@
 
     <table class="MainTable">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn">admin</td>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="admin.sitesAdmin.labelAdmin"/></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar" style="width: 100%;">
                     <tr>
-                        <td>Manage Satellite Site Details</td>
+                        <td><fmt:message key="admin.sitesAdmin.headingManageSatelliteSiteDetails"/></td>
                     </tr>
                 </table>
             </td>
@@ -78,26 +79,39 @@
 
                 <form action="<%= request.getContextPath() %>/admin/ManageSites.do" method="post">
                     <input type="hidden" name="method" value="add"/>
-                    <input type="submit" style="border:1px solid #666666;" value="Add New Site" />
+                    <fmt:message key="admin.sitesAdmin.btnAddNewSite" var="btnAddNewSite"/>
+                    <input type="submit" style="border:1px solid #666666;" value="${btnAddNewSite}" />
                 </form>
 
+                <fmt:message key="admin.sitesAdmin.thActive" var="thActive"/>
+                <fmt:message key="admin.sitesAdmin.thSiteName" var="thSiteName"/>
+                <fmt:message key="admin.sitesAdmin.thShortName" var="thShortName"/>
+                <fmt:message key="admin.sitesAdmin.thColor" var="thColor"/>
+                <fmt:message key="admin.sitesAdmin.thTelephone" var="thTelephone"/>
+                <fmt:message key="admin.sitesAdmin.thFax" var="thFax"/>
+                <fmt:message key="admin.sitesAdmin.thAddress" var="thAddress"/>
+                <fmt:message key="admin.sitesAdmin.thCity" var="thCity"/>
+                <fmt:message key="admin.sitesAdmin.thProvince" var="thProvince"/>
+                <fmt:message key="admin.sitesAdmin.thPostalCode" var="thPostalCode"/>
+                <fmt:message key="admin.sitesAdmin.thProviderIdFrom" var="thProviderIdFrom"/>
+                <fmt:message key="admin.sitesAdmin.thProviderIdTo" var="thProviderIdTo"/>
                 <display-el:table name="sites" id="site" class="its"
                                   style="border:1px solid #666666; width:99%;margin-top:2px;">
-                    <display-el:column title="Active"><c:choose><c:when
-                            test="${site.status==0}">No</c:when><c:otherwise>Yes</c:otherwise></c:choose></display-el:column>
-                    <display-el:column title="Site Name">
+                    <display-el:column title="${thActive}"><c:choose><c:when
+                            test="${site.status==0}"><fmt:message key="global.no"/></c:when><c:otherwise><fmt:message key="global.yes"/></c:otherwise></c:choose></display-el:column>
+                    <display-el:column title="${thSiteName}">
                         <a href="<%= request.getContextPath() %>/admin/ManageSites.do?method=update&siteId=${e:forHtmlAttribute(site.siteId)}">${e:forHtml(site.name)}</a></display-el:column>
-                    <display-el:column property="shortName" title="Short Name"/>
-                    <display-el:column property="bgColor" title="Color" style="background-color:${site.bgColor}"/>
-                    <display-el:column property="phone" title="Telephone"/>
-                    <display-el:column property="fax" title="FAX"/>
-                    <display-el:column property="address" title="Address" style="width: 200px;"/>
-                    <display-el:column property="city" title="City"/>
-                    <display-el:column property="province" title="Province"/>
-                    <display-el:column property="postal" title="Postal Code"/>
+                    <display-el:column property="shortName" title="${thShortName}"/>
+                    <display-el:column property="bgColor" title="${thColor}" style="background-color:${site.bgColor}"/>
+                    <display-el:column property="phone" title="${thTelephone}"/>
+                    <display-el:column property="fax" title="${thFax}"/>
+                    <display-el:column property="address" title="${thAddress}" style="width: 200px;"/>
+                    <display-el:column property="city" title="${thCity}"/>
+                    <display-el:column property="province" title="${thProvince}"/>
+                    <display-el:column property="postal" title="${thPostalCode}"/>
                     <% if (IsPropertiesOn.isProviderFormalizeEnable()) { %>
-                    <display-el:column property="providerIdFrom" title="ProviderID From"/>
-                    <display-el:column property="providerIdTo" title="ProviderID To"/>
+                    <display-el:column property="providerIdFrom" title="${thProviderIdFrom}"/>
+                    <display-el:column property="providerIdTo" title="${thProviderIdTo}"/>
                     <% } %>
                 </display-el:table>
 

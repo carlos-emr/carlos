@@ -26,6 +26,10 @@
 "http://www.w3.org/TR/html4/loose.dtd">
 <%@page import="org.owasp.encoder.Encode" %>
 <%@ include file="/taglibs.jsp" %>
+<%
+    java.util.ResourceBundle billingRefResources =
+        java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -51,10 +55,11 @@
     String addressQ = (String) request.getAttribute("address");
     Boolean checked = (Boolean) request.getAttribute("showHidden");
 %>
-<html>
+<fmt:setBundle basename="oscarResources"/>
+<html lang="${pageContext.request.locale.language}">
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Referral Doctor</title>
+        <title><fmt:message key="admin.billingreferralAdmin.title"/></title>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
 
         <script type="text/javascript" language="JavaScript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
@@ -106,7 +111,7 @@
 
             function printAllCheckedLabels() {
                 $("#checked_items_tbl tbody tr").remove();
-                $("#checked_items_tbl tbody").append("<tr><td>Processing. Refresh to get updated list</td></tr>");
+                $("#checked_items_tbl tbody").append("<tr><td><%= Encode.forJavaScript(billingRefResources.getString("admin.billingreferralAdmin.msgProcessing")) %></td></tr>");
                 location.href = '<%=request.getContextPath() %>/printReferralLabelAction.do?useCheckList=true';
             }
 
@@ -114,7 +119,7 @@
                 $("#checked_items_tbl tbody tr").remove();
 
                 if (data == null || data.length == 0) {
-                    $("#checked_items_tbl tbody").append("<tr><td>-None-</td></tr>");
+                    $("#checked_items_tbl tbody").append("<tr><td><%= Encode.forJavaScript(billingRefResources.getString("admin.billingreferralAdmin.labelNone")) %></td></tr>");
                 }
                 for (var x = 0; x < data.length; x++) {
                     $("#checked_items_tbl tbody").append("<tr><td>" + data[x].formattedName + "</td></tr>");
@@ -135,11 +140,11 @@
 
     <table class="MainTable">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn">Admin</td>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="admin.billingreferralAdmin.labelAdmin"/></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar" style="width: 100%;">
                     <tr>
-                        <td>Manage Referral Doctors</td>
+                        <td><fmt:message key="admin.billingreferralAdmin.headingManageReferralDoctors"/></td>
                     </tr>
                 </table>
             </td>
@@ -152,32 +157,46 @@
 
                 <form action="<%= request.getContextPath() %>/admin/ManageBillingReferral.do">
                     <input type="hidden" name="method" value="advancedSearch"/>
-                    <input type="text" name="nameQuery" id="nameQuery" placeholder="Name or ReferralId"
+                    <fmt:message key="admin.billingreferralAdmin.placeholderNameOrId" var="placeholderNameOrId"/>
+                    <fmt:message key="admin.billingreferralAdmin.placeholderSpecialty" var="placeholderSpecialty"/>
+                    <fmt:message key="admin.billingreferralAdmin.placeholderAddress" var="placeholderAddress"/>
+                    <fmt:message key="admin.billingreferralAdmin.btnSearch" var="btnSearch"/>
+                    <fmt:message key="admin.billingreferralAdmin.btnClear" var="btnClear"/>
+                    <fmt:message key="admin.billingreferralAdmin.btnAdd" var="btnAdd"/>
+                    <input type="text" name="nameQuery" id="nameQuery" placeholder="${placeholderNameOrId}"
                            value="<%= Encode.forHtmlAttribute(name != null ? name : "") %>">
                     &nbsp;
-                    <input type="text" name="specialtyQuery" id="specialtyQuery" placeholder="Specialty"
+                    <input type="text" name="specialtyQuery" id="specialtyQuery" placeholder="${placeholderSpecialty}"
                            value="<%= Encode.forHtmlAttribute(specialty != null ? specialty : "") %>">
                     &nbsp;
-                    <input type="text" name="addressQuery" id="addressQuery" placeholder="Address"
+                    <input type="text" name="addressQuery" id="addressQuery" placeholder="${placeholderAddress}"
                            value="<%= Encode.forHtmlAttribute(addressQ != null ? addressQ : "") %>">
                     &nbsp;
-                    Include hidden:
+                    <fmt:message key="admin.billingreferralAdmin.labelIncludeHidden"/>:
                     <input type="checkbox" name="showHidden"
                            id="showHidden" <%=(checked != null && checked) ? " checked=\"checked\" " : "" %> />
 
-                    <input type="submit" style="border:1px solid #666666;" value="Search" />
-                    <input type="submit" style="border:1px solid #666666;" onclick="clearMe()" value="Clear" />
+                    <input type="submit" style="border:1px solid #666666;" value="${btnSearch}" />
+                    <input type="submit" style="border:1px solid #666666;" onclick="clearMe()" value="${btnClear}" />
                     <input type="submit" style="border:1px solid #666666;"
-                                   onclick="return openAddSpecialist()" value="Add" />
+                                   onclick="return openAddSpecialist()" value="${btnAdd}" />
                 </form>
                 <br/>
                 <%
                     if (request.getAttribute("referrals") == null) {
                 %>
-                <h3 style="color:red">No results found</h3>
+                <h3 style="color:red"><fmt:message key="admin.billingreferralAdmin.msgNoResults"/></h3>
                 <%
                 } else {
                 %>
+                <fmt:message key="admin.billingreferralAdmin.thFirstName" var="thFirstName"/>
+                <fmt:message key="admin.billingreferralAdmin.thLastName" var="thLastName"/>
+                <fmt:message key="admin.billingreferralAdmin.thSpecialty" var="thSpecialty"/>
+                <fmt:message key="admin.billingreferralAdmin.thAddress" var="thAddress"/>
+                <fmt:message key="admin.billingreferralAdmin.thPhone" var="thPhone"/>
+                <fmt:message key="admin.billingreferralAdmin.thFax" var="thFax"/>
+                <fmt:message key="admin.billingreferralAdmin.thLabel" var="thLabel"/>
+                <fmt:message key="admin.billingreferralAdmin.linkLabel" var="linkLabel"/>
                 <display:table name="referrals" id="referral" class="its" pagesize="15"
                                style="border:1px solid #666666; width:99%;margin-top:2px;"
                                requestURI="ManageBillingReferral.do?method=list">
@@ -195,14 +214,14 @@
                     <display:column><a href="javascript:void(0)"
                                        onclick="openEditSpecialist('${referral.id}')"><%=linkName %>
                     </a></display:column>
-                    <display:column property="firstName" title="First Name"/>
-                    <display:column property="lastName" title="Last Name"/>
-                    <display:column property="specialtyType" title="Specialty"/>
-                    <display:column property="streetAddress" title="Address"/>
-                    <display:column property="phoneNumber" title="Phone"/>
-                    <display:column property="faxNumber" title="Fax"/>
-                    <display:column title="Label" url="/printReferralLabelAction.do" paramId="billingreferralNo"
-                                    paramProperty="id">label</display:column>
+                    <display:column property="firstName" title="${thFirstName}"/>
+                    <display:column property="lastName" title="${thLastName}"/>
+                    <display:column property="specialtyType" title="${thSpecialty}"/>
+                    <display:column property="streetAddress" title="${thAddress}"/>
+                    <display:column property="phoneNumber" title="${thPhone}"/>
+                    <display:column property="faxNumber" title="${thFax}"/>
+                    <display:column title="${thLabel}" url="/printReferralLabelAction.do" paramId="billingreferralNo"
+                                    paramProperty="id">${linkLabel}</display:column>
                 </display:table>
             </td>
         </tr>
@@ -211,7 +230,7 @@
             <td class="MainTableBottomRowRightColumn">
                 <div id="checked_items">
                     <br/>
-                    <h3>Selected Specialists:</h3>
+                    <h3><fmt:message key="admin.billingreferralAdmin.headingSelectedSpecialists"/></h3>
                     <br/>
                     <table id="checked_items_tbl">
                         <tbody>
@@ -229,15 +248,17 @@
                         } else {
                         %>
                         <tr>
-                            <td>-None-</td>
+                            <td><fmt:message key="admin.billingreferralAdmin.labelNone"/></td>
                         </tr>
                         <% } %>
                         </tbody>
                     </table>
                 </div>
                 <br/>
-                <input type="button" value="Generate Labels" onClick="printAllCheckedLabels()"/>
-                <input type="button" value="Clear List" onClick="clearCheckedLabels()"/>
+                <fmt:message key="admin.billingreferralAdmin.btnGenerateLabels" var="btnGenerateLabels"/>
+                <fmt:message key="admin.billingreferralAdmin.btnClearList" var="btnClearList"/>
+                <input type="button" value="${btnGenerateLabels}" onClick="printAllCheckedLabels()"/>
+                <input type="button" value="${btnClearList}" onClick="clearCheckedLabels()"/>
 
             </td>
         </tr>

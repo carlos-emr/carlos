@@ -29,13 +29,19 @@
 
 --%>
 
-<!DOCTYPE HTML>
+<fmt:setBundle basename="oscarResources"/>
+<!DOCTYPE html>
 
 <%@page import="io.github.carlos_emr.carlos.providers.data.*,java.util.*,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%
+    java.util.ResourceBundle addQueueResources =
+        java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -52,9 +58,9 @@
 %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 <head>
-    <title>Add New Inbox Queue</title>
+    <title><fmt:message key="admin.addQueue.title"/></title>
 
     <style type="text/css">
         .input-queue {
@@ -74,14 +80,15 @@
 
 <body>
 
-<h3>Add New Inbox Queue</h3>
+<h3><fmt:message key="admin.addQueue.title"/></h3>
 
 <div class="card card-body bg-body-tertiary">
 
-
+    <fmt:message key="admin.addQueue.placeholderQueueName" var="placeholderQueueName"/>
+    <fmt:message key="admin.addQueue.btnAdd" var="btnAdd"/>
     <form class="d-flex flex-wrap align-items-center gap-2" id="addQueueForm">
-        <input type="text" id="newQueueName" class="form-control input-queue" placeholder="Type queue name" value=""/>
-        <input type="button" class="btn btn-primary" value="Add" id="add-btn"/>
+        <input type="text" id="newQueueName" class="form-control input-queue" placeholder="${placeholderQueueName}" value=""/>
+        <input type="button" class="btn btn-primary" value="${btnAdd}" id="add-btn"/>
 
         <i class="fa-solid fa-circle-question" style="margin-left:20px;"></i>
     </form>
@@ -96,7 +103,7 @@
 </div>
 
 
-<h4>Existing Queues:</h4>
+<h4><fmt:message key="admin.addQueue.headingExistingQueues"/>:</h4>
 
 					   <ol>
                        <%
@@ -111,9 +118,19 @@
 </body>
 
 <script type="text/javascript">
+    var i18n = {
+        docTitle: '<%= Encode.forJavaScript(addQueueResources.getString("admin.addQueue.docTitle")) %>',
+        errCannotOverwriteDefault: '<%= Encode.forJavaScript(addQueueResources.getString("admin.addQueue.jsMsgCannotOverwriteDefault")) %>',
+        successAdded: '<%= Encode.forJavaScript(addQueueResources.getString("admin.addQueue.jsMsgSuccessAdded")) %>',
+        errNotAdded: '<%= Encode.forJavaScript(addQueueResources.getString("admin.addQueue.jsMsgNotAdded")) %>',
+        errNotAddedSupport: '<%= Encode.forJavaScript(addQueueResources.getString("admin.addQueue.jsMsgNotAddedSupport")) %>',
+        errNameEmpty: '<%= Encode.forJavaScript(addQueueResources.getString("admin.addQueue.jsMsgNameEmpty")) %>',
+        labelError: '<%= Encode.forJavaScript(addQueueResources.getString("admin.addQueue.jsLabelError")) %>',
+        labelSuccess: '<%= Encode.forJavaScript(addQueueResources.getString("admin.addQueue.jsLabelSuccess")) %>'
+    };
 
     var pageTitle = document.title;
-    document.title = 'Administration Panel | Add New Inbox Queue';
+    document.title = i18n.docTitle;
 
     $(document).ready(function ($) {
 
@@ -129,7 +146,7 @@
                 $('.alert').addClass('alert-danger');
                 $('.alert').show();
 
-                $('#addQueueSuccessMsg').html("<strong>Error!</strong> You can not overwrite the <em>default</em> queue.");
+                $('#addQueueSuccessMsg').html("<strong>" + i18n.labelError + "</strong> " + i18n.errCannotOverwriteDefault);
             } else {
 
                 if (qn.length > 0) {
@@ -145,7 +162,7 @@
                             $('.alert').addClass('alert-success');
                             $('.alert').show();
 
-                            $('#addQueueSuccessMsg').html("<strong>Success!</strong> Queue Name <em>" + $('<div/>').text(qn).html() + "</em> has been added.");
+                            $('#addQueueSuccessMsg').html("<strong>" + i18n.labelSuccess + "</strong> " + i18n.successAdded.replace('{0}', $('<div/>').text(qn).html()));
                             $('#newQueueName').val("");
 
                             var json = data.addNewQueue;
@@ -155,14 +172,14 @@
                                     $('.alert').addClass('alert-success');
                                     $('.alert').show();
 
-                                    $('#addQueueSuccessMsg').html("<strong>Success!</strong> Queue Name <em>" + $('<div/>').text(qn).html() + "</em> has been added.");
+                                    $('#addQueueSuccessMsg').html("<strong>" + i18n.labelSuccess + "</strong> " + i18n.successAdded.replace('{0}', $('<div/>').text(qn).html()));
                                     $('#newQueueName').val("");
                                 } else {
                                     $('.alert').removeClass('alert-success');
                                     $('.alert').addClass('alert-danger');
                                     $('.alert').show();
 
-                                    $('#addQueueSuccessMsg').html("<strong>Error!</strong> Queue Name <em>" + $('<div/>').text(qn).html() + "</em> has NOT been added which is probably because it already exists.");
+                                    $('#addQueueSuccessMsg').html("<strong>" + i18n.labelError + "</strong> " + i18n.errNotAdded.replace('{0}', $('<div/>').text(qn).html()));
                                 }
                             }
 
@@ -172,7 +189,7 @@
                             $('.alert').addClass('alert-danger');
                             $('.alert').show();
 
-                            $('#addQueueSuccessMsg').html("<strong>Error!</strong> Queue Name <em>" + $('<div/>').text(qn).html() + "</em> has NOT been added, please contact support.");
+                            $('#addQueueSuccessMsg').html("<strong>" + i18n.labelError + "</strong> " + i18n.errNotAddedSupport.replace('{0}', $('<div/>').text(qn).html()));
                         }
 
 
@@ -184,7 +201,7 @@
                     $('.alert').addClass('alert-danger');
                     $('.alert').show();
 
-                    $('#addQueueSuccessMsg').html("<strong>Error!</strong> Queue Name can not be empty.");
+                    $('#addQueueSuccessMsg').html("<strong>" + i18n.labelError + "</strong> " + i18n.errNameEmpty);
                 }
 
             }//=default

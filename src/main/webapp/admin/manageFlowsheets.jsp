@@ -78,10 +78,10 @@
 
 <fmt:setBundle basename="oscarResources"/>
 
-<html>
+<html lang="${pageContext.request.locale.language}">
     <head>
         <script src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Manage Flowsheets</title>
+        <title><fmt:message key="admin.manageFlowsheets.title"/></title>
 
         <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css">
@@ -137,19 +137,19 @@
 
 <div class="container-fluid">
 <div class="navbar" id="demoHeader"><div class="container-fluid">
-	<a class="navbar-brand" href="javascript:void(0)">Flowsheets</a>
+	<a class="navbar-brand" href="javascript:void(0)"><fmt:message key="admin.manageFlowsheets.navbarBrand"/></a>
 </div></div>
 
 			<table class="table table-striped table-sm table-hover">
         <thead>
         <tr>
-            <td><b>Name</b></td>
-            <td><b>Universal</B></td>
-            <td><b>Dx Triggers</B></td>
-            <td><b>Program Triggers</B></td>
-            <td><b>Type</b></td>
-            <td><b>Enabled</b></td>
-            <td><b>Actions</b></td>
+            <td><b><fmt:message key="admin.manageFlowsheets.thName"/></b></td>
+            <td><b><fmt:message key="admin.manageFlowsheets.thUniversal"/></b></td>
+            <td><b><fmt:message key="admin.manageFlowsheets.thDxTriggers"/></b></td>
+            <td><b><fmt:message key="admin.manageFlowsheets.thProgramTriggers"/></b></td>
+            <td><b><fmt:message key="admin.manageFlowsheets.thType"/></b></td>
+            <td><b><fmt:message key="admin.manageFlowsheets.thEnabled"/></b></td>
+            <td><b><fmt:message key="admin.manageFlowsheets.thActions"/></b></td>
         </tr>
         </thead>
         <tbody>
@@ -179,11 +179,11 @@
 							<td><%=Encode.forHtmlContent(type) %></td>
 							<td><%=enabled%></td>
 							<td>
-								<a href="<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp?flowsheet=<%=flowSheet.getName()%>&displayName=<%=flowSheet.getDisplayName()%>">Edit</a>&nbsp;
+								<a href="<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp?flowsheet=<%=flowSheet.getName()%>&displayName=<%=flowSheet.getDisplayName()%><fmt:message key="admin.manageFlowsheets.linkEdit"/></a>&nbsp;
 								<%if(enabled) { %>
-									<a href="javascript:void(0);" onclick="submitFlowsheetAction('disable','<%=Encode.forJavaScript(flowSheet.getName())%>');">Disable</a>
+									<a href="javascript:void(0);" onclick="submitFlowsheetAction('disable','<%=Encode.forJavaScript(flowSheet.getName())%');"><fmt:message key="admin.manageFlowsheets.linkDisable"/></a>
 								<% } else { %>
-									<a href="javascript:void(0);" onclick="submitFlowsheetAction('enable','<%=Encode.forJavaScript(flowSheet.getName())%>');">Enable</a>
+									<a href="javascript:void(0);" onclick="submitFlowsheetAction('enable','<%=Encode.forJavaScript(flowSheet.getName())%');"><fmt:message key="admin.manageFlowsheets.linkEnable"/></a>
 								<% } %>
 							</td>
 						</tr>
@@ -195,13 +195,14 @@
 
 		<div class="card">
 			<div class="card-header">
-				<h4>Upload Custom Flowsheet</h4>
+				<h4><fmt:message key="admin.manageFlowsheets.headingUploadCustomFlowsheet"/></h4>
 			</div>
 		<div class="card-body">
 			<form enctype="multipart/form-data" method="POST" action="<%=request.getContextPath()%>/admin/manageFlowsheetsUpload.jsp">
         <input type="file" name="flowsheet_file">
 				<span title="<fmt:message key="global.uploadWarningBody"/>" style="vertical-align:middle;cursor:pointer"><img alt="alert" src="<%=request.getContextPath()%>/images/icon_alertsml.gif"/></span>
-        <input type="submit" value="Upload" class="btn btn-primary">
+        <fmt:message key="admin.manageFlowsheets.btnUpload" var="btnUpload"/>
+        <input type="submit" value="${btnUpload}" class="btn btn-primary">
     </form>
 		</div>
 		</div>

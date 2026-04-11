@@ -28,7 +28,6 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<!DOCTYPE html>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -51,16 +50,21 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     Provider provider = loggedInInfo.getLoggedInProvider();
+    java.util.ResourceBundle jobTypesResources =
+        java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
 %>
-<html>
+<fmt:setBundle basename="oscarResources"/>
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
     <head>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <script src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Manage REST Clients (OAuth)</title>
+        <title><fmt:message key="admin.jobTypes.title"/></title>
 
         <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css">
@@ -167,8 +171,8 @@
                     width: 620,
                     modal: true,
                     buttons: {
-                        "Save Job Type": {
-                            class: "btn btn-primary", text: "Save Job Type", click: function () {
+                        "<%= Encode.forJavaScript(jobTypesResources.getString("admin.jobTypes.jsBtnSaveJobType")) %>": {
+                            class: "btn btn-primary", text: "<%= Encode.forJavaScript(jobTypesResources.getString("admin.jobTypes.jsBtnSaveJobType")) %>", click: function () {
                                 $.post('${pageContext.request.contextPath}/ws/rs/jobs/saveJobType', $('#jobTypeForm').serialize(), function (data) {
                                     clearJobs();
                                     listJobs();
@@ -177,8 +181,8 @@
 
                             }
                         },
-                        Cancel: {
-                            class: "btn", text: "Cancel", click: function () {
+                        "<%= Encode.forJavaScript(jobTypesResources.getString("admin.jobTypes.jsBtnCancel")) %>": {
+                            class: "btn", text: "<%= Encode.forJavaScript(jobTypesResources.getString("admin.jobTypes.jsBtnCancel")) %>", click: function () {
                                 $(this).dialog("close");
                             }
                         }
@@ -193,46 +197,48 @@
     </head>
 
     <body class="BodyStyle">
-    <h4>Manage Job Types</h4>
+    <h4><fmt:message key="admin.jobTypes.headingManageJobTypes"/></h4>
     <table id="jobTypeTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
-            <th>Name</th>
-            <th>Description</th>
-            <th>JAVA Class Name</th>
-            <th>Valid Class</th>
-            <th>Enabled</th>
-            <th>Updated</th>
+            <th><fmt:message key="admin.jobTypes.thName"/></th>
+            <th><fmt:message key="admin.jobTypes.thDescription"/></th>
+            <th><fmt:message key="admin.jobTypes.thJavaClassName"/></th>
+            <th><fmt:message key="admin.jobTypes.thValidClass"/></th>
+            <th><fmt:message key="admin.jobTypes.thEnabled"/></th>
+            <th><fmt:message key="admin.jobTypes.thUpdated"/></th>
         </tr>
         </thead>
         <tbody>
         </tbody>
     </table>
-    <input type="button" class="btn btn-primary" value="Add New" onClick="addNewJobType()"/>
+    <fmt:message key="admin.jobTypes.btnAddNew" var="btnAddNew"/>
+    <input type="button" class="btn btn-primary" value="${btnAddNew}" onClick="addNewJobType()"/>
 
 
-    <div id="new-jobtype" title="CARLOS Job Type Editor">
+    <fmt:message key="admin.jobTypes.dialogTitleJobTypeEditor" var="dialogTitleJobTypeEditor"/>
+    <div id="new-jobtype" title="${dialogTitleJobTypeEditor}">
         <p class="validateTips"></p>
 
         <form id="jobTypeForm">
             <input type="hidden" name="jobType.id" id="jobTypeId" value="0"/>
             <fieldset>
                 <div class="mb-3">
-                    <label class="form-label" for="jobTypeName">Name:*</label>
+                    <label class="form-label" for="jobTypeName"><fmt:message key="admin.jobTypes.labelName"/></label>
                     <input class="form-control" type="text" name="jobType.name" id="jobTypeName" value=""/>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label" for="jobTypeDescription">Description:</label>
+                    <label class="form-label" for="jobTypeDescription"><fmt:message key="admin.jobTypes.labelDescription"/></label>
                     <textarea class="form-control" rows="5" name="jobType.description"
                               id="jobTypeDescription"></textarea>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label" for="jobTypeClassName">JAVA Class Name:</label>
+                    <label class="form-label" for="jobTypeClassName"><fmt:message key="admin.jobTypes.labelJavaClassName"/></label>
                     <input class="form-control" type="text" name="jobType.className" id="jobTypeClassName"
                            value=""/>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label" for="jobTypeEnabled">Enabled: <input type="checkbox"
+                    <label class="form-label" for="jobTypeEnabled"><fmt:message key="admin.jobTypes.labelEnabled"/> <input type="checkbox"
                                                                                       name="jobType.enabled"
                                                                                       id="jobTypeEnabled"/></label>
                     <div>

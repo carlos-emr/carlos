@@ -68,12 +68,13 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <link href="${ctx}/library/flatpickr/flatpickr.min.css" rel="stylesheet">
 <script src="${ctx}/library/flatpickr/flatpickr.min.js"></script>
 
 <div class="pb-2 mt-4 mb-3 border-bottom">
-    <h4>EMR Usage Report</h4>
+    <h4><fmt:message key="admin.usageReport.headingEmrUsageReport"/></h4>
 </div>
 
 <%
@@ -97,11 +98,10 @@
       id="usageForm">
     <fieldset>
         <h4>
-            Usage Report <br> <small>Please select the provider,
-            service begin and end dates.</small>
+            <fmt:message key="admin.usageReport.headingUsageReport"/> <br> <small><fmt:message key="admin.usageReport.msgSelectProviderAndDates"/></small>
         </h4>
         <div class="mb-3">
-            <label class="form-label">Provider</label>
+            <label class="form-label"><fmt:message key="admin.usageReport.labelProvider"/></label>
             <div>
 
                 <select name="providerNo">
@@ -122,7 +122,7 @@
             </div>
         </div>
         <div class="mb-3">
-            <label class="form-label">Start Date</label>
+            <label class="form-label"><fmt:message key="admin.usageReport.labelStartDate"/></label>
             <div>
                 <input type="text" id="startDate" name="startDate"
                        value="<%=Encode.forHtmlAttribute(request.getParameter("startDate") != null ? request
@@ -130,7 +130,7 @@
             </div>
         </div>
         <div class="mb-3">
-            <label class="form-label">End Date</label>
+            <label class="form-label"><fmt:message key="admin.usageReport.labelEndDate"/></label>
             <div>
                 <input type="text" id="endDate" name="endDate"
                        value="<%=Encode.forHtmlAttribute(request.getParameter("endDate") != null ? request
@@ -140,7 +140,7 @@
         <div class="mb-3">
             <hr>
             <div>
-                <button type="submit" class="btn btn-primary">Run Report</button>
+                <button type="submit" class="btn btn-primary"><fmt:message key="admin.usageReport.btnRunReport"/></button>
             </div>
         </div>
     </fieldset>
@@ -229,23 +229,23 @@
 %>
 
 <fieldset>
-    <legend>Practice Profile</legend>
+    <legend><fmt:message key="admin.usageReport.legendPracticeProfile"/></legend>
 
     <dl class="row">
-        <dt>Practice Size</dt>
+        <dt><fmt:message key="admin.usageReport.labelPracticeSize"/></dt>
         <dd>
             <span class="badge text-bg-secondary"><%=demoList.size()%></span>
         </dd>
     </dl>
 
-    <h5>Age and Gender Distribution</h5>
+    <h5><fmt:message key="admin.usageReport.headingAgeGenderDistribution"/></h5>
     <table class="table table-bordered table-striped table-sm table-hover">
         <thead>
         <tr>
-            <th>Age Group - Years</th>
-            <th>Percentage</th>
-            <th>Male</th>
-            <th>Female</th>
+            <th><fmt:message key="admin.usageReport.thAgeGroup"/></th>
+            <th><fmt:message key="admin.usageReport.thPercentage"/></th>
+            <th><fmt:message key="admin.usageReport.thMale"/></th>
+            <th><fmt:message key="admin.usageReport.thFemale"/></th>
         </tr>
         </thead>
         <tbody>
@@ -283,33 +283,32 @@
     </table>
 
 
-    <h5>Scheduled Appts</h5>
+    <h5><fmt:message key="admin.usageReport.headingScheduledAppts"/></h5>
 
     <table class="table table-bordered table-striped table-sm table-hover tooltips">
         <thead>
         <tr>
-            <th>Scheduled Appts</th>
+            <th><fmt:message key="admin.usageReport.thScheduledAppts"/></th>
+            <fmt:message key="admin.usageReport.tooltipBilling" var="tooltipBilling"/>
+            <fmt:message key="admin.usageReport.tooltipEncounterNote" var="tooltipEncounterNote"/>
+            <fmt:message key="admin.usageReport.tooltipProblemList" var="tooltipProblemList"/>
+            <fmt:message key="admin.usageReport.tooltipStoredDocuments" var="tooltipStoredDocuments"/>
+            <fmt:message key="admin.usageReport.tooltipReminders" var="tooltipReminders"/>
+            <fmt:message key="admin.usageReport.tooltipLabs" var="tooltipLabs"/>
             <th><a data-bs-toggle="tooltip"
-                   data-bs-title="Bill for services  includes OHIP, WSIB, other Provincial plans, private insurance and uninsured (self pay, third parties) invoicing">Billing</a>
+                   data-bs-title="${tooltipBilling}"><fmt:message key="admin.usageReport.thBilling"/></a>
             </th>
             <th><a data-bs-toggle="tooltip"
-                   data-bs-title="Enter encounter notes for patients seen  progress note entry associated with a kept patient office visit">Encounter
-                Note</a></th>
+                   data-bs-title="${tooltipEncounterNote}"><fmt:message key="admin.usageReport.thEncounterNote"/></a></th>
             <th><a data-bs-toggle="tooltip"
-                   data-bs-title="Enter problem lists for patients seen  presence of CPP problem list entry. If an application allows for none in the CPP category of Problem List/Ongoing Problems this is an
-					acceptable entry.">Problem
-                List</a></th>
+                   data-bs-title="${tooltipProblemList}"><fmt:message key="admin.usageReport.thProblemList"/></a></th>
             <th><a data-bs-toggle="tooltip"
-                   data-bs-title="Store documents not originated from an EMR  includes any scanned documents or external documents delivered through an electronic interface e.g. through Hospital Report
-					Manager.">Stored
-                Documents</a></th>
-            <th>Rx new/renewals</th>
+                   data-bs-title="${tooltipStoredDocuments}"><fmt:message key="admin.usageReport.thStoredDocuments"/></a></th>
+            <th><fmt:message key="admin.usageReport.thRxNewRenewals"/></th>
             <th><a data-bs-toggle="tooltip"
-                   data-bs-title="Generate automated alerts or  reminders to support care delivery includes medication alerts (drug-drug, drug-allergy, drug-condition); preventive care and chronic disease
-					management reminders">Use
-                of reminders/alerts</a></th>
+                   data-bs-title="${tooltipReminders}"><fmt:message key="admin.usageReport.thUseOfReminders"/></a></th>
             <th><a data-bs-toggle="tooltip"
-                   data-bs-title="Receive lab results electronically, directly into the EMR from private labs  includes electronic interfaces with hospital labs.">Labs</a>
+                   data-bs-title="${tooltipLabs}"><fmt:message key="admin.usageReport.thLabs"/></a>
             </th>
         </tr>
         </thead>

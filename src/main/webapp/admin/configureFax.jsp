@@ -52,6 +52,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -79,6 +80,11 @@
 <%@ page import="io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action" %>
 
 <%
+    java.util.ResourceBundle faxResources =
+        java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
+<fmt:setBundle basename="oscarResources"/>
+<%
     // Declare Java variables at page scope before any HTML/JavaScript
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
@@ -91,9 +97,9 @@
 %>
 
 <!DOCTYPE html>
-<html>
+<html lang="${pageContext.request.locale.language}">
 <head>
-    <title>Fax Configuration</title>
+    <title><fmt:message key="admin.configureFax.title"/></title>
 
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
 
@@ -167,12 +173,20 @@
     </style>
 
     <script type="text/javascript">
+        var i18n = {
+            configSaved: '<%= Encode.forJavaScript(faxResources.getString("admin.configureFax.msgConfigSaved")) %>',
+            saveProblem: '<%= Encode.forJavaScript(faxResources.getString("admin.configureFax.msgSaveProblem")) %>',
+            saveFailed: '<%= Encode.forJavaScript(faxResources.getString("admin.configureFax.msgSaveFailed")) %>',
+            unableToRetrieveStatus: '<%= Encode.forJavaScript(faxResources.getString("admin.configureFax.msgUnableToRetrieveStatus")) %>',
+            restartFailed: '<%= Encode.forJavaScript(faxResources.getString("admin.configureFax.msgRestartFailed")) %>',
+            never: '<%= Encode.forJavaScript(faxResources.getString("admin.configureFax.msgNever")) %>'
+        };
+
         // Warn user if they try to leave with unsaved changes
         window.addEventListener('beforeunload', function (e) {
             if (!$("#submit").prop("disabled")) {
                 e.preventDefault();
                 e.returnValue = ''; // Chrome requires returnValue to be set
-                return 'You have unsaved changes. Are you sure you want to leave?';
             }
         });
 
@@ -180,12 +194,12 @@
         var originalAjaxSuccess = function(data) {
             if (data.success) {
                 $("#submit").prop("disabled", true); // Re-disable submit button after save
-                $("#msg").text(data.message || "Configuration saved!");
+                $("#msg").text(data.message || i18n.configSaved);
                 $('.alert').removeClass('alert-danger');
                 $('.alert').addClass('alert-success');
                 $('.alert').show();
             } else {
-                $("#msg").text(data.message || "There was a problem saving your configuration.  Check the logs for further details.");
+                $("#msg").text(data.message || i18n.saveProblem);
                 $('.alert').removeClass('alert-success');
                 $('.alert').addClass('alert-danger');
                 $('.alert').show();
@@ -222,7 +236,7 @@
                     dataType: "json",
                     success: originalAjaxSuccess,
                     error: function(jqXHR, textStatus, errorThrown) {
-                        $("#msg").text("Failed to save configuration. Server returned: " + (errorThrown || textStatus));
+                        $("#msg").text(i18n.saveFailed + " " + (errorThrown || textStatus));
                         $('.alert').removeClass('alert-success');
                         $('.alert').addClass('alert-danger');
                         $('.alert').show();
@@ -279,16 +293,16 @@
                     $('#restartFaxSchedulerBtn').prop('disabled', data.isRunning);
                     $("#faxStatusDetails").text(data.faxSchedularStatus).css("color", data.isRunning ? "black" : "red");
 
-                    var lastRunText = "Never";
+                    var lastRunText = i18n.never;
                     if (data.lastSuccessfulRunEpochMs && data.lastSuccessfulRunEpochMs > 0) {
                         lastRunText = new Date(data.lastSuccessfulRunEpochMs).toLocaleString();
                     }
                     $("#faxLastRunDetails").text(lastRunText);
-                    $("#faxLastErrorDetails").text(data.lastError && data.lastError.length > 0 ? data.lastError : "None");
+                    $("#faxLastErrorDetails").text(data.lastError && data.lastError.length > 0 ? data.lastError : i18n.never);
                     HideSpin();
                 },
                 error: function(jqXHR, textStatus, errorThrown) {
-                    $("#faxStatusDetails").text("Unable to retrieve status").css("color", "red");
+                    $("#faxStatusDetails").text(i18n.unableToRetrieveStatus).css("color", "red");
                     HideSpin();
                 }
             });
@@ -305,7 +319,7 @@
                     setTimeout(getFaxSchedularStatus, 3000);
                 },
                 error: function(jqXHR, textStatus, errorThrown) {
-                    $("#faxStatusDetails").text("Failed to restart scheduler: " + (errorThrown || textStatus)).css("color", "red");
+                    $("#faxStatusDetails").text(i18n.restartFailed + " " + (errorThrown || textStatus)).css("color", "red");
                 }
             });
         }
@@ -369,24 +383,24 @@
         <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax.restart" rights="r" reverse="<%=false%>">
             <div class="row">
                 <div class="col-md-12">
-                    <legend class="fax-section-title"><i class="fas fa-heartbeat"></i> Scheduler Health Status</legend>
+                    <legend class="fax-section-title"><i class="fas fa-heartbeat"></i> <fmt:message key="admin.configureFax.legendSchedulerHealth"/></legend>
                     <small class="fax-muted" style="display: block; margin-bottom: 12px;">
                         The fax scheduler polls for inbound/outbound faxes at regular intervals. These metrics show scheduler health, not fax gateway connectivity.
                     </small>
                 </div>
                 <div class="col-md-12" style="display: inline-flex; gap: 6px; align-items: baseline;">
-                    <label class="status-label"><i class="fas fa-heartbeat"></i> Scheduler Status:</label><label id="faxStatusDetails"></label>
+                    <label class="status-label"><i class="fas fa-heartbeat"></i> <fmt:message key="admin.configureFax.labelSchedulerStatus"/></label><label id="faxStatusDetails"></label>
                 </div>
                 <div class="col-md-12" style="display: inline-flex; gap: 6px; align-items: baseline;">
-                    <label class="status-label"><i class="fas fa-clock"></i> Last Poll Cycle:</label><label id="faxLastRunDetails">Never</label>
+                    <label class="status-label"><i class="fas fa-clock"></i> <fmt:message key="admin.configureFax.labelLastPollCycle"/></label><label id="faxLastRunDetails"><fmt:message key="admin.configureFax.msgNever"/></label>
                     <small class="fax-muted" style="margin-left: 8px;">(scheduler ran, may have had nothing to process)</small>
                 </div>
                 <div class="col-md-12" style="display: inline-flex; gap: 6px; align-items: baseline;">
-                    <label class="status-label"><i class="fas fa-exclamation-triangle"></i> Last Scheduler Error:</label><label id="faxLastErrorDetails">None</label>
+                    <label class="status-label"><i class="fas fa-exclamation-triangle"></i> <fmt:message key="admin.configureFax.labelLastError"/></label><label id="faxLastErrorDetails"><fmt:message key="admin.configureFax.msgNever"/></label>
                 </div>
                 <div class="col-md-12" style="margin-bottom: 20px;">
                     <button id="restartFaxSchedulerBtn" class="btn btn-warning" type="button" onclick="rebootFaxSchedular()" disabled>
-                        <i class="fas fa-sync-alt"></i> Restart Scheduler
+                        <i class="fas fa-sync-alt"></i> <fmt:message key="admin.configureFax.btnRestartScheduler"/>
                     </button>
                 </div>
             </div>
@@ -397,7 +411,7 @@
             <div id="pendingFaxesSection" class="row" style="display:none;">
                 <div class="col-md-12">
                     <legend class="fax-section-title">
-                        <i class="fas fa-inbox"></i> Pending Incoming Faxes
+                        <i class="fas fa-inbox"></i> <fmt:message key="admin.configureFax.legendPendingFaxes"/>
                         <span id="pendingFaxBadge" class="badge bg-warning text-dark" style="display:none; font-size: 12px; vertical-align: middle; margin-left: 8px;"></span>
                     </legend>
                     <small class="fax-muted" style="display: block; margin-bottom: 12px;">
@@ -411,10 +425,10 @@
                     <table id="pendingFaxesTable" class="table table-striped table-sm" style="display:none; margin-bottom: 14px;">
                         <thead>
                             <tr>
-                                <th>Filename</th>
-                                <th>Size</th>
-                                <th>Downloaded</th>
-                                <th>Account</th>
+                                <th><fmt:message key="admin.configureFax.thFilename"/></th>
+                                <th><fmt:message key="admin.configureFax.thSize"/></th>
+                                <th><fmt:message key="admin.configureFax.thDownloaded"/></th>
+                                <th><fmt:message key="admin.configureFax.thAccount"/></th>
                             </tr>
                         </thead>
                         <tbody id="pendingFaxesTableBody"></tbody>
@@ -426,7 +440,7 @@
         <!-- Fax Gateway Configuration -->
         <div class="row">
             <div class="col-md-12">
-                <legend class="fax-section-title"><i class="fas fa-satellite-dish"></i> Fax Gateway Configuration</legend>
+                <legend class="fax-section-title"><i class="fas fa-satellite-dish"></i> <fmt:message key="admin.configureFax.legendGatewayConfig"/></legend>
 
                 <div class="row fax-card">
                     <div class="col-md-12">
@@ -455,7 +469,7 @@
                         <!-- Provider Type Selection -->
                         <div class="row">
                             <div class="col-md-6">
-                                <label for="providerType">Fax Provider</label>
+                                <label for="providerType"><fmt:message key="admin.configureFax.labelFaxProvider"/></label>
                                 <select class="form-select" id="providerType" name="providerType">
                                     <option value="MIDDLEWARE" <%=providerType == FaxConfig.ProviderType.MIDDLEWARE ? "selected" : ""%>>Middleware Relay (faxws)</option>
                                     <option value="SRFAX" <%=providerType == FaxConfig.ProviderType.SRFAX ? "selected" : ""%>>SRFax Direct API</option>
@@ -468,13 +482,13 @@
                         <div id="middlewareFields" style="display:none;">
                             <div class="row">
                                 <div class="col-md-12">
-                                    <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;">Middleware Relay Server</h6>
+                                    <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;"><fmt:message key="admin.configureFax.headingMiddlewareRelay"/></h6>
                                     <small class="fax-muted" style="display: block; margin-bottom: 12px;">
                                         <i class="fas fa-info-circle"></i> Configure the relay server that will forward faxes to/from SRFax
                                     </small>
                                 </div>
                                 <div class="col-md-12">
-                                    <label for="faxUrl"><i class="fas fa-link"></i> Middleware Relay URL</label>
+                                    <label for="faxUrl"><i class="fas fa-link"></i> <fmt:message key="admin.configureFax.labelMiddlewareUrl"/></label>
                                     <input class="form-control" id="faxUrl" type="text" name="faxUrl" placeholder="https://your-middleware-server.com/fax"
                                            value="<%=Encode.forHtmlAttribute(faxUrl)%>"/>
                                     <small class="fax-muted">URL of your middleware relay server</small>
@@ -482,13 +496,13 @@
                             </div>
                             <div class="row">
                                 <div class="col-md-6">
-                                    <label for="faxServiceUser"><i class="fas fa-user"></i> Middleware Username</label>
+                                    <label for="faxServiceUser"><i class="fas fa-user"></i> <fmt:message key="admin.configureFax.labelMiddlewareUsername"/></label>
                                     <input class="form-control" id="faxServiceUser" type="text" name="siteUser"
                                            value="<%=Encode.forHtmlAttribute(siteUser)%>"/>
                                     <small class="fax-muted">Username for middleware relay server</small>
                                 </div>
                                 <div class="col-md-6">
-                                    <label for="faxServicePasswd"><i class="fas fa-key"></i> Middleware Password</label>
+                                    <label for="faxServicePasswd"><i class="fas fa-key"></i> <fmt:message key="admin.configureFax.labelMiddlewarePassword"/></label>
                                     <input class="form-control" id="faxServicePasswd" type="password" name="sitePasswd"
                                            value="<%=Encode.forHtmlAttribute(sitePasswd)%>"/>
                                     <small class="fax-muted">Password for middleware relay server</small>
@@ -500,8 +514,8 @@
                         <div id="srfaxUrlInfo" style="display:none;">
                             <div class="row">
                                 <div class="col-md-12">
-                                    <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;">SRFax API Endpoint</h6>
-                                    <label><i class="fas fa-link"></i> API URL</label>
+                                    <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;"><fmt:message key="admin.configureFax.headingSrfaxEndpoint"/></h6>
+                                    <label><i class="fas fa-link"></i> <fmt:message key="admin.configureFax.labelApiUrl"/></label>
                                     <input class="form-control" type="text" readonly
                                            value="<%=Encode.forHtmlAttribute(SRFaxProviderClient.DEFAULT_SRFAX_API_URL)%>"
                                            style="background: #f3f4f6; color: #6b7280; cursor: not-allowed;"/>
@@ -513,19 +527,19 @@
                         <!-- SRFax Account Credentials (always shown) -->
                         <div class="row">
                             <div class="col-md-12">
-                                <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;">SRFax Account Credentials</h6>
+                                <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;"><fmt:message key="admin.configureFax.headingSrfaxCredentials"/></h6>
                                 <small class="fax-muted" style="display: block; margin-bottom: 12px;">
                                     <i class="fas fa-info-circle"></i> Required for both provider types - your SRFax account details
                                 </small>
                             </div>
                             <div class="col-md-6">
-                                <label for="faxUser">SRFax Username</label>
+                                <label for="faxUser"><fmt:message key="admin.configureFax.labelSrfaxUsername"/></label>
                                 <input class="form-control" type="text" id="faxUser" name="faxUser"
                                        value="<%=Encode.forHtmlAttribute(faxUser)%>"/>
                                 <input type="hidden" id="id" name="id" value="<%=Encode.forHtmlAttribute(configId)%>"/>
                             </div>
                             <div class="col-md-6">
-                                <label for="faxPasswd">SRFax Password</label>
+                                <label for="faxPasswd"><fmt:message key="admin.configureFax.labelSrfaxPassword"/></label>
                                 <input class="form-control" type="password" id="faxPasswd" name="faxPassword"
                                        value="<%=Encode.forHtmlAttribute(faxPassword)%>"/>
                             </div>
@@ -534,12 +548,12 @@
                         <!-- Account Details -->
                         <div class="row">
                             <div class="col-md-6">
-                                <label for="faxNumber">Fax Number</label>
+                                <label for="faxNumber"><fmt:message key="admin.configureFax.labelFaxNumber"/></label>
                                 <input class="form-control" type="text" id="faxNumber" name="faxNumber"
                                        value="<%=Encode.forHtmlAttribute(faxNumber)%>"/>
                             </div>
                             <div class="col-md-6">
-                                <label for="senderEmail">Email</label>
+                                <label for="senderEmail"><fmt:message key="admin.configureFax.labelEmail"/></label>
                                 <input class="form-control" type="email" id="senderEmail" name="senderEmail"
                                        placeholder="Account email"
                                        value="<%=Encode.forHtmlAttribute(senderEmail)%>"/>
@@ -547,7 +561,7 @@
                         </div>
                         <div class="row">
                             <div class="col-md-6">
-                                <label>Inbox Queue</label>
+                                <label><fmt:message key="admin.configureFax.labelInboxQueue"/></label>
                                 <input class="form-control" type="text" readonly
                                        value="<%=Encode.forHtmlAttribute(queueMap.getOrDefault(queueId, "default"))%>"
                                        style="background: #f3f4f6; color: #6b7280; cursor: not-allowed;"/>
@@ -555,7 +569,7 @@
                                 <small class="fax-muted">Incoming faxes are routed to this document review queue</small>
                             </div>
                             <div class="col-md-6">
-                                <label for="accountName">Account Name</label>
+                                <label for="accountName"><fmt:message key="admin.configureFax.labelAccountName"/></label>
                                 <input class="form-control" type="text" name="accountName" id="accountName"
                                        value="<%=Encode.forHtmlAttribute(accountName)%>"/>
                             </div>
@@ -564,14 +578,14 @@
                         <!-- Enable/Disable Toggle -->
                         <div class="row">
                             <div class="col-md-6">
-                                <label>Enable Fax Gateway</label>
+                                <label><fmt:message key="admin.configureFax.labelEnableFaxGateway"/></label>
                                 <div class="form-check form-check-inline">
                                     <input class="form-check-input" type="radio" id="on" name="active" value="true" <%=isActive ? "checked" : ""%> />
-                                    <label class="form-check-label" for="on">Enabled</label>
+                                    <label class="form-check-label" for="on"><fmt:message key="admin.configureFax.labelEnabled"/></label>
                                 </div>
                                 <div class="form-check form-check-inline">
                                     <input class="form-check-input" type="radio" id="of" name="active" value="false" <%=!isActive ? "checked" : ""%> />
-                                    <label class="form-check-label" for="of">Disabled</label>
+                                    <label class="form-check-label" for="of"><fmt:message key="admin.configureFax.labelDisabled"/></label>
                                 </div>
                                 <input type="hidden" id="activeState" name="activeState" value="<%=isActive%>"/>
                                 <br/>
@@ -580,7 +594,7 @@
                             <div class="col-md-6">
                                 <label>
                                     <input type="checkbox" id="downloadCheckbox" <%=isDownload ? "checked" : ""%> onchange="$('#download_on').prop('checked', this.checked); $('#download_of').prop('checked', !this.checked); $('#downloadState').val(this.checked); $('#submit').prop('disabled', false);" />
-                                    Poll for incoming faxes
+                                    <fmt:message key="admin.configureFax.labelPollFaxes"/>
                                 </label>
                                 <input type="radio" id="download_on" name="download" value="true" style="display:none;" <%=isDownload ? "checked" : ""%> />
                                 <input type="radio" id="download_of" name="download" value="false" style="display:none;" <%=!isDownload ? "checked" : ""%> />
@@ -596,7 +610,7 @@
         </div>
 
         <div class="row">
-            <input class="btn btn-primary" id="submit" type="submit" disabled value="Save Configuration"/>
+            <input class="btn btn-primary" id="submit" type="submit" disabled value="<fmt:message key="admin.configureFax.btnSaveConfiguration"/>"/>
             <small class="fax-muted" style="margin-left: 12px; display: inline-block; line-height: 30px;">
                 <i class="fas fa-info-circle"></i> Changes are not saved until you click "Save Configuration"
             </small>

@@ -47,19 +47,31 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%
+    java.util.ResourceBundle drugrefResources =
+        java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
 
 
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 <fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE html>
-<html>
+<html lang="${pageContext.request.locale.language}">
     <head>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title><fmt:message key="admin.admin.UpdateDrugref"/></title>
         <link href="<c:out value="${ctx}/library/bootstrap/5.3.8/css/bootstrap.min.css"/>" rel="stylesheet" type="text/css">
 
         <script>
+            var i18n = {
+                msgNotUpdated: '<%= Encode.forJavaScript(drugrefResources.getString("admin.updateDrugref.jsMsgNotUpdated")) %>',
+                msgUpdating: '<%= Encode.forJavaScript(drugrefResources.getString("admin.updateDrugref.jsMsgUpdating")) %>',
+                msgUpdateStarted: '<%= Encode.forJavaScript(drugrefResources.getString("admin.updateDrugref.jsMsgUpdateStarted")) %>',
+                msgAlreadyUpdating: '<%= Encode.forJavaScript(drugrefResources.getString("admin.updateDrugref.jsMsgAlreadyUpdating")) %>'
+            };
+
             function getCsrfToken() {
                 var el = document.querySelector('input[name="CSRF-TOKEN"]');
                 if (!el) {
@@ -95,11 +107,11 @@
                 })
                 .then(function(json) {
                     if (json.lastUpdate == null) {
-                        document.getElementById('dbInfo').innerHTML = 'Drugref database has not been updated, please update.';
+                        document.getElementById('dbInfo').innerHTML = i18n.msgNotUpdated;
                         document.getElementById('updatedb').style.display = 'block';
                         document.getElementById('statusDisplay').style.display = 'none';
                     } else if (json.lastUpdate === 'updating') {
-                        document.getElementById('dbInfo').innerHTML = 'Drugref database is updating';
+                        document.getElementById('dbInfo').innerHTML = i18n.msgUpdating;
                         document.getElementById('statusDisplay').style.display = 'none';
                         document.getElementById('updateButton').style.display = 'none';
                     } else {
@@ -111,7 +123,7 @@
                     }
                 })
                 .catch(function(error) {
-                    document.getElementById('dbInfo').innerHTML = 'Drugref database has not been updated, please update.';
+                    document.getElementById('dbInfo').innerHTML = i18n.msgNotUpdated;
                     document.getElementById('updatedb').style.display = 'block';
                     document.getElementById('statusDisplay').style.display = 'none';
                 });
@@ -143,9 +155,9 @@
                 })
                 .then(function(json) {
                     if (json.result === 'running') {
-                        document.getElementById('updateResult').innerHTML = "Update has started, it'll take about 1 hour to finish";
+                        document.getElementById('updateResult').innerHTML = i18n.msgUpdateStarted;
                     } else if (json.result === 'updating') {
-                        document.getElementById('updateResult').innerHTML = "Some one has already been updating it";
+                        document.getElementById('updateResult').innerHTML = i18n.msgAlreadyUpdating;
                     }
                 })
                 .catch(function(error) {

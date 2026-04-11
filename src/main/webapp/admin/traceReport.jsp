@@ -28,8 +28,6 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<!DOCTYPE html>
-
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
@@ -48,10 +46,11 @@
         return;
     }
 %>
-
-<html>
+<fmt:setBundle basename="oscarResources"/>
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.traceabilityReport"/></title>
+        <title><fmt:message key="admin.admin.traceabilityReport"/></title>
         <!--<script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>-->
 
         <script src="${ pageContext.servletContext.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
@@ -78,7 +77,7 @@
 
             function validateInput() {
                 if (document.forms[1].file.value == "") {
-                    alert("<fmt:setBundle basename='oscarResources'/><fmt:message key='admin.admin.downloadEmpty'/>");
+                    alert("<fmt:message key='admin.admin.downloadEmpty'/>");
                     return false;
                 }
             }
@@ -93,35 +92,34 @@
 
     </head>
     <body>
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.traceabilityReport"/></h3>
+    <h3><fmt:message key="admin.admin.traceabilityReport"/></h3>
 
     <div class="card card-body bg-body-tertiary">
-        <h4><fmt:setBundle basename='oscarResources'/><fmt:message key='admin.admin.downloadTraceabilityData'/></h4>
-        This screen will allow you to check your OSCAR against another OSCAR to see if it is running the same version.
-        You can click "Download Traceability Data from this Oscar" to generate a file with information about the system.
-        This file contains information only about the OSCAR program itself -- it does not include any PHI.
+        <h4><fmt:message key='admin.admin.downloadTraceabilityData'/></h4>
+        <fmt:message key="admin.traceReport.msgDownloadDescription"/>
 
+        <fmt:message key="admin.traceReport.btnDownload" var="btnDownload"/>
         <form action="GenerateTraceAction.do" method="post">
             <input type="hidden" name="method">
-            <input type="submit" class="btn btn-primary" value="Download"/>
+            <input type="submit" class="btn btn-primary" value="${btnDownload}"/>
         </form>
     </div>
 
     <div class="card card-body bg-body-tertiary">
-        <h4><fmt:setBundle basename='oscarResources'/><fmt:message key='admin.admin.traceabilityReport'/></h4>
-        If you have a Traceability Data file from another Oscar, you can choose it and click "Generate Traceability
-        Report" to create a file which will let you know what files in the OSCAR program have been modified, added, or
-        removed.
+        <h4><fmt:message key='admin.admin.traceabilityReport'/></h4>
+        <fmt:message key="admin.traceReport.msgGenerateDescription"/>
 
+        <fmt:message key="admin.traceReport.btnGenerate" var="btnGenerate"/>
         <form action="GenerateTraceabilityReportAction.do" method="post" enctype="multipart/form-data"
               onsubmit="return validateInput()">
             <input type="file" name="file"/>
-            <span title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"
+            <fmt:message key="global.uploadWarningBody" var="uploadWarningBody"/>
+            <span title="${uploadWarningBody}"
                   style="vertical-align:middle;font-family:arial;font-size:20px;font-weight:bold;color:#ABABAB;cursor:pointer"><img
                     alt="alert" src="<%= request.getContextPath() %>/images/icon_alertsml.gif"/></span>
 
             <br>
-            <input class="btn btn-primary" type="submit" name="submit" value="Generate"/>
+            <input class="btn btn-primary" type="submit" name="submit" value="${btnGenerate}"/>
         </form>
 
     </div>

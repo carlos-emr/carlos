@@ -67,10 +67,12 @@
     }
     PreventionsLotNrsDao PreventionsLotNrsDao = (PreventionsLotNrsDao) SpringUtils.getBean(PreventionsLotNrsDao.class);
 %>
-<html>
+<fmt:setBundle basename="oscarResources"/>
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotaddrecord.title"/></title>
+        <title><fmt:message key="admin.lotaddrecord.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
     </head>
 
@@ -79,7 +81,7 @@
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">
                 <th><font face="Helvetica" color="#FFFFFF">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotaddrecord.description"/>
+                    <fmt:message key="admin.lotaddrecord.description"/>
                 </font></th>
             </tr>
         </table>
@@ -96,12 +98,12 @@
                     p.setDeleted(false);
                     PreventionsLotNrsDao.merge(p);
         %>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotaddrecord.msgAdditionSuccess"/>
+        <fmt:message key="admin.lotaddrecord.msgAdditionSuccess"/>
         <%
             }
         } else if (currentLotnrs.contains(lotnr)) {
         %>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotaddrecord.msgDuplicateLotnr"/>
+        <fmt:message key="admin.lotaddrecord.msgDuplicateLotnr"/>
         <%
         } else {
             PreventionsLotNrs p = new PreventionsLotNrs();
@@ -115,21 +117,19 @@
 
             if (p.getId() != null) {
         %>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotaddrecord.msgAdditionSuccess"/>
+        <fmt:message key="admin.lotaddrecord.msgAdditionSuccess"/>
         <%
         } else {
         %>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotaddrecord.msgAdditionFailure"/>
+        <fmt:message key="admin.lotaddrecord.msgAdditionFailure"/>
         <%
                 }
             }
         %>
         <br/>
-        <a href="lotnraddrecordhtm.jsp?prevention=<%=URLEncoder.encode(prevention,"UTF-8")%>">Add Another Lot #
-            to <%=Encode.forHtmlContent(prevention)%>
+        <a href="lotnraddrecordhtm.jsp?prevention=<%=URLEncoder.encode(prevention,"UTF-8")%>"><fmt:message key="admin.lotaddrecord.linkAddAnother"/> <%=Encode.forHtmlContent(prevention)%>
         </a> <br/>
-        <a href="lotnrsearchresults.jsp?search_mode=search_prev&keyword=<%=URLEncoder.encode(prevention,"UTF-8")%>&orderby=prevention_type&dboperation=lotnr_search_prevention&limit1=0&limit2=10&button=submit">View
-            Lots for <%=Encode.forHtmlContent(prevention)%>
+        <a href="lotnrsearchresults.jsp?search_mode=search_prev&keyword=<%=URLEncoder.encode(prevention,"UTF-8")%>&orderby=prevention_type&dboperation=lotnr_search_prevention&limit1=0&limit2=10&button=submit"><fmt:message key="admin.lotaddrecord.linkViewLots"/> <%=Encode.forHtmlContent(prevention)%>
         </a>
     </center>
     </body>

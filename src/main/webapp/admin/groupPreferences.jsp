@@ -58,7 +58,9 @@
     CtlBillingServiceDao ctlBillingServiceDao = (CtlBillingServiceDao) SpringUtils.getBean(CtlBillingServiceDao.class);
     String currentForm = "";
 %>
-<html>
+<fmt:setBundle basename="oscarResources"/>
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
@@ -74,7 +76,7 @@
                 document.getElementById('groupPreference').submit();
             }
         </script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.grouppref.title"/></title>
+        <title><fmt:message key="admin.grouppref.title"/></title>
     </head>
 
 
@@ -85,14 +87,14 @@
         <input type="hidden" id="method" name="method"/>
 
         <%if (request.getAttribute("saved") != null) { %>
-        <span style="color:red">Preference has been saved</span>
+        <span style="color:red"><fmt:message key="admin.groupPreferences.msgPreferenceSaved"/></span>
         <% } %>
         <!--Header-->
         <table border=0 cellspacing=0 cellpadding=0 width="100%">
             <tr bgcolor="#486ebd">
                 <th align=CENTER NOWRAP>
                     <font face="Helvetica" color="#FFFFFF">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.grouppref.title"/>
+                        <fmt:message key="admin.grouppref.title"/>
                     </font>
                 </th>
             </tr>
@@ -107,7 +109,7 @@
 
                         <table BORDER="0" CELLPADDING="0" CELLSPACING="1" WIDTH="100%" BGCOLOR="#C0C0C0">
                             <tr BGCOLOR="#CCFFFF">
-                                <td ALIGN="center" style="font-weight:bold; font-family:sans-serif"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.grouppref.selectBillingForm"/></td>
+                                <td ALIGN="center" style="font-weight:bold; font-family:sans-serif"><fmt:message key="admin.grouppref.selectBillingForm"/></td>
                                 <td ALIGN="center">
                                     <select id="chosenForm" name="chosenForm" onChange="changeBillingForm()">
                                         <option value=""></option>
@@ -158,7 +160,7 @@
         <table width="100%" BGCOLOR="#486ebd">
             <tr>
                 <td align="center">
-                    <input type="button" name="Submit" value="<fmt:setBundle basename='oscarResources'/><fmt:message key='admin.adminnewgroup.btnSubmit'/>"
+                    <input type="button" name="Submit" value="<fmt:message key='admin.adminnewgroup.btnSubmit'/>"
                            onClick="savePreference()"/>
 
                 </td>

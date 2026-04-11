@@ -144,10 +144,11 @@
 %>
 
 
-<!DOCTYPE HTML>
-<html>
+<fmt:setBundle basename="oscarResources"/>
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.addRole"/></title>
+        <title><fmt:message key="admin.admin.addRole"/></title>
         <script src="${pageContext.request.contextPath}/js/global.js"></script>
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <!-- Bootstrap -->
@@ -181,7 +182,7 @@
                     //ret = checkAllFields();
                 }
                 if (ret == true) {
-                    ret = confirm("Are you sure you want to save?");
+                    ret = confirm('<%= Encode.forJavaScript(oscarRec.getString("admin.providerAddRole.jsConfirmSave")) %>');
                 }
                 return ret;
             }
@@ -190,7 +191,7 @@
                 var b = true;
                 if (document.forms[0].role_name.value.length < 2) {
                     b = false;
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provideraddrole.msgyoumusttype"/>");
+                    alert("<fmt:message key="admin.provideraddrole.msgyoumusttype"/>");
                 }
                 return b;
             }
@@ -212,10 +213,10 @@
                 var b = true;
                 if (document.forms[0].last_name.value.length <= 0) {
                     b = false;
-                    alert("The field \"Last Name\" is empty.");
+                    alert('<%= Encode.forJavaScript(oscarRec.getString("admin.providerAddRole.jsMsgLastNameEmpty")) %>');
                 } else if (document.forms[0].first_name.value.length <= 0) {
                     b = false;
-                    alert("The field \"First Name\" is empty.");
+                    alert('<%= Encode.forJavaScript(oscarRec.getString("admin.providerAddRole.jsMsgFirstNameEmpty")) %>');
                 }
                 return b;
             }
@@ -255,19 +256,19 @@
         </script>
     </head>
     <body onLoad="setfocus()">
-    <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.addRole"/></h4>
+    <h4><fmt:message key="admin.admin.addRole"/></h4>
 
     <span style="display: inline-block; width:100%; margin:auto; text-align:center;" class="alert"><%=msg%></span>
     <br><br>
     <div class="card card-body bg-body-tertiary">
         <form method="post" name="baseurl" action="providerAddRole.jsp" class="">
             <div class="mb-3">
-                <label class="form-label" for="role_name"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provideraddrole.rolename"/></label>
+                <label class="form-label" for="role_name"><fmt:message key="admin.provideraddrole.rolename"/></label>
                 <div>
                     <input type="text" name="role_name" id="role_name"
                            value="<%=Encode.forHtmlAttribute(prop.getProperty("role_name", ""))%>"
                            maxlength='30'>
-                    <input type="submit" name="submit" value="Search" class="btn btn-secondary"
+                    <input type="submit" name="submit" value="<fmt:message key="admin.providerAddRole.btnSearch"/>" class="btn btn-secondary"
                            onclick="javascript:return onSearch();">
                 </div>
             </div>
@@ -276,7 +277,7 @@
                     <input
                             type="hidden" name="action" value='<%=Encode.forHtmlAttribute(action)%>'/> <% if (!"search".equals(action)) {%>
                     <input type="submit" name="submit" class="btn btn-primary"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>"
+                           value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
                            onclick="javascript:return onSave();"> <% }%>
                 </div>
             </div>

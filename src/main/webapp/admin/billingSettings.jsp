@@ -28,8 +28,8 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<!DOCTYPE HTML>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;
@@ -43,9 +43,6 @@
         return;
     }
 %>
-
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
@@ -142,10 +139,11 @@
 
     pageContext.setAttribute("clinicData", new ClinicData());
 %>
-
-<html>
+<fmt:setBundle basename="oscarResources"/>
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
     <head>
-        <title>Billing Settings</title>
+        <title><fmt:message key="admin.billingSettings.title"/></title>
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -173,7 +171,7 @@
 
     <body vlink="#0000FF" class="BodyStyle">
 
-    <h4>Manage OSCAR Billing Settings</h4>
+    <h4><fmt:message key="admin.billingSettings.heading"/></h4>
     <form name="billingSettingsForm" method="post" action="${pageContext.request.contextPath}/admin/billingSettings.jsp">
 
         <input type="hidden" name="dboperation" value="">
@@ -181,23 +179,22 @@
             <tbody>
             <oscar:oscarPropertiesCheck property="billregion" value="BC">
                 <tr>
-                    <td>Auto-populate Referring Physician on Billing Form for All Providers?:</td>
+                    <td><fmt:message key="admin.billingSettings.labelAutoPopulateRefer"/></td>
                     <td>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" id="auto_populate_refer-true" type="radio" value="true" name="auto_populate_refer"
                                     <%=(dataBean.getProperty("auto_populate_refer", "false").equals("true")) ? "checked" : ""%> />
-                            <label class="form-check-label" for="auto_populate_refer-true">Yes</label>
+                            <label class="form-check-label" for="auto_populate_refer-true"><fmt:message key="global.yes"/></label>
                         </div>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" id="auto_populate_refer-false" type="radio" value="false" name="auto_populate_refer"
                                     <%=(dataBean.getProperty("auto_populate_refer", "false").equals("false")) ? "checked" : ""%> />
-                            <label class="form-check-label" for="auto_populate_refer-false">No</label>
+                            <label class="form-check-label" for="auto_populate_refer-false"><fmt:message key="global.no"/></label>
                         </div>
                     </td>
                 </tr>
                 <tr>
-                    <td><label for="bc_default_service_location">Set the default Teleplan service location for new
-                        invoices:</label></td>
+                    <td><label for="bc_default_service_location"><fmt:message key="admin.billingSettings.labelBcDefaultServiceLocation"/></label></td>
                     <td>
                         <select id="bc_default_service_location" name="bc_default_service_location">
                             <%
@@ -223,7 +220,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td><label for="default_billing_form">Set the default Billing Form for all invoices:</label></td>
+                    <td><label for="default_billing_form"><fmt:message key="admin.billingSettings.labelDefaultBillingForm"/></label></td>
                     <td>
                         <select id="default_billing_form" name="default_billing_form">
                             <%
@@ -245,13 +242,13 @@
                     </td>
                 </tr>
                 <tr>
-                    <td>Set clinic information to display on all private invoices:</td>
+                    <td><fmt:message key="admin.billingSettings.labelSetClinicInfo"/></td>
                     <td>
                         <div class="form-check">
                             <input type="checkbox" class="form-check-input" id="invoice_use_custom_clinic_info"
                                    name="invoice_use_custom_clinic_info"
                                    onclick="setClinicInfo()" ${ "on" eq dataBean["invoice_use_custom_clinic_info"] ? "checked" : ""} />
-                            <label class="form-check-label" for="invoice_use_custom_clinic_info">Use Custom</label>
+                            <label class="form-check-label" for="invoice_use_custom_clinic_info"><fmt:message key="admin.billingSettings.labelUseCustom"/></label>
                         </div>
 
                         <br>
@@ -264,15 +261,16 @@
 
             <oscar:oscarPropertiesCheck property="billregion" value="ON">
                 <tr>
-                    <td>No billing options to display.</td>
+                    <td><fmt:message key="admin.billingSettings.msgNoBillingOptions"/></td>
                 </tr>
             </oscar:oscarPropertiesCheck>
             </tbody>
         </table>
         <input type="button"
                onclick="document.forms['billingSettingsForm'].dboperation.value='Save'; document.forms['billingSettingsForm'].submit();"
-               name="saveBillingSettings" value="Save"/>
-            ${ success ? "<span style=\'color:green;\'>Settings Saved</span>" : "<span style=\'color:red;\'></span>" }
+               name="saveBillingSettings" value="<fmt:message key="global.btnSave"/>"/>
+            <c:if test="${success}"><span style="color:green;"><fmt:message key="admin.billingSettings.msgSettingsSaved"/></span></c:if>
+            <c:if test="${!success}"><span style="color:red;"></span></c:if>
     </form>
     </body>
 </html>

@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -100,7 +99,13 @@
 <%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandlerParam" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<html>
+<%
+    java.util.ResourceBundle logReportResources =
+        java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
+<fmt:setBundle basename="oscarResources"/>
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
     <head>
 
 
@@ -116,7 +121,7 @@
 
 
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
-        <title>Log Report</title>
+        <title><fmt:message key="admin.logReport.title"/></title>
         <script language="JavaScript">
 
             <!--
@@ -127,7 +132,7 @@
 
             function onSub() {
                 if (document.myform.startDate.value == "" || document.myform.endDate.value == "") {
-                    alert("Please set Start and End Dates.");
+                    alert('<%= Encode.forJavaScript(logReportResources.getString("admin.logReport.jsMsgSetDates")) %>');
                     return false;
                 } else {
                     return true;
@@ -149,14 +154,14 @@
     <body>
     <form name="myform" class="card card-body bg-body-tertiary" action="logReport.jsp" method="POST" onSubmit="return(onSub());">
         <fieldset>
-            <h3>Log Admin Report <small>Please select the provider, start and end dates.</small></h3>
+            <h3><fmt:message key="admin.logReport.headingLogAdminReport"/> <small><fmt:message key="admin.logReport.msgSelectProviderAndDates"/></small></h3>
 
             <div class="row">
             <div class="col-md-4">
-                <label>Provider: </label>
+                <label><fmt:message key="admin.logReport.labelProvider"/>: </label>
 
                 <select name="providerNo">
-                    <option value="*">All</option>
+                    <option value="*"><fmt:message key="admin.logReport.optionAll"/></option>
                     <%
                         for (int i = 0; i < vecProvider.size(); i++) {
                             String prov = ((Properties) vecProvider.get(i)).getProperty("providerNo", "");
@@ -173,15 +178,15 @@
             </div>
 
             <div class="col-md-4">
-                <label>Content Type:</label>
+                <label><fmt:message key="admin.logReport.labelContentType"/>:</label>
                 <select name="content">
-                    <option value="admin">Admin</option>
-                    <option value="login">Log in</option>
+                    <option value="admin"><fmt:message key="admin.logReport.optionAdmin"/></option>
+                    <option value="login"><fmt:message key="admin.logReport.optionLogin"/></option>
                 </select>
             </div>
 
             <div class="col-md-4">
-                <label>Start Date: </label>
+                <label><fmt:message key="admin.logReport.labelStartDate"/>: </label>
                 <div class="input-group">
                     <input type="text" name="startDate" id="startDate1" value="<%=Encode.forHtmlAttribute(startDate!=null?startDate:"")%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
@@ -190,7 +195,7 @@
             </div>
 
             <div class="col-md-4">
-                <label>End Date: </label>
+                <label><fmt:message key="admin.logReport.labelEndDate"/>: </label>
                 <div class="input-group">
                     <input type="text" name="endDate" id="endDate1" value="<%=Encode.forHtmlAttribute(endDate!=null?endDate:"")%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
@@ -200,7 +205,8 @@
 
 
             <div class="col-md-8" style="padding-top:10px;">
-                <input class="btn btn-primary" type="submit" name="submit" value="Run Report">
+                <fmt:message key="admin.logReport.btnRunReport" var="btnRunReport"/>
+                <input class="btn btn-primary" type="submit" name="submit" value="${btnRunReport}">
             </div>
 
             </div><!--row-->
@@ -277,30 +283,30 @@
     %>
     <h4><%
         if (propName.getProperty(providerNo, "").equals("")) {
-            out.print("All");
+            out.print(Encode.forHtml(logReportResources.getString("admin.logReport.optionAll")));
         } else {
             out.print(Encode.forHtml(propName.getProperty(providerNo, "")));
         }
-    %> - Log Report</h4>
+    %> - <fmt:message key="admin.logReport.headingLogReport"/></h4>
 
     <button class="btn float-end" onClick="window.print()" style="margin-bottom:4px">
-        <i class="fa-solid fa-print"></i> Print
+        <i class="fa-solid fa-print"></i> <fmt:message key="admin.logReport.btnPrint"/>
     </button>
 
 
-    <p>Period: ( <%= Encode.forHtml(startDate == null ? "" : startDate) %> ~ <%= Encode.forHtml(endDate == null ? "" : endDate) %>)</p>
+    <p><fmt:message key="admin.logReport.labelPeriod"/>: ( <%= Encode.forHtml(startDate == null ? "" : startDate) %> ~ <%= Encode.forHtml(endDate == null ? "" : endDate) %>)</p>
     <table class="table table-bordered table-striped table-hover table-sm">
         <tr bgcolor="<%=tdTitleColor%>">
-            <TH>Time</TH>
-            <TH>Action</TH>
-            <TH>Content</TH>
-            <TH>Keyword</TH>
-            <TH>IP</TH>
+            <TH><fmt:message key="admin.logReport.thTime"/></TH>
+            <TH><fmt:message key="admin.logReport.thAction"/></TH>
+            <TH><fmt:message key="admin.logReport.thContent"/></TH>
+            <TH><fmt:message key="admin.logReport.thKeyword"/></TH>
+            <TH><fmt:message key="admin.logReport.thIp"/></TH>
             <% if (bAll) { %>
-            <TH>Provider</TH>
+            <TH><fmt:message key="admin.logReport.thProvider"/></TH>
             <% } %>
-            <TH>Demo</TH>
-            <TH>Data</TH>
+            <TH><fmt:message key="admin.logReport.thDemo"/></TH>
+            <TH><fmt:message key="admin.logReport.thData"/></TH>
         </tr>
                 <%
 String catName = "";

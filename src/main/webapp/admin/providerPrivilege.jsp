@@ -28,7 +28,6 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<!DOCTYPE html>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -77,7 +76,10 @@
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-
+<%
+    java.util.ResourceBundle privResources =
+        java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
 <%
     SecRoleDao secRoleDao = SpringUtils.getBean(SecRoleDao.class);
     SecPrivilegeDao secPrivilegeDao = SpringUtils.getBean(SecPrivilegeDao.class);
@@ -283,9 +285,11 @@
     String keyword = request.getParameter("keyword") != null ? request.getParameter("keyword") : "";
 
 %>
-<html>
+<fmt:setBundle basename="oscarResources"/>
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
 <head>
-    <title>PROVIDER</title>
+    <title><fmt:message key="admin.providerPrivilege.title"/></title>
 
     <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
           rel="stylesheet">
@@ -304,10 +308,10 @@
     <script>
         jQuery(document).ready(function () {
             jQuery('#addtbl').DataTable({
-                "lengthMenu": [[8, 16, 32, -1], [8, 16, 32, "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.LeftNavBar.AllLabs"/>"]],
+                "lengthMenu": [[8, 16, 32, -1], [8, 16, 32, "<fmt:message key="encounter.LeftNavBar.AllLabs"/>"]],
                 "order": [],
                 "language": {
-                    "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18n.datatablescode"/>.json"
+                    "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
                 }
             });
         });
@@ -402,10 +406,11 @@
                 <div class="alert" style="width:100%; text-align:center"><%=msg%>
                 </div>
                 <% } %></th>
-            <th style="width: 600px">Object Name/Role Name: <input type="text" name="keyword"
-                                                                   value="<%=Encode.forHtmlAttribute(keyword)%>"> <input
-                    type="submit" name="search" class="btn btn-secondary"
-                    value="Filter"></th>
+            <fmt:message key="admin.providerPrivilege.labelObjectNameRoleName" var="labelObjectNameRoleName"/>
+            <th style="width: 600px">${labelObjectNameRoleName}: <input type="text" name="keyword"
+                                                                   value="<%=Encode.forHtmlAttribute(keyword)%>"> <fmt:message key="admin.providerPrivilege.btnFilter" var="btnFilter"/>
+                <input type="submit" name="search" class="btn btn-secondary"
+                    value="${btnFilter}"></th>
         </tr>
     </table>
 </form>
@@ -432,16 +437,16 @@
 
 %>
 
-<h4>Role/Privilege List</h4>
+<h4><fmt:message key="admin.providerPrivilege.headingRolePrivilegeList"/></h4>
 <div class="card card-body bg-body-tertiary">
     <table id="tblpp" class="table table-sm">
         <thead>
         <tr>
-            <th style="width:300px">Role</th>
-            <th style="width:200px">Object ID</th>
-            <th style="width:300px">Privilege</th>
-            <th>Priority</th>
-            <th>Action</th>
+            <th style="width:300px"><fmt:message key="admin.providerPrivilege.thRole"/></th>
+            <th style="width:200px"><fmt:message key="admin.providerPrivilege.thObjectId"/></th>
+            <th style="width:300px"><fmt:message key="admin.providerPrivilege.thPrivilege"/></th>
+            <th><fmt:message key="admin.providerPrivilege.thPriority"/></th>
+            <th><fmt:message key="admin.providerPrivilege.thAction"/></th>
         </tr>
         </thead>
         <tbody>
@@ -487,9 +492,11 @@
                     <% if (!roleUser.equals("admin") && !obj.equals("_admin")) { %> <input
                         type="hidden" name="keyword" value="<%=Encode.forHtmlAttribute(keyword)%>"> <input
                         type="hidden" name="objectName" value="<%=obj %>"> <input
-                        type="hidden" name="roleUserGroup" value="<%=roleUser %>"> <input
-                        type="submit" name="buttonUpdate" value="Update" class="btn btn-secondary"> <input
-                        type="submit" name="submit" value="Delete" class="btn btn-secondary"> <% } %>
+                        type="hidden" name="roleUserGroup" value="<%=roleUser %>">
+                        <fmt:message key="admin.providerPrivilege.btnUpdate" var="btnUpdate"/>
+                        <fmt:message key="admin.providerPrivilege.btnDelete" var="btnDelete"/>
+                        <input type="submit" name="buttonUpdate" value="${btnUpdate}" class="btn btn-secondary">
+                        <input type="submit" name="submit" value="${btnDelete}" class="btn btn-secondary"> <% } %>
                 </td>
             </tr>
         </form>
@@ -499,10 +506,10 @@
 </div>
 
 
-<h4>Add Role/Privilege</h4>
+<h4><fmt:message key="admin.providerPrivilege.headingAddRolePrivilege"/></h4>
 <div class="card card-body bg-body-tertiary">
     <form name="myform2" action="providerPrivilege.jsp" method="POST">
-        For:
+        <fmt:message key="admin.providerPrivilege.labelFor"/>
         <select name="roleUserGroup"
                 onChange="onChangeSelect()">
             <option value="">-</option>
@@ -510,7 +517,7 @@
             <option value="<%=Encode.forHtmlAttribute(vecRoleName.get(j).toString())%>"><%= Encode.forHtmlContent(vecRoleName.get(j).toString()) %>
             </option>
             <% }%>
-        </select> or <select name="roleUserGroup1">
+        </select> <fmt:message key="admin.providerPrivilege.labelOr"/> <select name="roleUserGroup1">
         <option value="">-</option>
         <% for (int j = 0; j < vecProviderNo.size(); j++) {%>
         <option value="<%=Encode.forHtmlAttribute(vecProviderNo.get(j).toString())%>"><%= Encode.forHtmlContent((String) vecProviderName.get(j)) %>
@@ -522,11 +529,11 @@
         <table id="addtbl" style="width: 100%" class="table table-striped table-sm">
             <thead>
             <tr>
-                <th style="width:300px">Role</th>
-                <th style="width:200px">Object ID</th>
-                <th style="width:300px">Privilege</th>
-                <th>Priority</th>
-                <th>Action</th>
+                <th style="width:300px"><fmt:message key="admin.providerPrivilege.thRole"/></th>
+                <th style="width:200px"><fmt:message key="admin.providerPrivilege.thObjectId"/></th>
+                <th style="width:300px"><fmt:message key="admin.providerPrivilege.thPrivilege"/></th>
+                <th><fmt:message key="admin.providerPrivilege.thPriority"/></th>
+                <th><fmt:message key="admin.providerPrivilege.thAction"/></th>
             </tr>
             </thead>
             <tbody>
@@ -591,8 +598,9 @@
                     <% }%>
                 </select></td>
                 <td>
+                    <fmt:message key="admin.providerPrivilege.btnAdd" var="btnAdd"/>
                     <input type="submit"
-                           name="submit" value="Add" class="btn btn-secondary"></td>
+                           name="submit" value="${btnAdd}" class="btn btn-secondary"></td>
             </tr>
             <% }%>
 
@@ -607,7 +615,8 @@
 
                 </td>
                 <td style="width:200px">
-                    <input type="text" name="object$Name1" value="" placeholder="new security object">
+                    <fmt:message key="admin.providerPrivilege.placeholderNewSecurityObject" var="placeholderNewSecurityObject"/>
+                    <input type="text" name="object$Name1" value="" placeholder="${placeholderNewSecurityObject}">
                 </td>
                 <td style="width:300px">
                     <%
@@ -621,7 +630,7 @@
                               name="privilege$Name1$<%=Encode.forHtmlAttribute(vecRightsName.get(j).toString())%>"> <%=Encode.forHtml(vecRightsDesc.get(j).toString())%>
                     <% }%>
                 </td>
-                <td>Priority <select name="priority$Name1" style="width:50px;">
+                <td><fmt:message key="admin.providerPrivilege.thPriority"/> <select name="priority$Name1" style="width:50px;">
                     <option value="">-</option>
                     <% for (int j = 10; j >= 0; j--) { %>
                     <option value="<%=j%>" <%= ("" + j).equals("0") ? "selected" : "" %>>
@@ -630,7 +639,7 @@
                     <% }%>
                 </select></td>
                 <td><input type="submit"
-                           name="submit" value="Add" class="btn btn-secondary"></td>
+                           name="submit" value="${btnAdd}" class="btn btn-secondary"></td>
 
             </tr>
             </tbody>

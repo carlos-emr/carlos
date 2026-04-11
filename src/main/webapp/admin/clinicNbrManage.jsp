@@ -14,6 +14,7 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -28,6 +29,7 @@
     }
 %>
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@page import="io.github.carlos_emr.carlos.commn.model.ClinicNbr" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -36,13 +38,18 @@
 <%@ page
         import="java.sql.*, java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.SxmlMisc, io.github.carlos_emr.carlos.providers.data.ProviderBillCenter"
         errorPage="/errorpage.jsp" %>
-
-<html>
+<%
+    java.util.ResourceBundle clinicNbrResources =
+        java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
+<fmt:setBundle basename="oscarResources"/>
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
     <head>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
-        <title>Clinic NBR Management Start Time : <%=CarlosProperties.getInstance().getStartTime()%>
+        <title><fmt:message key="admin.clinicNbrManage.title"/> <%=Encode.forHtml(CarlosProperties.getInstance().getStartTime())%>
         </title>
         <script type="text/javascript">
             function toggleButtons(visible) {
@@ -104,11 +111,11 @@
         <table>
 
             <tr bgcolor="#486ebd">
-                <th align="LEFT" colspan="3"><font face="Helvetica" color="#FFFFFF">Remove NRB Code</font></th>
+                <th align="LEFT" colspan="3"><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.clinicNbrManage.headingRemoveNbrCode"/></font></th>
             </tr>
 
             <tr>
-                <td align="right">Current NBR codes in database:</td>
+                <td align="right"><fmt:message key="admin.clinicNbrManage.labelCurrentNbrCodes"/>:</td>
                 <td>
                     <select id="xml_p_nbr" name="xml_p_nbr">
                         <%
@@ -127,7 +134,8 @@
                 </td>
 
                 <td>
-                    <input type="submit" name="subbutton" value="Remove Selected Code" onclick="return removeCode();">
+                    <fmt:message key="admin.clinicNbrManage.btnRemoveSelectedCode" var="btnRemoveSelectedCode"/>
+                    <input type="submit" name="subbutton" value="${btnRemoveSelectedCode}" onclick="return removeCode();">
                 </td>
             </tr>
         </table>
@@ -135,17 +143,18 @@
     <form method="post" action="" name="manageNRB">
         <table>
             <tr bgcolor="#486ebd">
-                <th align="LEFT" colspan="3"><font face="Helvetica" color="#FFFFFF">Add NBR Code</font></th>
+                <th align="LEFT" colspan="3"><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.clinicNbrManage.headingAddNbrCode"/></font></th>
             </tr>
             <tr>
                 <td>
-                    Value: <input id="nbr_value" type="text" name="nbr_value"/>
+                    <fmt:message key="admin.clinicNbrManage.labelValue"/>: <input id="nbr_value" type="text" name="nbr_value"/>
                 </td>
                 <td>
-                    Description: <input id="nbr_string" type="text" name="nbr_string"/>
+                    <fmt:message key="admin.clinicNbrManage.labelDescription"/>: <input id="nbr_string" type="text" name="nbr_string"/>
                 </td>
                 <td>
-                    <input type="submit" name="subbutton" value="Add New Code" onclick="return addCode();">
+                    <fmt:message key="admin.clinicNbrManage.btnAddNewCode" var="btnAddNewCode"/>
+                    <input type="submit" name="subbutton" value="${btnAddNewCode}" onclick="return addCode();">
                 </td>
             </tr>
         </table>
