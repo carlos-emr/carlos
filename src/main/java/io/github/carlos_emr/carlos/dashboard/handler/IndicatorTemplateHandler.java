@@ -114,7 +114,7 @@ public class IndicatorTemplateHandler {
 
         try {
 
-            Validator validator = XmlUtils.createSecureValidator(getSchema());
+            Validator validator = XmlUtils.createSecureValidator(getSchema()); // nosemgrep: validator-xxe -- XXE protection applied by XmlUtils.createSecureValidator()
             validator.validate(new DOMSource(getIndicatorTemplateDocument()));
             setValidXML(Boolean.TRUE);
         } catch (Exception e) {
