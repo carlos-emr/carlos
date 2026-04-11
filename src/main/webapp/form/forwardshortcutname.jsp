@@ -39,7 +39,7 @@
     <%response.sendRedirect(request.getContextPath() + "/logout.jsp");%>
 </security:oscarSec>
 
-<%@ page import="java.net.URLDecoder, io.github.carlos_emr.carlos.form.data.*" %>
+<%@ page import="java.net.URLDecoder, java.net.URLEncoder, io.github.carlos_emr.carlos.form.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.form.data.FrmData" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LogSanitizer" %>
 
@@ -49,9 +49,45 @@
     if (true) {
         out.clearBuffer();
         //forward to the current specified form, e.g. contextPath/form/formar.jsp?demographic_no=
-        String strFrm = URLDecoder.decode(request.getParameter("formname"), "UTF-8");
+        String rawFormName = request.getParameter("formname");
+        String strFrm = rawFormName == null ? null : URLDecoder.decode(rawFormName, "UTF-8");
+
         String demoNo = request.getParameter("demographic_no");
-        if (demoNo != null && !demoNo.matches("\\d+")) { demoNo = null; } // validate numeric to prevent SQL injection
+        if (demoNo != null && !demoNo.matches("\\d+")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return;
+        }
+
+        String appointmentNo = request.getParameter("appointment_no");
+        if (appointmentNo != null && !appointmentNo.matches("\\d+")) {
+            appointmentNo = null;
+        }
+
+        String formId = request.getParameter("formId");
+        if (formId != null && !formId.matches("\\d+")) {
+            formId = null;
+        }
+
+        StringBuilder safeForwardQuery = new StringBuilder();
+        if (demoNo != null) {
+            safeForwardQuery.append("demographic_no=")
+                .append(URLEncoder.encode(demoNo, "UTF-8"));
+        }
+        if (appointmentNo != null) {
+            if (safeForwardQuery.length() > 0) {
+                safeForwardQuery.append("&");
+            }
+            safeForwardQuery.append("appointment_no=")
+                .append(URLEncoder.encode(appointmentNo, "UTF-8"));
+        }
+        if (formId != null) {
+            if (safeForwardQuery.length() > 0) {
+                safeForwardQuery.append("&");
+            }
+            safeForwardQuery.append("formId=")
+                .append(URLEncoder.encode(formId, "UTF-8"));
+        }
+
         String[] formPath = (new FrmData()).getShortcutFormValue(demoNo, strFrm); // deepcode ignore SqlInjection: demoNo validated as numeric; table name in FrmData validated by regex
         formPath[0] = formPath[0].trim();
 
