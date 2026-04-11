@@ -80,10 +80,10 @@ For each hardcoded string:
    add a `# TODO: translate` comment on the **preceding line** (not appended to the value —
    inline `# ...` text is not a comment in `.properties` syntax and becomes part of the value):
    - `oscarResources_en.properties` — with the English value
-   - `oscarResources_es.properties` — English value as placeholder, preceded by `# TODO: translate`
-   - `oscarResources_fr.properties` — English value as placeholder, preceded by `# TODO: translate`
-   - `oscarResources_pl.properties` — English value as placeholder, preceded by `# TODO: translate`
-   - `oscarResources_pt_BR.properties` — English value as placeholder, preceded by `# TODO: translate`
+   - `oscarResources_es.properties` — with the Spanish value
+   - `oscarResources_fr.properties` — with the French value
+   - `oscarResources_pl.properties` — with the Polish value
+   - `oscarResources_pt_BR.properties` — with the Brazillian Portugese value
 3. Non-ASCII characters may appear directly in UTF-8 files; `\uXXXX` escapes are also valid.
 
 ```properties
@@ -104,7 +104,6 @@ admin.configureFax.btnSave=Save Configuration
 - [ ] Keys added to `oscarResources_pl.properties` (with placeholder)
 - [ ] Keys added to `oscarResources_pt_BR.properties` (with placeholder)
 - [ ] No duplicate keys created (checked `global.*` first)
-- [ ] All non-ASCII chars use `\uXXXX` escapes
 
 ### Step 6: Replace Hardcoded Text with `<fmt:message>`
 
