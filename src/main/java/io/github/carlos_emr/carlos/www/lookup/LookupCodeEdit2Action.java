@@ -90,7 +90,9 @@ public class LookupCodeEdit2Action extends ActionSupport {
     }
 
     public String save() throws Exception {
-        LookupTableDefValue tableDef = this.getTableDef();
+        LookupTableDefValue submittedTableDef = this.getTableDef();
+        String tableId = submittedTableDef == null ? null : submittedTableDef.getTableId();
+        LookupTableDefValue tableDef = (Utility.IsEmpty(tableId) ? null : lookupManager.GetLookupTableDef(tableId));
         List fieldDefList = this.getCodeFields();
         boolean isNew = this.isNewCode();
 
@@ -160,6 +162,10 @@ public class LookupCodeEdit2Action extends ActionSupport {
             }
         }
         if (!getActionMessages().isEmpty()) {
+            return "edit";
+        }
+        if (tableDef == null) {
+            addActionMessage(getText("error.lookup.invalidTable"));
             return "edit";
         }
         try {
