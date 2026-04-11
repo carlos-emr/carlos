@@ -130,8 +130,8 @@ public class PrintHRMReport2Action extends ActionSupport {
             return "error";
         } finally {
             if (osTemp != null) {
-                osTemp.flush();
-                osTemp.close();
+                osTemp.flush(); // nosemgrep: no-direct-response-writer -- binary PDF stream
+                osTemp.close(); // nosemgrep: no-direct-response-writer -- binary PDF stream
             }
             if (fileTemp != null) {
                 fileTemp.delete();

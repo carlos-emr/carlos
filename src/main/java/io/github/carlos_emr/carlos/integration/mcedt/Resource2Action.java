@@ -180,7 +180,7 @@ public class Resource2Action extends ActionSupport {
             ze.setSize(inputBytes.length);
 
             zos.putNextEntry(ze);
-            zos.write(inputBytes);
+            zos.write(inputBytes); // nosemgrep: no-direct-response-writer -- application/zip binary stream
             zos.closeEntry();
             zos.flush();
         }

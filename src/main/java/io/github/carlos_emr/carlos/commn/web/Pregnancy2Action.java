@@ -37,6 +37,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -65,6 +66,7 @@ public class Pregnancy2Action extends ActionSupport {
 
     private EpisodeDao episodeDao = SpringUtils.getBean(EpisodeDao.class);
     private ObjectMapper objectMapper = new ObjectMapper();
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     // Allowlist of form class names valid for pregnancy-related AJAX form saves.
     // Prevents user-controlled input from loading arbitrary classes via FrmRecordFactory.
@@ -81,6 +83,9 @@ public class Pregnancy2Action extends ActionSupport {
     }
 
     public String execute() throws Exception {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "r", null)) {
+            throw new SecurityException("missing required sec object (_form)");
+        }
         String method = request.getParameter("method");
         if ("getLatestFormIdByPregnancy".equals(method)) {
             return getLatestFormIdByPregnancy();
@@ -147,6 +152,9 @@ public class Pregnancy2Action extends ActionSupport {
     }
 
     public String create() {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
+            throw new SecurityException("missing required sec object (_form write)");
+        }
         Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
         String code = request.getParameter("code");
         String codeType = request.getParameter("codetype");
@@ -211,6 +219,9 @@ public class Pregnancy2Action extends ActionSupport {
     }
 
     public String doComplete() {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
+            throw new SecurityException("missing required sec object (_form write)");
+        }
         //Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
         Integer episodeId = Integer.parseInt(request.getParameter("episodeId"));
         String endDate = request.getParameter("endDate");
@@ -230,6 +241,9 @@ public class Pregnancy2Action extends ActionSupport {
     }
 
     public String doDelete() {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
+            throw new SecurityException("missing required sec object (_form write)");
+        }
         //Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
         Integer episodeId = Integer.parseInt(request.getParameter("episodeId"));
         Episode e = episodeDao.find(episodeId);
@@ -347,6 +361,9 @@ public class Pregnancy2Action extends ActionSupport {
     }
 
     public String getAllergies() throws IOException {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "r", null)) {
+            throw new SecurityException("missing required sec object (_form)");
+        }
         Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
         AllergyDao allergyDao = SpringUtils.getBean(AllergyDao.class);
         List<Allergy> allergies = allergyDao.findActiveAllergies(demographicNo);
@@ -362,11 +379,14 @@ public class Pregnancy2Action extends ActionSupport {
         ObjectNode json = objectMapper.valueToTree(new LabelValueBean("allergies", output.toString().trim()));
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().println(json);
+        response.getWriter().println(json); // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type
         return null;
     }
 
     public String getMeds() throws IOException {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "r", null)) {
+            throw new SecurityException("missing required sec object (_form)");
+        }
         Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
         DrugDao drugDao = SpringUtils.getBean(DrugDao.class);
         List<Drug> drugs = drugDao.findByDemographicId(demographicNo, false);
@@ -393,11 +413,14 @@ public class Pregnancy2Action extends ActionSupport {
         ObjectNode json = objectMapper.valueToTree(new LabelValueBean("meds", output.toString().trim()));
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().println(json);
+        response.getWriter().println(json); // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type
         return null;
     }
 
     public String saveFormAjax() throws IOException {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
+            throw new SecurityException("missing required sec object (_form write)");
+        }
         int newID = 0;
         FrmRecord rec = null;
         ObjectNode jsonObj = null;
@@ -470,12 +493,15 @@ public class Pregnancy2Action extends ActionSupport {
 
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().print(jsonObj.toString());
+        response.getWriter().print(jsonObj.toString()); // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type
 
         return null;
     }
 
     public String getMeasurementsAjax() throws IOException {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "r", null)) {
+            throw new SecurityException("missing required sec object (_form)");
+        }
         String demographicNo = request.getParameter("demographicNo");
         String type = request.getParameter("type");
 
@@ -485,12 +511,15 @@ public class Pregnancy2Action extends ActionSupport {
         ArrayNode json = objectMapper.valueToTree(m);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().print(json.toString());
+        response.getWriter().print(json.toString()); // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type
 
         return null;
     }
 
     public String saveMeasurementAjax() throws IOException {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
+            throw new SecurityException("missing required sec object (_form write)");
+        }
         String demographicNo = request.getParameter("demographicNo");
         String type = request.getParameter("type");
         String value = request.getParameter("value");
@@ -827,6 +856,9 @@ Repeat antibody screen
     }
 
     public String getPrintData() throws IOException {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "r", null)) {
+            throw new SecurityException("missing required sec object (_form)");
+        }
         PrintResourceLogDao dao = SpringUtils.getBean(PrintResourceLogDao.class);
         ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
         String resourceName = request.getParameter("resourceName");
@@ -839,7 +871,7 @@ Repeat antibody screen
         ArrayNode json = objectMapper.valueToTree(results);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().print(json.toString());
+        response.getWriter().print(json.toString()); // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type
         return null;
     }
 }

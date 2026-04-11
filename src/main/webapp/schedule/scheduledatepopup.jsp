@@ -121,7 +121,7 @@
                                 <div align="right"><fmt:message key="schedule.scheduledatepopup.formTemplate"/>:
                                 </div>
                             </td>
-                            <td><!--input type="text" name="hour1" <%=strHour%> --> <select
+                            <td><select
                                     name="hour">
                                 <%
 

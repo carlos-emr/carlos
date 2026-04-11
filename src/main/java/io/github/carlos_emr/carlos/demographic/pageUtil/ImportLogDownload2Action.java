@@ -123,7 +123,7 @@ public class ImportLogDownload2Action extends ActionSupport {
                 byte[] buffer = new byte[8192];
                 int bytesRead;
                 while ((bytesRead = in.read(buffer)) != -1) {
-                    out.write(buffer, 0, bytesRead);
+                    out.write(buffer, 0, bytesRead); // nosemgrep: no-direct-response-writer -- application/octet-stream file download
                 }
                 out.flush();
             }

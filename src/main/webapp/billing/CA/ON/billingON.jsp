@@ -160,7 +160,7 @@
 
         for (DSConsequence dscon : list) {
             if (dscon.getConsequenceStrength().equals(DSConsequence.ConsequenceStrength.warning)) {
-                billingRecomendations.append(dscon.getText()).append("<br/>");
+                billingRecomendations.append(Encode.forHtml(dscon.getText())).append("<br/>");
             }
         }
     } catch (Exception e) {
