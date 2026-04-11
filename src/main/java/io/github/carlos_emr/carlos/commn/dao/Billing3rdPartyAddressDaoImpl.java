@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+
 import java.util.Set;
 
 import jakarta.persistence.Query;
@@ -49,11 +50,17 @@ import org.springframework.stereotype.Repository;
 @SuppressWarnings("unchecked")
 public class Billing3rdPartyAddressDaoImpl extends AbstractDaoImpl<Billing3rdPartyAddress> implements Billing3rdPartyAddressDao {
 
-    private static final Set<String> VALID_SEARCH_COLUMNS = Set.of(
-            "company_name", "postcode", "telephone");
+    /** Allowlisted column names for the WHERE clause search mode. */
+    private static final Set<String> VALID_SEARCH_MODES = Set.of(
+        "search_name", "company_name", "attention", "address", "city", "province",
+        "postcode", "telephone", "fax"
+    );
 
-    private static final Set<String> VALID_ORDER_COLUMNS = Set.of(
-            "company_name", "attention", "address", "city", "postcode", "telephone", "fax");
+    /** Allowlisted column names for the ORDER BY clause. */
+    private static final Set<String> VALID_ORDER_BY = Set.of(
+        "id", "company_name", "attention", "address", "city", "province",
+        "postcode", "telephone", "fax"
+    );
 
     public Billing3rdPartyAddressDaoImpl() {
         super(Billing3rdPartyAddress.class);
@@ -74,11 +81,11 @@ public class Billing3rdPartyAddressDaoImpl extends AbstractDaoImpl<Billing3rdPar
 
     @NativeSql("billing_on_3rdPartyAddress")
     public List<Billing3rdPartyAddress> findAddresses(String searchModeParam, String orderByParam, String keyword, String limit1, String limit2) {
-        // Validate search_mode against allowlist (JSP provides: search_name, postcode, telephone)
+        // Validate search_mode against allowlist
         String searchColumn;
         if (searchModeParam == null || "search_name".equals(searchModeParam)) {
             searchColumn = "company_name";
-        } else if (VALID_SEARCH_COLUMNS.contains(searchModeParam)) {
+        } else if (VALID_SEARCH_MODES.contains(searchModeParam)) {
             searchColumn = searchModeParam;
         } else {
             MiscUtils.getLogger().warn("Invalid search_mode rejected: {}", searchModeParam);
@@ -86,7 +93,7 @@ public class Billing3rdPartyAddressDaoImpl extends AbstractDaoImpl<Billing3rdPar
         }
 
         // Validate orderBy against allowlist
-        String safeOrderBy = (orderByParam != null && VALID_ORDER_COLUMNS.contains(orderByParam))
+        String safeOrderBy = (orderByParam != null && VALID_ORDER_BY.contains(orderByParam))
                 ? orderByParam : "company_name";
 
         // Parse limits to int to prevent injection
