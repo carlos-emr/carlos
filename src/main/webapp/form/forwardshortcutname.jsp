@@ -58,8 +58,8 @@
             return;
         }
         final String validatedDemoNo = demoNo;
-        final jakarta.servlet.http.HttpServletRequest originalRequest = request;
-        request = new jakarta.servlet.http.HttpServletRequestWrapper(originalRequest) {
+        final jakarta.servlet.http.HttpServletRequest validatedRequest =
+                new jakarta.servlet.http.HttpServletRequestWrapper(request) {
             @Override
             public String getParameter(String name) {
                 if ("demographic_no".equals(name)) {
@@ -88,7 +88,7 @@
             }
         };
 
-        String formId = request.getParameter("formId");
+        String formId = validatedRequest.getParameter("formId");
         if (formId != null && !formId.matches("\\d+")) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return;
@@ -135,7 +135,7 @@
             return;
         }
 
-        String appointmentNo = request.getParameter("appointmentNo");
+        String appointmentNo = validatedRequest.getParameter("appointmentNo");
         if (appointmentNo != null && !appointmentNo.matches("\\d+")) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return;
@@ -146,7 +146,7 @@
                 ((appointmentNo != null) ? "&appointmentNo=" + appointmentNo : "") +
                 ((formId != null) ? "&formId=" + formId : "&formId=" + formPath[1]);
         MiscUtils.getLogger().info("Forwarding to page : {}", LogSanitizer.sanitize(nextPage)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-        request.getRequestDispatcher(nextPage).include(request, response);
+        validatedRequest.getRequestDispatcher(nextPage).include(validatedRequest, response);
         return;
     }
 %>
