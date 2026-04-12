@@ -447,7 +447,7 @@ String curProvider_no = (String)session.getAttribute("user");
 			<div class="accordion-body">
 			<ul>
 					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/schedule/scheduletemplatesetting.jsp"
+						class="xlink" rel="${ctx}/schedule/TemplateSetting.do"
 						title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:message key="admin.admin.scheduleSetting"/></a></li>
 				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule.curprovider_only" rights="r" reverse="<%=true%>">
 					<oscar:oscarPropertiesCheck property="ENABLE_EDIT_APPT_STATUS"
