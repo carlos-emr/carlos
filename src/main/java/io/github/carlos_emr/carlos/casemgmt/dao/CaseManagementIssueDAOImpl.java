@@ -38,6 +38,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import jakarta.persistence.TypedQuery;
+
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementIssueListDTO;
@@ -217,7 +219,7 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
             log.warn("findIssueDTOsByDemographicNo: invalid demographicNo '{}'", LogSanitizer.sanitize(demographicNo));
             return new ArrayList<>();
         }
-        org.hibernate.query.Query<CaseManagementIssueListDTO> query = currentSession().createQuery("""
+        TypedQuery<CaseManagementIssueListDTO> query = entityManager().createQuery("""
                 SELECT NEW io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementIssueListDTO(
                     cmi.id, cmi.demographic_no, cmi.issue_id, cmi.type,
                     cmi.acute, cmi.certain, cmi.major, cmi.resolved,
@@ -230,7 +232,7 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
                 """,
                 CaseManagementIssueListDTO.class);
         query.setParameter("demoNo", demoNoInt);
-        return query.list();
+        return query.getResultList();
     }
 
 }
