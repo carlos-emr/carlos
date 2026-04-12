@@ -391,12 +391,13 @@ public interface CaseManagementManager {
     /**
      * Returns lightweight case management issue DTOs for a demographic.
      * Enforces {@code _demographic} read privilege scoped to the patient
-     * and writes a synchronous audit log entry.
+     * and writes a synchronous audit log entry. The underlying DAO guards
+     * against non-numeric input — see
+     * {@link CaseManagementIssueDAO#findIssueDTOsByDemographicNo(String)}.
      *
      * @param loggedInInfo LoggedInInfo the logged-in user context
      * @param demographicNo String the patient demographic number
-     * @return List&lt;CaseManagementIssueListDTO&gt; ordered by update_date descending;
-     *         empty list if {@code demographicNo} is not a valid integer
+     * @return List&lt;CaseManagementIssueListDTO&gt; ordered by update_date descending
      * @throws SecurityException if the caller lacks {@code _demographic} read privilege
      * @since 2026-04-12
      */
