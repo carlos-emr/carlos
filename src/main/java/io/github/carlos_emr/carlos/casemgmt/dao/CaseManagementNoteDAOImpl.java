@@ -376,6 +376,9 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
             query.setParameter("demographicNo", demographic_no);
 
             if (issueCodes != null && issueCodes.length > 0) {
+                // Hibernate 7 extension: setParameter with a List on a native query expands the collection
+                // into the IN clause — this is not guaranteed by the JPA spec but is supported by Hibernate
+                // as NativeQueryImplementor (replaces the pre-migration setParameterList() call).
                 query.setParameter("issueCodes", Arrays.asList(issueCodes));
             }
 
@@ -607,7 +610,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
                 log.debug("Could not find issueCode: " + issueCode);
                 return 0;
             }
-            Integer issueId = ((Number) issueResults.get(0)).intValue();
+            int issueId = ((Number) issueResults.get(0)).intValue();
 
             log.debug("issue Code " + issueCode + " id :" + issueId);
 

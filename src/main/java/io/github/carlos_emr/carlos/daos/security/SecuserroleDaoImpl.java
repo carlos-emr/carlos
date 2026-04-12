@@ -36,7 +36,6 @@ import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.LockModeType;
 import io.github.carlos_emr.carlos.PMmodule.web.formbean.StaffForm;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
@@ -175,7 +174,7 @@ public class SecuserroleDaoImpl extends AbstractJpaDao implements SecuserroleDao
             return 0;
         }
         try {
-            String queryString = "update Secuserrole as model set model.activeyn = ?1, lastUpdateDate=now() where model.providerNo = ?2 and model.roleName = ?3 and model.orgcd = ?4";
+            String queryString = "update Secuserrole as model set model.activeyn = ?1, model.lastUpdateDate=now() where model.providerNo = ?2 and model.roleName = ?3 and model.orgcd = ?4";
 
             return JpqlQueryHelper.bulkUpdate(entityManager(), queryString,
                     instance.getActiveyn(), instance.getProviderNo(),
@@ -358,7 +357,8 @@ public class SecuserroleDaoImpl extends AbstractJpaDao implements SecuserroleDao
     public void attachClean(Secuserrole instance) {
         logger.debug("attaching clean Secuserrole instance");
         try {
-            entityManager().lock(instance, LockModeType.NONE);
+            // JPA equivalent of Hibernate Session.lock(LockMode.NONE): re-attach without acquiring a database lock
+            entityManager().merge(instance);
             logger.debug("attach successful");
         } catch (RuntimeException re) {
             logger.error("attach failed", re);

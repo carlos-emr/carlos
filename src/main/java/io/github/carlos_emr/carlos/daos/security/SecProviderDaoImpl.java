@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
-import jakarta.persistence.LockModeType;
 import jakarta.persistence.TypedQuery;
 import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -271,7 +270,10 @@ public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao
     public void attachClean(SecProviderDao instance) {
         logger.debug("attaching clean Provider instance");
         try {
-            entityManager().lock(instance, LockModeType.NONE);
+            // JPA equivalent of Hibernate Session.lock(LockMode.NONE): re-attach without acquiring a database lock.
+            // Note: attachClean() parameter type should be SecProvider (the entity), not SecProviderDao (the interface).
+            // This pre-existing interface design bug is tracked for a separate fix.
+            entityManager().merge(instance);
             logger.debug("attach successful");
         } catch (RuntimeException re) {
             logger.error("attach failed", re);

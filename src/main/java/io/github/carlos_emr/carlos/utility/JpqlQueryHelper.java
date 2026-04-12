@@ -250,7 +250,8 @@ public final class JpqlQueryHelper {
      * hierarchy, preserving the same contract as {@link HqlQueryHelper}.
      *
      * <p>Checks JPA-standard subtypes first, then unwraps Hibernate-specific
-     * exceptions from the cause chain for finer-grained translation.</p>
+     * exceptions from the immediate cause ({@code e.getCause()} — one level only)
+     * for finer-grained translation.</p>
      */
     private static DataAccessException translatePersistenceException(PersistenceException e) {
         // JPA-standard exception subtypes
@@ -273,7 +274,7 @@ public final class JpqlQueryHelper {
             return new InvalidDataAccessApiUsageException(e.getMessage(), e);
         }
 
-        // Unwrap Hibernate-specific exceptions from the cause chain
+        // Unwrap Hibernate-specific exceptions from the immediate cause (e.getCause() — one level only)
         Throwable cause = e.getCause();
         if (cause instanceof org.hibernate.exception.ConstraintViolationException) {
             return new DataIntegrityViolationException(e.getMessage(), e);

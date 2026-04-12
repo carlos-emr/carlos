@@ -65,8 +65,7 @@ public class ProgramClientStatusDAOImpl extends AbstractJpaDao implements Progra
 
         ProgramClientStatus pcs = null;
         pcs = entityManager().find(ProgramClientStatus.class, Integer.valueOf(id));
-        if (pcs != null) return pcs;
-        else return null;
+        return pcs;
     }
 
     public void deleteProgramClientStatus(String id) {
