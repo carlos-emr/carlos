@@ -29,20 +29,20 @@
 
 package io.github.carlos_emr.carlos.daos;
 
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
+import jakarta.persistence.Query;
+
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.model.Facility;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.MyDateFormat;
@@ -58,10 +58,10 @@ import io.github.carlos_emr.carlos.model.LstOrgcd;
 import io.github.carlos_emr.carlos.model.security.SecProvider;
 import io.github.carlos_emr.carlos.utils.Utility;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 @Transactional
-public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
+public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
 
     private static final Logger log = MiscUtils.getLogger();
 
@@ -185,55 +185,50 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         // } else {
         sSQL += " order by 4,2";
         // }
-        DBPreparedHandlerParam[] pars = new DBPreparedHandlerParam[i];
+        Query query = entityManager().createNativeQuery(sSQL); // nosemgrep: hibernate-sqli -- table/column names from internal LookupTableDef config, values bound via positional params below
         for (int j = 0; j < i; j++) {
-            pars[j] = params[j];
+            bindParam(query, j + 1, params[j]);
         }
 
-        DBPreparedHandler db = new DBPreparedHandler();
         ArrayList<LookupCodeValue> list = new ArrayList<LookupCodeValue>();
 
-        try {
-            ResultSet rs = db.queryResults(sSQL, pars); // nosemgrep: formatted-sql-string -- table/column names from internal LookupTableDef config, values bound via DBPreparedHandler
-            while (rs.next()) {
-                LookupCodeValue lv = new LookupCodeValue();
-                lv.setPrefix(tableId);
-                lv.setCode(rs.getString(1));
-                lv.setDescription(Misc.getString(rs, 2));
-                lv.setActive(Integer.valueOf("0" + Misc.getString(rs, 3)).intValue() == 1);
-                lv.setOrderByIndex(Integer.valueOf("0" + Misc.getString(rs, 4)).intValue());
-                lv.setParentCode(Misc.getString(rs, 5));
-                lv.setBuf1(Misc.getString(rs, 6));
-                lv.setCodeTree(Misc.getString(rs, 7));
-                lv.setLastUpdateUser(Misc.getString(rs, 8));
-                lv.setLastUpdateDate(MyDateFormat.getCalendar(Misc.getString(rs, 9)));
-                lv.setBuf3(Misc.getString(rs, 10));
-                lv.setBuf4(Misc.getString(rs, 11));
-                lv.setBuf5(Misc.getString(rs, 12));
-                lv.setBuf6(Misc.getString(rs, 13));
-                lv.setBuf7(Misc.getString(rs, 14));
-                lv.setBuf8(Misc.getString(rs, 15));
-                lv.setBuf9(Misc.getString(rs, 16));
-                lv.setCodecsv(Misc.getString(rs, 17));
-                list.add(lv);
-            }
-            rs.close();
-            // filter by programId for user
-            if ("USR".equals(tableId) && !Utility.IsEmpty(pCd)) {
-                List userLst = providerDao.getActiveProviders(Integer.valueOf(pCd));
-                ArrayList<LookupCodeValue> newLst = new ArrayList<LookupCodeValue>();
-                for (int n = 0; n < userLst.size(); n++) {
-                    SecProvider sp = (SecProvider) userLst.get(n);
-                    for (int m = 0; m < list.size(); m++) {
-                        LookupCodeValue lv = list.get(m);
-                        if (lv.getCode().equals(sp.getProviderNo()))
-                            newLst.add(lv);
-                    }
+        List<?> rawRows = query.getResultList();
+        for (Object rawRow : rawRows) {
+            Object[] row = (rawRow instanceof Object[]) ? (Object[]) rawRow : new Object[]{ rawRow };
+            LookupCodeValue lv = new LookupCodeValue();
+            lv.setPrefix(tableId);
+            lv.setCode(asString(row[0]));
+            lv.setDescription(asString(row[1]));
+            lv.setActive(Integer.valueOf("0" + asString(row[2])).intValue() == 1);
+            lv.setOrderByIndex(Integer.valueOf("0" + asString(row[3])).intValue());
+            lv.setParentCode(asString(row[4]));
+            lv.setBuf1(asString(row[5]));
+            lv.setCodeTree(asString(row[6]));
+            lv.setLastUpdateUser(asString(row[7]));
+            lv.setLastUpdateDate(MyDateFormat.getCalendar(asString(row[8])));
+            lv.setBuf3(asString(row[9]));
+            lv.setBuf4(asString(row[10]));
+            lv.setBuf5(asString(row[11]));
+            lv.setBuf6(asString(row[12]));
+            lv.setBuf7(asString(row[13]));
+            lv.setBuf8(asString(row[14]));
+            lv.setBuf9(asString(row[15]));
+            lv.setCodecsv(asString(row[16]));
+            list.add(lv);
+        }
+        // filter by programId for user
+        if ("USR".equals(tableId) && !Utility.IsEmpty(pCd)) {
+            List userLst = providerDao.getActiveProviders(Integer.valueOf(pCd));
+            ArrayList<LookupCodeValue> newLst = new ArrayList<LookupCodeValue>();
+            for (int n = 0; n < userLst.size(); n++) {
+                SecProvider sp = (SecProvider) userLst.get(n);
+                for (int m = 0; m < list.size(); m++) {
+                    LookupCodeValue lv = list.get(m);
+                    if (lv.getCode().equals(sp.getProviderNo()))
+                        newLst.add(lv);
                 }
-                list = newLst;
             }
-        } catch (SQLException e) {
-            MiscUtils.getLogger().error("Error", e);
+            list = newLst;
         }
         return list;
     }
@@ -241,7 +236,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
     @Override
     public LookupTableDefValue GetLookupTableDef(String tableId) {
         String sSQL = "from LookupTableDefValue s where s.tableId= ?1";
-        List<?> results = HqlQueryHelper.find(currentSession(), sSQL, tableId);
+        List<?> results = JpqlQueryHelper.find(entityManager(), sSQL, tableId);
         if (results.isEmpty()) {
             return null;
         }
@@ -255,7 +250,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         paramList.add(tableId);
         Object params[] = paramList.toArray(new Object[paramList.size()]);
 
-        return HqlQueryHelper.find(currentSession(), sSql, params);
+        return JpqlQueryHelper.find(entityManager(), sSql, params);
     }
 
     /**
@@ -313,35 +308,32 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         }
         sql += " from " + tableName + " s";
         // Use a parameterized placeholder for the code value to prevent SQL injection.
-        sql += " where " + validateSqlIdentifier(idFieldName) + "=?";
-        DBPreparedHandler db = new DBPreparedHandler();
-        try {
-            DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[]{ new DBPreparedHandlerParam(code) };
-            ResultSet rs = db.queryResults(sql, params);
-            if (rs.next()) {
-                for (int i = 0; i < fs.size(); i++) {
-                    FieldDefValue fdv = (FieldDefValue) fs.get(i);
-                    String val = Misc.getString(rs, (i + 1));
-                    if ("D".equals(fdv.getFieldType()))
-                        if (fdv.isEditable()) {
-                            val = MyDateFormat.getStandardDate(MyDateFormat.getCalendarwithTime(val));
-                        } else {
-                            val = MyDateFormat.getStandardDateTime(MyDateFormat.getCalendarwithTime(val));
-                        }
-                    fdv.setVal(val);
-                }
-            }
-            rs.close();
+        String whereClause = " where " + validateSqlIdentifier(idFieldName) + " = :code";
+        Query query = entityManager().createNativeQuery(sql + whereClause); // nosemgrep: hibernate-sqli -- table/column names validated via validateSqlIdentifier/validateFieldSql, code value bound as :code
+        query.setParameter("code", code);
+
+        List<?> rows = query.getResultList();
+        if (!rows.isEmpty()) {
+            Object[] row = extractFirstRow(rows, fs.size());
             for (int i = 0; i < fs.size(); i++) {
                 FieldDefValue fdv = (FieldDefValue) fs.get(i);
-                if (!Utility.IsEmpty(fdv.getLookupTable())) {
-                    LookupCodeValue lkv = GetCode(fdv.getLookupTable(), fdv.getVal());
-                    if (lkv != null)
-                        fdv.setValDesc(lkv.getDescription());
-                }
+                String val = asString(row[i]);
+                if ("D".equals(fdv.getFieldType()))
+                    if (fdv.isEditable()) {
+                        val = MyDateFormat.getStandardDate(MyDateFormat.getCalendarwithTime(val));
+                    } else {
+                        val = MyDateFormat.getStandardDateTime(MyDateFormat.getCalendarwithTime(val));
+                    }
+                fdv.setVal(val);
             }
-        } catch (SQLException e) {
-            MiscUtils.getLogger().error("Error", e);
+        }
+        for (int i = 0; i < fs.size(); i++) {
+            FieldDefValue fdv = (FieldDefValue) fs.get(i);
+            if (!Utility.IsEmpty(fdv.getLookupTable())) {
+                LookupCodeValue lkv = GetCode(fdv.getLookupTable(), fdv.getVal());
+                if (lkv != null)
+                    fdv.setValDesc(lkv.getDescription());
+            }
         }
         return fs;
     }
@@ -363,43 +355,40 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
             }
         }
         sql += " from " + tableName;
-        DBPreparedHandler db = new DBPreparedHandler();
-        try {
-            ResultSet rs = db.queryResults(sql, new DBPreparedHandlerParam[0]);
-            while (rs.next()) {
-                for (int i = 0; i < fs.size(); i++) {
-                    FieldDefValue fdv = (FieldDefValue) fs.get(i);
-                    String val = Misc.getString(rs, (i + 1));
-                    if ("D".equals(fdv.getFieldType()))
-                        val = MyDateFormat.getStandardDateTime(MyDateFormat.getCalendarwithTime(val));
-                    fdv.setVal(val);
-                    if (!Utility.IsEmpty(fdv.getLookupTable())) {
-                        LookupCodeValue lkv = GetCode(fdv.getLookupTable(), val);
-                        if (lkv != null)
-                            fdv.setValDesc(lkv.getDescription());
-                    }
+        Query query = entityManager().createNativeQuery(sql); // nosemgrep: hibernate-sqli -- table/column names validated via validateSqlIdentifier/validateFieldSql
+        List<?> rows = query.getResultList();
+        for (Object rawRow : rows) {
+            Object[] row = (rawRow instanceof Object[]) ? (Object[]) rawRow : new Object[]{ rawRow };
+            for (int i = 0; i < fs.size(); i++) {
+                FieldDefValue fdv = (FieldDefValue) fs.get(i);
+                String val = asString(row[i]);
+                if ("D".equals(fdv.getFieldType()))
+                    val = MyDateFormat.getStandardDateTime(MyDateFormat.getCalendarwithTime(val));
+                fdv.setVal(val);
+                if (!Utility.IsEmpty(fdv.getLookupTable())) {
+                    LookupCodeValue lkv = GetCode(fdv.getLookupTable(), val);
+                    if (lkv != null)
+                        fdv.setValDesc(lkv.getDescription());
                 }
-                codes.add(fs);
             }
-            rs.close();
-        } catch (SQLException e) {
-            MiscUtils.getLogger().error("Error", e);
+            codes.add(fs);
         }
         return codes;
     }
 
-    private int GetNextId(String idFieldName, String tableName) throws SQLException { // identifiers validated below
+    private int GetNextId(String idFieldName, String tableName) { // identifiers validated below
         validateSqlIdentifier(idFieldName);
         validateSqlIdentifier(tableName);
-        String sql = "select max(" + idFieldName + ")";
-        sql += " from " + tableName;
-        DBPreparedHandler db = new DBPreparedHandler();
+        String maxSql = buildSelectMax(idFieldName, tableName);
 
-        ResultSet rs = db.queryResults(sql, new DBPreparedHandlerParam[0]);
-        int id = 0;
-        if (rs.next())
-            id = rs.getInt(1);
+        Query query = entityManager().createNativeQuery(maxSql); // nosemgrep: hibernate-sqli -- idFieldName and tableName validated via validateSqlIdentifier
+        Object result = query.getSingleResult();
+        int id = result == null ? 0 : ((Number) result).intValue();
         return id + 1;
+    }
+
+    private static String buildSelectMax(String idFieldName, String tableName) {
+        return String.join("", "select max(", idFieldName, ") from ", tableName);
     }
 
     @Override
@@ -635,15 +624,15 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
                     + "codecsv = replace(codecsv, :oldCsv, :newCsv) "
                     + "where codecsv like :oldCsvPattern";
 
-            currentSession().createNativeQuery(sql)
-                    .setParameter("oldFullCode", oldFullCode)
-                    .setParameter("newFullCode", newFullCode)
-                    .setParameter("oldTreeCode", oldTreeCode)
-                    .setParameter("newTreeCode", newTreeCode)
-                    .setParameter("oldCsv", oldCsv)
-                    .setParameter("newCsv", newCsv)
-                    .setParameter("oldCsvPattern", oldCsv + "_%")
-                    .executeUpdate();
+            Query updateOrgTreeQuery = entityManager().createNativeQuery(sql);
+            updateOrgTreeQuery.setParameter("oldFullCode", oldFullCode);
+            updateOrgTreeQuery.setParameter("newFullCode", newFullCode);
+            updateOrgTreeQuery.setParameter("oldTreeCode", oldTreeCode);
+            updateOrgTreeQuery.setParameter("newTreeCode", newTreeCode);
+            updateOrgTreeQuery.setParameter("oldCsv", oldCsv);
+            updateOrgTreeQuery.setParameter("newCsv", newCsv);
+            updateOrgTreeQuery.setParameter("oldCsvPattern", oldCsv + "_%");
+            updateOrgTreeQuery.executeUpdate();
 
         }
 
@@ -654,11 +643,11 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         if (!newCd.isActive()) {
             String oldCsv = oldCd.getCodecsv() + "_%";
 
-            List<LstOrgcd> o = (List<LstOrgcd>) HqlQueryHelper.find(currentSession(),
+            List<LstOrgcd> o = (List<LstOrgcd>) JpqlQueryHelper.find(entityManager(),
                     "FROM LstOrgcd o WHERE o.codecsv like ?1", oldCsv);
             for (LstOrgcd l : o) {
                 l.setActiveyn(0);
-                currentSession().merge(l);
+                entityManager().merge(l);
             }
         }
     }
@@ -669,8 +658,8 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         String sql = "From LstOrgcd a where a.fullcode like ?1";
 
         // Wildcard must be part of the parameter value, not the HQL query
-        List<LstOrgcd> results1 = (List<LstOrgcd>) HqlQueryHelper.find(currentSession(), sql, "%" + org1);
-        List<LstOrgcd> results2 = (List<LstOrgcd>) HqlQueryHelper.find(currentSession(), sql, "%" + org2);
+        List<LstOrgcd> results1 = (List<LstOrgcd>) JpqlQueryHelper.find(entityManager(), sql, "%" + org1);
+        List<LstOrgcd> results2 = (List<LstOrgcd>) JpqlQueryHelper.find(entityManager(), sql, "%" + org2);
 
         if (!results1.isEmpty() && !results2.isEmpty()) {
             LstOrgcd orgObj1 = results1.get(0);
@@ -815,25 +804,58 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         this.providerDao = providerDao;
     }
 
-    private int queryExecuteUpdate(String preparedSQL, DBPreparedHandlerParam[] params) throws SQLException {
-        // nosemgrep: formatted-sql-string — parameterized query infrastructure; all caller-supplied values are bound via PreparedStatement below
-        PreparedStatement preparedStmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(preparedSQL); // codeql[java/sql-injection] — parameterized; params bound via setString/setInt/setDate/setTimestamp loop below
+    private int queryExecuteUpdate(String preparedSQL, DBPreparedHandlerParam[] params) {
+        Query query = entityManager().createNativeQuery(preparedSQL); // nosemgrep: hibernate-sqli -- identifiers in preparedSQL validated by validateSqlIdentifier at call sites; values bound below
         for (int i = 0; i < params.length; i++) {
-            DBPreparedHandlerParam param = params[i];
-
-            if (param == null)
-                preparedStmt.setObject(i + 1, null);
-            else if (DBPreparedHandlerParam.PARAM_STRING.equals(param.getParamType())) {
-                preparedStmt.setString(i + 1, param.getStringValue());
-            } else if (DBPreparedHandlerParam.PARAM_DATE.equals(param.getParamType())) {
-                preparedStmt.setDate(i + 1, param.getDateValue());
-            } else if (DBPreparedHandlerParam.PARAM_INT.equals(param.getParamType())) {
-                preparedStmt.setInt(i + 1, param.getIntValue());
-            } else if (DBPreparedHandlerParam.PARAM_TIMESTAMP.equals(param.getParamType())) {
-                preparedStmt.setTimestamp(i + 1, param.getTimestampValue());
-            }
+            bindParam(query, i + 1, params[i]);
         }
-        return (preparedStmt.executeUpdate());
+        return query.executeUpdate();
+    }
+
+    /**
+     * Binds a {@link DBPreparedHandlerParam} typed value to a JPA {@link Query} at a
+     * 1-based position, preserving the type-aware dispatch the legacy
+     * {@code DBPreparedHandler} performed (String / int / Date / Timestamp).
+     *
+     * @param query the JPA query to bind on
+     * @param position 1-based positional parameter index
+     * @param param the typed parameter (may be null)
+     */
+    private static void bindParam(Query query, int position, DBPreparedHandlerParam param) {
+        if (param == null) {
+            query.setParameter(position, null);
+        } else if (DBPreparedHandlerParam.PARAM_STRING.equals(param.getParamType())) {
+            query.setParameter(position, param.getStringValue());
+        } else if (DBPreparedHandlerParam.PARAM_DATE.equals(param.getParamType())) {
+            query.setParameter(position, param.getDateValue());
+        } else if (DBPreparedHandlerParam.PARAM_INT.equals(param.getParamType())) {
+            query.setParameter(position, param.getIntValue());
+        } else if (DBPreparedHandlerParam.PARAM_TIMESTAMP.equals(param.getParamType())) {
+            query.setParameter(position, param.getTimestampValue());
+        }
+    }
+
+    /**
+     * Null-safe conversion of a query result column to a String, matching the behaviour
+     * of {@code ResultSet.getString()} which returns {@code null} for SQL NULL values.
+     */
+    private static String asString(Object value) {
+        return value == null ? null : value.toString();
+    }
+
+    /**
+     * Returns the first row from a native-query result list, normalizing to Object[] when
+     * the underlying query returns scalar values for a single-column SELECT.
+     */
+    private static Object[] extractFirstRow(List<?> rows, int expectedColumns) {
+        Object first = rows.get(0);
+        if (first instanceof Object[]) {
+            return (Object[]) first;
+        }
+        // Single-column native queries return scalars, not Object[]
+        Object[] wrapped = new Object[expectedColumns];
+        wrapped[0] = first;
+        return wrapped;
     }
 
 }
