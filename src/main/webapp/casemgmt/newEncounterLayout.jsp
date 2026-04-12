@@ -31,8 +31,9 @@
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 
 <%@ include file="/casemgmt/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 
-<%@page import="java.util.Enumeration, org.apache.commons.text.StringEscapeUtils" %>
+<%@page import="java.util.Enumeration" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
@@ -45,7 +46,6 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 
 
 <%
@@ -108,7 +108,7 @@
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<c:out value="${ctx}"/>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+                src="<c:out value="${ctx}"/>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes adding a calendar a matter of 1 or 2 lines of code. -->
         <script type="text/javascript" src="<c:out value="${ctx}"/>/share/calendar/calendar-setup.js"></script>
@@ -386,7 +386,7 @@
         <% } %>
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.title"/></title>
+        <title><fmt:message key="encounter.Index.title"/></title>
         <script type="text/javascript">
             ctx = "<c:out value="${ctx}"/>";
             demographicNo = "<c:out value="${demographicNo}"/>";
@@ -401,52 +401,52 @@
             famHistoryLabel = "encounter.famHistory.title";
             riskFactorsLabel = "encounter.riskFactors.title";
 
-            quickChartMsg = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.quickChart.msg"/>";
-            fullChartMsg = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.fullChart.msg"/>";
-            insertTemplateError = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateError.msg"/>";
-            unsavedNoteWarning = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.unsavedNoteWarning.msg"/>";
-            sessionExpiredError = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.sessionExpiredError.msg"/>";
-            unlockNoteError = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.unlockNoteError.msg"/>";
-            filterError = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.filterError.msg"/>";
-            pastObservationDateError = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.pastObservationDateError.msg"/>";
-            encTimeError = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.encounterTimeError.msg"/>";
-            encMinError = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.encounterMinuteError.msg"/>";
-            assignIssueError = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.assignIssueError.msg"/>";
-            assignObservationDateError = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.assignObservationDateError.msg"/>";
+            quickChartMsg = "<fmt:message key="encounter.quickChart.msg"/>";
+            fullChartMsg = "<fmt:message key="encounter.fullChart.msg"/>";
+            insertTemplateError = "<fmt:message key="encounter.templateError.msg"/>";
+            unsavedNoteWarning = "<fmt:message key="encounter.unsavedNoteWarning.msg"/>";
+            sessionExpiredError = "<fmt:message key="encounter.sessionExpiredError.msg"/>";
+            unlockNoteError = "<fmt:message key="encounter.unlockNoteError.msg"/>";
+            filterError = "<fmt:message key="encounter.filterError.msg"/>";
+            pastObservationDateError = "<fmt:message key="encounter.pastObservationDateError.msg"/>";
+            encTimeError = "<fmt:message key="encounter.encounterTimeError.msg"/>";
+            encMinError = "<fmt:message key="encounter.encounterMinuteError.msg"/>";
+            assignIssueError = "<fmt:message key="encounter.assignIssueError.msg"/>";
+            assignObservationDateError = "<fmt:message key="encounter.assignObservationDateError.msg"/>";
 
-            encTimeMandatoryMsg = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.encounterTimeMandatory.msg"/>";
+            encTimeMandatoryMsg = "<fmt:message key="encounter.encounterTimeMandatory.msg"/>";
             encTimeMandatory = <%=encTimeMandatoryValue%>;
 
-            assignEncTypeError = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.assignEncTypeError.msg"/>";
-            savingNoteError = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.savingNoteError.msg"/>";
-            noteLockLostError = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteLockLostError.msg"/>";
-            changeIssueMsg = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.change.title"/>";
-            closeWithoutSaveMsg = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.closeWithoutSave.msg"/>";
-            pickIssueMsg = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.pickIssue.msg"/>";
-            assignIssueMsg = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.assign.title"/>";
-            updateIssueError = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.updateIssueError.msg"/>";
-            unsavedNoteMsg = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.unsavedNote.msg"/>";
-            printDateMsg = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.printDate.msg"/>";
-            printDateOrderMsg = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.printDateOrder.msg"/>";
-            nothing2PrintMsg = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.nothingToPrint.msg"/>";
-            editUnsignedMsg = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.editUnsignedNote.msg"/>";
-            msgDraftSaved = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.draftSaved.msg"/>";
-            msgPasswd = "<fmt:setBundle basename="oscarResources"/><fmt:message key="Logon.passWord"/>";
-            btnMsgUnlock = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnUnLock"/>";
-            editLabel = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.edit.msgEdit"/>";
-            annotationLabel = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnAnnotation"/>";
-            month[0] = "<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgJan"/>";
-            month[1] = "<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgFeb"/>";
-            month[2] = "<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgMar"/>";
-            month[3] = "<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgApr"/>";
-            month[4] = "<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgMay"/>";
-            month[5] = "<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgJun"/>";
-            month[6] = "<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgJul"/>";
-            month[7] = "<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgAug"/>";
-            month[8] = "<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgSep"/>";
-            month[9] = "<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgOct"/>";
-            month[10] = "<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgNov"/>";
-            month[11] = "<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgDec"/>";
+            assignEncTypeError = "<fmt:message key="encounter.assignEncTypeError.msg"/>";
+            savingNoteError = "<fmt:message key="encounter.savingNoteError.msg"/>";
+            noteLockLostError = "<fmt:message key="encounter.noteLockLostError.msg"/>";
+            changeIssueMsg = "<fmt:message key="encounter.change.title"/>";
+            closeWithoutSaveMsg = "<fmt:message key="encounter.closeWithoutSave.msg"/>";
+            pickIssueMsg = "<fmt:message key="encounter.pickIssue.msg"/>";
+            assignIssueMsg = "<fmt:message key="encounter.assign.title"/>";
+            updateIssueError = "<fmt:message key="encounter.updateIssueError.msg"/>";
+            unsavedNoteMsg = "<fmt:message key="encounter.unsavedNote.msg"/>";
+            printDateMsg = "<fmt:message key="encounter.printDate.msg"/>";
+            printDateOrderMsg = "<fmt:message key="encounter.printDateOrder.msg"/>";
+            nothing2PrintMsg = "<fmt:message key="encounter.nothingToPrint.msg"/>";
+            editUnsignedMsg = "<fmt:message key="encounter.editUnsignedNote.msg"/>";
+            msgDraftSaved = "<fmt:message key="encounter.draftSaved.msg"/>";
+            msgPasswd = "<fmt:message key="Logon.passWord"/>";
+            btnMsgUnlock = "<fmt:message key="encounter.Index.btnUnLock"/>";
+            editLabel = "<fmt:message key="encounter.edit.msgEdit"/>";
+            annotationLabel = "<fmt:message key="encounter.Index.btnAnnotation"/>";
+            month[0] = "<fmt:message key="share.CalendarPopUp.msgJan"/>";
+            month[1] = "<fmt:message key="share.CalendarPopUp.msgFeb"/>";
+            month[2] = "<fmt:message key="share.CalendarPopUp.msgMar"/>";
+            month[3] = "<fmt:message key="share.CalendarPopUp.msgApr"/>";
+            month[4] = "<fmt:message key="share.CalendarPopUp.msgMay"/>";
+            month[5] = "<fmt:message key="share.CalendarPopUp.msgJun"/>";
+            month[6] = "<fmt:message key="share.CalendarPopUp.msgJul"/>";
+            month[7] = "<fmt:message key="share.CalendarPopUp.msgAug"/>";
+            month[8] = "<fmt:message key="share.CalendarPopUp.msgSep"/>";
+            month[9] = "<fmt:message key="share.CalendarPopUp.msgOct"/>";
+            month[10] = "<fmt:message key="share.CalendarPopUp.msgNov"/>";
+            month[11] = "<fmt:message key="share.CalendarPopUp.msgDec"/>";
 
 
             jQuery(window).on("load", function () {
@@ -630,91 +630,91 @@
 
             <table>
                 <tr id="Itemproblemdescription">
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.problemdescription.title"/>:
+                    <td><fmt:message key="encounter.problemdescription.title"/>:
                     </td>
                     <td><input type="text" id="problemdescription"
                                name="problemdescription" value=""></td>
                 </tr>
                 <tr id="Itemstartdate">
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.startdate.title"/>:</td>
+                    <td><fmt:message key="encounter.startdate.title"/>:</td>
                     <td><input type="text" id="startdate" name="startdate"
                                value="" size="12"> (YYYY-MM-DD)
                     </td>
                 </tr>
                 <tr id="Itemresolutiondate">
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.resolutionDate.title"/>:
+                    <td><fmt:message key="encounter.resolutionDate.title"/>:
                     </td>
                     <td><input type="text" id="resolutiondate"
                                name="resolutiondate" value="" size="12"> (YYYY-MM-DD)
                     </td>
                 </tr>
                 <tr id="Itemprocedure">
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.procedure.title"/>:
+                    <td><fmt:message key="encounter.procedure.title"/>:
                     </td>
                     <td><input type="text" id="procedure"
                                name="procedure" value=""></td>
                 </tr>
                 <tr id="Itemageatonset">
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.ageAtOnset.title"/>:</td>
+                    <td><fmt:message key="encounter.ageAtOnset.title"/>:</td>
                     <td><input type="text" id="ageatonset" name="ageatonset"
                                value="" size="2"></td>
                 </tr>
 
                 <tr id="Itemproceduredate">
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.procedureDate.title"/>:
+                    <td><fmt:message key="encounter.procedureDate.title"/>:
                     </td>
                     <td><input type="text" id="proceduredate" name="proceduredate"
                                value="" size="12"> (YYYY-MM-DD)
                     </td>
                 </tr>
                 <tr id="Itemtreatment">
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.treatment.title"/>:</td>
+                    <td><fmt:message key="encounter.treatment.title"/>:</td>
                     <td><input type="text" id="treatment" name="treatment"
                                value=""></td>
                 </tr>
                 <tr id="Itemproblemstatus">
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.problemStatus.title"/>:
+                    <td><fmt:message key="encounter.problemStatus.title"/>:
                     </td>
                     <td><input type="text" id="problemstatus" name="problemstatus"
-                               value="" size="8"> <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.problemStatusExample.msg"/></td>
+                               value="" size="8"> <fmt:message key="encounter.problemStatusExample.msg"/></td>
                 </tr>
                 <tr id="Itemexposuredetail">
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.exposureDetail.title"/>:
+                    <td><fmt:message key="encounter.exposureDetail.title"/>:
                     </td>
                     <td><input type="text" id="exposuredetail"
                                name="exposuredetail" value=""></td>
                 </tr>
                 <tr id="Itemrelationship">
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.relationship.title"/>:
+                    <td><fmt:message key="encounter.relationship.title"/>:
                     </td>
                     <td><input type="text" id="relationship" name="relationship"
                                value=""></td>
                 </tr>
                 <tr id="Itemlifestage">
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.lifestage.title"/>:</td>
+                    <td><fmt:message key="encounter.lifestage.title"/>:</td>
                     <td><select name="lifestage" id="lifestage">
                         <option value="">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.lifestage.opt.notset"/>
+                            <fmt:message key="encounter.lifestage.opt.notset"/>
                         </option>
                         <option value="N">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.lifestage.opt.newborn"/>
+                            <fmt:message key="encounter.lifestage.opt.newborn"/>
                         </option>
                         <option value="I">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.lifestage.opt.infant"/>
+                            <fmt:message key="encounter.lifestage.opt.infant"/>
                         </option>
                         <option value="C">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.lifestage.opt.child"/>
+                            <fmt:message key="encounter.lifestage.opt.child"/>
                         </option>
                         <option value="T">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.lifestage.opt.adolescent"/>
+                            <fmt:message key="encounter.lifestage.opt.adolescent"/>
                         </option>
                         <option value="A">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.lifestage.opt.adult"/>
+                            <fmt:message key="encounter.lifestage.opt.adult"/>
                         </option>
                     </select></td>
                 </tr>
                 <tr id="Itemhidecpp">
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.hidecpp.title"/>:</td>
+                    <td><fmt:message key="encounter.hidecpp.title"/>:</td>
                     <td><select id="hidecpp" name="hidecpp">
                         <option value="0">No</option>
                         <option value="1">Yes</option>
@@ -722,29 +722,29 @@
                 </tr>
             </table>
             <div class="control-panel">
-                <input type="hidden" id="startTag" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.startTime"/>'>
-                <input type="hidden" id="endTag" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.endTime"/>'>
+                <input type="hidden" id="startTag" value='<fmt:message key="encounter.Index.startTime"/>'>
+                <input type="hidden" id="endTag" value='<fmt:message key="encounter.Index.endTime"/>'>
                 <br> <span style="float: right; margin-right: 10px;">
 				<input
                         type="image"
                         src="<c:out value="${ctx}/encounter/graphics/copy.png"/>"
-                        title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnCopy"/>'
+                        title='<fmt:message key="encounter.Index.btnCopy"/>'
                         onclick="copyCppToCurrentNote(); return false;"> <input type="image"
                                                                    src="<c:out value="${ctx}/encounter/graphics/edit-cut.png"/>"
-                                                                   title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnArchive"/>'
+                                                                   title='<fmt:message key="encounter.Index.btnArchive"/>'
                                                                    onclick="$('archived').value='true';"
                                                                    style="padding-right: 10px;">
 				<input type="image"
                        src="<c:out value="${ctx}/encounter/graphics/note-save.png"/>"
-                       title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnSignSave"/>'
+                       title='<fmt:message key="encounter.Index.btnSignSave"/>'
                        onclick="$('archived').value='false';" style="padding-right: 10px;">
 				<input type="image"
                        src="<c:out value="${ctx}/encounter/graphics/system-log-out.png"/>"
-                       title='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/>'
+                       title='<fmt:message key="global.btnExit"/>'
                        onclick="this.focus();if($('channel'))$('channel').style.visibility='visible';$('showEditNote').style.display='none';return false;">
 			</span>
                 <label for="position">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnPosition"/>
+                    <fmt:message key="encounter.Index.btnPosition"/>
                 </label>
                 <select id="position" name="position">
                     <option id="popt0" value="0">1</option>
@@ -759,90 +759,90 @@
             </div>
             <div class="add-issues">
                 <label for="issueAutocompleteCPP">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.assnIssue"/>
+                    <fmt:message key="encounter.Index.assnIssue"/>
                 </label>
                 &nbsp;<input tabindex="100" type="text" id="issueAutocompleteCPP" class="issueAutocomplete"
                              name="issueSearch" style="z-index: 2;" size="25">&nbsp; <span
                     id="busy2" style="display: none"><img
                     style="position: absolute;"
                     src="<c:out value="${ctx}/encounter/graphics/busy.gif"/>"
-                    alt="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnWorking"/>"></span>
+                    alt="<fmt:message key="encounter.Index.btnWorking"/>"></span>
             </div>
         </form>
     </div>
     <div id="printOps" class="printOps">
         <h3 style="margin-bottom: 5px; text-align: center;">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.PrintDialog"/>
+            <fmt:message key="encounter.Index.PrintDialog"/>
         </h3>
         <form id="frmPrintOps" action="" onsubmit="return false;">
             <table id="printElementsTable">
                 <tr>
                     <td><input type="radio" id="printopSelected" name="printop"
                                value="selected">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.PrintSelect"/></td>
+                        <fmt:message key="encounter.Index.PrintSelect"/></td>
                     <td>
                         <security:oscarSec roleName="<%=roleName%>"
                                            objectName="_newCasemgmt.cpp" rights="r" reverse="false">
                             <img style="cursor: pointer;"
-                                 title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.print.title"/>"
+                                 title="<fmt:message key="encounter.print.title"/>"
                                  id='imgPrintCPP'
-                                 alt="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.togglePrintCPP.title"/>"
+                                 alt="<fmt:message key="encounter.togglePrintCPP.title"/>"
                                  onclick="return printInfo(this,'printCPP');"
-                                 src='<c:out value="${ctx}"/>/encounter/graphics/printer.png'>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.cpp.title"/>
+                                 src='<c:out value="${ctx}"/>/encounter/graphics/printer.png'>&nbsp;<fmt:message key="encounter.cpp.title"/>
                         </security:oscarSec>
                     </td>
                 </tr>
                 <tr>
                     <td><input type="radio" id="printopAll" name="printop"
                                value="all">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.PrintAll"/></td>
+                        <fmt:message key="encounter.Index.PrintAll"/></td>
                     <td><img style="cursor: pointer;"
-                             title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.print.title"/>"
+                             title="<fmt:message key="encounter.print.title"/>"
                              id='imgPrintRx'
-                             alt="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.togglePrintRx.title"/>"
+                             alt="<fmt:message key="encounter.togglePrintRx.title"/>"
                              onclick="return printInfo(this, 'printRx');"
-                             src='<c:out value="${ctx}"/>/encounter/graphics/printer.png'>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Rx.title"/></td>
+                             src='<c:out value="${ctx}"/>/encounter/graphics/printer.png'>&nbsp;<fmt:message key="encounter.Rx.title"/></td>
                 </tr>
                 <tr>
                     <td></td>
                     <td><img style="cursor: pointer;"
-                             title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.print.title"/>"
+                             title="<fmt:message key="encounter.print.title"/>"
                              id='imgPrintLabs'
-                             alt="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.togglePrintLabs.title"/>"
+                             alt="<fmt:message key="encounter.togglePrintLabs.title"/>"
                              onclick="return printInfo(this, 'printLabs');"
-                             src='<c:out value="${ctx}"/>/encounter/graphics/printer.png'>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Labs.title"/></td>
+                             src='<c:out value="${ctx}"/>/encounter/graphics/printer.png'>&nbsp;<fmt:message key="encounter.Labs.title"/></td>
                 </tr>
                 <tr>
                     <td></td>
                     <td><img style="cursor: pointer;"
-                             title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.print.title"/>"
+                             title="<fmt:message key="encounter.print.title"/>"
                              id='imgPrintPreventions'
-                             alt="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.togglePrintPreventions.title"/>"
+                             alt="<fmt:message key="encounter.togglePrintPreventions.title"/>"
                              onclick="return printInfo(this, 'printPreventions');"
-                             src='<c:out value="${ctx}"/>/encounter/graphics/printer.png'>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Preventions.title"/></td>
+                             src='<c:out value="${ctx}"/>/encounter/graphics/printer.png'>&nbsp;<fmt:message key="encounter.Preventions.title"/></td>
                 </tr>
                 <tr>
                     <td></td>
                     <td><img style="cursor: pointer;"
-                             title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.print.title"/>"
+                             title="<fmt:message key="encounter.print.title"/>"
                              id='imgPrintAllergies'
-                             alt="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.togglePrintAllergies.title"/>"
+                             alt="<fmt:message key="encounter.togglePrintAllergies.title"/>"
                              onclick="return printInfo(this, 'printAllergies');"
-                             src='<c:out value="${ctx}"/>/encounter/graphics/printer.png'>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Allergies.title"/></td>
+                             src='<c:out value="${ctx}"/>/encounter/graphics/printer.png'>&nbsp;<fmt:message key="encounter.Allergies.title"/></td>
                 </tr>
                 <!--  extension point -->
                 <tr id="printDateRow">
                     <td><input type="radio" id="printopDates" name="printop"
                                value="dates">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.PrintDates"/>&nbsp;<a
+                        <fmt:message key="encounter.Index.PrintDates"/>&nbsp;<a
                                 style="font-variant: small-caps;" href="#"
-                                onclick="return printToday(event);"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.PrintToday"/></a></td>
+                                onclick="return printToday(event);"><fmt:message key="encounter.Index.PrintToday"/></a></td>
                     <td></td>
                 </tr>
             </table>
 
             <div style="float: left; margin-left: 5px; width: 30px;">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.PrintFrom"/>
+                <fmt:message key="encounter.Index.PrintFrom"/>
                 :
             </div>
             <img src="<c:out value="${ctx}/images/cal.gif" />"
@@ -852,7 +852,7 @@
                 style="font-style: italic; border: 1px solid #7682b1; width: 125px; background-color: #FFFFFF;"
                 readonly value=""><br>
             <div style="float: left; margin-left: 5px; width: 30px;">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.PrintTo"/>
+                <fmt:message key="encounter.Index.PrintTo"/>
                 :
             </div>
             <img src="<c:out value="${ctx}/images/cal.gif" />"

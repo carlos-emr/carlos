@@ -78,12 +78,12 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<fmt:setBundle basename="oscarResources"/>
 <%
     // Retrieve user information from session
     String providerNo = (String) session.getAttribute("providerNo");
@@ -554,7 +554,7 @@ function fmtOscarMsg() {
 
 						<tr class="DoNotPrint">
 							<td></td>
-							<td><input type="text" name="keyword"
+							<td><input type="text" name="keyword" id="keyword"
 								class="form-control" />
 							</td>
 							<td>
@@ -703,6 +703,18 @@ function fmtOscarMsg() {
         document.getElementById('viewer').parentNode.insertBefore(warning, document.getElementById('viewer'));
     }
 
+</script>
+<script>
+    // Initialize keyword autocomplete for inline demographic search
+    // Only run when the demographic form fields exist (not in encounter view)
+    if (document.forms[0] && document.forms[0].keyword && document.forms[0].demographic_no && document.forms[0].selectedDemo) {
+        initDemographicAutocomplete(
+            '<%=request.getContextPath()%>',
+            document.forms[0].keyword,
+            document.forms[0].demographic_no,
+            document.forms[0].selectedDemo
+        );
+    }
 </script>
 </body>
 </html>

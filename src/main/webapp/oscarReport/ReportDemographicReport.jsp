@@ -45,6 +45,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptSearchData,java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptDemographicColumnNames" %>
@@ -96,7 +97,7 @@
         <title>Demographic Report Tool</title>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
 
         <script type="text/javascript">
@@ -230,7 +231,7 @@
                         </tr>
                         <tr>
                             <td><input type="checkbox" name="select" id="select_email" value="email" <%= containsValue(formBean.getSelect(), "email") ? "checked" : "" %>/></td>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportscpbDemo.msgEmail"/></td>
+                            <td><fmt:message key="oscarReport.oscarReportscpbDemo.msgEmail"/></td>
                         </tr>
                         <tr>
                             <td><input type="checkbox" name="select" id="select_year_of_birth" value="year_of_birth" <%= containsValue(formBean.getSelect(), "year_of_birth") ? "checked" : "" %>/></td>
@@ -306,7 +307,7 @@
                         </tr>
                         <tr>
                             <td><input type="checkbox" name="select" id="select_newsletter" value="newsletter" <%= containsValue(formBean.getSelect(), "newsletter") ? "checked" : "" %>/></td>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoReport.frmNewsletter"/></td>
+                            <td><fmt:message key="oscarReport.oscarReportDemoReport.frmNewsletter"/></td>
                         </tr>
                     </table>
 

@@ -44,9 +44,9 @@
     }
 %>
 
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.CarlosProperties" %>
 <!DOCTYPE HTML >
 
@@ -80,7 +80,7 @@
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/calendar/calendar.js"></script>
     <!-- language for the calendar -->
     <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/share/calendar/lang/<fmt:setBundle basename='oscarResources'/><fmt:message key='global.javascript.calendar'/>"></script>
+            src="${pageContext.servletContext.contextPath}/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
     <!-- the following script defines the Calendar.setup helper function, which makes
 		       adding a calendar a matter of 1 or 2 lines of code. -->
     <script type="text/javascript"
@@ -2405,7 +2405,7 @@
 %>
 
 <div class="page-header-bar" style="font-size:14px !important;">
-    <h4 class="page-header-title" style="font-size:18px !important;font-weight:normal !important;"><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.documentsInQueues"/></h4>
+    <h4 class="page-header-title" style="font-size:18px !important;font-weight:normal !important;"><fmt:message key="inboxmanager.documentsInQueues"/></h4>
     <input type="hidden" name="providerNo" value="<%= Encode.forHtmlAttribute(providerNo) %>">
     <input type="hidden" name="searchProviderNo" value="<%= Encode.forHtmlAttribute(searchProviderNo) %>">
     <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + Encode.forHtmlAttribute(request.getParameter("lname")) + "\">") %>

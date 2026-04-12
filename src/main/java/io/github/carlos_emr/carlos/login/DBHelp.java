@@ -51,17 +51,8 @@ public final class DBHelp {
     private static final Logger logger = MiscUtils.getLogger();
 
 
-    public static ResultSet searchDBRecord(String sql) {
-        ResultSet ret = null;
-        try {
-
-            ret = DBHandler.GetSQL(sql);
-        } catch (SQLException e) {
-            logger.error("Error", e);
-        }
-
-        return ret;
-    }
+    // searchDBRecord(String) removed — all callers migrated to searchDBRecord(String, Object...).
+    // See git history for the deprecated raw SQL execution wrapper.
 
     /**
      * Executes a parameterized query and returns a ResultSet.

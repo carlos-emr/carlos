@@ -73,10 +73,10 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
-<fmt:setBundle basename="oscarResources"/>
 
 <%
     Locale requestLocale = request.getLocale();

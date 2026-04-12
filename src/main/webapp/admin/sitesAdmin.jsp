@@ -26,6 +26,7 @@
 "http://www.w3.org/TR/html4/loose.dtd">
 <%-- This JSP is the multi-site admin page --%>
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -85,8 +86,7 @@
                     <display-el:column title="Active"><c:choose><c:when
                             test="${site.status==0}">No</c:when><c:otherwise>Yes</c:otherwise></c:choose></display-el:column>
                     <display-el:column title="Site Name">
-                        <a href="<%= request.getContextPath() %>/admin/ManageSites.do?method=update&siteId=<c:out value='${site.siteId}'/>"><c:out
-                                value="${site.name}"/></a></display-el:column>
+                        <a href="<%= request.getContextPath() %>/admin/ManageSites.do?method=update&siteId=${e:forHtmlAttribute(site.siteId)}">${e:forHtml(site.name)}</a></display-el:column>
                     <display-el:column property="shortName" title="Short Name"/>
                     <display-el:column property="bgColor" title="Color" style="background-color:${site.bgColor}"/>
                     <display-el:column property="phone" title="Telephone"/>

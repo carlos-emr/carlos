@@ -82,6 +82,11 @@
     &nbsp;<font color="green"><%=Encode.forHtml(StringUtils.noNull(enc.getSubject()).isEmpty() ? "Unknown" : enc.getSubject())%>
     </font></font>
 <br>
+<xml id="xml_list">
+    <encounter>
+        <%=Encode.forXml(content)%>
+    </encounter>
+</xml>
 <%
     }
 %>

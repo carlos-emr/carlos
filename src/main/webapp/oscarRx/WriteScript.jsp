@@ -30,6 +30,7 @@
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ page import="io.github.carlos_emr.carlos.rx.util.*" %>
@@ -63,7 +64,6 @@
     }
 %>
 
-<fmt:setBundle basename="oscarResources"/>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

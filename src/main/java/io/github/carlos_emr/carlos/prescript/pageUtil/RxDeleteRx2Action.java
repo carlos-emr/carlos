@@ -158,7 +158,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
                 Drug drug = drugDao.find(drugId);
                 setDrugDelete(drug);
                 drugDao.merge(drug);
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_PRESCRIPTION, drugArr[i], ip, "" + bean.getDemographicNo(), drug.getAuditString());
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_PRESCRIPTION, drugArr[i], ip, "" + bean.getDemographicNo(), drug.getAuditString());
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -214,7 +214,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
             Drug drug = drugDao.find(Integer.parseInt(deleteRxId));
             setDrugDelete(drug);
             drugDao.merge(drug);
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_PRESCRIPTION, deleteRxId, ip, "" + bean.getDemographicNo(), drug.getAuditString());
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_PRESCRIPTION, deleteRxId, ip, "" + bean.getDemographicNo(), drug.getAuditString());
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
@@ -261,7 +261,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
                     Drug drug = drugDao.find(drugId);
                     setDrugDelete(drug);
                     drugDao.merge(drug);
-                    LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_PRESCRIPTION, drugId.toString(), ip, "" + bean.getDemographicNo(), drug.getAuditString());
+                    LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_PRESCRIPTION, drugId.toString(), ip, "" + bean.getDemographicNo(), drug.getAuditString());
                 } catch (Exception e) {
                     MiscUtils.getLogger().error("Error", e);
                 }
@@ -270,7 +270,9 @@ public final class RxDeleteRx2Action extends ActionSupport {
             hm.put("drugId", drugId);
             ObjectNode jsonObject = objectMapper.valueToTree(hm);
             MiscUtils.getLogger().debug("jsonObject=" + jsonObject.toString());
-            response.getOutputStream().write(jsonObject.toString().getBytes());
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
+            response.getWriter().write(jsonObject.toString());
         }
         MiscUtils.getLogger().debug("===========================END DeleteRxOnCloseRxBox RxDeleteRx2Action========================");
         return null;
@@ -391,14 +393,14 @@ public final class RxDeleteRx2Action extends ActionSupport {
             MiscUtils.getLogger().error("Error", e);
         }
 
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DISCONTINUE, LogConst.CON_PRESCRIPTION, "" + drug.getId(), ip, "" + drug.getDemographicId(), logStatement);
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DISCONTINUE, LogConst.CON_PRESCRIPTION, "" + drug.getId(), ip, "" + drug.getDemographicId(), logStatement);
 
         Hashtable d = new Hashtable();
         d.put("id", "" + id);
         d.put("reason", reason);
         response.setContentType("application/json");
         ObjectNode jsonArray = (ObjectNode) objectMapper.valueToTree(d);
-        response.getWriter().write(jsonArray.toString());
+        response.getWriter().write(jsonArray.toString()); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
 
         return null;
     }

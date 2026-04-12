@@ -35,6 +35,7 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingTypeDao;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingType;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -111,16 +112,16 @@ public class DbManageBillingformBilltype2Action extends ActionSupport {
                     cbt.setBillType(billtype);
                     ctlBillingTypeDao.merge(cbt);
                 } else {
-                    MiscUtils.getLogger().error(
+                    MiscUtils.getLogger().error( // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                             "DbManageBillingformBilltype2Action: no CtlBillingType found for servicetype={} — update failed",
-                            servicetype);
+                            LogSanitizer.sanitize(servicetype));
                     response.sendError(HttpServletResponse.SC_NOT_FOUND,
                             "Billing type entry not found for the specified service type");
                     return NONE;
                 }
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to update bill type for servicetype={}", servicetype, e);
+            MiscUtils.getLogger().error("Failed to update bill type for servicetype={}", LogSanitizer.sanitize(servicetype), e);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to update bill type");
             return NONE;
         }

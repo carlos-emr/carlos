@@ -109,7 +109,7 @@
             String checklist_content = darp.getChecklistContent();
     %>
     <script type="text/javascript">
-        xmlText = "<xml><planner><%= Encode.forJavaScript(risk_content) %><%= Encode.forJavaScript(checklist_content) %></planner></xml>";
+        xmlText = "<xml><planner><%=risk_content%><%=checklist_content%></planner></xml>";
     </script>
     <%
             String riskFilePath = application.getRealPath("/decision/antenatal/desantenatalplannerrisks_99_12.xml");

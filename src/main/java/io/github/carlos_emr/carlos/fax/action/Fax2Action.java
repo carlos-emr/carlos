@@ -257,6 +257,14 @@ public class Fax2Action extends ActionSupport {
     public void getPreview() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "r", null)) {
+            try {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied");
+            } catch (IOException e) {
+                logger.error("Error sending forbidden response in getPreview", e);
+            }
+            return;
+        }
         String faxFilePath = request.getParameter("faxFilePath");
         String pageNumber = request.getParameter("pageNumber");
         String showAs = request.getParameter("showAs");
@@ -325,7 +333,7 @@ public class Fax2Action extends ActionSupport {
 
                 int data;
                 while ((data = bfis.read()) != -1) {
-                    outs.write(data);
+                    outs.write(data); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary fax document download
                 }
                 outs.flush();
             } catch (IOException e) {

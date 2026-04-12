@@ -37,21 +37,21 @@ import java.util.List;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementCPP;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 /*
  * Updated by Eugene Petruhin on 09 jan 2009 while fixing #2482832 & #2494061
  */
 @Transactional
-public class CaseManagementCPPDAOImpl extends AbstractHibernateDao implements CaseManagementCPPDAO {
+public class CaseManagementCPPDAOImpl extends AbstractJpaDao implements CaseManagementCPPDAO {
 
     private Logger log = MiscUtils.getLogger();
 
     @Override
     public CaseManagementCPP getCPP(String demographic_no) {
-        List results = HqlQueryHelper.find(currentSession(),
+        List results = JpqlQueryHelper.find(entityManager(),
                 "from CaseManagementCPP cpp where cpp.demographic_no = ?1 order by update_date desc",
                 demographic_no);
         return (results.size() != 0) ? (CaseManagementCPP) results.get(0) : null;
@@ -84,9 +84,9 @@ public class CaseManagementCPPDAOImpl extends AbstractHibernateDao implements Ca
         }
 
         if (cpp.getId() == null) {
-            currentSession().persist(cpp);
+            entityManager().persist(cpp);
         } else {
-            currentSession().merge(cpp);
+            entityManager().merge(cpp);
         }
 
     }

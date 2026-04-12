@@ -33,15 +33,17 @@
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
 
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
 
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Measurements.msgAddMeasurementStyleSheet"/></title>
+        <title><fmt:message key="encounter.Measurements.msgAddMeasurementStyleSheet"/></title>
 
     </head>
 
@@ -63,11 +65,11 @@
             method="POST" enctype="multipart/form-data">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
-                <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Measurements.msgMeasurements"/></td>
+                <td class="MainTableTopRowLeftColumn"><fmt:message key="encounter.Measurements.msgMeasurements"/></td>
                 <td class="MainTableTopRowRightColumn">
                     <table class="TopStatusBar">
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Measurements.msgAddMeasurementStyleSheet"/></td>
+                            <td><fmt:message key="encounter.Measurements.msgAddMeasurementStyleSheet"/></td>
                         </tr>
                     </table>
                 </td>
@@ -84,18 +86,18 @@
                                             <c:if test="${not empty messages}">
                                                 <tr>
                                                 <c:forEach var="msg" items="${messages}">
-                                                    <td><c:out value="${msg}"/></td>
+                                                    <td>${e:forHtml(msg)}</td>
                                                     </c:forEach>
                                                 </tr>
                                             </c:if>
                                         </td>
                                     <tr>
-                                        <td align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.createNewMeasurementStyleSheet"/>
+                                        <td align="left"><fmt:message key="encounter.oscarMeasurements.createNewMeasurementStyleSheet"/>
                                         </td>
                                     </tr>
                                     <tr>
                                         <td><input type="file" name="file" id="file" size="35"/>
-                                            <span title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"
+                                            <span title="<fmt:message key="global.uploadWarningBody"/>"
                                                   style="vertical-align:middle;font-family:arial;font-size:20px;font-weight:bold;color:#ABABAB;cursor:pointer"><img
                                                     border="0" src="<%= request.getContextPath() %>/images/icon_alertsml.gif"/></span></span>
 
@@ -106,10 +108,10 @@
                                             <table>
                                                 <tr>
                                                     <td><input type="button" name="Button"
-                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>"
+                                                               value="<fmt:message key="global.btnClose"/>"
                                                                onClick="window.close()"></td>
                                                     <td><input type="button" name="Button"
-                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.MeasurementsAction.continueBtn"/>"
+                                                               value="<fmt:message key="encounter.oscarMeasurements.MeasurementsAction.continueBtn"/>"
                                                                onclick="submit();"/></td>
                                                 </tr>
                                             </table>

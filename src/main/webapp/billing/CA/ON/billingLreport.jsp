@@ -14,10 +14,10 @@
 
 --%>
 <%@page import="java.nio.charset.Charset" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page language="java" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ page import="java.util.*,io.github.carlos_emr.*,java.io.*,java.net.*,io.github.carlos_emr.carlos.util.*,org.apache.commons.io.FileUtils"
@@ -71,7 +71,7 @@
                 var cpath = "<%=request.getContextPath()%>";
                 sname = cpath + "/billing/CA/ON/<%= (filename != null && filename.length() >= 4 && "OU".equals(filename.substring(2, 4))) ? "OU" : "ES" %>.xsl";
 
-                xml = '<%=StringEscapeUtils.escapeEcmaScript(fileContents)%>';
+                xml = '<%=Encode.forJavaScript(fileContents)%>';
                 try {
                     xsl = loadXMLDoc(sname);
 
@@ -133,7 +133,7 @@
                 <font size="3">Billing</font>
             </td>
             <td width="90%" align="right" class="Header">
-                <input type="button" name="print" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>"
+                <input type="button" name="print" value="<fmt:message key="global.btnPrint"/>"
                        onClick="window.print()">
             </td>
         </tr>

@@ -46,6 +46,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ page
         import="java.util.*,io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
@@ -60,7 +61,7 @@
 <html>
 
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManageReferralDoc"/></title>
+        <title><fmt:message key="admin.admin.ManageReferralDoc"/></title>
 
         <script type="text/javascript">
 
@@ -95,7 +96,7 @@
         </style>
 
     <body>
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManageReferralDoc"/></h3>
+    <h3><fmt:message key="admin.admin.ManageReferralDoc"/></h3>
     <div class="container-fluid">
 
         <%

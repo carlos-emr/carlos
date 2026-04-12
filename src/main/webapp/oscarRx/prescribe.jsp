@@ -72,8 +72,10 @@
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <c:set var="ctx" value="${pageContext.request.contextPath}" />
 <%
@@ -242,7 +244,6 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
                 String fieldSetId = "set_" + rand;
 %>
 <%-- i18n variable declarations for this prescription card --%>
-<fmt:setBundle basename="oscarResources"/>
 <fmt:message key="WriteScript.msgMore" var="i18nMore"/>
 <fmt:message key="WriteScript.msgAddtoFavorites" var="i18nAddToFavorites"/>
 <fmt:message key="WriteScript.msgName" var="i18nName"/>
@@ -271,7 +272,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 <fmt:message key="WriteScript.msgClose" var="i18nClose"/>
 
 <fieldset style="margin-top:2px;" id="<%=fieldSetId%>">
-    <a tabindex="-1" href="javascript:void(0);"  style="float:right;margin-left:5px;margin-top:0px;padding-top:0px;" onclick="removePrescribingDrug(<%=fieldSetId%>, <%=DrugReferenceId%>);"><img src='<c:out value="${ctx}/images/close.png"/>' border="0"></a>
+    <a tabindex="-1" href="javascript:void(0);"  style="float:right;margin-left:5px;margin-top:0px;padding-top:0px;" onclick="removePrescribingDrug(<%=fieldSetId%>, <%=DrugReferenceId%>);"><img src='${e:forHtmlAttribute(ctx)}/images/close.png' border="0"></a>
     <a tabindex="-1" href="javascript:void(0);"  style="float:right;;margin-left:5px;margin-top:0px;padding-top:0px;" title="${i18nAddToFavorites}" onclick="addFav('<%=rand%>','<%=Encode.forJavaScript(drugName)%>')">F</a>
     <a tabindex="-1" href="javascript:void(0);" style="float:right;margin-top:0px;padding-top:0px;" onclick="var el=document.getElementById('rx_more_<%=rand%>');el.style.display=el.style.display==='none'?'':'none';">  <span id="moreLessWord_<%=rand%>" onclick="updateMoreLess(id)" >${i18nMore}</span> </a>
 
@@ -348,30 +349,30 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
             name="quantity_<%=Encode.forHtmlAttribute(rand)%>" value="<%=Encode.forHtmlAttribute(quantityText)%>"
             onblur="updateQty(this);getCost('cost_<%=Encode.forHtmlAttribute(rand)%>','<%=Encode.forHtmlAttribute(rand)%>','<%=Encode.forJavaScript(rx.getRegionalIdentifier())%>',this.value)">
         <span id="cost_<%=Encode.forHtmlAttribute(rand)%>" style="margin-left:4px;"></span>
-        <label style=""><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgRepeats"/>:</label><input type="text" size="5" id="repeats_<%=Encode.forHtmlAttribute(rand)%>"  <%if (rx.isCustomNote()) {%>
+        <label style=""><fmt:message key="WriteScript.msgRepeats"/>:</label><input type="text" size="5" id="repeats_<%=Encode.forHtmlAttribute(rand)%>"  <%if (rx.isCustomNote()) {%>
                                                disabled <%}%> name="repeats_<%=Encode.forHtmlAttribute(rand)%>" value="<%=Encode.forHtmlAttribute(repeats)%>"
                                                onInput="updateLongTerm('<%=Encode.forJavaScriptAttribute(rand) %>',this)"
                                                onblur="updateProperty(this.id)"/>
 		</div>
     <div id="medTerm_<%=Encode.forHtmlAttribute(rand)%>">
-        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgLongTermMedication"/>: </label>
+        <label><fmt:message key="WriteScript.msgLongTermMedication"/>: </label>
 			<span>
-				<label for="longTermY_<%=Encode.forHtmlAttribute(rand)%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgYes"/> </label>
+				<label for="longTermY_<%=Encode.forHtmlAttribute(rand)%>"><fmt:message key="WriteScript.msgYes"/> </label>
 			  	<input type="radio" id="longTermY_<%=Encode.forHtmlAttribute(rand)%>" name="longTerm_<%=Encode.forHtmlAttribute(rand)%>" value="yes"
                        class="med-term" <%if (longTerm != null && longTerm) {%> checked="checked" <%}%>
                        onChange="updateShortTerm('<%=Encode.forJavaScriptAttribute(rand)%>',false)"/>
 			  	
-			  	<label for="longTermN_<%=Encode.forHtmlAttribute(rand)%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgNo"/> </label>
+			  	<label for="longTermN_<%=Encode.forHtmlAttribute(rand)%>"><fmt:message key="WriteScript.msgNo"/> </label>
 			  	<input type="radio" id="longTermN_<%=Encode.forHtmlAttribute(rand)%>" name="longTerm_<%=Encode.forHtmlAttribute(rand)%>" value="no"
                        class="med-term" <%if (longTerm != null && !longTerm) {%> checked="checked" <%}%>
                        onChange="updateShortTerm('<%=Encode.forJavaScriptAttribute(rand)%>',true)"/>
 			  	
-			  	<label for="longTermE_<%=Encode.forHtmlAttribute(rand)%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgUnset"/> </label>
+			  	<label for="longTermE_<%=Encode.forHtmlAttribute(rand)%>"><fmt:message key="WriteScript.msgUnset"/> </label>
 			  	<input type="radio" id="longTermE_<%=Encode.forHtmlAttribute(rand)%>" name="longTerm_<%=Encode.forHtmlAttribute(rand)%>" value="unset"
                        class="med-term" <%if (longTerm == null) {%> checked="checked" <%}%>
                        onChange="updateShortTerm('<%=Encode.forJavaScriptAttribute(rand)%>',false)"/>
 				<div style="display:none">
-					<label for="shortTerm_<%=Encode.forHtmlAttribute(rand)%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgSortTermMedication"/> </label>
+					<label for="shortTerm_<%=Encode.forHtmlAttribute(rand)%>"><fmt:message key="WriteScript.msgSortTermMedication"/> </label>
 	        		<input type="checkbox" id="shortTerm_<%=Encode.forHtmlAttribute(rand)%>" name="shortTerm_<%=Encode.forHtmlAttribute(rand)%>"
                            class="med-term" <%if (shortTerm) {%> checked="checked" <%}%> />
 	        	</div>
@@ -396,27 +397,27 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
        </div>
        <div id="rx_more_<%=rand%>" style="display:none;padding:2px;">
         <div>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgPrescribedRefill"/>:
+            <fmt:message key="WriteScript.msgPrescribedRefill"/>:
        	  &nbsp;
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgPrescribedRefillDuration"/>
+            <fmt:message key="WriteScript.msgPrescribedRefillDuration"/>
             <input type="text" size="6" id="refillDuration_<%=rand%>" name="refillDuration_<%=rand%>"
                    value="<%=refillDuration%>"
-                   onchange="var errEl=document.getElementById('refillDurationError_<%=rand%>');if(this.value.trim()===''){errEl.classList.remove('d-none');this.focus();return false;}var v=Number(this.value);if(Number.isNaN(v)||v<0){errEl.classList.remove('d-none');this.focus();return false;}errEl.classList.add('d-none');"/><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgPrescribedRefillDurationDays"/>
+                   onchange="var errEl=document.getElementById('refillDurationError_<%=rand%>');if(this.value.trim()===''){errEl.classList.remove('d-none');this.focus();return false;}var v=Number(this.value);if(Number.isNaN(v)||v<0){errEl.classList.remove('d-none');this.focus();return false;}errEl.classList.add('d-none');"/><fmt:message key="WriteScript.msgPrescribedRefillDurationDays"/>
             <div id="refillDurationError_<%=rand%>" class="alert alert-danger d-none" role="alert" style="margin-top:4px;padding:6px 10px;">
                 <button type="button" class="btn-close float-end" style="font-size:0.75rem;" onclick="document.getElementById('refillDurationError_<%=rand%>').classList.add('d-none');" aria-label="${i18nClose}"></button>
                 ${i18nRefillDurationError}
             </div>
        	  &nbsp;       	  
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgPrescribedRefillQuantity"/>
+            <fmt:message key="WriteScript.msgPrescribedRefillQuantity"/>
        	  <input type="text" size="6" id="refillQuantity_<%=rand%>" name="refillQuantity_<%=rand%>" value="<%=refillQuantity%>" />
        	  </div><div> 
     	  
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgPrescribedDispenseInterval"/>
+            <fmt:message key="WriteScript.msgPrescribedDispenseInterval"/>
        	  <input type="text" size="6" id="dispenseInterval_<%=rand%>" name="dispenseInterval_<%=rand%>" value="<%=dispenseInterval%>" />
        	  </div>
        	  
 		<div>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgPrescribedByOutsideProvider"/>
+            <fmt:message key="WriteScript.msgPrescribedByOutsideProvider"/>
             <input type="checkbox" id="ocheck_<%=rand%>" name="ocheck_<%=rand%>"
                    onclick="var el=document.getElementById('otext_<%=rand%>');el.style.display=el.style.display==='none'?'':'none';" <%if (isOutsideProvider) {%> checked="checked" <%
                 } else {
@@ -437,43 +438,43 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
           </div>
         <div>
 
-            <label for="pastMedSelection" title="Medications taken at home that were previously ordered."><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgPastMedication"/></label>
+            <label for="pastMedSelection" title="Medications taken at home that were previously ordered."><fmt:message key="WriteScript.msgPastMedication"/></label>
         
         <span id="pastMedSelection">
-        	<label for="pastMedY_<%=rand%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgYes"/></label>
+        	<label for="pastMedY_<%=rand%>"><fmt:message key="WriteScript.msgYes"/></label>
             <input  type="radio" value="yes" name="pastMed_<%=rand%>" id="pastMedY_<%=rand%>" <%if(pastMed != null && pastMed) {%> checked="checked" <%}%>  />
             
-            <label for="pastMedN_<%=rand%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgNo"/></label>
+            <label for="pastMedN_<%=rand%>"><fmt:message key="WriteScript.msgNo"/></label>
             <input  type="radio" value="no" name="pastMed_<%=rand%>" id="pastMedN_<%=rand%>" <%if(pastMed != null && ! pastMed) {%> checked="checked" <%}%>  />
             
-            <label for="pastMedE_<%=rand%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgUnknown"/></label>
+            <label for="pastMedE_<%=rand%>"><fmt:message key="WriteScript.msgUnknown"/></label>
             <input  type="radio" value="unset" name="pastMed_<%=rand%>" id="pastMedE_<%=rand%>" <%if(pastMed == null) {%> checked="checked" <%}%>  />
          </span>         
 	</div><div>
 	
-            <label for="patientCompliantSelection"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgPatientCompliance"/>:</label>
+            <label for="patientCompliantSelection"><fmt:message key="WriteScript.msgPatientCompliance"/>:</label>
 	<span id="patientCompliantSelection">
-         <label for="patientComplianceY_<%=rand%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgYes"/></label>
+         <label for="patientComplianceY_<%=rand%>"><fmt:message key="WriteScript.msgYes"/></label>
             <input type="radio" value="yes" name="patientCompliance_<%=rand%>" id="patientComplianceY_<%=rand%>" <%if(patientCompliance!=null && patientCompliance) {%> checked="checked" <%}%> />
 
-          <label for="patientComplianceN_<%=rand%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgNo"/></label>
+          <label for="patientComplianceN_<%=rand%>"><fmt:message key="WriteScript.msgNo"/></label>
             <input type="radio" value="no" name="patientCompliance_<%=rand%>" id="patientComplianceN_<%=rand%>" <%if(patientCompliance!=null && !patientCompliance) {%> checked="checked" <%}%> />
 	
-		<label for="patientComplianceE_<%=rand%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgUnset"/></label>
+		<label for="patientComplianceE_<%=rand%>"><fmt:message key="WriteScript.msgUnset"/></label>
             <input type="radio" value="unset" name="patientCompliance_<%=rand%>" id="patientComplianceE_<%=rand%>" <%if(patientCompliance==null) {%> checked="checked" <%}%> />
     </span>
 	</div><div>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgNonAuthoritative"/>
+            <fmt:message key="WriteScript.msgNonAuthoritative"/>
             <input type="checkbox" name="nonAuthoritativeN_<%=rand%>" id="nonAuthoritativeN_<%=rand%>" <%if(nonAuthoritative) {%> checked="checked" <%}%> />
     </div><div>
     
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgSubNotAllowed"/>
+            <fmt:message key="WriteScript.msgSubNotAllowed"/>
     		<input type="checkbox" name="nosubs_<%=rand%>" id="nosubs_<%=rand%>" <%if(nosubs) {%> checked="checked" <%}%> />
     </div><div>
 
         <label style="float:left;width:80px;">${i18nStartDate}:</label>
            <input type="text" id="rxDate_<%=rand%>" name="rxDate_<%=rand%>" value="<%=startDate%>" <%if(startDateUnknown) {%> disabled="disabled" <%}%>/>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgUnknown"/>
+            <fmt:message key="WriteScript.msgUnknown"/>
            <input  type="checkbox" name="startDateUnknown_<%=rand%>" id="startDateUnknown_<%=rand%>" <%if(startDateUnknown) {%> checked="checked" <%}%> onclick="toggleStartDateUnknown('<%=rand%>');"/>
            
            </div><div>
@@ -486,7 +487,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
        
            </div><div>
            			           
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgProtocolReference"/>:
+            <fmt:message key="WriteScript.msgProtocolReference"/>:
            <input type="text" id="protocol_<%=rand%>"  name="protocol_<%=rand%>" value="<%=protocol%>" />          
 
            <%--  OMD Revalidation: field not required currently. Commented out as this may be used again in the future. 
@@ -496,38 +497,38 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
             
            </div><div>
            
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgPickUpDate"/>:
+            <fmt:message key="WriteScript.msgPickUpDate"/>:
             <input type="text" id="pickupDate_<%=rand%>" name="pickupDate_<%=rand%>" value="<%=pickupDate%>"
                    onchange="if (!isValidDate(this.value)) {this.value=null}"/>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgPickUpTime"/>:
+            <fmt:message key="WriteScript.msgPickUpTime"/>:
             <input type="text" id="pickupTime_<%=rand%>" name="pickupTime_<%=rand%>" value="<%=pickupTime%>"
                    onchange="if (!isValidTime(this.value)) {this.value=null}"/>
         </div>
         <div>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgComment"/>:
+            <fmt:message key="WriteScript.msgComment"/>:
            <input type="text" id="comment_<%=rand%>" name="comment_<%=rand%>" value="<%=comment%>" size="60"/>
            </div><div>  
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgETreatmentType"/>:
+            <fmt:message key="WriteScript.msgETreatmentType"/>:
            <select name="eTreatmentType_<%=rand%>">
            		<option>--</option>
-                <option value="CHRON" <%=eTreatmentType.equals("CHRON") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgETreatment.Continuous"/></option>
-                <option value="ACU" <%=eTreatmentType.equals("ACU") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgETreatment.Acute"/></option>
-                <option value="ONET" <%=eTreatmentType.equals("ONET") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgETreatment.OneTime"/></option>
-                <option value="PRNL" <%=eTreatmentType.equals("PRNL") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgETreatment.LongTermPRN"/></option>
-                <option value="PRNS" <%=eTreatmentType.equals("PRNS") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgETreatment.ShortTermPRN"/></option>
+                <option value="CHRON" <%=eTreatmentType.equals("CHRON") ? "selected" : ""%>><fmt:message key="WriteScript.msgETreatment.Continuous"/></option>
+                <option value="ACU" <%=eTreatmentType.equals("ACU") ? "selected" : ""%>><fmt:message key="WriteScript.msgETreatment.Acute"/></option>
+                <option value="ONET" <%=eTreatmentType.equals("ONET") ? "selected" : ""%>><fmt:message key="WriteScript.msgETreatment.OneTime"/></option>
+                <option value="PRNL" <%=eTreatmentType.equals("PRNL") ? "selected" : ""%>><fmt:message key="WriteScript.msgETreatment.LongTermPRN"/></option>
+                <option value="PRNS" <%=eTreatmentType.equals("PRNS") ? "selected" : ""%>><fmt:message key="WriteScript.msgETreatment.ShortTermPRN"/></option>
             </select>
            <select name="rxStatus_<%=rand%>">
            		<option>--</option>
-                <option value="New" <%=rxStatus.equals("New") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgRxStatus.New"/></option>
-                <option value="Active" <%=rxStatus.equals("Active") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgRxStatus.Active"/></option>
-                <option value="Suspended" <%=rxStatus.equals("Suspended") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgRxStatus.Suspended"/></option>
-                <option value="Aborted" <%=rxStatus.equals("Aborted") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgRxStatus.Aborted"/></option>
-                <option value="Completed" <%=rxStatus.equals("Completed") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgRxStatus.Completed"/></option>
-                <option value="Obsolete" <%=rxStatus.equals("Obsolete") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgRxStatus.Obsolete"/></option>
-                <option value="Nullified" <%=rxStatus.equals("Nullified") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgRxStatus.Nullified"/></option>
+                <option value="New" <%=rxStatus.equals("New") ? "selected" : ""%>><fmt:message key="WriteScript.msgRxStatus.New"/></option>
+                <option value="Active" <%=rxStatus.equals("Active") ? "selected" : ""%>><fmt:message key="WriteScript.msgRxStatus.Active"/></option>
+                <option value="Suspended" <%=rxStatus.equals("Suspended") ? "selected" : ""%>><fmt:message key="WriteScript.msgRxStatus.Suspended"/></option>
+                <option value="Aborted" <%=rxStatus.equals("Aborted") ? "selected" : ""%>><fmt:message key="WriteScript.msgRxStatus.Aborted"/></option>
+                <option value="Completed" <%=rxStatus.equals("Completed") ? "selected" : ""%>><fmt:message key="WriteScript.msgRxStatus.Completed"/></option>
+                <option value="Obsolete" <%=rxStatus.equals("Obsolete") ? "selected" : ""%>><fmt:message key="WriteScript.msgRxStatus.Obsolete"/></option>
+                <option value="Nullified" <%=rxStatus.equals("Nullified") ? "selected" : ""%>><fmt:message key="WriteScript.msgRxStatus.Nullified"/></option>
            </select>
                 </div><div>                
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgDrugForm"/>:
+            <fmt:message key="WriteScript.msgDrugForm"/>:
                 <%if(rx.getDrugFormList()!=null && rx.getDrugFormList().indexOf(",")!=-1){ %>
                 <select name="drugForm_<%=rand%>">
                 	<%

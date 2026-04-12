@@ -31,6 +31,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -101,7 +102,7 @@
         <script src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
         <script src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
         <script
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"
                 type="text/javascript"></script>
         <script src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"
                 type="text/javascript"></script>
@@ -197,8 +198,8 @@
             <tr>
                 <td colspan="2" class="SectionHead"><a href=#
                                                        onClick="popup(700,900,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(form.getDemographicNumber())))%>','
-                                                           <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.popupPage2Window"/>');return false;"
-                                                       title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">Patient
+                                                           <fmt:message key="encounter.Index.popupPage2Window"/>');return false;"
+                                                       title="<fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">Patient
                     Information</a> <input type="hidden" name="id" id="id" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getId()))%>"/>
                     <input type="hidden"
                            name="demographicNumber" id="demographicNumber"

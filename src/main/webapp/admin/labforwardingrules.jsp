@@ -28,8 +28,9 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -69,7 +70,7 @@
 <html>
 <head>
 
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.labFwdRules"/></title>
+    <title><fmt:message key="admin.admin.labFwdRules"/></title>
     <link href="${ctx}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <script src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <link rel="stylesheet" href="${ctx}/css/fontawesome-all.min.css">
@@ -122,7 +123,7 @@
 
 <body>
 
-<h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.labFwdRules"/></h3>
+<h3><fmt:message key="admin.admin.labFwdRules"/></h3>
 
 
 <form id="ForwardRulesForm" name="RULES" action="${ctx}/admin/ForwardingRules.do" method="post">
@@ -189,7 +190,7 @@
                 </td>
                 <td>
                     <button type="submit" class="btn btn-sm"
-                            onclick="return removeProvider('<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>', '<%= StringEscapeUtils.escapeEcmaScript((String) ((ArrayList) frwdProviders.get(i)).get(1)) %> <%= StringEscapeUtils.escapeEcmaScript((String) ((ArrayList) frwdProviders.get(i)).get(2)) %>')"
+                            onclick="return removeProvider('<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>', '<%= Encode.forJavaScript((String) ((ArrayList) frwdProviders.get(i)).get(1)) %> <%= Encode.forJavaScript((String) ((ArrayList) frwdProviders.get(i)).get(2)) %>')"
                             title="remove provider"><i class="fa-solid fa-trash"></i> remove
                     </button>
                 </td>
@@ -224,7 +225,7 @@
         <h5>Update Forwarding Rules</h5>
 
         Set incoming status:
-        <input type="radio" name="status" value="N"    <%= status.equals("F") ? "" : "checked" %>> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.formReportStatusNew"/>
+        <input type="radio" name="status" value="N"    <%= status.equals("F") ? "" : "checked" %>> <fmt:message key="oscarMDS.search.formReportStatusNew"/>
         <input type="radio" name="status" value="F" <%= status.equals("F") ? "checked" : "" %>> Filed
 
         <br/>

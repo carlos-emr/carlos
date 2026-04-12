@@ -51,6 +51,7 @@
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -115,9 +116,6 @@
     } catch (NumberFormatException e) {
         limit = 18;
     }
-    // Sanitize: replace raw request strings with parsed integer values to prevent XSS
-    strOffset = String.valueOf(offset);
-    strLimit = String.valueOf(limit);
 
     String displayMode = request.getParameter("displaymode");
     String dboperation = request.getParameter("dboperation");
@@ -150,7 +148,7 @@
     <head>
         <%@ include file="/includes/global-head.jspf" %>
         <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/Oscar.js"/>"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.title"/></title>
+        <title><fmt:message key="demographic.demographicsearchresults.title"/></title>
 
         <link rel="stylesheet" type="text/css" media="all"
               href="${pageContext.request.contextPath}/demographic/searchdemographicstyle.css"/>
@@ -199,7 +197,7 @@
                             + dob.value.substring(6, 8);
                     }
                     if (dob.value.length != 10) {
-                        alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgWrongDOB"/>");
+                        alert("<fmt:message key="demographic.search.msgWrongDOB"/>");
                         typeInOK = false;
                     }
 
@@ -217,7 +215,7 @@
                     + ",width="
                     + vwidth
                     + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-                var popup = window.open(varpage, "<fmt:setBundle basename="oscarResources"/><fmt:message key="global.oscarRx"/>_________________$tag________________________________demosearch", windowprops);
+                var popup = window.open(varpage, "<fmt:message key="global.oscarRx"/>_________________$tag________________________________demosearch", windowprops);
                 if (popup != null) {
                     if (popup.opener == null) {
                         popup.opener = self;
@@ -238,6 +236,31 @@
                     popup.focus();
                 }
             }
+
+            /**
+             * Writes the selected patient back to the messenger compose/view form in the
+             * opener window and closes this search popup.
+             *
+             * Uses direct DOM access (same pattern as the appointment search popup) rather
+             * than a server-side redirect through DemographicLinkMsg.do, which was unreliable
+             * after multi-hop popup navigation. Always defined; only called from onclick
+             * links rendered when fromMessenger=true, so harmless in non-messenger contexts.
+             *
+             * @param {string} keyword   - Patient display name (Last, First)
+             * @param {string} demoNo    - Patient demographic number
+             */
+            function selectForMessenger(keyword, demoNo) {
+                try {
+                    if (window.opener && !window.opener.closed) {
+                        window.opener.document.forms[0].demographic_no.value = demoNo;
+                        window.opener.document.forms[0].selectedDemo.value = keyword;
+                        window.opener.document.forms[0].keyword.value = keyword;
+                    }
+                } catch (e) {
+                    // cross-window DOM access failed; popup will still close
+                }
+                window.close();
+            }
         </SCRIPT>
     </head>
 
@@ -253,7 +276,7 @@
                 Search Patient
             </h2>
             <a href="javascript:void(0)" onclick="showHideItem('demographicSearch');" id="cancelButton"
-               class="leftButton top"> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/> </a>
+               class="leftButton top"> <fmt:message key="global.btnCancel"/> </a>
             <%@ include file="zdemographicfulltitlesearch.jsp" %>
         </div>
 
@@ -262,7 +285,7 @@
             <a href="javascript:void(0)" onclick="showHideItem('demographicSearch');" id="searchPopUpButton"
                class="rightButton top">Search</a>
 
-            <i><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.msgSearchKeys"/></i> : <c:out
+            <i><fmt:message key="demographic.demographicsearchresults.msgSearchKeys"/></i> : <c:out
                 value="${param.keyword}"/>
 
             <div class="table-responsive">
@@ -282,38 +305,38 @@
                     <% if (fromMessenger) {%>
                     <!-- leave blank -->
                     <th class="demoIdSearch">
-                        <a href="<%=sortBase%>&orderby=demographic_no<%=sortSuffix%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnDemoNo"/></a>
+                        <a href="<%=sortBase%>&orderby=demographic_no<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnDemoNo"/></a>
                     </th>
                     <%} else {%>
                     <th class="demoIdSearch">
-                        <a href="<%=sortBase%>&orderby=demographic_no<%=sortSuffix%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnDemoNo"/></a>
+                        <a href="<%=sortBase%>&orderby=demographic_no<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnDemoNo"/></a>
                     </th>
-                    <th class="links"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.module"/></th>
+                    <th class="links"><fmt:message key="demographic.demographicsearchresults.module"/></th>
 
                     <%}%>
                     <th class="name"><a
-                            href="<%=sortBase%>&orderby=last_name<%=sortSuffix%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnDemoName"/></a>
+                            href="<%=sortBase%>&orderby=last_name<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnDemoName"/></a>
                     </th>
                     <th class="chartNo"><a
-                            href="<%=sortBase%>&orderby=chart_no<%=sortSuffix%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnChart"/></a>
+                            href="<%=sortBase%>&orderby=chart_no<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnChart"/></a>
                     </th>
                     <th class="sex"><a
-                            href="<%=sortBase%>&orderby=sex<%=sortSuffix%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnSex"/></a>
+                            href="<%=sortBase%>&orderby=sex<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnSex"/></a>
                     </th>
                     <th class="dob"><a
-                            href="<%=sortBase%>&orderby=dob<%=sortSuffix%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnDOB"/> <span class="dateFormat"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnDOBFormat"/></span></a>
+                            href="<%=sortBase%>&orderby=dob<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnDOB"/> <span class="dateFormat"><fmt:message key="demographic.demographicsearchresults.btnDOBFormat"/></span></a>
                     </th>
                     <th class="doctor"><a
-                            href="<%=sortBase%>&orderby=provider_no<%=sortSuffix%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnDoctor"/></a>
+                            href="<%=sortBase%>&orderby=provider_no<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnDoctor"/></a>
                     </th>
                     <th class="rosterStatus"><a
-                            href="<%=sortBase%>&orderby=roster_status<%=sortSuffix%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnRosSta"/></a>
+                            href="<%=sortBase%>&orderby=roster_status<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnRosSta"/></a>
                     </th>
                     <th class="patientStatus"><a
-                            href="<%=sortBase%>&orderby=patient_status<%=sortSuffix%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnPatSta"/></a>
+                            href="<%=sortBase%>&orderby=patient_status<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnPatSta"/></a>
                     </th>
                     <th class="phone"><a
-                            href="<%=sortBase%>&orderby=phone<%=sortSuffix%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnPhone"/></a>
+                            href="<%=sortBase%>&orderby=phone<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnPhone"/></a>
                     </th>
                 </tr>
 
@@ -409,8 +432,10 @@
                         <%
 
                             if (fromMessenger) {
+                                String messengerPatientName = Misc.toUpperLowerCase(demo.getLastName() + ", " + demo.getFirstName());
                         %>
-                        <a href="DemographicLinkMsg.do?keyword=<%=Encode.forUriComponent(Misc.toUpperLowerCase(demo.getLastName()+", "+demo.getFirstName()))%>&demographic_no=<%= Encode.forUriComponent(dem_no) %>"><%=Encode.forHtml(demo.getDemographicNo().toString())%>
+                        <a href="javascript:void(0)"
+                           onclick="selectForMessenger('<%=Encode.forJavaScriptAttribute(messengerPatientName)%>','<%=Encode.forJavaScriptAttribute(dem_no)%>')"><%=Encode.forHtml(demo.getDemographicNo().toString())%>
                         </a></td>
                     <%
                     } else {
@@ -494,29 +519,29 @@
                 if (nLastPage >= 0) {
             %>
             <a href="<%=pageBase%>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>&ptstatus=<%=Encode.forUriComponent(ptStatus)%>">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnLastPage"/></a> <%
+                <fmt:message key="demographic.demographicsearchresults.btnLastPage"/></a> <%
             }
             if (nItems >= Integer.parseInt(strLimit)) {
                 if (nLastPage >= 0) {
         %> | <% } %>
             <a href="<%=pageBase%>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>&ptstatus=<%=Encode.forUriComponent(ptStatus)%>">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnNextPage"/></a>
+                <fmt:message key="demographic.demographicsearchresults.btnNextPage"/></a>
             <%
                 }
             %>
             <br>
             <div class="createNew">
                 <a href="demographicaddarecordhtm.jsp?search_mode=<%=Encode.forUriComponent(StringUtils.noNull(searchMode))%>&keyword=<%=Encode.forUriComponent(StringUtils.noNull(keyWord))%>"
-                   title="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.btnCreateNewTitle"/>">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.btnCreateNew"/>
+                   title="<fmt:message key="demographic.search.btnCreateNewTitle"/>">
+                    <fmt:message key="demographic.search.btnCreateNew"/>
                 </a>
             </div>
 
             <caisi:isModuleLoad moduleName="caisi">
                 <div class="goBackToSchedule">
                     <a href="<%= request.getContextPath() %>/provider/providercontrol.jsp"
-                       title="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.btnReturnToSchedule"/>">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.btnReturnToSchedule"/>
+                       title="<fmt:message key="demographic.search.btnReturnToSchedule"/>">
+                        <fmt:message key="demographic.search.btnReturnToSchedule"/>
                     </a>
                 </div>
             </caisi:isModuleLoad>

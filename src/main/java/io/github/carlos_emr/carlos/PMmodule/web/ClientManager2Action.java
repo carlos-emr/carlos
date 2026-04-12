@@ -42,7 +42,7 @@ import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.util.DateUtils;
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
@@ -353,9 +353,9 @@ public class ClientManager2Action extends ActionSupport {
         LogAction.log("read", "pmm client record", id, request);
 
         Demographic demographic = clientManager.getClientByDemographicNo(id);
-        request.getSession().setAttribute("clientGender", demographic.getSex());
-        request.getSession().setAttribute("clientAge", demographic.getAge());
-        request.getSession().setAttribute("demographicId", demographic.getDemographicNo());
+        request.getSession().setAttribute("clientGender", demographic.getSex()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.getSession().setAttribute("clientAge", demographic.getAge()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.getSession().setAttribute("demographicId", demographic.getDemographicNo()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         return "edit";
     }
@@ -657,7 +657,13 @@ public class ClientManager2Action extends ActionSupport {
 
     public String remove_joint_admission() {
         String clientId = request.getParameter("dependentClientId");
-        clientManager.removeJointAdmission(Integer.valueOf(clientId), (String) request.getSession().getAttribute("user"));
+        try {
+            clientManager.removeJointAdmission(Integer.valueOf(clientId), (String) request.getSession().getAttribute("user")); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): reads authenticated provider from own session (set by Login2Action post-auth)
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid dependentClientId rejected in remove_joint_admission: {}", LogSanitizer.sanitize(clientId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            setEditAttributes(request, request.getParameter("clientId"));
+            return "edit";
+        }
         setEditAttributes(request, request.getParameter("clientId"));
         return "edit";
     }
@@ -1006,19 +1012,19 @@ public class ClientManager2Action extends ActionSupport {
             else sb.append(DateFormatUtils.ISO_DATE_FORMAT.format(admission.getDischargeDate()));
             sb.append(" )");
         }
-        return (StringEscapeUtils.escapeHtml4(sb.toString()));
+        return (Encode.forHtml(sb.toString()));
     }
 
     public static String getEscapedProviderDisplay(String providerNo) {
         Provider provider = providerDao.getProvider(providerNo);
 
-        return (StringEscapeUtils.escapeHtml4(provider.getFormattedName()));
+        return (Encode.forHtml(provider.getFormattedName()));
     }
 
     public static String getEscapedDateDisplay(Date d) {
         String display = DateFormatUtils.ISO_DATE_FORMAT.format(d);
 
-        return (StringEscapeUtils.escapeHtml4(display));
+        return (Encode.forHtml(display));
     }
 
     @Autowired
@@ -1100,7 +1106,7 @@ public class ClientManager2Action extends ActionSupport {
         Program program = programDao.getProgram(admission.getProgramId());
 
         String displayString = program.getName() + " : " + DateFormatUtils.ISO_DATE_FORMAT.format(admission.getAdmissionDate());
-        return (StringEscapeUtils.escapeHtml4(displayString));
+        return (Encode.forHtml(displayString));
     }
 
     private ClientManagerFormBean view;

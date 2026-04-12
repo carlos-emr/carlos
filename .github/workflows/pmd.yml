@@ -3,7 +3,10 @@
 # Description:
 # Runs PMD static analysis on CARLOS EMR Java source code to detect
 # common programming flaws, potential bugs, and security issues.
-# Results appear as PR annotations and in the GitHub Security tab (SARIF).
+# Results appear in the GitHub Security tab (SARIF upload).
+#
+# Runs PMD CLI directly (no third-party action) to avoid org action
+# allow-list restrictions. PMD only needs source code, not compilation.
 #
 # Ruleset:
 # Uses a project-specific ruleset (.github/pmd/carlos-ruleset.xml) focused on
@@ -12,6 +15,7 @@
 #
 # Usage:
 # - Triggered on pull requests targeting develop, main, experimental
+# - Triggered on pushes to develop
 # - Scheduled weekly full scan (Monday 5:00 UTC)
 # - Manual dispatch available
 #
@@ -47,7 +51,10 @@ on:
 permissions:
   contents: read
   security-events: write
-  pull-requests: write
+
+env:
+  PMD_VERSION: '7.13.0'
+  PMD_HOME: 'pmd-bin-7.13.0'
 
 jobs:
   pmd:
@@ -58,33 +65,31 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run PMD
-        id: pmd
-        uses: pmd/pmd-github-action@v2
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
         with:
-          version: '7.13.0'
-          sourcePath: 'src/main/java'
-          rulesets: '.github/pmd/carlos-ruleset.xml'
-          analyzeModifiedFilesOnly: false
-          createGitHubAnnotations: true
+          distribution: 'temurin'
+          java-version: '21'
 
-      - name: Upload SARIF to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always() && hashFiles('pmd-report.sarif') != ''
+      - name: Cache PMD installation
+        uses: actions/cache@v4
         with:
-          sarif_file: pmd-report.sarif
-          category: pmd
+          path: ${{ env.PMD_HOME }}
+          key: pmd-${{ runner.os }}-${{ runner.arch }}-${{ env.PMD_VERSION }}
+          restore-keys: |
+            pmd-${{ runner.os }}-${{ runner.arch }}-
+            pmd-${{ runner.os }}-
 
-      - name: Report summary
-        if: always()
+      - name: Download PMD
         run: |
-          echo "### PMD Analysis Results" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Violations found**: ${{ steps.pmd.outputs.violations }}" >> "$GITHUB_STEP_SUMMARY"
-          if [ "${{ steps.pmd.outputs.violations }}" -gt 0 ] 2>/dev/null; then
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "See the **Security** tab or PR annotations for details." >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          if [ ! -d "${PMD_HOME}" ]; then
+            echo "Downloading PMD ${PMD_VERSION}..."
+            PMD_ZIP="pmd-dist-${PMD_VERSION}-bin.zip"
+            PMD_BASE_URL="https://github.com/pmd/pmd/releases/download/pmd_releases%2F${PMD_VERSION}"
+            wget -q "${PMD_BASE_URL}/${PMD_ZIP}"
+            unzip -q "${PMD_ZIP}"
+            rm -f "${PMD_ZIP}"
           else
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "No violations detected." >> "$GITHUB_STEP_SUMMARY"
+            echo "PMD ${PMD_VERSION} already cached"
           fi

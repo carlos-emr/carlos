@@ -36,16 +36,16 @@ import java.util.Date;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 @Transactional
-public class CaseManagementNoteExtDAOImpl extends AbstractHibernateDao implements CaseManagementNoteExtDAO {
+public class CaseManagementNoteExtDAOImpl extends AbstractJpaDao implements CaseManagementNoteExtDAO {
 
     @Override
     public CaseManagementNoteExt getNoteExt(Long id) {
-        CaseManagementNoteExt noteExt = currentSession().find(CaseManagementNoteExt.class, id);
+        CaseManagementNoteExt noteExt = entityManager().find(CaseManagementNoteExt.class, id);
         return noteExt;
     }
 
@@ -53,44 +53,44 @@ public class CaseManagementNoteExtDAOImpl extends AbstractHibernateDao implement
     @Override
     public List<CaseManagementNoteExt> getExtByNote(Long noteId) {
         String hql = "from CaseManagementNoteExt cExt where cExt.noteId = ?1 order by cExt.id desc";
-        return (List<CaseManagementNoteExt>) HqlQueryHelper.find(currentSession(), hql, noteId);
+        return (List<CaseManagementNoteExt>) JpqlQueryHelper.find(entityManager(), hql, noteId);
     }
 
     @Override
     public List getExtByKeyVal(String keyVal) {
         if (keyVal == null) return Collections.emptyList();
         String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?1";
-        return HqlQueryHelper.find(currentSession(), hql, keyVal);
+        return JpqlQueryHelper.find(entityManager(), hql, keyVal);
     }
 
     @Override
     public List getExtByValue(String keyVal, String value) {
         if (keyVal == null || value == null) return Collections.emptyList();
         String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?1 and cExt.value like ?2";
-        return HqlQueryHelper.find(currentSession(), hql, keyVal, value);
+        return JpqlQueryHelper.find(entityManager(), hql, keyVal, value);
     }
 
     @Override
     public List getExtBeforeDate(String keyVal, Date dateValue) {
         if (keyVal == null || dateValue == null) return Collections.emptyList();
         String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?1 and cExt.dateValue <= ?2";
-        return HqlQueryHelper.find(currentSession(), hql, keyVal, dateValue);
+        return JpqlQueryHelper.find(entityManager(), hql, keyVal, dateValue);
     }
 
     @Override
     public List getExtAfterDate(String keyVal, Date dateValue) {
         if (keyVal == null || dateValue == null) return Collections.emptyList();
         String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?1 and cExt.dateValue >= ?2";
-        return HqlQueryHelper.find(currentSession(), hql, keyVal, dateValue);
+        return JpqlQueryHelper.find(entityManager(), hql, keyVal, dateValue);
     }
 
     @Override
     public void save(CaseManagementNoteExt cExt) {
-        currentSession().persist(cExt);
+        entityManager().persist(cExt);
     }
 
     @Override
     public void update(CaseManagementNoteExt cExt) {
-        currentSession().merge(cExt);
+        entityManager().merge(cExt);
     }
 }

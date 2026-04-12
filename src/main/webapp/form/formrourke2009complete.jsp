@@ -45,6 +45,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
@@ -77,7 +78,7 @@
 
     <!-- language for the calendar -->
     <script type="text/javascript"
-            src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+            src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
 
     <!-- the following script defines the Calendar.setup helper function, which makes
            adding a calendar a matter of 1 or 2 lines of code. -->
@@ -284,7 +285,7 @@
                     var elem = document.forms["frmP1"].elements[measurements[dateIdx][elemIdx]];
 
                     if (elem.value.length > 0 && (isNaN(elem.value) || document.getElementById(date).value.length == 0)) {
-                        alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.frmError"/>');
+                        alert('<fmt:message key="encounter.formRourke2006.frmError"/>');
                         return false;
                     }
                 }

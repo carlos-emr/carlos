@@ -141,11 +141,11 @@
 
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProperties" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -950,7 +950,17 @@ input[id^='acklabel_']{
         <input type="hidden" name="selectedProviders" value="">
         <input type="hidden" name="favorites" value="">
         <input type="hidden" name="labType" value="HL7">
-        <input type="hidden" name="labType<%= Encode.forHtmlAttribute(segmentID) %>HL7" value="imNotNull">
+        <%
+            String safeSegmentId = null;
+            String rawSegmentId = StringUtils.trimToEmpty(segmentID);
+
+            if (rawSegmentId.matches("\\d+")) {
+                safeSegmentId = rawSegmentId;
+            }
+        %>
+        <% if (safeSegmentId != null) { %>
+        <input type="hidden" name="labType<%= safeSegmentId %>HL7" value="imNotNull"> <%-- segmentID must remain digits-only here so the generated parameter name stays valid and matches server-side lookup --%>
+        <% } %>
         <input type="hidden" id="providerNo_<%= Encode.forHtmlAttribute(segmentID) %>" name="providerNo"
                value="<%= Encode.forHtmlAttribute(providerNo) %>">
     </form>

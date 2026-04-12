@@ -54,9 +54,11 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <%@ page import="io.github.carlos_emr.carlos.decisionSupport.model.DSGuideline" %>
 
@@ -72,20 +74,20 @@
     <link rel="stylesheet" href="decisionSupport.css" type="text/css"></link>
 </head>
 <body>
-<div style="font-size: 16px; font-weight: bold;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.guidelinelist.youcurrently"/></div>
+<div style="font-size: 16px; font-weight: bold;"><fmt:message key="encounter.guidelinelist.youcurrently"/></div>
 <c:if test="${not empty demographic_no}">
-    <div style="font-size: 10px;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.guidelinelist.demographicno"/> <c:out value="${demographic_no}"/></div>
+    <div style="font-size: 10px;"><fmt:message key="encounter.guidelinelist.demographicno"/> ${e:forHtml(demographic_no)}</div>
 </c:if>
 <br>
 <table class="dsTable">
     <tr>
         <th>Version</th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.guidelinelist.title"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.guidelinelist.author"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.guidelinelist.dateimported"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarrx.showallergies.status"/></th>
+        <th><fmt:message key="encounter.guidelinelist.title"/></th>
+        <th><fmt:message key="encounter.guidelinelist.author"/></th>
+        <th><fmt:message key="encounter.guidelinelist.dateimported"/></th>
+        <th><fmt:message key="oscarrx.showallergies.status"/></th>
         <c:if test="${not empty demographic_no}">
-            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.guidelinelist.evaluated"/></th>
+            <th><fmt:message key="encounter.guidelinelist.evaluated"/></th>
         </c:if>
 
     </tr>

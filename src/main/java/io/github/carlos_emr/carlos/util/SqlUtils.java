@@ -55,13 +55,24 @@ public class SqlUtils {
      * @return List - The List of String[] results or null if no results were yielded
      */
     public static List<String[]> getQueryResultsList(String qry) {
+        return getQueryResultsList(qry, new Object[0]);
+    }
+
+    /**
+     * Returns a List of String[] which contain the results of the specified parameterized query.
+     *
+     * @param qry    the SQL query with {@code ?} placeholders
+     * @param params the parameter values to bind
+     * @return the List of String[] results or null if no results were yielded
+     */
+    public static List<String[]> getQueryResultsList(String qry, Object... params) {
         ArrayList<String[]> records = null;
         ResultSet rs = null;
 
         try {
             records = new ArrayList<String[]>();
 
-            rs = DBHandler.GetSQL(qry);
+            rs = DBHandler.GetPreSQL(qry, params != null ? params : new Object[0]);
             int cols = rs.getMetaData().getColumnCount();
             while (rs.next()) {
                 String[] record = new String[cols];
@@ -89,6 +100,22 @@ public class SqlUtils {
     }
 
     /**
+     * Returns a single row from a parameterized query result.
+     *
+     * @param qry    the SQL query with {@code ?} placeholders
+     * @param params the parameter values to bind
+     * @return String[] the first result row, or null if no results
+     */
+    public static String[] getRow(String qry, Object... params) {
+        String ret[] = null;
+        List<String[]> list = getQueryResultsList(qry, params);
+        if (list != null && !list.isEmpty()) {
+            ret = list.get(0);
+        }
+        return ret;
+    }
+
+    /**
      * Returns a single row(the first row) from a quesry result Generally should only be used with queries that return a single result Returns null if there is no result
      *
      * @param qry String
@@ -97,7 +124,7 @@ public class SqlUtils {
     public static String[] getRow(String qry) {
         String ret[] = null;
         List<String[]> list = getQueryResultsList(qry);
-        if (list != null) {
+        if (list != null && !list.isEmpty()) {
             ret = list.get(0);
         }
         return ret;
@@ -124,6 +151,25 @@ public class SqlUtils {
         }
         ret.append(")");
         return ret.toString();
+    }
+
+    /**
+     * Builds a comma-separated string of {@code ?} placeholders for use in a
+     * parameterized SQL {@code IN} clause.
+     *
+     * <p>Example: {@code buildInClausePlaceholders(3)} returns {@code "?,?,?"}.
+     * Wrap the result in parentheses when constructing the SQL:
+     * {@code "... IN (" + buildInClausePlaceholders(n) + ")"}.
+     *
+     * @param count the number of placeholders to generate (must be &gt; 0)
+     * @return String of comma-separated {@code ?} placeholders
+     * @throws IllegalArgumentException if count is less than 1
+     */
+    public static String buildInClausePlaceholders(int count) {
+        if (count < 1) {
+            throw new IllegalArgumentException("Placeholder count must be at least 1");
+        }
+        return String.join(",", java.util.Collections.nCopies(count, "?"));
     }
 
     /**

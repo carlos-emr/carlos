@@ -67,8 +67,8 @@ function escapeHtml(str) {
  *
  * Security model: server-side OWASP encoding is the primary XSS defense. DOMPurify
  * provides defense-in-depth for HTML structure. Inline scripts from the AJAX response
- * are handled separately by callers (extracted before DOMPurify and re-executed
- * unconditionally) — DOMPurify only sanitizes the non-script HTML structure.
+ * are handled separately by callers (extracted from a DOMPurify-sanitized copy that
+ * preserves script tags) — this function only sanitizes the non-script HTML structure.
  *
  * IMPORTANT SECURITY TRADE-OFF: This function intentionally bypasses DOMPurify's
  * event handler protection. DOMPurify would normally strip onclick/ondblclick/onchange
@@ -221,13 +221,27 @@ function fetchGet(url) {
  * Browsers don't execute scripts inserted via innerHTML/insertAdjacentHTML.
  * This function sanitizes the HTML body with DOMPurify, inserts the safe HTML,
  * then re-executes both inline and same-origin external scripts.
- * Server-side OWASP encoding is the primary XSS defense; DOMPurify provides
- * defense-in-depth by stripping disallowed elements and attributes from the HTML.
- * Note: inline scripts from the AJAX response are extracted before DOMPurify
- * runs and re-executed unconditionally. DOMPurify only sanitizes the non-script
- * HTML structure. The security model assumes trusted same-origin server endpoints.
+ *
+ * Security model (defense-in-depth):
+ * 1. Server-side OWASP encoding is the primary XSS defense for all user data.
+ * 2. Scripts are extracted from DOMPurify-sanitized HTML (with WHOLE_DOCUMENT
+ *    and ADD_TAGS:['script']), which neutralizes mXSS and DOM-confusion attacks
+ *    that could create phantom script elements via parser inconsistencies.
+ * 3. External scripts are restricted to same-origin src attributes only.
+ * 4. The visible DOM is sanitized separately (scripts stripped, event handlers
+ *    re-attached only for onclick/ondblclick/onchange).
+ *
+ * Remaining risk: directly injected {@code <script>} tags survive the
+ * script-preserving sanitization pass. Server-side OWASP encoding (#1) is the
+ * defense against this vector. A future CSP nonce approach would close it fully.
+ *
+ * WARNING: This function executes scripts from the HTML response. Only use with
+ * trusted, same-origin server-rendered content (e.g., JSP AJAX responses). Never
+ * call with user-provided or cross-origin HTML.
+ *
  * @param {HTMLElement} container - The container element to append HTML to
- * @param {string} html - HTML string that may contain script tags
+ * @param {string} html - Same-origin server-rendered HTML that may contain script tags.
+ *     Must NOT contain user-provided HTML — server-side OWASP encoding is required.
  */
 function appendHtmlWithScripts(container, html) {
     if (!container || !html) return;
@@ -242,10 +256,16 @@ function appendHtmlWithScripts(container, html) {
         return;
     }
 
-    // Extract all scripts (inline + external) before DOMPurify strips them.
-    // These are same-origin JSP-rendered scripts that define page functions.
+    // Extract scripts from DOMPurify-sanitized HTML to prevent mXSS bypass.
+    // WHOLE_DOCUMENT preserves <head> scripts; ADD_TAGS keeps <script> elements
+    // so they can be extracted. DOMPurify's mXSS protection (serialize + re-parse)
+    // neutralizes DOM-confusion attacks that could create phantom script elements.
+    var scriptSafeHtml = DOMPurify.sanitize(html, {
+        ADD_TAGS: ['script'],
+        WHOLE_DOCUMENT: true
+    });
     var parser = new DOMParser();
-    var doc = parser.parseFromString(html, 'text/html');
+    var doc = parser.parseFromString(scriptSafeHtml, 'text/html');
     var scripts = Array.from(doc.querySelectorAll('script'));
 
     // Sanitize the HTML and re-attach same-origin event handlers to surviving elements.
@@ -255,8 +275,8 @@ function appendHtmlWithScripts(container, html) {
     });
     container.appendChild(fragment);
 
-    // Re-execute scripts extracted from the same-origin response.
-    // External: only same-origin src. Inline: re-executed unconditionally (trusted server content).
+    // Re-execute scripts extracted from the sanitized response.
+    // External: only same-origin src. Inline: re-executed (trusted server content).
     scripts.forEach(function(script) {
         var newScript = document.createElement('script');
         var src = script.getAttribute('src');

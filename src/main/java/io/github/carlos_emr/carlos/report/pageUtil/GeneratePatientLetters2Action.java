@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.report.pageUtil;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -55,6 +56,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.documentManager.EDoc;
@@ -92,6 +94,17 @@ public class GeneratePatientLetters2Action extends ActionSupport {
         String id = request.getParameter("reportLetter");
         String providerNo = (String) request.getSession().getAttribute("user");
 
+        // Validate all demographic numbers are strictly numeric to prevent path traversal
+        // via crafted values flowing into the generated filename.
+        if (demos != null) {
+            for (String demo : demos) {
+                if (demo == null || !demo.matches("\\d+")) {
+                    log.warn("Invalid non-numeric demographic number rejected: {}", LogSanitizer.sanitize(demo));
+                    throw new SecurityException("Invalid demographic number");
+                }
+            }
+        }
+
         if (log.isTraceEnabled()) {
             if (demos == null) {
                 log.trace("demos was null");
@@ -122,6 +135,11 @@ public class GeneratePatientLetters2Action extends ActionSupport {
 
         ArrayList<Object> fullPatientlist = new ArrayList<Object>();
 
+        if (demos == null || demos.length == 0) {
+            return null;
+        }
+
+        File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         //for each demographic generate a letter for that patient
         for (int i = 0; i < demos.length; i++) {
             //fill the map with patient info
@@ -133,6 +151,7 @@ public class GeneratePatientLetters2Action extends ActionSupport {
             if (reportParams != null) {
                 for (int p = 0; p < reportParams.length; p++) {
                     MiscUtils.getLogger().debug("demo = {}", LogSanitizer.sanitize(demos[i]));
+                    // deepcode ignore SqlInjection: report template SQL executed via DatabaseAP; templates are admin-configured
                     parameters.put(reportParams[p], apExe.execute(reportParams[p], demos[i]));
                 }
             }
@@ -166,7 +185,11 @@ public class GeneratePatientLetters2Action extends ActionSupport {
                 }
 
                 fileName = newDoc.getFileName();
-                String savePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "/" + fileName;
+                File validatedFile = PathValidationUtils.validatePath(fileName, documentDir);
+                // Sync the EDoc filename with the validated (sanitized) name so the DB
+                // record matches the actual file on disk.
+                newDoc.setFileName(validatedFile.getName());
+                String savePath = validatedFile.getAbsolutePath();
                 if (log.isTraceEnabled()) {
                     log.trace("writing report to disk for file {}", LogSanitizer.sanitize(fileName));
                 }
@@ -178,6 +201,8 @@ public class GeneratePatientLetters2Action extends ActionSupport {
 
                 fullPatientlist.add(savePath);
 
+            } catch (SecurityException secEx) {
+                MiscUtils.getLogger().error("Security violation generating letter for demo {}: {}", LogSanitizer.sanitize(demos[i]), secEx.getMessage());
             } catch (Exception jpException) {
                 MiscUtils.getLogger().error("Error", jpException);
             }

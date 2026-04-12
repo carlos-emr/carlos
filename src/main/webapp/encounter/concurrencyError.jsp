@@ -30,6 +30,7 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -53,10 +54,10 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.concurrencyError.title"/></title>
+        <title><fmt:message key="encounter.concurrencyError.title"/></title>
     </head>
     <body>
-    <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.concurrencyError.errorMsg"/></h1>
+    <h1><fmt:message key="encounter.concurrencyError.errorMsg"/></h1>
     <textarea name='encounterTextarea' wrap="hard" cols="99" rows="20"><%=bean.encounter%></textarea>
     </body>
 </html>

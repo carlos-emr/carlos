@@ -90,8 +90,10 @@ public final class ImageRenderingServlet extends HttpServlet {
             if (e.getCause() instanceof SocketException) {
                 logger.warn("An error we can't handle that's expected infrequently. " + e.getMessage());
             } else {
-                logger.error("Unexpected error. qs=" + request.getQueryString(), e);
-                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                logger.error("Unexpected error. qs=" + LogSanitizer.sanitize(request.getQueryString()), e);
+                if (!response.isCommitted()) {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                }
             }
         }
     }
@@ -110,7 +112,7 @@ public final class ImageRenderingServlet extends HttpServlet {
             response.setContentLength(image.length);
         BufferedOutputStream bos = new BufferedOutputStream(response.getOutputStream());
         if (image != null)
-            bos.write(image);
+            bos.write(image); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary image stream
         bos.flush();
     }
 

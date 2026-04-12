@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.dao.PrescriptionDao;
+import io.github.carlos_emr.carlos.prescript.dto.DrugListItemDTO;
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.ConsentType;
 import io.github.carlos_emr.carlos.commn.model.Drug;
@@ -398,6 +399,27 @@ public class PrescriptionManagerImpl implements PrescriptionManager {
         prescriptionDao.merge(prescription);
 
         return true;
-}
+    }
+
+    /**
+     * Returns lightweight drug list DTOs for a demographic after enforcing read access.
+     * Enforces {@code _demographic} read privilege via {@code SecurityInfoManager}
+     * and logs the access via {@code LogAction}.
+     *
+     * @param loggedInInfo LoggedInInfo logged-in provider/session context for authorization and auditing
+     * @param demographicNo Integer the patient demographic identifier
+     * @return List&lt;DrugListItemDTO&gt; ordered by prescription date descending
+     * @throws AccessDeniedException if the caller lacks {@code _demographic} read privilege
+     * @since 2026-04-11
+     */
+    @Override
+    public List<DrugListItemDTO> getDrugDTOs(LoggedInInfo loggedInInfo, Integer demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demographicNo)) {
+            throw new AccessDeniedException("_demographic", "r", demographicNo);
+        }
+        LogAction.addLogSynchronous(loggedInInfo, "PrescriptionManager.getDrugDTOs",
+                "demographicNo=" + demographicNo);
+        return drugDao.findDrugDTOsByDemographicId(demographicNo);
+    }
 
 }

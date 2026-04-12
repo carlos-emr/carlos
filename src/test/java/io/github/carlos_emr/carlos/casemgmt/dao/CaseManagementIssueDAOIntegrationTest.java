@@ -542,4 +542,60 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
             ).isInstanceOf(IllegalArgumentException.class);
         }
     }
+
+    /**
+     * Tests for {@link CaseManagementIssueDAO#findIssueDTOsByDemographicNo(String)}
+     * including the NumberFormatException guard that returns an empty list on
+     * non-numeric input (rather than propagating the NFE or silently blowing up
+     * during JPQL parameter binding).
+     */
+    @Nested
+    @DisplayName("findIssueDTOsByDemographicNo — DTO projection + NFE guard")
+    @Tag("read")
+    class FindIssueDTOsByDemographicNo {
+
+        @Test
+        @DisplayName("should return empty list when demographicNo is not a valid integer")
+        void shouldReturnEmptyList_whenDemographicNoIsNonNumeric() {
+            // Locks in the NFE-guard contract at CaseManagementIssueDAOImpl:214-218.
+            // Regression target: removing the try/catch would cause a
+            // NumberFormatException to propagate here, breaking callers that
+            // expect a benign empty result for bad URL/form input.
+            assertThat(caseManagementIssueDAO.findIssueDTOsByDemographicNo("not-a-number"))
+                    .isEmpty();
+            assertThat(caseManagementIssueDAO.findIssueDTOsByDemographicNo(""))
+                    .isEmpty();
+        }
+
+        @Test
+        @DisplayName("should return empty list when demographic has no issues")
+        void shouldReturnEmptyList_whenDemographicHasNoIssues() {
+            assertThat(caseManagementIssueDAO.findIssueDTOsByDemographicNo("99999"))
+                    .isEmpty();
+        }
+
+        @Test
+        @DisplayName("should return DTOs ordered by update_date descending when demographic has issues")
+        void shouldReturnDTOsOrderedByUpdateDateDesc_whenDemographicHasIssues() {
+            // Given two issues for the same demographic with distinct update_dates
+            CaseManagementIssue older = createCaseManagementIssue("21000", testIssue1);
+            Calendar cal = Calendar.getInstance();
+            cal.add(Calendar.DAY_OF_MONTH, -7);
+            older.setUpdate_date(cal.getTime());
+            hibernateTemplate.update(older);
+
+            CaseManagementIssue newer = createCaseManagementIssue("21000", testIssue2);
+            newer.setUpdate_date(new Date());
+            hibernateTemplate.update(newer);
+            hibernateTemplate.flush();
+
+            // When
+            var dtos = caseManagementIssueDAO.findIssueDTOsByDemographicNo("21000");
+
+            // Then — both returned, newer first, with joined Issue code/description
+            assertThat(dtos).hasSize(2);
+            assertThat(dtos.get(0).getUpdateDate()).isAfterOrEqualTo(dtos.get(1).getUpdateDate());
+            assertThat(dtos).extracting("issueCode").contains("TEST001", "TEST002");
+        }
+    }
 }

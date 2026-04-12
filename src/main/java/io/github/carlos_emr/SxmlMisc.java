@@ -204,7 +204,7 @@ public class SxmlMisc extends Properties {
      * Replaces &amp;, &gt;, and &lt; with their corresponding HTML entities.
      * 
      * <p><strong>Note:</strong> For better security, consider using
-     * {@link org.apache.commons.text.StringEscapeUtils#escapeXml11(String)} instead.</p>
+     * {@link org.owasp.encoder.Encode#forXml(String)} instead.</p>
      * 
      * @param str the string to escape
      * @return the escaped string safe for XML content

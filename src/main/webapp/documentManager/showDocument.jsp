@@ -143,7 +143,6 @@
 <%@ page import="java.time.LocalDate" %>
 <%@ page import="java.time.format.DateTimeFormatter" %>
 <%@ page import="java.util.*" %>
-<%@ page import="org.apache.commons.lang3.StringEscapeUtils"%>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="org.owasp.encoder.Encode"%>
 <%@ page import="org.springframework.web.context.WebApplicationContext"%>
@@ -153,6 +152,7 @@
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     ProviderInboxRoutingDao providerInboxRoutingDao = SpringUtils.getBean(ProviderInboxRoutingDao.class);
@@ -287,7 +287,6 @@
     UserProperty labMacroProp = userPropertyDAO.getProp(providerNo, UserProperty.LAB_MACRO_JSON);
 %>
 
-<fmt:setBundle basename="oscarResources"/>
 
 <c:if test="${param.inWindow eq 'true'}">
 <!DOCTYPE html>

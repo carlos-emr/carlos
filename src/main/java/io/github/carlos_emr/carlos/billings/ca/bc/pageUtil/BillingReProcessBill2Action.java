@@ -362,12 +362,12 @@ public class BillingReProcessBill2Action extends ActionSupport {
                 MiscUtils.getLogger().warn("warning", e);
             }
             bill.setProviderNo(providerNo);
-            logger.debug("WHAT IS BILL <ASTER {}", LogSanitizer.sanitize(billingmaster.getBillingmasterNo()));
+            logger.debug("WHAT IS BILL <ASTER {}", LogSanitizer.sanitize(String.valueOf(billingmaster.getBillingmasterNo())));
             billingmasterDAO.update(billingmaster);
             billingmasterDAO.update(bill);
 
             logger.debug("type 2 {}", LogSanitizer.sanitize(bill.getBillingtype()));
-            logger.debug("WHAT IS BILL <ASTER2 {}", LogSanitizer.sanitize(billingmaster.getBillingmasterNo()));
+            logger.debug("WHAT IS BILL <ASTER2 {}", LogSanitizer.sanitize(String.valueOf(billingmaster.getBillingmasterNo())));
 
 
             if (!StringUtils.isNullOrEmpty(billingStatus)) {  //What if billing status is null?? the status just doesn't get updated but everything else does??'
@@ -400,13 +400,13 @@ public class BillingReProcessBill2Action extends ActionSupport {
 
             if (correspondenceCode.equals("N") || correspondenceCode.equals("B")) {
                 MSPBillingNote n = new MSPBillingNote();
-                n.addNote(billingmasterNo, (String) request.getSession().getAttribute("user"), frm.getNotes());
+                n.addNote(billingmasterNo, LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), frm.getNotes());
             }
 
             if (messageNotes != null) {
                 BillingNote n = new BillingNote();
                 if (n.hasNote(billingmasterNo) || !messageNotes.trim().equals("")) {
-                    n.addNote(billingmasterNo, (String) request.getSession().getAttribute("user"), messageNotes);
+                    n.addNote(billingmasterNo, LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), messageNotes);
                 }
             }
 
@@ -423,7 +423,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
     private String[] getServiceCodePrice(String billingServiceCode, boolean usePrefix) {
         String prepend = usePrefix ? "A" : "";
         String[] privateCodeRecord = SqlUtils.getRow(
-                "select value from billingservice where service_code = '" + prepend + billingServiceCode + "'");
+                "select value from billingservice where service_code = ?", prepend + billingServiceCode);
         return privateCodeRecord;
     }
 
@@ -434,9 +434,8 @@ public class BillingReProcessBill2Action extends ActionSupport {
      * @return String
      */
     private String getPersistedBillType(String billingmasterNo) {
-        String qry = "select billingstatus from billingmaster where billingmaster.billingmaster_no = " +
-                billingmasterNo;
-        String row[] = SqlUtils.getRow(qry);
+        String qry = "select billingstatus from billingmaster where billingmaster.billingmaster_no = ?";
+        String row[] = SqlUtils.getRow(qry, billingmasterNo);
         String ret = null;
         if (row != null) {
             ret = row[0];

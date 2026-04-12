@@ -45,6 +45,7 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
@@ -52,7 +53,7 @@
 <html>
     <head>
         <%@ include file="/includes/global-head.jspf" %>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.selectQuickList"/></title>
+        <title><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.selectQuickList"/></title>
         <script type="text/javascript">
             function setfocus() {
                 window.focus();
@@ -70,7 +71,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="page-header-icon" viewBox="0 0 16 16">
                     <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325"/>
                 </svg>
-                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgDxResearch"/>
+                &nbsp;<fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgDxResearch"/>
             </h4>
         </div>
 
@@ -79,7 +80,7 @@
 
             <div class="mt-3">
                 <label class="form-label">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.pleaseSelectAQuickList"/>
+                    <fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.pleaseSelectAQuickList"/>
                 </label>
                 <select class="form-select" name="quickListName">
                     <c:forEach var="quickLists" items="${allQuickLists.dxQuickListBeanVector}">
@@ -92,9 +93,9 @@
 
             <div class="mt-3 d-flex gap-2">
                 <input type="submit" class="btn btn-primary" name="Button"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnContinue"/>"/>
+                       value="<fmt:message key="global.btnContinue"/>"/>
                 <input type="button" class="btn btn-secondary" name="Button"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>"
+                       value="<fmt:message key="global.btnClose"/>"
                        onclick="window.close()">
             </div>
         </form>

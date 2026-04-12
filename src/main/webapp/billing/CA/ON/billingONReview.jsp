@@ -33,6 +33,7 @@
 <%! boolean bMultisites = IsPropertiesOn.isMultisitesEnable(); %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -44,7 +45,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*, java.util.Properties" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -637,10 +638,14 @@
                                    class="myGreen">
                                 <tr>
                                     <td style="white-space:nowrap;width:30%"><b>Billing Physician</b></td>
-                                    <td style="width:20%"><%=Encode.forHtml(providerBean.getProperty(request.getParameter("xml_provider") != null && request.getParameter("xml_provider").contains("|") ? request.getParameter("xml_provider").substring(0, request.getParameter("xml_provider").indexOf("|")) : "", ""))%>
+                                    <%
+                                        String xmlProvider = request.getParameter("xml_provider");
+                                        int xmlProviderSeparatorIndex = xmlProvider == null ? -1 : xmlProvider.indexOf("|");
+                                    %>
+                                    <td style="width:20%"><%= Encode.forHtml(providerBean.getProperty(xmlProviderSeparatorIndex >= 0 ? xmlProvider.substring(0, xmlProviderSeparatorIndex) : "", ""))%>
                                     </td>
                                     <td style="white-space:nowrap; width:30%"><b>MRP</b></td>
-                                    <td style="width:20%"><%=assgProvider_no == null ? "N/A" : Encode.forHtml(providerBean.getProperty(assgProvider_no, ""))%>
+                                    <td style="width:20%"><%= Encode.forHtml(assgProvider_no == null ? "N/A" : providerBean.getProperty(assgProvider_no, ""))%>
                                     </td>
                                 </tr>
                                 <tr>
@@ -730,8 +735,8 @@
                     <tr style="color:white">
                         <td align=center>
                             <div class='myError'>
-                                (<fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.ca.on.billingON.review.invoiceNo"/><%=String.valueOf(bCh1.getId())%>
-                                ) A003A - <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.ca.on.billingON.review.msgServiceCodeAlreadyBilled"/>
+                                (<fmt:message key="oscar.billing.ca.on.billingON.review.invoiceNo"/><%=String.valueOf(bCh1.getId())%>
+                                ) A003A - <fmt:message key="oscar.billing.ca.on.billingON.review.msgServiceCodeAlreadyBilled"/>
                             </div>
                         </td>
                     </tr>
@@ -1160,7 +1165,7 @@
                         <table id="privateBillInfo" style="width:100%">
                             <tr>
                                 <td>Bill To [<a href=# onclick="scriptAttach('billTo'); return false;">Search</a>]<br>
-                                    <textarea name="billto" id="billTo" cols=30 rows=6><%=strPatientAddr %></textarea>
+                                    <textarea name="billto" id="billTo" cols=30 rows=6><%= Encode.forHtml(StringUtils.noNull(strPatientAddr)) %></textarea>
                                 </td>
                                 <td>Remit To [<a href=# onclick="scriptAttach('remitTo'); return false;">Search</a>]<br>
                                     <textarea name="remitto" id="remitTo" value="" cols=30
@@ -1168,17 +1173,23 @@
                                 <td>Payee<br>
                                     <%
                                         String providerNo = request.getParameter("xml_provider");
-                                        int indexnumber = providerNo.indexOf("|");
-                                        if (indexnumber != -1) {
-                                            providerNo = providerNo.substring(0, indexnumber);
+                                        if (providerNo != null) {
+                                            int indexnumber = providerNo.indexOf("|");
+                                            if (indexnumber != -1) {
+                                                providerNo = providerNo.substring(0, indexnumber);
+                                            }
                                         }
 
                                         String payeename = "";
                                         String lname = "";
                                         String fname = "";
-                                        Provider p = providerDao.getProvider(providerNo);
-                                        lname = p.getLastName();
-                                        fname = p.getFirstName();
+                                        if (providerNo != null) {
+                                            Provider p = providerDao.getProvider(providerNo);
+                                            if (p != null) {
+                                                lname = p.getLastName() != null ? p.getLastName() : "";
+                                                fname = p.getFirstName() != null ? p.getFirstName() : "";
+                                            }
+                                        }
                                         payeename = fname + " " + lname;
 
                                         Properties prop = CarlosProperties.getInstance();
@@ -1202,7 +1213,7 @@
                     </td>
                     <td style="text-align:right">
                         <input type="hidden" name="provider_no"
-                               value="<%= Encode.forHtmlAttribute(request.getParameter("xml_provider") != null && request.getParameter("xml_provider").contains("|") ? request.getParameter("xml_provider").substring(0, request.getParameter("xml_provider").indexOf("|")) : "") %>"/>
+                               value="<%= providerNo != null ? Encode.forHtmlAttribute(providerNo) : "" %>"/>
                         GST Billed:<input type="text" id="gst" name="gst" value="<%=gstTotal%>"><br>
                         <input type="hidden" id="gstBilledTotal" name="gstBilledTotal" value="<%=gstbilledtotal%>">
                         Total:<input type="text" id="stotal" disabled name="stotal" value="0.00"><br>
@@ -1249,7 +1260,7 @@
                     String temp = e.nextElement().toString();
             %>
             <input type="hidden" name="<%= Encode.forHtmlAttribute(temp) %>"
-                   value="<%=Encode.forHtmlAttribute(request.getParameter(temp))%>"/>
+                   value="<%=Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter(temp)))%>"/>
             <%
                 }
 

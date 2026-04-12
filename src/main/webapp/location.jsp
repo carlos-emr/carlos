@@ -33,15 +33,16 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Facility" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.LabelValueBean" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ include file="/common/webAppContextAndSuperMgr.jsp" %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
 <p>&nbsp;</p>
-<h3 align="center"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.selectClinicSite"/></h3>
+<h3 align="center"><fmt:message key="provider.selectClinicSite"/></h3>
 <head>
     <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
@@ -57,7 +58,7 @@
 <p>&nbsp;</p>
 <table align="center">
     <tr>
-        <td align="right" width="30%"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.clinicSite"/>:</td>
+        <td align="right" width="30%"><fmt:message key="provider.clinicSite"/>:</td>
         <td align="left" width="60%">
 
             <select id="programIdForLocation" name="programIdForLocation">
@@ -66,7 +67,7 @@
                         for (LabelValueBean program : programs) {
                             String selected = (Integer.parseInt(program.getValue()) == defaultprogramId) ? " selected=\"selected\" " : "";
                 %>
-                <option value="<%=program.getValue()%>" <%=selected%>><%=StringEscapeUtils.escapeHtml4(program.getLabel())%>
+                <option value="<%=program.getValue()%>" <%=selected%>><%=Encode.forHtml(program.getLabel())%>
                 </option>
                 <% }
                 }

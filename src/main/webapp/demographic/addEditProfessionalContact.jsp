@@ -31,9 +31,9 @@
 
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.Properties" %>
 <%@ page import="java.util.List, io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ContactSpecialtyDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ContactSpecialty" %>
 
@@ -373,9 +373,9 @@
             </tr>
             <tr>
                 <td align="center" bgcolor="#CCCCFF" colspan="2">
-                    <input type="button" name="submitbtn" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>"
+                    <input type="button" name="submitbtn" value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
                            onclick="javascript: onSave();">
-                    <input type="button" name="cancelbtn" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnExit"/>"
+                    <input type="button" name="cancelbtn" value="<fmt:message key="admin.resourcebaseurl.btnExit"/>"
                            onClick="window.close()">
                 </td>
             </tr>

@@ -267,7 +267,7 @@ public class Util {
             
             // If the filename is empty or null after sanitization, reject the request
             if (safeFileName == null || safeFileName.trim().isEmpty()) {
-                logger.error("Invalid filename provided: {}", LogSanitizer.sanitize(fileName));
+                logger.error("Invalid filename provided: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 return;
             }
             
@@ -285,7 +285,7 @@ public class Util {
 
             // Verify the file exists and is readable
             if (!requestedFile.exists() || !requestedFile.isFile() || !requestedFile.canRead()) {
-                logger.error("Error during file download: file does not exist or is not accessible - {}", LogSanitizer.sanitize(fileName));
+                logger.error("Error during file download: file does not exist or is not accessible - {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 rsp.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
@@ -299,7 +299,7 @@ public class Util {
                 byte[] buf = new byte[8192];
                 int len;
                 while ((len = in.read(buf)) > 0) {
-                    out.write(buf, 0, len);
+                    out.write(buf, 0, len); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- application/octet-stream file download
                 }
             }
         } catch (IOException ex) {
@@ -610,7 +610,7 @@ public class Util {
                     return false;
                 }
 
-                FileInputStream fin = new FileInputStream(f.getAbsolutePath());
+                FileInputStream fin = new FileInputStream(f.getAbsolutePath()); // codeql[java/path-injection] — validated by isPathWithinDirectory (PathValidationUtils) guard above
 
                 String dir = dirs.get(x);
 

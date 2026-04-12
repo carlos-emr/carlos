@@ -112,8 +112,11 @@
         </property>
     </bean>
 
-    <!-- JPA EntityManagerFactory - creates schema for all HBM mappings -->
-    <bean id="entityManagerFactory" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+    <!-- JPA EntityManagerFactory - creates schema for all HBM mappings.
+         primary="true" disambiguates from sessionFactory (Hibernate SessionFactory
+         also implements EntityManagerFactory), so @PersistenceContext injections
+         from AbstractJpaDao resolve cleanly in the dual-context test setup. -->
+    <bean id="entityManagerFactory" primary="true" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
         <property name="dataSource" ref="dataSource" />
         <property name="persistenceProvider">
             <bean class="org.hibernate.jpa.HibernatePersistenceProvider" />
@@ -620,13 +623,11 @@
     <bean id="secUserRoleDao" class="io.github.carlos_emr.carlos.daos.security.SecuserroleDaoImpl" autowire="byName" />
     <bean id="userAccessDao" class="io.github.carlos_emr.carlos.daos.security.UserAccessDaoImpl" autowire="byName" />
     <bean id="secObjectNameDao" class="io.github.carlos_emr.carlos.daos.security.SecObjectNameDaoImpl" autowire="byName" />
-    <bean id="secProviderDao" class="io.github.carlos_emr.carlos.daos.security.SecProviderDaoImpl" autowire="byName">
-        <property name="sessionFactory" ref="sessionFactory" />
-    </bean>
+    <bean id="secProviderDao" class="io.github.carlos_emr.carlos.daos.security.SecProviderDaoImpl" autowire="byName" />
     <bean id="providerDAO" class="io.github.carlos_emr.carlos.daos.ProviderDAOImpl" autowire="byName" />
     <bean id="lookupDao" class="io.github.carlos_emr.carlos.daos.LookupDaoImpl" autowire="byName" />
 
-    <!-- PMmodule DAOs (no @Repository, extends AbstractHibernateDao) -->
+    <!-- PMmodule DAOs (no @Repository) -->
     <bean id="programDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDaoImpl" autowire="byName" />
     <bean id="programQueueDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramQueueDaoImpl" autowire="byName" />
     <bean id="clientReferralDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ClientReferralDAOImpl" autowire="byName" />
@@ -639,26 +640,15 @@
     <bean id="programTeamDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramTeamDAOImpl" autowire="byName" />
     <bean id="programSignatureDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramSignatureDaoImpl" autowire="byName" />
     <bean id="programClientRestrictionDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramClientRestrictionDAOImpl" autowire="byName">
-        <property name="sessionFactory" ref="sessionFactory" />
         <property name="demographicDao" ref="demographicDao" />
         <property name="programDao" ref="programDao" />
         <property name="providerDao" ref="providerDao" />
     </bean>
-    <bean id="defaultRoleAccessDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.DefaultRoleAccessDAOImpl" autowire="byName">
-        <property name="sessionFactory" ref="sessionFactory" />
-    </bean>
-    <bean id="formsDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.FormsDAOImpl" autowire="byName">
-        <property name="sessionFactory" ref="sessionFactory" />
-    </bean>
-    <bean id="pmSecUserRoleDao" class="io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDaoImpl" autowire="byName">
-        <property name="sessionFactory" ref="sessionFactory" />
-    </bean>
-    <bean id="programFunctionalUserDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramFunctionalUserDAOImpl" autowire="byName">
-        <property name="sessionFactory" ref="sessionFactory" />
-    </bean>
-    <bean id="programClientStatusDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramClientStatusDAOImpl" autowire="byName">
-        <property name="sessionFactory" ref="sessionFactory" />
-    </bean>
+    <bean id="defaultRoleAccessDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.DefaultRoleAccessDAOImpl" autowire="byName" />
+    <bean id="formsDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.FormsDAOImpl" autowire="byName" />
+    <bean id="pmSecUserRoleDao" class="io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDaoImpl" autowire="byName" />
+    <bean id="programFunctionalUserDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramFunctionalUserDAOImpl" autowire="byName" />
+    <bean id="programClientStatusDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramClientStatusDAOImpl" autowire="byName" />
 
     <!-- ===================================================================== -->
     <!-- Managers and Services (not discovered by @Repository scan)            -->

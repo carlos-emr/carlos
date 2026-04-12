@@ -30,6 +30,7 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -63,7 +64,7 @@
 
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.config.administrativeImmunizationSets.title"/>
+        <title><fmt:message key="encounter.immunization.config.administrativeImmunizationSets.title"/>
         </title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
@@ -97,7 +98,7 @@
     <!--  -->
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.config.administrativeImmunizationSets.msgImm"/>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="encounter.immunization.config.administrativeImmunizationSets.msgImm"/>
             </td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
@@ -105,7 +106,7 @@
                         <td></td>
                         <td></td>
                         <td style="text-align: right"><a
-                                href="javascript:history.go(-1);"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/></a> | <a href="javascript:window.close();"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/></a></td>
+                                href="javascript:history.go(-1);"><fmt:message key="global.btnBack"/></a> | <a href="javascript:window.close();"><fmt:message key="global.btnClose"/></a></td>
                     </tr>
                 </table>
             </td>
@@ -117,9 +118,9 @@
                     <tr>
                         <th>&nbsp;</th>
                         <th><font color="red"><%=deletedList ? "(Deleted)" : ""%>
-                        </font> <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.config.administrativeImmunizationSets.msgImmName"/>
+                        </font> <fmt:message key="encounter.immunization.config.administrativeImmunizationSets.msgImmName"/>
                         </th>
-                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.config.administrativeImmunizationSets.msgDateCreated"/>
+                        <th><fmt:message key="encounter.immunization.config.administrativeImmunizationSets.msgDateCreated"/>
                         </th>
                     </tr>
                     <%
@@ -145,19 +146,19 @@
                     <tr>
                         <td>
                             <% if (deletedList == true) { %> <input type="submit" name="action"
-                                                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.config.administrativeImmunizationSets.btnRestore"/>">
+                                                                    value="<fmt:message key="encounter.immunization.config.administrativeImmunizationSets.btnRestore"/>">
                             <% } else { %> <input type="submit" name="action"
-                                                  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.config.administrativeImmunizationSets.btnDelete"/>">
+                                                  value="<fmt:message key="encounter.immunization.config.administrativeImmunizationSets.btnDelete"/>">
                             <% } %>
                         </td>
                         <td align="right"><input type="button" name="Button"
-                                                 value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.config.administrativeImmunizationSets.btnAddNew"/>"
+                                                 value="<fmt:message key="encounter.immunization.config.administrativeImmunizationSets.btnAddNew"/>"
                                                  onClick="javascript:goURL('encounter/immunization/config/CreateImmunizationSetInit.jsp');">
                             <% if (deletedList == true) { %> <input type="button" name="action"
-                                                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.config.administrativeImmunizationSets.btnSetlist"/>"
+                                                                    value="<fmt:message key="encounter.immunization.config.administrativeImmunizationSets.btnSetlist"/>"
                                                                     onClick="goURL('encounter/immunization/config/initConfig.do');"> <% } else { %>
                             <input type="button" name="action"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.config.administrativeImmunizationSets.btnDelList"/>"
+                                   value="<fmt:message key="encounter.immunization.config.administrativeImmunizationSets.btnDelList"/>"
                                    onClick="goURL('encounter/immunization/config/initConfig.do?stat=2');">
                             <% } %>
                         </td>

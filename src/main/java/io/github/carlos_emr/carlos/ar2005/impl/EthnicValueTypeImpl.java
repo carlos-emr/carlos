@@ -24,7 +24,6 @@ import org.apache.xmlbeans.impl.values.JavaStringEnumerationHolderEx;
  *
  * @see EthnicValueType
  * @see io.github.carlos_emr.carlos.ar2005.PatientInformation
- * @see io.github.carlos_emr.carlos.ar2005.ARRecord
  * @since 2026-01-23
  */
 public class EthnicValueTypeImpl extends JavaStringEnumerationHolderEx implements EthnicValueType

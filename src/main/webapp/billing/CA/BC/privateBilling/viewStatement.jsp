@@ -23,11 +23,12 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
 <html>
     <head>
         <meta charset="utf-8">
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.PrivateBillingStatement"/></title>
+        <title><fmt:message key="admin.admin.PrivateBillingStatement"/></title>
         <link rel="stylesheet" type="text/css" media="all" href="${ctx}/library/bootstrap/5.3.8/css/bootstrap.min.css">
         <style>
             .table > tbody > tr.highlight_pink {
@@ -49,7 +50,7 @@
     </head>
 
     <body>
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.PrivateBillingStatement"/></h3>
+    <h3><fmt:message key="admin.admin.PrivateBillingStatement"/></h3>
 
     <div class="container-fluid card card-body bg-body-tertiary">
 
@@ -156,7 +157,7 @@
                           - by default, show the bill recipient's name
                           - if it's empty, just display 'Patient'
                         --%>
-                    <td><c:out value="${invoice.recipientName}" default="Patient"/></td>
+                    <td>${e:forHtml(empty invoice.recipientName ? 'Patient' : invoice.recipientName)}</td>
 
                         <%-- Balance:
                           - by default, show balance in Canadian dollars

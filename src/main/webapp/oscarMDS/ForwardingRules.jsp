@@ -29,6 +29,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ page
@@ -159,7 +160,7 @@
                     <label class="form-label fw-bold">Set incoming report status:</label>
                     <div class="form-check form-check-inline">
                         <input class="form-check-input" type="radio" name="status" value="N" id="statusNew" <%= status.equals("F") ? "" : "checked" %>>
-                        <label class="form-check-label" for="statusNew"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.formReportStatusNew"/></label>
+                        <label class="form-check-label" for="statusNew"><fmt:message key="oscarMDS.search.formReportStatusNew"/></label>
                     </div>
                     <div class="form-check form-check-inline">
                         <input class="form-check-input" type="radio" name="status" value="F" id="statusFiled" <%= status.equals("F") ? "checked" : "" %>>

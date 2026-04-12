@@ -123,6 +123,18 @@ public final class RptReportCreator {
                 if (endIdx > startIdx + 2) {
                     // Found a complete ${...} pattern
                     String replacement = (i < vec.size() && vec.get(i) != null) ? (String) vec.get(i) : "";
+                    // Check if placeholder is inside a quoted string (char before ${ is a single quote)
+                    boolean inQuotedContext = startIdx > 0 && value.charAt(startIdx - 1) == '\'';
+                    if (inQuotedContext) {
+                        // Escape backslashes first (MySQL backslash-escape bypass), then single quotes
+                        replacement = replacement.replace("\\", "\\\\").replace("'", "''");
+                    } else {
+                        // Unquoted numeric context: only allow digits and optional leading minus
+                        if (!replacement.isEmpty() && !replacement.matches("-?\\d+(\\.\\d+)?")) {
+                            MiscUtils.getLogger().warn("Non-numeric value rejected for unquoted SQL placeholder in report template");
+                            replacement = "";
+                        }
+                    }
                     value = value.substring(0, startIdx) + replacement + value.substring(endIdx + 1);
                 } else {
                     ret = value;
@@ -185,12 +197,18 @@ public final class RptReportCreator {
         return ret;
     }
 
-    // get result of a SubQuery in,,,,,,
-    public String getRltSubQuery(String sql) throws SQLException {
+    /**
+     * Executes a sub-query and returns a comma-separated list of integer IDs.
+     */
+    public String getRltSubQuery(String sql, Object... params) throws SQLException {
         String ret = "0";
 
-        ResultSet rs = DBHelp.searchDBRecord(sql);
+        ResultSet rs = DBHelp.searchDBRecord(sql, params); // nosemgrep: formatted-sql-string — admin report template SQL; table names validated by RptFormQuery.validateTableName; filter values escaped by getWhereValueClause
         MiscUtils.getLogger().debug(" tempVal: " + sql);
+        if (rs == null) {
+            MiscUtils.getLogger().error("Database query failed for sub-query");
+            return ret;
+        }
         while (rs.next()) {
             if ("0".equals(ret)) {
                 ret = "";
@@ -202,12 +220,18 @@ public final class RptReportCreator {
         return ret;
     }
 
-    // from formBCAR, demographic
-    public Vector query(String sql, Vector vecFieldName) throws SQLException {
+    /**
+     * Executes a report query and returns properties for each row.
+     */
+    public Vector query(String sql, Vector vecFieldName, Object... params) throws SQLException {
         Vector ret = new Vector();
         Properties prop = null;
 
-        ResultSet rs = DBHelp.searchDBRecord(sql);
+        ResultSet rs = DBHelp.searchDBRecord(sql, params); // nosemgrep: formatted-sql-string — admin report template SQL; table names validated by RptFormQuery.validateTableName; filter values escaped by getWhereValueClause
+        if (rs == null) {
+            MiscUtils.getLogger().error("Database query failed for report query");
+            return ret;
+        }
         while (rs.next()) {
             prop = new Properties();
             for (int i = 0; i < vecFieldName.size(); i++) {

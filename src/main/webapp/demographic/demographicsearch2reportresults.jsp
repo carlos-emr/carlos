@@ -39,6 +39,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 
@@ -71,6 +72,15 @@
 
     boolean caisi = Boolean.valueOf(request.getParameter("caisi")).booleanValue();
 
+    // Validate originalpage to prevent open redirect: must be a relative URL.
+    // Note: getParameter() auto-decodes URL-encoded values, so %2F%2F decodes to // and is
+    // caught by startsWith("//"). Backslash bypass (/\) is also rejected explicitly.
+    String originalpage = request.getParameter("originalpage");
+    if (originalpage == null || originalpage.isEmpty() || !originalpage.startsWith("/") || originalpage.startsWith("//") || originalpage.startsWith("/\\")) {
+        originalpage = request.getContextPath() + "/appointment/addappointment.jsp";
+    }
+    // Choose ? or & depending on whether originalpage already has a query string
+    String originalPageSeparator = originalpage.contains("?") ? "&" : "?";
 
 %>
 
@@ -99,7 +109,7 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.title"/>(demographicsearch2reportresults)</title>
+    <title><fmt:message key="demographic.demographicsearch2apptresults.title"/>(demographicsearch2reportresults)</title>
 
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     <script language="JavaScript">
@@ -122,7 +132,7 @@
                     dob.value = dob.value.substring(0, 4) + "-" + dob.value.substring(4, 6) + "-" + dob.value.substring(6, 8);
                 }
                 if (dob.value.length != 10) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.msgWrongDOB"/>");
+                    alert("<fmt:message key="demographic.demographicsearch2apptresults.msgWrongDOB"/>");
                     return false;
                 } else {
                     return true;
@@ -149,7 +159,7 @@
 
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr class="subject">
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.patientsRecord"/></th>
+        <th><fmt:message key="demographic.demographicsearch2apptresults.patientsRecord"/></th>
     </tr>
 </table>
 <table border="0" cellpadding="1" cellspacing="0" width="100%"
@@ -158,7 +168,7 @@
 
 <table width="95%" border="0">
     <tr>
-        <td align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.msgKeywords"/> <%= Encode.forHtml(StringUtils.noNull(request.getParameter("keyword"))) %>
+        <td align="left"><fmt:message key="demographic.demographicsearch2apptresults.msgKeywords"/> <%= Encode.forHtml(StringUtils.noNull(request.getParameter("keyword"))) %>
         </td>
     </tr>
 </table>
@@ -170,7 +180,7 @@
 
     function addName(demographic_no, lastname, firstname, chartno, messageID, doctorNo) {
         fullname = lastname + "," + firstname;
-        document.addform.action = "<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("originalpage"))) %>&demographicNoParam=" + demographic_no + "&demographic_no=" + demographic_no + "&firstNameParam=" + firstname + "&lastNameParam=" + lastname + "&chart_no=" + chartno;
+        document.addform.action = "<%= Encode.forJavaScript(originalpage) %><%= originalPageSeparator %>demographicNoParam=" + demographic_no + "&demographic_no=" + demographic_no + "&firstNameParam=" + firstname + "&lastNameParam=" + lastname + "&chart_no=" + chartno;
         document.addform.submit();
         return true;
     }
@@ -205,14 +215,14 @@
         <form method="post" name="addform"
               action="<%= request.getContextPath() %>/appointment/addappointment.jsp">
             <tr class="title">
-                <TH width="20%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.demographicId"/></b></TH>
-                <TH width="20%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.lastName"/></b></TH>
-                <TH width="20%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.firstName"/></b></TH>
-                <TH width="5%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.age"/></b></TH>
-                <TH width="10%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.rosterStatus"/></b></TH>
-                <TH width="5%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.sex"/></B></TH>
-                <TH width="10%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.DOB"/></B></TH>
-                <TH width="10%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.doctor"/></B></TH>
+                <TH width="20%"><b><fmt:message key="demographic.demographicsearch2apptresults.demographicId"/></b></TH>
+                <TH width="20%"><b><fmt:message key="demographic.demographicsearch2apptresults.lastName"/></b></TH>
+                <TH width="20%"><b><fmt:message key="demographic.demographicsearch2apptresults.firstName"/></b></TH>
+                <TH width="5%"><b><fmt:message key="demographic.demographicsearch2apptresults.age"/></b></TH>
+                <TH width="10%"><b><fmt:message key="demographic.demographicsearch2apptresults.rosterStatus"/></b></TH>
+                <TH width="5%"><b><fmt:message key="demographic.demographicsearch2apptresults.sex"/></B></TH>
+                <TH width="10%"><b><fmt:message key="demographic.demographicsearch2apptresults.DOB"/></B></TH>
+                <TH width="10%"><b><fmt:message key="demographic.demographicsearch2apptresults.doctor"/></B></TH>
             </tr>
 
             <%
@@ -293,20 +303,20 @@
     <%
         if (nItems == 0 && nLastPage <= 0) {
     %> <caisi:isModuleLoad moduleName="caisi" reverse="true">
-    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.noResultsWereFound"/>
-    <a href="<%= request.getContextPath() %>/demographic/demographicaddarecordhtm.jsp?search_mode=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode"))) %>&keyword=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword"))) %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.btnCreateNew"/></a>
+    <fmt:message key="demographic.search.noResultsWereFound"/>
+    <a href="<%= request.getContextPath() %>/demographic/demographicaddarecordhtm.jsp?search_mode=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode"))) %>&keyword=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword"))) %>"><fmt:message key="demographic.search.btnCreateNew"/></a>
 </caisi:isModuleLoad> <%
     }
 %>
     <script language="JavaScript">
         <!--
         function last() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp?originalpage=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("originalpage")))) %>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp?originalpage=<%= Encode.forJavaScript(Encode.forUriComponent(originalpage)) %>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>";
             //document.nextform.submit();
         }
 
         function next() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp?originalpage=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("originalpage")))) %>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp?originalpage=<%= Encode.forJavaScript(Encode.forUriComponent(originalpage)) %>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>";
             //document.nextform.submit();
         }
 
@@ -317,12 +327,12 @@
         <%
             if (nLastPage >= 0) {
         %> <input type="submit" class="mbttn" name="submit"
-                  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/>"
+                  value="<fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/>"
                   onClick="last()"> <%
         }
         if (nItems == Integer.parseInt(strLimit)) {
     %> <input type="submit" class="mbttn" name="submit"
-              value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/>"
+              value="<fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/>"
               onClick="next()"> <%
         }
     %> <%

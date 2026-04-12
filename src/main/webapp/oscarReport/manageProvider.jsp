@@ -74,11 +74,12 @@
     String last_name = "", first_name = "", mygroup = "";
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <html>
     <head>
         <%@ include file="/includes/global-head.jspf" %>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.title"/></title>
+        <title><fmt:message key="oscarReport.manageProvider.title"/></title>
     </head>
     <body>
     <div class="container">
@@ -89,7 +90,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="page-header-icon">
                     <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5"/>
                 </svg>
-                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.msgManageProvider"/>
+                &nbsp;<fmt:message key="oscarReport.manageProvider.msgManageProvider"/>
                 <span class="text-info"><%=Encode.forHtml(action != null ? action.toUpperCase() : "")%></span>
             </h4>
             </div>
@@ -98,9 +99,9 @@
             <table class="table table-hover table-sm table-striped">
                 <thead>
                 <tr>
-                    <th width="40%"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.msgTeam"/></th>
-                    <th width="50%"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.msgProviderName"/></th>
-                    <th width="10%"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.msgCheck"/></th>
+                    <th width="40%"><fmt:message key="oscarReport.manageProvider.msgTeam"/></th>
+                    <th width="50%"><fmt:message key="oscarReport.manageProvider.msgProviderName"/></th>
+                    <th width="10%"><fmt:message key="oscarReport.manageProvider.msgCheck"/></th>
                 </tr>
                 </thead>
                 <tbody>
@@ -143,7 +144,7 @@
             <input type="hidden" name="submit" value="Submit">
             <input type="hidden" name="action" value="<%=Encode.forHtmlAttribute(action != null ? action : "")%>">
             <input type="hidden" name="count" value="<%=count1%>">
-            <input class="btn btn-sm btn-primary" type="submit" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.btnSubmit"/>">
+            <input class="btn btn-sm btn-primary" type="submit" value="<fmt:message key="oscarReport.manageProvider.btnSubmit"/>">
         </form>
 
     </div>

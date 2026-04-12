@@ -91,6 +91,7 @@ public final class RxChoosePatient2Action extends ActionSupport {
         bean.setProviderNo(user_no);
         bean.setDemographicNo(Integer.parseInt(this.getDemographicNo()));
 
+        // nosemgrep: tainted-session-from-http-request -- bean is built from session-sourced providerNo and validated demographicNo (parseInt)
         request.getSession().setAttribute("RxSessionBean", bean);
 
         RxPatientData rx = null;
@@ -124,6 +125,7 @@ public final class RxChoosePatient2Action extends ActionSupport {
                         }
                     }
 
+                    // nosemgrep: tainted-session-from-http-request -- hm is derived from DAO-sourced UserProperty, not raw user input
                     request.getSession().setAttribute("profileViewSpec", hm);
                 } catch (Exception e) {
                     MiscUtils.getLogger().error("Error", e);
@@ -131,6 +133,7 @@ public final class RxChoosePatient2Action extends ActionSupport {
 
             }
 
+            // nosemgrep: tainted-session-from-http-request -- patient is DAO-sourced from RxPatientData.getPatient(), not raw user input
             request.getSession().setAttribute("Patient", patient);
         }
 

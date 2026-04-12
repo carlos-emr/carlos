@@ -72,8 +72,10 @@
     String patientName = null;
 
     ResultSet rsdemo = null;
-    if (!form_no.equals("0")) {
-        rsdemo = DBHandler.GetSQL("select * from formAR where ID = " + form_no);
+    int formId = 0;
+    try { formId = Integer.parseInt(form_no); } catch (NumberFormatException ignored) { }
+    if (formId > 0) {
+        rsdemo = DBHandler.GetPreSQL("select * from formAR where ID = ?", formId);
 
         ResultSetMetaData resultsetmetadata = rsdemo.getMetaData();
         while (rsdemo.next()) {

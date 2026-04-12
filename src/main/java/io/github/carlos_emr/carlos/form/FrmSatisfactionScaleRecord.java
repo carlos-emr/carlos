@@ -95,9 +95,8 @@ public class FrmSatisfactionScaleRecord extends FrmRecord {
         String sql;
 
         if (existingID <= 0) {
-            sql = "SELECT demographic_no, sex, year_of_birth, month_of_birth, date_of_birth, phone FROM demographic WHERE demographic_no = "
-                    + demographicNo;
-            rs = DBHandler.GetSQL(sql);
+            sql = "SELECT demographic_no, sex, year_of_birth, month_of_birth, date_of_birth, phone FROM demographic WHERE demographic_no = ?";
+            rs = DBHandler.GetPreSQL(sql, demographicNo);
             if (rs.next()) {
                 java.util.Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"), Misc.getString(rs, "date_of_birth"));
                 props.setProperty(
@@ -113,8 +112,8 @@ public class FrmSatisfactionScaleRecord extends FrmRecord {
                 props.setProperty("phone", Misc.getString(rs, "phone"));
             }
             rs.close();
-            sql = "SELECT studyID FROM rehabStudy2004 WHERE demographic_no='" + demographicNo + "'";
-            rs = DBHandler.GetSQL(sql);
+            sql = "SELECT studyID FROM rehabStudy2004 WHERE demographic_no=?";
+            rs = DBHandler.GetPreSQL(sql, demographicNo);
             if (rs.next()) {
                 props.setProperty("studyID", Misc.getString(rs, "studyID"));
             } else {
@@ -123,11 +122,8 @@ public class FrmSatisfactionScaleRecord extends FrmRecord {
             rs.close();
         } else {
             sql =
-                    "SELECT * FROM formSatisfactionScale WHERE demographic_no = "
-                            + demographicNo
-                            + " AND ID = "
-                            + existingID;
-            rs = DBHandler.GetSQL(sql);
+                    "SELECT * FROM formSatisfactionScale WHERE demographic_no = ? AND ID = ?";
+            rs = DBHandler.GetPreSQL(sql, demographicNo, existingID);
 
             if (rs.next()) {
                 MiscUtils.getLogger().debug("getting metaData");
@@ -168,25 +164,20 @@ public class FrmSatisfactionScaleRecord extends FrmRecord {
     public int saveFormRecord(Properties props) throws SQLException {
         String demographic_no = props.getProperty("demographic_no");
         String sql =
-                "SELECT * FROM formSatisfactionScale WHERE demographic_no="
-                        + demographic_no
-                        + " AND ID=0";
+                "SELECT * FROM formSatisfactionScale WHERE demographic_no=? AND ID=0";
 
         FrmRecordHelp frh = new FrmRecordHelp();
         frh.setDateFormat(_dateFormat);
-        return ((frh).saveFormRecord(props, sql));
+        return ((frh).saveFormRecord(props, sql, demographic_no));
     }
 
     public Properties getPrintRecord(int demographicNo, int existingID)
             throws SQLException {
         String sql =
-                "SELECT * FROM formSatisfactionScale WHERE demographic_no = "
-                        + demographicNo
-                        + " AND ID = "
-                        + existingID;
+                "SELECT * FROM formSatisfactionScale WHERE demographic_no = ? AND ID = ?";
         FrmRecordHelp frh = new FrmRecordHelp();
         frh.setDateFormat(_dateFormat);
-        return ((frh).getPrintRecord(sql));
+        return ((frh).getPrintRecord(sql, demographicNo, existingID));
     }
 
     public String findActionValue(String submit) throws SQLException {

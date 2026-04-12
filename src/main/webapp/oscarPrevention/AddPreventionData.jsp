@@ -65,7 +65,6 @@
 <%@ page import="java.text.ParseException" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CVCMappingDao" %>
@@ -91,6 +90,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -314,7 +314,6 @@
     if (pMaker == null) pMaker = "";
 
 %>
-<fmt:setBundle basename="oscarResources"/>
 <html>
     <head>
         <title>
@@ -325,7 +324,7 @@
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
 
 
@@ -622,7 +621,7 @@
                 <table class="TopStatusBar" style="width: 100%">
                     <tr>
                         <td style="background-color:silver;">
-                            <%=StringEscapeUtils.escapeHtml4(nameage)%>
+                            <%=Encode.forHtml(nameage)%>
                         </td>
                         <td style="background-color:silver;">&nbsp;
 
@@ -1528,7 +1527,7 @@
         } else if (second != null) {
             ret = second;
         }
-        return StringEscapeUtils.escapeHtml4(ret);
+        return Encode.forHtml(ret);
     }
 
     String checked(String first, String second) {

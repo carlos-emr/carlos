@@ -37,7 +37,7 @@ import java.util.Map.Entry;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 
@@ -51,15 +51,15 @@ public final class WebUtils {
     }
 
     public static void dumpParameters(HttpServletRequest request) {
-        logger.error("--- Dump Request Parameters Start for {} Start ---", LogSanitizer.sanitize(request.getRequestURI()));
+        logger.debug("--- Dump Request Parameters Start for {} Start ---", LogSanitizer.sanitize(request.getRequestURI())); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         Enumeration e = request.getParameterNames();
 
         while (e.hasMoreElements()) {
             String key = (String) e.nextElement();
-            logger.error("{}={}", LogSanitizer.sanitize(key), LogSanitizer.sanitize(request.getParameter(key)));
+            logger.debug("{}={}", LogSanitizer.sanitize(key), LogSanitizer.sanitize(request.getParameter(key))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         }
 
-        logger.error("--- Dump Request Parameters End ---");
+        logger.debug("--- Dump Request Parameters End ---");
     }
 
     public static boolean isChecked(HttpServletRequest request, String parameter) {
@@ -144,6 +144,7 @@ public final class WebUtils {
             ArrayList<String> messages = (ArrayList) ((ArrayList) session.getAttribute(type));
             if (messages == null) {
                 messages = new ArrayList();
+                // nosemgrep: tainted-session-from-http-request -- messages is an internally constructed ArrayList; message content is caller-provided server-side text
                 session.setAttribute(type, messages);
             }
 
@@ -219,7 +220,7 @@ public final class WebUtils {
 
     public static String trimToEmptyEscapeHtml(String s) {
         s = StringUtils.trimToEmpty(s);
-        s = StringEscapeUtils.escapeHtml4(s);
+        s = Encode.forHtml(s);
         return s;
     }
 
@@ -276,7 +277,7 @@ public final class WebUtils {
             sb.append("<script type=\"text/javascript\">");
             sb.append("alert('");
 
-            for (String s : al) sb.append(StringEscapeUtils.escapeEcmaScript(s));
+            for (String s : al) sb.append(Encode.forJavaScript(s));
 
             sb.append("');");
             sb.append("</script>");

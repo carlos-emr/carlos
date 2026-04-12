@@ -67,7 +67,7 @@ public final class HandlerClassFactory {
         String msgType;
         String msgHandler = "";
 
-        logger.info("HandlerClassFactory.getHandler: Getting handler for type: {}", LogSanitizer.sanitize(type));
+        logger.info("HandlerClassFactory.getHandler: Getting handler for type: {}", LogSanitizer.sanitize(type)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         
         if (type == null || type.equals("")) {
             logger.debug("Type not specified using Default Handler");

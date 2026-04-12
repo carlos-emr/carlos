@@ -379,8 +379,8 @@ public class FaxImporter {
             String uniqueFilename = generateUniqueFilename(receivedFax.getFile_name());
 
             // Validate path security
-            PathValidationUtils.validatePath(uniqueFilename, configDir.toFile());
-            Path targetFile = configDir.resolve(uniqueFilename);
+            File validatedPathFile = PathValidationUtils.validatePath(uniqueFilename, configDir.toFile());
+            Path targetFile = validatedPathFile.toPath();
 
             // Decode to temp file first (atomic write pattern)
             tempFile = Files.createTempFile(configDir, "fax-tmp-", ".pdf").toFile();

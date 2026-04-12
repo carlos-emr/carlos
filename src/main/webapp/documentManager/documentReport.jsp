@@ -53,6 +53,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
@@ -62,7 +63,6 @@
 
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
@@ -161,7 +161,6 @@
 %>
 <html>
     <head>
-        <fmt:setBundle basename="oscarResources"/>
         <title><fmt:message key="dms.documentReport.titleDocumentManager"/></title>
 
         <%@ include file="/includes/global-head.jspf" %>
@@ -357,7 +356,7 @@
                     ],
                     order: [[6, 'dsc']],
                     "language": {
-                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18n.datatablescode"/>.json"
+                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
                     }
                 });
             });
@@ -453,7 +452,7 @@
 
                                 <% if (i == 0) {%>
                                 <div class="mb-3">
-                                        <%--      <label for="viewstatus"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgViewStatus"/></label>--%>
+                                        <%--      <label for="viewstatus"><fmt:message key="dms.documentReport.msgViewStatus"/></label>--%>
                                     <select class="form-select" id="viewstatus" name="viewstatus"
                                             onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&view=<%=Encode.forUriComponent(view)%>&viewstatus=' + val;">
                                         <option value="all"
@@ -468,7 +467,7 @@
                                 </div>
                                 <%}%>
                                 <div class="mb-3">
-                                        <%--          <label for="view"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgView"/></label>--%>
+                                        <%--          <label for="view"><fmt:message key="dms.documentReport.msgView"/></label>--%>
                                     <select id="viewdoctype<%=i%>" name="view" id="view"
                                             class="form-select"
                                             onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&view=' + val;">

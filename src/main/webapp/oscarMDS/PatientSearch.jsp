@@ -34,6 +34,7 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -78,7 +79,7 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.title"/></title>
+    <title><fmt:message key="oscarMDS.segmentDisplay.patientSearch.title"/></title>
     <script language="JavaScript">
         <!--
         function setfocus() {
@@ -128,11 +129,11 @@
                     face="Verdana" color="#0000FF"><b><i>Search</i></b></font></td>
             <td width="10%" nowrap><font size="1" face="Verdana"
                                          color="#0000FF"> <input type="radio" checked
-                                                                 name="search_mode" value="search_name"> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.formName"/> </font></td>
+                                                                 name="search_mode" value="search_name"> <fmt:message key="oscarMDS.segmentDisplay.patientSearch.formName"/> </font></td>
             <td nowrap><font size="1" face="Verdana" color="#0000FF">
-                <input type="radio" name="search_mode" value="search_phone"> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.formPhone"/> </font></td>
+                <input type="radio" name="search_mode" value="search_phone"> <fmt:message key="oscarMDS.segmentDisplay.patientSearch.formPhone"/> </font></td>
             <td nowrap><font size="1" face="Verdana" color="#0000FF">
-                <input type="radio" name="search_mode" value="search_dob"> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.formDOB"/> </font></td>
+                <input type="radio" name="search_mode" value="search_dob"> <fmt:message key="oscarMDS.segmentDisplay.patientSearch.formDOB"/> </font></td>
             <td valign="middle" rowspan="2" ALIGN="left"><input type="text"
                                                                 NAME="keyword" SIZE="17" MAXLENGTH="100"
                                                                 value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("keyword"))) %>"> <INPUT
@@ -144,16 +145,16 @@
                                                                                                   value="Search ">
                 <input type="SUBMIT"
                        name="displaymode"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.btnSearch"/>"
+                       value="<fmt:message key="oscarMDS.segmentDisplay.patientSearch.btnSearch"/>"
                        size="17"></td>
         </tr>
         <tr>
             <td nowrap><font size="1" face="Verdana" color="#0000FF">
                 <input type="radio" name="search_mode" value="search_address">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.formAddress"/>
+                <fmt:message key="oscarMDS.segmentDisplay.patientSearch.formAddress"/>
             </font></td>
             <td nowrap><font size="1" face="Verdana" color="#0000FF">
-                <input type="radio" name="search_mode" value="search_hin"> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.formHIN"/> </font></td>
+                <input type="radio" name="search_mode" value="search_hin"> <fmt:message key="oscarMDS.segmentDisplay.patientSearch.formHIN"/> </font></td>
             <td>&nbsp;</td>
         </tr>
     </form>
@@ -161,7 +162,7 @@
 
 <table width="95%" border="0">
     <tr>
-        <td align="left"><font size="-1"> <i><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgResults"/></i> : <%= Encode.forHtml(StringUtils.noNull(request.getParameter("keyword"))) %>
+        <td align="left"><font size="-1"> <i><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgResults"/></i> : <%= Encode.forHtml(StringUtils.noNull(request.getParameter("keyword"))) %>
         </font></td>
     </tr>
 </table>
@@ -193,15 +194,15 @@
             <input type="hidden" name="labType"
                    value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("labType"))) %>"/>
             <tr bgcolor="#339999">
-                <TH align="center" width="10%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgPatientId"/></b></TH>
-                <TH align="center" width="20%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgLastName"/></b></TH>
-                <TH align="center" width="20%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgFirstName"/></b></TH>
-                <TH align="center" width="5%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgAge"/></b></TH>
-                <TH align="center" width="10%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgRosterStatus"/></b></TH>
-                <TH align="center" width="10%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgPatientStatus"/></b></TH>
-                <TH align="center" width="5%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgSex"/></B></TH>
-                <TH align="center" width="10%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgDOB"/></B></TH>
-                <TH align="center" width="10%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgDoctor"/></B></TH>
+                <TH align="center" width="10%"><b><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgPatientId"/></b></TH>
+                <TH align="center" width="20%"><b><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgLastName"/></b></TH>
+                <TH align="center" width="20%"><b><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgFirstName"/></b></TH>
+                <TH align="center" width="5%"><b><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgAge"/></b></TH>
+                <TH align="center" width="10%"><b><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgRosterStatus"/></b></TH>
+                <TH align="center" width="10%"><b><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgPatientStatus"/></b></TH>
+                <TH align="center" width="5%"><b><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgSex"/></B></TH>
+                <TH align="center" width="10%"><b><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgDOB"/></B></TH>
+                <TH align="center" width="10%"><b><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgDoctor"/></B></TH>
             </tr>
 
             <%
@@ -221,11 +222,40 @@
                 }
 
                 String orderby = "", limit = "", limit1 = "", limit2 = "";
-                if (request.getParameter("orderby") != null) orderby = "order by " + request.getParameter("orderby");
-                if (request.getParameter("limit1") != null) limit1 = request.getParameter("limit1");
+                // Validate orderby against allowed demographic columns to prevent SQL injection
+                // while still allowing an optional ASC/DESC direction.
+                String orderbyParam = request.getParameter("orderby");
+                if (orderbyParam != null) {
+                    Set<String> validColumns = Set.of("last_name", "first_name", "demographic_no",
+                        "chart_no", "hin", "phone", "sex", "year_of_birth", "month_of_birth",
+                        "date_of_birth", "roster_status", "patient_status", "provider_no");
+                    String[] orderbyParts = orderbyParam.trim().split("\\s+");
+                    if (orderbyParts.length >= 1 && orderbyParts.length <= 2) {
+                        String orderbyColumn = orderbyParts[0];
+                        String orderbyDirection = "";
+                        if (orderbyParts.length == 2) {
+                            if ("asc".equalsIgnoreCase(orderbyParts[1])) {
+                                orderbyDirection = " ASC";
+                            } else if ("desc".equalsIgnoreCase(orderbyParts[1])) {
+                                orderbyDirection = " DESC";
+                            } else {
+                                orderbyColumn = "";
+                            }
+                        }
+                        if (validColumns.contains(orderbyColumn)) {
+                            orderby = "order by " + orderbyColumn + orderbyDirection;
+                        }
+                    }
+                }
+                // Validate limit values as integers to prevent SQL injection
+                if (request.getParameter("limit1") != null) {
+                    try { limit1 = String.valueOf(Math.max(0, Integer.parseInt(request.getParameter("limit1")))); } catch (NumberFormatException e) { limit1 = "0"; }
+                }
                 if (request.getParameter("limit2") != null) {
-                    limit2 = request.getParameter("limit2");
-                    limit = "limit " + limit2 + " offset " + limit1;
+                    try { limit2 = String.valueOf(Math.max(0, Integer.parseInt(request.getParameter("limit2")))); } catch (NumberFormatException e) { limit2 = ""; }
+                    if (!limit2.isEmpty()) {
+                        limit = "limit " + limit2 + " offset " + (limit1.isEmpty() ? "0" : limit1);
+                    }
                 }
 
                 String fieldname = "", regularexp = "like"; // exactly search is not required by users, e.g. regularexp="=";
@@ -395,18 +425,18 @@
                value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("labType"))) %>"/> <%
             if (nLastPage >= 0) {
         %> <input type="submit" name="submit"
-                  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.btnLastPage"/>"
+                  value="<fmt:message key="oscarMDS.segmentDisplay.patientSearch.btnLastPage"/>"
                   onClick="last()"> <%
             }
             if (nItems == Integer.parseInt(strLimit2)) {
         %> <input type="submit" name="submit"
-                  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.btnNextPage"/>"
+                  value="<fmt:message key="oscarMDS.segmentDisplay.patientSearch.btnNextPage"/>"
                   onClick="next()"> <%
             }
         %>
     </form>
 
-    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgSearchMessage"/></center>
+    <fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgSearchMessage"/></center>
 </body>
 </html>
 <%!

@@ -60,6 +60,8 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+
 public final class BillingView2Action
         extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -79,10 +81,28 @@ public final class BillingView2Action
             return NONE;
         } else {
             BillingViewBean bean = new BillingViewBean();
-            bean.loadBilling(request.getParameter("billing_no"));
+            String billingNoParam = request.getParameter("billing_no");
+            if (billingNoParam == null || !billingNoParam.matches("\\d{1,9}")) {
+                log.warn("Invalid billing_no rejected");
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+            bean.loadBilling(billingNoParam);
             BillingBillingManager bmanager = new BillingBillingManager();
             ArrayList<BillingItem> billItem = new ArrayList<BillingItem>();
             String[] billingN = request.getParameterValues("billing_no");
+            if (billingN == null) {
+                log.warn("Missing billing_no parameter values");
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+            for (String bn : billingN) {
+                if (bn == null || !bn.matches("\\d{1,9}")) {
+                    log.warn("Invalid billing_no in parameter values");
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                    return NONE;
+                }
+            }
 
             for (int i = 0; i < billingN.length; i++) {
                 log.debug("billn " + i + " " + billingN[i]);
@@ -111,7 +131,7 @@ public final class BillingView2Action
             bean.setPatientHCType(demo.getHcType());
             bean.setPatientAge(demo.getAge());
             this.setBillingNo(bean.getBillingNo());
-            log.debug("End Demo Call billing No" + request.getParameter("billing_no"));
+            log.debug("End Demo Call billing No{}", LogSanitizer.sanitize(request.getParameter("billing_no")));
             //Loading bill Recipient Data
             List<BillRecipient> billRecipList = bean.getBillRecipient(request.getParameter("billing_no"));
             if (!billRecipList.isEmpty()) {
@@ -135,7 +155,7 @@ public final class BillingView2Action
             this.setMessageNotes(bean.getMessageNotes());
             this.setBillStatus(bean.getBillingType());
             this.setPaymentMethod(bean.getPaymentMethod());
-            request.getSession().setAttribute("billingViewBean", bean);
+            request.getSession().setAttribute("billingViewBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
             String receipt = request.getParameter("receipt");
             if (receipt != null && receipt.equals("yes")) {
 

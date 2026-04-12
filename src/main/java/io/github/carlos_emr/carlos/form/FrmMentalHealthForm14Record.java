@@ -45,9 +45,8 @@ public class FrmMentalHealthForm14Record extends FrmRecord {
         if (existingID <= 0) {
 
             String demoProvider = "000000";
-            String sql = "SELECT demographic_no, CONCAT(CONCAT(last_name, ', '), first_name) AS clientName, year_of_birth, month_of_birth, date_of_birth, provider_no FROM demographic WHERE demographic_no = "
-                    + demographicNo;
-            ResultSet rs = DBHandler.GetSQL(sql);
+            String sql = "SELECT demographic_no, CONCAT(CONCAT(last_name, ', '), first_name) AS clientName, year_of_birth, month_of_birth, date_of_birth, provider_no FROM demographic WHERE demographic_no = ?";
+            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo);
             if (rs.next()) {
                 Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"),
                         Misc.getString(rs, "date_of_birth"));
@@ -64,9 +63,8 @@ public class FrmMentalHealthForm14Record extends FrmRecord {
             }
             rs.close();
         } else {
-            String sql = "SELECT * FROM formMentalHealthForm14 WHERE demographic_no = " + demographicNo + " AND ID = "
-                    + existingID;
-            props = (new FrmRecordHelp()).getFormRecord(sql);
+            String sql = "SELECT * FROM formMentalHealthForm14 WHERE demographic_no = ? AND ID = ?";
+            props = (new FrmRecordHelp()).getFormRecord(sql, demographicNo, existingID);
         }
 
         return props;
@@ -84,8 +82,8 @@ public class FrmMentalHealthForm14Record extends FrmRecord {
             if (demoProvider.equals(provNo)) {
                 // from provider table
                 sql = "SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no "
-                        + "FROM provider WHERE provider_no = '" + provNo + "'";
-                rs = DBHandler.GetSQL(sql);
+                        + "FROM provider WHERE provider_no = ?";
+                rs = DBHandler.GetPreSQL(sql, provNo);
 
                 if (rs.next()) {
                     String num = Misc.getString(rs, "ohip_no");
@@ -96,9 +94,8 @@ public class FrmMentalHealthForm14Record extends FrmRecord {
                 rs.close();
             } else {
                 // from provider table
-                sql = "SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no FROM provider WHERE provider_no = '"
-                        + provNo + "'";
-                rs = DBHandler.GetSQL(sql);
+                sql = "SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no FROM provider WHERE provider_no = ?";
+                rs = DBHandler.GetPreSQL(sql, provNo);
 
                 String num = "";
                 if (rs.next()) {
@@ -109,9 +106,8 @@ public class FrmMentalHealthForm14Record extends FrmRecord {
                 rs.close();
 
                 // from provider table
-                sql = "SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no FROM provider WHERE provider_no = "
-                        + demoProvider;
-                rs = DBHandler.GetSQL(sql);
+                sql = "SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no FROM provider WHERE provider_no = ?";
+                rs = DBHandler.GetPreSQL(sql, demoProvider);
 
                 if (rs.next()) {
                     if (num.equals("")) {
@@ -131,13 +127,13 @@ public class FrmMentalHealthForm14Record extends FrmRecord {
 
     public int saveFormRecord(Properties props) throws SQLException {
         String demographic_no = props.getProperty("demographic_no");
-        String sql = "SELECT * FROM formMentalHealthForm14 WHERE demographic_no=" + demographic_no + " AND ID=0";
-        return ((new FrmRecordHelp()).saveFormRecord(props, sql));
+        String sql = "SELECT * FROM formMentalHealthForm14 WHERE demographic_no=? AND ID=0";
+        return ((new FrmRecordHelp()).saveFormRecord(props, sql, demographic_no));
     }
 
     public Properties getPrintRecord(int demographicNo, int existingID) throws SQLException {
-        String sql = "SELECT * FROM formMentalHealthForm14 WHERE demographic_no = " + demographicNo + " AND ID = 0";
-        return ((new FrmRecordHelp()).getPrintRecord(sql));
+        String sql = "SELECT * FROM formMentalHealthForm14 WHERE demographic_no = ? AND ID = 0";
+        return ((new FrmRecordHelp()).getPrintRecord(sql, demographicNo));
     }
 
     public String findActionValue(String submit) throws SQLException {

@@ -56,7 +56,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * @version 1.0
  * @since 2002
  * @see MsgCreateMessage2Action
- * @see MsgSendMessage2Action
  */
 public class MsgSessionBean implements java.io.Serializable {
 

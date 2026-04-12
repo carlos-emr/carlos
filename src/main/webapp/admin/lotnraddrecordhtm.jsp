@@ -30,6 +30,7 @@
 --%>
 <%@page import="java.text.SimpleDateFormat, java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.util.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -87,7 +88,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.add_lot_nr.title"/></title>
+        <title><fmt:message key="admin.admin.add_lot_nr.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
         <script type="text/javascript">
 
@@ -98,7 +99,7 @@
             function onsub() {
                 if (document.addlotnr.prevention.value == "" ||
                     document.addlotnr.lotnr.value == "") {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.adddelete_lot_nr.msgMissingParams"/>");
+                    alert("<fmt:message key="admin.admin.adddelete_lot_nr.msgMissingParams"/>");
                     return false;
                 }
             }
@@ -110,14 +111,14 @@
     <center>
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">
-                <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.add_lot_nr.description"/></font></th>
+                <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.admin.add_lot_nr.description"/></font></th>
             </tr>
         </table>
-        <form method="post" action="lotnraddrecord.jsp" name="addlotnr"
+        <form method="post" action="${pageContext.request.contextPath}/admin/LotNrAddRecord.do" name="addlotnr"
               onsubmit="return onsub();">
             <table cellspacing="0" cellpadding="2" width="90%" border="0">
                 <tr>
-                    <td width="50%" align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.add_lot_nr.prevention"/><font color="red">:</font></td>
+                    <td width="50%" align="right"><fmt:message key="admin.admin.add_lot_nr.prevention"/><font color="red">:</font></td>
                     <td>
                         <select id="prevention" name="prevention">
                             <% for (String s : inject_prev_list) {
@@ -130,7 +131,7 @@
                 </tr>
 
                 <tr>
-                    <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.add_lot_nr.lotnr"/>:
+                    <td align="right"><fmt:message key="admin.admin.add_lot_nr.lotnr"/>:
                     </td>
                     <td><input type="text" name="lotnr" size="20"
                                maxlength="20"></td>
@@ -140,7 +141,7 @@
                     <td colspan="2">
                         <div align="center">
                             <input type="submit" name="submitbtn"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotaddrecordhtm.btnlotAddRecord"/>">
+                                   value="<fmt:message key="admin.lotaddrecordhtm.btnlotAddRecord"/>">
                         </div>
                     </td>
                 </tr>

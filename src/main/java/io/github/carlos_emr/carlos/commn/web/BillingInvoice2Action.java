@@ -91,7 +91,7 @@ public class BillingInvoice2Action extends ActionSupport {
 
             // Check if we have a valid invoice number after sanitization
             if (sanitizedInvoiceNo.isEmpty()) {
-                MiscUtils.getLogger().error("Invalid invoice number - no digits found: {}", LogSanitizer.sanitize(invoiceNo));
+                MiscUtils.getLogger().error("Invalid invoice number - no digits found: {}", LogSanitizer.sanitize(invoiceNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 return "error";  // or handle appropriately
             }
 
@@ -144,7 +144,7 @@ public class BillingInvoice2Action extends ActionSupport {
                 } catch (Exception e) {
                     MiscUtils.getLogger().error("Error", e);
                 } finally {
-                    if (fos != null) fos.close();
+                    if (fos != null) fos.close(); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- PDF file stream close
                 }
             }
         }

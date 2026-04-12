@@ -34,6 +34,7 @@ import java.util.Date;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Drug;
+import io.github.carlos_emr.carlos.prescript.dto.DrugListItemDTO;
 
 public interface DrugDao extends AbstractDao<Drug> {
 
@@ -120,4 +121,13 @@ public interface DrugDao extends AbstractDao<Drug> {
 
     public List<Drug> findLongTermDrugsByDemographic(Integer demographicId);
 
+    /**
+     * Returns lightweight drug DTOs for a demographic, ordered by date descending.
+     * Uses JPQL constructor expression projection (20 fields vs 101 on entity).
+     *
+     * @param demographicId Integer the patient demographic number
+     * @return List of DrugListItemDTO for the patient's prescriptions
+     * @since 2026-04-11
+     */
+    public List<DrugListItemDTO> findDrugDTOsByDemographicId(Integer demographicId);
 }

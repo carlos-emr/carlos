@@ -45,6 +45,7 @@
         </action>
         <action name="messenger/DisplayDemographicMessages" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgDisplayDemographicMessages2Action">
             <result name="demoMsg">/WEB-INF/jsp/messenger/DisplayDemographicMessages.jsp</result>
+            <result name="error">/errorpage.jsp</result>
         </action>
         <action name="messenger/ReDisplayMessages" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgReDisplayMessages2Action">
             <result name="success">/messenger/DisplayMessages.jsp</result>

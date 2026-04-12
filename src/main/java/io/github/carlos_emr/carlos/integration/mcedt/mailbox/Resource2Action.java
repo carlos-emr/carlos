@@ -108,7 +108,7 @@ public class Resource2Action extends ActionSupport {
         List<DetailDataCustom> resourceList;
         try {
             resourceList = loadList(ResourceStatus.DOWNLOADABLE);
-            request.getSession().setAttribute("resourceListDL", resourceList);
+            request.getSession().setAttribute("resourceListDL", resourceList); // nosemgrep: tainted-session-from-http-request -- MCEDT resource list from EDT service response
         } catch (Exception e) {
             logger.error("Unable to load resource list ", e);
 
@@ -131,8 +131,8 @@ public class Resource2Action extends ActionSupport {
             }
             this.setStatus("UPLOADED");
             resourceList = loadList(ResourceStatus.UPLOADED);
-            request.getSession().setAttribute("resourceListSent", resourceList);
-            request.getSession().setAttribute("resourceStatus", "UPLOADED");
+            request.getSession().setAttribute("resourceListSent", resourceList); // nosemgrep: tainted-session-from-http-request -- MCEDT resource list from EDT service response
+            request.getSession().setAttribute("resourceStatus", "UPLOADED"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
         } catch (Exception e) {
             return "successUserSent";
         }
@@ -145,7 +145,7 @@ public class Resource2Action extends ActionSupport {
 
             if (request.getSession().getAttribute("resourceTypeList") == null) {
                 this.setTypeListResult(getTypeList(request, delegate));
-                request.getSession().setAttribute("resourceTypeList", this.getTypeListResult());
+                request.getSession().setAttribute("resourceTypeList", this.getTypeListResult()); // nosemgrep: tainted-session-from-http-request -- MCEDT type list from EDT service response
             } else {
                 this.setTypeListResult((TypeListResult) request.getSession().getAttribute("resourceTypeList"));
             }
@@ -177,7 +177,7 @@ public class Resource2Action extends ActionSupport {
                 BigInteger resultSize = null;
                 if (result != null)
                     resultSize = result.getResultSize();
-                request.getSession().setAttribute("resultSize", resultSize);
+                request.getSession().setAttribute("resultSize", resultSize); // nosemgrep: tainted-session-from-http-request -- computed list size, not from user input
 
                 if (result != null && result.getData() != null) {
 

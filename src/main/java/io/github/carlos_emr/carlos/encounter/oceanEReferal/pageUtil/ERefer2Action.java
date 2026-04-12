@@ -155,8 +155,10 @@ public class ERefer2Action extends ActionSupport {
         EReferAttachmentDao eReferAttachmentDao = SpringUtils.getBean(EReferAttachmentDao.class);
         eReferAttachmentDao.persist(eReferAttachment);
 
+        response.setContentType("text/plain");
+        response.setCharacterEncoding("UTF-8");
         try (PrintWriter writer = response.getWriter()) {
-            writer.write(eReferAttachment.getId().toString());
+            writer.write(eReferAttachment.getId().toString()); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss -- text/plain response writing numeric database ID
         } catch (IOException e) {
             logger.error("Failed to write the eReferAttachment ID to the response", e);
         }

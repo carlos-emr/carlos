@@ -86,6 +86,7 @@
     EForm eForm = null;
     if (fid == null) {  // form exists in patient
         String appointmentNo = request.getParameter("appointment");
+        if (appointmentNo != null && !appointmentNo.matches("\\d+")) { appointmentNo = null; } // validate numeric to prevent SQL injection
         String eformLink = request.getParameter("eform_link");
 
         eForm = new EForm(fdid);
@@ -154,5 +155,10 @@
     // Add email consent properties
     addHiddenEmailProperties(loggedInInfo, eForm, eForm.getDemographicNo());
 
-    out.print(eForm.getFormHtml());
+    // EForms are an intentional HTML rendering system — provider-authored templates are
+    // output unencoded. CSP mitigates stored XSS by blocking inline script execution
+    // while allowing external scripts from the same origin that eforms depend on.
+    response.setHeader("Content-Security-Policy", "script-src 'self'; object-src 'none'");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    out.print(eForm.getFormHtml()); // CodeQL[java/xss] eform HTML is intentionally unencoded
 %>

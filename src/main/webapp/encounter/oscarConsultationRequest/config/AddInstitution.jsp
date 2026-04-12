@@ -31,6 +31,7 @@
 
 <%@ page import="java.util.ResourceBundle" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -63,7 +64,6 @@
         id = (String) request.getAttribute("id");
     }
 %>
-<fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
 <html>
     <head>

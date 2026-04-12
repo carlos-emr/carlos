@@ -99,6 +99,7 @@
     String provider_no = (String) session.getAttribute("user");
     String demographic_no = request.getParameter("demographic_no");
     String appointment_no = request.getParameter("appointment");
+    if (appointment_no != null && !appointment_no.matches("\\d+")) { appointment_no = null; } // validate numeric to prevent SQL injection
     String fid = request.getParameter("fid");
     String eform_link = request.getParameter("eform_link");
     String source = request.getParameter("source");
@@ -156,5 +157,10 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     addHiddenEmailProperties(loggedInInfo, thisEForm, demographic_no);
 
-    out.print(thisEForm.getFormHtml());
+    // EForms are an intentional HTML rendering system — provider-authored templates are
+    // output unencoded. CSP mitigates stored XSS by blocking inline script execution
+    // while allowing external scripts from the same origin that eforms depend on.
+    response.setHeader("Content-Security-Policy", "script-src 'self'; object-src 'none'");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    out.print(thisEForm.getFormHtml()); // CodeQL[java/xss] eform HTML is intentionally unencoded
 %>

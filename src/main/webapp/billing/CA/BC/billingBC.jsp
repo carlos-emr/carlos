@@ -51,7 +51,9 @@
 <%@taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@page import="java.util.*, io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.entities.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingreferralDao" %>
@@ -343,7 +345,7 @@
 <html>
 <head>
     <title>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.bc.title"/>
+        <fmt:message key="billing.bc.title"/>
     </title>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     <link rel="stylesheet" type="text/css" media="all"
@@ -373,7 +375,7 @@
 
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/calendar/calendar.js"></script>
     <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+            src="${pageContext.servletContext.contextPath}/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/share/calendar/calendar-setup.js"></script>
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/carlos-ajax.js"></script>
@@ -1271,25 +1273,25 @@
     <div class="icon-container">
         <img alt="CARLOS EMR" src="${pageContext.servletContext.contextPath}/images/oscar_logo_small.png" width="19px">
     </div>
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.bc.title"/></h3>
-    <span class="badge bg-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient"/></span>
+    <h3><fmt:message key="billing.bc.title"/></h3>
+    <span class="badge bg-primary"><fmt:message key="billing.patient"/></span>
     <label class="label-text"><%=Encode.forHtmlContent(demo.getLastName())%>
         , <%=Encode.forHtmlContent(demo.getFirstName())%>
     </label>
 
-    <span class="badge bg-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient.age"/></span>
+    <span class="badge bg-primary"><fmt:message key="billing.patient.age"/></span>
     <label class="label-text"><%=demo.getAge()%>
     </label>
 
     <%-- 	Keep until confirmed not needed.
 
-            <span class="badge bg-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient.status"/></span>
+            <span class="badge bg-primary"><fmt:message key="billing.patient.status"/></span>
             <strong class="label-text"><%=demo.getPatientStatus()%></label>
 
-      <span class="badge bg-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient.roster"/></span>
+      <span class="badge bg-primary"><fmt:message key="billing.patient.roster"/></span>
             <label><%=demo.getRosterStatus()%></label>
     --%>
-    <span class="badge bg-primary" title="Most Responsible Provider"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.provider.assignedProvider"/></span>
+    <span class="badge bg-primary" title="Most Responsible Provider"><fmt:message key="billing.provider.assignedProvider"/></span>
     <label class="label-text">
         <c:choose>
             <c:when test="<%= demo.getProviderNo() != null && ! demo.getProviderNo().trim().isEmpty() %>">
@@ -1304,13 +1306,13 @@
     <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="x">
         <button type="button" class="btn btn-link" title="View this patient's Electronic Chart"
                 onclick="popup(710, 1024,'${pageContext.servletContext.contextPath}/encounter/IncomingEncounter.do?providerNo=<%=loggedInInfo.getLoggedInProviderNo()%>&appointmentNo=&demographicNo=<%=demo.getDemographicNo()%>&curProviderNo=<%=loggedInInfo.getLoggedInProviderNo()%>&reason=&encType=face+to+face+encounter+with+client&userName=&curDate=<%= new Date().toString() %>&appointmentDate=&startTime=&status=&apptProvider_no=&providerview=<%=loggedInInfo.getLoggedInProviderNo()%>','encounter', 12556);return false;">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient.encounter"/>
+            <fmt:message key="billing.patient.encounter"/>
         </button>
     </security:oscarSec>
 
     <button type="button" class="btn btn-link" title="View previous invoices for this patient"
             onclick="popup(800, 1000, 'billStatus.jsp?lastName=<%=demo.getLastName()%>&firstName=<%=demo.getFirstName()%>&filterPatient=true&demographicNo=<%=demo.getDemographicNo()%>','InvoiceList');return false;">
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgInvoiceList"/>
+        <fmt:message key="demographic.demographiceditdemographic.msgInvoiceList"/>
     </button>
 
 </div>
@@ -1339,7 +1341,7 @@
             WCB Form needs:
             <ul>
                 <%for (String s : wcbneeds) { %>
-                <li><fmt:setBundle basename="oscarResources"/><fmt:message key="<%=s%>"/></li>
+                <li><fmt:message key="<%=s%>"/></li>
                 <%}%>
             </ul>
         </div>
@@ -1433,7 +1435,7 @@
                                     <td>
                                         <div class="mb-3">
 
-                                            <label for="selectBillingForm"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingform"/></label>
+                                            <label for="selectBillingForm"><fmt:message key="billing.billingform"/></label>
 
                                             <select class="form-select" id="selectBillingForm">
                                                 <% for (int i = 0; i < billformlist.length; i++) { %>
@@ -1453,7 +1455,7 @@
                                     <td>
                                         <div class="mb-3">
 
-                                            <label for="xml_provider"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.provider.billProvider"/></label>
+                                            <label for="xml_provider"><fmt:message key="billing.provider.billProvider"/></label>
                                             <select id="xml_provider" class="form-select"
                                                          name="xml_provider">
 
@@ -1474,7 +1476,7 @@
                                     <td>
                                         <div class="mb-3">
 
-                                            <label for="xml_billtype"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingtype"/></label>
+                                            <label for="xml_billtype"><fmt:message key="billing.billingtype"/></label>
                                             <select class="form-select" id="xml_billtype"
                                                          property="xml_billtype" onchange="CheckType();gotoPrivate();">
                                                 <option value="MSP">Bill MSP</option>
@@ -1539,7 +1541,7 @@
                                     <div class="mb-3">
 
                                         <a href="javascript:void(0)" id="hlSDate">
-                                            <label for="xml_appointment_date"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.servicedate"/></label>
+                                            <label for="xml_appointment_date"><fmt:message key="billing.servicedate"/></label>
                                         </a>
                                         <input type="text" style="min-width:100px;" class="form-control"
                                                    name="xml_appointment_date" size="10" readonly="true"
@@ -1707,7 +1709,7 @@
                             <table class="tool-bar">
                                 <tr>
                                     <td>
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.admissiondate"/>
+                                        <fmt:message key="billing.admissiondate"/>
                                         <div class="mb-3">
                                             <div class='input-group text'>
 
@@ -1791,12 +1793,12 @@
                                             <tr>
                                                 <td>
                                                     <label>
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.referral.doctor"/>
+                                                        <fmt:message key="billing.referral.doctor"/>
                                                     </label>
                                                 </td>
                                                 <td>
                                                     <label>
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.referral.type"/>
+                                                        <fmt:message key="billing.referral.type"/>
                                                     </label>
                                                 </td>
                                             </tr>
@@ -1932,10 +1934,10 @@
                             <table class="table table-sm table-borderless">
                                 <tr>
                                     <td>
-                                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.otherservice"/></label>
+                                        <label><fmt:message key="billing.service.otherservice"/></label>
                                     </td>
                                     <td>
-                                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.unit"/></label>
+                                        <label><fmt:message key="billing.service.unit"/></label>
                                     </td>
                                 </tr>
                                 <tr>
@@ -2051,7 +2053,7 @@
                                             <c:choose>
                                                 <c:when test="${ isIcd10 }">
 										<span class="input-group-text">
-											<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.diagnostic.code"/>
+											<fmt:message key="billing.diagnostic.code"/>
 										</span>
                                                     <select style="min-width: 70px;" class="form-select"
                                                             name="dxCodeSystem" id="codingSystem">
@@ -2061,14 +2063,14 @@
                                                         </oscar:oscarPropertiesCheck>
                                                         <c:forEach var="codeSystem" items="${dxCodeSystemList.codingSystems}">
                                                             <option value="${codeSystem}">
-                                                                <c:out value="${codeSystem}"/>
+                                                                ${e:forHtml(codeSystem)}
                                                             </option>
                                                         </c:forEach>
                                                     </select>
                                                 </c:when>
                                                 <c:otherwise>
                                                     <input type="hidden" id="codingSystem" value="msp"/>
-                                                    <label><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.diagnostic.code"/></label>
+                                                    <label><fmt:message key="billing.diagnostic.code"/></label>
                                                 </c:otherwise>
                                             </c:choose>
                                         </div>
@@ -2220,12 +2222,12 @@
                                                 </td>
                                                 <td width="61%" style="background-color:#CCCCFF;">
                                                     <label>
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.desc"/>
+                                                        <fmt:message key="billing.service.desc"/>
                                                     </label>
                                                 </td>
                                                 <td width="14%">
                                                     <div align="right">
-                                                        <label>&dollar;<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.fee"/></label>
+                                                        <label>&dollar;<fmt:message key="billing.service.fee"/></label>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -2262,10 +2264,10 @@
                                                     </label>
                                                 </td>
                                                 <td width="60%" style="background-color:#CCCCFF;">
-                                                    <label><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.desc"/></label>
+                                                    <label><fmt:message key="billing.service.desc"/></label>
                                                 </td>
                                                 <td width="19%" align="right">
-                                                    <label>&dollar;<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.fee"/></label>
+                                                    <label>&dollar;<fmt:message key="billing.service.fee"/></label>
                                                 </td>
                                             </tr>
                                             <%for (int i = 0; i < billlist2.length; i++) { %>
@@ -2298,10 +2300,10 @@
                                                     </label>
                                                 </td>
                                                 <td width="61%" style="background-color:#CCCCFF;">
-                                                    <label><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.desc"/></label>
+                                                    <label><fmt:message key="billing.service.desc"/></label>
                                                 </td>
                                                 <td width="14%" align="right">
-                                                    <label>&dollar;<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.fee"/></label>
+                                                    <label>&dollar;<fmt:message key="billing.service.fee"/></label>
                                                 </td>
                                             </tr>
                                             <%for (int i = 0; i < billlist3.length; i++) { %>

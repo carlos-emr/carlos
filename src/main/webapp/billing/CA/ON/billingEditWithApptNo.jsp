@@ -235,7 +235,7 @@
                 xml_serviceCode = "xml_".concat(service_code_);
                 services_checked_num++;
     %>
-    <input type="hidden" name="<%=Encode.forHtmlAttribute(xml_serviceCode) %>" id="<%=Encode.forHtmlAttribute(xml_serviceCode) %>" value="checked"/>
+    <input type="hidden" name="<%=xml_serviceCode %>" id="<%=xml_serviceCode %>" value="checked"/>
     <%
     } else {
         serviceCode_ = "serviceCode".concat(String.valueOf(serviceN));
@@ -243,15 +243,15 @@
         serviceN++;
     %>
 
-    <input type="hidden" name="<%=Encode.forHtmlAttribute(serviceCode_) %>" id="<%=Encode.forHtmlAttribute(serviceCode_) %>" value="<%=Encode.forHtmlAttribute(service_code_)%>"/>
-    <input type="hidden" name="<%=Encode.forHtmlAttribute(serviceUnit_) %>" id="<%=Encode.forHtmlAttribute(serviceUnit_) %>" value="<%=Encode.forHtmlAttribute(service_code_num_)%>"/>
+    <input type="hidden" name="<%=serviceCode_ %>" id="<%=serviceCode_ %>" value="<%=service_code_%>"/>
+    <input type="hidden" name="<%=serviceUnit_ %>" id="<%=serviceUnit_ %>" value="<%=service_code_num_%>"/>
 
 
     <%
             }
         }
     %>
-    <input type="hidden" name="services_checked" id="services_checked" value="<%=services_checked_num %>">
+    <input type="hidden" name="services_checked" id="services_checked" value=<%=services_checked_num %>>
     <%
 
         }

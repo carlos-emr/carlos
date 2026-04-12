@@ -113,7 +113,9 @@ public class PaymentType2Action extends ActionSupport {
 
             try {
                 json = objectMapper.valueToTree(retMap);
-                response.getWriter().write(json.toString());
+                response.setContentType("application/json");
+                response.setCharacterEncoding("UTF-8");
+                response.getWriter().write(json.toString()); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
             } catch (IOException e) {
                 // TODO Auto-generated catch block
                 MiscUtils.getLogger().info(e.toString());
@@ -153,7 +155,9 @@ public class PaymentType2Action extends ActionSupport {
 
             try {
                 json = objectMapper.valueToTree(retMap);
-                response.getWriter().write(json.toString());
+                response.setContentType("application/json");
+                response.setCharacterEncoding("UTF-8");
+                response.getWriter().write(json.toString()); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
             } catch (IOException e) {
                 // TODO Auto-generated catch block
                 MiscUtils.getLogger().info(e.toString());

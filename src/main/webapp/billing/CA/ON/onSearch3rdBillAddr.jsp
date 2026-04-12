@@ -47,8 +47,23 @@
         String searchModeParam = request.getParameter("search_mode");
         String orderByParam = request.getParameter("orderby");
 
+        // Keep search mode validation separate from order-by validation so DAO search semantics are preserved.
+        java.util.Set<String> VALID_ORDER_BY_COLUMNS = java.util.Set.of("company_name", "attention", "address", "city", "province", "postcode", "telephone", "fax", "id");
+        java.util.Set<String> VALID_SEARCH_MODES = java.util.Set.of(
+                "search_name",
+                "company_name",
+                "attention",
+                "address",
+                "city",
+                "province",
+                "postcode",
+                "telephone",
+                "fax");
+        if (orderByParam == null || !VALID_ORDER_BY_COLUMNS.contains(orderByParam)) { orderByParam = "company_name"; }
+        if (searchModeParam == null || !VALID_SEARCH_MODES.contains(searchModeParam)) { searchModeParam = "search_name"; }
+
         Billing3rdPartyAddressDao dao = SpringUtils.getBean(Billing3rdPartyAddressDao.class);
-        for (Billing3rdPartyAddress ba : dao.findAddresses(searchModeParam, orderByParam, keyword, strLimit1, strLimit2)) {
+        for (Billing3rdPartyAddress ba : dao.findAddresses(searchModeParam, orderByParam, keyword, strLimit1, strLimit2)) { // deepcode ignore SqlInjection: searchModeParam and orderByParam validated against dedicated DAO-compatible allowlists above
             prop = new Properties();
             prop.setProperty("id", "" + ba.getId());
             prop.setProperty("attention", ba.getAttention());
@@ -69,6 +84,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <html>
     <head>
@@ -227,18 +243,18 @@
         %> <%
         if (nItems == 0 && nLastPage <= 0) {
 
-    %> <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.noResultsWereFound"/> <%
+    %> <fmt:message key="demographic.search.noResultsWereFound"/> <%
         }
     %>
         <script language="JavaScript">
             <!--
             function last() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/ON/onSearch3rdBillAddr.jsp?param=<%=Encode.forJavaScript(URLEncoder.encode(param,"UTF-8"))%>&param2=<%=Encode.forJavaScript(URLEncoder.encode(param2,"UTF-8"))%>&keyword=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8"))%>&search_mode=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8"))%>&orderby=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8"))%>&limit1=<%=nLastPage%>&limit2=<%=Encode.forJavaScript(strLimit2)%>";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/ON/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8"))%>&search_mode=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8"))%>&orderby=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8"))%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
                 document.nextform.submit();
             }
 
             function next() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/ON/onSearch3rdBillAddr.jsp?param=<%=Encode.forJavaScript(URLEncoder.encode(param,"UTF-8"))%>&param2=<%=Encode.forJavaScript(URLEncoder.encode(param2,"UTF-8"))%>&keyword=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8"))%>&search_mode=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8"))%>&orderby=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8"))%>&limit1=<%=nNextPage%>&limit2=<%=Encode.forJavaScript(strLimit2)%>";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/ON/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8"))%>&search_mode=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8"))%>&orderby=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8"))%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
                 document.nextform.submit();
             }
 
@@ -250,13 +266,13 @@
                 if (nLastPage >= 0) {
 
             %> <input type="submit" class="mbttn" name="submit"
-                      value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/>"
+                      value="<fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/>"
                       onClick="last()"> <%
             }
             if (nItems == Integer.parseInt(strLimit2)) {
 
         %> <input type="submit" class="mbttn" name="submit"
-                  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/>"
+                  value="<fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/>"
                   onClick="next()"> <%
             }
         %>

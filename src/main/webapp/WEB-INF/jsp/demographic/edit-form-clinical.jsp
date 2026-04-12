@@ -4,7 +4,6 @@
 <%@ page import="java.text.DecimalFormat" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -70,6 +69,7 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -242,7 +242,7 @@
                                                                 <% if (oscarProps.getProperty("demographicLabelDoctor") != null) {
                                                                     out.print(oscarProps.getProperty("demographicLabelDoctor", ""));
                                                                 } else { %>
-                                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formMRP"/>
+                                                                <fmt:message key="demographic.demographiceditdemographic.formMRP"/>
                                                                 <% } %>: </b></td>
                                                             <td align="left"><select id="mrp"
                                                                                      name="provider_no" <%=getDisabled("provider_no")%>
@@ -258,7 +258,7 @@
                                                                 </option>
                                                                 <% } %>
                                                             </select></td>
-                                                            <td align="right" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formNurse"/>: </b>
+                                                            <td align="right" nowrap><b><fmt:message key="demographic.demographiceditdemographic.formNurse"/>: </b>
                                                             </td>
                                                             <td align="left"><select
                                                                     name="nurse" <%=getDisabled("nurse")%>
@@ -277,7 +277,7 @@
                                                             </select></td>
                                                         </tr>
                                                         <tr valign="top">
-                                                            <td align="right" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formMidwife"/>: </b>
+                                                            <td align="right" nowrap><b><fmt:message key="demographic.demographiceditdemographic.formMidwife"/>: </b>
                                                             </td>
                                                             <td align="left"><select
                                                                     name="midwife" <%=getDisabled("midwife")%>
@@ -292,7 +292,7 @@
                                                                 </option>
                                                                 <% } %>
                                                             </select></td>
-                                                            <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResident"/>:</b>
+                                                            <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formResident"/>:</b>
                                                             </td>
                                                             <td align="left"><select name="resident"
                                                                                      style="width: 200px" <%=getDisabled("resident")%>>
@@ -309,7 +309,7 @@
                                                         </tr>
 
                                                         <tr valign="top">
-                                                            <td align="right" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>: </b>
+                                                            <td align="right" nowrap><b><fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>: </b>
                                                             </td>
                                                             <td align="left">
                                                                 <% if (oscarProps.getProperty("isMRefDocSelectList", "").equals("true")) {
@@ -366,14 +366,14 @@
                                                                                      maxlength="40" <%=getDisabled("r_doctor")%>
                                                                                      value="<%=rd%>"> <% } %>
                                                             </td>
-                                                            <td align="right" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formRefDocNo"/>: </b>
+                                                            <td align="right" nowrap><b><fmt:message key="demographic.demographiceditdemographic.formRefDocNo"/>: </b>
                                                             </td>
                                                             <td align="left"><input type="text"
                                                                                     name="r_doctor_ohip" <%=getDisabled("r_doctor_ohip")%>
                                                                                     size="20" maxlength="6"
                                                                                     value="<%=rdohip%>"> <% if ("ON".equals(prov)) { %>
                                                                 <a
-                                                                        href="javascript:referralScriptAttach2('r_doctor_ohip','r_doctor')"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnSearch"/>
+                                                                        href="javascript:referralScriptAttach2('r_doctor_ohip','r_doctor')"><fmt:message key="demographic.demographiceditdemographic.btnSearch"/>
                                                                     #</a> <% } %>
                                                             </td>
                                                         </tr>
@@ -386,7 +386,7 @@
                                                                                 value="true">
 
                                                         <tr valign="top">
-                                                            <td align="right" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formRosterStatus"/>:
+                                                            <td align="right" nowrap><b><fmt:message key="demographic.demographiceditdemographic.formRosterStatus"/>:
                                                             </b></td>
                                                             <td align="left">
                                                                 <%
@@ -403,19 +403,19 @@
                                                                     <option value=""></option>
                                                                     <option value="RO"
                                                                             <%="RO".equals(rosterStatus) ? " selected" : ""%>>
-                                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.optRostered"/></option>
+                                                                        <fmt:message key="demographic.demographiceditdemographic.optRostered"/></option>
                                                                     <!--
 									<option value="NR"
 										<%=rosterStatus.equals("NR")?" selected":""%>>
-									<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.optNotRostered"/></option>
+									<fmt:message key="demographic.demographiceditdemographic.optNotRostered"/></option>
 									-->
                                                                     <option value="TE"
                                                                             <%=rosterStatus.equals("TE") ? " selected" : ""%>>
-                                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.optTerminated"/></option>
+                                                                        <fmt:message key="demographic.demographiceditdemographic.optTerminated"/></option>
 
                                                                     <option value="FS"
                                                                             <%=rosterStatus.equals("FS") ? " selected" : ""%>>
-                                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.optFeeService"/></option>
+                                                                        <fmt:message key="demographic.demographiceditdemographic.optFeeService"/></option>
                                                                     <%
                                                                         for (String status : demographicDao.getRosterStatuses()) {
                                                                     %>
@@ -430,7 +430,7 @@
                                                                                    objectName="_admin.demographic"
                                                                                    rights="r" reverse="<%=false%>">
                                                                     <input type="button" onClick="newStatus1();"
-                                                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnAddNew"/>">
+                                                                           value="<fmt:message key="demographic.demographiceditdemographic.btnAddNew"/>">
                                                                 </security:oscarSec>
                                                             </td>
                                                             <%
@@ -467,7 +467,7 @@
 
                                                             %>
 
-                                                            <td align="right" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.DateJoined"/>: </b>
+                                                            <td align="right" nowrap><b><fmt:message key="demographic.demographiceditdemographic.DateJoined"/>: </b>
                                                             </td>
                                                             <td align="left">
                                                                 <input type="text" name="roster_date_year" size="4"
@@ -480,7 +480,7 @@
                                                         </tr>
 
                                                         <tr valign="top">
-                                                            <td align="right" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.RosterEnrolledTo"/>:
+                                                            <td align="right" nowrap><b><fmt:message key="demographic.demographiceditdemographic.RosterEnrolledTo"/>:
                                                             </b></td>
                                                             <td align="left">
                                                                 <!-- select box here -->
@@ -511,7 +511,7 @@
 
                                                         <tr valign="top">
 
-                                                            <td align="right" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.RosterTerminationDate"/>: </b>
+                                                            <td align="right" nowrap><b><fmt:message key="demographic.demographiceditdemographic.RosterTerminationDate"/>: </b>
                                                             </td>
                                                             <td align="left">
                                                                 <input type="text" placeholder="yyyy"
@@ -529,7 +529,7 @@
                                                             </td>
 
 
-                                                            <td align="right" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.RosterTerminationReason"/>: </b>
+                                                            <td align="right" nowrap><b><fmt:message key="demographic.demographiceditdemographic.RosterTerminationReason"/>: </b>
                                                             </td>
                                                             <td align="left" colspan="3">
                                                                 <select name="roster_termination_reason"
@@ -548,7 +548,7 @@
 
 
                                                     <tr valign="top">
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formPatientStatus"/>:</b>
+                                                        <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formPatientStatus"/>:</b>
                                                             <b> </b></td>
                                                         <td align="left">
                                                             <%
@@ -561,19 +561,19 @@
                                                                     onChange="updatePatientStatusDate()">
                                                                 <option value="AC"
                                                                         <%="AC".equals(patientStatus) ? " selected" : ""%>>
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.optActive"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.optActive"/></option>
                                                                 <option value="IN"
                                                                         <%="IN".equals(patientStatus) ? " selected" : ""%>>
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.optInActive"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.optInActive"/></option>
                                                                 <option value="DE"
                                                                         <%="DE".equals(patientStatus) ? " selected" : ""%>>
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.optDeceased"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.optDeceased"/></option>
                                                                 <option value="MO"
                                                                         <%="MO".equals(patientStatus) ? " selected" : ""%>>
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.optMoved"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.optMoved"/></option>
                                                                 <option value="FI"
                                                                         <%="FI".equals(patientStatus) ? " selected" : ""%>>
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.optFired"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.optFired"/></option>
                                                                 <%
                                                                     for (String status : demographicDao.search_ptstatus()) {
                                                                 %>
@@ -588,11 +588,11 @@
                                                                                objectName="_admin.demographic"
                                                                                rights="r" reverse="<%=false%>">
                                                                 <input type="button" onClick="newStatus();"
-                                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnAddNew"/>">
+                                                                       value="<fmt:message key="demographic.demographiceditdemographic.btnAddNew"/>">
                                                             </security:oscarSec>
                                                         </td>
 
-                                                        <td align="right" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.PatientStatusDate"/>: </b>
+                                                        <td align="right" nowrap><b><fmt:message key="demographic.demographiceditdemographic.PatientStatusDate"/>: </b>
                                                         </td>
                                                         <td align="left">
                                                             <%
@@ -624,7 +624,7 @@
                                                     </tr>
                                                     <tr>
                                                         <%if (!"true".equals(CarlosProperties.getInstance().getProperty("phu.hide", "false"))) { %>
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formPHU"/>:</b>
+                                                        <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formPHU"/>:</b>
                                                         </td>
                                                         <td align="left">
                                                             <select id="PHU" name="PHU">
@@ -652,7 +652,7 @@
                                                         <td align="right"></td>
                                                         <td align="left"><input type="hidden" name="PHU" value=""/></td>
                                                         <% } %>
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formChartNo"/>:</b>
+                                                        <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formChartNo"/>:</b>
                                                         </td>
                                                         <td align="left"><input type="text" name="chart_no"
                                                                                 size="30"
@@ -661,7 +661,7 @@
                                                     </tr>
 
                                                     <tr>
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="web.record.details.archivedPaperChart"/>: </b></td>
+                                                        <td align="right"><b><fmt:message key="web.record.details.archivedPaperChart"/>: </b></td>
                                                         <td align="left">
                                                             <%
                                                                 String paperChartIndicator = StringUtils.trimToEmpty(demoExt.get("paper_chart_archived"));
@@ -674,10 +674,10 @@
                                                                 <option value="" <%="".equals(paperChartIndicator) ? " selected" : ""%>>
                                                                 </option>
                                                                 <option value="NO" <%="NO".equals(paperChartIndicator) ? " selected" : ""%>>
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.paperChartIndicator.no"/>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.paperChartIndicator.no"/>
                                                                 </option>
                                                                 <option value="YES"    <%="YES".equals(paperChartIndicator) ? " selected" : ""%>>
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.paperChartIndicator.yes"/>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.paperChartIndicator.yes"/>
                                                                 </option>
                                                             </select>
 
@@ -701,7 +701,7 @@
 						THIS WAY WILL MAKE EVERYONE HAPPY.
 					--%>
                                                     <tr valign="top">
-                                                        <td align="right" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formDateJoined1"/>:
+                                                        <td align="right" nowrap><b><fmt:message key="demographic.demographiceditdemographic.formDateJoined1"/>:
                                                         </b></td>
                                                         <td align="left">
                                                             <%
@@ -730,7 +730,7 @@
                                                             <input type="text" placeholder="dd"
                                                                    name="date_joined_date" size="2" maxlength="2"
                                                                    value="<%= dateJoinedDay %>"></td>
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formEndDate"/>: </b>
+                                                        <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formEndDate"/>: </b>
                                                         </td>
                                                         <td align="left">
                                                             <%
@@ -1091,7 +1091,7 @@
                                                                     </tr>
                                                                     <tr>
                                                                         <td align="right" nowrap><b>
-                                                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgWaitList"/>:</b>
+                                                                            <fmt:message key="demographic.demographiceditdemographic.msgWaitList"/>:</b>
                                                                         </td>
                                                                         <td align="left">
                                                                             <%
@@ -1115,10 +1115,10 @@
                                                                                       value="<%=wlId%>"> <select
                                                                                 name="list_id">
                                                                             <%if ("".equals(wLReadonly)) {%>
-                                                                            <option value="0"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.optSelectWaitList"/></option>
+                                                                            <option value="0"><fmt:message key="demographic.demographiceditdemographic.optSelectWaitList"/></option>
                                                                             <%} else {%>
                                                                             <option value="0">
-                                                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.optCreateWaitList"/></option>
+                                                                                <fmt:message key="demographic.demographiceditdemographic.optCreateWaitList"/></option>
                                                                             <%} %>
                                                                             <%
 
@@ -1134,7 +1134,7 @@
 
                                                                             %>
                                                                         </select></td>
-                                                                        <td align="right" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgWaitListNote"/>: </b>
+                                                                        <td align="right" nowrap><b><fmt:message key="demographic.demographiceditdemographic.msgWaitListNote"/>: </b>
                                                                         </td>
                                                                         <td align="left"><input type="text"
                                                                                                 name="waiting_list_note"
@@ -1143,7 +1143,7 @@
                                                                     </tr>
                                                                     <tr>
 
-                                                                        <td align="right" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgDateOfReq"/>: </b>
+                                                                        <td align="right" nowrap><b><fmt:message key="demographic.demographiceditdemographic.msgDateOfReq"/>: </b>
                                                                         </td>
                                                                         <td align="left"><input type="text"
                                                                                                 placeholder="yyyy-mm-dd"
@@ -1268,7 +1268,7 @@
                                                             <table id="rxinteractionTable" style="width:100%;">
                                                                 <tr class="category_table_heading">
                                                                     <th class="alignLeft" colspan="4">
-                                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.rxInteractionWarningLevel"/></th>
+                                                                        <fmt:message key="demographic.demographiceditdemographic.rxInteractionWarningLevel"/></th>
                                                                 </tr>
                                                                 <tr>
                                                                     <td class="alignRight">
@@ -1315,12 +1315,12 @@
                                                                 </tr>
 
                                                                 <tr>
-                                                                    <td width="7%" align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formAlert"/>: </b>
+                                                                    <td width="7%" align="right"><b><fmt:message key="demographic.demographiceditdemographic.formAlert"/>: </b>
                                                                     </td>
                                                                     <td><textarea name="alert" style="width: 100%"
                                                                                   rows="8"><%=alert%></textarea></td>
 
-                                                                    <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formNotes"/>: </b>
+                                                                    <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formNotes"/>: </b>
                                                                     </td>
                                                                     <td><textarea name="notes" style="width: 100%"
                                                                                   rows="8"><%=notes%></textarea>
@@ -1350,42 +1350,42 @@
                                                                     boolean showCbiReminder = oscarProps.getBooleanProperty("CBI_REMIND_ON_UPDATE_DEMOGRAPHIC", "true");
                                                                 %>
                                                                 <input type="submit" class="btn-toolbar-update" <%=(showCbiReminder?"onclick='return showCbiReminder()'":"")%>
-                                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnUpdate"/>">
+                                                                       value="<fmt:message key="demographic.demographiceditdemographic.btnUpdate"/>">
                                                             </security:oscarSec>
                                                         </span>
                                                         <security:oscarSec roleName="<%=roleName$%>" objectName="_demographicExport" rights="r" reverse="<%=false%>">
                                                             <input type="button" class="btn-toolbar-secondary"
-                                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgExport"/>"
+                                                                   value="<fmt:message key="demographic.demographiceditdemographic.msgExport"/>"
                                                                    onclick="window.open('<%= request.getContextPath() %>/demographic/demographicExport.jsp?demographicNo=<%=demographic.getDemographicNo()%>');"/>
                                                         </security:oscarSec>
                                                         <input type="button" class="btn-toolbar-secondary"
-                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnAuditInfo"/>"
+                                                               value="<fmt:message key="demographic.demographiceditdemographic.btnAuditInfo"/>"
                                                                onclick="window.open('<%= Encode.forJavaScriptAttribute(request.getContextPath()) %>/demographic/demographicAudit.jsp?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic.getDemographicNo().toString())) %>');"/>
                                                     </div>
                                                     <div class="toolbar-right">
                                                         <span id="swipeButtonBottom" style="display: none;">
                                                             <input type="button" name="Button" class="btn-toolbar-secondary"
-                                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnSwipeCard"/>"
+                                                                   value="<fmt:message key="demographic.demographiceditdemographic.btnSwipeCard"/>"
                                                                    onclick="window.open('demographic/zdemographicswipe.jsp','', 'scrollbars=yes,resizable=yes,width=600,height=300, top=360, left=0')">
                                                         </span>
                                                         <div class="dropdown">
                                                             <button class="btn-toolbar-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.printAndLabels"/>
+                                                                <fmt:message key="demographic.demographiceditdemographic.printAndLabels"/>
                                                             </button>
                                                             <ul class="dropdown-menu dropdown-menu-end">
-                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printEnvelope%><%=demographic.getDemographicNo()%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFEnvelope"/></a></li>
-                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printLbl%><%=demographic.getDemographicNo()%>&appointment_no=<%=Encode.forUriComponent(appointment != null ? appointment : "")%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFLabel"/></a></li>
-                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printAddressLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFAddressLabel"/></a></li>
-                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printChartLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFChartLabel"/></a></li>
+                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printEnvelope%><%=demographic.getDemographicNo()%>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFEnvelope"/></a></li>
+                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printLbl%><%=demographic.getDemographicNo()%>&appointment_no=<%=Encode.forUriComponent(appointment != null ? appointment : "")%>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFLabel"/></a></li>
+                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printAddressLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFAddressLabel"/></a></li>
+                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printChartLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFChartLabel"/></a></li>
                                                                 <% if (oscarProps.getProperty("showSexualHealthLabel", "false").equals("true")) { %>
-                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printSexHealthLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePublicHealthLabel"/></a></li>
+                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printSexHealthLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePublicHealthLabel"/></a></li>
                                                                 <% } %>
-                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(600,800,'<%=printHtmlLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnPrintLabel"/></a></li>
-                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printLabLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnClientLabLabel"/></a></li>
+                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(600,800,'<%=printHtmlLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnPrintLabel"/></a></li>
+                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printLabLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnClientLabLabel"/></a></li>
                                                             </ul>
                                                         </div>
                                                         <input type="button" name="Button" id="cancelButton" class="btn-toolbar-back"
-                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>" onclick="self.close();">
+                                                               value="<fmt:message key="global.btnBack"/>" onclick="self.close();">
                                                     </div>
                                                 </div>
                                                 </table>

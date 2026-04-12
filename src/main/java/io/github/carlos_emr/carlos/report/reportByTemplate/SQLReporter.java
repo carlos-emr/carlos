@@ -38,6 +38,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.dao.ReportTemplatesDao;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.commn.model.ReportTemplates;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -98,7 +99,7 @@ public class SQLReporter implements Reporter {
 
         // Validate templateId against the database before executing any query (CWE-501)
         if (resolveActiveTemplate(templateId) == null) {
-            MiscUtils.getLogger().warn("generateReport: invalid or inactive templateId '{}'", Encode.forJava(templateId));
+            MiscUtils.getLogger().warn("generateReport: invalid or inactive templateId '{}'", LogSanitizer.sanitize(templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             request.setAttribute("errormsg", "Error: Invalid or inactive report template.");
             return false;
         }
@@ -123,26 +124,22 @@ public class SQLReporter implements Reporter {
             sql = parameterizedResult[0];
             sqlParams = extractParams(parameterizedResult);
         } else {
-            MiscUtils.getLogger().warn("Report template {} uses legacy non-parameterized SQL path", templateId);
-            sql = curReport.getPreparedSQL(parameterMap);
-            if (sql == null || sql.trim().isEmpty()) {
-                request.setAttribute("errormsg", "Error: Cannot find all parameters for the query.  Check the template.");
-                request.setAttribute("templateid", templateId);
-                return false;
-            }
-            sqlParams = null;
+            MiscUtils.getLogger().error("Report template {} uses unsupported legacy non-parameterized report type. Refusing to execute.", LogSanitizer.sanitize(templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            request.setAttribute("errormsg", "Error: This report template uses a legacy format that is no longer supported. Please contact your administrator to update the template.");
+            request.setAttribute("templateid", templateId);
+            return false;
         }
 
         String[] result = executeQuery(sql, sqlParams, false);
 
         String csv = result[1];
         if (csv.length() > MAX_CSV_SESSION_LENGTH) {
-            MiscUtils.getLogger().warn("generateReport: CSV result for template '{}' exceeds session size limit ({} chars); not storing in session", Encode.forJava(templateId), csv.length());
+            MiscUtils.getLogger().warn("generateReport: CSV result for template '{}' exceeds session size limit ({} chars); not storing in session", LogSanitizer.sanitize(templateId), csv.length()); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             request.setAttribute("errormsg", "Warning: Report result is too large to download as CSV. Please narrow your search criteria.");
             csv = "";
         }
 
-        request.getSession().setAttribute("csv", csv);
+        request.getSession().setAttribute("csv", csv); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- csv is generated from executeQuery() results for a validated report template, not copied directly from request parameters
         request.setAttribute("csv", csv);
         request.setAttribute("sql", sql);
         request.setAttribute("reportobject", curReport);
@@ -156,7 +153,7 @@ public class SQLReporter implements Reporter {
 
         // Validate templateId against the database before executing any query (CWE-501)
         if (resolveActiveTemplate(templateId) == null) {
-            MiscUtils.getLogger().warn("generateSequencedReport: invalid or inactive templateId '{}'", Encode.forJava(templateId));
+            MiscUtils.getLogger().warn("generateSequencedReport: invalid or inactive templateId '{}'", LogSanitizer.sanitize(templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             request.setAttribute("errormsg", "Error: Invalid or inactive report template.");
             return false;
         }
@@ -183,20 +180,10 @@ public class SQLReporter implements Reporter {
                 x++;
             }
         } else {
-            MiscUtils.getLogger().warn("Report template {} uses legacy non-parameterized SQL path (sequenced)", templateId);
-            String sql = null;
-            while ((sql = curReport.getPreparedSQL(x, parameterMap)) != null) {
-                if (sql.isEmpty()) {
-                    request.setAttribute("errormsg", "Error: Cannot find all parameters for the query.  Check the template.");
-                    request.setAttribute("templateid", templateId);
-                    return false;
-                }
-                String[] result = executeQuery(sql, null, true);
-                request.setAttribute("csv-" + x, result[1]);
-                request.setAttribute("sql-" + x, sql);
-                request.setAttribute("resultsethtml-" + x, result[0]);
-                x++;
-            }
+            MiscUtils.getLogger().error("Report template {} uses unsupported legacy non-parameterized report type (sequenced). Refusing to execute.", LogSanitizer.sanitize(templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            request.setAttribute("errormsg", "Error: This report template uses a legacy format that is no longer supported. Please contact your administrator to update the template.");
+            request.setAttribute("templateid", templateId);
+            return false;
         }
 
         request.setAttribute("sequenceLength", x);
@@ -209,7 +196,7 @@ public class SQLReporter implements Reporter {
      * Executes a SQL query and returns the HTML and CSV representations.
      *
      * @param sql         the SQL query to execute
-     * @param sqlParams   JDBC parameters (null to use the legacy non-parameterized path)
+     * @param sqlParams   JDBC parameters for the parameterized query
      * @param showSqlOnEmpty if true, prefix the "no results" message with the SQL text
      * @return {@code String[2]} where {@code [0]} is the HTML result and {@code [1]} is the CSV
      */
@@ -217,9 +204,7 @@ public class SQLReporter implements Reporter {
         String rsHtml = "An SQL query error has occured ";
         String csv = "";
         try (StringWriter swr = new StringWriter();
-             ResultSet rs = (sqlParams != null)
-                     ? DBHandler.GetPreSQL(sql, sqlParams)
-                     : DBHandler.GetSQL(sql)) {
+             ResultSet rs = DBHandler.GetPreSQL(sql, sqlParams)) {
             if (!rs.isBeforeFirst()) {
                 rsHtml = showSqlOnEmpty
                         ? (Encode.forHtml(sql) + "<br/>The query returned no results.")

@@ -23,6 +23,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
@@ -38,7 +39,7 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.appt.status.mgr.title"/></title>
+    <title><fmt:message key="admin.appt.status.mgr.title"/></title>
     <link href="<%= request.getContextPath() %>/css/jquery.ui.colorPicker.css" rel="stylesheet" type="text/css"/>
     <script src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>
     <script src="<%= request.getContextPath() %>/js/jquery-ui-1.8.18.custom.min.js" type="text/javascript"></script>
@@ -62,7 +63,7 @@
 
 <table border=0 cellspacing=0 cellpadding=0 width="100%">
     <tr bgcolor="#486ebd">
-        <th align="CENTER" NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.appt.status.mgr.title"/></font></th>
+        <th align="CENTER" NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.appt.status.mgr.title"/></font></th>
     </tr>
 </table>
 
@@ -72,23 +73,23 @@
     <input type="hidden" name="ID" value="${e:forHtmlAttribute(ID)}"/>
     <table>
         <tr>
-            <td class="tdLabel"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.appt.status.mgr.label.status"/>:
+            <td class="tdLabel"><fmt:message key="admin.appt.status.mgr.label.status"/>:
             </td>
             <td><input type="text" readonly="readonly" name="apptStatus" value="${e:forHtmlAttribute(apptStatus)}" size="40"/></td>
         </tr>
         <tr>
-            <td class="tdLabel"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.appt.status.mgr.label.desc"/>:
+            <td class="tdLabel"><fmt:message key="admin.appt.status.mgr.label.desc"/>:
             </td>
             <td><input type="text" name="apptDesc" value="${e:forHtmlAttribute(apptDesc)}" size="40" /></td>
         </tr>
         <tr>
-            <td class="tdLabel"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.appt.status.mgr.label.oldcolor"/>:
+            <td class="tdLabel"><fmt:message key="admin.appt.status.mgr.label.oldcolor"/>:
             </td>
             <td><input type="text" readonly="true" id="old_color" name="apptOldColor" value="${e:forHtmlAttribute(apptOldColor)}" size="40"/>
             </td>
         </tr>
         <tr>
-            <td class="tdLabel"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.appt.status.mgr.label.newcolor"/>:
+            <td class="tdLabel"><fmt:message key="admin.appt.status.mgr.label.newcolor"/>:
             </td>
             <td>
                 <input id="apptColor" name="apptColor" value="${e:forHtmlAttribute(apptOldColor)}" size="20"/>
@@ -99,7 +100,7 @@
         <tr>
             <td colspan="2">
                 <input type="submit"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="io.github.carlos_emr.carlos.appt.status.mgr.label.submit"/>"/>
+                       value="<fmt:message key="io.github.carlos_emr.carlos.appt.status.mgr.label.submit"/>"/>
             </td>
         </tr>
     </table>

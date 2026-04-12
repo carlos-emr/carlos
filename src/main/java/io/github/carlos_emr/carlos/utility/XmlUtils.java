@@ -241,7 +241,7 @@ public final class XmlUtils {
     }
 
     /**
-     * Creates a {@link SchemaFactory} with external access disabled.
+     * Creates a {@link javax.xml.validation.SchemaFactory} with external access disabled.
      *
      * <p>Sets {@code ACCESS_EXTERNAL_DTD} and {@code ACCESS_EXTERNAL_SCHEMA} to empty strings
      * so that no external DTD or schema resources can be loaded during schema compilation.
@@ -312,7 +312,7 @@ public final class XmlUtils {
     public static SAXSource createSecureJaxbSource(InputStream inputStream) throws ParserConfigurationException, SAXException {
         SAXParserFactory spf = createSecureSAXParserFactory();
         spf.setNamespaceAware(true);
-        XMLReader xr = spf.newSAXParser().getXMLReader();
+        XMLReader xr = spf.newSAXParser().getXMLReader(); // nosemgrep: xmlreader-xxe, xmlreader-xxe-parameter-entities -- XXE protection applied by createSecureSAXParserFactory() above
         return new SAXSource(xr, new InputSource(inputStream));
     }
 

@@ -54,10 +54,10 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalContact" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Contact" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.apache.commons.text.WordUtils" %>
 
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     if (session.getAttribute("user") == null) {
@@ -180,8 +180,8 @@
                             <td>&nbsp;</td>
                             <td>&nbsp;</td>
                             <td style="text-align: right"><a
-                                    href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                                    href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
+                                    href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
+                                    href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a></td>
                         </tr>
                     </table>
                 </td>
@@ -240,7 +240,7 @@
                 jakarta.servlet.jsp.jstl.core.LoopTagStatus i = (jakarta.servlet.jsp.jstl.core.LoopTagStatus) pageContext.getAttribute("i");
                 String bgColor = i.getIndex() % 2 == 0 ? "#EEEEFF" : "ivory";
                 String strOnClick;
-                strOnClick = "selectResult('" + contact.getSystemId() + "_" + contact.getId() + "','" + StringEscapeUtils.escapeEcmaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";
+                strOnClick = "selectResult('" + contact.getSystemId() + "_" + contact.getId() + "','" + Encode.forJavaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";
 
             %>
             <tr bgcolor="<%=bgColor%>"
@@ -261,7 +261,7 @@
             if (nItems == 0 && nLastPage <= 0) {
         %>
         <tr>
-            <td colspan="3"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.noResultsWereFound"/></td>
+            <td colspan="3"><fmt:message key="demographic.search.noResultsWereFound"/></td>
         </tr>
         <% } %>
 
@@ -271,14 +271,14 @@
                     if (nLastPage >= 0) {
                 %>
                 <td><input type="submit" class="mbttn" name="submit"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/>"
+                           value="<fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/>"
                            onClick="last()"></td>
                 <%
                     }
                     if (nItems == Integer.parseInt(strLimit2)) {
                 %>
                 <td><input type="submit" class="mbttn" name="submit"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/>"
+                           value="<fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/>"
                            onClick="next()"></td>
                 <%
                     }

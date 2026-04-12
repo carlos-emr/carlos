@@ -93,7 +93,7 @@ public class OntarioMD {
     private Hashtable parseReturn(InputStream is) {
         Hashtable h = null;
         try {
-            SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
+            SAXBuilder parser = XmlUtils.createSecureSAXBuilder(); // NOSONAR java:S2755 — XXE protection applied via XmlUtils.createSecureSAXBuilder()
             Document doc = parser.build(is);
             Element root = doc.getRootElement();
 

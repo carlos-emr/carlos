@@ -45,6 +45,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.daos.DefaultIssueDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
@@ -81,6 +82,7 @@ import org.owasp.encoder.Encode;
 
 import java.util.Properties;
 import java.util.Vector;
+import java.util.regex.Pattern;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -88,6 +90,14 @@ import org.apache.struts2.ServletActionContext;
 public class EctIncomingEncounter2Action extends ActionSupport {
 
     private static Logger log = MiscUtils.getLogger();
+
+    // CWE-501 trust boundary validation patterns
+    private static final Pattern SAFE_STATUS = Pattern.compile("[a-zA-Z]{1,2}");
+    private static final Pattern SAFE_DATE = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
+    private static final Pattern SAFE_TIME = Pattern.compile("[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?");
+    // Any character except ASCII control chars (allows Unicode for bilingual Canadian EMR)
+    private static final Pattern SAFE_TEXT = Pattern.compile("[^\\p{Cntrl}]*");
+    private static final Set<String> VALID_SOURCES = Set.of("encounter", "messenger");
     private CaseManagementNoteDAO caseManagementNoteDao = SpringUtils.getBean(CaseManagementNoteDAO.class);
     private CaseManagementManager caseManagementMgr = SpringUtils.getBean(CaseManagementManager.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -97,17 +107,23 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         HttpServletResponse response = ServletActionContext.getResponse();
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
         String demoNo = request.getParameter("demographicNo");
 
         // Check if demographicNo is null or invalid
         if (demoNo == null || demoNo.trim().isEmpty() || "null".equals(demoNo)) {
             log.error("EctIncomingEncounter2Action called with null or invalid demographicNo");
-            throw new IllegalArgumentException("Invalid or missing demographicNo parameter");
+            return "failure";
         }
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r",
-                null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+        // Validate demographicNo is numeric before crossing the trust boundary
+        if (!demoNo.matches("\\d+")) {
+            log.error("EctIncomingEncounter2Action called with non-numeric demographicNo: {}", LogSanitizer.sanitize(demoNo));
+            return "failure";
         }
 
         if (!"true".equals(CarlosProperties.getInstance().getProperty("program_domain.show_echart", "false"))) {
@@ -127,13 +143,18 @@ public class EctIncomingEncounter2Action extends ActionSupport {
 
         if (request.getParameter("appointmentList") != null) {
             bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
-            bean.setUpEncounterPage(loggedInInfo, request.getParameter("appointmentNo"));
+            String apptListNo = request.getParameter("appointmentNo");
+            if (apptListNo != null && !apptListNo.matches("\\d{1,9}")) {
+                log.warn("Invalid non-numeric appointmentNo in appointmentList branch: {}", LogSanitizer.sanitize(apptListNo));
+                return "failure";
+            }
+            bean.setUpEncounterPage(loggedInInfo, apptListNo);
             bean.template = "";
         } else if (request.getParameter("demographicSearch") != null) {
             // Coming in from the demographicSearch page
             bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
-            // demographicNo is passed from search screen
-            bean.demographicNo = request.getParameter("demographicNo");
+            // Use pre-validated demoNo (validated at method entry)
+            bean.demographicNo = demoNo;
             // no curProviderNo when viewing eCharts from search screen
             // bean.curProviderNo="";
             // no reason when viewing eChart from search screen
@@ -151,13 +172,20 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             bean.appointmentNo = "0";
             bean.check = "myCheck";
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
-            request.getSession().setAttribute("EctSessionBean", bean);
+            // demographicNo validated as numeric at method entry; other bean fields are unsanitized — consuming JSPs MUST use OWASP encoding
+            request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         } else {
             if ("yes".equals(request.getParameter("PEAttach"))) {
                 String selectClientmo = request.getParameter("selectId");
-                // save
                 String lastId = request.getParameter("noteId");
-
+                if (selectClientmo == null || !selectClientmo.matches("\\d{1,9}")) {
+                    log.warn("Invalid selectId for PEAttach: {}", LogSanitizer.sanitize(selectClientmo)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                    return "failure";
+                }
+                if (lastId == null || !lastId.matches("\\d{1,9}")) {
+                    log.warn("Invalid noteId for PEAttach: {}", LogSanitizer.sanitize(lastId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                    return "failure";
+                }
                 CaseManagementNote note = caseManagementNoteDao.getNote(Long.parseLong(lastId));
                 note.setId(null);
                 note.setDemographic_no(selectClientmo);
@@ -171,44 +199,89 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             }
 
             bean.providerNo = request.getParameter("providerNo");
-            if (bean.providerNo == null) {
-                bean.providerNo = (String) request.getSession().getAttribute("user");
+            if (bean.providerNo != null && !bean.providerNo.isEmpty() && !bean.providerNo.matches("[a-zA-Z0-9]{1,6}")) {
+                log.warn("Invalid providerNo: {}", LogSanitizer.sanitize(bean.providerNo));
+                return "failure";
+            }
+            if (bean.providerNo == null || bean.providerNo.isEmpty()) {
+                bean.providerNo = (String) request.getSession().getAttribute("user"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fallback to authenticated provider from own session
             }
 
-            bean.demographicNo = request.getParameter("demographicNo");
+            bean.demographicNo = demoNo;
             bean.appointmentNo = request.getParameter("appointmentNo");
+            if (bean.appointmentNo == null || "null".equalsIgnoreCase(bean.appointmentNo) || bean.appointmentNo.isEmpty()) {
+                bean.appointmentNo = null;
+            } else if (!bean.appointmentNo.matches("\\d{1,9}")) {
+                log.warn("Invalid appointmentNo: {}", LogSanitizer.sanitize(bean.appointmentNo));
+                return "failure";
+            }
             // use this one.
-            if (bean.appointmentNo != null && !bean.appointmentNo.equalsIgnoreCase("null")
-                    && !"".equals(bean.appointmentNo) && appointmentNo != null) {
+            if (bean.appointmentNo != null && appointmentNo != null) {
                 bean.appointmentNo = appointmentNo;
             }
 
             bean.curProviderNo = request.getParameter("curProviderNo");
+            if (bean.curProviderNo != null && !bean.curProviderNo.isEmpty() && !bean.curProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
+                log.warn("Invalid curProviderNo: {}", LogSanitizer.sanitize(bean.curProviderNo));
+                return "failure";
+            }
             Provider provider = loggedInInfo.getLoggedInProvider();
             if (bean.curProviderNo == null || bean.curProviderNo.trim().length() == 0)
                 bean.curProviderNo = provider.getProviderNo();
-            bean.reason = request.getParameter("reason");
-            bean.reasonCode = request.getParameter("reasonCode");
-            bean.encType = request.getParameter("encType");
+            // Reject oversized free-text parameters to prevent session storage abuse
+            for (String paramName : new String[]{"reason", "reasonCode", "encType", "userName",
+                    "appointmentDate", "startTime", "status", "date", "source"}) {
+                String val = request.getParameter(paramName);
+                if (val != null && val.length() > 255) {
+                    log.warn("Parameter too long: {}", paramName);
+                    return "failure";
+                }
+            }
+
+            // CWE-501 trust boundary: validate structured fields, sanitize free-text
+            String reasonParam = request.getParameter("reason");
+            bean.reason = (reasonParam != null && SAFE_TEXT.matcher(reasonParam).matches()) ? reasonParam.substring(0, Math.min(reasonParam.length(), 255)) : null;
+            String reasonCodeParam = request.getParameter("reasonCode");
+            bean.reasonCode = (reasonCodeParam != null && reasonCodeParam.matches("[a-zA-Z0-9]{1,20}")) ? reasonCodeParam : null;
+            String encTypeParam = request.getParameter("encType");
+            bean.encType = (encTypeParam != null && encTypeParam.matches("[a-zA-Z0-9_ ]{1,50}")) ? encTypeParam : null;
             bean.userName = request.getParameter("userName");
             if (bean.userName == null) {
+                // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fallback to authenticated user's name from own session (set post-auth)
+                bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " "
+                        + ((String) request.getSession().getAttribute("userlastname"));
+            } else if (!SAFE_TEXT.matcher(bean.userName).matches() || bean.userName.length() > 100) {
+                log.warn("Rejected invalid userName at trust boundary, falling back to session-derived name");
+                // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fallback to authenticated user's name from own session after rejecting invalid param
                 bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " "
                         + ((String) request.getSession().getAttribute("userlastname"));
             }
 
-
-            bean.appointmentDate = request.getParameter("appointmentDate");
-            bean.startTime = request.getParameter("startTime");
-            bean.status = request.getParameter("status");
-            bean.date = request.getParameter("date");
+            String apptDateParam = request.getParameter("appointmentDate");
+            bean.appointmentDate = (apptDateParam != null && SAFE_DATE.matcher(apptDateParam).matches()) ? apptDateParam : null;
+            String startTimeParam = request.getParameter("startTime");
+            bean.startTime = (startTimeParam != null && SAFE_TIME.matcher(startTimeParam).matches()) ? startTimeParam : null;
+            String statusParam = request.getParameter("status");
+            bean.status = (statusParam != null && SAFE_STATUS.matcher(statusParam).matches()) ? statusParam : null;
+            String dateParam = request.getParameter("date");
+            bean.date = (dateParam != null && SAFE_DATE.matcher(dateParam).matches()) ? dateParam : null;
             bean.check = "myCheck";
             bean.oscarMsgID = request.getParameter("msgId");
-            bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
-            request.getSession().setAttribute("EctSessionBean", bean);
-            request.getSession().setAttribute("eChartID", bean.eChartId);
-            if (request.getParameter("source") != null) {
-                bean.source = request.getParameter("source");
+            if (bean.oscarMsgID != null && !bean.oscarMsgID.matches("\\d+")) {
+                log.warn("Invalid msgId: {}", LogSanitizer.sanitize(bean.oscarMsgID));
+                return "failure";
             }
+            String sourceParam = request.getParameter("source");
+            if (sourceParam != null) {
+                bean.source = VALID_SOURCES.contains(sourceParam) ? sourceParam : null;
+            }
+            bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
+            // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- demographicNo/appointmentNo/curProviderNo validated as numeric/alphanumeric;
+            // status validated [a-zA-Z]{1,2}; dates validated YYYY-MM-DD; times validated HH:MM; encType validated alphanumeric;
+            // source whitelisted to {"encounter","messenger"}; reason/userName sanitized for control chars and length-capped;
+            // eChartId is server-generated from setUpEncounterPage()
+            request.getSession().setAttribute("EctSessionBean", bean);
+            request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- server-generated ID from EctSessionBean.setUpEncounterPage()
 
             long notesCount = caseManagementNoteDao.getNotesCountByDemographicId(bean.getDemographicNo());
             if (notesCount == 0

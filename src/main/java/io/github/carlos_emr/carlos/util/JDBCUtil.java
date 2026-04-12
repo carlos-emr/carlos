@@ -46,7 +46,7 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
 import io.github.carlos_emr.Misc;
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
@@ -74,8 +74,8 @@ public class JDBCUtil {
             results.appendChild(row);
 
             for (int i = 1; i <= colCount; i++) {
-                String columnName = StringEscapeUtils.escapeXml10(rsmd.getColumnName(i));
-                String value = StringEscapeUtils.escapeXml10(Misc.getString(rs, i));
+                String columnName = Encode.forXml(rsmd.getColumnName(i));
+                String value = Encode.forXml(Misc.getString(rs, i));
 
                 Element node = doc.createElement(columnName);
                 node.appendChild(doc.createTextNode(value));
@@ -126,16 +126,17 @@ public class JDBCUtil {
 
 
             //check if the data existed in the database already...
-            String sql = "SELECT * FROM " + formName + " WHERE demographic_no='"
-                    + demographicNo + "' AND formEdited='" + timeStamp + "'";
+            if (!formName.matches("[a-zA-Z][a-zA-Z0-9_]*")) {
+                throw new IllegalArgumentException("Invalid form table name");
+            }
+            String sql = "SELECT * FROM " + formName + " WHERE demographic_no=? AND formEdited=?";
             MiscUtils.getLogger().debug(sql);
-            ResultSet rs = DBHandler.GetSQL(sql);
+            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo, timeStamp);
             if (!rs.first()) {
                 rs.close();
-                sql = "SELECT * FROM " + formName + " WHERE demographic_no='"
-                        + demographicNo + "' AND ID='0'";
+                sql = "SELECT * FROM " + formName + " WHERE demographic_no=? AND ID='0'";
                 MiscUtils.getLogger().debug("sql: " + sql);
-                rs = DBHandler.GetSQL(sql, true);
+                rs = DBHandler.GetPreSQL(sql, true, new Object[]{demographicNo});
                 rs.moveToInsertRow();
                 // setValidating(true) was removed — incompatible with disallow-doctype-decl which rejects all DOCTYPEs
                 DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();

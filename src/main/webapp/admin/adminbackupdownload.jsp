@@ -36,7 +36,7 @@
       java.io.*,
       java.net.*,
       org.apache.commons.io.FileUtils,
-      org.apache.commons.text.StringEscapeUtils,
+      org.owasp.encoder.Encode,
       io.github.carlos_emr.CarlosProperties,
       io.github.carlos_emr.carlos.util.FileSortByDate
 " %>
@@ -44,6 +44,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core"   prefix="c"   %>
 <%@ taglib uri="jakarta.tags.fmt"    prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     // 1) Null-safe session check
@@ -99,7 +100,6 @@
   </head>
   <body>
     <h3>
-      <fmt:setBundle basename="oscarResources"/>
       <fmt:message key="admin.admin.btnAdminBackupDownload"/>
     </h3>
 
@@ -138,7 +138,7 @@
                   }
 
                   // 2) XSS-safe name
-                  String safeName = StringEscapeUtils.escapeHtml4(name);
+                  String safeName = Encode.forHtml(name);
 
                   String encoded = URLEncoder.encode(name, "UTF-8");
                   long bytes = f.length();

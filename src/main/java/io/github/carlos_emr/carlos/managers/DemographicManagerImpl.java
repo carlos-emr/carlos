@@ -40,6 +40,8 @@ import io.github.carlos_emr.carlos.commn.Gender;
 import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.commn.model.Demographic.PatientStatus;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DemographicExtKey;
+import io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO;
+import io.github.carlos_emr.carlos.demographic.dto.DemographicListItemDTO;
 import io.github.carlos_emr.carlos.utility.DemographicContactCreator;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -125,7 +127,11 @@ public class DemographicManagerImpl implements DemographicManager {
 	 */
      @Override
      public Demographic getDemographic(LoggedInInfo loggedInInfo, Integer demographicId) throws PatientDirectiveException {
-        checkPrivilege(loggedInInfo, SecurityInfoManager.READ, (demographicId != null) ? demographicId : null); 
+        if (demographicId != null) {
+            checkPrivilege(loggedInInfo, SecurityInfoManager.READ, demographicId);
+        } else {
+            checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+        }
         Demographic demographic = demographicDao.getDemographicById(demographicId); 
         if (demographic != null) {
 			this.getMRP(loggedInInfo, demographic);
@@ -1269,6 +1275,42 @@ public class DemographicManagerImpl implements DemographicManager {
         String appointmentString = getNextAppointmentDate(loggedInInfo, demographic.getDemographicNo());
         demographic.setNextAppointment(appointmentString);
         return appointmentString;
+    }
+
+    // --- DTO projection methods ---
+
+    /** {@inheritDoc} */
+    @Override
+    public DemographicHeaderDTO getDemographicHeader(LoggedInInfo loggedInInfo, Integer demographicId) {
+        if (demographicId == null) {
+            checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+            return null;
+        }
+        checkPrivilege(loggedInInfo, SecurityInfoManager.READ, demographicId);
+        DemographicHeaderDTO result = demographicDao.getDemographicHeader(demographicId);
+        if (result != null) {
+            LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.getDemographicHeader",
+                    "demographicId=" + result.getDemographicNo());
+        }
+        return result;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<DemographicListItemDTO> searchDemographicDTOs(LoggedInInfo loggedInInfo, String searchString,
+                                                              int startIndex, int itemsToReturn) {
+        checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+        List<DemographicListItemDTO> results = demographicDao.searchDemographicDTOByName(
+                searchString, itemsToReturn, startIndex, providerNo, false);
+
+        // --- log action ---
+        for (DemographicListItemDTO dto : results) {
+            LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.searchDemographicDTOs result",
+                    "demographicId=" + dto.getDemographicNo());
+        }
+
+        return results;
     }
 
 }

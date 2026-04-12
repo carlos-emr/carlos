@@ -96,9 +96,9 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
     @Override
     @SuppressWarnings("unchecked")
     public List<Object[]> findCodingSystemDescription(String codingSystem, String code) {
-        // Use the allowlist map to obtain a safe table/column name; if the value is not
-        // in the map the input is invalid and we return an empty result.
-        String safeSystem = VALID_CODING_SYSTEMS.get(codingSystem);
+        // Use the allowlist map to obtain a safe table/column name; if the value is null
+        // or not in the map the input is invalid and we return an empty result.
+        String safeSystem = codingSystem != null ? VALID_CODING_SYSTEMS.get(codingSystem) : null;
         if (safeSystem == null) {
             MiscUtils.getLogger().warn("Invalid coding system name: {}", LogSanitizer.sanitize(codingSystem));
             return new ArrayList<Object[]>();
@@ -109,7 +109,7 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
             // to interpolate as a table/column identifier.  The code value is parameterized.
             String sql = "SELECT " + safeSystem + ", description FROM " + safeSystem + " WHERE " + safeSystem
                     + " = ?1";
-            Query query = entityManager.createNativeQuery(sql);
+            Query query = entityManager.createNativeQuery(sql); // codeql[java/sql-injection] — safeSystem is from VALID_CODING_SYSTEMS hardcoded allowlist, not user input
             query.setParameter(1, code);
             return query.getResultList();
         } catch (Exception e) {
@@ -124,7 +124,7 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
     public List<Object[]> findCodingSystemDescription(String codingSystem, String[] keywords) {
         try {
             // Use the allowlist map to obtain a safe table/column name.
-            String safeSystem = VALID_CODING_SYSTEMS.get(codingSystem);
+            String safeSystem = codingSystem != null ? VALID_CODING_SYSTEMS.get(codingSystem) : null;
             if (safeSystem == null) {
                 MiscUtils.getLogger().warn("Invalid coding system name: {}", LogSanitizer.sanitize(codingSystem));
                 return new ArrayList<Object[]>();
@@ -140,7 +140,7 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
             
             if (validKeywords.isEmpty()) {
                 // safeSystem comes from the allowlist map — safe to use as an identifier
-                Query query = entityManager.createNativeQuery("select " + safeSystem + ", description from " + safeSystem);
+                Query query = entityManager.createNativeQuery("select " + safeSystem + ", description from " + safeSystem); // codeql[java/sql-injection] — safeSystem is from VALID_CODING_SYSTEMS hardcoded allowlist, not user input
                 return query.getResultList();
             }
             
@@ -155,7 +155,7 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
             
             buf.append(String.join(" or ", conditions));
             
-            Query query = entityManager.createNativeQuery(buf.toString());
+            Query query = entityManager.createNativeQuery(buf.toString()); // codeql[java/sql-injection] — safeSystem is from VALID_CODING_SYSTEMS hardcoded allowlist, not user input
             
             // Set parameters
             int paramIndex = 1;
@@ -179,7 +179,7 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
         String desc = "";
         
         // Use the allowlist map to obtain a safe table/column name.
-        String safeSystem = VALID_CODING_SYSTEMS.get(codingSystem);
+        String safeSystem = codingSystem != null ? VALID_CODING_SYSTEMS.get(codingSystem) : null;
         if (safeSystem == null) {
             MiscUtils.getLogger().warn("Invalid coding system name: {}", LogSanitizer.sanitize(codingSystem));
             return desc;
@@ -188,7 +188,7 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
         // safeSystem comes from the hardcoded allowlist map — safe to use as an identifier
         String sql = "select description from " + safeSystem + " where " + safeSystem + "=?1";
         try {
-            Query query = entityManager.createNativeQuery(sql);
+            Query query = entityManager.createNativeQuery(sql); // codeql[java/sql-injection] — safeSystem is from VALID_CODING_SYSTEMS hardcoded allowlist, not user input
             query.setParameter(1, code);
             desc = (String) query.getSingleResult();
         } catch (Exception e) {

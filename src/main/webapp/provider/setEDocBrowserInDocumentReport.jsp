@@ -31,6 +31,8 @@
 
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
 <%
@@ -70,8 +72,8 @@
             <td class="MainTableRightColumn">
                 <%if (request.getAttribute("status") == null) {%> <%=bundle.getString(providermsgEdit)%>
                 <form action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
-                    <input type="hidden" name="method" value="<c:out value="${method}"/>">
-                    <input type="checkbox" name="eDocBrowserInDocumentReportProperty.checked" <c:if test="${eDocBrowserInDocumentReportProperty.checked}">checked</c:if> /><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setEDocBrowserInDocumentReport.msgEnableLink"/>
+                    <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
+                    <input type="checkbox" name="eDocBrowserInDocumentReportProperty.checked" <c:if test="${eDocBrowserInDocumentReportProperty.checked}">checked</c:if> /><fmt:message key="provider.setEDocBrowserInDocumentReport.msgEnableLink"/>
                     <br/>
                     <input type="submit" name="btnApply" value="Apply" />
                 </form> <%} else {%> <%=bundle.getString(providermsgSuccess)%> <br>
