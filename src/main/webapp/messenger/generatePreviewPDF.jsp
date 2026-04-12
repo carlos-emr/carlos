@@ -72,22 +72,30 @@
  */
 --%>
 
-<%@ page
-        import="io.github.carlos_emr.carlos.messenger.docxfer.send.*,
-                io.github.carlos_emr.carlos.messenger.docxfer.util.*,
-                io.github.carlos_emr.carlos.encounter.data.*,
-                io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean,
-                io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean,
-                io.github.carlos_emr.carlos.prescript.data.RxPatientData,
-                io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean,
-                io.github.carlos_emr.carlos.demographic.data.*" %>
-
-<%@ page import=" java.util.*, org.w3c.dom.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
-         errorPage="/errorpage.jsp" %>
+<%@ page import=" java.util.*" %>
+<%@ page import="org.w3c.dom.*" %>
+<%@ page import="java.sql.*" %>
+<%@ page import="io.github.carlos_emr.*" %>
+<%@ page import="java.text.*" %>
+<%@ page import="java.lang.*" %>
+<%@ page import="java.net.*" %>
+<%@ errorPage="/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.send.*" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.EChartDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.EChart" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     EChartDao eChartDao = SpringUtils.getBean(EChartDao.class);
 %>
@@ -110,13 +118,6 @@
         return;
     }
 %>
-
-<%@ page import="io.github.carlos_emr.carlos.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
-
 <%
     String demographic_no_raw = request.getParameter("demographic_no");
     // Validate and parse demographic_no as integer to prevent trust boundary violation (CWE-501)
@@ -165,14 +166,11 @@
 %>
 
 
-<link rel="stylesheet" type="text/css" href="encounterStyles.css">
-<html>
-    <head>
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="messenger.CreateMessage.title"/>
         </title>
-
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
