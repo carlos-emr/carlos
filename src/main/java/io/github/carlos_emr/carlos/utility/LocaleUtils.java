@@ -107,7 +107,7 @@ public final class LocaleUtils {
 
     static {
         DEFAULT_LOCALE = Locale.ENGLISH;
-        BASE_NAME = "string_tables/strings";
+        BASE_NAME = "oscarResources";
         provinceCache = new HashMap();
     }
 }
