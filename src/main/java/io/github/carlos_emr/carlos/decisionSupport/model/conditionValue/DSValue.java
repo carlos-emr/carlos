@@ -69,18 +69,20 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * @since 2009-07-06
  * @see DSValueStatement for numeric comparison values
  * @see DSValueString for string literal values
- * @see DSValueStatement for condition evaluation using values
  */
 public abstract class DSValue {
     private static final Logger _log = MiscUtils.getLogger();
 
-    @SuppressWarnings({"java:S5852", "squid:S5852"}) // Safe pattern, performance explicitly validated
-    private static final Pattern STRING_QUOTE_PATTERN = Pattern.compile("'.+?'");
-    private static final Pattern STRING_SEPARATOR_PATTERN = Pattern.compile("'[\\s]*,");
+    // Matches a single-quoted string literal; negated character class prevents backtracking (embedded quotes unsupported by DSL design)
+    private static final Pattern STRING_QUOTE_PATTERN = Pattern.compile("'[^']+'");
+    // Splits a comma-delimited list of quoted strings; lookbehind on the closing quote preserves it in each token
+    private static final Pattern STRING_SEPARATOR_PATTERN = Pattern.compile("(?<=')[\\s]*,");
+    // Matches comparison operators used in numeric condition expressions (e.g., >=, <=, !=, <, >)
     private static final Pattern OPERATOR_PATTERN = Pattern.compile("[<>=-]+");
+    // Captures the trailing non-whitespace token as the unit of measurement (e.g., "y", "mmHg")
     private static final Pattern UNIT_PATTERN = Pattern.compile("([^\\s]+$)");
-    @SuppressWarnings({"java:S5852", "squid:S5852"}) // Safe pattern
-    private static final Pattern ALL_CHARACTERS_PATTERN = Pattern.compile(".");
+    // Matches any single character including newlines; used to blank non-quoted segments character-by-character in indexOfNotQuoted
+    private static final Pattern ALL_CHARACTERS_PATTERN = Pattern.compile(".", Pattern.DOTALL);
 
     private String valueType;
     private String valueUnit;
@@ -167,13 +169,11 @@ public abstract class DSValue {
         String[] dsValuesStr = new String[0];
         boolean doHyphenSearch = true;
         if (STRING_QUOTE_PATTERN.matcher(values).find()) {  //if has a pair of quotes with something in it - treat as a list of strings
-            String[] separatedValues = STRING_SEPARATOR_PATTERN.split(values); // [ ',' ] is absolutely illegal in a quoted string
+            // Lookbehind on closing quote preserves it in each token; a literal [',' ] remains illegal in a quoted string
+            String[] separatedValues = STRING_SEPARATOR_PATTERN.split(values);
             ArrayList<String> dsValueStrArray = new ArrayList<String>();
             for (String separatedValue : separatedValues) {
-                if (!separatedValue.trim().endsWith("'")) {
-                    separatedValue = separatedValue.trim() + "'";
-                }
-                dsValueStrArray.add(separatedValue);
+                dsValueStrArray.add(separatedValue.trim());
                 _log.debug("Separated Value: " + separatedValue);
             }
 
@@ -283,10 +283,19 @@ public abstract class DSValue {
 
     //WARNING: CANNOT SEARCH FOR SINGLE, DOUBLE, TRIPPLE, ETC.. QUOTES
     //i.e. cannot search:  '  ''  ''' '''' etc   (don't know why you'd want to anyways)
+    //
+    // Algorithm note: this method masks the NON-quoted segments (not the quoted ones) by replacing
+    // each of their characters with a single-quote placeholder, then calls indexOf on the result.
+    // Consequence: a query character that appears inside a quoted string would still be found.
+    // This is safe for the current use case — finding the ':' type-prefix separator — because the
+    // DSL preprocessor in createDSValue strips quoted strings before this method is called, so ':'
+    // never appears inside a quoted value at this point. Do not generalise this helper without
+    // revisiting the masking direction.
     private static int indexOfNotQuoted(String str, String query) {
         if (str.contains("'")) {
             String[] quotedStrings = STRING_QUOTE_PATTERN.split(str);
             for (String quotedString : quotedStrings) {
+                // Replace every character in the non-quoted segment with a quote so it can't match the query
                 String blankedString = ALL_CHARACTERS_PATTERN.matcher(quotedString).replaceAll("'");
                 str = str.replace(quotedString, blankedString);
             }
