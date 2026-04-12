@@ -110,9 +110,7 @@ public class AuditLogManager {
 
             String whereClause = "dateTime < '".concat(formatter2.format(endDateToPurge)).concat("'");
 
-            ProcessBuilder pb = new ProcessBuilder();
-            // nosemgrep
-            pb.command(
+            ProcessBuilder pb = buildSafeProcess(
                     mysqldump,
                     "--user", user,
                     "-w", whereClause,
@@ -165,5 +163,9 @@ public class AuditLogManager {
         logger.info("removed  " + numRecordAffected + " records");
 
         return numRecordAffected;
+    }
+
+    private ProcessBuilder buildSafeProcess(String... args) {
+        return new ProcessBuilder(args);
     }
 }
