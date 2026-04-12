@@ -81,7 +81,10 @@
 <%
     String provider_name = URLDecoder.decode(request.getParameter("provider_name"));
     String provider_no = request.getParameter("provider_no");
-    if (provider_no == null || provider_no.isEmpty()) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (provider_no == null || provider_no.isEmpty()) {
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        return;
+    }
 
     //to prepare calendar display
     GregorianCalendar now = new GregorianCalendar();

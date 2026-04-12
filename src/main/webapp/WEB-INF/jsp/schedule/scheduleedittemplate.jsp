@@ -115,7 +115,7 @@
             function changeGroup(s) {
                 var newGroupNo = s.options[s.selectedIndex].value;
                 newGroupNo = s.options[s.selectedIndex].value;
-                self.location.href = "${pageContext.request.contextPath}/schedule/EditTemplate.do?providerid=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerid"))) %>&providername=<%=URLEncoder.encode(request.getParameter("providername"), StandardCharsets.UTF_8)%>&step=" + newGroupNo;
+                self.location.href = "${pageContext.request.contextPath}/schedule/EditTemplate.do?providerid=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerid"))) %>&providername=<%=URLEncoder.encode(StringUtils.noNull(request.getParameter("providername")), StandardCharsets.UTF_8)%>&step=" + newGroupNo;
 
             }
 

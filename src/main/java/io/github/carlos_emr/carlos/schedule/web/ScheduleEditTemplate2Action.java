@@ -53,9 +53,10 @@ public final class ScheduleEditTemplate2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin.schedule)");
         }
 
-        String dboperation = request.getParameter("dboperation");
-        if (dboperation != null && !dboperation.trim().isEmpty()
-                && !"POST".equalsIgnoreCase(request.getMethod())) {
+        String op = request.getParameter("dboperation");
+        op = (op == null) ? "" : op.trim();
+        boolean isMutation = "Save".equalsIgnoreCase(op) || "Delete".equalsIgnoreCase(op);
+        if (isMutation && !"POST".equalsIgnoreCase(request.getMethod())) {
             ServletActionContext.getResponse().sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
