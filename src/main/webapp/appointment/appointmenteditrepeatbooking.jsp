@@ -374,7 +374,7 @@
         </script>
     </head>
 
-    <body onload="setfocus()">
+    <body>
     <div class="container">
 
         <div id="jsAlertBanner"
@@ -405,7 +405,27 @@
                     <div class="form-label form-label-sm fw-semibold mb-2">
                         <fmt:message key="appointment.appointmenteditrepeatbooking.howoften"/>
                     </div>
-                    <div class="d-flex gap-3 flex-wrap">
+
+                        <div class="form-check form-check-inline">
+                   
+                        <fmt:message key="appointment.appointmenteditrepeatbooking.every"/>
+
+                        </div>
+                        <div class="form-check form-check-inline">
+                        <select name="everyNum" class="form-select form-select-sm" style="width: auto;">
+                            <%
+                                for (int i = 1; i < 12; i++) {
+                            %>
+                            <option value="<%=i%>"><%=i%></option>
+                            <%
+                                }
+                            %>
+                        </select>
+                        <input type="hidden" name="everyUnit" id="everyUnit"
+                               class="form-control form-control-sm" style="width: 8rem;"
+                               value="day" readonly>
+
+                        </div>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="dateUnit" id="dateUnitDay"
                                    value="day" checked onclick='onCheck(this, "day")'>
@@ -435,40 +455,21 @@
                             </label>
                         </div>
                     </div>
-                </div>
 
-                <!-- Every N units -->
-                <div class="mb-3">
-                    <label class="form-label form-label-sm fw-semibold">
-                        <fmt:message key="appointment.appointmenteditrepeatbooking.every"/>
-                    </label>
-                    <div class="d-flex gap-2 align-items-center">
-                        <select name="everyNum" class="form-select form-select-sm" style="width: auto;">
-                            <%
-                                for (int i = 1; i < 12; i++) {
-                            %>
-                            <option value="<%=i%>"><%=i%></option>
-                            <%
-                                }
-                            %>
-                        </select>
-                        <input type="text" name="everyUnit" id="everyUnit"
-                               class="form-control form-control-sm" style="width: 8rem;"
-                               value="day" readonly>
-                    </div>
-                </div>
 
                 <!-- End date -->
-                <div class="mb-4">
+                <div class="mb-4 w-50">
                     <label for="endDate" class="form-label form-label-sm fw-semibold">
                         <fmt:message key="appointment.appointmenteditrepeatbooking.endon"/>
                     </label>
-                    <div class="d-flex gap-2 align-items-center">
+                    <div class="input-group">
                         <input type="text" name="endDate" id="endDate"
                                class="form-control form-control-sm" style="width: 9rem;"
                                value="<%=Encode.forHtmlAttribute(UtilDateUtilities.DateToString(new java.util.Date(), "dd/MM/yyyy"))%>"
                                readonly>
-                        <button type="button" id="f_trigger_b" class="btn btn-outline-secondary btn-sm">...</button>
+                        <div class="input-group-append">
+                          <button type="button" id="f_trigger_b" class="btn btn-outline-secondary btn-sm"><i class="fa fa-calendar" aria-hidden="true"></i></button>
+                        </div>
                     </div>
                     <div class="form-text"><fmt:message key="ddmmyyyy"/></div>
                 </div>
