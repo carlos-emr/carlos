@@ -45,6 +45,11 @@
     UAgentInfo userAgentInfo = new UAgentInfo(userAgent, accept);
     boolean isMobileDevice = userAgentInfo.detectMobileQuick();
     pageContext.setAttribute("isMobileDevice", isMobileDevice);
+
+    // After a forced-password-reset, Login2Action redirects here with ?msg=password_changed.
+    // Show a success banner so the user knows why they are being asked to log in again.
+    boolean passwordChangedMsg = "password_changed".equals(request.getParameter("msg"));
+    pageContext.setAttribute("passwordChangedMsg", passwordChangedMsg);
 %>
 
 <jsp:useBean id="LoginResourceBean" beanName="io.github.carlos_emr.carlos.login.LoginResourceBean" type="io.github.carlos_emr.carlos.login.LoginResourceBean"/>
@@ -619,6 +624,13 @@ body {
                     <c:set var="login_error" value="is-invalid" scope="page"/>
                     <div class="alert">
                         <fmt:message key="loginApplication.formFailedLabel"/>
+                    </div>
+                </c:if>
+
+                <%-- Password successfully changed message (shown when returning from forced-password-reset flow). --%>
+                <c:if test="${ passwordChangedMsg }">
+                    <div class="alert alert-success" role="alert">
+                        <fmt:message key="loginApplication.passwordChangedLabel"/>
                     </div>
                 </c:if>
 

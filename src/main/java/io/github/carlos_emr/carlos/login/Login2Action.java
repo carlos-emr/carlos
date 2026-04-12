@@ -396,6 +396,11 @@ public final class Login2Action extends ActionSupport {
                 if (errorStr != null && !errorStr.isEmpty()) {
                     String newURL = request.getContextPath() + "/forcepasswordreset.jsp";
                     newURL = newURL + errorStr;
+                    // Re-append nextPage so it is not lost when the user corrects errors and
+                    // re-submits the password-reset form. nextPage was already validated above.
+                    if (nextPage != null) {
+                        newURL = newURL + "&nextPage=" + Encode.forUriComponent(nextPage);
+                    }
                     response.sendRedirect(newURL);
                     return NONE;
                 }
@@ -677,15 +682,18 @@ public final class Login2Action extends ActionSupport {
                     // Re-validate providerNo before mutating the ServletContext-scoped list
                     // (shared across all user sessions). Prevents an unvalidated value from
                     // leaking into other users' sessions via the shared reference.
-                    if (Pattern.matches("[A-Za-z0-9_-]{1,20}", providerNo)) {
+                    if (newDocArr == null) {
+                        // CaseMgmtUsers is initialised by Startup.java; null means startup failed.
+                        logger.warn("CaseMgmtUsers list not initialised in ServletContext; skipping list update");
+                    } else if (Pattern.matches("[A-Za-z0-9_-]{1,20}", providerNo)) {
                         synchronized (newDocArr) {
                             if (!newDocArr.contains(providerNo)) {
                                 newDocArr.add(providerNo);
                             }
+                            // Store a defensive copy inside the synchronized block so the session
+                            // snapshot is consistent and cannot race with a concurrent login's add().
+                            session.setAttribute("CaseMgmtUsers", new ArrayList<>(newDocArr)); // nosemgrep: tainted-session-from-http-request -- providerNo regex-validated; defensive copy prevents shared-reference leakage
                         }
-                        // Store a defensive copy in the session so this user's view of the
-                        // list cannot be mutated by another user's login flow.
-                        session.setAttribute("CaseMgmtUsers", new ArrayList<>(newDocArr)); // nosemgrep: tainted-session-from-http-request -- providerNo regex-validated; defensive copy prevents shared-reference leakage
                     } else {
                         logger.warn("Rejected invalid providerNo for CaseMgmtUsers list: {}", LogSanitizer.sanitize(providerNo));
                     }
