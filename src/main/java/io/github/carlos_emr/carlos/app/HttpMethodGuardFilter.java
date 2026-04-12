@@ -134,9 +134,17 @@ public class HttpMethodGuardFilter implements Filter {
      */
     private static final Set<String> READ_ONLY_ACTION_NAMES = Set.of(
             "createbillingreportaction",  // PDF/CSV download — GET is correct for file downloads
-            "createdate"                  // Schedule bulk-date editor: GET serves month-navigation
-                                          // reloads (bFirstDisp=0); POST-only enforcement for bulk
-                                          // generation (bFirstDisp=1|null) is done inside the action.
+            "createdate"                  // ScheduleCreateDate2Action (schedule bulk-date editor):
+                                          // GET serves month-navigation reloads (bFirstDisp=0);
+                                          // ScheduleCreateDate2Action.execute() enforces POST for
+                                          // real mutations (bFirstDisp null or "1") internally.
+                                          // Pre-migration, the JSP form (schedulecreatedate.jsp)
+                                          // was handled under DUAL_PURPOSE_JSP_NAMES where GET was
+                                          // permitted because nav links omit the mutator parameters
+                                          // (dboperation/submit/submitFrm/formAction). The .do
+                                          // action name 'createdate' matches the unconditional
+                                          // "create" mutator prefix, so we exempt it here and rely
+                                          // on the action's own POST check for mutations.
     );
 
     /**
