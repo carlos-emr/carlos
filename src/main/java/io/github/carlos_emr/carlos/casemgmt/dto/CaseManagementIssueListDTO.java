@@ -41,7 +41,7 @@ public class CaseManagementIssueListDTO implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private Long id;
-    private String demographicNo;
+    private Integer demographicNo;
     private Long issueId;
     private String type;
     private boolean acute;
@@ -63,7 +63,7 @@ public class CaseManagementIssueListDTO implements Serializable {
      * Parameter order must match the SELECT NEW clause exactly.
      *
      * @param id Long issue row identifier
-     * @param demographicNo String demographic surrogate key
+     * @param demographicNo Integer demographic surrogate key
      * @param issueId Long issue identifier
      * @param type String issue type
      * @param acute boolean acute flag
@@ -76,7 +76,7 @@ public class CaseManagementIssueListDTO implements Serializable {
      * @param issueDescription String joined issue description (from Issue entity)
      * @since 2026-04-11
      */
-    public CaseManagementIssueListDTO(Long id, String demographicNo, Long issueId, String type,
+    public CaseManagementIssueListDTO(Long id, Integer demographicNo, Long issueId, String type,
                                       boolean acute, boolean certain, boolean major, boolean resolved,
                                       Date updateDate, Integer programId,
                                       String issueCode, String issueDescription) {
@@ -96,8 +96,8 @@ public class CaseManagementIssueListDTO implements Serializable {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-    public String getDemographicNo() { return demographicNo; }
-    public void setDemographicNo(String demographicNo) { this.demographicNo = demographicNo; }
+    public Integer getDemographicNo() { return demographicNo; }
+    public void setDemographicNo(Integer demographicNo) { this.demographicNo = demographicNo; }
     public Long getIssueId() { return issueId; }
     public void setIssueId(Long issueId) { this.issueId = issueId; }
     public String getType() { return type; }

@@ -638,6 +638,7 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
      *
      * @param demographicId Integer the patient demographic identifier
      * @return List&lt;DrugListItemDTO&gt; ordered by rxDate descending; empty if none found
+     * @throws jakarta.persistence.PersistenceException if the underlying query fails
      * @since 2026-04-11
      */
     @Override

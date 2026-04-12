@@ -737,6 +737,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
      *
      * @param demographicNo String the demographic number
      * @return List&lt;CaseManagementNoteListDTO&gt; ordered by observation_date descending; empty if none found
+     * @throws org.hibernate.HibernateException if the underlying query fails
      * @since 2026-04-11
      */
     @SuppressWarnings("unchecked")

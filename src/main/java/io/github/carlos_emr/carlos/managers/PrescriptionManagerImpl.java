@@ -402,7 +402,15 @@ public class PrescriptionManagerImpl implements PrescriptionManager {
     }
 
     /**
-     * {@inheritDoc}
+     * Returns lightweight drug list DTOs for a demographic after enforcing read access.
+     * Enforces {@code _demographic} read privilege via {@code SecurityInfoManager}
+     * and logs the access via {@code LogAction}.
+     *
+     * @param loggedInInfo LoggedInInfo logged-in provider/session context for authorization and auditing
+     * @param demographicNo Integer the patient demographic identifier
+     * @return List&lt;DrugListItemDTO&gt; ordered by prescription date descending
+     * @throws AccessDeniedException if the caller lacks {@code _demographic} read privilege
+     * @since 2026-04-11
      */
     @Override
     public List<DrugListItemDTO> getDrugDTOs(LoggedInInfo loggedInInfo, Integer demographicNo) {
