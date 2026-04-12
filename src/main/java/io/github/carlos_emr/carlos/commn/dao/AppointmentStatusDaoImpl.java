@@ -36,6 +36,8 @@ import java.util.List;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -45,6 +47,7 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
         super(AppointmentStatus.class);
     }
 
+    @Cacheable(value = "appointmentStatuses", key = "'all'")
     @SuppressWarnings("unchecked")
     @Override
     public List<AppointmentStatus> findAll() {
@@ -52,6 +55,7 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
         return query.getResultList();
     }
 
+    @Cacheable(value = "appointmentStatuses", key = "'active'")
     @Override
     public List<AppointmentStatus> findActive() {
         Query q = entityManager.createQuery("select a from AppointmentStatus a where a.active=?1");
@@ -63,6 +67,7 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
         return results;
     }
 
+    @Cacheable(value = "appointmentStatuses", key = "'status:' + #status")
     @Override
     public AppointmentStatus findByStatus(String status) {
         if (status == null || status.length() == 0) {
@@ -84,6 +89,7 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
         return null;
     }
 
+    @CacheEvict(value = "appointmentStatuses", allEntries = true)
     @Override
     public void modifyStatus(int ID, String strDesc, String strColor) {
         AppointmentStatus appts = find(ID);
@@ -93,6 +99,7 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
         }
     }
 
+    @CacheEvict(value = "appointmentStatuses", allEntries = true)
     public void changeStatus(int ID, int iActive) {
         AppointmentStatus appts = find(ID);
         if (appts != null) {

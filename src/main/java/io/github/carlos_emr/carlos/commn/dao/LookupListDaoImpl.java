@@ -36,6 +36,7 @@ import java.util.List;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.LookupList;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -45,6 +46,7 @@ public class LookupListDaoImpl extends AbstractDaoImpl<LookupList> implements Lo
         super(LookupList.class);
     }
 
+    @Cacheable(value = "lookupLists", key = "'allActive'")
     @Override
     public List<LookupList> findAllActive() {
         Query q = entityManager.createQuery("select l from LookupList l where l.active=?1 order by l.name asc");
@@ -56,6 +58,7 @@ public class LookupListDaoImpl extends AbstractDaoImpl<LookupList> implements Lo
         return result;
     }
 
+    @Cacheable(value = "lookupLists", key = "'name:' + #name")
     @Override
     public LookupList findByName(String name) {
         Query q = entityManager.createQuery("select l from LookupList l where l.name=?1");

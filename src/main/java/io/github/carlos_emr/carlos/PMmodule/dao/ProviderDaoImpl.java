@@ -53,6 +53,9 @@ import io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.model.security.SecProvider;
@@ -84,6 +87,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         return provider;
     }
 
+    @Cacheable(value = "providerNames", key = "'name:' + #providerNo")
     @Override
     public String getProviderName(String providerNo) {
 
@@ -107,6 +111,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         return providerName;
     }
 
+    @Cacheable(value = "providerNames", key = "'nameLastFirst:' + #providerNo")
     @Override
     public String getProviderNameLastFirst(String providerNo) {
         if (providerNo == null || providerNo.length() <= 0) {
@@ -214,6 +219,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         return rs;
     }
 
+    @Cacheable(value = "activeProviders", key = "'noFilter'")
     @Override
     public List<Provider> getActiveProviders() {
 
@@ -226,6 +232,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         return rs;
     }
 
+    @Cacheable(value = "activeProviders", key = "'filter:' + #filterOutSystemAndImportedProviders")
     @Override
     public List<Provider> getActiveProviders(boolean filterOutSystemAndImportedProviders) {
 
@@ -439,11 +446,21 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         return (List<String>) query.list();
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "providerNames", allEntries = true),
+            @CacheEvict(value = "activeProviders", allEntries = true),
+            @CacheEvict(value = "activeProviderSummaries", allEntries = true)
+    })
     @Override
     public void updateProvider(Provider provider) {
         currentSession().merge(provider);
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "providerNames", allEntries = true),
+            @CacheEvict(value = "activeProviders", allEntries = true),
+            @CacheEvict(value = "activeProviderSummaries", allEntries = true)
+    })
     @Override
     public void saveProvider(Provider provider) {
         currentSession().persist(provider);
@@ -758,6 +775,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
     private static final String PROVIDER_SUMMARIES_BY_IDS_HQL =
             "SELECT NEW io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO(p.ProviderNo, p.LastName, p.FirstName, p.Specialty, p.Status, p.Team) FROM Provider p WHERE p.ProviderNo IN (:providerNumbers)";
 
+    @Cacheable("activeProviderSummaries")
     @Override
     public List<ProviderSummaryDTO> getActiveProviderSummaries() {
         Query<ProviderSummaryDTO> query = currentSession().createQuery(

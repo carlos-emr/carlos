@@ -34,6 +34,7 @@ import java.util.List;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -44,6 +45,7 @@ public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> imp
         super(MeasurementType.class);
     }
 
+    @Cacheable(value = "measurementTypes", key = "'allByType'")
     @Override
     public List<MeasurementType> findAll() {
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x order by x.type";
@@ -52,6 +54,7 @@ public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> imp
         return (results);
     }
 
+    @Cacheable(value = "measurementTypes", key = "'allByName'")
     @Override
     public List<MeasurementType> findAllOrderByName() {
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x order by x.typeDisplayName";
@@ -60,6 +63,7 @@ public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> imp
         return (results);
     }
 
+    @Cacheable(value = "measurementTypes", key = "'allById'")
     @Override
     public List<MeasurementType> findAllOrderById() {
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x order by x.id";
