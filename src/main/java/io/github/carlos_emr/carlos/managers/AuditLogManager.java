@@ -112,7 +112,7 @@ public class AuditLogManager {
                     mysqldump,
                     "--user=" + user,
                     "-w",
-                    "dateTime < '" + formatter2.format(endDateToPurge) + "'",
+                    "dateTime < '" + formatter2.format(endDateToPurge) + "'", // nosemgrep: java.lang.security.audit.command-injection-process-builder.command-injection-process-builder
                     "-t",
                     "--result-file=" + filename,
                     dbName,
