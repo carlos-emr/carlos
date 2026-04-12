@@ -54,7 +54,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-
+<!DOCTYPE html>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -63,7 +63,7 @@
 String demographic_no = request.getParameter("demographic_no");
 %>
 
-    <title>CARLOS Attachment</title>
+    <title>CARLOS <fmt:message key="messenger.ViewMessage.msgAttachments"/></title>
 
         <% if ( demographic_no != null ) { %>
     <%-- Create frameset when demographic is provided --%>
