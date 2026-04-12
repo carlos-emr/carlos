@@ -419,6 +419,14 @@ function validateFields() {
             document.forms[0].demographic_no.value = "<%=Encode.forJavaScript(demographic_no)%>";
         }
 
+        // Initialize keyword autocomplete for inline demographic search
+        initDemographicAutocomplete(
+            '<%=request.getContextPath()%>',
+            document.forms[0].keyword,
+            document.forms[0].demographic_no,
+            document.forms[0].selectedDemo
+        );
+
 	});
 </script>
 </head>
