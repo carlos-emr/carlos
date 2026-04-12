@@ -33,7 +33,7 @@ import org.apache.struts2.ServletActionContext;
 /**
  * Security gate for the Security Search Results display page.
  *
- * <p>Requires either {@code _admin *} or {@code _admin.userAdmin *} privilege.
+ * <p>Requires either {@code _admin r} or {@code _admin.userAdmin r} privilege.
  * All search and display logic is handled by the JSP.</p>
  *
  * @since 2026-04-05
@@ -48,8 +48,8 @@ public class SecuritySearchResults2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "*", null)
-                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "*", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "r", null)) {
             throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
         }
 
