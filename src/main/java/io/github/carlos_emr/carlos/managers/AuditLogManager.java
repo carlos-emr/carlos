@@ -108,19 +108,8 @@ public class AuditLogManager {
         try {
             String s = null;
 
-            String[] args = new String[] { // nosemgrep: java.lang.security.audit.command-injection-process-builder.command-injection-process-builder
-                    mysqldump,
-                    "--user=" + user,
-                    "-w",
-                    "dateTime < '" + formatter2.format(endDateToPurge) + "'",
-                    "-t",
-                    "--result-file=" + filename,
-                    dbName,
-                    "log"
-            };
-
             // nosemgrep: java.lang.security.audit.command-injection-process-builder.command-injection-process-builder
-            ProcessBuilder pb = new ProcessBuilder(args);
+            ProcessBuilder pb = new ProcessBuilder(mysqldump, "--user=" + user, "-w", "dateTime < '" + formatter2.format(endDateToPurge) + "'", "-t", "--result-file=" + filename, dbName, "log");
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
             }
