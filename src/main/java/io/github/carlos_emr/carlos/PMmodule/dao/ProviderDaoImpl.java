@@ -219,7 +219,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         return rs;
     }
 
-    @Cacheable(value = "activeProviders", key = "'noFilter'")
+    @Cacheable(value = "activeProviders", key = "'filter:true'")
     @Override
     public List<Provider> getActiveProviders() {
 
@@ -229,7 +229,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         if (log.isDebugEnabled()) {
             log.debug("getProviders: # of results=" + rs.size());
         }
-        return rs;
+        return Collections.unmodifiableList(new ArrayList<>(rs));
     }
 
     @Cacheable(value = "activeProviders", key = "'filter:' + #filterOutSystemAndImportedProviders")
@@ -249,7 +249,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         if (log.isDebugEnabled()) {
             log.debug("getProviders: # of results=" + rs.size());
         }
-        return rs;
+        return Collections.unmodifiableList(new ArrayList<>(rs));
     }
 
     @Override
@@ -780,7 +780,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
     public List<ProviderSummaryDTO> getActiveProviderSummaries() {
         Query<ProviderSummaryDTO> query = currentSession().createQuery(
                 ACTIVE_PROVIDER_SUMMARIES_HQL, ProviderSummaryDTO.class);
-        return query.list();
+        return Collections.unmodifiableList(new ArrayList<>(query.list()));
     }
 
     @Override

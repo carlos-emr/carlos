@@ -71,7 +71,7 @@ public class CacheConfig {
         cacheManager.setCaches(List.of(
                 buildCache("providerNames", 500, 15, TimeUnit.MINUTES),
                 buildCache("activeProviders", 10, 5, TimeUnit.MINUTES),
-                buildCache("activeProviderSummaries", 5, 5, TimeUnit.MINUTES),
+                buildCache("activeProviderSummaries", 1, 5, TimeUnit.MINUTES),
                 buildCache("appointmentStatuses", 5, 30, TimeUnit.MINUTES),
                 buildCache("measurementTypes", 10, 60, TimeUnit.MINUTES),
                 buildCache("lookupLists", 50, 30, TimeUnit.MINUTES)

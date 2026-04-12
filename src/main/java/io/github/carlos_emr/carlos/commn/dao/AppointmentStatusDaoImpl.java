@@ -31,10 +31,13 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import jakarta.persistence.Query;
 
+import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -52,7 +55,7 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
     @Override
     public List<AppointmentStatus> findAll() {
         Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName());
-        return query.getResultList();
+        return Collections.unmodifiableList(new ArrayList<>(query.getResultList()));
     }
 
     @Cacheable(value = "appointmentStatuses", key = "'active'")
@@ -64,7 +67,7 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
         @SuppressWarnings("unchecked")
         List<AppointmentStatus> results = q.getResultList();
 
-        return results;
+        return Collections.unmodifiableList(new ArrayList<>(results));
     }
 
     @Cacheable(value = "appointmentStatuses", key = "'status:' + #status")
@@ -105,6 +108,30 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
         if (appts != null) {
             appts.setActive(iActive);
         }
+    }
+
+    @CacheEvict(value = "appointmentStatuses", allEntries = true)
+    @Override
+    public void persist(AbstractModel<?> o) {
+        super.persist(o);
+    }
+
+    @CacheEvict(value = "appointmentStatuses", allEntries = true)
+    @Override
+    public void merge(AbstractModel<?> o) {
+        super.merge(o);
+    }
+
+    @CacheEvict(value = "appointmentStatuses", allEntries = true)
+    @Override
+    public void remove(AbstractModel<?> o) {
+        super.remove(o);
+    }
+
+    @CacheEvict(value = "appointmentStatuses", allEntries = true)
+    @Override
+    public boolean remove(Object id) {
+        return super.remove(id);
     }
 
     /**
