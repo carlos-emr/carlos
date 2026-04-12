@@ -414,17 +414,27 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
     }
 
     @Nested
-    @DisplayName("ScheduleDateFinal2Action (_appointment r)")
+    @DisplayName("ScheduleDateFinal2Action (_admin.schedule w OR _appointment r)")
     class DateFinal {
         @Test
-        void shouldThrow_whenNoPrivilege() throws Exception {
+        void shouldThrow_whenNeitherPrivilege() throws Exception {
             denyAll();
             assertThatThrownBy(() -> executeAction(inject(new ScheduleDateFinal2Action())))
-                    .isInstanceOf(SecurityException.class);
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("_admin.schedule or _appointment");
         }
 
         @Test
-        void shouldSucceed_whenAllowed() throws Exception {
+        void shouldSucceed_withScheduleAdminOnly() throws Exception {
+            denyAll();
+            allowPrivilege("_admin.schedule", "w");
+            assertThat(executeAction(inject(new ScheduleDateFinal2Action())))
+                    .isEqualTo(ActionSupport.SUCCESS);
+        }
+
+        @Test
+        void shouldSucceed_withAppointmentReadOnly() throws Exception {
+            denyAll();
             allowPrivilege("_appointment", "r");
             assertThat(executeAction(inject(new ScheduleDateFinal2Action())))
                     .isEqualTo(ActionSupport.SUCCESS);

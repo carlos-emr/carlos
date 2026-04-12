@@ -133,7 +133,10 @@ public class HttpMethodGuardFilter implements Filter {
      * generates PDF/CSV file downloads (read-only) despite starting with "create".
      */
     private static final Set<String> READ_ONLY_ACTION_NAMES = Set.of(
-            "createbillingreportaction"   // PDF/CSV download — GET is correct for file downloads
+            "createbillingreportaction",  // PDF/CSV download — GET is correct for file downloads
+            "createdate"                  // Schedule bulk-date editor: GET serves month-navigation
+                                          // reloads (bFirstDisp=0); POST-only enforcement for bulk
+                                          // generation (bFirstDisp=1|null) is done inside the action.
     );
 
     /**
