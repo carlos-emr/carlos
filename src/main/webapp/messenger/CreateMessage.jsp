@@ -213,7 +213,7 @@
     <script src="<%= request.getContextPath() %>/messenger/messenger-common.js"></script>
     <c:set var="langCode"><fmt:message key="global.i18nLanguagecode"/></c:set>
     <c:if test="${langCode != 'en-GB'}">
-    <script src="<%=request.getContextPath() %>/library/toastui/i18n/${e:forHtmlAttribute(langCode)}.js"></script>
+    <script src="<%=request.getContextPath() %>/library/toastui/i18n/${e:forUriComponent(langCode)}.js"></script>
     </c:if>
 
     <!-- css -->
