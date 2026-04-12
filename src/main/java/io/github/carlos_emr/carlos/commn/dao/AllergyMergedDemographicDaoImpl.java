@@ -36,6 +36,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.merge.MergedDemographicTemplate;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
+import io.github.carlos_emr.carlos.allergy.dto.AllergyListItemDTO;
 import org.springframework.stereotype.Repository;
 
 @Repository("AllergyDao")
@@ -90,5 +91,17 @@ public class AllergyMergedDemographicDaoImpl extends AllergyDaoImpl implements A
             }
         };
         return template.findMerged(demographicId, result);
+    }
+
+    @Override
+    public List<AllergyListItemDTO> findAllergyDTOsByDemographicNo(Integer demographicNo) {
+        List<AllergyListItemDTO> result = super.findAllergyDTOsByDemographicNo(demographicNo);
+        MergedDemographicTemplate<AllergyListItemDTO> template = new MergedDemographicTemplate<AllergyListItemDTO>() {
+            @Override
+            protected List<AllergyListItemDTO> findById(Integer demographic_no) {
+                return AllergyMergedDemographicDaoImpl.super.findAllergyDTOsByDemographicNo(demographic_no);
+            }
+        };
+        return template.findMerged(demographicNo, result);
     }
 }

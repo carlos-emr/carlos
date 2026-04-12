@@ -35,6 +35,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.merge.MergedDemographicTemplate;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemDTO;
 import org.springframework.stereotype.Repository;
 
 @Repository("consultationRequestDao")
@@ -62,6 +63,18 @@ public class ConsultationRequestMergedDemographicDaoImpl extends ConsultationReq
             }
         };
         return template.findMerged(demographicNo, result);
+    }
+
+    @Override
+    public List<ConsultationRequestListItemDTO> findConsultationDTOsByDemographicId(Integer demographicId) {
+        List<ConsultationRequestListItemDTO> result = super.findConsultationDTOsByDemographicId(demographicId);
+        MergedDemographicTemplate<ConsultationRequestListItemDTO> template = new MergedDemographicTemplate<ConsultationRequestListItemDTO>() {
+            @Override
+            protected List<ConsultationRequestListItemDTO> findById(Integer demographic_no) {
+                return ConsultationRequestMergedDemographicDaoImpl.super.findConsultationDTOsByDemographicId(demographic_no);
+            }
+        };
+        return template.findMerged(demographicId, result);
     }
 
 }

@@ -36,6 +36,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.merge.MergedDemographicTemplate;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionListItemDTO;
 import org.springframework.stereotype.Repository;
 
 @Repository("preventionDaoImpl")
@@ -87,5 +88,17 @@ public class PreventionMergedDemographicDaoImpl extends PreventionDaoImpl implem
             }
         };
         return template.findMerged(demoNo, result);
+    }
+
+    @Override
+    public List<PreventionListItemDTO> findPreventionDTOsByDemographicId(Integer demographicId) {
+        List<PreventionListItemDTO> result = super.findPreventionDTOsByDemographicId(demographicId);
+        MergedDemographicTemplate<PreventionListItemDTO> template = new MergedDemographicTemplate<PreventionListItemDTO>() {
+            @Override
+            protected List<PreventionListItemDTO> findById(Integer demographic_no) {
+                return PreventionMergedDemographicDaoImpl.super.findPreventionDTOsByDemographicId(demographic_no);
+            }
+        };
+        return template.findMerged(demographicId, result);
     }
 }
