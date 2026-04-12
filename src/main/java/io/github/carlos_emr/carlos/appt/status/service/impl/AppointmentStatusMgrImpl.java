@@ -27,7 +27,7 @@
  */
 package io.github.carlos_emr.carlos.appt.status.service.impl;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
@@ -55,10 +55,11 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
         return cachedActiveStatuses;
     }
 
-    @SuppressWarnings("unchecked")
     public static synchronized void setCachedActiveStatuses(List<AppointmentStatus> cachedActiveStatuses) {
-        Collections.sort(cachedActiveStatuses, Comparator.comparing(AppointmentStatus::getId));
-        AppointmentStatusMgrImpl.cachedActiveStatuses = cachedActiveStatuses;
+        // Sort a defensive copy — the incoming list may be unmodifiable (e.g. from a @Cacheable DAO read)
+        List<AppointmentStatus> sorted = new ArrayList<>(cachedActiveStatuses);
+        sorted.sort(Comparator.comparing(AppointmentStatus::getId));
+        AppointmentStatusMgrImpl.cachedActiveStatuses = sorted;
     }
 
 
