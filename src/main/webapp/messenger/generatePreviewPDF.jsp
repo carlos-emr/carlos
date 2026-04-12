@@ -133,7 +133,7 @@
     // Use validated integer-derived string to prevent raw request data in session (CWE-501)
     bean.demographicNo = demographic_no;
 
-    MsgSessionBean MsgSessionBean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
+    MsgSessionBean msgSessionBean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
 
     request.getSession().setAttribute("EctSessionBean", bean);
 
@@ -183,9 +183,10 @@
     pageContext.setAttribute("rxUri", rxUri);
 %>
 
-<%-- Pre-compute i18n message strings for use in JavaScript --%>
+<%-- Pre-compute i18n message strings for use in JavaScript and hidden form fields --%>
 <fmt:message key="messenger.generatePreviewPDF.confirmClose" var="exitConfirmMsg"/>
 <fmt:message key="messenger.generatePreviewPDF.msgAttachingCount" var="jsAttachingTemplate"/>
+<fmt:message key="messenger.generatePreviewPDF.currentPrescriptions" var="currentPrescTitle"/>
 
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
@@ -445,7 +446,7 @@
                         <input type="checkbox" name="indexArray"
                                value="<%= Integer.toString(indexCount++) %>"/>
                         <input type="checkbox" name="titleArray"
-                               value="Current prescriptions"
+                               value="${e:forHtmlAttribute(currentPrescTitle)}"
                                style="display:none"/>
                     </td>
                     <td class="align-middle">
@@ -515,9 +516,9 @@
             }
             var attachingTemplate = '${e:forJavaScript(jsAttachingTemplate)}';
             document.forms[0].status.value = attachingTemplate
-                .replace('{0}', <%=MsgSessionBean.getCurrentAttachmentCount() + 1%>)
+                .replace('{0}', <%=(msgSessionBean != null ? msgSessionBean.getCurrentAttachmentCount() + 1 : 1)%>)
                 .replace('{1}', j);
-            AttachingPDF(<%=MsgSessionBean.getCurrentAttachmentCount()%>);
+            AttachingPDF(<%=(msgSessionBean != null ? msgSessionBean.getCurrentAttachmentCount() : 0)%>);
         }
     </script>
 
