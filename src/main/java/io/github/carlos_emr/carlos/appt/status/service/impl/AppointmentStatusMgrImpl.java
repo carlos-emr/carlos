@@ -57,9 +57,11 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
 
     public static synchronized void setCachedActiveStatuses(List<AppointmentStatus> cachedActiveStatuses) {
         // Sort a defensive copy — the incoming list may be unmodifiable (e.g. from a @Cacheable DAO read)
-        List<AppointmentStatus> sorted = new ArrayList<>(cachedActiveStatuses);
+        List<AppointmentStatus> source =
+                (cachedActiveStatuses == null) ? java.util.Collections.emptyList() : cachedActiveStatuses;
+        List<AppointmentStatus> sorted = new ArrayList<>(source);
         sorted.sort(Comparator.comparing(AppointmentStatus::getId));
-        AppointmentStatusMgrImpl.cachedActiveStatuses = sorted;
+        AppointmentStatusMgrImpl.cachedActiveStatuses = java.util.Collections.unmodifiableList(sorted);
     }
 
 
