@@ -42,7 +42,6 @@ import org.apache.struts2.ServletActionContext;
  * then redirects (PRG pattern). GET requests return SUCCESS to render the list view.</p>
  *
  * @since 2026-04-05
- * @throws SecurityException if the logged-in user lacks the required admin privilege
  */
 public class ManageFlowsheets2Action extends ActionSupport {
 

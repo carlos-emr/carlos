@@ -48,7 +48,7 @@ public abstract class JSONUtil {
         try (PrintWriter out = response.getWriter()) {
             response.setContentType(CONTENT_TYPE);
             response.setCharacterEncoding(ENCODING);
-            out.print(jsonObject.toString()); // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type
+            out.print(jsonObject.toString()); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- JSON API response with application/json content-type
             out.flush();
         } catch (IOException e) {
             logger.error("Error while creating JSON response", e);
@@ -59,7 +59,7 @@ public abstract class JSONUtil {
         try (PrintWriter out = response.getWriter()) {
             response.setContentType(CONTENT_TYPE);
             response.setCharacterEncoding(ENCODING);
-            out.print(jsonString); // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type
+            out.print(jsonString); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- JSON API response with application/json content-type
             out.flush();
         } catch (IOException e) {
             logger.error("Error while creating JSON response", e);

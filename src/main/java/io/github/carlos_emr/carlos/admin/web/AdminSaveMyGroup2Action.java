@@ -39,7 +39,6 @@ import org.apache.struts2.ServletActionContext;
  * All group save logic is handled by the JSP.</p>
  *
  * @since 2026-04-05
- * @throws SecurityException if the logged-in user lacks the required admin privilege
  */
 public class AdminSaveMyGroup2Action extends ActionSupport {
 

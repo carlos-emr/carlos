@@ -40,7 +40,6 @@ import org.apache.struts2.ServletActionContext;
  * (PRG pattern).</p>
  *
  * @since 2026-04-05
- * @throws SecurityException if the logged-in user lacks the required admin privilege
  */
 public class ManageFlowsheetsUpload2Action extends ActionSupport {
 

@@ -179,8 +179,8 @@ public class Resource2Action extends ActionSupport {
             ze.setComment(d.getDescription());
             ze.setSize(inputBytes.length);
 
-            zos.putNextEntry(ze);
-            zos.write(inputBytes); // nosemgrep: no-direct-response-writer -- application/zip binary stream
+            zos.putNextEntry(ze); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- application/zip binary stream, ZipEntry header only
+            zos.write(inputBytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- application/zip binary stream
             zos.closeEntry();
             zos.flush();
         }
