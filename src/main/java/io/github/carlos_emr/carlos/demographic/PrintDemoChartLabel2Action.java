@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.OscarDocumentCreator;
@@ -215,8 +216,12 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
 
         try {
             try {
-                ins = new FileInputStream(System.getProperty("user.home") + File.separator + labelFile);
-            } catch (FileNotFoundException ex1) {
+                // labelFile is always a value from a hardcoded map (Chartlabel.xml or
+                // SexualHealthClinicLabel.xml), never user-controlled. validatePath()
+                // makes the safety explicit to scanners and provides defence-in-depth.
+                File validatedLabel = PathValidationUtils.validatePath(labelFile, new File(System.getProperty("user.home")));
+                ins = new FileInputStream(validatedLabel);
+            } catch (SecurityException | FileNotFoundException ex1) {
                 logger.warn(labelFile + " not found in user's home directory. Using default instead (classpath)", ex1);
             }
 

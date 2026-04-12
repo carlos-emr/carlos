@@ -1,0 +1,15 @@
+# Snyk policy file — see https://docs.snyk.io/manage-risk/policies/the-.snyk-file
+version: v1.25.0
+
+# Exclude developer-only tooling from Snyk Code (SAST).
+# These paths are NOT deployed in the WAR and are invoked only by developers
+# with CLI arguments they control themselves. Production code is out of scope
+# here and must remain covered by Snyk Code — do not add src/main/** patterns.
+exclude:
+  code:
+    - scripts/**
+    - .claude/hooks/**
+    - database/mysql/importCasemgmt.java
+    - database/mysql/importCPP.java
+    - release/**
+    - .devcontainer/**

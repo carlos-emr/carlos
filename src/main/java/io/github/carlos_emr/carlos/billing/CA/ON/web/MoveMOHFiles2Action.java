@@ -28,8 +28,8 @@ import org.apache.struts2.ActionSupport;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ServletActionContext;
@@ -134,19 +134,14 @@ public class MoveMOHFiles2Action extends ActionSupport {
 
         if (isValid) {
             String folderPath = getFolderPath(folderParam);
+            File folderFile = new File(folderPath);
             for (String fileName : fileNames) {
-                File file = getFile(folderPath, fileName);
-                if (file == null) {
-                    logger.warn("Unable to get file {}{}{}", LogSanitizer.sanitize(folderPath), File.separator, LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-
-                    errors.append("Unable to find file ").append(Encode.forHtml(fileName)).append(".<br/>");
-                    continue;
-                }
-
-                boolean isValidFileLocation = validateFileLocation(file);
-                if (!isValidFileLocation) {
+                File file;
+                try {
+                    String decodedName = URLDecoder.decode(fileName, StandardCharsets.UTF_8);
+                    file = PathValidationUtils.validatePath(decodedName, folderFile);
+                } catch (SecurityException e) {
                     logger.warn("Invalid file location {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-
                     errors.append("File is not in a valid location: ").append(Encode.forHtml(fileName)).append(".<br/>");
                     continue;
                 }
@@ -166,72 +161,6 @@ public class MoveMOHFiles2Action extends ActionSupport {
         WebUtils.addInfoMessage(request.getSession(), messages.toString());
 
         return "Success";
-    }
-
-    /**
-     * Validates that a file resides within an authorized EDT folder location.
-     *
-     * <p>This security method ensures that the specified file is located within one of the
-     * authorized Electronic Data Transfer (EDT) folder paths. It iterates through all defined
-     * EDT folders and uses {@link PathValidationUtils#validateExistingPath(File, File)} to
-     * verify the file's location against each authorized directory.</p>
-     *
-     * <p>This validation is critical for preventing path traversal attacks and ensuring that
-     * only files within approved MOH billing directories can be archived. The method uses a
-     * try-each-folder approach, accepting the file if it validates against any of the authorized
-     * EDT folder locations.</p>
-     *
-     * <p><strong>Security:</strong> Uses {@link PathValidationUtils} to perform secure path
-     * validation, preventing directory traversal attacks and unauthorized file access. Any
-     * validation failures are caught and the method continues checking other authorized folders.</p>
-     *
-     * @param file File object representing the file to validate (must not be null)
-     * @return boolean true if the file is within an authorized EDT folder, false otherwise
-     */
-    private boolean validateFileLocation(File file) {
-        boolean result = false;
-        try {
-            for (EDTFolder folder : EDTFolder.values()) {
-                File edtFolderFile = new File(folder.getPath());
-                try {
-                    file = PathValidationUtils.validateExistingPath(file, edtFolderFile);
-                    result = true;
-                    break;
-                } catch (SecurityException e) {
-                    // File not in this folder, try next
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Unable to validate file location", e);
-        }
-        return result;
-    }
-
-    /**
-     * Retrieves a File object for the specified filename within the given folder path.
-     *
-     * <p>This method creates a File object by combining the folder path and filename. It includes
-     * URL decoding of the filename parameter to handle filenames that may have been URL-encoded
-     * during HTTP transmission. This is necessary because filenames from web forms may contain
-     * special characters that are URL-encoded.</p>
-     *
-     * <p><strong>Error Handling:</strong> If the filename cannot be decoded using UTF-8 encoding,
-     * an error is logged and null is returned. The calling method should check for null and handle
-     * the error appropriately.</p>
-     *
-     * @param folderPath String representing the absolute path to the folder containing the file
-     * @param fileName String representing the URL-encoded filename to retrieve
-     * @return File object representing the file at the specified path, or null if filename decoding fails
-     */
-    private File getFile(String folderPath, String fileName) {
-    try {
-        fileName = URLDecoder.decode(fileName, "UTF-8");
-    } catch (UnsupportedEncodingException e) {
-        logger.error("Unable to decode {}", LogSanitizer.sanitize(fileName), e);
-        return null;
-    }
-
-    return new File(folderPath, fileName);
     }
 
     /**

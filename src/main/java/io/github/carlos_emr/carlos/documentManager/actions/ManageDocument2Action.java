@@ -779,6 +779,7 @@ public class ManageDocument2Action extends ActionSupport {
      *
      * @throws SecurityException if the user lacks _edoc read privilege
      */
+    @SuppressWarnings("java:S5145") // all logged user input goes through LogSanitizer.sanitize()
     public void viewDocPage() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -1051,6 +1052,7 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws Exception if parameter validation or file operations fail
      * @throws SecurityException if the user lacks _edoc write privilege or path traversal is detected
      */
+    @SuppressWarnings("java:S5145") // all logged user input goes through LogSanitizer.sanitize()
     public String addIncomingDocument() throws Exception {
 
         String pdfDir = request.getParameter("pdfDir");
@@ -1425,6 +1427,7 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws Exception if path validation, rendering, or I/O fails
      * @throws SecurityException if the user lacks _edoc read privilege or path traversal is detected
      */
+    @SuppressWarnings("java:S5145") // all logged user input goes through LogSanitizer.sanitize()
     public void viewIncomingDocPageAsImage() throws Exception {
 
 
@@ -1503,6 +1506,7 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws Exception if parameter validation fails
      * @throws SecurityException if path traversal is detected or file type is not PDF
      */
+    @SuppressWarnings("java:S5145") // all logged user input goes through LogSanitizer.sanitize()
     public File createIncomingCacheVersion(String queueId, String pdfDir, String pdfName, Integer pageNum) throws Exception {
         
         // Validate input parameters to prevent path traversal

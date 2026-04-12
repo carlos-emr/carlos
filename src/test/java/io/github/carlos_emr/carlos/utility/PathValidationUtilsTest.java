@@ -465,6 +465,52 @@ public class PathValidationUtilsTest {
     }
 
     // ========================================================================
+    // EXISTING PATH VALIDATION - validateExistingPath(File, File)
+    // ========================================================================
+
+    @Nested
+    @DisplayName("validateExistingPath Tests")
+    class ValidateExistingPathTests {
+
+        @Test
+        @DisplayName("should return file when existing path is inside allowed directory")
+        void shouldReturnFile_whenExistingPathInsideAllowedDir() throws IOException {
+            File inside = tempDir.resolve("inside.txt").toFile();
+            inside.createNewFile();
+
+            File result = PathValidationUtils.validateExistingPath(inside, allowedDir);
+
+            assertThat(result).isEqualTo(inside);
+        }
+
+        @Test
+        @DisplayName("should throw SecurityException when existing path escapes allowed directory")
+        void shouldThrowSecurityException_whenExistingPathEscapesAllowedDir() {
+            File outside = new File("/etc/passwd");
+
+            assertThatThrownBy(() -> PathValidationUtils.validateExistingPath(outside, allowedDir))
+                .isInstanceOf(SecurityException.class);
+        }
+
+        @Test
+        @DisplayName("should throw SecurityException when existing path is null")
+        void shouldThrowSecurityException_whenExistingPathIsNull() {
+            assertThatThrownBy(() -> PathValidationUtils.validateExistingPath(null, allowedDir))
+                .isInstanceOf(SecurityException.class);
+        }
+
+        @Test
+        @DisplayName("should throw SecurityException when allowedDir is null")
+        void shouldThrowSecurityException_whenExistingPathAllowedDirIsNull() throws IOException {
+            File inside = tempDir.resolve("inside.txt").toFile();
+            inside.createNewFile();
+
+            assertThatThrownBy(() -> PathValidationUtils.validateExistingPath(inside, null))
+                .isInstanceOf(SecurityException.class);
+        }
+    }
+
+    // ========================================================================
     // SYMLINK HANDLING (Platform Dependent)
     // ========================================================================
 

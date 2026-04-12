@@ -35,6 +35,7 @@
 
 package io.github.carlos_emr.carlos.eform;
 
+import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.CarlosProperties;
@@ -201,9 +202,16 @@ public class EFormExportZip {
         Hashtable<String, File> tempFiles = new Hashtable<String, File>(); //references extracted files in the temp folder
         //first runthrough, get the properties files, construct eforms, cache files
         while ((ze = zis.getNextEntry()) != null) {
-            File file = new File(ze.getName());
-            _log.info("Unzipping..." + LogSanitizer.sanitize(file.getName()));
-            if (file.getName().equalsIgnoreCase("eform.properties")) {
+            // Zip Slip defence: strip any path components from the zip entry name.
+            // A malicious zip entry like "../../etc/passwd" becomes just "passwd".
+            String entryBaseName = FilenameUtils.getName(ze.getName());
+            if (entryBaseName == null || entryBaseName.isEmpty() || entryBaseName.startsWith(".")) {
+                _log.warn("Skipping invalid zip entry: {}", LogSanitizer.sanitize(ze.getName())); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                zis.closeEntry();
+                continue;
+            }
+            _log.info("Unzipping..." + LogSanitizer.sanitize(entryBaseName));
+            if (entryBaseName.equalsIgnoreCase("eform.properties")) {
                 Properties properties = new Properties();
                 properties.load(zis);
                 EForm newEForm = this.createEFormFromProperties(properties);
@@ -229,10 +237,10 @@ public class EFormExportZip {
                 _log.debug("going in eform table >" + newEForm.getFormFileName() + "<");
             } else {
                 //store temp files on HD
-                File tempFile = new File(imageTempFolderDir, file.getName());
-                // Zip Slip prevention: ensure extracted file stays within the temp extraction directory
-                tempFile = PathValidationUtils.validateExistingPath(tempFile, imageTempFolderDir);
-                tempFiles.put(file.getName(), tempFile); //reference so we can find it later
+                // Zip Slip prevention: validatePath() sanitizes the name and enforces
+                // containment within imageTempFolderDir.
+                File tempFile = PathValidationUtils.validatePath(entryBaseName, imageTempFolderDir);
+                tempFiles.put(entryBaseName, tempFile); //reference so we can find it later
                 FileOutputStream fos = new FileOutputStream(tempFile);
                 inputToOutput(zis, fos);
                 fos.close();
@@ -262,9 +270,10 @@ public class EFormExportZip {
                 //do not save file if eform fails
             } else {
                 FileInputStream fis = new FileInputStream(tempFile.getValue());
-                File imageFile = new File(ImageUpload2Action.getImageFolder(), tempFile.getKey());
-                // Zip Slip prevention: ensure the image destination stays within the image folder
-                imageFile = PathValidationUtils.validateExistingPath(imageFile, ImageUpload2Action.getImageFolder());
+                // Zip Slip prevention: validatePath() sanitizes the key and enforces
+                // containment within the image folder. The key is already basename-only
+                // from the extraction loop above, but validatePath() provides defence-in-depth.
+                File imageFile = PathValidationUtils.validatePath(tempFile.getKey(), ImageUpload2Action.getImageFolder());
                 if (imageFile.exists()) {
                     errors.add("Image '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
                     _log.info("EForm Import: Image with name '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");

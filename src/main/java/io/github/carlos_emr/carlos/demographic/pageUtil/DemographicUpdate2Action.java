@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.commn.model.DemographicCust;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.model.DemographicExtArchive;
 import io.github.carlos_emr.carlos.commn.model.WaitingList;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
@@ -126,14 +127,14 @@ public class DemographicUpdate2Action extends ActionSupport {
         try {
             demographicNo = Integer.parseInt(demoNo);
         } catch (NumberFormatException e) {
-            logger.warn("DemographicUpdate2Action: invalid demographic_no={}", demoNo);
+            logger.warn("DemographicUpdate2Action: invalid demographic_no={}", LogSanitizer.sanitize(demoNo));
             addActionError("Invalid patient record identifier");
             return ERROR;
         }
 
         Demographic demographic = demographicDao.getDemographic(demoNo);
         if (demographic == null) {
-            logger.warn("DemographicUpdate2Action: demographic_no={} not found", demoNo);
+            logger.warn("DemographicUpdate2Action: demographic_no={} not found", demographicNo);
             addActionError("Patient record not found");
             return ERROR;
         }
