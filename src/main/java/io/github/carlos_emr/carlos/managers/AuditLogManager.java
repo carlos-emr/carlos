@@ -110,7 +110,20 @@ public class AuditLogManager {
 
             String whereClause = "dateTime < '".concat(formatter2.format(endDateToPurge)).concat("'");
 
-            ProcessBuilder pb = new ProcessBuilder(mysqldump, "--user", user);
+            if (mysqldump != null && !mysqldump.matches("^[a-zA-Z0-9/._-]+$")) {
+                throw new Exception("Invalid mysqldump command path");
+            }
+            if (user != null && !user.matches("^[a-zA-Z0-9_\\-]+$")) {
+                throw new Exception("Invalid user");
+            }
+            if (dbName != null && !dbName.matches("^[a-zA-Z0-9_\\-]+$")) {
+                throw new Exception("Invalid database name");
+            }
+
+            ProcessBuilder pb = new ProcessBuilder();
+            pb.command().add(mysqldump);
+            pb.command().add("--user");
+            pb.command().add(user);
             pb.command().add("-w");
             pb.command().add(whereClause);
             pb.command().add("-t");
