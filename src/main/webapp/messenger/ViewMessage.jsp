@@ -706,12 +706,15 @@ function fmtOscarMsg() {
 </script>
 <script>
     // Initialize keyword autocomplete for inline demographic search
-    initDemographicAutocomplete(
-        '<%=request.getContextPath()%>',
-        document.forms[0].keyword,
-        document.forms[0].demographic_no,
-        document.forms[0].selectedDemo
-    );
+    // Only run when the demographic form fields exist (not in encounter view)
+    if (document.forms[0] && document.forms[0].keyword && document.forms[0].demographic_no && document.forms[0].selectedDemo) {
+        initDemographicAutocomplete(
+            '<%=request.getContextPath()%>',
+            document.forms[0].keyword,
+            document.forms[0].demographic_no,
+            document.forms[0].selectedDemo
+        );
+    }
 </script>
 </body>
 </html>

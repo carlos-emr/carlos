@@ -145,6 +145,11 @@ function initDemographicAutocomplete(contextPath, keywordInput, demoNoInput, sel
 
     keywordInput.addEventListener('input', function () {
         var term = keywordInput.value;
+        // Clear any previously selected demographic when user edits the keyword
+        demoNoInput.value = '';
+        if (selectedDemoInput) {
+            selectedDemoInput.value = '';
+        }
         if (term.length < minLength) {
             closeDropdown();
             return;
@@ -152,13 +157,14 @@ function initDemographicAutocomplete(contextPath, keywordInput, demoNoInput, sel
         if (currentXhr) {
             currentXhr.abort();
         }
-        currentXhr = new XMLHttpRequest();
-        currentXhr.open('POST', searchUrl, true);
-        currentXhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-        currentXhr.onload = function () {
-            if (currentXhr.status >= 200 && currentXhr.status < 300) {
+        var xhr = new XMLHttpRequest();
+        currentXhr = xhr;
+        var searchUrlWithQuery = searchUrl + '?jqueryJSON=true&activeOnly=true&term=' + encodeURIComponent(term);
+        xhr.open('GET', searchUrlWithQuery, true);
+        xhr.onload = function () {
+            if (xhr.status >= 200 && xhr.status < 300) {
                 try {
-                    renderItems(JSON.parse(currentXhr.responseText));
+                    renderItems(JSON.parse(xhr.responseText));
                 } catch (e) {
                     closeDropdown();
                 }
@@ -166,8 +172,8 @@ function initDemographicAutocomplete(contextPath, keywordInput, demoNoInput, sel
                 closeDropdown();
             }
         };
-        currentXhr.onerror = function () { closeDropdown(); };
-        currentXhr.send('jqueryJSON=true&activeOnly=true&term=' + encodeURIComponent(term));
+        xhr.onerror = function () { closeDropdown(); };
+        xhr.send(null);
     });
 
     // Delay closing so a mousedown on a list item fires before input blur closes the dropdown.
