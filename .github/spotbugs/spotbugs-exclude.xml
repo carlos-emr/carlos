@@ -88,12 +88,4 @@
         <Bug pattern="RV_RETURN_VALUE_OF_PUTIFABSENT_IGNORED"/>
     </Match>
 
-    <!-- Exclude SECXXEVAL false positive where protection is applied via helper -->
-    <Match>
-        <Bug pattern="XXE_VALIDATOR"/>
-    </Match>
-    <Match>
-        <Bug pattern="SECXXEVAL"/>
-    </Match>
-
 </FindBugsFilter>
