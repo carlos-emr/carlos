@@ -47,7 +47,7 @@ import org.apache.struts2.ServletActionContext;
  * for those operations receive HTTP 405. Read-only display requests are
  * forwarded directly to the JSP.</p>
  *
- * @since 2026-05-01
+ * @since 2026-04-05
  */
 public class ProviderRole2Action extends ActionSupport {
 

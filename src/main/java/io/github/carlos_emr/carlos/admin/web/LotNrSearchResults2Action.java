@@ -43,7 +43,7 @@ import org.apache.struts2.ServletActionContext;
  * <p>Enforces {@code _admin r} privilege before forwarding to the JSP.
  * All search and display logic is handled by the JSP.</p>
  *
- * @since 2026-05-01
+ * @since 2026-04-05
  */
 public class LotNrSearchResults2Action extends ActionSupport {
 

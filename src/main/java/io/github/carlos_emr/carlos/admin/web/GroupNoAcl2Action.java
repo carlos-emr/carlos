@@ -44,7 +44,7 @@ import org.apache.struts2.ServletActionContext;
  * missing privilege check — the original JSP only validated that a session
  * existed, leaving the page accessible to any authenticated user.</p>
  *
- * @since 2026-05-01
+ * @since 2026-04-05
  */
 public class GroupNoAcl2Action extends ActionSupport {
 

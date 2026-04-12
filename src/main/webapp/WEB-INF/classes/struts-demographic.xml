@@ -40,10 +40,10 @@
         </global-exception-mappings>
 
         <action name="admin/MergeRecords" class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicMergeRecord2Action">
-            <result name="success">/admin/demographicmergerecord.jsp?outcome=success</result>
-            <result name="failure">/admin/demographicmergerecord.jsp?outcome=failure</result>
-            <result name="successUnMerge">/admin/demographicmergerecord.jsp?outcome=successUnMerge</result>
-            <result name="failureUnMerge">/admin/demographicmergerecord.jsp?outcome=failureUnMerge</result>
+            <result name="success">/WEB-INF/jsp/admin/demographicmergerecord.jsp?outcome=success</result>
+            <result name="failure">/WEB-INF/jsp/admin/demographicmergerecord.jsp?outcome=failure</result>
+            <result name="successUnMerge">/WEB-INF/jsp/admin/demographicmergerecord.jsp?outcome=successUnMerge</result>
+            <result name="failureUnMerge">/WEB-INF/jsp/admin/demographicmergerecord.jsp?outcome=failureUnMerge</result>
             <result name="caisiSearch">/PMmodule/ClientSearch2.do</result>
         </action>
         <action name="demographic/printDemoLabelAction" class="io.github.carlos_emr.carlos.demographic.PrintDemoLabel2Action"/>

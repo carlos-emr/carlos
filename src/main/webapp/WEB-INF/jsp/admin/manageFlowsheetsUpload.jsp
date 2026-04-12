@@ -57,6 +57,7 @@
 
 <%@ page import="java.io.InputStream" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="jakarta.servlet.http.Part" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet" %>
@@ -94,7 +95,8 @@
                 }
             }
         } catch (Exception e) {
-            // Error handling - redirect will follow
+            MiscUtils.getLogger().error("Failed to upload flowsheet definition", e);
+            session.setAttribute("flashError", "Flowsheet upload failed: " + e.getMessage());
         }
     }
 

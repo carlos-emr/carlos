@@ -42,10 +42,10 @@ import org.apache.struts2.ServletActionContext;
  * Security gate for the Provider Add Role admin page.
  *
  * <p>Requires either {@code _admin} or {@code _admin.userAdmin} read privilege.
- * POST method is enforced; non-POST requests receive HTTP 405.
+ * POST method is enforced for save operations ({@code submit=Save}); GET requests are allowed for initial form display.
  * All role add/search business logic is handled by the JSP.</p>
  *
- * @since 2026-05-01
+ * @since 2026-04-05
  */
 public class ProviderAddRole2Action extends ActionSupport {
 

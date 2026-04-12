@@ -47,7 +47,7 @@ import org.apache.struts2.ServletActionContext;
  * request parameter and applies the change via {@link MeasurementTemplateFlowSheetConfig},
  * then redirects (PRG pattern). GET requests return SUCCESS to render the list view.</p>
  *
- * @since 2026-05-01
+ * @since 2026-04-05
  */
 public class ManageFlowsheets2Action extends ActionSupport {
 
@@ -60,15 +60,19 @@ public class ManageFlowsheets2Action extends ActionSupport {
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)
-                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", "r", null)
-                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.flowsheet", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", "w", null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.flowsheet", "w", null)) {
             throw new SecurityException("missing required sec object (_admin, _admin.misc, or _admin.flowsheet)");
         }
 
         String method = request.getParameter("method");
         if ("POST".equalsIgnoreCase(request.getMethod()) && method != null) {
             String name = request.getParameter("name");
+            if (name == null || name.isEmpty()) {
+                response.sendRedirect(request.getContextPath() + "/admin/ManageFlowsheets.do");
+                return NONE;
+            }
             MeasurementTemplateFlowSheetConfig config = MeasurementTemplateFlowSheetConfig.getInstance();
 
             if ("disable".equalsIgnoreCase(method)) {

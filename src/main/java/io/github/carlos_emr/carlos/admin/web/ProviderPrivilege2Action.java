@@ -45,7 +45,7 @@ import org.apache.struts2.ServletActionContext;
  * POST method is enforced when a write operation is detected (submit parameter
  * present); non-POST requests for those operations receive HTTP 405.</p>
  *
- * @since 2026-05-01
+ * @since 2026-04-05
  */
 public class ProviderPrivilege2Action extends ActionSupport {
 

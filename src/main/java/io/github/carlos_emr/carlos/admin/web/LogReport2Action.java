@@ -62,9 +62,9 @@ import org.owasp.encoder.Encode;
  * </ul>
  *
  * <p>The {@code content} parameter is sanitised via an allowlist: only the
- * literal value {@code "login"} is passed through; all other values (including
- * the legacy {@code "admin"} sentinel) default to the wildcard {@code "%"} so
- * that the query matches all content types.</p>
+ * literal values {@code "login"} and {@code "admin"} are passed through; all
+ * other values default to the wildcard {@code "%"} so that the query matches
+ * all content types.</p>
  *
  * <p>Request attributes set for the JSP:
  * <ul>
@@ -81,7 +81,7 @@ import org.owasp.encoder.Encode;
  *   <li>{@code endDate} – end date string used for the query.</li>
  * </ul>
  *
- * @since 2026-05-01
+ * @since 2026-04-05
  */
 public class LogReport2Action extends ActionSupport {
 
@@ -124,15 +124,19 @@ public class LogReport2Action extends ActionSupport {
                     new DBPreparedHandlerParam[0]);
         }
 
-        while (rs.next()) {
-            String pNo = Misc.getString(rs, "provider_no");
-            String fullName = Misc.getString(rs, "first_name") + " " + Misc.getString(rs, "last_name");
-            propName.setProperty(pNo, fullName);
+        try {
+            while (rs.next()) {
+                String pNo = Misc.getString(rs, "provider_no");
+                String fullName = Misc.getString(rs, "first_name") + " " + Misc.getString(rs, "last_name");
+                propName.setProperty(pNo, fullName);
 
-            Properties prop = new Properties();
-            prop.setProperty("providerNo", pNo);
-            prop.setProperty("name", fullName);
-            vecProvider.add(prop);
+                Properties prop = new Properties();
+                prop.setProperty("providerNo", pNo);
+                prop.setProperty("name", fullName);
+                vecProvider.add(prop);
+            }
+        } finally {
+            rs.close();
         }
 
         request.setAttribute("vecProvider", vecProvider);
@@ -212,23 +216,27 @@ public class LogReport2Action extends ActionSupport {
 
             Vector<Properties> vec = new Vector<>();
             ResultSet logRs = dbObj.queryResults(sql, params);
-            while (logRs.next()) {
-                Properties prop = new Properties();
-                prop.setProperty("dateTime", "" + logRs.getTimestamp("dateTime"));
-                // Do not pre-encode these string fields — the JSP uses <c:out> which encodes on output.
-                // Pre-encoding here would cause double-encoding (e.g. "<" → "&amp;lt;").
-                prop.setProperty("action", Misc.getString(logRs, "action"));
-                prop.setProperty("content", Misc.getString(logRs, "content"));
-                prop.setProperty("contentId", Misc.getString(logRs, "contentId"));
-                prop.setProperty("ip", Misc.getString(logRs, "ip"));
-                prop.setProperty("provider_no", Misc.getString(logRs, "provider_no"));
-                prop.setProperty("demographic_no", Misc.getString(logRs, "demographic_no"));
-                // For 'data' we inject <br/> line-break tags, so we must encode HTML-special chars
-                // first and then add the <br/> tags. The JSP outputs this field raw (not via <c:out>)
-                // to preserve the injected markup.
-                prop.setProperty("data",
-                        Encode.forHtml(Misc.getString(logRs, "data")).replaceAll("\n", "<br/>"));
-                vec.add(prop);
+            try {
+                while (logRs.next()) {
+                    Properties prop = new Properties();
+                    prop.setProperty("dateTime", "" + logRs.getTimestamp("dateTime"));
+                    // Do not pre-encode these string fields — the JSP uses <c:out> which encodes on output.
+                    // Pre-encoding here would cause double-encoding (e.g. "<" → "&amp;lt;").
+                    prop.setProperty("action", Misc.getString(logRs, "action"));
+                    prop.setProperty("content", Misc.getString(logRs, "content"));
+                    prop.setProperty("contentId", Misc.getString(logRs, "contentId"));
+                    prop.setProperty("ip", Misc.getString(logRs, "ip"));
+                    prop.setProperty("provider_no", Misc.getString(logRs, "provider_no"));
+                    prop.setProperty("demographic_no", Misc.getString(logRs, "demographic_no"));
+                    // For 'data' we inject <br/> line-break tags, so we must encode HTML-special chars
+                    // first and then add the <br/> tags. The JSP outputs this field raw (not via <c:out>)
+                    // to preserve the injected markup.
+                    prop.setProperty("data",
+                            Encode.forHtml(Misc.getString(logRs, "data")).replaceAll("\n", "<br/>"));
+                    vec.add(prop);
+                }
+            } finally {
+                logRs.close();
             }
 
             request.setAttribute("vec", vec);

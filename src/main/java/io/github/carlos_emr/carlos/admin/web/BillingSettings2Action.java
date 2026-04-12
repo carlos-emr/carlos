@@ -43,7 +43,7 @@ import org.apache.struts2.ServletActionContext;
  * <p>Requires {@code _admin} read privilege before forwarding to the JSP.
  * POST enforcement for save operations is handled by the JSP itself.</p>
  *
- * @since 2026-05-01
+ * @since 2026-04-05
  */
 public class BillingSettings2Action extends ActionSupport {
 

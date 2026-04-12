@@ -43,7 +43,7 @@ import org.apache.struts2.ServletActionContext;
  * <p>Requires {@code _admin.misc} read privilege before forwarding to the JSP.
  * The JSP handles both the display form and the POST save operation internally.</p>
  *
- * @since 2026-05-01
+ * @since 2026-04-05
  */
 public class AdminNewGroup2Action extends ActionSupport {
 

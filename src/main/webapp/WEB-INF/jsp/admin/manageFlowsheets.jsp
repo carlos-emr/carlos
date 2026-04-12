@@ -57,25 +57,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
-<%
-    String method = request.getParameter("method");
-    if (method != null) {
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
-            return;
-        }
-        if (method.equals("disable")) {
-            String name = request.getParameter("name");
-            MeasurementTemplateFlowSheetConfig.getInstance().disableFlowsheet(name);
-        }
-        if (method.equals("enable")) {
-            String name = request.getParameter("name");
-            MeasurementTemplateFlowSheetConfig.getInstance().enableFlowsheet(name);
-        }
-        response.sendRedirect(request.getContextPath() + "/admin/ManageFlowsheets.do");
-    }
-
-%>
+<%-- Enable/disable mutations are handled by ManageFlowsheets2Action (PRG pattern). --%>
 
 
 <html>

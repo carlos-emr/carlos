@@ -52,7 +52,7 @@ import org.apache.struts2.ServletActionContext;
  * unlocks the specified username via {@link LoginCheckLogin} and adds an audit log entry.
  * Always loads the current lock list into the {@code lockList} request attribute.</p>
  *
- * @since 2026-05-01
+ * @since 2026-04-05
  */
 public class UnLock2Action extends ActionSupport {
 

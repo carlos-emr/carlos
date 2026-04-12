@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao;
 import io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -47,7 +48,7 @@ import org.apache.struts2.ServletActionContext;
  * delete by setting the {@code deleted} flag on the {@link PreventionsLotNrs} record
  * and merging the change.</p>
  *
- * @since 2026-05-01
+ * @since 2026-04-05
  */
 public class LotNrDeleteRecord2Action extends ActionSupport {
 
@@ -76,14 +77,21 @@ public class LotNrDeleteRecord2Action extends ActionSupport {
         request.setAttribute("prevention", prevention);
 
         if (prevention != null && lotnr != null) {
-            PreventionsLotNrs record = preventionsLotNrsDao.findByName(prevention, lotnr, false);
-            if (record != null) {
-                record.setDeleted(true);
-                preventionsLotNrsDao.merge(record);
-                request.setAttribute("resultMsg", "Lot number record deleted successfully.");
-            } else {
-                request.setAttribute("resultMsg", "Lot number record not found.");
+            try {
+                PreventionsLotNrs record = preventionsLotNrsDao.findByName(prevention, lotnr, false);
+                if (record != null) {
+                    record.setDeleted(true);
+                    preventionsLotNrsDao.merge(record);
+                    request.setAttribute("resultMsg", "Lot number record deleted successfully.");
+                } else {
+                    request.setAttribute("resultMsg", "Lot number record not found.");
+                }
+            } catch (RuntimeException e) {
+                MiscUtils.getLogger().error("Failed to delete lot number record", e);
+                request.setAttribute("resultMsg", "Failed to delete lot number record.");
             }
+        } else {
+            request.setAttribute("resultMsg", "Both prevention type and lot number are required.");
         }
 
         return SUCCESS;

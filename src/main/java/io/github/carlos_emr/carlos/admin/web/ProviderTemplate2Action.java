@@ -49,7 +49,7 @@ import org.apache.struts2.ServletActionContext;
  * then loads the full list of templates for display. Enforces POST for mutating operations
  * and requires {@code _newCasemgmt.templates w} privilege.</p>
  *
- * @since 2026-05-01
+ * @since 2026-04-05
  */
 public class ProviderTemplate2Action extends ActionSupport {
 
@@ -68,13 +68,14 @@ public class ProviderTemplate2Action extends ActionSupport {
         }
 
         String dboperation = request.getParameter("dboperation");
+        String trimmedOp = dboperation != null ? dboperation.trim() : "";
 
         if ("POST".equalsIgnoreCase(request.getMethod())
-                && ("Save".equalsIgnoreCase(dboperation) || "Delete".equalsIgnoreCase(dboperation))) {
+                && ("Save".equalsIgnoreCase(trimmedOp) || "Delete".equalsIgnoreCase(trimmedOp))) {
 
-            String templateName = request.getParameter("encountertemplate_name");
-            if ("Save".equalsIgnoreCase(dboperation)) {
-                String templateValue = request.getParameter("encountertemplate_value");
+            String templateName = request.getParameter("name");
+            if ("Save".equalsIgnoreCase(trimmedOp)) {
+                String templateValue = request.getParameter("value");
                 EncounterTemplate existing = encounterTemplateDao.find(templateName);
                 if (existing != null) {
                     existing.setEncounterTemplateValue(templateValue);
@@ -84,6 +85,7 @@ public class ProviderTemplate2Action extends ActionSupport {
                     newTemplate.setEncounterTemplateName(templateName);
                     newTemplate.setEncounterTemplateValue(templateValue);
                     newTemplate.setCreatorProviderNo(loggedInInfo.getLoggedInProviderNo());
+                    newTemplate.setCreatedDate(new java.util.Date());
                     encounterTemplateDao.persist(newTemplate);
                 }
             } else {
@@ -96,8 +98,8 @@ public class ProviderTemplate2Action extends ActionSupport {
         }
 
         // Load the specific template for Edit mode (GET or POST with Edit)
-        if ("Edit".equalsIgnoreCase(dboperation)) {
-            String templateName = request.getParameter("encountertemplate_name");
+        if ("Edit".equalsIgnoreCase(trimmedOp)) {
+            String templateName = request.getParameter("name");
             EncounterTemplate editTemplate = encounterTemplateDao.find(templateName);
             request.setAttribute("editTemplate", editTemplate);
         }

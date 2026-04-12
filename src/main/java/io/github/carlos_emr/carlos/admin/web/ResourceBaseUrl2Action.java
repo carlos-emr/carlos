@@ -46,7 +46,7 @@ import org.apache.struts2.ServletActionContext;
  * enforced; non-POST requests receive HTTP 405. Read-only display requests are
  * forwarded directly to the JSP.</p>
  *
- * @since 2026-05-01
+ * @since 2026-04-05
  */
 public class ResourceBaseUrl2Action extends ActionSupport {
 

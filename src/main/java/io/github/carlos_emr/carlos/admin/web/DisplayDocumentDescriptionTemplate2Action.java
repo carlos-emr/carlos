@@ -44,7 +44,7 @@ import org.apache.struts2.ServletActionContext;
  * All display and mutation logic is delegated to the JSP and its downstream
  * action endpoints.</p>
  *
- * @since 2026-05-01
+ * @since 2026-04-05
  */
 public class DisplayDocumentDescriptionTemplate2Action extends ActionSupport {
 

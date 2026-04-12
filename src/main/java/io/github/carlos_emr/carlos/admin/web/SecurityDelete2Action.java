@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -50,7 +51,7 @@ import org.apache.struts2.ServletActionContext;
  * <p>Requires either {@code _admin w} or {@code _admin.userAdmin w} privilege and POST method.
  * Performs a hard delete via {@link SecurityDao} and logs the action for the audit trail.</p>
  *
- * @since 2026-05-01
+ * @since 2026-04-05
  */
 public class SecurityDelete2Action extends ActionSupport {
 
@@ -76,13 +77,28 @@ public class SecurityDelete2Action extends ActionSupport {
 
         String securityNoStr = request.getParameter("keyword");
         if (securityNoStr != null && !securityNoStr.isEmpty()) {
-            try {
-                int securityNo = Integer.parseInt(securityNoStr);
-                Security record = securityDao.find(securityNo);
-                if (record != null) {
-                    String userName = record.getUserName();
-                    securityDao.remove(record);
+            executeDelete(loggedInInfo, securityNoStr);
+        } else {
+            request.setAttribute("msg", "No security identifier was provided.");
+        }
 
+        return SUCCESS;
+    }
+
+    /**
+     * Parses the security ID, locates the entity, removes it, and sets a feedback message.
+     *
+     * @param loggedInInfo the current session context
+     * @param securityNoStr the raw security-number parameter value
+     */
+    private void executeDelete(LoggedInInfo loggedInInfo, String securityNoStr) {
+        try {
+            int securityNo = Integer.parseInt(securityNoStr);
+            Security entity = securityDao.find(securityNo);
+            if (entity != null) {
+                String userName = entity.getUserName();
+                try {
+                    securityDao.remove(entity);
                     LogAction.addLog(
                         loggedInInfo.getLoggedInProviderNo(),
                         LogConst.DELETE,
@@ -90,15 +106,17 @@ public class SecurityDelete2Action extends ActionSupport {
                         securityNoStr,
                         request.getRemoteAddr()
                     );
-                    request.setAttribute("msg", "Security record deleted for user: " + Encode.forHtml(userName));
-                } else {
-                    request.setAttribute("msg", "Security record not found.");
+                    String encodedName = Encode.forHtml(userName);
+                    request.setAttribute("msg", "Security entry deleted for user: ".concat(encodedName));
+                } catch (RuntimeException e) {
+                    MiscUtils.getLogger().error("Failed to delete security entry", e);
+                    request.setAttribute("msg", "Failed to delete security entry.");
                 }
-            } catch (NumberFormatException e) {
-                request.setAttribute("msg", "Invalid security record identifier.");
+            } else {
+                request.setAttribute("msg", "Security entry not found.");
             }
+        } catch (NumberFormatException e) {
+            request.setAttribute("msg", "Invalid security identifier.");
         }
-
-        return SUCCESS;
     }
 }

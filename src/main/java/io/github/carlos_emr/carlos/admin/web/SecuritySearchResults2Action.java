@@ -43,7 +43,7 @@ import org.apache.struts2.ServletActionContext;
  * <p>Requires either {@code _admin *} or {@code _admin.userAdmin *} privilege.
  * All search and display logic is handled by the JSP.</p>
  *
- * @since 2026-05-01
+ * @since 2026-04-05
  */
 public class SecuritySearchResults2Action extends ActionSupport {
 

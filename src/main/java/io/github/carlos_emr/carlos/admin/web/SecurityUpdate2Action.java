@@ -45,7 +45,7 @@ import org.apache.struts2.ServletActionContext;
  * POST method is enforced; non-POST requests receive HTTP 405.
  * All update logic is handled by the JSP.</p>
  *
- * @since 2026-05-01
+ * @since 2026-04-05
  */
 public class SecurityUpdate2Action extends ActionSupport {
 
@@ -56,16 +56,16 @@ public class SecurityUpdate2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
-            return NONE;
-        }
-
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "r", null)) {
             throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
+        }
+
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
         }
 
         return SUCCESS;

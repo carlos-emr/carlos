@@ -46,7 +46,7 @@ import org.apache.struts2.ServletActionContext;
  * handles the multipart file upload. On completion the JSP redirects to the flowsheet list
  * (PRG pattern).</p>
  *
- * @since 2026-05-01
+ * @since 2026-04-05
  */
 public class ManageFlowsheetsUpload2Action extends ActionSupport {
 
@@ -59,9 +59,9 @@ public class ManageFlowsheetsUpload2Action extends ActionSupport {
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)
-                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", "r", null)
-                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.flowsheet", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", "w", null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.flowsheet", "w", null)) {
             throw new SecurityException("missing required sec object (_admin, _admin.misc, or _admin.flowsheet)");
         }
 
