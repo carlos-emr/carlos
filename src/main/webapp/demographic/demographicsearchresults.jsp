@@ -254,7 +254,7 @@
                     if (window.opener && !window.opener.closed) {
                         window.opener.document.forms[0].demographic_no.value = demoNo;
                         window.opener.document.forms[0].selectedDemo.value = keyword;
-                        window.opener.document.forms[0].keyword.value = '';
+                        window.opener.document.forms[0].keyword.value = keyword;
                     }
                 } catch (e) {
                     // cross-window DOM access failed; popup will still close
