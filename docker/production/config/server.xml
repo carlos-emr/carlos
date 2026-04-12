@@ -1,0 +1,83 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!--
+  CARLOS EMR - Production Tomcat Configuration
+
+  Hardened for production deployment. Key differences from development:
+  - server="CARLOS" hides Tomcat version in HTTP response headers
+  - maxThreads="200" sized for production load
+  - No AJP connector (dev doesn't use one either, keeping removed)
+  - xpoweredBy="false" suppresses X-Powered-By header
+  - Access log captures additional fields for audit trail (HIPAA/PIPEDA)
+  - Shutdown port disabled (set to -1) - use container stop instead
+  - No Manager or Host-Manager webapps deployed (stripped in Dockerfile)
+
+  License: GPL-2.0+
+-->
+<Server port="-1" shutdown="SHUTDOWN">
+    <Listener className="org.apache.catalina.startup.VersionLoggerListener"/>
+    <Listener className="org.apache.catalina.core.AprLifecycleListener"/>
+    <Listener className="org.apache.catalina.core.JreMemoryLeakPreventionListener"/>
+    <Listener className="org.apache.catalina.mbeans.GlobalResourcesLifecycleListener"/>
+    <Listener className="org.apache.catalina.core.ThreadLocalLeakPreventionListener"/>
+
+    <GlobalNamingResources>
+        <Resource name="UserDatabase"
+                  auth="Container"
+                  type="org.apache.catalina.UserDatabase"
+                  description="User database that can be updated and saved"
+                  factory="org.apache.catalina.users.MemoryUserDatabaseFactory"
+                  pathname="conf/tomcat-users.xml"/>
+    </GlobalNamingResources>
+
+    <Service name="Catalina">
+        <!--
+          HTTP connector. server="CARLOS" replaces the Server response header
+          so the Tomcat version is not advertised to clients. xpoweredBy="false"
+          suppresses the X-Powered-By header.
+
+          When running behind a TLS-terminating reverse proxy, set
+          scheme="https" and secure="true" (or use RemoteIpValve below).
+        -->
+        <Connector port="8080"
+                   protocol="HTTP/1.1"
+                   connectionTimeout="20000"
+                   maxThreads="200"
+                   acceptCount="100"
+                   minSpareThreads="10"
+                   server="CARLOS"
+                   xpoweredBy="false"
+                   maxHttpHeaderSize="16384"
+                   URIEncoding="UTF-8"
+                   redirectPort="8443"/>
+
+        <Engine name="Catalina" defaultHost="localhost">
+            <Realm className="org.apache.catalina.realm.LockOutRealm">
+                <Realm className="org.apache.catalina.realm.UserDatabaseRealm"
+                       resourceName="UserDatabase"/>
+            </Realm>
+            <Host name="localhost" appBase="webapps" unpackWARs="true" autoDeploy="false">
+                <!--
+                  RemoteIpValve honors X-Forwarded-For and X-Forwarded-Proto from a
+                  reverse proxy. internalProxies should be narrowed to the proxy's
+                  IP range in production deployments behind nginx/haproxy/traefik.
+                -->
+                <Valve className="org.apache.catalina.valves.RemoteIpValve"
+                       remoteIpHeader="X-Forwarded-For"
+                       protocolHeader="X-Forwarded-Proto"
+                       internalProxies="10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+|127\.\d+\.\d+\.\d+"/>
+
+                <!--
+                  Access log with extended fields for audit trail. Includes user,
+                  referrer, user-agent, and response time. Rotated daily.
+                -->
+                <Valve className="org.apache.catalina.valves.AccessLogValve"
+                       directory="logs"
+                       prefix="carlos_access_log."
+                       suffix=".txt"
+                       pattern="%h %l %u %t &quot;%r&quot; %s %b %D &quot;%{Referer}i&quot; &quot;%{User-Agent}i&quot;"
+                       rotatable="true"
+                       fileDateFormat=".yyyy-MM-dd"/>
+            </Host>
+        </Engine>
+    </Service>
+</Server>

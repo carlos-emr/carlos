@@ -1,0 +1,27 @@
+# CARLOS EMR - DrugRef2 Production Properties Template
+#
+# This is an envsubst(1) template. setup.sh substitutes ${DB_ROOT_PASSWORD}
+# before mounting into the drugref container at /root/drugref2.properties.
+#
+# Source: adapted from .devcontainer/development/config/shared/volumes/drugref2.properties
+
+db_user=root
+db_url=jdbc:mysql://db:3306/drugref2
+db_driver=com.mysql.cj.jdbc.Driver
+db_password=${DB_ROOT_PASSWORD}
+
+# Push APO, NOVO, and other manufacturer prefixes below non-prefixed drug names
+# in search results. Keeps brand/generic ordering sensible for prescribers.
+sort_down_mfg_tagged_generics=true
+
+# Medispan license key (optional). Uncomment and set if your clinic has
+# a Medispan subscription through OSCAR EMR for enhanced drug interaction data.
+#licence_key=
+
+# URL for the drug interaction web service. Uncomment to enable periodic
+# interaction database updates. Requires network access from the container.
+#interaction_base_url=https://download.oscar-emr.com/ws/rs/accounts
+
+# Scheduled update interval in milliseconds (300000 = 5 minutes).
+# Uncomment with interaction_base_url above to enable.
+#scheduled_timer=300000

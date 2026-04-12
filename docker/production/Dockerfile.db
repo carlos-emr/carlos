@@ -1,0 +1,61 @@
+# CARLOS EMR - Production Database Container
+#
+# MariaDB 10.5 with CARLOS schema, reference data, and migration scripts baked
+# in at build time. The init-db.sh entrypoint runs on first startup (when the
+# /var/lib/mysql volume is empty) to create the oscar and drugref2 databases.
+#
+# Build context must be the repository root - this Dockerfile COPYs the
+# database/ directory and the production init script into the image.
+#
+# Typical use:
+#   docker build -f docker/production/Dockerfile.db -t carlos-db:latest .
+#
+# Environment variables at runtime (set via docker-compose.yml):
+#   MYSQL_ROOT_PASSWORD  - required, root password for database
+#   CARLOS_PROVINCE      - "on" (Ontario) or "bc" (British Columbia)
+#   LOAD_DEMO_DATA       - "true" loads demo patients, "false" (default)
+#                          for clean production install
+#
+# License: GPL-2.0+
+
+FROM mariadb:10.5
+
+LABEL org.opencontainers.image.source="https://github.com/carlos-emr/carlos"
+LABEL org.opencontainers.image.description="CARLOS EMR Database"
+LABEL org.opencontainers.image.licenses="GPL-2.0-or-later"
+
+# dos2unix ensures scripts copied from Windows hosts have LF line endings.
+# Critical because /docker-entrypoint-initdb.d scripts are executed by sh,
+# which chokes on CRLF line endings.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends dos2unix \
+    && rm -rf /var/lib/apt/lists/*
+
+# Bake in all SQL files from database/mysql/ - schema (oscarinit*.sql),
+# reference data (oscardata*.sql, ICD codes, measurement maps), province
+# overlays (bc_*, oscardata_on), and all date-stamped migrations under
+# updates/. See database/mysql/createdatabase_generic.sh for load order.
+COPY database/ /database/
+
+# The init-db.sh script runs automatically on first startup via the mariadb
+# image's entrypoint mechanism (any .sh, .sql, or .sql.gz in this directory
+# is executed). Our script wraps the logic from the dev populate_db.sh with
+# production-appropriate defaults and the LOAD_DEMO_DATA toggle.
+COPY docker/production/scripts/init-db.sh /docker-entrypoint-initdb.d/init-db.sh
+
+# development.sql is copied into /scripts so init-db.sh can optionally load it
+# when LOAD_DEMO_DATA=true. This keeps the same on-disk layout that the dev
+# container expects, simplifying the init script.
+RUN mkdir -p /scripts
+COPY .devcontainer/db/scripts/development.sql /scripts/development.sql
+
+# Production MariaDB tuning (doublewrite on, slow query logging, no query cache
+# auto-rebuild, ACID-durable commits).
+COPY docker/production/config/my.cnf /etc/mysql/my.cnf
+
+RUN chmod 644 /etc/mysql/my.cnf \
+    && chmod 755 /scripts \
+    && dos2unix /docker-entrypoint-initdb.d/init-db.sh \
+    && dos2unix /database/mysql/*.sh
+
+EXPOSE 3306

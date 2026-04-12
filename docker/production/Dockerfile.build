@@ -1,0 +1,112 @@
+# CARLOS EMR - Production Container (build from source)
+#
+# Multi-stage build: clones the CARLOS repo at a given tag/branch, compiles
+# the WAR with Maven, then assembles the same hardened production image as
+# docker/production/Dockerfile.
+#
+# Typical use:
+#   docker build -f docker/production/Dockerfile.build \
+#       --build-arg GIT_REF=develop \
+#       -t carlos-emr:latest .
+#
+# Build args:
+#   GIT_REF   - branch, tag, or commit SHA to build. Defaults to "develop".
+#   REPO_URL  - git remote to clone from. Override for forks.
+#
+# Note: this is slow (~10 minutes) because it runs a full Maven build
+# including dependency download. For faster iteration, use the prebuilt
+# Dockerfile with a cached WAR instead.
+#
+# License: GPL-2.0+
+
+# =============================================================================
+# Stage 1: Build the WAR
+# =============================================================================
+FROM maven:3-eclipse-temurin-21 AS builder
+
+ARG GIT_REF=develop
+ARG REPO_URL=https://github.com/carlos-emr/carlos.git
+
+WORKDIR /build
+
+# Shallow clone to save bandwidth and disk. If GIT_REF is a commit SHA rather
+# than a branch/tag, fall back to a full clone.
+RUN git clone --depth 1 --branch "${GIT_REF}" "${REPO_URL}" /build/src \
+    || (git clone "${REPO_URL}" /build/src && cd /build/src && git checkout "${GIT_REF}")
+
+WORKDIR /build/src
+
+# Build the WAR. -T 1C uses one thread per core; the dev devcontainer's make
+# script uses this too. Tests are skipped here - run them separately in CI.
+# war:exploded produces target/carlos-0-SNAPSHOT/ directory, which is cheaper
+# to COPY into the runtime image than re-exploding a .war archive at startup.
+RUN mvn -B -DskipTests -T 1C package war:exploded
+
+# =============================================================================
+# Stage 2: Production runtime (mirrors docker/production/Dockerfile exactly)
+# =============================================================================
+FROM tomcat:11.0-jdk21-temurin
+
+LABEL org.opencontainers.image.source="https://github.com/carlos-emr/carlos"
+LABEL org.opencontainers.image.description="CARLOS EMR - Production (built from source)"
+LABEL org.opencontainers.image.licenses="GPL-2.0-or-later"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl \
+        fonts-roboto \
+        fonts-liberation \
+        fonts-noto-color-emoji \
+        libfreetype6 \
+        libjpeg62-turbo \
+        libpng16-16 \
+        locales \
+        tzdata \
+    && rm -rf /var/lib/apt/lists/* \
+    && sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen \
+    && locale-gen
+
+ENV LANG=en_US.UTF-8 \
+    LC_ALL=en_US.UTF-8
+
+RUN rm -rf /usr/local/tomcat/webapps/* /usr/local/tomcat/webapps.dist
+
+COPY docker/production/config/server.xml /usr/local/tomcat/conf/server.xml
+COPY docker/production/scripts/healthcheck.sh /usr/local/bin/healthcheck.sh
+RUN chmod +x /usr/local/bin/healthcheck.sh
+
+RUN groupadd -r -g 1000 carlos && useradd -r -u 1000 -g carlos -d /home/carlos -m carlos
+
+RUN mkdir -p \
+        /var/lib/OscarDocument/oscar/document \
+        /var/lib/OscarDocument/oscar/eform/images \
+        /var/lib/OscarDocument/oscar/billing/download \
+        /var/lib/OscarDocument/oscar/billing/invoices \
+        /var/lib/OscarDocument/oscar/incomingdocs \
+        /var/lib/OscarDocument/oscar/export \
+        /etc/carlos \
+        /usr/local/tomcat/conf/Catalina/localhost \
+    && chown -R carlos:carlos \
+        /var/lib/OscarDocument \
+        /etc/carlos \
+        /usr/local/tomcat/logs \
+        /usr/local/tomcat/webapps \
+        /usr/local/tomcat/work \
+        /usr/local/tomcat/temp \
+        /usr/local/tomcat/conf/Catalina
+
+# Copy the exploded WAR from the builder stage. The Maven build produces
+# target/carlos-0-SNAPSHOT/ - rename it to /webapps/carlos/ for the app URL.
+COPY --from=builder --chown=carlos:carlos /build/src/target/carlos-0-SNAPSHOT /usr/local/tomcat/webapps/carlos
+
+ENV CATALINA_OPTS="-Xms1G -Xmx3G -XX:+UseG1GC -Dcarlos_override_properties=/etc/carlos/carlos.properties -Djava.awt.headless=true"
+
+VOLUME ["/etc/carlos", "/var/lib/OscarDocument"]
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=10s --retries=5 --start-period=120s \
+    CMD /usr/local/bin/healthcheck.sh
+
+USER carlos:carlos
+
+CMD ["catalina.sh", "run"]

@@ -1,0 +1,160 @@
+# CARLOS EMR - Production Compose File
+#
+# Compatible with: docker compose (v2 plugin), docker-compose (v1 legacy),
+#                  podman compose (podman 4.0+), podman-compose 1.0+
+#
+# Compose schema: v2 (no `version:` key). v3 was added for Swarm features
+# we do not use (deploy.*), and older tool versions have worse v3 support.
+#
+# Bind mounts use the `:Z` SELinux label suffix. On SELinux-enforcing hosts
+# (RHEL/Fedora/CentOS) podman uses this to privately relabel files for the
+# container. Docker silently ignores the suffix - no harm done on Docker
+# or non-SELinux systems.
+#
+# Usage:
+#   cp .env.example .env    # then edit values
+#   docker compose up -d    # or: podman-compose up -d
+#
+# The first startup takes 3-5 minutes on slow hardware:
+#   - db container initializes the schema (~60s)
+#   - carlos container explodes the WAR and initializes Spring/Hibernate (~90s)
+#   - healthcheck probes start after start_period expires
+#
+# License: GPL-2.0+
+
+services:
+
+  # ===========================================================================
+  # App container (Tomcat + CARLOS WAR)
+  # ===========================================================================
+  carlos:
+    # Default: build from the Dockerfile (expects WAR at ./carlos.war or
+    # the path supplied via WAR_PATH build arg). To use a prebuilt image from
+    # ghcr.io instead, comment out `build:` and uncomment the `image:` line.
+    build:
+      context: ../..
+      dockerfile: docker/production/Dockerfile
+      args:
+        WAR_PATH: ${WAR_PATH:-docker/carlos.war}
+    # image: ghcr.io/carlos-emr/carlos:latest
+    container_name: carlos-app
+    hostname: carlos
+    restart: unless-stopped
+    ports:
+      - "${CARLOS_PORT:-8080}:8080"
+    volumes:
+      # Read-only config - setup.sh generates this from .template via envsubst.
+      # :Z label ensures podman can read it under SELinux. :ro prevents the
+      # container from modifying the host-side file.
+      - ./config/carlos.properties:/etc/carlos/carlos.properties:ro,Z
+      # Named volume for persistent patient documents, uploaded eForm images,
+      # billing files. Must be backed up regularly - contains PHI.
+      - carlos-documents:/var/lib/OscarDocument
+    environment:
+      - TZ=${TZ:-America/Toronto}
+    depends_on:
+      db:
+        condition: service_healthy
+      drugref:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      # Cold start: WAR explosion + Spring context + Hibernate schema validation.
+      # 120s is comfortable on modern hardware; extend if running on a VM with
+      # constrained CPU.
+      start_period: 120s
+    mem_limit: 4g
+    networks:
+      - carlos-net
+
+  # ===========================================================================
+  # Database (MariaDB 10.5 with CARLOS schema baked in)
+  # ===========================================================================
+  db:
+    build:
+      context: ../..
+      dockerfile: docker/production/Dockerfile.db
+    container_name: carlos-db
+    hostname: db
+    restart: unless-stopped
+    # Intentionally no host port exposure by default - the db is only accessed
+    # by the carlos and drugref containers over the internal network. Uncomment
+    # to expose for external DBA tools (and firewall appropriately).
+    # ports:
+    #   - "3306:3306"
+    volumes:
+      - carlos-db-data:/var/lib/mysql
+    environment:
+      # DB_ROOT_PASSWORD must be set in .env - no default. init-db.sh fails
+      # loudly if this is empty.
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD must be set in .env}
+      - CARLOS_PROVINCE=${CARLOS_PROVINCE:-on}
+      - LOAD_DEMO_DATA=${LOAD_DEMO_DATA:-false}
+    healthcheck:
+      # mysqladmin ping exits 0 only when the server is accepting connections.
+      # Using root+password here ensures we also test auth (not just socket).
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      # First startup applies all schema SQL - give it 3 minutes headroom.
+      start_period: 180s
+    mem_limit: 2g
+    networks:
+      - carlos-net
+
+  # ===========================================================================
+  # DrugRef2 service (drug reference data)
+  # ===========================================================================
+  drugref:
+    # DrugRef is a separate legacy service (Java 11, Tomcat 9). Published as
+    # a pre-built image from the dev container workflow - no need to build it
+    # in production. If the GHCR image is unavailable, you can build it from
+    # .devcontainer/drugref/Dockerfile.
+    image: ghcr.io/carlos-emr/carlos-drugref:latest
+    container_name: carlos-drugref
+    hostname: drugref
+    restart: unless-stopped
+    ports:
+      - "${DRUGREF_PORT:-8180}:8080"
+    volumes:
+      - ./config/drugref2.properties:/root/drugref2.properties:ro,Z
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/drugref2/DrugrefService?wsdl"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - carlos-net
+
+# =============================================================================
+# Named volumes
+# =============================================================================
+# Both volumes contain data that must survive container recreation. Back them
+# up with:
+#   docker run --rm -v carlos-db-data:/data -v $PWD:/backup alpine \
+#     tar czf /backup/db-backup.tgz /data
+#
+# For production, consider using a volume driver that supports snapshots
+# (e.g., LVM thin volumes or ZFS datasets).
+volumes:
+  carlos-db-data:
+    driver: local
+  carlos-documents:
+    driver: local
+
+# =============================================================================
+# Network
+# =============================================================================
+# Explicit bridge network so container-to-container DNS (by hostname) works
+# consistently in both Docker and podman-compose.
+networks:
+  carlos-net:
+    driver: bridge
