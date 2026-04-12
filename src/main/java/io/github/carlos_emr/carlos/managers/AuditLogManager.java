@@ -105,60 +105,31 @@ public class AuditLogManager {
 
         Integer exitValue = null;
 
-        try {
-            String s = null;
+        String whereClause = "dateTime < '".concat(formatter2.format(endDateToPurge)).concat("'");
 
-            String whereClause = "dateTime < '".concat(formatter2.format(endDateToPurge)).concat("'");
-
-            if (mysqldump != null && !mysqldump.matches("^[a-zA-Z0-9/._-]+$")) {
-                throw new Exception("Invalid mysqldump command path");
-            }
-            if (user != null && !user.matches("^[a-zA-Z0-9_\\-]+$")) {
-                throw new Exception("Invalid user");
-            }
-            if (dbName != null && !dbName.matches("^[a-zA-Z0-9_\\-]+$")) {
-                throw new Exception("Invalid database name");
-            }
-
-            ProcessBuilder pb = new ProcessBuilder();
-            pb.command().add(mysqldump);
-            pb.command().add("--user");
-            pb.command().add(user);
-            pb.command().add("-w");
-            pb.command().add(whereClause);
-            pb.command().add("-t");
-            pb.command().add("--result-file");
-            pb.command().add(filename);
-            pb.command().add(dbName);
-            pb.command().add("log");
-
-            if (password != null) {
-                pb.environment().put("MYSQL_PWD", password);
-            }
-            Process p = pb.start();
-
-            BufferedReader stdInput = new BufferedReader(new InputStreamReader(p.getInputStream()));
-
-            BufferedReader stdError = new BufferedReader(new InputStreamReader(p.getErrorStream()));
-
-            logger.info("Here is the standard output of the command:\n");
-            while ((s = stdInput.readLine()) != null) {
-                logger.info(s);
-            }
-
-            logger.info("Here is the standard error of the command (if any):\n");
-            while ((s = stdError.readLine()) != null) {
-                logger.info(s);
-            }
-
-            exitValue = p.waitFor();
-        } catch (IOException e) {
-            logger.error("Error running mysqldump command. Aborting!", e);
-            throw new Exception(e);
-        } catch (InterruptedException e) {
-            logger.error("Error running mysqldump command. Aborting!", e);
-            throw new Exception(e);
+        if (mysqldump != null && !mysqldump.matches("^[a-zA-Z0-9/._-]+$")) {
+            throw new Exception("Invalid mysqldump command path");
         }
+        if (user != null && !user.matches("^[a-zA-Z0-9_\\-]+$")) {
+            throw new Exception("Invalid user");
+        }
+        if (dbName != null && !dbName.matches("^[a-zA-Z0-9_\\-]+$")) {
+            throw new Exception("Invalid database name");
+        }
+
+        ProcessBuilder pb = new ProcessBuilder();
+        pb.command().add(mysqldump);
+        pb.command().add("--user");
+        pb.command().add(user);
+        pb.command().add("-w");
+        pb.command().add(whereClause);
+        pb.command().add("-t");
+        pb.command().add("--result-file");
+        pb.command().add(filename);
+        pb.command().add(dbName);
+        pb.command().add("log");
+
+        exitValue = executeProcess(pb, password);
 
         if (exitValue != 0) {
             logger.warn("Error running mysqldump command. Received an exit value of " + exitValue);
@@ -177,4 +148,34 @@ public class AuditLogManager {
         return numRecordAffected;
     }
 
+    private Integer executeProcess(ProcessBuilder pb, String password) throws Exception {
+        try {
+            if (password != null) {
+                pb.environment().put("MYSQL_PWD", password);
+            }
+            Process p = pb.start();
+
+            BufferedReader stdInput = new BufferedReader(new InputStreamReader(p.getInputStream()));
+            BufferedReader stdError = new BufferedReader(new InputStreamReader(p.getErrorStream()));
+            String s = null;
+
+            logger.info("Here is the standard output of the command:\n");
+            while ((s = stdInput.readLine()) != null) {
+                logger.info(s);
+            }
+
+            logger.info("Here is the standard error of the command (if any):\n");
+            while ((s = stdError.readLine()) != null) {
+                logger.info(s);
+            }
+
+            return p.waitFor();
+        } catch (IOException e) {
+            logger.error("Error running mysqldump command. Aborting!", e);
+            throw new Exception(e);
+        } catch (InterruptedException e) {
+            logger.error("Error running mysqldump command. Aborting!", e);
+            throw new Exception(e);
+        }
+    }
 }
