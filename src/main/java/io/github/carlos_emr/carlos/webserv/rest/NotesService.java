@@ -132,6 +132,14 @@ public class NotesService extends AbstractServiceImpl {
      */
     private static ConcurrentHashMap<String, ConcurrentHashMap<String, Long>> editList = new ConcurrentHashMap<String, ConcurrentHashMap<String, Long>>();
 
+    /**
+     * Soft size cap on {@link #editList} to force a proactive cleanup when the
+     * tracker grows unusually large (e.g. under bursty concurrent edit traffic).
+     * Normal operation is expected to stay well below this bound; the cap is a
+     * safety net, not a hard limit.
+     */
+    private static final int MAX_EDIT_LIST_SIZE = 10000;
+
     @Autowired
     private NoteService noteService;
 
@@ -1881,6 +1889,10 @@ public class NotesService extends AbstractServiceImpl {
         if (noteUUID == null || noteUUID.trim().isEmpty() || providerNo == null || providerNo.trim().isEmpty())
             return RestResponse.errorResponse("Parameter error");
 
+        if (editList.size() > MAX_EDIT_LIST_SIZE) {
+            clearDanglingFlags();
+        }
+
         ConcurrentHashMap<String, Long> noteList = editList.get(noteUUID);
         if (noteList == null) {
             noteList = new ConcurrentHashMap<String, Long>();
@@ -1923,7 +1935,6 @@ public class NotesService extends AbstractServiceImpl {
                     noteList.remove(providerNo);
             }
             if (noteList.isEmpty()) editList.remove(uuid);
-            else editList.put(uuid, noteList);
         }
     }
 
@@ -1946,6 +1957,8 @@ public class NotesService extends AbstractServiceImpl {
     public RestResponse<String> checkEditNoteNew(@QueryParam("noteUUID") String noteUUID, @QueryParam("userId") String providerNo) {
         if (noteUUID == null || noteUUID.trim().isEmpty() || providerNo == null || providerNo.trim().isEmpty())
             return RestResponse.successResponse(null);
+
+        clearDanglingFlags();
 
         ConcurrentHashMap<String, Long> noteList = editList.get(noteUUID);
         if (noteList == null) return RestResponse.successResponse(null);
@@ -1981,8 +1994,11 @@ public class NotesService extends AbstractServiceImpl {
         if (noteUUID == null || noteUUID.trim().isEmpty() || providerNo == null || providerNo.trim().isEmpty()) return;
 
         ConcurrentHashMap<String, Long> noteList = editList.get(noteUUID);
-        if (noteList != null && noteList.containsKey(providerNo)) noteList.remove(providerNo);
-        if (noteList.isEmpty()) editList.remove(noteUUID);
-        else editList.put(noteUUID, noteList);
+        if (noteList != null) {
+            noteList.remove(providerNo);
+            if (noteList.isEmpty()) {
+                editList.remove(noteUUID);
+            }
+        }
     }
 }
