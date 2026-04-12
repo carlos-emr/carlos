@@ -223,14 +223,13 @@ public class MsgDisplayMessagesBean implements java.io.Serializable {
 
     /**
      * Gets the current location ID for multi-location support.
-     * 
-     * <p>Lazily loads the location ID from the database on first access.
-     * Uses string comparison with == which is a bug - should use .equals().</p>
-     * 
+     *
+     * <p>Lazily loads the location ID from the database on first access when the
+     * current value is the sentinel {@code "0"}.</p>
+     *
      * @return String the current location ID
      */
     public String getCurrentLocationId() {
-        // BUG: Should use .equals() not == for string comparison
         if ("0".equals(currentLocationId)) {
             OscarCommLocationsDao oscarCommLocationsDao = SpringUtils.getBean(OscarCommLocationsDao.class);
             List<OscarCommLocations> oscarCommLocations = oscarCommLocationsDao.findByCurrent1(1);

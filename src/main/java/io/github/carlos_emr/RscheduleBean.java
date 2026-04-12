@@ -34,6 +34,8 @@ import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.StringTokenizer;
 
+import org.apache.commons.lang3.StringUtils;
+
 /**
  * Bean representing a recurring schedule configuration for providers.
  * 
@@ -225,7 +227,7 @@ public class RscheduleBean {
 
     public String getDateAvailHour(GregorianCalendar aDate) {
         String val = "";
-        if (!"".equals(provider_no)) {
+        if (StringUtils.isNotEmpty(provider_no)) {
             int j = aDate.get(Calendar.DAY_OF_WEEK) - 1;
             int i = j == 7 ? 0 : j;
             if (this.available.compareTo("A") == 0) {
@@ -240,7 +242,7 @@ public class RscheduleBean {
 
     public String getSiteAvail(GregorianCalendar aDate) {
         String val = "";
-        if (!"".equals(provider_no)) {
+        if (StringUtils.isNotEmpty(provider_no)) {
             int j = aDate.get(Calendar.DAY_OF_WEEK) - 1;
             int i = j == 7 ? 0 : j;
             if (this.available.compareTo("A") == 0) {

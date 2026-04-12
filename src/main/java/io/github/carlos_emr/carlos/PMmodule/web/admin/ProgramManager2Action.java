@@ -410,7 +410,7 @@ public class ProgramManager2Action extends ActionSupport {
             request.setAttribute("vacancyOrTemplateId", getVacancyOrTemplateId());
 
 
-        if (id != null && !"".equals(id)) {
+        if (StringUtils.isNotEmpty(id)) {
             Program program = programManager.getProgram(id);
 
             if (program == null) {
@@ -436,7 +436,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, id);
 
-        if (id != null && !"".equals(id)) {
+        if (StringUtils.isNotEmpty(id)) {
             request.setAttribute("service_restrictions", clientRestrictionManager.getActiveRestrictionsForProgram(Integer.valueOf(id), new Date()));
             request.setAttribute("disabled_service_restrictions", clientRestrictionManager.getDisabledRestrictionsForProgram(Integer.valueOf(id), new Date()));
         }
@@ -1049,7 +1049,7 @@ public class ProgramManager2Action extends ActionSupport {
             }
 
             //Call Match Manager
-            // Testing to be completed
+            //TODO do the testing
             try {
                 matchManager.processEvent(vacancy, IMatchManager.Event.VACANCY_CREATED);
             } catch (MatchManagerException e) {
@@ -1311,7 +1311,7 @@ public class ProgramManager2Action extends ActionSupport {
     private void setEditAttributes(HttpServletRequest request, String programId) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (programId != null && !"".equals(programId)) {
+        if (StringUtils.isNotEmpty(programId)) {
             request.setAttribute("id", programId);
             request.setAttribute("programName", programManager.getProgram(programId).getName());
             request.setAttribute("providers", programManager.getProgramProviders(programId));
