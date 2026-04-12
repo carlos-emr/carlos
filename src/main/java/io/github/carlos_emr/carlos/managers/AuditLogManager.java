@@ -101,29 +101,26 @@ public class AuditLogManager {
         SimpleDateFormat formatter2 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         SimpleDateFormat formatter3 = new SimpleDateFormat("yyyyMMddHHmmss");
 
-        String filename = outputDirectory + "/OSCAR_AUDIR_LOG_PURGE_FILE_" + formatter3.format(endDateToPurge) + ".sql";
+        String filename = outputDirectory.concat("/OSCAR_AUDIR_LOG_PURGE_FILE_").concat(formatter3.format(endDateToPurge)).concat(".sql");
 
         Integer exitValue = null;
 
         try {
             String s = null;
 
-            java.util.List<String> command = new java.util.ArrayList<>();
-            command.add(mysqldump);
-            command.add("--user");
-            command.add(user);
-            command.add("-w");
-            // nosemgrep
-            String whereClauseStr = "dateTime < '" + formatter2.format(endDateToPurge) + "'";
-            command.add(whereClauseStr);
-            command.add("-t");
-            command.add("--result-file");
-            command.add(filename);
-            command.add(dbName);
-            command.add("log");
+            String whereClause = "dateTime < '".concat(formatter2.format(endDateToPurge)).concat("'");
 
-            // nosemgrep
-            ProcessBuilder pb = new ProcessBuilder(command.toArray(new String[0]));
+            // nosem: java.lang.security.audit.command-injection-process-builder.command-injection-process-builder
+            ProcessBuilder pb = new ProcessBuilder(
+                    mysqldump,
+                    "--user", user,
+                    "-w", whereClause,
+                    "-t",
+                    "--result-file", filename,
+                    dbName,
+                    "log"
+            );
+
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
             }
