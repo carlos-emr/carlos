@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import io.github.carlos_emr.carlos.billings.dto.BillingONCListItemDTO;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -141,4 +142,13 @@ public interface BillingONCHeader1Dao extends AbstractDao<BillingONCHeader1> {
 
     public List<BillingONCHeader1> findAllByPayProgram(String payProgram, int startIndex, int limit);
 
+    /**
+     * Returns lightweight billing DTOs for a demographic, bypassing the EAGER
+     * BillingONItem collection (CascadeType.ALL). 16 fields vs 113.
+     *
+     * @param demographicNo Integer the patient demographic number
+     * @return List of BillingONCListItemDTO
+     * @since 2026-04-11
+     */
+    public List<BillingONCListItemDTO> findBillingDTOsByDemographicNo(Integer demographicNo);
 }

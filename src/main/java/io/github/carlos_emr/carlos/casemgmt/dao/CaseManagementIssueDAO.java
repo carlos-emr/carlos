@@ -35,6 +35,7 @@ import java.util.Date;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
+import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementIssueListDTO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 
@@ -63,4 +64,14 @@ public interface CaseManagementIssueDAO {
     public List<Integer> getIssuesByProgramsSince(Date date, List<Program> programs);
 
     public List<CaseManagementIssue> getIssuesByDemographicSince(String demographic_no, Date date);
+
+    /**
+     * Returns lightweight issue DTOs with pre-joined Issue code/description,
+     * eliminating the EAGER Issue entity load (lazy=false in HBM).
+     *
+     * @param demographicNo String the patient demographic number
+     * @return List of CaseManagementIssueListDTO
+     * @since 2026-04-11
+     */
+    public List<CaseManagementIssueListDTO> findIssueDTOsByDemographicNo(String demographicNo);
 }

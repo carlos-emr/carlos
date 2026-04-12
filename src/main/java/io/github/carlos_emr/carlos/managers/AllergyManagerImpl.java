@@ -37,6 +37,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
+import io.github.carlos_emr.carlos.allergy.dto.AllergyListItemDTO;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.ConsentType;
@@ -53,6 +54,9 @@ public class AllergyManagerImpl implements AllergyManager {
 
     @Autowired
     private PatientConsentManager patientConsentManager;
+
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
 
     @Override
     public Allergy getAllergy(LoggedInInfo loggedInInfo, Integer id) {
@@ -119,5 +123,21 @@ public class AllergyManagerImpl implements AllergyManager {
                         + ", updatedAfterThisDateInclusive=" + updatedAfterThisDateInclusive.getTime());
 
         return (results);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<AllergyListItemDTO> getAllergyDTOs(LoggedInInfo loggedInInfo, Integer demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {
+            throw new SecurityException("missing required sec object (_allergy)");
+        }
+        List<AllergyListItemDTO> results = allergyDao.findAllergyDTOsByDemographicNo(demographicNo);
+
+        LogAction.addLogSynchronous(loggedInInfo, "AllergyManager.getAllergyDTOs",
+                "demographicNo=" + demographicNo);
+
+        return results;
     }
 }
