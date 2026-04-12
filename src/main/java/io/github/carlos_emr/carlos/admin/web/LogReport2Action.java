@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.db.DBPreparedHandler;
 import io.github.carlos_emr.carlos.db.DBPreparedHandlerParam;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -102,35 +103,39 @@ public class LogReport2Action extends ActionSupport {
         Properties propName = new Properties();
         Vector<Properties> vecProvider = new Vector<>();
 
-        ResultSet rs;
-        if (isSiteAccessPrivacy) {
-            // Filter providers to those sharing at least one site with the current user.
-            String sql = "select p.* from provider p"
-                    + " INNER JOIN providersite s ON p.provider_no = s.provider_no"
-                    + " WHERE s.site_id IN"
-                    + " (SELECT site_id FROM providersite WHERE provider_no = ?)"
-                    + " order by p.first_name, p.last_name";
-            DBPreparedHandlerParam[] providerParams = {new DBPreparedHandlerParam(curUser_no)};
-            rs = dbObj.queryResults(sql, providerParams);
-        } else {
-            rs = dbObj.queryResults(
-                    "select * from provider p order by p.first_name, p.last_name",
-                    new DBPreparedHandlerParam[0]);
-        }
-
         try {
-            while (rs.next()) {
-                String pNo = Misc.getString(rs, "provider_no");
-                String fullName = Misc.getString(rs, "first_name") + " " + Misc.getString(rs, "last_name");
-                propName.setProperty(pNo, fullName);
-
-                Properties prop = new Properties();
-                prop.setProperty("providerNo", pNo);
-                prop.setProperty("name", fullName);
-                vecProvider.add(prop);
+            ResultSet rs;
+            if (isSiteAccessPrivacy) {
+                // Filter providers to those sharing at least one site with the current user.
+                String sql = "select p.* from provider p"
+                        + " INNER JOIN providersite s ON p.provider_no = s.provider_no"
+                        + " WHERE s.site_id IN"
+                        + " (SELECT site_id FROM providersite WHERE provider_no = ?)"
+                        + " order by p.first_name, p.last_name";
+                DBPreparedHandlerParam[] providerParams = {new DBPreparedHandlerParam(curUser_no)};
+                rs = dbObj.queryResults(sql, providerParams);
+            } else {
+                rs = dbObj.queryResults(
+                    "select * from provider p order by p.first_name, p.last_name",
+                        new DBPreparedHandlerParam[0]);
             }
-        } finally {
-            rs.close();
+
+            try {
+                while (rs.next()) {
+                    String pNo = Misc.getString(rs, "provider_no");
+                    String fullName = Misc.getString(rs, "first_name") + " " + Misc.getString(rs, "last_name");
+                    propName.setProperty(pNo, fullName);
+
+                    Properties prop = new Properties();
+                    prop.setProperty("providerNo", pNo);
+                    prop.setProperty("name", fullName);
+                    vecProvider.add(prop);
+                }
+            } finally {
+                rs.close();
+            }
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Failed to load provider list for log report", e);
         }
 
         request.setAttribute("vecProvider", vecProvider);
@@ -156,10 +161,14 @@ public class LogReport2Action extends ActionSupport {
             if (eDate == null || eDate.isEmpty()) eDate = "2999-01-01";
 
             // Date params: getSysDateEX adds one day to make the end-date inclusive.
-            DBPreparedHandlerParam endDateParam =
-                    new DBPreparedHandlerParam(MyDateFormat.getSysDateEX(eDate, 1));
-            DBPreparedHandlerParam startDateParam =
-                    new DBPreparedHandlerParam(MyDateFormat.getSysDate(sDate));
+            java.sql.Date parsedStart = MyDateFormat.getSysDate(sDate);
+            java.sql.Date parsedEnd = MyDateFormat.getSysDateEX(eDate, 1);
+            if (parsedStart == null || parsedEnd == null) {
+                request.setAttribute("dateError", "Invalid date format. Please use YYYY-MM-DD.");
+                return SUCCESS;
+            }
+            DBPreparedHandlerParam endDateParam = new DBPreparedHandlerParam(parsedEnd);
+            DBPreparedHandlerParam startDateParam = new DBPreparedHandlerParam(parsedStart);
 
             String sql;
             DBPreparedHandlerParam[] params;
@@ -203,28 +212,32 @@ public class LogReport2Action extends ActionSupport {
             }
 
             Vector<Properties> vec = new Vector<>();
-            ResultSet logRs = dbObj.queryResults(sql, params);
             try {
-                while (logRs.next()) {
-                    Properties prop = new Properties();
-                    prop.setProperty("dateTime", "" + logRs.getTimestamp("dateTime"));
-                    // Do not pre-encode these string fields — the JSP uses <c:out> which encodes on output.
-                    // Pre-encoding here would cause double-encoding (e.g. "<" → "&amp;lt;").
-                    prop.setProperty("action", Misc.getString(logRs, "action"));
-                    prop.setProperty("content", Misc.getString(logRs, "content"));
-                    prop.setProperty("contentId", Misc.getString(logRs, "contentId"));
-                    prop.setProperty("ip", Misc.getString(logRs, "ip"));
-                    prop.setProperty("provider_no", Misc.getString(logRs, "provider_no"));
-                    prop.setProperty("demographic_no", Misc.getString(logRs, "demographic_no"));
-                    // For 'data' we inject <br/> line-break tags, so we must encode HTML-special chars
-                    // first and then add the <br/> tags. The JSP outputs this field raw (not via <c:out>)
-                    // to preserve the injected markup.
-                    prop.setProperty("data",
-                            Encode.forHtml(Misc.getString(logRs, "data")).replaceAll("\n", "<br/>"));
-                    vec.add(prop);
+                ResultSet logRs = dbObj.queryResults(sql, params);
+                try {
+                    while (logRs.next()) {
+                        Properties prop = new Properties();
+                        prop.setProperty("dateTime", "" + logRs.getTimestamp("dateTime"));
+                        // Do not pre-encode these string fields — the view layer is responsible for output encoding.
+                        // Pre-encoding here would cause double-encoding (e.g. "<" → "&amp;lt;").
+                        prop.setProperty("action", Misc.getString(logRs, "action"));
+                        prop.setProperty("content", Misc.getString(logRs, "content"));
+                        prop.setProperty("contentId", Misc.getString(logRs, "contentId"));
+                        prop.setProperty("ip", Misc.getString(logRs, "ip"));
+                        prop.setProperty("provider_no", Misc.getString(logRs, "provider_no"));
+                        prop.setProperty("demographic_no", Misc.getString(logRs, "demographic_no"));
+                        // For 'data' we inject <br/> line-break tags, so we must encode HTML-special chars
+                        // first and then add the <br/> tags. The JSP outputs this field raw (not via <c:out>)
+                        // to preserve the injected markup.
+                        prop.setProperty("data",
+                                Encode.forHtml(Misc.getString(logRs, "data")).replaceAll("\n", "<br/>"));
+                        vec.add(prop);
+                    }
+                } finally {
+                    logRs.close();
                 }
-            } finally {
-                logRs.close();
+            } catch (Exception e) {
+                MiscUtils.getLogger().error("Failed to execute log report query", e);
             }
 
             request.setAttribute("vec", vec);

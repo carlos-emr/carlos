@@ -24,8 +24,6 @@ package io.github.carlos_emr.carlos.admin.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.owasp.encoder.Encode;
-
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -108,7 +106,7 @@ public class SecurityDelete2Action extends ActionSupport {
                 } catch (RuntimeException e) {
                     MiscUtils.getLogger().error("Audit log failed after security entry deletion", e);
                 }
-                request.setAttribute("msg", "Security entry deleted for user: ".concat(Encode.forHtml(userName)));
+                request.setAttribute("msg", "Security entry deleted for user: ".concat(userName));
             } else {
                 request.setAttribute("msg", "Security entry not found.");
             }

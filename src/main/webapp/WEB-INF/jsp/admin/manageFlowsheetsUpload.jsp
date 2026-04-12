@@ -30,7 +30,7 @@
 --%>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
-<%-- This JSP is the first page you see when you enter 'report by template' --%>
+<%-- Handles multipart flowsheet XML upload, then redirects to the flowsheet list. --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

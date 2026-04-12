@@ -34,7 +34,8 @@ import org.apache.struts2.ServletActionContext;
  * Security gate for the Admin New Group page.
  *
  * <p>Requires {@code _admin.misc} read privilege before forwarding to the JSP.
- * The JSP handles both the display form and the POST save operation internally.</p>
+ * The JSP handles the display form and group member deletion. New group creation
+ * POSTs to the separate {@code AdminSaveMyGroup.do} action endpoint.</p>
  *
  * @since 2026-04-05
  * @throws SecurityException if the logged-in user lacks the required admin privilege

@@ -179,6 +179,12 @@
         </fieldset>
     </form>
     <%
+        String dateError = (String) request.getAttribute("dateError");
+        if (dateError != null && !dateError.isEmpty()) {
+    %>
+    <div class="alert alert-danger" role="alert"><%= Encode.forHtml(dateError) %></div>
+    <%
+        }
         out.flush();
         //String startDate = "";
         //String endDate = "";

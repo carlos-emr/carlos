@@ -27,6 +27,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -68,10 +69,16 @@ public class ManageFlowsheets2Action extends ActionSupport {
             }
             MeasurementTemplateFlowSheetConfig config = MeasurementTemplateFlowSheetConfig.getInstance();
 
-            if ("disable".equalsIgnoreCase(method)) {
-                config.disableFlowsheet(name);
-            } else if ("enable".equalsIgnoreCase(method)) {
-                config.enableFlowsheet(name);
+            try {
+                if ("disable".equalsIgnoreCase(method)) {
+                    config.disableFlowsheet(name);
+                } else if ("enable".equalsIgnoreCase(method)) {
+                    config.enableFlowsheet(name);
+                } else {
+                    MiscUtils.getLogger().warn("Unknown flowsheet method parameter");
+                }
+            } catch (RuntimeException e) {
+                MiscUtils.getLogger().error("Failed to update flowsheet state", e);
             }
 
             // PRG pattern: redirect after mutation to prevent duplicate submissions
