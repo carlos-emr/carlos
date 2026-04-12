@@ -12,11 +12,6 @@
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="https://github.com/spotbugs/spotbugs/blob/master/spotbugs/etc/findbugsfilter.xsd">
 
-    <!-- Fix missing bug code error for FindSecBugs 1.13.0 -->
-    <Match>
-        <Bug pattern="SECXXEVAL"/>
-    </Match>
-
     <!-- ================================================================
          TEST CLASSES
          Exclude all test code from analysis.

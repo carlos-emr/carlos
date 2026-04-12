@@ -1,4 +1,0 @@
-## 2026-04-12 - [Dynamic Table Row Insertion SQL Injection]
-**Vulnerability:** SQL Injection in dynamic table row insertion in `EFormReportToolDaoImpl.java`. User-supplied values (`v.getVarValue()`) were concatenated directly into a `StringBuilder` without parameterization.
-**Learning:** The table structure for EForm reports is highly dynamic (the number of columns varies). Because of this dynamic table shape, an ORM insert or standard static query couldn't be used, leading a previous developer to try building the entire query, including user data, via string concatenation.
-**Prevention:** Even when the table schema or column list needs to be built dynamically using a `StringBuilder` (or similar), the *values* part of the query must still use parameterized placeholders (`?`). The placeholders can be appended in a loop matching the columns, and then bound sequentially to the `Query` object using `.setParameter(index, value)`.
