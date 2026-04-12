@@ -31,10 +31,6 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.Objects;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -70,7 +66,6 @@ import io.github.carlos_emr.carlos.demographic.dto.DemographicListItemDTO;
 import io.github.carlos_emr.carlos.event.DemographicCreateEvent;
 import io.github.carlos_emr.carlos.event.DemographicUpdateEvent;
 import io.github.carlos_emr.carlos.integration.hl7.generators.HL7A04Generator;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchRequest;
@@ -84,7 +79,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.util.SqlUtils;
 import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
@@ -329,22 +323,19 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     }
 
     public List<Integer> getDemographicIdsAdmittedIntoFacility(int facilityId) {
-        Connection c = null;
-        try {
-            c = DbConnectionFilter.getThreadLocalDbConnection();
-            PreparedStatement ps = c.prepareStatement(
-                "select distinct(admission.client_id) from admission,program,Facility where admission.program_id=program.id and program.facilityId=?");
-            ps.setInt(1, facilityId);
-            ResultSet rs = ps.executeQuery();
-            ArrayList<Integer> results = new ArrayList<Integer>();
-            while (rs.next())
-                results.add(rs.getInt(1));
-            return (results);
-        } catch (SQLException e) {
-            throw (new PersistenceException(e));
-        } finally {
-            SqlUtils.closeResources(c, null, null);
+        String sql = String.join(" ",
+                "select distinct(admission.client_id) from admission, program, Facility",
+                "where admission.program_id = program.id and program.facilityId = :facilityId");
+        Query query = entityManager().createNativeQuery(sql);
+        query.setParameter("facilityId", facilityId);
+
+        @SuppressWarnings("unchecked")
+        List<Object> rows = query.getResultList();
+        ArrayList<Integer> results = new ArrayList<Integer>();
+        for (Object row : rows) {
+            results.add(((Number) row).intValue());
         }
+        return results;
     }
 
     @Override
@@ -1553,46 +1544,36 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
     @Override
     public List<Integer> getDemographicIdsAlteredSinceTime(Date value) {
-        Connection c = null;
-        try {
-            c = DbConnectionFilter.getThreadLocalDbConnection();
-            PreparedStatement ps = c.prepareStatement(
-                "SELECT DISTINCT demographic_no FROM log WHERE dateTime >= ? and action != 'read'");
-            ps.setTimestamp(1, new Timestamp(value.getTime()));
-            ResultSet rs = ps.executeQuery();
-            ArrayList<Integer> results = new ArrayList<Integer>();
-            while (rs.next()) {
-                if (rs.getInt(1) != 0) {
-                    results.add(rs.getInt(1));
-                }
+        String sql = "SELECT DISTINCT demographic_no FROM log WHERE dateTime >= :cutoff AND action != 'read'";
+        Query query = entityManager().createNativeQuery(sql);
+        query.setParameter("cutoff", new Timestamp(value.getTime()));
+
+        @SuppressWarnings("unchecked")
+        List<Object> rows = query.getResultList();
+        ArrayList<Integer> results = new ArrayList<Integer>();
+        for (Object row : rows) {
+            int id = ((Number) row).intValue();
+            // Skip demographic_no=0 placeholder rows (preserves legacy behaviour).
+            if (id != 0) {
+                results.add(id);
             }
-            return (results);
-        } catch (SQLException e) {
-            throw (new PersistenceException(e));
-        } finally {
-            SqlUtils.closeResources(c, null, null);
         }
+        return results;
     }
 
     @Override
     public List<Integer> getDemographicIdsOpenedChartSinceTime(String value) {
-        Connection c = null;
-        try {
-            c = DbConnectionFilter.getThreadLocalDbConnection();
-            PreparedStatement ps = c.prepareStatement(
-                "SELECT DISTINCT contentId FROM log WHERE dateTime >= ? AND content='eChart' GROUP BY contentId");
-            ps.setString(1, value);
-            ResultSet rs = ps.executeQuery();
-            ArrayList<Integer> results = new ArrayList<Integer>();
-            while (rs.next()) {
-                results.add(rs.getInt(1));
-            }
-            return (results);
-        } catch (SQLException e) {
-            throw (new PersistenceException(e));
-        } finally {
-            SqlUtils.closeResources(c, null, null);
+        String sql = "SELECT DISTINCT contentId FROM log WHERE dateTime >= :cutoff AND content = 'eChart' GROUP BY contentId";
+        Query query = entityManager().createNativeQuery(sql);
+        query.setParameter("cutoff", value);
+
+        @SuppressWarnings("unchecked")
+        List<Object> rows = query.getResultList();
+        ArrayList<Integer> results = new ArrayList<Integer>();
+        for (Object row : rows) {
+            results.add(((Number) row).intValue());
         }
+        return results;
     }
 
     @SuppressWarnings("unchecked")
@@ -2099,115 +2080,73 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
     public Map<String, ClientListsReportResults> findByReportCriteria(ClientListsReportFormBean x) {
 
-        StringBuilder sqlCommand = new StringBuilder();
         boolean joinCaseMgmtNote = StringUtils.trimToNull(x.getProviderId()) != null
             || StringUtils.trimToNull(x.getSeenStartDate()) != null
             || StringUtils.trimToNull(x.getSeenEndDate()) != null;
 
-        // this is a horrid join, no one is allowed to give me grief about it, until we
-        // refactor *everything*, some nasty hacks will happen.
-        sqlCommand.append("select * from demographic" + (joinCaseMgmtNote ? ",casemgmt_note" : "")
-            + ",admission,program where demographic.demographic_no=admission.client_id"
-            + (joinCaseMgmtNote ? " and demographic.demographic_no=casemgmt_note.demographic_no" : "")
-            + " and admission.program_id=program.id");
+        String admissionStatus = StringUtils.trimToNull(x.getAdmissionStatus());
+        String providerId = StringUtils.trimToNull(x.getProviderId());
+        String seenStartDate = StringUtils.trimToNull(x.getSeenStartDate());
+        String seenEndDate = StringUtils.trimToNull(x.getSeenEndDate());
+        String programId = StringUtils.trimToNull(x.getProgramId());
+        String enrolledStartDate = StringUtils.trimToNull(x.getEnrolledStartDate());
+        String enrolledEndDate = StringUtils.trimToNull(x.getEnrolledEndDate());
 
-        // status
-        if (StringUtils.trimToNull(x.getAdmissionStatus()) != null)
-            sqlCommand.append(" and demographic.patient_status=?");
+        // Explicit projection so downstream code can read by fixed positional index
+        // (the old JDBC path read by "table.column" aliases on the ResultSet).
+        String sql = String.join(" ",
+                "select admission.am_id, demographic.year_of_birth, demographic.month_of_birth,",
+                "demographic.date_of_birth, demographic.demographic_no, demographic.first_name,",
+                "demographic.last_name, program.id as program_id, program.name as program_name",
+                "from demographic,",
+                (joinCaseMgmtNote ? "casemgmt_note," : ""),
+                "admission, program",
+                "where demographic.demographic_no = admission.client_id",
+                (joinCaseMgmtNote ? "and demographic.demographic_no = casemgmt_note.demographic_no" : ""),
+                "and admission.program_id = program.id",
+                (admissionStatus != null ? "and demographic.patient_status = :admissionStatus" : ""),
+                (providerId != null ? "and casemgmt_note.provider_no = :providerId" : ""),
+                (seenStartDate != null ? "and casemgmt_note.update_date >= :seenStartDate" : ""),
+                (seenEndDate != null ? "and casemgmt_note.update_date <= :seenEndDate" : ""),
+                (programId != null ? "and admission.program_id = :programId" : ""),
+                (enrolledStartDate != null ? "and admission.admission_date >= :enrolledStartDate" : ""),
+                (enrolledEndDate != null ? "and admission.admission_date <= :enrolledEndDate" : ""),
+                "order by last_name, first_name");
 
-        // providers
-        if (StringUtils.trimToNull(x.getProviderId()) != null)
-            sqlCommand.append(" and casemgmt_note.provider_no=?");
-
-        // seen date
-        if (StringUtils.trimToNull(x.getSeenStartDate()) != null)
-            sqlCommand.append(" and casemgmt_note.update_date>=?");
-        if (StringUtils.trimToNull(x.getSeenEndDate()) != null)
-            sqlCommand.append(" and casemgmt_note.update_date<=?");
-
-        // program
-        if (StringUtils.trimToNull(x.getProgramId()) != null)
-            sqlCommand.append(" and admission.program_id=?");
-
-        // admission date
-        if (StringUtils.trimToNull(x.getEnrolledStartDate()) != null)
-            sqlCommand.append(" and admission.admission_date>=?");
-        if (StringUtils.trimToNull(x.getEnrolledEndDate()) != null)
-            sqlCommand.append(" and admission.admission_date<=?");
-
-        sqlCommand.append(" order by last_name,first_name");
+        Query query = entityManager().createNativeQuery(sql);
+        if (admissionStatus != null) query.setParameter("admissionStatus", admissionStatus);
+        if (providerId != null) query.setParameter("providerId", providerId);
+        if (seenStartDate != null) query.setParameter("seenStartDate", seenStartDate);
+        if (seenEndDate != null) query.setParameter("seenEndDate", seenEndDate);
+        if (programId != null) query.setParameter("programId", programId);
+        if (enrolledStartDate != null) query.setParameter("enrolledStartDate", enrolledStartDate);
+        if (enrolledEndDate != null) query.setParameter("enrolledEndDate", enrolledEndDate);
 
         // yeah I know using a treeMap isn't an efficient way of making this unique but
         // given the current constraints this was quick and dirty and should work for
         // the size of our data set
         TreeMap<String, ClientListsReportResults> results = new TreeMap<String, ClientListsReportResults>();
 
-        Connection c = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        try {
-            c = DbConnectionFilter.getThreadLocalDbConnection();
-            ps = c.prepareStatement(sqlCommand.toString());
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = query.getResultList();
+        for (Object[] row : rows) {
+            ClientListsReportResults r = new ClientListsReportResults();
+            r.admissionId = ((Number) row[0]).intValue();
 
-            // filter by providers
-            String temp;
-            int parameterPosition = 1;
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTimeInMillis(0);
+            calendar.set(Calendar.YEAR, Integer.parseInt(String.valueOf(row[1])));
+            calendar.set(Calendar.MONTH, ((Number) row[2]).intValue() - 1);
+            calendar.set(Calendar.DAY_OF_MONTH, ((Number) row[3]).intValue());
+            r.dateOfBirth = calendar;
 
-            // status
-            if ((temp = StringUtils.trimToNull(x.getAdmissionStatus())) != null)
-                ps.setString(parameterPosition++, temp);
+            r.demographicId = ((Number) row[4]).intValue();
+            r.firstName = row[5] == null ? null : row[5].toString();
+            r.lastName = row[6] == null ? null : row[6].toString();
+            r.programId = ((Number) row[7]).intValue();
+            r.programName = row[8] == null ? null : row[8].toString();
 
-            // providers
-            if ((temp = StringUtils.trimToNull(x.getProviderId())) != null)
-                ps.setString(parameterPosition++, temp);
-
-            // seen date
-            // yes I know the date format is crap and is error prone and will return bad
-            // messages to the user, I don't care right now, we'll fix it after a re-write
-            if ((temp = StringUtils.trimToNull(x.getSeenStartDate())) != null)
-                ps.setString(parameterPosition++, temp);
-            if ((temp = StringUtils.trimToNull(x.getSeenEndDate())) != null)
-                ps.setString(parameterPosition++, temp);
-
-            // program
-            if ((temp = StringUtils.trimToNull(x.getProgramId())) != null)
-                ps.setString(parameterPosition++, temp);
-
-            // admission date
-            // yes I know the date format is crap and is error prone and will return bad
-            // messages to the user, I don't care right now, we'll fix it after a re-write
-            if ((temp = StringUtils.trimToNull(x.getEnrolledStartDate())) != null)
-                ps.setString(parameterPosition++, temp);
-            if ((temp = StringUtils.trimToNull(x.getEnrolledEndDate())) != null)
-                ps.setString(parameterPosition++, temp);
-
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                ClientListsReportResults clientListsReportResults = new ClientListsReportResults();
-                clientListsReportResults.admissionId = rs.getInt("admission.am_id");
-
-                Calendar calendar = Calendar.getInstance();
-                calendar.setTimeInMillis(0);
-                calendar.set(Calendar.YEAR, Integer.parseInt(Misc.getString(rs, "demographic.year_of_birth")));
-                calendar.set(Calendar.MONTH, rs.getInt("demographic.month_of_birth") - 1);
-                calendar.set(Calendar.DAY_OF_MONTH, rs.getInt("demographic.date_of_birth"));
-                clientListsReportResults.dateOfBirth = calendar;
-
-                clientListsReportResults.demographicId = rs.getInt("demographic.demographic_no");
-                clientListsReportResults.firstName = Misc.getString(rs, "demographic.first_name");
-                clientListsReportResults.lastName = Misc.getString(rs, "demographic.last_name");
-                clientListsReportResults.programId = rs.getInt("program.id");
-                clientListsReportResults.programName = Misc.getString(rs, "program.name");
-
-                results.put(clientListsReportResults.lastName + clientListsReportResults.firstName,
-                    clientListsReportResults);
-            }
-        } catch (SQLException e) {
-            throw new PersistenceException(e);
-        } finally {
-            // odd not sure what the stupid spring template is doing here but I have to
-            // close the session.
-            SqlUtils.closeResources(c, ps, rs);
+            results.put(r.lastName + r.firstName, r);
         }
 
         return results;
@@ -2702,18 +2641,19 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
                 "p.first_name as providerFirstName,d.hin,dm.merged_to");
 
         EntityManager session = entityManager();
-            Query sqlQuery = session.createNativeQuery(demographicQuery);
+            NativeQuery<?> sqlQuery = session.createNativeQuery(demographicQuery).unwrap(NativeQuery.class);
 
             for (String key : params.keySet()) {
                 sqlQuery.setParameter(key, params.get(key));
             }
 
             sqlQuery.setFirstResult(startIndex);
-            // TODO H6-MIGRATE: setResultTransformer() is removed in Hibernate 6.
-            // Replace with setTupleTransformer() using DemographicSearchResultTransformer.transformTuple() (H6-only API).
+            // Replace the Hibernate 5 setResultTransformer(ResultTransformer) API —
+            // removed in Hibernate 6 — with setTupleTransformer() backed by the
+            // existing DemographicSearchResultTransformer.transformTuple() logic.
             DemographicSearchResultTransformer transformer = new DemographicSearchResultTransformer();
             transformer.setDemographicDao(this);
-            sqlQuery.setResultTransformer(transformer);
+            sqlQuery.setTupleTransformer((tuple, aliases) -> transformer.transformTuple(tuple, aliases));
             setLimit(sqlQuery, itemsToReturn);
 
             return sqlQuery.getResultList();
