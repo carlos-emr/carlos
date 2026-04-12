@@ -78,8 +78,9 @@
 %>
 
 
-<%@page contentType='text/xml; charset=UTF-8' pageEncoding='UTF-8'
-        import="io.github.carlos_emr.carlos.messenger.docxfer.send.*, io.github.carlos_emr.carlos.messenger.docxfer.util.*" %>
+<%@ page contentType='text/xml; charset=UTF-8' pageEncoding='UTF-8' %>
+<%@ page import="import="io.github.carlos_emr.carlos.messenger.docxfer.send.*" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.send.MsgSendDocument" %>
