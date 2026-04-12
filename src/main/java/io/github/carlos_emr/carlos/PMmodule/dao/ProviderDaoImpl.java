@@ -41,14 +41,14 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.query.NativeQuery;
-import org.hibernate.query.Query;
+import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.dao.ProviderFacilityDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderFacility;
 import io.github.carlos_emr.carlos.commn.model.ProviderFacilityPK;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -56,17 +56,17 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.model.security.SecProvider;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 @SuppressWarnings("unchecked")
 @Transactional
-public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao {
+public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
 
 
     private static Logger log = MiscUtils.getLogger();
 
     public boolean providerExists(String providerNo) {
-        return currentSession().find(Provider.class, providerNo) != null;
+        return entityManager().find(Provider.class, providerNo) != null;
     }
 
     @Override
@@ -75,7 +75,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
             return null;
         }
 
-        Provider provider = currentSession().find(Provider.class, providerNo);
+        Provider provider = entityManager().find(Provider.class, providerNo);
 
         if (log.isDebugEnabled()) {
             log.debug("getProvider: providerNo=" + providerNo + ",found=" + (provider != null));
@@ -136,7 +136,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
     @Override
     public List<Provider> getProviders() {
 
-        List<Provider> rs = (List<Provider>) HqlQueryHelper.find(currentSession(),
+        List<Provider> rs = (List<Provider>) JpqlQueryHelper.find(entityManager(),
                 "FROM  Provider p ORDER BY p.LastName");
 
         if (log.isDebugEnabled()) {
@@ -150,7 +150,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         String sSQL = "FROM Provider p WHERE p.providerNumber IN (:providers)";
         Map<String, Object> params = new HashMap<>();
         params.put("providers", Arrays.asList(providers));
-        return (List<Provider>) HqlQueryHelper.find(currentSession(), sSQL, params);
+        return (List<Provider>) JpqlQueryHelper.find(entityManager(), sSQL, params);
     }
 
     @Override
@@ -158,7 +158,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         firstname = firstname.trim();
         lastname = lastname.trim();
         String s = "From Provider p where p.FirstName=?1 and p.LastName=?2";
-        return (List<Provider>) HqlQueryHelper.find(currentSession(), s, firstname, lastname);
+        return (List<Provider>) JpqlQueryHelper.find(entityManager(), s, firstname, lastname);
     }
 
     @Override
@@ -166,7 +166,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         firstname = firstname.trim();
         lastname = lastname.trim();
         String s = "From Provider p where p.FirstName like ?1 and p.LastName like ?2";
-        return (List<Provider>) HqlQueryHelper.find(currentSession(), s, firstname, lastname);
+        return (List<Provider>) JpqlQueryHelper.find(entityManager(), s, firstname, lastname);
     }
 
     @Override
@@ -174,7 +174,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         firstname = firstname.trim();
         lastname = lastname.trim();
         String s = "From Provider p where p.FirstName like ?1 and p.LastName like ?2 and p.Status='1'";
-        return (List<Provider>) HqlQueryHelper.find(currentSession(), s, firstname, lastname);
+        return (List<Provider>) JpqlQueryHelper.find(entityManager(), s, firstname, lastname);
     }
 
     @Override
@@ -185,7 +185,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
                 " and o.codecsv  like '%' || sr.orgcd || ',%' " +
                 " and not (sr.orgcd like 'R%' or sr.orgcd like 'O%'))" +
                 " ORDER BY p.lastName";
-        return (List<SecProvider>) HqlQueryHelper.find(currentSession(), sSQL, programId);
+        return (List<SecProvider>) JpqlQueryHelper.find(entityManager(), sSQL, programId);
     }
 
     @Override
@@ -197,7 +197,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         if (programId != null && "0".equals(programId) == false) {
             sSQL = "FROM  Provider p where p.Status='1' and p.ProviderNo in "
                     + "(select c.ProviderNo from ProgramProvider c where c.ProgramId =?1) ORDER BY p.LastName";
-            rs = (List<Provider>) HqlQueryHelper.find(currentSession(), sSQL, Long.valueOf(programId));
+            rs = (List<Provider>) JpqlQueryHelper.find(entityManager(), sSQL, Long.valueOf(programId));
         } else if (facilityId != null && "0".equals(facilityId) == false) {
             sSQL = "FROM  Provider p where p.Status='1' and p.ProviderNo in "
                     + "(select c.ProviderNo from ProgramProvider c where c.ProgramId in "
@@ -205,10 +205,10 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
             // JS 2192700 - string facilityId seems to be throwing class cast
             // exception
             Integer intFacilityId = Integer.valueOf(facilityId);
-            rs = (List<Provider>) HqlQueryHelper.find(currentSession(), sSQL, intFacilityId);
+            rs = (List<Provider>) JpqlQueryHelper.find(entityManager(), sSQL, intFacilityId);
         } else {
             sSQL = "FROM  Provider p where p.Status='1' ORDER BY p.LastName";
-            rs = (List<Provider>) HqlQueryHelper.find(currentSession(), sSQL);
+            rs = (List<Provider>) JpqlQueryHelper.find(entityManager(), sSQL);
         }
 
         return rs;
@@ -217,7 +217,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
     @Override
     public List<Provider> getActiveProviders() {
 
-        List<Provider> rs = (List<Provider>) HqlQueryHelper.find(currentSession(),
+        List<Provider> rs = (List<Provider>) JpqlQueryHelper.find(entityManager(),
                 "FROM  Provider p where p.Status='1' AND p.ProviderNo NOT LIKE '-%'  ORDER BY p.LastName");
 
         if (log.isDebugEnabled()) {
@@ -232,10 +232,10 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         List<Provider> rs = null;
 
         if (!filterOutSystemAndImportedProviders) {
-            rs = (List<Provider>) HqlQueryHelper.find(currentSession(),
+            rs = (List<Provider>) JpqlQueryHelper.find(entityManager(),
                     "FROM  Provider p where p.Status='1' ORDER BY p.LastName");
         } else {
-            rs = (List<Provider>) HqlQueryHelper.find(currentSession(),
+            rs = (List<Provider>) JpqlQueryHelper.find(entityManager(),
                     "FROM  Provider p where p.Status='1' AND p.ProviderNo NOT LIKE '-%' ORDER BY p.LastName");
         }
 
@@ -250,7 +250,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         if (role == null) return Collections.emptyList();
         String sSQL = "select p FROM Provider p, SecUserRole s where p.ProviderNo = s.ProviderNo and p.Status='1' " +
         "and s.RoleName = ?1 order by p.LastName, p.FirstName";
-        List<Provider> rs = (List<Provider>) HqlQueryHelper.find(currentSession(), sSQL, role);
+        List<Provider> rs = (List<Provider>) JpqlQueryHelper.find(entityManager(), sSQL, role);
 
         if (log.isDebugEnabled()) {
             log.debug("getActiveProvidersByRole: # of results=" + rs.size());
@@ -260,7 +260,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
 
     @Override
     public List<Provider> getDoctorsWithOhip() {
-        return (List<Provider>) HqlQueryHelper.find(currentSession(),
+        return (List<Provider>) JpqlQueryHelper.find(entityManager(),
                 "FROM Provider p " +
                         "WHERE p.ProviderType = 'doctor' " +
                         "AND p.Status = '1' " +
@@ -270,7 +270,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
 
     @Override
     public List<Provider> getBillableProviders() {
-        List<Provider> rs = (List<Provider>) HqlQueryHelper.find(currentSession(),
+        List<Provider> rs = (List<Provider>) JpqlQueryHelper.find(entityManager(),
                 "FROM Provider p where p.OhipNo != '' and p.Status = '1' order by p.LastName");
         return rs;
     }
@@ -289,7 +289,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
     public List<Provider> getBillableProvidersInBC(LoggedInInfo loggedInInfo) {
         String sSQL = "FROM Provider p where (p.OhipNo <> '' or p.RmaNo <> ''  or p.BillingNo <> '' or p.HsoNo <> '') " +
                 "and p.Status = '1' and p.ProviderNo not like ?1 order by p.LastName";
-        return (List<Provider>) HqlQueryHelper.find(currentSession(), sSQL, loggedInInfo.getLoggedInProviderNo());
+        return (List<Provider>) JpqlQueryHelper.find(entityManager(), sSQL, loggedInInfo.getLoggedInProviderNo());
     }
 
     @SuppressWarnings("unchecked")
@@ -297,14 +297,14 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
     public List<Provider> getBillableProvidersInBC() {
         String sSQL = "FROM Provider p where (p.OhipNo <> '' or p.RmaNo <> ''  or p.BillingNo <> '' or p.HsoNo <> '') " +
         "and p.Status = '1' order by p.LastName";
-        List<Provider> rs = (List<Provider>) HqlQueryHelper.find(currentSession(), sSQL);
+        List<Provider> rs = (List<Provider>) JpqlQueryHelper.find(entityManager(), sSQL);
         return rs;
     }
 
     @Override
     public List<Provider> getProviders(boolean active) {
         String hql = "FROM Provider p where p.Status = ?1 order by p.LastName";
-        return (List<Provider>) HqlQueryHelper.find(currentSession(), hql, active ? "1" : "0");
+        return (List<Provider>) JpqlQueryHelper.find(entityManager(), hql, active ? "1" : "0");
     }
 
     @Override
@@ -330,7 +330,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         }
 
         Object params[] = paramList.toArray(new Object[paramList.size()]);
-        List<Provider> rs = (List<Provider>) HqlQueryHelper.find(currentSession(), sql, params);
+        List<Provider> rs = (List<Provider>) JpqlQueryHelper.find(entityManager(), sql, params);
 
         if (log.isDebugEnabled()) {
             log.debug("getProviders: # of results=" + rs.size());
@@ -342,7 +342,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
     public List<Provider> getActiveProvider(String providerNo) {
 
         String sql = "FROM Provider p where p.Status='1' and p.ProviderNo =?1";
-        List<Provider> rs = (List<Provider>) HqlQueryHelper.find(currentSession(), sql, providerNo);
+        List<Provider> rs = (List<Provider>) JpqlQueryHelper.find(entityManager(), sql, providerNo);
 
         if (log.isDebugEnabled()) {
             log.debug("getProvider: # of results=" + rs.size());
@@ -353,7 +353,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
     @Override
     public List<Provider> search(String name) {
         String hql = "FROM Provider p WHERE p.FirstName LIKE ?1 OR p.LastName LIKE ?2 ORDER BY p.ProviderNo";
-        List<Provider> results = (List<Provider>) HqlQueryHelper.find(currentSession(), hql, name + "%", name + "%");
+        List<Provider> results = (List<Provider>) JpqlQueryHelper.find(entityManager(), hql, name + "%", name + "%");
 
         if (log.isDebugEnabled()) {
             log.debug("search: # of results=" + results.size());
@@ -364,7 +364,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
     @Override
     public List<Provider> getProvidersByTypeWithNonEmptyOhipNo(String type) {
         String sSQL = "from Provider p where p.ProviderType = ?1 and p.OhipNo <> ''";
-        List<Provider> results = (List<Provider>) HqlQueryHelper.find(currentSession(), sSQL, type);
+        List<Provider> results = (List<Provider>) JpqlQueryHelper.find(entityManager(), sSQL, type);
         return results;
     }
 
@@ -372,7 +372,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
     public List<Provider> getProvidersByType(String type) {
 
         String sSQL = "from Provider p where p.ProviderType = ?1";
-        List<Provider> results = (List<Provider>) HqlQueryHelper.find(currentSession(), sSQL, type);
+        List<Provider> results = (List<Provider>) JpqlQueryHelper.find(entityManager(), sSQL, type);
 
         if (log.isDebugEnabled()) {
             log.debug("getProvidersByType: type=" + type + ",# of results="
@@ -386,7 +386,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
     public List<Provider> getProvidersByTypePattern(String typePattern) {
 
         String sSQL = "from Provider p where p.ProviderType like ?1";
-        List<Provider> results = (List<Provider>) HqlQueryHelper.find(currentSession(), sSQL, typePattern);
+        List<Provider> results = (List<Provider>) JpqlQueryHelper.find(entityManager(), sSQL, typePattern);
         return results;
     }
 
@@ -421,10 +421,10 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
     @SuppressWarnings("unchecked")
     @Override
     public List<Integer> getFacilityIds(String provider_no) {
-        NativeQuery<?> query = currentSession().createNativeQuery(
+        Query query = entityManager().createNativeQuery(
                 "SELECT facility_id FROM provider_facility, Facility WHERE Facility.id = provider_facility.facility_id AND Facility.disabled = 0 AND provider_no = :providerNo");
         query.setParameter("providerNo", provider_no);
-        return (List<Integer>) query.list();
+        return (List<Integer>) query.getResultList();
     }
 
     @SuppressWarnings("unchecked")
@@ -433,20 +433,20 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
      * Retrieves a list of provider IDs associated with the specified facility ID.
      */
     public List<String> getProviderIds(int facilityId) {
-        NativeQuery<?> query = currentSession().createNativeQuery(
+        Query query = entityManager().createNativeQuery(
                 "SELECT provider_no FROM provider_facility WHERE facility_id = :facilityId");
         query.setParameter("facilityId", facilityId);
-        return (List<String>) query.list();
+        return (List<String>) query.getResultList();
     }
 
     @Override
     public void updateProvider(Provider provider) {
-        currentSession().merge(provider);
+        entityManager().merge(provider);
     }
 
     @Override
     public void saveProvider(Provider provider) {
-        currentSession().persist(provider);
+        entityManager().persist(provider);
     }
 
     @Override
@@ -456,7 +456,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         }
 
         String sSQL = "From Provider p where p.practitionerNo=?1";
-        List<Provider> providerList = (List<Provider>) HqlQueryHelper.find(currentSession(), sSQL, practitionerNo);
+        List<Provider> providerList = (List<Provider>) JpqlQueryHelper.find(entityManager(), sSQL, practitionerNo);
 
         if (providerList.size() > 1) {
             log.warn("Found more than 1 providers with practitionerNo=" + practitionerNo);
@@ -485,7 +485,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         Map<String, Object> params = new HashMap<>();
         params.put("types", Arrays.asList(practitionerNoTypes));
         params.put("practNo", practitionerNo);
-        List<Provider> providerList = (List<Provider>) HqlQueryHelper.find(currentSession(), sSQL, params);
+        List<Provider> providerList = (List<Provider>) JpqlQueryHelper.find(entityManager(), sSQL, params);
 
         if (providerList.size() > 1) {
             log.warn("Found more than 1 providers with practitionerNo=" + practitionerNo);
@@ -499,7 +499,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
     @Override
     public List<String> getUniqueTeams() {
 
-        List<String> providerList = (List<String>) HqlQueryHelper.find(currentSession(),
+        List<String> providerList = (List<String>) JpqlQueryHelper.find(entityManager(),
                 "select distinct p.Team From Provider p");
 
         return providerList;
@@ -510,7 +510,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         String team = p.getTeam();
         if (team == null) return Collections.emptyList();
         String sSQL = "from Provider p where p.Status='1' and p.OhipNo!='' and p.Team=?1 order by p.LastName, p.FirstName";
-        List<Provider> providers = (List<Provider>) HqlQueryHelper.find(currentSession(), sSQL, team);
+        List<Provider> providers = (List<Provider>) JpqlQueryHelper.find(entityManager(), sSQL, team);
 
         return providers;
     }
@@ -522,7 +522,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         }
 
         String sSQL = "from Provider p where p.OhipNo like ?1 order by p.LastName, p.FirstName";
-        List<Provider> providers = (List<Provider>) HqlQueryHelper.find(currentSession(), sSQL, ohipNo);
+        List<Provider> providers = (List<Provider>) JpqlQueryHelper.find(entityManager(), sSQL, ohipNo);
 
         if (providers.size() > 1) {
             log.warn("Found more than 1 providers with the given ohipNo");
@@ -536,7 +536,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
     @Override
     public List<Provider> getProvidersWithNonEmptyOhip(LoggedInInfo loggedInInfo) {
         String sSQL = "FROM Provider p WHERE p.OhipNo != '' and p.ProviderNo not like ?1 order by p.LastName, p.FirstName";
-        return (List<Provider>) HqlQueryHelper.find(currentSession(), sSQL, loggedInInfo.getLoggedInProviderNo());
+        return (List<Provider>) JpqlQueryHelper.find(entityManager(), sSQL, loggedInInfo.getLoggedInProviderNo());
     }
 
     /**
@@ -546,7 +546,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
      */
     @Override
     public List<Provider> getProvidersWithNonEmptyOhip() {
-        return (List<Provider>) HqlQueryHelper.find(currentSession(),
+        return (List<Provider>) JpqlQueryHelper.find(entityManager(),
                 "FROM Provider p WHERE p.OhipNo != '' order by p.LastName, p.FirstName");
     }
 
@@ -554,12 +554,12 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
     public List<Provider> getCurrentTeamProviders(String providerNo) {
         String hql = "SELECT p FROM Provider p WHERE p.Status='1' and p.OhipNo != '' AND (p.ProviderNo=?1 or p.Team=(SELECT p2.Team FROM Provider p2 where p2.ProviderNo=?2)) ORDER BY p.LastName, p.FirstName";
 
-        return (List<Provider>) HqlQueryHelper.find(currentSession(), hql, providerNo, providerNo);
+        return (List<Provider>) JpqlQueryHelper.find(entityManager(), hql, providerNo, providerNo);
     }
 
     @Override
     public List<String> getActiveTeams() {
-        List<String> providerList = (List<String>) HqlQueryHelper.find(currentSession(),
+        List<String> providerList = (List<String>) JpqlQueryHelper.find(entityManager(),
                 "select distinct p.Team From Provider p where p.Status = '1' and p.Team != '' order by p.Team");
         return providerList;
     }
@@ -571,16 +571,16 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
      * Retrieves a list of active teams associated with a given provider number.
      */
     public List<String> getActiveTeamsViaSites(String providerNo) {
-        NativeQuery<?> query = currentSession().createNativeQuery(
+        Query query = entityManager().createNativeQuery(
                 "SELECT DISTINCT team FROM provider p INNER JOIN providersite s ON s.provider_no = p.provider_no WHERE s.site_id IN (SELECT site_id FROM providersite WHERE provider_no = :providerNo) ORDER BY team");
         query.setParameter("providerNo", providerNo);
-        return (List<String>) query.list();
+        return (List<String>) query.getResultList();
     }
 
     @Override
     public List<Provider> getProviderByPatientId(Integer patientId) {
         String hql = "SELECT p FROM Provider p, Demographic d WHERE d.ProviderNo = p.ProviderNo AND d.DemographicNo = ?1";
-        return (List<Provider>) HqlQueryHelper.find(currentSession(), hql, patientId);
+        return (List<Provider>) JpqlQueryHelper.find(entityManager(), hql, patientId);
     }
 
     @Override
@@ -590,7 +590,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
                 "AND p.OhipNo IS NOT NULL " +
                 "AND p.OhipNo != '' " +
                 "ORDER BY p.LastName, p.FirstName";
-        return (List<Provider>) HqlQueryHelper.find(currentSession(), sql);
+        return (List<Provider>) JpqlQueryHelper.find(entityManager(), sql);
     }
 
     @Override
@@ -599,20 +599,20 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
                 "AND p.OhipNo IS NOT NULL " +
                 "AND p.OhipNo != '' " +
                 "ORDER BY p.LastName, p.FirstName";
-        return (List<Provider>) HqlQueryHelper.find(currentSession(), sql);
+        return (List<Provider>) JpqlQueryHelper.find(entityManager(), sql);
     }
 
     @Override
     public List<String> getProvidersInTeam(String teamName) {
         if (teamName == null) return Collections.emptyList();
         String sSQL = "select distinct p.ProviderNo from Provider p  where p.Team = ?1";
-        List<String> providerList = (List<String>) HqlQueryHelper.find(currentSession(), sSQL, teamName);
+        List<String> providerList = (List<String>) JpqlQueryHelper.find(entityManager(), sSQL, teamName);
         return providerList;
     }
 
     @Override
     public List<Object[]> getDistinctProviders() {
-        List<Object[]> providerList = (List<Object[]>) HqlQueryHelper.find(currentSession(),
+        List<Object[]> providerList = (List<Object[]>) JpqlQueryHelper.find(entityManager(),
                 "select distinct p.ProviderNo, p.ProviderType from Provider p ORDER BY p.LastName");
         return providerList;
     }
@@ -621,7 +621,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
     public List<String> getRecordsAddedAndUpdatedSinceTime(Date date) {
         String sSQL = "select distinct p.ProviderNo From Provider p where p.lastUpdateDate > ?1 ";
         @SuppressWarnings("unchecked")
-        List<String> providers = (List<String>) HqlQueryHelper.find(currentSession(), sSQL, date);
+        List<String> providers = (List<String>) JpqlQueryHelper.find(entityManager(), sSQL, date);
 
         return providers;
     }
@@ -652,7 +652,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
 
         }
 
-        Query<Provider> q = currentSession().createQuery(sqlCommand, Provider.class);
+        TypedQuery<Provider> q = entityManager().createQuery(sqlCommand, Provider.class);
         if (searchString != null) {
             q.setParameter("ln", "%" + searchString.split(",")[0] + "%");
             if (searchString.indexOf(",") != -1 && searchString.split(",").length > 1
@@ -662,7 +662,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         }
         q.setFirstResult(startIndex);
         q.setMaxResults(itemsToReturn);
-        return q.list();
+        return q.getResultList();
     }
 
     @SuppressWarnings("unchecked")
@@ -689,14 +689,14 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
 
         sqlCommand += " ORDER BY x.LastName,x.FirstName";
 
-        Query<Provider> q = currentSession().createQuery(sqlCommand, Provider.class);
+        TypedQuery<Provider> q = entityManager().createQuery(sqlCommand, Provider.class);
         q.setParameter("status", active ? "1" : "0");
         if (term != null && term.length() > 0) {
             q.setParameter("term", term + "%");
         }
         q.setFirstResult(startIndex);
         q.setMaxResults(itemsToReturn);
-        return q.list();
+        return q.getResultList();
     }
 
     @SuppressWarnings("unchecked")
@@ -706,10 +706,10 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
      * Retrieves a list of provider numbers with appointments on the specified date.
      */
     public List<String> getProviderNosWithAppointmentsOnDate(Date appointmentDate) {
-        NativeQuery<?> query = currentSession().createNativeQuery(
+        Query query = entityManager().createNativeQuery(
                 "SELECT p.provider_no FROM provider p WHERE p.provider_no IN (SELECT DISTINCT a.provider_no FROM appointment a WHERE a.appointment_date = :appointmentDate) AND p.Status = '1'");
         query.setParameter("appointmentDate", new java.sql.Date(appointmentDate.getTime()));
-        return (List<String>) query.list();
+        return (List<String>) query.getResultList();
     }
 
     /**
@@ -722,10 +722,10 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
      */
     @Override
     public List<Provider> getProvidersByIds(List<String> providerNumbers) {
-        Query<Provider> query = currentSession().createQuery(
+        TypedQuery<Provider> query = entityManager().createQuery(
                 "FROM Provider p WHERE p.ProviderNo IN (:providerNumbers)", Provider.class);
-        query.setParameterList("providerNumbers", providerNumbers);
-        return query.list();
+        query.setParameter("providerNumbers", providerNumbers);
+        return query.getResultList();
     }
 
     /**
@@ -760,9 +760,9 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
 
     @Override
     public List<ProviderSummaryDTO> getActiveProviderSummaries() {
-        Query<ProviderSummaryDTO> query = currentSession().createQuery(
+        TypedQuery<ProviderSummaryDTO> query = entityManager().createQuery(
                 ACTIVE_PROVIDER_SUMMARIES_HQL, ProviderSummaryDTO.class);
-        return query.list();
+        return query.getResultList();
     }
 
     @Override
@@ -770,11 +770,11 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         if (providerNo == null || providerNo.isEmpty()) {
             return null;
         }
-        Query<ProviderSummaryDTO> query = currentSession().createQuery(
+        TypedQuery<ProviderSummaryDTO> query = entityManager().createQuery(
                 PROVIDER_SUMMARY_BY_ID_HQL, ProviderSummaryDTO.class);
         query.setParameter("providerNo", providerNo);
         query.setMaxResults(1);
-        List<ProviderSummaryDTO> results = query.list();
+        List<ProviderSummaryDTO> results = query.getResultList();
         return results.isEmpty() ? null : results.get(0);
     }
 
@@ -784,10 +784,10 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         if (providerNumbers == null || providerNumbers.isEmpty()) {
             return map;
         }
-        Query<ProviderSummaryDTO> query = currentSession().createQuery(
+        TypedQuery<ProviderSummaryDTO> query = entityManager().createQuery(
                 PROVIDER_SUMMARIES_BY_IDS_HQL, ProviderSummaryDTO.class);
-        query.setParameterList("providerNumbers", providerNumbers);
-        for (ProviderSummaryDTO dto : query.list()) {
+        query.setParameter("providerNumbers", providerNumbers);
+        for (ProviderSummaryDTO dto : query.getResultList()) {
             map.put(dto.getProviderNo(), dto);
         }
         return map;
