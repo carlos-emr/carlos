@@ -44,6 +44,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
+import io.github.carlos_emr.carlos.documentManager.dto.DocumentListItemDTO;
 import org.openpdf.text.DocumentException;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -584,4 +585,12 @@ public class DocumentManagerImpl implements DocumentManager {
 		}
 		return null;
 	}
+
+    @Override
+    public List<DocumentListItemDTO> getDocumentDTOs(LoggedInInfo loggedInInfo, Integer demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", "")) {
+            throw new RuntimeException("missing required sec object (_edoc)");
+        }
+        return documentDao.findDocumentDTOsByDemographicNo(String.valueOf(demographicNo));
+    }
 }

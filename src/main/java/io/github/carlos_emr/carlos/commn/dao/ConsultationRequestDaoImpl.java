@@ -39,6 +39,7 @@ import jakarta.persistence.Query;
 import org.apache.commons.lang3.time.DateFormatUtils;
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemDTO;
 
 @SuppressWarnings("unchecked")
 public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> implements ConsultationRequestDao {
@@ -214,6 +215,14 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
         String sql = "select distinct dr.demographicNo from consultationRequests dr,demographic d,demographicExt e where dr.demographicNo = d.demographic_no and d.demographic_no = e.demographic_no and e.key_val=?1 and dr.lastUpdateDate > e.value";
         Query query = entityManager.createNativeQuery(sql);
         query.setParameter(1, keyName);
+        return query.getResultList();
+    }
+
+    @Override
+    public List<ConsultationRequestListItemDTO> findConsultationDTOsByDemographicId(Integer demographicId) {
+        Query query = entityManager.createQuery(
+                "SELECT NEW io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemDTO(cr.id, cr.referralDate, cr.serviceId, cr.demographicId, cr.providerNo, cr.status, cr.statusText, cr.urgency, cr.reasonForReferral, cr.appointmentDate, cr.followUpDate, cr.sendTo, cr.siteName, cr.letterheadName, cr.source, cr.lastUpdateDate, ps.lastName, ps.firstName) FROM ConsultationRequest cr LEFT JOIN cr.professionalSpecialist ps WHERE cr.demographicId = :demoId ORDER BY cr.referralDate DESC");
+        query.setParameter("demoId", demographicId);
         return query.getResultList();
     }
 }

@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentStatusDao;
 import io.github.carlos_emr.carlos.commn.dao.LookupListDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.appointment.dto.AppointmentListItemDTO;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
@@ -329,6 +330,14 @@ public class AppointmentManagerImpl implements AppointmentManager {
             }
         }
         return appointmentString;
+    }
+
+    @Override
+    public List<AppointmentListItemDTO> getDayAppointmentDTOs(LoggedInInfo loggedInInfo, Date date, String providerNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "r", null)) {
+            throw new RuntimeException("missing required sec object (_appointment)");
+        }
+        return appointmentDao.findDayAppointmentDTOs(date, providerNo);
     }
 
 }

@@ -40,6 +40,7 @@ import jakarta.persistence.TypedQuery;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.Drug;
+import io.github.carlos_emr.carlos.prescript.dto.DrugListItemDTO;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
@@ -629,6 +630,15 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         typedQuery.setParameter("searchString", "%" + spInstructQuery + "%");
 
         return typedQuery.getResultList();
+    }
+
+    @Override
+    public List<DrugListItemDTO> findDrugDTOsByDemographicId(Integer demographicId) {
+        TypedQuery<DrugListItemDTO> query = entityManager.createQuery(
+                "SELECT NEW io.github.carlos_emr.carlos.prescript.dto.DrugListItemDTO(d.id, d.demographicId, d.brandName, d.genericName, d.customName, d.dosage, d.route, d.freqCode, d.duration, d.durUnit, d.quantity, d.repeat, d.rxDate, d.endDate, d.lastRefillDate, d.archived, d.longTerm, d.providerNo, d.special, d.scriptNo) FROM Drug d WHERE d.demographicId = :demoId ORDER BY d.rxDate DESC",
+                DrugListItemDTO.class);
+        query.setParameter("demoId", demographicId);
+        return query.getResultList();
     }
 
 }

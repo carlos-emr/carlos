@@ -51,6 +51,8 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultRequestDao;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemDTO;
 import io.github.carlos_emr.carlos.commn.dao.ConsultResponseDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultResponseDocDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestArchiveDao;
@@ -119,6 +121,8 @@ public class ConsultationManagerImpl implements ConsultationManager {
 
     @Autowired
     ConsultRequestDao consultationRequestDao;
+    @Autowired
+    ConsultationRequestDao consultationRequestDtoDao;
     @Autowired
     ConsultResponseDao consultationResponseDao;
     @Autowired
@@ -818,5 +822,10 @@ public class ConsultationManagerImpl implements ConsultationManager {
         }
 
         return extraMap;
+    }
+
+    @Override
+    public List<ConsultationRequestListItemDTO> getConsultationDTOs(Integer demographicId) {
+        return consultationRequestDtoDao.findConsultationDTOsByDemographicId(demographicId);
     }
 }

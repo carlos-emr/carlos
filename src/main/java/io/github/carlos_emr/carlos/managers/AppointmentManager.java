@@ -31,8 +31,10 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
+import java.util.Date;
 import java.util.List;
 
+import io.github.carlos_emr.carlos.appointment.dto.AppointmentListItemDTO;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 import io.github.carlos_emr.carlos.commn.model.LookupListItem;
@@ -72,4 +74,16 @@ public interface AppointmentManager {
     public List<Appointment> findMonthlyAppointments(LoggedInInfo loggedInInfo, String providerNo, int year, int month);
 
     public String getNextAppointmentDate(Integer demographicNo);
+
+    /**
+     * Returns lightweight appointment DTOs for a provider's daily schedule with
+     * pre-joined patient names. Enforces read privilege check.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context
+     * @param date Date the appointment date
+     * @param providerNo String the provider number
+     * @return List of AppointmentListItemDTO for the provider's daily schedule
+     * @since 2026-04-11
+     */
+    List<AppointmentListItemDTO> getDayAppointmentDTOs(LoggedInInfo loggedInInfo, Date date, String providerNo);
 }

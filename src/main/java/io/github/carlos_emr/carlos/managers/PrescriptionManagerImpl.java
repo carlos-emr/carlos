@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.dao.PrescriptionDao;
+import io.github.carlos_emr.carlos.prescript.dto.DrugListItemDTO;
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.ConsentType;
 import io.github.carlos_emr.carlos.commn.model.Drug;
@@ -398,6 +399,14 @@ public class PrescriptionManagerImpl implements PrescriptionManager {
         prescriptionDao.merge(prescription);
 
         return true;
-}
+    }
+
+    @Override
+    public List<DrugListItemDTO> getDrugDTOs(LoggedInInfo loggedInInfo, Integer demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demographicNo)) {
+            throw new RuntimeException("missing required sec object (_demographic)");
+        }
+        return drugDao.findDrugDTOsByDemographicId(demographicNo);
+    }
 
 }

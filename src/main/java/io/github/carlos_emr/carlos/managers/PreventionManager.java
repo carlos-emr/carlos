@@ -36,6 +36,7 @@ import java.util.*;
 
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.commn.model.PreventionExt;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionListItemDTO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 public interface PreventionManager {
@@ -87,4 +88,14 @@ public interface PreventionManager {
 
     public String getCustomPreventionItems();
 
+    /**
+     * Returns lightweight prevention DTOs for a demographic, bypassing the EAGER
+     * PreventionExt collection. Enforces read privilege check.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context
+     * @param demographicNo Integer the patient demographic number
+     * @return List of PreventionListItemDTO for the patient's immunizations
+     * @since 2026-04-11
+     */
+    List<PreventionListItemDTO> getPreventionDTOs(LoggedInInfo loggedInInfo, Integer demographicNo);
 }

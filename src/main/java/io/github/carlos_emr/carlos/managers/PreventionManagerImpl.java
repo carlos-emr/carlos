@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.commn.interfaces.Immunization.ImmunizationPro
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.commn.model.PreventionExt;
 import io.github.carlos_emr.carlos.commn.model.Property;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionListItemDTO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -488,6 +489,14 @@ public class PreventionManagerImpl implements Serializable, PreventionManager {
                 "demographicNo=" + demographicNo);
 
         return immunizations;
+    }
+
+    @Override
+    public List<PreventionListItemDTO> getPreventionDTOs(LoggedInInfo loggedInInfo, Integer demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", SecurityInfoManager.READ, demographicNo)) {
+            throw new RuntimeException("missing required sec object (_prevention)");
+        }
+        return preventionDao.findPreventionDTOsByDemographicId(demographicNo);
     }
 
 }

@@ -1,0 +1,146 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+package io.github.carlos_emr.carlos.prevention.dto;
+
+import java.io.Serializable;
+import java.util.Date;
+import java.util.Objects;
+
+import io.github.carlos_emr.carlos.commn.model.Prevention;
+
+/**
+ * Lightweight data transfer object for immunization/prevention history list views,
+ * optimized for JPQL constructor expression projection. Eliminates the EAGER-loaded
+ * PreventionExt collection that is fetched on every Prevention entity load.
+ *
+ * <p>Omits: entire {@code preventionExts} EAGER collection (lot number, route,
+ * dose, site, comments), {@code snomedId}, transient {@code preventionExtendedProperties}.</p>
+ *
+ * @since 2026-04-11
+ */
+public class PreventionListItemDTO implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    private Integer id;
+    private Integer demographicId;
+    private String preventionType;
+    private Date preventionDate;
+    private Date creationDate;
+    private String providerNo;
+    private String creatorProviderNo;
+    private char deleted;
+    private char refused;
+    private char never;
+    private Date nextDate;
+    private Date lastUpdateDate;
+
+    public PreventionListItemDTO() {
+    }
+
+    /**
+     * Projection constructor for JPQL constructor expressions.
+     *
+     * @param id Integer the prevention record ID
+     * @param demographicId Integer the patient demographic number
+     * @param preventionType String the prevention/vaccine type name
+     * @param preventionDate Date the date the prevention was administered
+     * @param creationDate Date the record creation date
+     * @param providerNo String the administering provider number
+     * @param creatorProviderNo String the record creator provider number
+     * @param deleted char deletion flag ('0' or '1')
+     * @param refused char refusal flag ('0' or '1')
+     * @param never char never-administer flag ('0' or '1')
+     * @param nextDate Date the next scheduled date
+     * @param lastUpdateDate Date the last update timestamp
+     */
+    public PreventionListItemDTO(Integer id, Integer demographicId, String preventionType,
+                                 Date preventionDate, Date creationDate, String providerNo,
+                                 String creatorProviderNo, char deleted, char refused, char never,
+                                 Date nextDate, Date lastUpdateDate) {
+        this.id = id;
+        this.demographicId = demographicId;
+        this.preventionType = preventionType;
+        this.preventionDate = preventionDate;
+        this.creationDate = creationDate;
+        this.providerNo = providerNo;
+        this.creatorProviderNo = creatorProviderNo;
+        this.deleted = deleted;
+        this.refused = refused;
+        this.never = never;
+        this.nextDate = nextDate;
+        this.lastUpdateDate = lastUpdateDate;
+    }
+
+    /**
+     * Creates a PreventionListItemDTO from a full Prevention entity.
+     *
+     * @param p Prevention the entity to convert; must not be null
+     * @return PreventionListItemDTO a lightweight projection
+     */
+    public static PreventionListItemDTO fromEntity(Prevention p) {
+        Objects.requireNonNull(p, "Prevention entity must not be null for DTO conversion");
+        return new PreventionListItemDTO(
+                p.getId(), p.getDemographicId(), p.getPreventionType(),
+                p.getPreventionDate(), p.getCreationDate(), p.getProviderNo(),
+                p.getCreatorProviderNo(),
+                p.isDeleted() ? '1' : '0',
+                p.isRefused() ? '1' : '0',
+                p.isNever() ? '1' : '0',
+                p.getNextDate(), p.getLastUpdateDate()
+        );
+    }
+
+    /**
+     * Returns whether this prevention record is active (not deleted, not refused, not never).
+     *
+     * @return boolean true if the record is active
+     */
+    public boolean isActive() {
+        return deleted == '0' && refused == '0' && never == '0';
+    }
+
+    public Integer getId() { return id; }
+    public void setId(Integer id) { this.id = id; }
+    public Integer getDemographicId() { return demographicId; }
+    public void setDemographicId(Integer demographicId) { this.demographicId = demographicId; }
+    public String getPreventionType() { return preventionType; }
+    public void setPreventionType(String preventionType) { this.preventionType = preventionType; }
+    public Date getPreventionDate() { return preventionDate; }
+    public void setPreventionDate(Date preventionDate) { this.preventionDate = preventionDate; }
+    public Date getCreationDate() { return creationDate; }
+    public void setCreationDate(Date creationDate) { this.creationDate = creationDate; }
+    public String getProviderNo() { return providerNo; }
+    public void setProviderNo(String providerNo) { this.providerNo = providerNo; }
+    public String getCreatorProviderNo() { return creatorProviderNo; }
+    public void setCreatorProviderNo(String creatorProviderNo) { this.creatorProviderNo = creatorProviderNo; }
+    public char getDeleted() { return deleted; }
+    public void setDeleted(char deleted) { this.deleted = deleted; }
+    public char getRefused() { return refused; }
+    public void setRefused(char refused) { this.refused = refused; }
+    public char getNever() { return never; }
+    public void setNever(char never) { this.never = never; }
+    public Date getNextDate() { return nextDate; }
+    public void setNextDate(Date nextDate) { this.nextDate = nextDate; }
+    public Date getLastUpdateDate() { return lastUpdateDate; }
+    public void setLastUpdateDate(Date lastUpdateDate) { this.lastUpdateDate = lastUpdateDate; }
+}

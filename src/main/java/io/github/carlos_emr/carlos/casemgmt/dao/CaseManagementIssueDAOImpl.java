@@ -40,6 +40,7 @@ import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
+import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementIssueListDTO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -194,6 +195,16 @@ public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements 
         return (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
                 "from CaseManagementIssue cmi where cmi.demographic_no = ?1 and cmi.update_date > ?2",
                 Integer.valueOf(demographic_no), date);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public List<CaseManagementIssueListDTO> findIssueDTOsByDemographicNo(String demographicNo) {
+        org.hibernate.query.Query<CaseManagementIssueListDTO> query = currentSession().createQuery(
+                "SELECT NEW io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementIssueListDTO(cmi.id, cmi.demographic_no, cmi.issue_id, cmi.type, cmi.acute, cmi.certain, cmi.major, cmi.resolved, cmi.update_date, cmi.program_id, i.code, i.description) FROM CaseManagementIssue cmi LEFT JOIN cmi.issue i WHERE cmi.demographic_no = :demoNo ORDER BY cmi.update_date DESC",
+                CaseManagementIssueListDTO.class);
+        query.setParameter("demoNo", demographicNo);
+        return query.list();
     }
 
 }

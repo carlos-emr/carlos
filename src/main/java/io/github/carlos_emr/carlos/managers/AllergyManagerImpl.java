@@ -37,6 +37,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
+import io.github.carlos_emr.carlos.allergy.dto.AllergyListItemDTO;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.ConsentType;
@@ -119,5 +120,15 @@ public class AllergyManagerImpl implements AllergyManager {
                         + ", updatedAfterThisDateInclusive=" + updatedAfterThisDateInclusive.getTime());
 
         return (results);
+    }
+
+    @Override
+    public List<AllergyListItemDTO> getAllergyDTOs(LoggedInInfo loggedInInfo, Integer demographicNo) {
+        List<AllergyListItemDTO> results = allergyDao.findAllergyDTOsByDemographicNo(demographicNo);
+
+        LogAction.addLogSynchronous(loggedInInfo, "AllergyManager.getAllergyDTOs",
+                "demographicNo=" + demographicNo);
+
+        return results;
     }
 }
