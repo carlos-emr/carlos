@@ -85,9 +85,10 @@
 <%@ page import="java.util.*, org.w3c.dom.*" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilXML" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -370,7 +371,6 @@
         <div class="d-flex align-items-center gap-3">
             <span class="text-muted small">
                 <fmt:message key="messenger.generatePreviewPDF.attachDocFor"/>
-                ${e:forHtml(demoName)}
             </span>
             <a href="javascript:popupStart(300,400,'About.jsp')" class="small text-decoration-none">
                 <fmt:message key="global.about"/>
@@ -406,10 +406,10 @@
             <div style="height: 6px;"></div>
 
                 <% DrawDoc(root, out); %> <br>
-                <div style="font-size: 8pt; margin-top: 15px;"><input
-                        type=submit value="Save Attachments"/> <a
-                        href="javascript:expandAll();">Expand All</a> &nbsp;|&nbsp; <a
-                        href="javascript:collapseAll();">Collapse All</a> 
+                <div style="font-size: 8pt; margin-top: 15px;"><fmt:message key="messenger.ViewAttachment.saveAttachments" var="saveAttachmentsMsg"/><input
+                        type=submit value="${saveAttachmentsMsg}"/> <a
+                        href="javascript:expandAll();"><fmt:message key="global.expandall"/></a> &nbsp;|&nbsp; <a
+                        href="javascript:collapseAll();"><fmt:message key="global.collapseall"/></a>
                 </div>
 
         </td>
@@ -421,6 +421,7 @@
 </table>
         </form>
     </div>
+</div>
 
 </body>
 </html>

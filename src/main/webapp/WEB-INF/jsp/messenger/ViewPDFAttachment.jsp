@@ -74,6 +74,7 @@
 <%@ page import="java.util.*" %>
 <%@ page import="org.w3c.dom.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.Doc2PDF" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
@@ -108,7 +109,7 @@
 <html lang="${pageContext.request.locale.language}">
 <head>
     <meta charset="UTF-8">
-    <title>Document Transfer</title>
+    <title><fmt:message key="messenger.ViewAttachment.title"/></title>
     <%@ include file="/includes/global-head.jspf" %>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
 
@@ -175,7 +176,7 @@
                             %>
                             <% for ( int i = 0 ; i < attVector.size(); i++) { %>
                     <tr>
-                        <td><%=(String) attVector.get(i)%>
+                        <td><%= Encode.forHtml((String) attVector.get(i)) %>
                         </td>
                         <td>
                           <button type="submit" class="btn btn-success"  onclick=" document.forms[0].file_id.value = <%=i%>">
@@ -185,8 +186,10 @@
                             <% }  %>
                     </table>
                         <input type="hidden" name="file_id" id="file_id"/>
-                        <input type="hidden" name="attachment" id="attachment" value="<%=pdfAttch%>"/>
+                        <input type="hidden" name="attachment" id="attachment" value="<%= Encode.forHtmlAttribute(pdfAttch) %>"/>
 
         </form>
+    </div>
+</div>
 </body>
 </html>
