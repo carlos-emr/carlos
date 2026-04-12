@@ -76,7 +76,7 @@ public class GenerateOutFiles2Action extends ActionSupport {
             response.setContentType("application/octet-stream");
             response.setHeader("Content-Disposition", "attachment; filename=\"oscarReport.csv\"");
             try {
-                response.getWriter().write(csv); // nosemgrep: no-direct-response-writer -- application/octet-stream CSV export from session data
+                response.getWriter().write(csv); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer, java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- application/octet-stream CSV export from session data
             } catch (Exception ioe) {
                 MiscUtils.getLogger().error("Error", ioe);
             }

@@ -299,7 +299,7 @@ public class Util {
                 byte[] buf = new byte[8192];
                 int len;
                 while ((len = in.read(buf)) > 0) {
-                    out.write(buf, 0, len); // nosemgrep: no-direct-response-writer -- application/octet-stream file download
+                    out.write(buf, 0, len); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- application/octet-stream file download
                 }
             }
         } catch (IOException ex) {
