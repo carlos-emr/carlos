@@ -90,6 +90,12 @@ public class PreventionMergedDemographicDaoImpl extends PreventionDaoImpl implem
         return template.findMerged(demoNo, result);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Merges prevention DTOs from the target demographic with those from any
+     * demographics merged into it.</p>
+     */
     @Override
     public List<PreventionListItemDTO> findPreventionDTOsByDemographicId(Integer demographicId) {
         List<PreventionListItemDTO> result = super.findPreventionDTOsByDemographicId(demographicId);

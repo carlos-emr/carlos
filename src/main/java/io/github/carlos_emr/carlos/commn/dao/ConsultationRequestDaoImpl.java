@@ -218,6 +218,13 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
         return query.getResultList();
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Executes a JPQL {@code SELECT NEW} projection with a LEFT JOIN on
+     * {@code professionalSpecialist} to pre-populate the specialist's name,
+     * ordered by {@code referralDate} descending.</p>
+     */
     @Override
     public List<ConsultationRequestListItemDTO> findConsultationDTOsByDemographicId(Integer demographicId) {
         Query query = entityManager.createQuery(

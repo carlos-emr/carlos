@@ -125,6 +125,7 @@ public interface DocumentManager {
      * @param loggedInInfo LoggedInInfo the logged-in user context
      * @param demographicNo Integer the patient demographic number
      * @return List of DocumentListItemDTO for the patient's documents
+     * @throws SecurityException if the caller lacks {@code _edoc} read privilege
      * @since 2026-04-11
      */
     List<DocumentListItemDTO> getDocumentDTOs(LoggedInInfo loggedInInfo, Integer demographicNo);

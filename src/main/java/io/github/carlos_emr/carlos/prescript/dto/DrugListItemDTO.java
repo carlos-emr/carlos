@@ -42,7 +42,7 @@ public class DrugListItemDTO implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private Integer id;
-    private Integer demographicId;
+    private Integer demographicNo;
     private String brandName;
     private String genericName;
     private String customName;
@@ -69,7 +69,7 @@ public class DrugListItemDTO implements Serializable {
      * Projection constructor for JPQL constructor expressions.
      *
      * @param id Integer the drug/prescription ID
-     * @param demographicId Integer the patient demographic number
+     * @param demographicNo Integer the patient demographic number
      * @param brandName String the brand name (BN)
      * @param genericName String the generic name (GN)
      * @param customName String the custom/compound name
@@ -89,13 +89,13 @@ public class DrugListItemDTO implements Serializable {
      * @param special String the special instructions
      * @param scriptNo Integer the script number
      */
-    public DrugListItemDTO(Integer id, Integer demographicId, String brandName, String genericName,
+    public DrugListItemDTO(Integer id, Integer demographicNo, String brandName, String genericName,
                            String customName, String dosage, String route, String freqCode,
                            String duration, String durUnit, String quantity, Integer repeat,
                            Date rxDate, Date endDate, Date lastRefillDate, boolean archived,
                            Boolean longTerm, String providerNo, String special, Integer scriptNo) {
         this.id = id;
-        this.demographicId = demographicId;
+        this.demographicNo = demographicNo;
         this.brandName = brandName;
         this.genericName = genericName;
         this.customName = customName;
@@ -148,8 +148,8 @@ public class DrugListItemDTO implements Serializable {
 
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
-    public Integer getDemographicId() { return demographicId; }
-    public void setDemographicId(Integer demographicId) { this.demographicId = demographicId; }
+    public Integer getDemographicNo() { return demographicNo; }
+    public void setDemographicNo(Integer demographicNo) { this.demographicNo = demographicNo; }
     public String getBrandName() { return brandName; }
     public void setBrandName(String brandName) { this.brandName = brandName; }
     public String getGenericName() { return genericName; }

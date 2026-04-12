@@ -50,6 +50,12 @@ public class CaseManagementNoteListDTO implements Serializable {
     private Long id;
     private Date updateDate;
     private Date observationDate;
+    /**
+     * Demographic number as stored on the underlying entity. {@code CaseManagementNote.demographic_no}
+     * is typed as {@code String} in the HBM mapping (unlike most other demographic-linked
+     * entities which use {@code Integer}), so this field mirrors that type to avoid
+     * an unnecessary parse at the DAO boundary.
+     */
     private String demographicNo;
     private boolean signed;
     private String providerNo;

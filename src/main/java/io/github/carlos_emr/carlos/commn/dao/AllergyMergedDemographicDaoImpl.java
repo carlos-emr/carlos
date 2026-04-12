@@ -93,6 +93,12 @@ public class AllergyMergedDemographicDaoImpl extends AllergyDaoImpl implements A
         return template.findMerged(demographicId, result);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Merges allergy DTOs from the target demographic with those from any
+     * demographics merged into it.</p>
+     */
     @Override
     public List<AllergyListItemDTO> findAllergyDTOsByDemographicNo(Integer demographicNo) {
         List<AllergyListItemDTO> result = super.findAllergyDTOsByDemographicNo(demographicNo);

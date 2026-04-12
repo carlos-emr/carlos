@@ -43,7 +43,7 @@ public class ConsultationRequestListItemDTO implements Serializable {
     private Integer id;
     private Date referralDate;
     private Integer serviceId;
-    private Integer demographicId;
+    private Integer demographicNo;
     private String providerNo;
     private String status;
     private String statusText;
@@ -69,7 +69,7 @@ public class ConsultationRequestListItemDTO implements Serializable {
      * @param id Integer the consultation request ID
      * @param referralDate Date the referral date
      * @param serviceId Integer the consultation service ID
-     * @param demographicId Integer the patient demographic number
+     * @param demographicNo Integer the patient demographic number
      * @param providerNo String the referring provider number
      * @param status String the status code
      * @param statusText String the status display text
@@ -87,7 +87,7 @@ public class ConsultationRequestListItemDTO implements Serializable {
      * @since 2026-04-11
      */
     public ConsultationRequestListItemDTO(Integer id, Date referralDate, Integer serviceId,
-                                          Integer demographicId, String providerNo,
+                                          Integer demographicNo, String providerNo,
                                           String status, String statusText, String urgency,
                                           String reasonForReferral, Date appointmentDate,
                                           Date followUpDate, String sendTo, String siteName,
@@ -96,7 +96,7 @@ public class ConsultationRequestListItemDTO implements Serializable {
         this.id = id;
         this.referralDate = referralDate;
         this.serviceId = serviceId;
-        this.demographicId = demographicId;
+        this.demographicNo = demographicNo;
         this.providerNo = providerNo;
         this.status = status;
         this.statusText = statusText;
@@ -128,8 +128,8 @@ public class ConsultationRequestListItemDTO implements Serializable {
     public void setReferralDate(Date referralDate) { this.referralDate = referralDate; }
     public Integer getServiceId() { return serviceId; }
     public void setServiceId(Integer serviceId) { this.serviceId = serviceId; }
-    public Integer getDemographicId() { return demographicId; }
-    public void setDemographicId(Integer demographicId) { this.demographicId = demographicId; }
+    public Integer getDemographicNo() { return demographicNo; }
+    public void setDemographicNo(Integer demographicNo) { this.demographicNo = demographicNo; }
     public String getProviderNo() { return providerNo; }
     public void setProviderNo(String providerNo) { this.providerNo = providerNo; }
     public String getStatus() { return status; }

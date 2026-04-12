@@ -61,6 +61,7 @@ public interface AllergyManager {
      * @param loggedInInfo LoggedInInfo the logged-in user context
      * @param demographicNo Integer the patient demographic number
      * @return List of AllergyListItemDTO
+     * @throws SecurityException if the caller lacks {@code _allergy} read privilege
      * @since 2026-04-11
      */
     List<AllergyListItemDTO> getAllergyDTOs(LoggedInInfo loggedInInfo, Integer demographicNo);

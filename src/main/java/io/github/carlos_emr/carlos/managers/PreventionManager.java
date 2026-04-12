@@ -95,6 +95,7 @@ public interface PreventionManager {
      * @param loggedInInfo LoggedInInfo the logged-in user context
      * @param demographicNo Integer the patient demographic number
      * @return List of PreventionListItemDTO for the patient's immunizations
+     * @throws SecurityException if the caller lacks {@code _prevention} read privilege
      * @since 2026-04-11
      */
     List<PreventionListItemDTO> getPreventionDTOs(LoggedInInfo loggedInInfo, Integer demographicNo);

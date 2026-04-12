@@ -83,6 +83,7 @@ public interface AppointmentManager {
      * @param date Date the appointment date
      * @param providerNo String the provider number
      * @return List of AppointmentListItemDTO for the provider's daily schedule
+     * @throws SecurityException if the caller lacks the {@code _appointment} read privilege
      * @since 2026-04-11
      */
     List<AppointmentListItemDTO> getDayAppointmentDTOs(LoggedInInfo loggedInInfo, Date date, String providerNo);

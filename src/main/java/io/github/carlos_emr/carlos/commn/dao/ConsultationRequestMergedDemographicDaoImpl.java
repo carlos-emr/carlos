@@ -65,6 +65,12 @@ public class ConsultationRequestMergedDemographicDaoImpl extends ConsultationReq
         return template.findMerged(demographicNo, result);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Merges consultation request DTOs from the target demographic with those
+     * from any demographics merged into it.</p>
+     */
     @Override
     public List<ConsultationRequestListItemDTO> findConsultationDTOsByDemographicId(Integer demographicId) {
         List<ConsultationRequestListItemDTO> result = super.findConsultationDTOsByDemographicId(demographicId);

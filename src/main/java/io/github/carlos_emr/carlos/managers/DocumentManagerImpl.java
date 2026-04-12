@@ -594,9 +594,9 @@ public class DocumentManagerImpl implements DocumentManager {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", "")) {
             throw new SecurityException("missing required sec object (_edoc)");
         }
-        List<DocumentListItemDTO> results = documentDao.findDocumentDTOsByDemographicNo(String.valueOf(demographicNo));
-        LogAction.addLog(loggedInInfo, "DocumentManager.getDocumentDTOs",
-                "demographicNo=" + demographicNo, "", "", "");
+        List<DocumentListItemDTO> results = documentDao.findDocumentDTOsByDemographicNo(demographicNo);
+        LogAction.addLogSynchronous(loggedInInfo, "DocumentManager.getDocumentDTOs",
+                "demographicNo=" + demographicNo);
         return results;
     }
 }

@@ -291,6 +291,12 @@ public class DrugMergedDemographicDaoImpl extends DrugDaoImpl implements DrugMer
 
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Merges drug DTOs from the target demographic with those from any
+     * demographics merged into it.</p>
+     */
     @Override
     public List<DrugListItemDTO> findDrugDTOsByDemographicId(Integer demographicId) {
         List<DrugListItemDTO> result = super.findDrugDTOsByDemographicId(demographicId);

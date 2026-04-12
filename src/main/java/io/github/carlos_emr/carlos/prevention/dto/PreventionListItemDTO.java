@@ -39,7 +39,7 @@ public class PreventionListItemDTO implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private Integer id;
-    private Integer demographicId;
+    private Integer demographicNo;
     private String preventionType;
     private Date preventionDate;
     private Date creationDate;
@@ -59,7 +59,7 @@ public class PreventionListItemDTO implements Serializable {
      * Projection constructor for JPQL constructor expressions.
      *
      * @param id Integer the prevention record ID
-     * @param demographicId Integer the patient demographic number
+     * @param demographicNo Integer the patient demographic number
      * @param preventionType String the prevention/vaccine type name
      * @param preventionDate Date the date the prevention was administered
      * @param creationDate Date the record creation date
@@ -71,12 +71,12 @@ public class PreventionListItemDTO implements Serializable {
      * @param nextDate Date the next scheduled date
      * @param lastUpdateDate Date the last update timestamp
      */
-    public PreventionListItemDTO(Integer id, Integer demographicId, String preventionType,
+    public PreventionListItemDTO(Integer id, Integer demographicNo, String preventionType,
                                  Date preventionDate, Date creationDate, String providerNo,
                                  String creatorProviderNo, char deleted, char refused, char never,
                                  Date nextDate, Date lastUpdateDate) {
         this.id = id;
-        this.demographicId = demographicId;
+        this.demographicNo = demographicNo;
         this.preventionType = preventionType;
         this.preventionDate = preventionDate;
         this.creationDate = creationDate;
@@ -100,8 +100,8 @@ public class PreventionListItemDTO implements Serializable {
 
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
-    public Integer getDemographicId() { return demographicId; }
-    public void setDemographicId(Integer demographicId) { this.demographicId = demographicId; }
+    public Integer getDemographicNo() { return demographicNo; }
+    public void setDemographicNo(Integer demographicNo) { this.demographicNo = demographicNo; }
     public String getPreventionType() { return preventionType; }
     public void setPreventionType(String preventionType) { this.preventionType = preventionType; }
     public Date getPreventionDate() { return preventionDate; }

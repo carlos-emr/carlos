@@ -125,6 +125,9 @@ public class AllergyManagerImpl implements AllergyManager {
         return (results);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public List<AllergyListItemDTO> getAllergyDTOs(LoggedInInfo loggedInInfo, Integer demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {

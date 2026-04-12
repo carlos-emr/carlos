@@ -28,13 +28,16 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
+import io.github.carlos_emr.carlos.billings.dto.BillingONCListItemDTO;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.web.BillingInvoice2Action;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -42,6 +45,7 @@ import io.github.carlos_emr.carlos.util.DateUtils;
 
 import java.io.InputStream;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 
@@ -65,6 +69,9 @@ public class BillingONManager {
 
     @Autowired
     private DemographicDao demographicDao;
+
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
 
     protected static Properties emailProperties = getBillingEmailProperties();
 
@@ -180,6 +187,26 @@ public class BillingONManager {
     public void addEmailedBillingComment(Integer invoiceNo, Locale locale) {
         String emailedMsg = LocaleUtils.getMessage(locale, "billing.billing3rdInv.msgEmailed");
         addBillingComment(emailedMsg, invoiceNo, locale);
+    }
+
+    /**
+     * Returns lightweight Ontario billing DTOs for a demographic. Enforces
+     * {@code _billing} read privilege and writes a synchronous audit log entry.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context
+     * @param demographicNo Integer the patient demographic number
+     * @return List&lt;BillingONCListItemDTO&gt; of active billing records ordered by billing date descending
+     * @throws SecurityException if the caller lacks {@code _billing} read privilege
+     * @since 2026-04-12
+     */
+    public List<BillingONCListItemDTO> getBillingDTOs(LoggedInInfo loggedInInfo, Integer demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+        List<BillingONCListItemDTO> results = billingONCHeader1Dao.findBillingDTOsByDemographicNo(demographicNo);
+        LogAction.addLogSynchronous(loggedInInfo, "BillingONManager.getBillingDTOs",
+                "demographicNo=" + demographicNo);
+        return results;
     }
 
     private void addBillingComment(String comment, Integer invoiceNo, Locale locale) {

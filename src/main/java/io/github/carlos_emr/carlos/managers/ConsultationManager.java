@@ -388,7 +388,7 @@ public interface ConsultationManager {
      * @param loggedInInfo LoggedInInfo the session context used for privilege checking
      * @param demographicId Integer the patient demographic number
      * @return List&lt;ConsultationRequestListItemDTO&gt; ordered by referral date descending
-     * @throws RuntimeException if the caller lacks the {@code _con} read privilege
+     * @throws SecurityException if the caller lacks the {@code _con} read privilege
      * @since 2026-04-11
      */
     List<ConsultationRequestListItemDTO> getConsultationDTOs(LoggedInInfo loggedInInfo, Integer demographicId);

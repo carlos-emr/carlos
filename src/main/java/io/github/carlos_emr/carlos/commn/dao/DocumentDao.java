@@ -190,9 +190,9 @@ public interface DocumentDao extends AbstractDao<Document> {
      * Returns lightweight document DTOs for a demographic, bypassing the EAGER
      * DocumentReview collection load. Uses JPQL constructor expression projection.
      *
-     * @param demographicNo String the patient demographic number
-     * @return List of DocumentListItemDTO for the patient's documents
+     * @param demographicNo Integer the patient demographic number
+     * @return List of DocumentListItemDTO for the patient's documents ordered by observation date descending
      * @since 2026-04-11
      */
-    public List<DocumentListItemDTO> findDocumentDTOsByDemographicNo(String demographicNo);
+    public List<DocumentListItemDTO> findDocumentDTOsByDemographicNo(Integer demographicNo);
 }
