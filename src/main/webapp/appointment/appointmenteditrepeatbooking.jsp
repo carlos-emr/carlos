@@ -28,8 +28,66 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    appointmenteditrepeatbooking.jsp - Group/recurring appointment booking form
 
+    Purpose: Provides the UI for creating, updating, cancelling, and deleting recurring
+    appointments in CARLOS EMR. Supports repeat scheduling by day, week, month, or year
+    with a configurable end date.
+
+    Features:
+    - Create recurring appointment groups (Add Group Appointment)
+    - Update all appointments in a group (Group Update)
+    - Cancel all appointments in a group with status "C" (Group Cancel)
+    - Delete all appointments in a group with confirmation dialog (Group Delete)
+    - Bootstrap 5 responsive layout with JSTL/EL i18n
+    - OWASP-encoded confirm dialogs for exit and delete actions
+
+    Parameters (request):
+    - appointment_no   (optional) — appointment ID; if present, form renders in edit mode
+    - provider_no      — provider identifier
+    - appointment_date — date of the first appointment
+    - start_time       — appointment start time
+    - end_time         — appointment end time
+    - keyword          — appointment name/keyword
+    - notes            — appointment notes
+    - reason           — appointment reason text
+    - location         — appointment location
+    - resources        — appointment resources
+    - type             — appointment type
+    - style            — appointment style code
+    - billing          — billing code
+    - status           — appointment status
+    - remarks          — remarks
+    - demographic_no   — patient demographic number
+    - urgency          — urgency flag
+    - reasonCode       — reason code integer
+    - everyNum         — repeat interval count (1–11)
+    - everyUnit        — repeat interval unit: "day", "week", "month", or "year" (internal English keys)
+    - endDate          — end date for the recurrence series (dd/MM/yyyy format)
+    - groupappt        — action key submitted by buttons: "Add Group Appointment", "Group Update",
+                         "Group Cancel", or "Group Delete"
+
+    @since CARLOS 1.0 (Bootstrap 5 / i18n conversion, April 2026)
+--%>
+<%@ page import="java.sql.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*" %>
+<%@ page import="java.text.SimpleDateFormat" %>
+<%@ page import="io.github.carlos_emr.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message var="exitConfirmMsg" key="appointment.appointmentgrouprecords.msgExitConfirmation"/>
+<fmt:message var="deleteConfirmMsg" key="appointment.appointmentgrouprecords.msgDeleteConfirmation"/>
+
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -46,25 +104,9 @@
 
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
-    String deepcolor = "#CCCCFF", weakcolor = "#EEEEFF", tableTitle = "#99ccff";
-    boolean bEdit = request.getParameter("appointment_no") != null ? true : false;
+    boolean bEdit = request.getParameter("appointment_no") != null;
 %>
-<%@ page import="java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.sql.*"
-         errorPage="/errorpage.jsp" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<fmt:setBundle basename="oscarResources"/>
 
-
-<%@page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="java.text.SimpleDateFormat" %>
-<%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
-<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     AppointmentArchiveDao appointmentArchiveDao = (AppointmentArchiveDao) SpringUtils.getBean(AppointmentArchiveDao.class);
     OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
@@ -138,7 +180,7 @@
                 appointmentDao.persist(a);
 
 
-                gCalDate.setTime(UtilDateUtilities.StringToDate(param[1], "yyyy-MM-dd"));
+                gCalDate.setTime(iDate);
                 gCalDate = addDateByYMD(gCalDate, everyUnit, delta);
 
                 if (gCalDate.after(gEndDate))
@@ -282,168 +324,205 @@
         if (bSucc) {
 %>
 <h1><fmt:message key="appointment.appointmentgrouprecords.msgAddSuccess"/></h1>
-<script LANGUAGE="JavaScript">
+<script type="text/javascript">
     self.opener.refresh();
     self.close();
 </script>
 <%
-} else {
+        } else {
 %>
-<p>
 <h1><fmt:message key="appointment.appointmentgrouprecords.msgAddFailure"/></h1>
-
 <%
         }
         return;
     }
 %>
-<html>
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <meta charset="UTF-8">
         <title><fmt:message key="appointment.appointmentgrouprecords.title"/></title>
-        <script language="JavaScript">
-            <!--
+        <%@ include file="/includes/global-head.jspf" %>
 
-            function onCheck(a, b) {
-                if (a.checked) {
-                    document.getElementById("everyUnit").value = b;
-                    //document.groupappt.everyUnit.value = b;
-                }
-            }
-
-
-            function onExit() {
-                if (confirm("<fmt:message key="appointment.appointmentgrouprecords.msgExitConfirmation"/>")) {
-                    window.close()
-                }
-            }
-
-            var saveTemp = 0;
-
-            function onButDelete() {
-                saveTemp = 1;
-            }
-
-            function onSub() {
-                if (saveTemp == 1) {
-                    return (confirm("<fmt:message key="appointment.appointmentgrouprecords.msgDeleteConfirmation"/>"));
-                }
-            }
-
-            //-->
-        </script>
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
-              href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
+              href="${pageContext.request.contextPath}/share/calendar/calendar.css" title="win2k-cold-1"/>
 
         <!-- main calendar program -->
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
+        <script type="text/javascript" src="${pageContext.request.contextPath}/share/calendar/calendar.js"></script>
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="${pageContext.request.contextPath}/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
                adding a calendar a matter of 1 or 2 lines of code. -->
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
+        <script type="text/javascript" src="${pageContext.request.contextPath}/share/calendar/calendar-setup.js"></script>
+
+        <script type="text/javascript">
+            function onCheck(a, b) {
+                if (a.checked) {
+                    document.getElementById("everyUnit").value = b;
+                }
+            }
+
+            function onExit() {
+                if (confirm("${e:forJavaScript(exitConfirmMsg)}")) {
+                    window.close();
+                }
+            }
+        </script>
     </head>
 
-    <body bgcolor="ivory" onLoad="setfocus()" topmargin="0" leftmargin="0"
-          rightmargin="0">
-    <form name="groupappt" method="POST"
-          action="appointmenteditrepeatbooking.jsp" onSubmit="return ( onSub());">
-        <INPUT TYPE="hidden" NAME="groupappt" value="">
-        <table width="100%" BGCOLOR="silver">
-            <tr>
-                <TD>
-                    <% if (bEdit) { %> <INPUT TYPE="button"
-                                              onclick="document.forms['groupappt'].groupappt.value='Group Update'; document.forms['groupappt'].submit();"
-                                              VALUE="<fmt:message key="appointment.appointmentgrouprecords.btnGroupUpdate"/>">
-                    <INPUT TYPE="button"
-                           onclick="document.forms['groupappt'].groupappt.value='Group Cancel'; document.forms['groupappt'].submit();"
-                           VALUE="<fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>">
-                    <INPUT TYPE="button"
-                           onclick="document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
-                           VALUE="<fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>"
-                           onClick="onButDelete()"> <% } else { %> <INPUT
-                        TYPE="button"
-                        onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();"
-                        VALUE="<fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>">
-                    <% } %>
-                </TD>
-                <TD align="right"><INPUT TYPE="button"
-                                         VALUE=" <fmt:message key="global.btnBack"/> "
-                                         onClick="window.history.go(-1);return false;"> <INPUT
-                        TYPE="button" VALUE=" <fmt:message key="global.btnExit"/> "
-                        onClick="onExit()"></TD>
-            </tr>
-        </table>
+    <body>
+    <div class="container">
 
-        <table border=0 cellspacing=0 cellpadding=0 width="100%">
-            <tr bgcolor="<%=deepcolor%>">
-                <th><font face="Helvetica"><fmt:message key="appointment.appointmenteditrepeatbooking.title"/></font>
-                </th>
-            </tr>
-        </table>
+        <div id="jsAlertBanner"
+             class="alert alert-danger alert-dismissible"
+             style="display:none"
+             role="alert">
+            <span id="jsAlertText"></span>
+            <button type="button"
+                    class="btn-close"
+                    onclick="this.closest('.alert').style.display='none'"
+                    aria-label="Close"></button>
+        </div>
 
-        <table border="0" cellspacing="1" cellpadding="2" width="100%">
-            <tr>
-                <td width="20%"></td>
-                <td nowrap><fmt:message key="appointment.appointmenteditrepeatbooking.howoften"/></td>
-            </tr>
-            <tr>
-                <td></td>
-                <td nowrap>&nbsp;&nbsp;&nbsp;
+        <div class="page-header-bar d-flex align-items-center py-2 mb-3 border-bottom" id="header">
+            <div class="d-flex align-items-center gap-2">
+                <i class="fa-regular fa-calendar" aria-hidden="true"></i>
+                <span class="fw-semibold"><fmt:message key="appointment.appointmenteditrepeatbooking.title"/></span>
+            </div>
+        </div>
 
-                    <input type="radio" name="dateUnit" value="<fmt:message key="day"/>"   <%="checked"%>
-                           onclick='onCheck(this, "day")'><fmt:message key="day"/> &nbsp;&nbsp;
-                    <input type="radio" name="dateUnit" value="<fmt:message key="week"/>"  <%=""%>
-                           onclick='onCheck(this, "week")'><fmt:message key="week"/> &nbsp;&nbsp;
-                    <input type="radio" name="dateUnit" value="<fmt:message key="month"/>" <%=""%>
-                           onclick='onCheck(this, "month")'><fmt:message key="month"/> &nbsp;&nbsp;
-                    <input type="radio" name="dateUnit" value="<fmt:message key="year"/>"  <%=""%>
-                           onclick='onCheck(this, "year")'><fmt:message key="year"/></td>
-            </tr>
-        </table>
+        <form name="groupappt" method="POST" action="appointmenteditrepeatbooking.jsp">
+            <input type="hidden" name="groupappt" value="">
 
-        <table border="0" cellspacing="1" cellpadding="2" width="100%">
-            <tr>
-                <td width="20%"></td>
-                <td width="16%" nowrap><fmt:message key="appointment.appointmenteditrepeatbooking.every"/></td>
-                <td nowrap><select name="everyNum">
-                    <%
-                        for (int i = 1; i < 12; i++) {
-                    %>
-                    <option value="<%=i%>"><%=i%>
-                    </option>
-                    <%
-                        }
-                    %>
-                </select> <input type="text" name="everyUnit" id="everyUnit" size="10"
-                                 value="<%="day"%>" readonly></td>
-            </tr>
-            <tr>
-                <td></td>
-                <td><fmt:message key="appointment.appointmenteditrepeatbooking.endon"/> &nbsp;&nbsp;
-                    <button type="button" id="f_trigger_b">...</button>
-                    <br>
-                    <font size="-1"><fmt:message key="ddmmyyyy"/></font></td>
-                <td nowrap valign="top"><input type="text" name="endDate"
-                                               id="endDate" size="10"
-                                               value="<%=UtilDateUtilities.DateToString(new java.util.Date(),"dd/MM/yyyy")%>"
-                                               readonly></td>
-            </tr>
-        </table>
-        <%
-            String temp = null;
-            for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
-                temp = e.nextElement().toString();
-                if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no"))
-                    continue;
-                out.println("<input type='hidden' name='" + Encode.forHtmlAttribute(temp) + "' value=\"" + Encode.forHtmlAttribute(request.getParameter(temp) != null ? request.getParameter(temp) : "") + "\">");
-            }
-        %>
-    </form>
+            <div class="bg-light border rounded p-3">
+
+                <!-- How often -->
+                <div class="mb-3">
+                    <div class="form-label form-label-sm fw-semibold mb-2">
+                        <fmt:message key="appointment.appointmenteditrepeatbooking.howoften"/>
+                    </div>
+
+                        <div class="form-check form-check-inline">
+                   
+                        <fmt:message key="appointment.appointmenteditrepeatbooking.every"/>
+
+                        </div>
+                        <div class="form-check form-check-inline">
+                        <select name="everyNum" class="form-select form-select-sm" style="width: auto;">
+                            <%
+                                for (int i = 1; i < 12; i++) {
+                            %>
+                            <option value="<%=i%>"><%=i%></option>
+                            <%
+                                }
+                            %>
+                        </select>
+                        <input type="hidden" name="everyUnit" id="everyUnit"
+                               class="form-control form-control-sm" style="width: 8rem;"
+                               value="day" readonly>
+
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="dateUnit" id="dateUnitDay"
+                                   value="day" checked onclick='onCheck(this, "day")'>
+                            <label class="form-check-label" for="dateUnitDay">
+                                <fmt:message key="day"/>
+                            </label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="dateUnit" id="dateUnitWeek"
+                                   value="week" onclick='onCheck(this, "week")'>
+                            <label class="form-check-label" for="dateUnitWeek">
+                                <fmt:message key="week"/>
+                            </label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="dateUnit" id="dateUnitMonth"
+                                   value="month" onclick='onCheck(this, "month")'>
+                            <label class="form-check-label" for="dateUnitMonth">
+                                <fmt:message key="month"/>
+                            </label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="dateUnit" id="dateUnitYear"
+                                   value="year" onclick='onCheck(this, "year")'>
+                            <label class="form-check-label" for="dateUnitYear">
+                                <fmt:message key="year"/>
+                            </label>
+                        </div>
+                    </div>
+
+
+                <!-- End date -->
+                <div class="mb-4 w-50">
+                    <label for="endDate" class="form-label form-label-sm fw-semibold">
+                        <fmt:message key="appointment.appointmenteditrepeatbooking.endon"/>
+                    </label>
+                    <div class="input-group">
+                        <input type="text" name="endDate" id="endDate"
+                               class="form-control form-control-sm" style="width: 9rem;"
+                               value="<%=Encode.forHtmlAttribute(UtilDateUtilities.DateToString(new java.util.Date(), "dd/MM/yyyy"))%>"
+                               readonly>
+                        
+                          <button type="button" id="f_trigger_b" class="btn btn-outline-secondary btn-sm"><i class="fa fa-calendar" aria-hidden="true"></i></button>
+                        
+                    </div>
+                    <div class="form-text"><fmt:message key="ddmmyyyy"/></div>
+                </div>
+
+                <!-- Action buttons -->
+                <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                    <div class="d-flex gap-2">
+                        <% if (bEdit) { %>
+                        <button type="button" class="btn btn-primary btn-sm"
+                                onclick="document.forms['groupappt'].groupappt.value='Group Update'; document.forms['groupappt'].submit();">
+                            <fmt:message key="appointment.appointmentgrouprecords.btnGroupUpdate"/>
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                onclick="document.forms['groupappt'].groupappt.value='Group Cancel'; document.forms['groupappt'].submit();">
+                            <fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>
+                        </button>
+                        <button type="button" class="btn btn-danger btn-sm"
+                                onclick="if (confirm('${e:forJavaScript(deleteConfirmMsg)}')) { document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit(); }">
+                            <fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>
+                        </button>
+                        <% } else { %>
+                        <button type="button" class="btn btn-primary btn-sm"
+                                onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();">
+                            <fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>
+                        </button>
+                        <% } %>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                onclick="window.history.go(-1); return false;">
+                            <fmt:message key="global.btnBack"/>
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                onclick="onExit()">
+                            <fmt:message key="global.btnExit"/>
+                        </button>
+                    </div>
+                </div>
+
+            </div><%-- end .bg-light --%>
+
+            <%
+                String temp = null;
+                for (Enumeration paramNames = request.getParameterNames(); paramNames.hasMoreElements(); ) {
+                    temp = paramNames.nextElement().toString();
+                    if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no"))
+                        continue;
+                    out.println("<input type='hidden' name='" + Encode.forHtmlAttribute(temp) + "' value=\"" + Encode.forHtmlAttribute(request.getParameter(temp) != null ? request.getParameter(temp) : "") + "\">");
+                }
+            %>
+        </form>
+
+    </div><%-- end .container --%>
 
     <script type="text/javascript">
         Calendar.setup({
