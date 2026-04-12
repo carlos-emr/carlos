@@ -239,7 +239,7 @@ public class FacilityManager2Action extends ActionSupport {
             // if we just updated our current facility, refresh local cached data in the session / thread local variable
             if (loggedInInfo.getCurrentFacility().getId().intValue() == facility.getId().intValue()) {
                 // nosemgrep: tainted-session-from-http-request -- facility fields from admin form, persisted/merged to DB above; admin-restricted via Struts URL mapping
-                request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility);
+                request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): admin-persisted facility entity (DAO-sourced); _admin.facility hasPrivilege checked
                 loggedInInfo.setCurrentFacility(facility);
             }
 

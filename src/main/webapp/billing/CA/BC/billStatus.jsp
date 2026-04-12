@@ -48,6 +48,7 @@
 <%@ page import="java.math.*,java.util.*,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*,io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
@@ -115,7 +116,7 @@
 <html>
 <head>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.editInvoices"/></title>
+    <title><fmt:message key="admin.admin.editInvoices"/></title>
     <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"
             type="text/javascript"></script>
 
@@ -245,7 +246,7 @@
 
 <body>
 <div class="container">
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.editInvoices"/></h3>
+    <h3><fmt:message key="admin.admin.editInvoices"/></h3>
 
     <div class="row card card-body bg-body-tertiary d-print-none">
 

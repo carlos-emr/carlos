@@ -69,7 +69,7 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
                 response.setContentType("image/" + imageType);
                 response.setContentLength(image.length);
                 BufferedOutputStream bos = new BufferedOutputStream(response.getOutputStream());
-                bos.write(image);
+                bos.write(image); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- image/jpeg binary write
                 bos.flush();
 
                 return;

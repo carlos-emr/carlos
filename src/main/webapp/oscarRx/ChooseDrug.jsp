@@ -45,6 +45,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -70,7 +71,7 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.title.DrugSearchResults"/></title>
+        <title><fmt:message key="ChooseDrug.title.DrugSearchResults"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <script type="text/javascript" src="<%=request.getContextPath()%>/share/javascript/Oscar.js"></script>
 
@@ -190,20 +191,20 @@
                         <td width="0%" valign="top">
                             <div class="DivCCBreadCrumbs">
                                 <a href="<%= request.getContextPath() %>/oscarRx/SearchDrug3.jsp">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a>
-                                <b><fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.title"/></b>
+                                    <fmt:message key="SearchDrug.title"/></a>
+                                <b><fmt:message key="ChooseDrug.title"/></b>
                             </div>
                         </td>
                     </tr>
                     <!----Start new rows here-->
                     <tr>
                         <td>
-                            <div class="DivContentTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.title"/></div>
+                            <div class="DivContentTitle"><fmt:message key="ChooseDrug.title"/></div>
                         </td>
                     </tr>
                     <tr>
                         <td>
-                            <div class="DivContentSectionHead"><fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.section1Title"/></div>
+                            <div class="DivContentSectionHead"><fmt:message key="ChooseDrug.section1Title"/></div>
                         </td>
                     </tr>
                     <tr>
@@ -217,7 +218,7 @@
                                 <table>
                                     <tr>
                                         <td>
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.searchAgain"/><br>
+                                            <fmt:message key="ChooseDrug.searchAgain"/><br>
                                             <input type="text" id="searchString" name="searchString" size="16"
                                                        maxlength="16"/>
                                             <!--<input type="hidden" name="otcExcluded" value="true"/>OTC Excluded-->
@@ -226,7 +227,7 @@
                                         </td>
                                         <td>
                                             <oscar:oscarPropertiesCheck property="drugref_route_search" value="on">
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.drugSearchRouteLabel"/><br>
+                                                <fmt:message key="SearchDrug.drugSearchRouteLabel"/><br>
                                                 <% for (int j = 0; j < d_route.length; j++) { %>
                                                 <input type=checkbox <%=selRoute[j]%> name=route<%=j%>
                                                        value="<%=d_route[j].trim()%>"><%=d_route[j].trim()%> &nbsp;</input>
@@ -238,15 +239,15 @@
                                     <tr>
                                         <td colspan=3>
                                             <input type="submit" name="submit" class="ControlPushButton"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.msgSearch"/>" />
+                                                   value="<fmt:message key="ChooseDrug.msgSearch"/>" />
                                             &nbsp;&nbsp;&nbsp;
                                             <input type=button class="ControlPushButton"
                                                    onclick="javascript:document.forms.RxSearchDrugForm.searchString.value='';document.forms.RxSearchDrugForm.searchString.focus();"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.msgReset"/>"/>
+                                                   value="<fmt:message key="ChooseDrug.msgReset"/>"/>
                                             <%if (request.getParameter("rx2") == null || !request.getParameter("rx2").equals("true")) { %>
                                             <input type=button class="ControlPushButton"
                                                    onclick="javascript:customWarning();"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.msgCustomDrug"/>"/>
+                                                   value="<fmt:message key="ChooseDrug.msgCustomDrug"/>"/>
                                             <%}%>
 
                                         </td>
@@ -257,7 +258,7 @@
                     </tr>
                     <tr>
                         <td>
-                            <div class="DivContentSectionHead"><fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.section2Title"/></div>
+                            <div class="DivContentSectionHead"><fmt:message key="ChooseDrug.section2Title"/></div>
                         </td>
                     </tr>
                     <tr>
@@ -268,10 +269,10 @@
                             <table width="100%" border=0>
                                 <tr>
                                     <td width="50%">
-                                        <div class="LeftMargin"><fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.genericDrugBox"/></div>
+                                        <div class="LeftMargin"><fmt:message key="ChooseDrug.genericDrugBox"/></div>
                                     </td>
                                     <td width="50%">
-                                        <div class="LeftMargin"><fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.brandDrugBox"/></div>
+                                        <div class="LeftMargin"><fmt:message key="ChooseDrug.brandDrugBox"/></div>
                                     </td>
                                 </tr>
                                 <tr>
@@ -292,7 +293,7 @@
                                                             <%= getMaxVal(t.name)%>
                                                         </a>
                                                         <span>&nbsp;&nbsp;(<a
-                                                                href="javascript:ShowDrugInfoGN('<%=Encode.forJavaScript(t.name)%>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
+                                                                href="javascript:ShowDrugInfoGN('<%=Encode.forJavaScript(t.name)%>');"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
                                                     </td>
                                                 </tr>
                                                 <%
@@ -322,7 +323,7 @@
                                                                 <%=brandName%>
                                                             </a>
                                                             <span>&nbsp;&nbsp;(<a
-                                                                    href="javascript:ShowDrugInfoBN('<%=Encode.forJavaScript(t.pKey)%>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
+                                                                    href="javascript:ShowDrugInfoBN('<%=Encode.forJavaScript(t.pKey)%>');"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
                                                     </td>
                                                 </tr>
                                                 <%
@@ -337,7 +338,7 @@
                             } else {
                             %>
                             <div class="LeftMargin">
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.msgSearchNoResults"/>
+                                <fmt:message key="ChooseDrug.msgSearchNoResults"/>
                             </div>
                             <%
                                 }
@@ -345,7 +346,7 @@
                             <br/>
                             <script language="javascript">
                                 function customWarning() {
-                                    if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.msgCustomWarning"/>") == true) {
+                                    if (confirm("<fmt:message key="ChooseDrug.msgCustomWarning"/>") == true) {
                                         window.location.href = '<%= request.getContextPath() %>/oscarRx/chooseDrug.do?demographicNo=<%= Encode.forUriComponent(demoNo) %>';
                                     }
                                 }
@@ -353,7 +354,7 @@
                             <div class="LeftMargin">
                                 <%if (request.getParameter("rx2") == null || !request.getParameter("rx2").equals("true")) { %>
                                 <a href="javascript:customWarning();">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.msgDrugNotFound"/>
+                                    <fmt:message key="ChooseDrug.msgDrugNotFound"/>
                                 </a>
                                 <%}%>
                             </div>
@@ -376,7 +377,7 @@
                                                 <%= t.name%>
                                             </a>
                                             <span>&nbsp;&nbsp;(<a
-                                                    href="javascript:ShowDrugInfo('<%=Encode.forJavaScript(t.pKey)%>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
+                                                    href="javascript:ShowDrugInfo('<%=Encode.forJavaScript(t.pKey)%>');"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
                                         </td>
                                     </tr>
                                     <%

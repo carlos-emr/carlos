@@ -102,8 +102,8 @@
 
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
@@ -419,6 +419,14 @@ function validateFields() {
             document.forms[0].demographic_no.value = "<%=Encode.forJavaScript(demographic_no)%>";
         }
 
+        // Initialize keyword autocomplete for inline demographic search
+        initDemographicAutocomplete(
+            '<%=request.getContextPath()%>',
+            document.forms[0].keyword,
+            document.forms[0].demographic_no,
+            document.forms[0].selectedDemo
+        );
+
 	});
 </script>
 </head>
@@ -594,7 +602,7 @@ function validateFields() {
 				<tr>
 					<td><br><br>&nbsp;</td>
 					<td style="width: 40%;">
-                      <input type="text" name="keyword" class="form-control"> <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no)%>" >
+                      <input type="text" name="keyword" id="keyword" class="form-control"> <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no)%>" >
                     </td>
 	                <td>
                       <input type="button" class="btn btn-outline-secondary" name="searchDemo" value="<fmt:message key="messenger.CreateMessage.msgSearchDemographic" />" onclick="popupSearchDemo(document.forms[0].keyword.value)" >

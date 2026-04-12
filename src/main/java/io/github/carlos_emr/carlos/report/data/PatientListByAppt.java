@@ -88,17 +88,20 @@ public class PatientListByAppt extends HttpServlet {
                     Appointment a = (Appointment) o[1];
                     Provider p = (Provider) o[2];
 
-                    pw.print(d.getLastName() + ",");
-                    pw.print(d.getFirstName() + ",");
-                    pw.print(d.getPhone() + ",");
-                    pw.print(d.getPhone2() + ",");
-                    pw.print(ConversionUtils.toTimeString(a.getStartTime()) + ",");
-                    pw.print(ConversionUtils.toDateString(a.getAppointmentDate()) + ",");
-                    pw.print(a.getType().replaceAll("\r\n", "") + ",");
-                    pw.print(p.getFirstName() + " ");
-                    pw.print(p.getLastName() + ",");
-                    pw.print(a.getLocation());
-                    pw.print("\n");
+                    // CSV export rows — each pw.print() carries a full-id nosemgrep because
+                    // Semgrep Cloud does not honor preceding-line suppressions for this rule.
+                    // Content-Type is set to text/plain with Content-Disposition: attachment,
+                    // values pass through escapeCsv(), not an HTML context.
+                    pw.print(escapeCsv(d.getLastName()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
+                    pw.print(escapeCsv(d.getFirstName()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
+                    pw.print(escapeCsv(d.getPhone()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
+                    pw.print(escapeCsv(d.getPhone2()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
+                    pw.print(ConversionUtils.toTimeString(a.getStartTime()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, formatted time
+                    pw.print(ConversionUtils.toDateString(a.getAppointmentDate()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, formatted date
+                    pw.print(escapeCsv(a.getType().replaceAll("\r\n", "")) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
+                    pw.print(escapeCsv(p.getFirstName() + " " + p.getLastName()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
+                    pw.print(escapeCsv(a.getLocation())); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
+                    pw.print("\n"); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download literal newline
                 }
                 pw.println("");
             }
@@ -111,6 +114,37 @@ public class PatientListByAppt extends HttpServlet {
                     "An internal error occurred. Please try again or contact your system administrator.");
             }
         }
+    }
+
+    /**
+     * Escapes a value for RFC 4180 CSV output. Wraps the value in double-quotes
+     * if it contains commas, double-quotes, or newlines, and escapes embedded
+     * double-quotes by doubling them. Also prevents spreadsheet formula injection
+     * by prefixing values that start with formula trigger characters (=, +, -, @,
+     * tab, carriage return) with a single quote so spreadsheet applications treat
+     * them as literal text rather than formulas.
+     *
+     * @param value the raw field value; null is treated as an empty string
+     * @return the RFC 4180 escaped field value, safe from formula injection
+     */
+    private static String escapeCsv(String value) {
+        if (value == null) {
+            return "";
+        }
+        // Prevent spreadsheet formula injection: values starting with these characters
+        // are interpreted as formulas by Excel/Google Sheets. Prefix with single-quote
+        // to force literal text treatment. Phone numbers (+1...) are a common real case.
+        if (!value.isEmpty()) {
+            char first = value.charAt(0);
+            if (first == '=' || first == '+' || first == '-' || first == '@'
+                    || first == '\t' || first == '\r') {
+                value = "'" + value;
+            }
+        }
+        boolean needsQuoting = value.contains(",") || value.contains("\"")
+                || value.contains("\n") || value.contains("\r");
+        String escaped = value.replace("\"", "\"\"");
+        return needsQuoting ? "\"" + escaped + "\"" : escaped;
     }
 
     // <editor-fold defaultstate="collapsed" desc="HttpServlet methods. Click on the + sign on the left to edit the code.">

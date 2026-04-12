@@ -30,6 +30,7 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ page import="java.util.*,java.io.*,io.github.carlos_emr.carlos.lab.ca.all.util.KeyPairGen" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -189,8 +190,8 @@
                         </td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
+                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
+                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>

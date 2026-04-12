@@ -37,7 +37,6 @@ import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
 /**
@@ -177,7 +176,7 @@ public final class BillingCodeData implements Comparable {
 
 
     public List getBillingCodesLookup(String searchTerm) {
-        return SqlUtils.getQueryResultsList("select service_code,description from billingservice where description like '" + Misc.mysqlEscape(searchTerm) + "%'");
+        return SqlUtils.getQueryResultsList("select service_code,description from billingservice where description like ?", searchTerm + "%");
     }
 
     /**

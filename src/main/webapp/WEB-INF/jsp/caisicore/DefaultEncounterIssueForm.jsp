@@ -26,6 +26,7 @@
 --%>
 
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -89,7 +90,7 @@
       onsubmit="return validaeIssues();">
     <input type="hidden" name="method" value="save"/>
     <input type="hidden" name="issuenotempty"
-           value="<fmt:setBundle basename='oscarResources'/><fmt:message key='admin.admin.defaultEncounterIssue.issuenotempty'/>"/>
+           value="<fmt:message key='admin.admin.defaultEncounterIssue.issuenotempty'/>"/>
     <table width="100%" border="0" cellpadding="0" cellspacing="1"
            bgcolor="#C0C0C0">
         <tr>

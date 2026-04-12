@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+
+<%@ page import="java.util.*" %>
+<%@ page import="java.sql.*" %>
+<%@ page import="io.github.carlos_emr.carlos.login.*, io.github.carlos_emr.carlos.db.*, io.github.carlos_emr.MyDateFormat" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+
+<%
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    boolean authed = true;
+%>
+
+<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.reporting" rights="r" reverse="<%=true%>">
+    <%authed = false; %>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.reporting");%>
+</security:oscarSec>
+<%
+    if (!authed) {
+        return;
+    }
+%>
+
+
+<%
+    String tdTitleColor = "#CCCC99";
+    String tdSubtitleColor = "#CCFF99";
+    String tdInterlColor = "white";
+    String startDate = request.getParameter("startDate");
+    String endDate = request.getParameter("endDate");
+    Properties prop = null;
+    // Provider list and name map are populated by LogReport2Action using parameterized SQL.
+    @SuppressWarnings("unchecked")
+    java.util.Vector<Properties> vecProvider = (java.util.Vector<Properties>) request.getAttribute("vecProvider");
+    Properties propName = (Properties) request.getAttribute("propName");
+    if (vecProvider == null) vecProvider = new java.util.Vector<>();
+    if (propName == null) propName = new Properties();
+%>
+
+<%@page import="io.github.carlos_emr.Misc" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<html>
+    <head>
+
+
+        <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+
+        <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
+
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+
+        <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
+
+
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+        <title>Log Report</title>
+        <script language="JavaScript">
+
+            <!--
+            function setfocus() {
+                this.focus();
+                //  document.titlesearch.keyword.select();
+            }
+
+            function onSub() {
+                if (document.myform.startDate.value == "" || document.myform.endDate.value == "") {
+                    alert("Please set Start and End Dates.");
+                    return false;
+                } else {
+                    return true;
+                }
+            }
+
+            //-->
+        </script>
+
+        <style>
+
+            label {
+                margin-top: 6px;
+                margin-bottom: 0px;
+            }
+        </style>
+
+    </head>
+    <body>
+    <form name="myform" class="card card-body bg-body-tertiary" action="${pageContext.request.contextPath}/admin/LogReport.do" method="POST" onSubmit="return(onSub());">
+        <fieldset>
+            <h3>Log Admin Report <small>Please select the provider, start and end dates.</small></h3>
+
+            <div class="row">
+            <div class="col-md-4">
+                <label>Provider: </label>
+
+                <select name="providerNo">
+                    <option value="*">All</option>
+                    <%
+                        for (int i = 0; i < vecProvider.size(); i++) {
+                            String prov = ((Properties) vecProvider.get(i)).getProperty("providerNo", "");
+                            String selected = request.getParameter("providerNo");
+                    %>
+                    <option value="<%=Encode.forHtmlAttribute(prov) %>"
+                            <% if ((selected != null) && (selected.equals(prov))) { %> selected
+                            <% } %>><%= Encode.forHtmlContent(((Properties) vecProvider.get(i)).getProperty("name", "")) %>
+                    </option>
+                    <%
+                        }
+                    %>
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label>Content Type:</label>
+                <select name="content">
+                    <option value="admin">Admin</option>
+                    <option value="login">Log in</option>
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label>Start Date: </label>
+                <div class="input-group">
+                    <input type="text" name="startDate" id="startDate1" value="<%=Encode.forHtmlAttribute(startDate!=null?startDate:"")%>"
+                           pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <label>End Date: </label>
+                <div class="input-group">
+                    <input type="text" name="endDate" id="endDate1" value="<%=Encode.forHtmlAttribute(endDate!=null?endDate:"")%>"
+                           pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
+                </div>
+            </div>
+
+
+            <div class="col-md-8" style="padding-top:10px;">
+                <input class="btn btn-primary" type="submit" name="submit" value="Run Report">
+            </div>
+
+            </div><!--row-->
+        </fieldset>
+    </form>
+    <%
+        String dateError = (String) request.getAttribute("dateError");
+        if (dateError != null && !dateError.isEmpty()) {
+    %>
+    <div class="alert alert-danger" role="alert"><%= Encode.forHtml(dateError) %></div>
+    <%
+        }
+        out.flush();
+        //String startDate = "";
+        //String endDate = "";
+        Vector<Properties> vec = (Vector<Properties>) request.getAttribute("vec");
+        Boolean bAllAttr = (Boolean) request.getAttribute("bAll");
+        boolean bAll = bAllAttr != null && bAllAttr;
+        String providerNo = (String) request.getAttribute("providerNo");
+        if (providerNo == null) providerNo = "";
+        if (vec == null) vec = new Vector<Properties>();
+    %>
+    <h4><%
+        if (propName.getProperty(providerNo, "").equals("")) {
+            out.print("All");
+        } else {
+            out.print(Encode.forHtml(propName.getProperty(providerNo, "")));
+        }
+    %> - Log Report</h4>
+
+    <button class="btn float-end" onClick="window.print()" style="margin-bottom:4px">
+        <i class="fa-solid fa-print"></i> Print
+    </button>
+
+
+    <p>Period: ( <%= Encode.forHtml(startDate == null ? "" : startDate) %> ~ <%= Encode.forHtml(endDate == null ? "" : endDate) %>)</p>
+    <table class="table table-bordered table-striped table-hover table-sm">
+        <tr bgcolor="<%=tdTitleColor%>">
+            <TH>Time</TH>
+            <TH>Action</TH>
+            <TH>Content</TH>
+            <TH>Keyword</TH>
+            <TH>IP</TH>
+            <% if (bAll) { %>
+            <TH>Provider</TH>
+            <% } %>
+            <TH>Demo</TH>
+            <TH>Data</TH>
+        </tr>
+                <%
+String catName = "";
+String color = "";
+int codeNum = 0;
+int vecNum = 0;
+for (int i = 0; i < vec.size(); i++) {
+	prop = (Properties) vec.get(i);
+    color = i%2==0?tdInterlColor:"white";
+%>
+        <tr bgcolor="<%=color %>" align="center">
+            <td><c:out value='<%=prop.getProperty("dateTime")%>'/></td>
+            <td><c:out value='<%=prop.getProperty("action")%>'/></td>
+            <td><c:out value='<%=prop.getProperty("content")%>'/></td>
+            <td><c:out value='<%=prop.getProperty("contentId")%>'/></td>
+            <td><c:out value='<%=prop.getProperty("ip")%>'/></td>
+            <% if (bAll) { %>
+            <td><c:out value='<%=propName.getProperty(prop.getProperty("provider_no"), "")%>'/></td>
+            <% } %>
+            <td><c:out value='<%=prop.getProperty("demographic_no")%>'/></td>
+            <td><%=prop.getProperty("data") %></td>
+        </tr>
+
+                <% } %>
+
+        <script type="text/javascript">
+            flatpickr("#startDate1", {dateFormat: "Y-m-d", allowInput: true});
+            flatpickr("#endDate1", {dateFormat: "Y-m-d", allowInput: true});
+        </script>
+    </body>
+</html>

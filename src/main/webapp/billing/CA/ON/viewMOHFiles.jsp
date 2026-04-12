@@ -22,6 +22,7 @@
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -35,7 +36,7 @@
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.viewMOHFiles"/></title>
+    <title><fmt:message key="admin.admin.viewMOHFiles"/></title>
 
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
@@ -85,7 +86,7 @@
 </head>
 
 <body>
-<h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.viewMOHFiles"/></h3>
+<h3><fmt:message key="admin.admin.viewMOHFiles"/></h3>
 
 <div class="container-fluid card card-body bg-body-tertiary">
 

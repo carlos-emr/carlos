@@ -35,6 +35,7 @@
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.pageUtil.*" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <link rel="stylesheet" type="text/css"
       href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
@@ -88,7 +89,7 @@
         </tr>
         <tr>
             <td class="MainTableLeftColumn"><a
-                    href="<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<c:out value="${demographicNo}"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>&nbsp;</a></td>
+                    href="<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<c:out value="${demographicNo}"/>"><fmt:message key="global.btnBack"/>&nbsp;</a></td>
             <td class="MainTableRightColumn">
                 <table border=0 cellspacing=4 width=700>
                     <tr>
@@ -123,7 +124,7 @@
                 <table>
                     <tr>
                         <td><input type="button" name="Button"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>"
+                                   value="<fmt:message key="global.btnClose"/>"
                                    onClick="window.close()"></td>
                     </tr>
                 </table>

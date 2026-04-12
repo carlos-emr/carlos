@@ -164,6 +164,7 @@ public class FrmData {
         String selectClause = "SELECT ID, demographic_no, formCreated, formEdited FROM ";
         String whereClause = " WHERE demographic_no=? ORDER BY ID DESC limit 0,1";
         sql = selectClause + table + whereClause;
+        // deepcode ignore SqlInjection: table validated by regex [a-zA-Z][a-zA-Z0-9_]*; demoNo parameterized via GetPreSQL
         rs = DBHandler.GetPreSQL(sql, demoNo);
         while (rs.next()) {
             frm = new PatientForm(Misc.getString(rs, "ID"), Misc.getString(rs, "demographic_no"),
@@ -296,8 +297,7 @@ public class FrmData {
         String ret = "";
 
 
-        String sql = "SELECT value FROM property WHERE name='resource'";
-        ResultSet rs = DBHandler.GetSQL(sql);
+        ResultSet rs = DBHandler.GetPreSQL("SELECT value FROM property WHERE name=?", "resource");
         while (rs.next()) {
             ret = Misc.getString(rs, "value");
         }
@@ -313,8 +313,7 @@ public class FrmData {
         String ret = "";
 
 
-        String sql = "SELECT value FROM property WHERE name='" + name + "'";
-        ResultSet rs = DBHandler.GetSQL(sql);
+        ResultSet rs = DBHandler.GetPreSQL("SELECT value FROM property WHERE name=?", name);
         while (rs.next()) {
             ret = Misc.getString(rs, "value");
         }

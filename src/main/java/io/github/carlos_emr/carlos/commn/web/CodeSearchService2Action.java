@@ -70,7 +70,7 @@ public class CodeSearchService2Action extends ActionSupport {
         }
         response.setContentType("application/json");
         ArrayNode jsonArray = objectMapper.valueToTree(results);
-        response.getWriter().write(jsonArray.toString());
+        response.getWriter().write(jsonArray.toString()); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
 
         return null;
     }

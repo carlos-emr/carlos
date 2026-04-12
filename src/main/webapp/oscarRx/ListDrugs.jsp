@@ -32,6 +32,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -50,7 +51,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
 <%@ page import="static io.github.carlos_emr.carlos.prescript.util.RxUtil.DateToString" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
-<fmt:setBundle basename="oscarResources"/>
 <%
     RxPatientData.Patient patient = null;
     RxSessionBean bean = null;

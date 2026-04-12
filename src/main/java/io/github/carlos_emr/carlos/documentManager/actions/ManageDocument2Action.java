@@ -192,7 +192,7 @@ public class ManageDocument2Action extends ActionSupport {
             }
         }
 
-        log.error("No valid method found and insufficient parameters for documentUpdate. Method: {}", LogSanitizer.sanitize(method)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+        log.error("No valid method found and insufficient parameters for documentUpdate. Method: {}", LogSanitizer.sanitize(method)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         addActionError("Invalid request. The requested operation could not be performed.");
         return "error";
     }
@@ -246,7 +246,7 @@ public class ManageDocument2Action extends ActionSupport {
                     if (proNo != null && proNo.matches("^[a-zA-Z0-9_-]+$")) {
                         providerInboxRoutingDAO.addToProviderInbox(proNo, Integer.parseInt(documentId), LabResultData.DOCUMENT);
                     } else {
-                        log.warn("Invalid provider number format: {}", LogSanitizer.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                        log.warn("Invalid provider number format: {}", LogSanitizer.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     }
                 }
 
@@ -320,6 +320,7 @@ public class ManageDocument2Action extends ActionSupport {
         ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
             response.setContentType("application/json;charset=UTF-8");
+            // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- JSON API response with application/json content-type; patientId is validated numeric
             response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             MiscUtils.getLogger().error("IOException writing JSON response in documentUpdateAjax", e);
@@ -352,7 +353,8 @@ public class ManageDocument2Action extends ActionSupport {
         ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
             response.setContentType("application/json;charset=UTF-8");
-            response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
+            // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- JSON API response with application/json content-type and Jackson serialization
+            response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8)); // CodeQL[java/xss] JSON response — application/json content-type with Jackson serialization
         } catch (IOException e) {
             MiscUtils.getLogger().error("IOException writing JSON response in getDemoNameAjax", e);
             if (!response.isCommitted()) {
@@ -460,7 +462,7 @@ public class ManageDocument2Action extends ActionSupport {
                     if (proNo != null && proNo.matches("^[a-zA-Z0-9_-]+$")) {
                         providerInboxRoutingDAO.addToProviderInbox(proNo, Integer.parseInt(documentId), LabResultData.DOCUMENT);
                     } else {
-                        log.warn("Invalid provider number format: {}", LogSanitizer.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                        log.warn("Invalid provider number format: {}", LogSanitizer.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     }
                 }
             } catch (NumberFormatException e) {
@@ -935,7 +937,7 @@ public class ManageDocument2Action extends ActionSupport {
         response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(filename) + "\"");
         log.debug("about to Print to stream");
         try (ServletOutputStream outs = response.getOutputStream()) {
-            outs.write(contentBytes);
+            outs.write(contentBytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary document download with validated content-type
             outs.flush();
         }
     }

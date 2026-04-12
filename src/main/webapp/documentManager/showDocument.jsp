@@ -152,6 +152,7 @@
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
@@ -287,7 +288,6 @@
     UserProperty labMacroProp = userPropertyDAO.getProp(providerNo, UserProperty.LAB_MACRO_JSON);
 %>
 
-<fmt:setBundle basename="oscarResources"/>
 
 <c:if test="${param.inWindow eq 'true'}">
 <!DOCTYPE html>

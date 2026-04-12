@@ -86,7 +86,7 @@ public class DisplayDashboard2Action extends ActionSupport {
         if (canChgDashboardUser) {
             String requestedProviderNo = request.getParameter("providerNo");
             if (requestedProviderNo != null && !requestedProviderNo.isEmpty()) {
-                logger.info("DashboardDisplay of provider_no {} requested by provider_no {}", LogSanitizer.sanitize(requestedProviderNo), LogSanitizer.sanitize(loggedInInfo.getLoggedInProviderNo()));
+                logger.info("DashboardDisplay of provider_no {} requested by provider_no {}", LogSanitizer.sanitize(requestedProviderNo), LogSanitizer.sanitize(loggedInInfo.getLoggedInProviderNo())); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 preferredProvider = providerManager.getProvider(loggedInInfo, requestedProviderNo);
                 dashboardManager.setRequestedProviderNo(loggedInInfo, requestedProviderNo);
             } else if (dashboardManager.getRequestedProviderNo(loggedInInfo) != null) {

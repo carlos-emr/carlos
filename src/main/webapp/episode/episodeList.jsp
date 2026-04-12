@@ -32,6 +32,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -71,7 +72,7 @@
             $(document).ready(function () {
                 $('#episodeTable').DataTable({
                     "language": {
-                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18n.datatablescode"/>.json"
+                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
                     }
                     //  "aaSorting": [[ 1, "desc" ]]
                 });

@@ -48,8 +48,8 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page errorPage="/errorpage.jsp" %>
 
 <%@ page import="java.util.*" %>
@@ -1337,7 +1337,7 @@
                 <a href="clients.jsp" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-plug"></i> <fmt:message key="provider.providerpreference.link.manageApiClients"/>
                 </a>
-                <a href="<%= request.getContextPath() %>/admin/displayDocumentDescriptionTemplate.jsp"
+                <a href="<%= request.getContextPath() %>/admin/DisplayDocumentDescriptionTemplate.do"
                    class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-file-alt"></i> <fmt:message key="provider.providerpreference.link.docDescTemplate"/>
                 </a>

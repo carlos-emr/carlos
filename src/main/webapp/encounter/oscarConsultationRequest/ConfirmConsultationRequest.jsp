@@ -32,6 +32,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%
@@ -54,7 +55,7 @@
 <html>
     <head>
         <%@ include file="/includes/global-head.jspf" %>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.title"/></title>
+        <title><fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.title"/></title>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     </head>
 
@@ -67,11 +68,11 @@
 
             <h5 class="fw-semibold mb-2">
                 <% if ("1".equals(transType)) { %>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgConsReq"/>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgUpdated"/>
+                    <fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgConsReq"/>
+                    <fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgUpdated"/>
                 <% } else if ("2".equals(transType)) { %>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgConsReq"/>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgCreated"/>
+                    <fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgConsReq"/>
+                    <fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgCreated"/>
                 <% } %>
             </h5>
 
@@ -82,13 +83,13 @@
             <% } %>
 
             <p class="text-muted mb-3" style="font-size:0.85rem;">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgClose5Sec"/>
+                <fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgClose5Sec"/>
                 <br>
                 <span id="countdown" class="fw-semibold">5</span>s
             </p>
 
             <a href="javascript:BackToOscar();" class="btn btn-sm btn-outline-secondary">
-                <i class="fa-solid fa-xmark me-1"></i><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>
+                <i class="fa-solid fa-xmark me-1"></i><fmt:message key="global.btnClose"/>
             </a>
         </div>
 

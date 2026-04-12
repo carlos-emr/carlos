@@ -46,6 +46,7 @@
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%
@@ -90,7 +91,6 @@ FOR STAND ALONE USE
 -->
 <head>
     <meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
-    <fmt:setBundle basename="oscarResources"/>
     <title><fmt:message key="eform.visual.editor.title"/></title>
 
     <!-- jQuery and UI -->
@@ -169,7 +169,6 @@ FOR STAND ALONE USE
         console.info("Run as standalone version: " + runStandaloneVersion);
     </script>
 
-<fmt:setBundle basename="oscarResources"/>
 <%-- Capture i18n messages into page-scoped variables for safe JavaScript encoding --%>
 <c:set var="i18n_alertTitle"><fmt:message key="eform.visual.editor.dialog.alertTitle"/></c:set>
 <c:set var="i18n_noMessage"><fmt:message key="eform.visual.editor.dialog.noMessage"/></c:set>

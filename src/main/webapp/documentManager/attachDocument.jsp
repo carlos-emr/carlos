@@ -49,6 +49,7 @@
     }
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
@@ -56,7 +57,7 @@
 <!DOCTYPE html >
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.title"/></title>
+    <title><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.title"/></title>
 
     <style>
 

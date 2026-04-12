@@ -57,6 +57,7 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -105,7 +106,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.title"/></title>
+        <title><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.title"/></title>
 
         <%@ include file="/includes/global-head.jspf" %>
         <script type="text/javascript"
@@ -173,7 +174,7 @@
             function openNewPage(vheight, vwidth, varpage) {
                 var page = varpage;
                 windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=no,menubars=no,toolbars=no,resizable=no,screenX=0,screenY=0,top=0,left=0";
-                var popup = window.open(varpage, "<fmt:setBundle basename="oscarResources"/><fmt:message key="global.oscarComm"/>", windowprops);
+                var popup = window.open(varpage, "<fmt:message key="global.oscarComm"/>", windowprops);
                 popup.focus();
             }
 
@@ -239,7 +240,7 @@
                     <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
                     <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286m1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94"/>
                 </svg>
-                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="global.disease"/>
+                &nbsp;<fmt:message key="global.disease"/>
             </h4>
             <span><oscar:nameage demographicNo="${ demographicNo }"/></span>
         </div>
@@ -268,14 +269,14 @@
                                         <td>
                                             <div class="input-group">
 								<span class="input-group-text" id="basic-addon3">
-									<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.codingSystem"/>
+									<fmt:message key="oscarResearch.oscarDxResearch.codingSystem"/>
 								</span>
 
                                                 <select class="form-select" name="selectedCodingSystem"
                                                             <%=disabled%>>
                                                     <c:forEach var="codingSys" items="${codingSystem.codingSystems}">
-                                                        <option value="${codingSys}">
-                                                            <c:out value="${codingSys}"/>
+                                                        <option value="${e:forHtmlAttribute(codingSys)}">
+                                                            ${e:forHtml(codingSys)}
                                                         </option>
                                                     </c:forEach>
                                                 </select>
@@ -286,9 +287,9 @@
                                         <td><input type="text" class="form-control" name="xml_research1"
                                                     <%=disabled%> />
                                             <input type="hidden" name="demographicNo"
-                                                   value="<c:out value="${demographicNo}"/>">
+                                                   value="${e:forHtmlAttribute(demographicNo)}">
                                             <input type="hidden" name="providerNo"
-                                                   value="<c:out value="${providerNo}"/>"></td>
+                                                   value="${e:forHtmlAttribute(providerNo)}"></td>
                                     </tr>
                                     <tr>
                                         <td><input type="text" class="form-control" name="xml_research2"
@@ -311,22 +312,22 @@
                                             <input type="hidden" name="forward" value="none"/>
                                             <%if (!disable) { %>
                                             <input type="button" name="codeSearch" class="btn btn-primary"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.btnCodeSearch"/>"
+                                                   value="<fmt:message key="oscarResearch.oscarDxResearch.btnCodeSearch"/>"
                                                    onClick="javascript: ResearchScriptAttach();">
 
                                             <input type="button" name="codeAdd" class="btn btn-primary"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ADD"/>"
+                                                   value="<fmt:message key="ADD"/>"
                                                    onClick="javascript: submitform('','');">
 
                                             <% } else { %>
 
                                             <input type="button" name="button" class="btn btn-primary"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.btnCodeSearch"/>"
+                                                   value="<fmt:message key="oscarResearch.oscarDxResearch.btnCodeSearch"/>"
                                                    onClick="javascript: ResearchScriptAttach();"
                                                    <%=disabled%>>
 
                                             <input type="button" name="button" class="btn btn-primary"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ADD"/>"
+                                                   value="<fmt:message key="ADD"/>"
                                                    onClick="javascript: submitform('','');" <%=disabled%>>
                                             <% } %>
                                         </td>
@@ -354,33 +355,33 @@
 
                                 <table>
                                     <tr>
-                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgSystem"/></th>
-                                        <th class="heading"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgCode"/></th>
-                                        <th class="heading"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgDiagnosis"/></th>
-                                        <th class="heading"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgFirstVisit"/></th>
-                                        <th class="heading"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgLastVisit"/></th>
+                                        <th><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgSystem"/></th>
+                                        <th class="heading"><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgCode"/></th>
+                                        <th class="heading"><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgDiagnosis"/></th>
+                                        <th class="heading"><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgFirstVisit"/></th>
+                                        <th class="heading"><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgLastVisit"/></th>
                                         <% if (!disable) { %>
-                                        <th class="heading"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgAction"/></th>
+                                        <th class="heading"><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgAction"/></th>
                                         <%} %>
                                     </tr>
                                     <c:forEach var="diagnotics" items="${allDiagnostics.dxResearchBeanVector}" varStatus="ctr">
                                         <c:choose>
                                             <c:when test="${diagnotics.status == 'A'}">
                                                 <tr>
-                                                    <td><c:out value="${diagnotics.type}"/></td>
-                                                    <td class="notResolved"><c:out value="${diagnotics.dxSearchCode}"/></td>
-                                                    <td class="notResolved"><c:out value="${diagnotics.description}"/></td>
+                                                    <td>${e:forHtml(diagnotics.type)}</td>
+                                                    <td class="notResolved">${e:forHtml(diagnotics.dxSearchCode)}</td>
+                                                    <td class="notResolved">${e:forHtml(diagnotics.description)}</td>
                                                     <td class="notResolved">
                                                         <a href="#" onclick="showdatebox(${diagnotics.dxResearchNo});">
                                                             <div id="startdate1st${diagnotics.dxResearchNo}">
-                                                                <c:out value="${diagnotics.start_date}"/>
+                                                                ${e:forHtml(diagnotics.start_date)}
                                                             </div>
                                                             <input class="form-control" id="startdatenew${diagnotics.dxResearchNo}"
                                                                    type="text" name="start_date" size="8"
                                                                    value="${e:forHtmlAttribute(diagnotics.start_date)}" style="display:none"/>
                                                         </a>
                                                     </td>
-                                                    <td class="notResolved"><c:out value="${diagnotics.end_date}"/></td>
+                                                    <td class="notResolved">${e:forHtml(empty diagnotics.end_date ? '' : diagnotics.end_date)}</td>
                                                     <c:if test="${not disable}">
                                                         <td class="notResolved">
                                                             <a href="#" onclick="submitDxAction('C','','${diagnotics.dxResearchNo}','${demographicNo}','${providerNo}'); return false;">
@@ -398,10 +399,10 @@
                                             </c:when>
                                             <c:when test="${diagnotics.status == 'C'}">
                                                 <tr>
-                                                    <td><c:out value="${diagnotics.dxSearchCode}"/></td>
-                                                    <td><c:out value="${diagnotics.description}"/></td>
-                                                    <td><c:out value="${diagnotics.start_date}"/></td>
-                                                    <td><c:out value="${diagnotics.end_date}"/></td>
+                                                    <td>${e:forHtml(diagnotics.dxSearchCode)}</td>
+                                                    <td>${e:forHtml(diagnotics.description)}</td>
+                                                    <td>${e:forHtml(diagnotics.start_date)}</td>
+                                                    <td>${e:forHtml(diagnotics.end_date)}</td>
                                                     <c:if test="${not disable}">
                                                         <td>
                                                             <fmt:message key="oscarResearch.oscarDxResearch.dxResearch.btnResolve"/> |
@@ -421,7 +422,7 @@
                                      of the right column and moves down as more items are added --%>
                                 <div class="mt-2 text-end">
                                     <input type="button" class="btn btn-secondary"
-                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
+                                           value="<fmt:message key="global.btnBack"/>"
                                            onclick="handleBackNavigation();">
                                 </div>
 

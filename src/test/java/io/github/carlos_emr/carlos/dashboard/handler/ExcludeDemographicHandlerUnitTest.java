@@ -28,10 +28,12 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.lang.reflect.Field;
 import java.util.Collections;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -65,7 +67,7 @@ class ExcludeDemographicHandlerUnitTest {
     private static ExcludeDemographicHandler handler;
 
     @BeforeAll
-    static void setUpBeforeAll() {
+    static void setUpBeforeAll() throws Exception {
         mockDao = mock(DemographicExtDao.class);
         when(mockDao.getDemographicExtByKeyAndValue(anyString(), anyString()))
                 .thenReturn(Collections.emptyList());
@@ -83,6 +85,13 @@ class ExcludeDemographicHandlerUnitTest {
 
         handler = new ExcludeDemographicHandler();
         handler.setLoggedinInfo(loggedInInfo);
+
+        // The production code declares demographicExtDao as a static field, which may
+        // have been initialized before our MockedStatic was active (class loading order).
+        // Use reflection to ensure the mock is injected regardless of load order.
+        Field daoField = ExcludeDemographicHandler.class.getDeclaredField("demographicExtDao");
+        daoField.setAccessible(true);
+        daoField.set(null, mockDao);
     }
 
     @AfterAll
@@ -96,6 +105,11 @@ class ExcludeDemographicHandlerUnitTest {
     @DisplayName("excludeDemoIds(String, String) input validation")
     class ExcludeDemoIdsJsonValidation {
 
+        @BeforeEach
+        void clearMocks() {
+            Mockito.clearInvocations(mockDao);
+        }
+
         @Test
         @DisplayName("should parse plain comma-separated integers")
         void shouldParseCommaSeparatedIntegers() {
@@ -106,7 +120,6 @@ class ExcludeDemographicHandlerUnitTest {
         @Test
         @DisplayName("should parse bracket-wrapped integer array")
         void shouldParseBracketWrappedIntegers() {
-            Mockito.clearInvocations(mockDao);
             handler.excludeDemoIds("[10,20,30]", "testIndicator");
             verify(mockDao, times(3)).addKey(anyString(), anyInt(), anyString(), anyString());
         }
@@ -114,7 +127,6 @@ class ExcludeDemographicHandlerUnitTest {
         @Test
         @DisplayName("should parse single integer without brackets")
         void shouldParseSingleInteger() {
-            Mockito.clearInvocations(mockDao);
             handler.excludeDemoIds("42", "testIndicator");
             verify(mockDao, times(1)).addKey(anyString(), anyInt(), anyString(), anyString());
         }
@@ -122,7 +134,6 @@ class ExcludeDemographicHandlerUnitTest {
         @Test
         @DisplayName("should reject JSON object injection payload")
         void shouldRejectJsonObjectInjection() {
-            Mockito.clearInvocations(mockDao);
             handler.excludeDemoIds("{\"key\":\"value\"}", "testIndicator");
             verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
         }
@@ -130,7 +141,6 @@ class ExcludeDemographicHandlerUnitTest {
         @Test
         @DisplayName("should reject script injection payload")
         void shouldRejectScriptInjection() {
-            Mockito.clearInvocations(mockDao);
             handler.excludeDemoIds("<script>alert(1)</script>", "testIndicator");
             verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
         }
@@ -138,7 +148,6 @@ class ExcludeDemographicHandlerUnitTest {
         @Test
         @DisplayName("should reject string values in array")
         void shouldRejectStringValues() {
-            Mockito.clearInvocations(mockDao);
             handler.excludeDemoIds("[\"malicious\",\"payload\"]", "testIndicator");
             verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
         }
@@ -146,7 +155,6 @@ class ExcludeDemographicHandlerUnitTest {
         @Test
         @DisplayName("should reject nested array payload")
         void shouldRejectNestedArrayPayload() {
-            Mockito.clearInvocations(mockDao);
             handler.excludeDemoIds("[[1,2],[3,4]]", "testIndicator");
             verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
         }
@@ -154,7 +162,6 @@ class ExcludeDemographicHandlerUnitTest {
         @Test
         @DisplayName("should reject string injection between brackets")
         void shouldRejectStringInjectionBetweenBrackets() {
-            Mockito.clearInvocations(mockDao);
             handler.excludeDemoIds("1,2],\"injected\":[3", "testIndicator");
             verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
         }
@@ -162,7 +169,6 @@ class ExcludeDemographicHandlerUnitTest {
         @Test
         @DisplayName("should reject consecutive commas")
         void shouldRejectConsecutiveCommas() {
-            Mockito.clearInvocations(mockDao);
             handler.excludeDemoIds("1,,3", "testIndicator");
             verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
         }
@@ -170,7 +176,6 @@ class ExcludeDemographicHandlerUnitTest {
         @Test
         @DisplayName("should handle null jsonString gracefully")
         void shouldHandleNullInput() {
-            Mockito.clearInvocations(mockDao);
             handler.excludeDemoIds((String) null, "testIndicator");
             verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
         }
@@ -178,7 +183,6 @@ class ExcludeDemographicHandlerUnitTest {
         @Test
         @DisplayName("should handle empty jsonString gracefully")
         void shouldHandleEmptyInput() {
-            Mockito.clearInvocations(mockDao);
             handler.excludeDemoIds("", "testIndicator");
             verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
         }
@@ -186,7 +190,6 @@ class ExcludeDemographicHandlerUnitTest {
         @Test
         @DisplayName("should handle integers with whitespace")
         void shouldHandleIntegersWithWhitespace() {
-            Mockito.clearInvocations(mockDao);
             handler.excludeDemoIds(" 1 , 2 , 3 ", "testIndicator");
             verify(mockDao, times(3)).addKey(anyString(), anyInt(), anyString(), anyString());
         }
@@ -194,7 +197,6 @@ class ExcludeDemographicHandlerUnitTest {
         @Test
         @DisplayName("should reject integer overflow values gracefully")
         void shouldRejectIntegerOverflow() {
-            Mockito.clearInvocations(mockDao);
             handler.excludeDemoIds("99999999999999999999", "testIndicator");
             verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
         }
@@ -204,10 +206,14 @@ class ExcludeDemographicHandlerUnitTest {
     @DisplayName("unExcludeDemoIds(String, String) input validation")
     class UnExcludeDemoIdsJsonValidation {
 
+        @BeforeEach
+        void clearMocks() {
+            Mockito.clearInvocations(mockDao);
+        }
+
         @Test
         @DisplayName("should accept valid comma-separated integers")
         void shouldAcceptValidInput() {
-            Mockito.clearInvocations(mockDao);
             handler.unExcludeDemoIds("1,2,3", "testIndicator");
             verify(mockDao).getDemographicExtByKeyAndValue(anyString(), anyString());
             verify(mockDao, never()).removeDemographicExt(anyInt());
@@ -216,7 +222,6 @@ class ExcludeDemographicHandlerUnitTest {
         @Test
         @DisplayName("should reject JSON object injection payload")
         void shouldRejectJsonObjectInjection() {
-            Mockito.clearInvocations(mockDao);
             handler.unExcludeDemoIds("{\"key\":\"value\"}", "testIndicator");
             verify(mockDao, never()).getDemographicExtByKeyAndValue(anyString(), anyString());
         }
@@ -224,7 +229,6 @@ class ExcludeDemographicHandlerUnitTest {
         @Test
         @DisplayName("should reject script injection payload")
         void shouldRejectScriptInjection() {
-            Mockito.clearInvocations(mockDao);
             handler.unExcludeDemoIds("<script>alert(1)</script>", "testIndicator");
             verify(mockDao, never()).getDemographicExtByKeyAndValue(anyString(), anyString());
         }
@@ -232,7 +236,6 @@ class ExcludeDemographicHandlerUnitTest {
         @Test
         @DisplayName("should handle null jsonString gracefully")
         void shouldHandleNullInput() {
-            Mockito.clearInvocations(mockDao);
             handler.unExcludeDemoIds((String) null, "testIndicator");
             verify(mockDao, never()).getDemographicExtByKeyAndValue(anyString(), anyString());
         }
@@ -240,7 +243,6 @@ class ExcludeDemographicHandlerUnitTest {
         @Test
         @DisplayName("should handle empty jsonString gracefully")
         void shouldHandleEmptyInput() {
-            Mockito.clearInvocations(mockDao);
             handler.unExcludeDemoIds("", "testIndicator");
             verify(mockDao, never()).getDemographicExtByKeyAndValue(anyString(), anyString());
         }

@@ -24,12 +24,13 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrectionSubmit.title"/></title>
+        <title><fmt:message key="billing.billingCorrectionSubmit.title"/></title>
     </head>
     <body>
     <%@ page import="io.github.carlos_emr.*,java.text.*, java.util.*" %>
@@ -56,7 +57,7 @@
 
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
         <tr bgcolor="#486ebd">
-            <th align=CENTER NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrectionSubmit.msgSuccessfull"/></font></th>
+            <th align=CENTER NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:message key="billing.billingCorrectionSubmit.msgSuccessfull"/></font></th>
         </tr>
     </table>
     <%
@@ -151,9 +152,9 @@
 
     <form action="billingCorrection.jsp"><input type="hidden"
                                                 name="billing_no" value=""> <input type="submit"
-                                                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrectionSubmit.btnCorrectAnother"/>"
+                                                                                   value="<fmt:message key="billing.billingCorrectionSubmit.btnCorrectAnother"/>"
                                                                                    name="submit"> <input type="button"
-                                                                                                         value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrectionSubmit.btnClose"/>"
+                                                                                                         value="<fmt:message key="billing.billingCorrectionSubmit.btnClose"/>"
                                                                                                          onClick="window.close()">
     </form>
     </body>

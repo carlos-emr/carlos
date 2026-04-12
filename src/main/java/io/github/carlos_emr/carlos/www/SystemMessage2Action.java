@@ -97,10 +97,9 @@ public class SystemMessage2Action extends ActionSupport {
                 request.getSession().removeAttribute("systemMessageId");
                 return list();
             }
-            // nosemgrep: tainted-session-from-http-request -- msg.getId() is a DB-sourced primary key, not raw user input
-            request.getSession().setAttribute("systemMessageId", String.valueOf(msg.getId()));
+            request.getSession().setAttribute("systemMessageId", String.valueOf(msg.getId())); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): msg.getId() is DAO-sourced primary key
         } else {
-            // nosemgrep: tainted-session-from-http-request -- value is hardcoded empty string literal, not user input
+            // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- value is hardcoded empty string literal, not user input
             request.getSession().setAttribute("systemMessageId", "");
         }
 

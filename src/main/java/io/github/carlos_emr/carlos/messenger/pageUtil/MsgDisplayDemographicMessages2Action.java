@@ -170,7 +170,7 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
             bean.setDemographic_no(demographicNo);
 
             // demographicNo validated as numeric; userName is unsanitized — JSPs must use OWASP encoding
-            request.getSession().setAttribute("msgSessionBean", bean); // nosemgrep: tainted-session-from-http-request
+            request.getSession().setAttribute("msgSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
             MiscUtils.getLogger().debug("Created new MsgSessionBean for providers: " + providerNo);
         }
 

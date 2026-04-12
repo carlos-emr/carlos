@@ -33,6 +33,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
@@ -105,7 +106,7 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="receptionist.receptionistfindprovider.title"/></title>
+    <title><fmt:message key="receptionist.receptionistfindprovider.title"/></title>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
     <script language="JavaScript">
 
@@ -150,16 +151,16 @@
 
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr>
-        <th NOWRAP bgcolor="#CCCCFF"><font face="Helvetica"><fmt:setBundle basename="oscarResources"/><fmt:message key="receptionist.receptionistfindprovider.2ndtitle"/></font></th>
+        <th NOWRAP bgcolor="#CCCCFF"><font face="Helvetica"><fmt:message key="receptionist.receptionistfindprovider.2ndtitle"/></font></th>
     </tr>
 </table>
 
 <table width="100%" border="0">
     <tr>
-        <td align="left"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="receptionist.receptionistfindprovider.keywords"/></i> <%= Encode.forHtml(StringUtils.noNull(providername)) %>
+        <td align="left"><i><fmt:message key="receptionist.receptionistfindprovider.keywords"/></i> <%= Encode.forHtml(StringUtils.noNull(providername)) %>
         </td>
         <td align="right"><INPUT TYPE="SUBMIT" NAME="displaymode"
-                                 VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="receptionist.receptionistfindprovider.btnExit"/>"
+                                 VALUE="<fmt:message key="receptionist.receptionistfindprovider.btnExit"/>"
                                  SIZE="17" onClick="window.close();"></td>
     </tr>
 </table>
@@ -168,9 +169,9 @@
     <table width="100%" border="1" bgcolor="#ffffff" cellspacing="1"
            cellpadding="0">
         <tr bgcolor="#CCCCFF">
-            <TH width="20%"><fmt:setBundle basename="oscarResources"/><fmt:message key="receptionist.receptionistfindprovider.no"/></TH>
-            <TH width="40%"><fmt:setBundle basename="oscarResources"/><fmt:message key="receptionist.receptionistfindprovider.lastname"/></TH>
-            <TH width="40%"><fmt:setBundle basename="oscarResources"/><fmt:message key="receptionist.receptionistfindprovider.firstname"/></TH>
+            <TH width="20%"><fmt:message key="receptionist.receptionistfindprovider.no"/></TH>
+            <TH width="40%"><fmt:message key="receptionist.receptionistfindprovider.lastname"/></TH>
+            <TH width="40%"><fmt:message key="receptionist.receptionistfindprovider.firstname"/></TH>
         </tr>
         <%
             boolean bGrpSearch = providername.startsWith(".") ? true : false;
@@ -298,7 +299,7 @@
     </table>
     <br>
 
-    <p><fmt:setBundle basename="oscarResources"/><fmt:message key="receptionist.receptionistfindprovider.msgSelect"/></p>
+    <p><fmt:message key="receptionist.receptionistfindprovider.msgSelect"/></p>
 </center>
 </body>
 </html>

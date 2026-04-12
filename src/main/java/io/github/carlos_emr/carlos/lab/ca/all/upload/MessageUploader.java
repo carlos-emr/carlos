@@ -396,7 +396,7 @@ public final class MessageUploader {
                         pstmt = conn.prepareStatement(sql);
                         pstmt.setString(1, (String) docNums.get(i));
                     }
-                    ResultSet rs = pstmt.executeQuery();
+                    ResultSet rs = pstmt.executeQuery(); // nosemgrep: formatted-sql-string — sqlSearchOn whitelisted above; practitionerNum bound via PreparedStatement
                     while (rs.next()) {
                         providerNums.add(Misc.getString(rs, "provider_no"));
                     }

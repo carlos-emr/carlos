@@ -47,10 +47,11 @@
 
 
 <%@include file="/casemgmt/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageCodeStyles"/></title>
+    <title><fmt:message key="admin.admin.manageCodeStyles"/></title>
     <meta charset="UTF-8">
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/picker.js"></script>
@@ -175,11 +176,11 @@
             var msg = "";
 
             if (getEl("styleText").value.length == 0) {
-                msg = "<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.noStyleError"/>";
+                msg = "<fmt:message key="admin.manageCodeStyles.noStyleError"/>";
             }
 
             if (getEl("styleName").value.trim().length == 0) {
-                msg += "\r\n<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.noStyleNameError"/>";
+                msg += "\r\n<fmt:message key="admin.manageCodeStyles.noStyleNameError"/>";
             }
 
             if (msg.length > 0) {
@@ -205,7 +206,7 @@
                 return false;
             }
 
-            if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.confirmDelete"/>")) {
+            if (confirm("<fmt:message key="admin.manageCodeStyles.confirmDelete"/>")) {
                 getEl("editStyle").value = getEl("style").options[getEl("style").selectedIndex].value;
                 getEl("method").value = "delete";
                 return true;
@@ -245,7 +246,7 @@
 </head>
 <body>
 
-<h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageCodeStyles"/></h3>
+<h3><fmt:message key="admin.admin.manageCodeStyles"/></h3>
 
 <div class="container-fluid d-flex flex-wrap align-items-center gap-2">
 
@@ -255,7 +256,7 @@
     %>
     <div class="alert alert-success">
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        <strong>Success!</strong> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.sucess"/>
+        <strong>Success!</strong> <fmt:message key="admin.manageCodeStyles.sucess"/>
     </div>
     <%
         }
@@ -266,17 +267,17 @@
 
         <div class="row card card-body bg-body-tertiary"><!--select existing styles-->
 
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.CurrentStyles"/><br/>
+            <fmt:message key="admin.manageCodeStyles.CurrentStyles"/><br/>
 
             <select name="selectedStyle" id="style">
-                <option value="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
+                <option value="-1"><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
                 <c:forEach items="${styles}" var="style">
                     <option value="${style.style}">${style.name}</option>
                 </c:forEach>
             </select>
 
             <input class="btn btn-secondary" type="button" onclick="edit();return false;"
-                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.Edit"/>"/>
+                   value="<fmt:message key="admin.manageCodeStyles.Edit"/>"/>
             <input type="submit" name="submit" value="Delete" class="btn btn-secondary" onclick="return deleteStyle();"/>
 
 
@@ -286,18 +287,18 @@
 
         <div class="row">
 
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.StyleName"/><br>
+            <fmt:message key="admin.manageCodeStyles.StyleName"/><br>
             <input type="text" id="styleName" name="styleName"/>
             <!--<br><br>
-<small><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.Instructions"/></small>-->
+<small><fmt:message key="admin.manageCodeStyles.Instructions"/></small>-->
 
         </div>
 
         <div class="row">
             <div class="col-md-4">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.FontSize"/><br>
+                <fmt:message key="admin.manageCodeStyles.FontSize"/><br>
                 <select id="font-size" onchange="addStyle(this.id, this.options[this.selectedIndex]);">
-                    <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
+                    <option value=""><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
                     <option value="xx-small">XX-Small</option>
                     <option value="x-small">X-Small</option>
                     <option value="medium">Medium</option>
@@ -307,47 +308,47 @@
                 </select>
                 <br>
 
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.FontStyle"/><br>
+                <fmt:message key="admin.manageCodeStyles.FontStyle"/><br>
                 <select id="font-style" onchange="addStyle(this.id, this.options[this.selectedIndex]);">
-                    <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
+                    <option value=""><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
                     <option value="italic">Italic</option>
                     <option value="oblique">Obllique</option>
                 </select>
                 <br>
 
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.FontVariant"/><br>
+                <fmt:message key="admin.manageCodeStyles.FontVariant"/><br>
                 <select id="font-variant" onchange="addStyle(this.id, this.options[this.selectedIndex]);">
-                    <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
+                    <option value=""><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
                     <option value="small-caps">Small-Caps</option>
                 </select>
                 <br>
 
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.FontWeight"/><br>
+                <fmt:message key="admin.manageCodeStyles.FontWeight"/><br>
                 <select id="font-weight" onchange="addStyle(this.id, this.options[this.selectedIndex]);">
-                    <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
+                    <option value=""><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
                     <option value="bold">Bold</option>
                     <option value="bolder">Bolder</option>
                     <option value="lighter">Lighter</option>
                 </select>
                 <br/>
 
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.TextDecoration"/><br>
+                <fmt:message key="admin.manageCodeStyles.TextDecoration"/><br>
                 <select id="text-decoration" onchange="addStyle(this.id, this.options[this.selectedIndex]);">
-                    <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
+                    <option value=""><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
                     <option value="underline">Underline</option>
                     <option value="overline">Overline</option>
                     <option value="line-through">Line Through</option>
                 </select>
                 <br/>
 
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.TextColour"/><br>
+                <fmt:message key="admin.manageCodeStyles.TextColour"/><br>
                 <a href="javascript:TCP.popup(document.forms[0].elements['color']);"><img width="15" height="13"
                                                                                           border="0"
                                                                                           src="<%= request.getContextPath() %>/images/sel.gif"></a>
                 <input id="color" type="text" size="7" onchange="checkColours();"/>
                 <br>
 
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.BackgroundColour"/><br>
+                <fmt:message key="admin.manageCodeStyles.BackgroundColour"/><br>
                 <a href="javascript:TCP.popup(document.forms[0].elements['background-color'])"><img width="15"
                                                                                                     height="13"
                                                                                                     border="0"
@@ -362,17 +363,17 @@
             <div class="col-md-4">
                 <input type="hidden" id="editStyle" name="editStyle"/>
 
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.StyleText"/> <small><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.ManualEnter"/><input type="checkbox"
+                <fmt:message key="admin.manageCodeStyles.StyleText"/> <small><fmt:message key="admin.manageCodeStyles.ManualEnter"/><input type="checkbox"
                                                                      onclick="enableEdit(this);"></small><br/>
                 <textarea rows="8" class="form-control" readonly="true" id="styleText" name="styleText"></textarea>
                 <input class="btn btn-secondary" id="apply-btn" type="button"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.Apply"/>" onclick="applyStyle();return false;"
+                       value="<fmt:message key="admin.manageCodeStyles.Apply"/>" onclick="applyStyle();return false;"
                        style="display:none"/>
 
                 <br><br>
 
                 Sample Text:<br>
-                <span id="example"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.Example"/></span>
+                <span id="example"><fmt:message key="admin.manageCodeStyles.Example"/></span>
 
             </div><!--span6-->
         </div>
@@ -381,7 +382,7 @@
 
         <div class="col-md-10" style="text-align:right;">
             <hr>
-            <input class="btn btn-lg" type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.Clear"/>"
+            <input class="btn btn-lg" type="button" value="<fmt:message key="admin.manageCodeStyles.Clear"/>"
                    onclick="reinit();return false;"/>
             <input type="submit" name="submit" value="Save" class="btn btn-lg btn-primary" onclick="return checkfields();" />
         </div>

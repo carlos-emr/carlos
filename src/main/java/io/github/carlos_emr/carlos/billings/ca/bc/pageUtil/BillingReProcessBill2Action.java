@@ -423,7 +423,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
     private String[] getServiceCodePrice(String billingServiceCode, boolean usePrefix) {
         String prepend = usePrefix ? "A" : "";
         String[] privateCodeRecord = SqlUtils.getRow(
-                "select value from billingservice where service_code = '" + prepend + billingServiceCode + "'");
+                "select value from billingservice where service_code = ?", prepend + billingServiceCode);
         return privateCodeRecord;
     }
 
@@ -434,9 +434,8 @@ public class BillingReProcessBill2Action extends ActionSupport {
      * @return String
      */
     private String getPersistedBillType(String billingmasterNo) {
-        String qry = "select billingstatus from billingmaster where billingmaster.billingmaster_no = " +
-                billingmasterNo;
-        String row[] = SqlUtils.getRow(qry);
+        String qry = "select billingstatus from billingmaster where billingmaster.billingmaster_no = ?";
+        String row[] = SqlUtils.getRow(qry, billingmasterNo);
         String ret = null;
         if (row != null) {
             ret = row[0];

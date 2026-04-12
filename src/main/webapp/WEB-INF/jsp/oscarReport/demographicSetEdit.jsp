@@ -53,6 +53,7 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.DemographicSets" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -141,7 +142,7 @@
     <div class="container">
 
         <div class="pb-2 mt-4 mb-3 border-bottom">
-            <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgDemographic"/> - <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgSetEdit"/></h3>
+            <h3><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgDemographic"/> - <fmt:message key="oscarReport.oscarReportDemoSetEdit.msgSetEdit"/></h3>
         </div>
 
         <section id="mainContent">
@@ -155,16 +156,16 @@
             <div class="row">
                 <div class="col-md-12">
                     <form class="card card-body bg-body-tertiary form-search" method="post" action="${pageContext.request.contextPath}/report/DemographicSetEdit.do">
-                    <div><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgPatientSet"/>: <select
+                    <div><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgPatientSet"/>: <select
                             name="patientSet">
-                        <option value="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgOptionSet"/></option>
+                        <option value="-1"><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgOptionSet"/></option>
                         <% for (int i = 0; i < sets.size(); i++) {
                             String s = sets.get(i);%>
                         <option value="<%=s%>"><%=s%>
                         </option>
                         <%}%>
                     </select> <input type="submit" class="btn btn-secondary"
-                                          value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.btnDisplaySet"/>"/>
+                                          value="<fmt:message key="oscarReport.oscarReportDemoSetEdit.btnDisplaySet"/>"/>
                     </div>
 
                     </form> <%if( request.getAttribute("SET") != null ) {
@@ -172,12 +173,12 @@
                    String setName = (String) request.getAttribute("setname");%>
                     <div><form action="${pageContext.request.contextPath}/report/SetEligibility.do" method="post">
                         <input type="button" class="btn btn-secondary" data-bs-toggle="tooltip"
-                               title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgIneligible"/>"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.btnSetIneligible"/>"
+                               title="<fmt:message key="oscarReport.oscarReportDemoSetEdit.msgIneligible"/>"
+                               value="<fmt:message key="oscarReport.oscarReportDemoSetEdit.btnSetIneligible"/>"
                                onclick="submit();">
                         <input type="submit" class="btn btn-secondary" name="delete"
-                               title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgDelete"/>"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.btnDelete"/>"/>
+                               title="<fmt:message key="oscarReport.oscarReportDemoSetEdit.msgDelete"/>"
+                               value="<fmt:message key="oscarReport.oscarReportDemoSetEdit.btnDelete"/>"/>
                         <input type="hidden" name="setName" value="<%=setName%>">
                         <input type="hidden" name="deleteSet" id="deleteSet">
 
@@ -186,13 +187,13 @@
                             <tr>
                                 <th>&nbsp;<input type="checkbox" id="select_all"
                                                  onClick="check_uncheck_checkbox(this.checked);"></th>
-                                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgDemo"/></th>
-                                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgName"/></th>
-                                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgDOB"/></th>
-                                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgAge"/></th>
-                                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgRoster"/></th>
-                                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgDoctor"/></th>
-                                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgEligibility"/></th>
+                                <th><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgDemo"/></th>
+                                <th><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgName"/></th>
+                                <th><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgDOB"/></th>
+                                <th><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgAge"/></th>
+                                <th><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgRoster"/></th>
+                                <th><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgDoctor"/></th>
+                                <th><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgEligibility"/></th>
                             </tr>
                             </thead>
                             <tbody>
@@ -223,7 +224,7 @@
                             </tbody>
                         </table>
                         <!-- Button to trigger modal delete confirmation. Backend not implimented-->
-                        <!--<a href="#delete-set-confirm" role="button" class="btn btn-alert" data-bs-toggle="modal"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.delGroup"/></a>-->
+                        <!--<a href="#delete-set-confirm" role="button" class="btn btn-alert" data-bs-toggle="modal"><fmt:message key="eform.groups.delGroup"/></a>-->
                     </form></div>
                     <script>
 
@@ -250,7 +251,7 @@
                             "order": [[1, 'asc']],
                             "paging": false,
                             "language": {
-                                "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18n.datatablescode"/>.json"
+                                "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
                             }
                         });
 

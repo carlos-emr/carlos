@@ -44,6 +44,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
@@ -60,7 +61,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnImportFormData"/></title>
+        <title><fmt:message key="admin.admin.btnImportFormData"/></title>
         <style>
             .css-tooltip {
                 position: relative;
@@ -101,7 +102,7 @@
 
     <div class="card card-body bg-body-tertiary">
 
-        <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnImportFormData"/></h3>
+        <h3><fmt:message key="admin.admin.btnImportFormData"/></h3>
 
         <form action="${pageContext.request.contextPath}/form/xmlUpload.do" method="POST" enctype="multipart/form-data">
 
@@ -124,7 +125,7 @@
             <input type="file" name="file1" value="">
             <span class="css-tooltip" tabindex="0" aria-describedby="upload-warning-tooltip">
                 <img border="0" src="<%= request.getContextPath() %>/images/icon_alertsml.gif" alt="Warning"/>
-                <span id="upload-warning-tooltip" class="tooltip-text" role="tooltip"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/></span>
+                <span id="upload-warning-tooltip" class="tooltip-text" role="tooltip"><fmt:message key="global.uploadWarningBody"/></span>
             </span>
 
             <input type="submit" name="Submit" class="btn btn-primary" value="Import">

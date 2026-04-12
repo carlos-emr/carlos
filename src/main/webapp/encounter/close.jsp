@@ -30,6 +30,7 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <html>
@@ -44,7 +45,7 @@
         </script>
     </head>
     <body>
-    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.close.msgClick1"/>
-    <a href="javascript:window.close();"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.close.btnHere"/></a>
+    <fmt:message key="encounter.close.msgClick1"/>
+    <a href="javascript:window.close();"><fmt:message key="encounter.close.btnHere"/></a>
     </body>
 </html>

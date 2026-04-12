@@ -121,7 +121,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     boolean success = writeToIncomingDocs(docFile, queueId, destFolder, sanitizedFileName);
                     if (!success) {
                         map.put("error", "Failed to write file. Please contact administrator");
-                        MiscUtils.getLogger().error("Failed to write file to {}", LogSanitizer.sanitize(destFolder));
+                        MiscUtils.getLogger().error("Failed to write file to {}", LogSanitizer.sanitize(destFolder)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     } else {
                         map.put("name", docFile.getName());
                         map.put("size", docFile.length());
@@ -130,7 +130,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
 
                 if (queueId != null) {
                     try {
-                        request.getSession().setAttribute("preferredQueue", String.valueOf(Integer.parseInt(queueId.trim()))); // nosemgrep: tainted-session-from-http-request
+                        request.getSession().setAttribute("preferredQueue", String.valueOf(Integer.parseInt(queueId.trim()))); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
                     } catch (NumberFormatException e) {
                         // Do not store an invalid (non-integer) queue ID in the session (trust boundary protection)
                         logger.warn("Invalid queue ID format — skipping session attribute update");
@@ -198,7 +198,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     Integer qid = Integer.parseInt(queueId.trim());
                     Integer did = Integer.parseInt(doc_no.trim());
                     queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
-                    request.getSession().setAttribute("preferredQueue", String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request
+                    request.getSession().setAttribute("preferredQueue", String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
                 }
             }
 

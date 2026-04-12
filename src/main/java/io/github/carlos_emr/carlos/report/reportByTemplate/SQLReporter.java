@@ -38,6 +38,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.dao.ReportTemplatesDao;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.commn.model.ReportTemplates;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -98,7 +99,7 @@ public class SQLReporter implements Reporter {
 
         // Validate templateId against the database before executing any query (CWE-501)
         if (resolveActiveTemplate(templateId) == null) {
-            MiscUtils.getLogger().warn("generateReport: invalid or inactive templateId '{}'", Encode.forJava(templateId));
+            MiscUtils.getLogger().warn("generateReport: invalid or inactive templateId '{}'", LogSanitizer.sanitize(templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             request.setAttribute("errormsg", "Error: Invalid or inactive report template.");
             return false;
         }
@@ -123,7 +124,7 @@ public class SQLReporter implements Reporter {
             sql = parameterizedResult[0];
             sqlParams = extractParams(parameterizedResult);
         } else {
-            MiscUtils.getLogger().error("Report template {} uses unsupported legacy non-parameterized report type. Refusing to execute.", templateId);
+            MiscUtils.getLogger().error("Report template {} uses unsupported legacy non-parameterized report type. Refusing to execute.", LogSanitizer.sanitize(templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             request.setAttribute("errormsg", "Error: This report template uses a legacy format that is no longer supported. Please contact your administrator to update the template.");
             request.setAttribute("templateid", templateId);
             return false;
@@ -133,12 +134,12 @@ public class SQLReporter implements Reporter {
 
         String csv = result[1];
         if (csv.length() > MAX_CSV_SESSION_LENGTH) {
-            MiscUtils.getLogger().warn("generateReport: CSV result for template '{}' exceeds session size limit ({} chars); not storing in session", Encode.forJava(templateId), csv.length());
+            MiscUtils.getLogger().warn("generateReport: CSV result for template '{}' exceeds session size limit ({} chars); not storing in session", LogSanitizer.sanitize(templateId), csv.length()); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             request.setAttribute("errormsg", "Warning: Report result is too large to download as CSV. Please narrow your search criteria.");
             csv = "";
         }
 
-        request.getSession().setAttribute("csv", csv); // nosemgrep: tainted-session-from-http-request -- csv is generated from executeQuery() results for a validated report template, not copied directly from request parameters
+        request.getSession().setAttribute("csv", csv); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- csv is generated from executeQuery() results for a validated report template, not copied directly from request parameters
         request.setAttribute("csv", csv);
         request.setAttribute("sql", sql);
         request.setAttribute("reportobject", curReport);
@@ -152,7 +153,7 @@ public class SQLReporter implements Reporter {
 
         // Validate templateId against the database before executing any query (CWE-501)
         if (resolveActiveTemplate(templateId) == null) {
-            MiscUtils.getLogger().warn("generateSequencedReport: invalid or inactive templateId '{}'", Encode.forJava(templateId));
+            MiscUtils.getLogger().warn("generateSequencedReport: invalid or inactive templateId '{}'", LogSanitizer.sanitize(templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             request.setAttribute("errormsg", "Error: Invalid or inactive report template.");
             return false;
         }
@@ -179,7 +180,7 @@ public class SQLReporter implements Reporter {
                 x++;
             }
         } else {
-            MiscUtils.getLogger().error("Report template {} uses unsupported legacy non-parameterized report type (sequenced). Refusing to execute.", templateId);
+            MiscUtils.getLogger().error("Report template {} uses unsupported legacy non-parameterized report type (sequenced). Refusing to execute.", LogSanitizer.sanitize(templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             request.setAttribute("errormsg", "Error: This report template uses a legacy format that is no longer supported. Please contact your administrator to update the template.");
             request.setAttribute("templateid", templateId);
             return false;

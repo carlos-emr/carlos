@@ -1288,6 +1288,43 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
 
         @Test
         @Tag("query")
+        @DisplayName("should expand IN clause for multiple issue codes")
+        void shouldExpandInClause_forMultipleIssueCodes() {
+            // Regression guard for Hibernate's native-query Collection expansion on IN clauses.
+            // Pre-migration used setParameterList(); JPA migration relies on
+            // NativeQueryImplementor auto-expanding a List via setParameter (not guaranteed by
+            // the JPA spec). If that behavior breaks, this test fails rather than surfacing
+            // as a runtime SQL error.
+            Issue issue2 = createIssue("FNDIC002", "FindByCode Issue 2");
+            Issue issue3 = createIssue("FNDIC003", "FindByCode Issue 3");
+            CaseManagementIssue cmi2 = createCaseManagementIssue(String.valueOf(DEMO_NO), issue2);
+            CaseManagementIssue cmi3 = createCaseManagementIssue(String.valueOf(DEMO_NO), issue3);
+
+            CaseManagementNote n1 = createNoteWithIssue(String.valueOf(DEMO_NO), "Multi-code note 1",
+                createDate(2024, 10, 1), cmi1);
+            CaseManagementNote n2 = createNoteWithIssue(String.valueOf(DEMO_NO), "Multi-code note 2",
+                createDate(2024, 10, 2), cmi2);
+            CaseManagementNote excluded = createNoteWithIssue(String.valueOf(DEMO_NO), "Excluded note",
+                createDate(2024, 10, 3), cmi3);
+            hibernateTemplate.flush();
+
+            // When - filter on two of three codes
+            Collection<CaseManagementNote> results = caseManagementNoteDAO
+                .findNotesByDemographicAndIssueCode(DEMO_NO,
+                    new String[]{"FNDIC001", "FNDIC002"});
+
+            // Then - exactly the two requested notes, third excluded. Size check
+            // guards against the IN clause being dropped entirely (which would
+            // return every note for the demographic).
+            assertThat(results)
+                .hasSize(2)
+                .extracting(CaseManagementNote::getId)
+                .containsExactlyInAnyOrder(n1.getId(), n2.getId())
+                .doesNotContain(excluded.getId());
+        }
+
+        @Test
+        @Tag("query")
         @DisplayName("should de-duplicate notes with same UUID keeping most recent")
         void shouldDeduplicateByUuid_keepingMostRecent() {
             // Given - two revisions of the same note (same UUID)

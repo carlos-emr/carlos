@@ -400,7 +400,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
         d.put("reason", reason);
         response.setContentType("application/json");
         ObjectNode jsonArray = (ObjectNode) objectMapper.valueToTree(d);
-        response.getWriter().write(jsonArray.toString());
+        response.getWriter().write(jsonArray.toString()); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
 
         return null;
     }

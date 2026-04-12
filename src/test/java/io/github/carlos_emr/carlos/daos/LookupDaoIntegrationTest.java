@@ -1065,12 +1065,12 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
      *   <li>If first count is zero, count of program_queue entries for programs under the org</li>
      * </ol>
      *
-     * <p><b>SQL injection risk:</b> The orgCd parameter is concatenated directly into SQL
-     * strings without parameterization. This is a known security issue documented for
-     * future remediation during EntityManager migration.</p>
+     * <p><b>SQL injection remediation:</b> The orgCd parameter was previously concatenated
+     * directly into SQL strings. This has been fixed — the method now uses parameterized
+     * queries with {@code DBPreparedHandlerParam} and {@code CONCAT()} instead of Oracle-style
+     * {@code ||} concatenation.</p>
      *
-     * <p><b>H2 compatibility:</b> The SQL uses Oracle-style concatenation ({@code ||})
-     * which H2 supports, but references tables (admission, program_queue) that don't
+     * <p><b>H2 compatibility:</b> References tables (admission, program_queue) that don't
      * exist in the test schema by default.</p>
      */
     @Nested
@@ -1079,22 +1079,25 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("aggregate")
-        @DisplayName("should use string concatenation in SQL - documents injection risk for migration")
-        void shouldDocumentSqlInjectionRisk_inGetCountOfActiveClient() {
-            // Given - This test documents that getCountOfActiveClient builds SQL with
-            // string concatenation of the orgCd parameter:
-            //   "... where codecsv like '%' || '" + orgCd + ",' || '%'"
-            // This is a SQL injection vulnerability that should be fixed during
-            // the EntityManager migration.
+        @DisplayName("should treat SQL injection payload as literal string via parameterized query")
+        void shouldTreatInjectionPayloadAsLiteral_inGetCountOfActiveClient() {
+            // Given - getCountOfActiveClient now uses parameterized queries with
+            // DBPreparedHandlerParam and CONCAT(), so the orgCd value is bound as a
+            // literal parameter. A SQL injection payload should not cause a syntax error.
 
-            // When/Then - DbConnectionFilter does obtain a connection in the Spring test
-            // context, so SQL is executed. The injected payload causes a syntax error
-            // in H2 (embedded semicolons in string literals break multi-statement parsing),
-            // resulting in a JdbcSQLSyntaxErrorException (extends java.sql.SQLException).
-            // This confirms the SQL injection risk: the orgCd value is concatenated
-            // directly into the query string.
-            assertThatThrownBy(() -> lookupDao.getCountOfActiveClient("'; DROP TABLE admission; --"))
-                .isInstanceOf(java.sql.SQLException.class);
+            // When/Then - The injection payload is safely escaped and treated as a
+            // literal LIKE pattern parameter. The query executes without error (though
+            // it may throw SQLException for missing tables in the test schema, the
+            // point is it does NOT throw due to SQL injection syntax breakage).
+            // If the underlying tables don't exist, we accept that as a valid outcome too.
+            try {
+                int count = lookupDao.getCountOfActiveClient("'; DROP TABLE admission; --");
+                assertThat(count).isGreaterThanOrEqualTo(0);
+            } catch (java.sql.SQLException e) {
+                // Acceptable if caused by missing test tables (admission, program_queue),
+                // but NOT by SQL injection. Verify the error is table-related.
+                assertThat(e.getMessage()).containsIgnoringCase("not found");
+            }
         }
     }
 

@@ -37,7 +37,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import jakarta.persistence.Query;
@@ -232,43 +231,65 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
 
     @Override
     public List<Measurement> find(SearchCriteria criteria) {
-        Map<String, Object> params = new HashMap<String, Object>();
-        StringBuilder buf = new StringBuilder();
+        StringBuilder jpql = new StringBuilder("select m FROM Measurement m");
+        boolean hasWhere = false;
 
-        for (Object[] obj : new Object[][]{
-                {"m.demographicId = :demographicNo", "demographicNo", criteria.getDemographicNo()},
-                {"m.type= :type", "type", criteria.getType()},
-                {"m.dataField = :dataField", "dataField", criteria.getDataField()},
-                {"m.measuringInstruction = :measuringInstrc", "measuringInstrc", criteria.getMeasuringInstrc()},
-                {"m.comments = :comments", "comments", criteria.getComments()},
-                {"m.dateObserved = :dateObserved", "dateObserved", criteria.getDateObserved()}}) {
-
-            String queryClause = (String) obj[0];
-            String paramName = (String) obj[1];
-            Object paramValue = obj[2];
-
-            if (paramValue == null) {
-                continue;
-            }
-
-            if (buf.length() != 0) {
-                buf.append("AND ");
-            }
-
-            buf.append(queryClause).append(" ");
-            params.put(paramName, paramValue);
+        if (criteria.getDemographicNo() != null) {
+            jpql.append(hasWhere ? " AND " : " WHERE ");
+            jpql.append("m.demographicId = :demographicNo");
+            hasWhere = true;
         }
 
-        // make sure empty sc still results in a well-formed query
-        if (buf.length() > 0) {
-            buf.insert(0, " WHERE ");
+        if (criteria.getType() != null) {
+            jpql.append(hasWhere ? " AND " : " WHERE ");
+            jpql.append("m.type = :type");
+            hasWhere = true;
         }
-        buf.insert(0, "select m FROM Measurement m");
 
-        Query query = entityManager.createQuery(buf.toString());
-        for (Entry<String, Object> param : params.entrySet()) {
-            query.setParameter(param.getKey(), param.getValue());
+        if (criteria.getDataField() != null) {
+            jpql.append(hasWhere ? " AND " : " WHERE ");
+            jpql.append("m.dataField = :dataField");
+            hasWhere = true;
         }
+
+        if (criteria.getMeasuringInstrc() != null) {
+            jpql.append(hasWhere ? " AND " : " WHERE ");
+            jpql.append("m.measuringInstruction = :measuringInstrc");
+            hasWhere = true;
+        }
+
+        if (criteria.getComments() != null) {
+            jpql.append(hasWhere ? " AND " : " WHERE ");
+            jpql.append("m.comments = :comments");
+            hasWhere = true;
+        }
+
+        if (criteria.getDateObserved() != null) {
+            jpql.append(hasWhere ? " AND " : " WHERE ");
+            jpql.append("m.dateObserved = :dateObserved");
+            hasWhere = true;
+        }
+
+        Query query = entityManager.createQuery(jpql.toString());
+        if (criteria.getDemographicNo() != null) {
+            query.setParameter("demographicNo", criteria.getDemographicNo());
+        }
+        if (criteria.getType() != null) {
+            query.setParameter("type", criteria.getType());
+        }
+        if (criteria.getDataField() != null) {
+            query.setParameter("dataField", criteria.getDataField());
+        }
+        if (criteria.getMeasuringInstrc() != null) {
+            query.setParameter("measuringInstrc", criteria.getMeasuringInstrc());
+        }
+        if (criteria.getComments() != null) {
+            query.setParameter("comments", criteria.getComments());
+        }
+        if (criteria.getDateObserved() != null) {
+            query.setParameter("dateObserved", criteria.getDateObserved());
+        }
+
         return query.getResultList();
     }
 

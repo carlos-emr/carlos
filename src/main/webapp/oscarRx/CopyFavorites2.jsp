@@ -30,6 +30,7 @@
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FavoritesDao" %>
@@ -64,7 +65,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath()%>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title.CopyFavorites"/></title>
+        <title><fmt:message key="SearchDrug.title.CopyFavorites"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         
         <c:choose>
@@ -108,10 +109,9 @@
                                 <td>
                                     <div class="DivCCBreadCrumbs">
                                         <a href="<%= request.getContextPath() %>/oscarRx/SearchDrug3.jsp"> 
-                                            <fmt:setBundle basename="oscarResources"/>
                                             <fmt:message key="SearchDrug.title"/>
                                         </a> > 
-                                        <b><fmt:setBundle basename="oscarResources"/>
+                                        <b>
                                             <fmt:message key="SearchDrug.title.CopyFavorites"/>
                                         </b>
                                     </div>

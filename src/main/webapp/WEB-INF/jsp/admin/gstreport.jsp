@@ -31,6 +31,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -100,7 +101,7 @@
 %>
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.gstReport"/></title>
+    <title><fmt:message key="admin.admin.gstReport"/></title>
 
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
@@ -113,7 +114,7 @@
 <body>
 <FORM name="gstform" action="<%=request.getContextPath()%>/admin/GstReport.do" class="d-flex flex-wrap align-items-center gap-2">
 
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.gstReport"/></h3>
+    <h3><fmt:message key="admin.admin.gstReport"/></h3>
 
     <div class="container-fluid card card-body bg-body-tertiary">
         <div class="row">

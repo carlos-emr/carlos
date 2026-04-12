@@ -72,11 +72,7 @@ public class SqlUtils {
         try {
             records = new ArrayList<String[]>();
 
-            if (params != null && params.length > 0) {
-                rs = DBHandler.GetPreSQL(qry, params);
-            } else {
-                rs = DBHandler.GetSQL(qry);
-            }
+            rs = DBHandler.GetPreSQL(qry, params != null ? params : new Object[0]);
             int cols = rs.getMetaData().getColumnCount();
             while (rs.next()) {
                 String[] record = new String[cols];
@@ -155,6 +151,25 @@ public class SqlUtils {
         }
         ret.append(")");
         return ret.toString();
+    }
+
+    /**
+     * Builds a comma-separated string of {@code ?} placeholders for use in a
+     * parameterized SQL {@code IN} clause.
+     *
+     * <p>Example: {@code buildInClausePlaceholders(3)} returns {@code "?,?,?"}.
+     * Wrap the result in parentheses when constructing the SQL:
+     * {@code "... IN (" + buildInClausePlaceholders(n) + ")"}.
+     *
+     * @param count the number of placeholders to generate (must be &gt; 0)
+     * @return String of comma-separated {@code ?} placeholders
+     * @throws IllegalArgumentException if count is less than 1
+     */
+    public static String buildInClausePlaceholders(int count) {
+        if (count < 1) {
+            throw new IllegalArgumentException("Placeholder count must be at least 1");
+        }
+        return String.join(",", java.util.Collections.nCopies(count, "?"));
     }
 
     /**

@@ -59,6 +59,7 @@
 
 
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
@@ -347,8 +348,8 @@
                         <td><oscar:nameage demographicNo='<%=Encode.forHtmlAttribute(demographic_no != null ? demographic_no : "")%>'/></td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
+                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
+                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>

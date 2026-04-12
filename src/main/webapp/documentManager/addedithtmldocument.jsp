@@ -50,6 +50,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ page
         import="java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.providers.data.ProviderData, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao" %>
@@ -197,7 +198,7 @@
 
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
     <script type="text/javascript"
-            src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+            src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
     <script type="text/javascript">
         window.onload = function () {
@@ -302,7 +303,7 @@
 <div class="maindiv">
     <div class="maindivheading">&nbsp;&nbsp;&nbsp; Edit Document</div>
     <%-- Lists linkhtmlerrors --%> <% for (Enumeration errorkeys = linkhtmlerrors.keys(); errorkeys.hasMoreElements(); ) {%>
-    <font class="warning">Error: <fmt:setBundle basename="oscarResources"/><fmt:message key="<%=(String) linkhtmlerrors.get(errorkeys.nextElement())%>"/></font><br/>
+    <font class="warning">Error: <fmt:message key="<%=(String) linkhtmlerrors.get(errorkeys.nextElement())%>"/></font><br/>
     <% } %> <form action="${pageContext.request.contextPath}/documentManager/addEditHtml.do" method="POST"
                        enctype="multipart/form-data" class="form"
                        onsubmit="return submitUpload(this);">
@@ -323,7 +324,7 @@
             <td width="180px">Type:</td>
             <td>
                 <select id="docType" name="docType" style="width: 160">
-                    <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formSelect"/></option>
+                    <option value=""><fmt:message key="dms.addDocument.formSelect"/></option>
                     <% for (int i = 0; i < doctypes.size(); i++) {
                         String doctype = doctypes.get(i); %>
                     <option value="<%=Encode.forHtmlAttribute(doctype)%>" <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><%=Encode.forHtmlContent(doctype)%>
@@ -331,13 +332,13 @@
                     <%}%>
                 </select>
                 <input id="docTypeinput" type="button" size="20" onClick="newDocType();"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentEdit.formAddNewDocType"/> "/>
+                       value="<fmt:message key="dms.documentEdit.formAddNewDocType"/> "/>
             </td>
         </tr>
         <tr>
-            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDocClass"/>:</td>
+            <td><fmt:message key="dms.addDocument.msgDocClass"/>:</td>
             <td><select name="docClass" id="docClass">
-                <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formSelectClass"/></option>
+                <option value=""><fmt:message key="dms.addDocument.formSelectClass"/></option>
                 <% boolean consultShown = false;
                     for (String reportClass : reportClasses) {
                         if (reportClass.startsWith("Consultant Report")) {
@@ -353,7 +354,7 @@
             </td>
         </tr>
         <tr>
-            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDocSubClass"/>:</td>
+            <td><fmt:message key="dms.addDocument.msgDocSubClass"/>:</td>
             <td><input type="text" name="docSubClass" id="docSubClass" value="<%=Encode.forHtmlAttribute(formdata.getDocSubClass())%>"
                        style="width:330px">
                 <div class="autocomplete_style" id="docSubClass_list"></div>
@@ -392,7 +393,7 @@
             </td>
         </tr>
         <tr>
-            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formContentAddedUpdated"/>:</td>
+            <td><fmt:message key="dms.addDocument.formContentAddedUpdated"/>:</td>
             <td><%=formdata.getContentDateTime()%>
             </td>
         </tr>

@@ -36,6 +36,7 @@
     @since 2026-04-04
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ page import="org.owasp.encoder.Encode" %>
 <html>
 <head>
@@ -46,7 +47,6 @@
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
         <tr bgcolor="#486ebd">
             <th align="CENTER"><font face="Helvetica" color="#FFFFFF">
-                <fmt:setBundle basename="oscarResources"/>
                 <fmt:message key="demographic.demographicupdatearecord.title"/></font></th>
         </tr>
     </table>
@@ -70,12 +70,12 @@
 
     <%-- HIN duplicate result --%>
     <% if (hinDuplicateDemo != null) { %>
-    <span style="color:red;"><fmt:setBundle basename="oscarResources"/>
+    <span style="color:red;">
         <fmt:message key="demographic.demographicupdatearecord.msgDuplicatedHINError"/></span><br>
     <fmt:message key="demographic.msgDuplicatedHINDetail"/>
     <a href="DemographicEdit.do?demographic_no=<%= Encode.forUriComponent(hinDuplicateDemo.getDemographicNo().toString()) %>">
         <%= Encode.forHtml(hinDuplicateDemo.getLastName() + ", " + hinDuplicateDemo.getFirstName()) %></a><br><br>
-    <a href="#" onClick="history.go(-1);return false;"><b>&lt;-<fmt:setBundle basename="oscarResources"/>
+    <a href="#" onClick="history.go(-1);return false;"><b>&lt;-
         <fmt:message key="global.btnBack"/></b></a>
     <% } else if (Boolean.TRUE.equals(addToWl)) { %>
 
@@ -109,7 +109,7 @@
 
     <% } else { %>
     <%-- Normal success display (non-WL path shouldn't reach here due to redirect, but kept for safety) --%>
-    <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicupdatearecord.msgSuccessful"/></h2>
+    <h2><fmt:message key="demographic.demographicupdatearecord.msgSuccessful"/></h2>
     <p>
         <a href="DemographicEdit.do?demographic_no=<%= Encode.forUriComponent(demographicNo != null ? demographicNo : "") %>">
             <%= Encode.forHtml(demographicNo != null ? demographicNo : "") %></a>

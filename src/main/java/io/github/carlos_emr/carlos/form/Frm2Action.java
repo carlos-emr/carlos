@@ -97,7 +97,7 @@ public final class Frm2Action extends ActionSupport {
             rec = recorder.factory(formClassName);
             Properties props = new Properties();
 
-            log.info("SUBMIT {}", LogSanitizer.sanitize(submitType));
+            log.info("SUBMIT {}", LogSanitizer.sanitize(submitType)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 
             //if we are graphing, we need to grab info from db and add it to request object
             if ("graph".equals(submitType)) {
@@ -238,10 +238,10 @@ public final class Frm2Action extends ActionSupport {
                 newID = rec.saveFormRecord(props);
 
                 if (newID > 0) {
-                    log.info("{} new form ID {} successfully saved.", LogSanitizer.sanitize(formClassName), newID);
+                    log.info("{} new form ID {} successfully saved.", LogSanitizer.sanitize(formClassName), newID); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     saveSuccess = Boolean.TRUE;
                 } else {
-                    log.info("{} form ID {} failed to save.", LogSanitizer.sanitize(formClassName), formId);
+                    log.info("{} form ID {} failed to save.", LogSanitizer.sanitize(formClassName), formId); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 }
 
                 String ip = request.getRemoteAddr();
@@ -271,10 +271,10 @@ public final class Frm2Action extends ActionSupport {
 
         } catch (Exception ex) {
             // throw new ServletException(ex);
-            MiscUtils.getLogger().error("Exception for form {} Save failed.", LogSanitizer.sanitize(formClassName), ex);
+            MiscUtils.getLogger().error("Exception for form {} Save failed.", LogSanitizer.sanitize(formClassName), ex); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         }
 
-        log.info("Forwarding form {} to {}", LogSanitizer.sanitize(formClassName), LogSanitizer.sanitize(actionForward));
+        log.info("Forwarding form {} to {}", LogSanitizer.sanitize(formClassName), LogSanitizer.sanitize(actionForward)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 
         request.setAttribute("saveSuccess", saveSuccess);
 

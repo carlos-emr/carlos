@@ -61,5 +61,90 @@
             <result name="success">/WEB-INF/jsp/admin/fixRolesOnNotes.jsp</result>
         </action>
 
+        <!-- Provider Management -->
+        <action name="admin/ProviderTemplate" class="io.github.carlos_emr.carlos.admin.web.ProviderTemplate2Action">
+            <result name="success">/WEB-INF/jsp/admin/providertemplate.jsp</result>
+        </action>
+        <action name="admin/ProviderAddRole" class="io.github.carlos_emr.carlos.admin.web.ProviderAddRole2Action">
+            <result name="success">/WEB-INF/jsp/admin/providerAddRole.jsp</result>
+        </action>
+        <action name="admin/ProviderRole" class="io.github.carlos_emr.carlos.admin.web.ProviderRole2Action">
+            <result name="success">/WEB-INF/jsp/admin/providerRole.jsp</result>
+        </action>
+        <action name="admin/ProviderPrivilege" class="io.github.carlos_emr.carlos.admin.web.ProviderPrivilege2Action">
+            <result name="success">/WEB-INF/jsp/admin/providerPrivilege.jsp</result>
+        </action>
+        <action name="admin/ProviderAddARecord" class="io.github.carlos_emr.carlos.admin.web.ProviderAddARecord2Action">
+            <result name="success">/WEB-INF/jsp/admin/provideraddarecord.jsp</result>
+        </action>
+        <action name="admin/ProviderUpdate" class="io.github.carlos_emr.carlos.admin.web.ProviderUpdate2Action">
+            <result name="success">/WEB-INF/jsp/admin/providerupdate.jsp</result>
+        </action>
+
+        <!-- Security Management -->
+        <action name="admin/SecurityUpdate" class="io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action">
+            <result name="success">/WEB-INF/jsp/admin/securityupdate.jsp</result>
+        </action>
+        <action name="admin/SecurityDelete" class="io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action">
+            <result name="success">/WEB-INF/jsp/admin/securitydelete.jsp</result>
+        </action>
+        <action name="admin/SecurityAddSecurity" class="io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action">
+            <result name="success">/WEB-INF/jsp/admin/securityaddsecurity.jsp</result>
+        </action>
+        <action name="admin/SecuritySearchResults" class="io.github.carlos_emr.carlos.admin.web.SecuritySearchResults2Action">
+            <result name="success">/WEB-INF/jsp/admin/securitysearchresults.jsp</result>
+        </action>
+
+        <!-- Lot Number Management -->
+        <action name="admin/LotNrSearchResults" class="io.github.carlos_emr.carlos.admin.web.LotNrSearchResults2Action">
+            <result name="success">/WEB-INF/jsp/admin/lotnrsearchresults.jsp</result>
+        </action>
+        <action name="admin/LotNrAddRecord" class="io.github.carlos_emr.carlos.admin.web.LotNrAddRecord2Action">
+            <result name="success">/WEB-INF/jsp/admin/lotnraddrecord.jsp</result>
+        </action>
+        <action name="admin/LotNrDeleteRecord" class="io.github.carlos_emr.carlos.admin.web.LotNrDeleteRecord2Action">
+            <result name="success">/WEB-INF/jsp/admin/lotnrdeleterecord.jsp</result>
+        </action>
+
+        <!-- Admin Utilities -->
+        <action name="admin/UnLock" class="io.github.carlos_emr.carlos.admin.web.UnLock2Action">
+            <result name="success">/WEB-INF/jsp/admin/unLock.jsp</result>
+        </action>
+        <action name="admin/BillingSettings" class="io.github.carlos_emr.carlos.admin.web.BillingSettings2Action">
+            <result name="success">/WEB-INF/jsp/admin/billingSettings.jsp</result>
+        </action>
+        <action name="admin/ResourceBaseUrl" class="io.github.carlos_emr.carlos.admin.web.ResourceBaseUrl2Action">
+            <result name="success">/WEB-INF/jsp/admin/resourcebaseurl.jsp</result>
+        </action>
+        <action name="admin/DemographicMergeRecord" class="io.github.carlos_emr.carlos.admin.web.DemographicMergeRecord2Action">
+            <result name="success">/WEB-INF/jsp/admin/demographicmergerecord.jsp</result>
+        </action>
+        <action name="admin/DisplayDocumentDescriptionTemplate" class="io.github.carlos_emr.carlos.admin.web.DisplayDocumentDescriptionTemplate2Action">
+            <result name="success">/WEB-INF/jsp/admin/displayDocumentDescriptionTemplate.jsp</result>
+        </action>
+        <action name="admin/LogReport" class="io.github.carlos_emr.carlos.admin.web.LogReport2Action">
+            <result name="success">/WEB-INF/jsp/admin/logReport.jsp</result>
+        </action>
+        <action name="admin/ManageFlowsheets" class="io.github.carlos_emr.carlos.admin.web.ManageFlowsheets2Action">
+            <result name="success">/WEB-INF/jsp/admin/manageFlowsheets.jsp</result>
+        </action>
+        <action name="admin/ManageFlowsheetsUpload" class="io.github.carlos_emr.carlos.admin.web.ManageFlowsheetsUpload2Action">
+            <result name="success">/WEB-INF/jsp/admin/manageFlowsheetsUpload.jsp</result>
+        </action>
+
+        <!-- Group Management -->
+        <action name="admin/AdminSaveMyGroup" class="io.github.carlos_emr.carlos.admin.web.AdminSaveMyGroup2Action">
+            <result name="success">/WEB-INF/jsp/admin/adminsavemygroup.jsp</result>
+        </action>
+        <action name="admin/AdminNewGroup" class="io.github.carlos_emr.carlos.admin.web.AdminNewGroup2Action">
+            <result name="success">/WEB-INF/jsp/admin/adminnewgroup.jsp</result>
+        </action>
+        <action name="admin/GroupNoAcl" class="io.github.carlos_emr.carlos.admin.web.GroupNoAcl2Action">
+            <result name="success">/WEB-INF/jsp/admin/groupnoacl.jsp</result>
+        </action>
+        <action name="admin/UpdateDemographicProvider" class="io.github.carlos_emr.carlos.admin.web.UpdateDemographicProvider2Action">
+            <result name="success">/WEB-INF/jsp/admin/updatedemographicprovider.jsp</result>
+        </action>
+
     </package>
 </struts>

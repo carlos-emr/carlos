@@ -49,6 +49,7 @@
 
 <%@ page import="java.util.ResourceBundle" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddSpecialistForm" %>
 <%@page import="java.util.List" %>
@@ -90,7 +91,6 @@
             && !"off".equalsIgnoreCase(cpsoSearchRaw)
             && !"0".equals(cpsoSearchRaw);
 %>
-<fmt:setBundle basename="oscarResources"/>
 
 <%
     ResourceBundle oscarR = ResourceBundle.getBundle("oscarResources", request.getLocale());
@@ -524,7 +524,7 @@
                                 <option value="0" selected>&nbsp;</option>
                                 <c:forEach items="${ specialties }" var="specialtyType">
                                     <option value="${ specialtyType.serviceId }" ${ specialtyType.serviceId eq specType ? 'selected' : '' }>
-                                        <c:out value="${ specialtyType.serviceDesc }"/>
+                                        ${e:forHtml(specialtyType.serviceDesc)}
                                     </option>
                                 </c:forEach>
                             </select>
@@ -582,7 +582,7 @@
                             <option value="0" ${EctConAddSpecialistForm.eformId == 0 ? 'selected' : ''}>--None--</option>
                             <c:forEach var="eform" items="${eforms}">
                                 <option value="${eform.id}" ${EctConAddSpecialistForm.eformId == eform.id ? 'selected' : ''}>
-                                    <c:out value="${eform.formName}"/>
+                                    ${e:forHtml(eform.formName)}
                                 </option>
                             </c:forEach>
                         </select>

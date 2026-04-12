@@ -44,6 +44,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core"   prefix="c"   %>
 <%@ taglib uri="jakarta.tags.fmt"    prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     // 1) Null-safe session check
@@ -99,7 +100,6 @@
   </head>
   <body>
     <h3>
-      <fmt:setBundle basename="oscarResources"/>
       <fmt:message key="admin.admin.btnAdminBackupDownload"/>
     </h3>
 

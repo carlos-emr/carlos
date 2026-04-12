@@ -35,6 +35,7 @@
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.pageUtil.*" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String groupName = (String) session.getAttribute("groupName");
 %>
@@ -43,7 +44,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Measurements.msgEditMeasurementGroup"/></title>
+        <title><fmt:message key="encounter.Measurements.msgEditMeasurementGroup"/></title>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
         <script type="text/javascript">
@@ -80,11 +81,11 @@
     <form action="${pageContext.request.contextPath}/encounter/oscarMeasurements/EditMeasurementGroup.do" method="post">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
-                <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Measurements.msgMeasurements"/></td>
+                <td class="MainTableTopRowLeftColumn"><fmt:message key="encounter.Measurements.msgMeasurements"/></td>
                 <td class="MainTableTopRowRightColumn">
                     <table class="TopStatusBar">
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Measurements.msgEditMeasurementGroup"/></td>
+                            <td><fmt:message key="encounter.Measurements.msgEditMeasurementGroup"/></td>
                         </tr>
                     </table>
                 </td>
@@ -97,15 +98,15 @@
                             <td>
                                 <table>
                                     <tr>
-                                        <th align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.MeasurementGroup.allTypes"/>
+                                        <th align="left"><fmt:message key="encounter.oscarMeasurements.MeasurementGroup.allTypes"/>
                                         </th>
 
                                         <th align="left"><%= session.getAttribute("groupName") %></th>
                                     </tr>
                                     <tr>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.MeasurementGroup.add2Group"/>
+                                        <td><fmt:message key="encounter.oscarMeasurements.MeasurementGroup.add2Group"/>
                                             <%= session.getAttribute("groupName") %></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.MeasurementGroup.deleteTypes"/>
+                                        <td><fmt:message key="encounter.oscarMeasurements.MeasurementGroup.deleteTypes"/>
                                             <%= session.getAttribute("groupName") %></td>
                                     <tr>
                                         <td><select multiple="true" name="selectedAddTypes" size="10">
@@ -126,15 +127,15 @@
                                     <tr>
                                         <input type="hidden" name="forward" value="error"/>
                                         <td><input type="button" name="button"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.MeasurementsAction.addBtn"/>"
+                                                   value="<fmt:message key="encounter.oscarMeasurements.MeasurementsAction.addBtn"/>"
                                                    onclick="set('add');submit();"/></td>
                                         <td><input type="button" name="button"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.MeasurementsAction.deleteBtn"/>"
+                                                   value="<fmt:message key="encounter.oscarMeasurements.MeasurementsAction.deleteBtn"/>"
                                                    onclick="set('delete');submit();"/></td>
                                     </tr>
                                     <tr>
                                         <td><input type="button" name="Button"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>"
+                                                   value="<fmt:message key="global.btnClose"/>"
                                                    onClick="window.close()"></td>
                                         <td></td>
                                     </tr>

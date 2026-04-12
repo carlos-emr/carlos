@@ -76,6 +76,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%
@@ -126,7 +127,7 @@
 <html>
     <head>
         <%@ include file="/includes/global-head.jspf" %>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.title"/></title>
+        <title><fmt:message key="report.reportindex.title"/></title>
 
         <link rel="stylesheet" type="text/css" media="all"
               href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
@@ -186,7 +187,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="page-header-icon">
                 <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5z"/>
             </svg>
-            &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.msgTitle"/>
+            &nbsp;<fmt:message key="report.reportindex.msgTitle"/>
         </h4>
     </div>
     <form name='report'>
@@ -197,7 +198,7 @@
                     <%j++;%>
                 </td>
                 <td width="1"></td>
-                <td width="300"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.formDaySheet"/></td>
+                <td width="300"><fmt:message key="report.reportindex.formDaySheet"/></td>
                 <td><select name="provider_no" class="form-select form-select-sm" style="width:auto;display:inline-block">
                     <%
                         ResultSet rsgroup = reportMainBean.queryResults(mygroup_dboperation);
@@ -222,7 +223,7 @@
                     <%
                         }
                     %>
-                    <option value="*"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.formAllProviders"/></option>
+                    <option value="*"><fmt:message key="report.reportindex.formAllProviders"/></option>
                 </select></td>
                 <td></td>
                 <td></td>
@@ -232,13 +233,13 @@
                 <td width="2"></td>
                 <td width="1">&nbsp;</td>
                 <td width="300">
-                    <sup>*</sup><a HREF="#" ONCLICK="go('all')"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.btnAllAppt"/></a><br>&nbsp;&nbsp; <fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.chkRostered"/> <input type="checkbox" id="rosteredOnly" value="true">
+                    <sup>*</sup><a HREF="#" ONCLICK="go('all')"><fmt:message key="report.reportindex.btnAllAppt"/></a><br>&nbsp;&nbsp; <fmt:message key="report.reportindex.chkRostered"/> <input type="checkbox" id="rosteredOnly" value="true">
                 </td>
                 <td><a HREF="#"
-                       onClick="popupPage(310,430,'<%= request.getContextPath() %>/share/CalendarPopup.jsp?urlfrom=<%= request.getContextPath() %>/report/reportindex.jsp&year=<%=now.get(Calendar.YEAR)%>&month=<%=now.get(Calendar.MONTH)+1%>&param=<%=URLEncoder.encode("&formdatebox=document.getElementsByName('asdate')[0].value", StandardCharsets.UTF_8)%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.formFrom"/></a> <input type='text' name="asdate"
+                       onClick="popupPage(310,430,'<%= request.getContextPath() %>/share/CalendarPopup.jsp?urlfrom=<%= request.getContextPath() %>/report/reportindex.jsp&year=<%=now.get(Calendar.YEAR)%>&month=<%=now.get(Calendar.MONTH)+1%>&param=<%=URLEncoder.encode("&formdatebox=document.getElementsByName('asdate')[0].value", StandardCharsets.UTF_8)%>')"><fmt:message key="report.reportindex.formFrom"/></a> <input type='text' name="asdate"
                                                                        VALUE="<%=today%>" class="form-control form-control-sm" style="width:auto;display:inline-block"></td>
                 <td><a HREF="#"
-                       onClick="popupPage(310,430,'<%= request.getContextPath() %>/share/CalendarPopup.jsp?urlfrom=<%= request.getContextPath() %>/report/reportindex.jsp&year=<%=now.get(Calendar.YEAR)%>&month=<%=now.get(Calendar.MONTH)+1%>&param=<%=URLEncoder.encode("&formdatebox=document.getElementsByName('aedate')[0].value", StandardCharsets.UTF_8)%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.formTo"/> </a> <input type='text' name="aedate"
+                       onClick="popupPage(310,430,'<%= request.getContextPath() %>/share/CalendarPopup.jsp?urlfrom=<%= request.getContextPath() %>/report/reportindex.jsp&year=<%=now.get(Calendar.YEAR)%>&month=<%=now.get(Calendar.MONTH)+1%>&param=<%=URLEncoder.encode("&formdatebox=document.getElementsByName('aedate')[0].value", StandardCharsets.UTF_8)%>')"><fmt:message key="report.reportindex.formTo"/> </a> <input type='text' name="aedate"
                                                                       VALUE="<%=today%>" class="form-control form-control-sm" style="width:auto;display:inline-block"></td>
                 <td><select name="sTime" class="form-select form-select-sm" style="width:auto;display:inline-block">
                     <%
@@ -266,7 +267,7 @@
                 </td>
                 <td width="1"></td>
                 <td width="300"><a
-                        href="<%= request.getContextPath() %>/oscarReport/ReportDemographicReport.jsp" target="_blank"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.btnDemographicReportTool"/></a></td>
+                        href="<%= request.getContextPath() %>/oscarReport/ReportDemographicReport.jsp" target="_blank"><fmt:message key="report.reportindex.btnDemographicReportTool"/></a></td>
                 <td></td>
                 <td></td>
                 <td></td>

@@ -34,6 +34,7 @@
 %>
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.pageUtil.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 
@@ -41,7 +42,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Measurements.msgSelectMeasurementGroup"/></title>
+        <title><fmt:message key="encounter.Measurements.msgSelectMeasurementGroup"/></title>
 
         <script type="text/javascript">
             function set(target) {
@@ -79,11 +80,11 @@
     <form action="${pageContext.request.contextPath}/encounter/oscarMeasurements/SelectMeasurementGroup.do" method="post">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
-                <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Measurements.msgMeasurements"/></td>
+                <td class="MainTableTopRowLeftColumn"><fmt:message key="encounter.Measurements.msgMeasurements"/></td>
                 <td class="MainTableTopRowRightColumn" width="400">
                     <table class="TopStatusBar">
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Measurements.msgSelectMeasurementGroup"/></td>
+                            <td><fmt:message key="encounter.Measurements.msgSelectMeasurementGroup"/></td>
                         </tr>
                     </table>
                 </td>
@@ -98,7 +99,7 @@
                                     <tr>
                                         <td>
                                     <tr>
-                                        <td align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.SelectMeasurementGroup.selectGroup"/>
+                                        <td align="left"><fmt:message key="encounter.oscarMeasurements.SelectMeasurementGroup.selectGroup"/>
                                             <select name="selectedGroupName" id="selectedGroupName">
                                                 <c:forEach var="group" items="${groups}">
                                                     <option value="${group.groupName}">
@@ -113,19 +114,19 @@
                                                 <tr>
                                                     <input type="hidden" name="forward" value="error"/>
                                                     <td><input type="button" name="Button"
-                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>"
+                                                               value="<fmt:message key="global.btnClose"/>"
                                                                onClick="window.close()"></td>
                                                     <td><input type="button" name="Button"
-                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.MeasurementsAction.modifyMeasurementTypeBtn"/>"
+                                                               value="<fmt:message key="encounter.oscarMeasurements.MeasurementsAction.modifyMeasurementTypeBtn"/>"
                                                                onclick="set('type');submit();"/></td>
                                                     <td><input type="button" name="Button"
-                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.MeasurementsAction.modifyMeasurementStyleBtn"/>"
+                                                               value="<fmt:message key="encounter.oscarMeasurements.MeasurementsAction.modifyMeasurementStyleBtn"/>"
                                                                onclick="set('style');submit();"/></td>
                                                     <td><input type="button" name="Button"
                                                                value="Modify Decision Support for Group"
                                                                onclick="set('dsHTML');submit();"/></td>
                                                     <td><input type="button" name="Button"
-                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.MeasurementsAction.deleteBtn"/>"
+                                                               value="<fmt:message key="encounter.oscarMeasurements.MeasurementsAction.deleteBtn"/>"
                                                                onclick="confirmDelete('delete');"/></td>
                                                 </tr>
                                             </table>

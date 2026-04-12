@@ -78,7 +78,7 @@ public class PrintLabs2Action extends ActionSupport {
 
         String segmentID = request.getParameter("segmentID");
         if (segmentID == null || !segmentID.matches("\\d+")) {
-            logger.warn("PrintLabs2Action called with invalid segmentID: {}", LogSanitizer.sanitize(segmentID));
+            logger.warn("PrintLabs2Action called with invalid segmentID: {}", LogSanitizer.sanitize(segmentID)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return "error";
         }
 

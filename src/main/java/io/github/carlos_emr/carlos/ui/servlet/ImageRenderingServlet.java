@@ -112,7 +112,7 @@ public final class ImageRenderingServlet extends HttpServlet {
             response.setContentLength(image.length);
         BufferedOutputStream bos = new BufferedOutputStream(response.getOutputStream());
         if (image != null)
-            bos.write(image);
+            bos.write(image); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary image stream
         bos.flush();
     }
 

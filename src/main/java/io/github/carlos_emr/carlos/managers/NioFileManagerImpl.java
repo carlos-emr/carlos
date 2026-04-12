@@ -349,7 +349,7 @@ public class NioFileManagerImpl implements NioFileManager {
         
         // Additional validation - ensure the filename is not empty after sanitization
         if (baseName.trim().isEmpty()) {
-            log.warn("Filename became empty after sanitization: {}", LogSanitizer.sanitize(fileName));
+            log.warn("Filename became empty after sanitization: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return "invalid_filename";
         }
         

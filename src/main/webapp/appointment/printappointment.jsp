@@ -29,6 +29,7 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
@@ -57,14 +58,14 @@
 %>
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="report.appointmentReceipt.title"/></title>
+        <title><fmt:message key="report.appointmentReceipt.title"/></title>
     </head>
     <body>
     <% if (!defaultPrinterNameAppointmentReceipt.isEmpty()) {
         if (silentPrintAppointmentReceipt == true) {%>
-    <fmt:setBundle basename="oscarResources"/><fmt:message key="report.appointmentReceipt.SilentlyPrintToDefaultPrinter"/>
+    <fmt:message key="report.appointmentReceipt.SilentlyPrintToDefaultPrinter"/>
     <%} else {%>
-    <fmt:setBundle basename="oscarResources"/><fmt:message key="report.appointmentReceipt.DefaultPrinter"/>
+    <fmt:message key="report.appointmentReceipt.DefaultPrinter"/>
     <%}%>
     <%=defaultPrinterNameAppointmentReceipt%>
     <%}%>

@@ -34,6 +34,8 @@ package io.github.carlos_emr.carlos.casemgmt.service;
 import io.github.carlos_emr.carlos.PMmodule.model.*;
 import io.github.carlos_emr.carlos.appt.ApptStatusData;
 import io.github.carlos_emr.carlos.casemgmt.dao.*;
+import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementIssueListDTO;
+import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteListDTO;
 import io.github.carlos_emr.carlos.casemgmt.model.*;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
@@ -2562,6 +2564,28 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             logger.warn("Invalid role format: '" + roleIdStr + "' - not a valid Long");
         }
         return "";
+    }
+
+    @Override
+    public List<CaseManagementIssueListDTO> getIssueDTOs(LoggedInInfo loggedInInfo, String demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, demographicNo)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        List<CaseManagementIssueListDTO> results = caseManagementIssueDAO.findIssueDTOsByDemographicNo(demographicNo);
+        LogAction.addLogSynchronous(loggedInInfo, "CaseManagementManager.getIssueDTOs",
+                "demographicNo=" + demographicNo);
+        return results;
+    }
+
+    @Override
+    public List<CaseManagementNoteListDTO> getNoteDTOs(LoggedInInfo loggedInInfo, String demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, demographicNo)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        List<CaseManagementNoteListDTO> results = caseManagementNoteDAO.findNoteDTOsByDemographicNo(demographicNo);
+        LogAction.addLogSynchronous(loggedInInfo, "CaseManagementManager.getNoteDTOs",
+                "demographicNo=" + demographicNo);
+        return results;
     }
 
 }

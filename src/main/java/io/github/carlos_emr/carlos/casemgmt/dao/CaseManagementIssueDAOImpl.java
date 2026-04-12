@@ -40,23 +40,24 @@ import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
+import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementIssueListDTO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 @Transactional
-public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements CaseManagementIssueDAO {
+public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseManagementIssueDAO {
 
     private static Logger log = MiscUtils.getLogger();
 
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getIssuesByDemographic(String demographic_no) {
-        return (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
+        return (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
                 "from CaseManagementIssue cmi where cmi.demographic_no = ?1",
                 Integer.valueOf(demographic_no));
     }
@@ -65,11 +66,11 @@ public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements 
     @Override
     public List<CaseManagementIssue> getIssuesByDemographicOrderActive(Integer demographic_no, Boolean resolved) {
         if (resolved != null) {
-            return (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
+            return (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
                     "from CaseManagementIssue cmi where cmi.demographic_no = ?1 and cmi.resolved = ?2 order by cmi.resolved",
                     demographic_no, resolved);
         } else {
-            return (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
+            return (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
                     "from CaseManagementIssue cmi where cmi.demographic_no = ?1 order by cmi.resolved",
                     demographic_no);
         }
@@ -79,11 +80,11 @@ public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements 
     @Override
     public List<CaseManagementIssue> getIssuesByNote(Integer noteId, Boolean resolved) {
         if (resolved != null) {
-            return (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
+            return (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
                     "from CaseManagementIssue cmi where cmi.notes.id = ?1 and cmi.resolved = ?2 order by cmi.resolved",
                     noteId, resolved);
         } else {
-            return (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
+            return (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
                     "from CaseManagementIssue cmi where cmi.notes.id = ?1 order by cmi.resolved",
                     noteId);
         }
@@ -92,7 +93,7 @@ public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements 
     @SuppressWarnings("unchecked")
     @Override
     public Issue getIssueByCmnId(Integer cmnIssueId) {
-        List<Issue> result = (List<Issue>) HqlQueryHelper.find(currentSession(),
+        List<Issue> result = (List<Issue>) JpqlQueryHelper.find(entityManager(),
                 "select issue from CaseManagementIssue cmi where cmi.id = ?1",
                 Long.valueOf(cmnIssueId));
         if (result.size() > 0)
@@ -103,7 +104,7 @@ public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements 
     @Override
     public CaseManagementIssue getIssuebyId(String demo, String id) {
         @SuppressWarnings("unchecked")
-        List<CaseManagementIssue> list = (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
+        List<CaseManagementIssue> list = (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
                 "from CaseManagementIssue cmi where cmi.issue_id = ?1 and cmi.demographic_no = ?2",
                 Long.parseLong(id), Integer.valueOf(demo));
         if (list != null && list.size() == 1)
@@ -115,12 +116,12 @@ public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements 
     @Override
     public CaseManagementIssue getIssuebyIssueCode(String demo, String issueCode) {
         @SuppressWarnings("unchecked")
-        List<CaseManagementIssue> list = (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
+        List<CaseManagementIssue> list = (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
                 "select cmi from CaseManagementIssue cmi, Issue issue where cmi.issue_id=issue.id and issue.code = ?1 and cmi.demographic_no = ?2",
                 issueCode, Integer.valueOf(demo));
 
         if (list.size() > 1) {
-            log.error("Expected 1 result got more : {} ({},{})", list.size(), LogSanitizer.sanitize(demo), LogSanitizer.sanitize(issueCode));
+            log.error("Expected 1 result got more : {} ({},{})", list.size(), LogSanitizer.sanitize(demo), LogSanitizer.sanitize(issueCode)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         }
 
         if (list.size() == 1 || list.size() > 1)
@@ -131,7 +132,7 @@ public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements 
 
     @Override
     public void deleteIssueById(CaseManagementIssue issue) {
-        currentSession().remove(issue);
+        entityManager().remove(issue);
         return;
 
     }
@@ -143,9 +144,9 @@ public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements 
             CaseManagementIssue cmi = itr.next();
             cmi.setUpdate_date(new Date());
             if (cmi.getId() != null && cmi.getId().longValue() > 0) {
-                currentSession().merge(cmi);
+                entityManager().merge(cmi);
             } else {
-                currentSession().persist(cmi);
+                entityManager().persist(cmi);
             }
         }
 
@@ -154,16 +155,16 @@ public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements 
     public void saveIssue(CaseManagementIssue issue) {
         issue.setUpdate_date(new Date());
         if (issue.getId() == null || issue.getId() <= 0) {
-            currentSession().persist(issue);
+            entityManager().persist(issue);
         } else {
-            currentSession().merge(issue);
+            entityManager().merge(issue);
         }
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getAllCertainIssues() {
-        return (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
+        return (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
                 "from CaseManagementIssue cmi where cmi.certain = true");
     }
 
@@ -183,7 +184,7 @@ public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements 
         Map<String, Object> params = new HashMap<>();
         params.put("updateDate", date);
         params.put("programIds", programIds);
-        List<Integer> results = (List<Integer>) HqlQueryHelper.find(currentSession(), hql, params);
+        List<Integer> results = (List<Integer>) JpqlQueryHelper.find(entityManager(), hql, params);
 
         return results;
     }
@@ -191,9 +192,45 @@ public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements 
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getIssuesByDemographicSince(String demographic_no, Date date) {
-        return (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
+        return (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
                 "from CaseManagementIssue cmi where cmi.demographic_no = ?1 and cmi.update_date > ?2",
                 Integer.valueOf(demographic_no), date);
+    }
+
+    /**
+     * Returns lightweight case management issue DTOs for a demographic, ordered by
+     * update date descending. Pre-joins issue code and description via LEFT JOIN.
+     *
+     * @param demographicNo String the demographic number (parsed to Integer for binding)
+     * @return List&lt;CaseManagementIssueListDTO&gt; ordered by update_date descending;
+     *         empty list if {@code demographicNo} is not a valid integer
+     * @throws org.hibernate.HibernateException if the underlying query fails
+     * @since 2026-04-11
+     */
+    @SuppressWarnings("unchecked")
+    @Override
+    public List<CaseManagementIssueListDTO> findIssueDTOsByDemographicNo(String demographicNo) {
+        Integer demoNoInt;
+        try {
+            demoNoInt = Integer.valueOf(demographicNo);
+        } catch (NumberFormatException e) {
+            log.warn("findIssueDTOsByDemographicNo: invalid demographicNo '{}'", LogSanitizer.sanitize(demographicNo));
+            return new ArrayList<>();
+        }
+        org.hibernate.query.Query<CaseManagementIssueListDTO> query = currentSession().createQuery("""
+                SELECT NEW io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementIssueListDTO(
+                    cmi.id, cmi.demographic_no, cmi.issue_id, cmi.type,
+                    cmi.acute, cmi.certain, cmi.major, cmi.resolved,
+                    cmi.update_date, cmi.program_id,
+                    i.code, i.description)
+                FROM CaseManagementIssue cmi
+                LEFT JOIN cmi.issue i
+                WHERE cmi.demographic_no = :demoNo
+                ORDER BY cmi.update_date DESC
+                """,
+                CaseManagementIssueListDTO.class);
+        query.setParameter("demoNo", demoNoInt);
+        return query.list();
     }
 
 }

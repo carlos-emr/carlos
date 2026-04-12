@@ -34,6 +34,7 @@
 %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String groupName = (String) session.getAttribute("groupName");
 %>
@@ -45,7 +46,7 @@
 
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Measurements.msgProcessAddMeasurementGroupAction"/>
+        <title><fmt:message key="encounter.Measurements.msgProcessAddMeasurementGroupAction"/>
         </title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     </head>

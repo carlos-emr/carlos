@@ -115,7 +115,7 @@ public class DesAntenatalPlannerChecklist_99_12 {
         try {
             SAXParserFactory factory = XmlUtils.createSecureSAXParserFactory();
             SAXParser saxParser = factory.newSAXParser();
-            XMLReader reader = saxParser.getXMLReader();
+            XMLReader reader = saxParser.getXMLReader(); // nosemgrep: xmlreader-xxe, xmlreader-xxe-parameter-entities -- XXE protection applied by XmlUtils.createSecureSAXParserFactory()
 
             ContentHandler contentHandler = new DesAntenatalPlannerChecklistHandler_99_12(savedar1params);
             reader.setContentHandler(contentHandler);

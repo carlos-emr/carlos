@@ -135,7 +135,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         }
         // Validate programId is present and numeric before storing in session (CWE-501: Trust Boundary Violation)
         if (programId == null || programId.isBlank() || !programId.matches("\\d+")) {
-            logger.error("Invalid or missing programId: {}", LogSanitizer.sanitize(String.valueOf(programId)));
+            logger.error("Invalid or missing programId: {}", LogSanitizer.sanitize(String.valueOf(programId))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             addActionError("Invalid or missing required parameter");
             return ERROR;
         }
@@ -146,7 +146,7 @@ public class ProgramManagerView2Action extends ActionSupport {
             addActionError("Invalid or missing required parameter");
             return ERROR;
         }
-        request.getSession().setAttribute("case_program_id", programId); // nosemgrep: tainted-session-from-http-request -- validated via Integer.parseInt and canonicalized to numeric string
+        request.getSession().setAttribute("case_program_id", programId); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- validated via Integer.parseInt and canonicalized to numeric string
 
         if (request.getParameter("newVacancy") != null && "true".equals(request.getParameter("newVacancy")))
             request.setAttribute("vacancyOrTemplateId", "");
@@ -341,7 +341,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         ProgramQueue queue = programQueueManager.getProgramQueue(String.valueOf(queueIdLong));
         Program fullProgram = programManager.getProgram(String.valueOf(programId));
         if (fullProgram == null) {
-            logger.warn("No program found for programId received for admission: {}", LogSanitizer.sanitize(String.valueOf(programId)));
+            logger.warn("No program found for programId received for admission: {}", LogSanitizer.sanitize(String.valueOf(programId))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return view();
         }
         String dischargeNotes = request.getParameter("admission.dischargeNotes");
@@ -372,9 +372,9 @@ public class ProgramManagerView2Action extends ActionSupport {
             this.setServiceRestriction(e.getRestriction());
 
             // programId validated as numeric above; sanitize notes before session storage (CWE-501)
-            request.getSession().setAttribute("programId", programId); // nosemgrep: tainted-session-from-http-request -- validated as numeric above via Integer.parseInt
-            request.getSession().setAttribute("admission.dischargeNotes", Encode.forHtml(truncateNotes(dischargeNotes))); // nosemgrep: tainted-session-from-http-request -- HTML-encoded and length-truncated before storage
-            request.getSession().setAttribute("admission.admissionNotes", Encode.forHtml(truncateNotes(admissionNotes))); // nosemgrep: tainted-session-from-http-request -- HTML-encoded and length-truncated before storage
+            request.getSession().setAttribute("programId", programId); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- validated as numeric above via Integer.parseInt
+            request.getSession().setAttribute("admission.dischargeNotes", Encode.forHtml(truncateNotes(dischargeNotes))); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- HTML-encoded and length-truncated before storage
+            request.getSession().setAttribute("admission.admissionNotes", Encode.forHtml(truncateNotes(admissionNotes))); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- HTML-encoded and length-truncated before storage
 
             request.setAttribute("id", programId);
 
@@ -522,7 +522,7 @@ public class ProgramManagerView2Action extends ActionSupport {
                 String admissionId = name.substring(8);
                 Admission admission = admissionManager.getAdmission(Long.valueOf(admissionId));
                 if (admission == null) {
-                    logger.warn("admission #{} not found.", LogSanitizer.sanitize(admissionId));
+                    logger.warn("admission #{} not found.", LogSanitizer.sanitize(admissionId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     continue;
                 }
 
