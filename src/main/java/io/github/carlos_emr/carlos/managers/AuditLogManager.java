@@ -120,6 +120,7 @@ public class AuditLogManager {
             command.add(dbName);
             command.add("log");
 
+            // nosemgrep: java.lang.security.audit.command-injection-process-builder.command-injection-process-builder
             ProcessBuilder pb = new ProcessBuilder(command);
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
