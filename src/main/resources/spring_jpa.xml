@@ -48,7 +48,10 @@
 	</bean>
 
 	<!-- JPA -->
-	<bean id="entityManagerFactory" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+	<!-- primary="true" resolves ambiguity: Hibernate 7's SessionFactory also implements
+	     EntityManagerFactory, so @PersistenceContext without unitName would otherwise
+	     match both this bean and the 'sessionFactory' bean in spring_hibernate.xml. -->
+	<bean id="entityManagerFactory" primary="true" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
 		<property name="dataSource" ref="dataSource" />
 		<!-- Hibernate 7 requires the EMF to know about ALL entity types referenced
 		     by JPA associations. packagesToScan discovers @Entity classes;

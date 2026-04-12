@@ -37,7 +37,6 @@ import org.apache.struts2.ServletActionContext;
  * The JSP handles search, display, and initiates merge/unmerge operations via a downstream {@code MergeRecords.do} action endpoint.</p>
  *
  * @since 2026-04-05
- * @throws SecurityException if the logged-in user lacks the required admin privilege
  */
 public class DemographicMergeRecord2Action extends ActionSupport {
 
