@@ -64,6 +64,9 @@
         <div style="width: 99%; background-color: #EFEFEF; font-size: 12px; border-left: thin groove #000000; border-bottom: thin groove #000000; border-right: thin groove #000000;">
             <div>
                 <p>
+                <%-- Intentionally unescaped: clinical note HTML is preserved so provider formatting (lists, line breaks, emphasis)
+                     renders as authored. Stored-XSS risk is accepted at the authoring boundary; any sanitization must be applied
+                     where the note is saved, not here, to avoid breaking historical notes. Track this as a stored-XSS audit target. --%>
                 <c:out value="${note.note}" escapeXml="false" />
                 </p>
             </div>

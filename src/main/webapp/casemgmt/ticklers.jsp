@@ -129,6 +129,9 @@
         </td>
         <td style="<%=style%>"><%=status %>
         </td>
+        <%-- Intentionally unescaped: tickler.message contains provider-authored HTML formatting (line breaks, links) that is
+             preserved for display. Stored-XSS risk is accepted at the authoring boundary; sanitization belongs where the
+             tickler is saved, not here. --%>
         <td style="<%=style%>" align="left"><c:out escapeXml="false"
                                                    value="${tickler.message}"/></td>
     </tr>

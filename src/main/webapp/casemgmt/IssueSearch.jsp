@@ -70,8 +70,8 @@
     <script type="text/javascript">
         function backToNote(from) {
 
-            if (from == null) location.href = "<c:out value='${url}' escapeXml='false'/>";
-            else location.href = "<c:out value='${url}' escapeXml='false'/>" + "&from=" + from;
+            if (from == null) location.href = "${e:forJavaScript(url)}";
+            else location.href = "${e:forJavaScript(url)}" + "&from=" + from;
             return false;
         }
 

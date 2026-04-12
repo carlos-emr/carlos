@@ -71,6 +71,9 @@
          src='<c:out value="${ctx}"/>/encounter/graphics/printer.png'/>
     <a title="Edit" id="edit<c:out value="${Note.id}"/>" href="#" onclick="editNote(event); return false;"
        style='float: right; margin-right: 5px; font-size:8px;'>Edit</a>
+    <%-- Intentionally unescaped: fmtTxt is server-side formatted note content (line breaks converted to <br>, etc.) produced
+         by the casemgmt note-unlock flow. The underlying note text still carries stored-XSS risk accepted at the authoring
+         boundary — the formatter preserves any HTML the provider wrote. --%>
     <span id="txt<c:out value="${Note.id}"/>"><c:out
             escapeXml="false" value="${fmtTxt}"/></span>
     <div id="sig<c:out value="${Note.id}"/>">

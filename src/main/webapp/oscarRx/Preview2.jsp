@@ -492,6 +492,8 @@
                                             request.setAttribute("phone", finalPhone);
 
                                         %>
+                                        <%-- Intentionally unescaped: programAddress is admin-configured HTML (multi-line
+                                             clinic address with <br> tags) stored in PMmodule Program configuration, not user input. --%>
                                         <c:out value="${infirmaryView_programAddress}" escapeXml="false"/><br>
                                         <fmt:message key="RxPreview.msgTel"/>: <%=finalPhone %><br>
                                         <oscar:oscarPropertiesCheck property="RXFAX" value="yes">

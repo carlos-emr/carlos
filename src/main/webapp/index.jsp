@@ -592,6 +592,7 @@ body {
                     </a>
                 </h2>
                 <div id="clinic_address">
+                    <%-- Intentionally unescaped: clinicText is admin-configured HTML from LoginResourceBean / server-side login .env, not user input. --%>
                     <c:out value="${ LoginResourceBean.clinicText }" escapeXml="false"/>
                 </div>
             </div>
@@ -712,6 +713,7 @@ body {
                     Acceptable Use Agreement
                 </div>
                 <div class="card-body">
+                    <%-- Intentionally unescaped: AUA text is admin-configured HTML from LoginResourceBean, not user input. --%>
                     <c:out value="${ LoginResourceBean.acceptableUseAgreementManager.text }" escapeXml="false"/>
                 </div>
                 <div class="card-footer"></div>
@@ -746,6 +748,7 @@ body {
                     </div>
                 </c:if>
                 <div id="support_text">
+                    <%-- Intentionally unescaped: supportText is admin-configured HTML from LoginResourceBean / server-side login .env, not user input. --%>
                     <c:out value="${ LoginResourceBean.supportText }" escapeXml="false"/>
                 </div>
             </div>
