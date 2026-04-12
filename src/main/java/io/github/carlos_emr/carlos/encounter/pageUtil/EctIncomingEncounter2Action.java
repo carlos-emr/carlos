@@ -173,7 +173,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             bean.check = "myCheck";
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
             // demographicNo validated as numeric at method entry; other bean fields are unsanitized — consuming JSPs MUST use OWASP encoding
-            request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request
+            request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         } else {
             if ("yes".equals(request.getParameter("PEAttach"))) {
                 String selectClientmo = request.getParameter("selectId");
@@ -204,7 +204,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
                 return "failure";
             }
             if (bean.providerNo == null || bean.providerNo.isEmpty()) {
-                bean.providerNo = (String) request.getSession().getAttribute("user");
+                bean.providerNo = (String) request.getSession().getAttribute("user"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fallback to authenticated provider from own session
             }
 
             bean.demographicNo = demoNo;
@@ -247,10 +247,12 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             bean.encType = (encTypeParam != null && encTypeParam.matches("[a-zA-Z0-9_ ]{1,50}")) ? encTypeParam : null;
             bean.userName = request.getParameter("userName");
             if (bean.userName == null) {
+                // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fallback to authenticated user's name from own session (set post-auth)
                 bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " "
                         + ((String) request.getSession().getAttribute("userlastname"));
             } else if (!SAFE_TEXT.matcher(bean.userName).matches() || bean.userName.length() > 100) {
                 log.warn("Rejected invalid userName at trust boundary, falling back to session-derived name");
+                // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fallback to authenticated user's name from own session after rejecting invalid param
                 bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " "
                         + ((String) request.getSession().getAttribute("userlastname"));
             }
@@ -274,12 +276,12 @@ public class EctIncomingEncounter2Action extends ActionSupport {
                 bean.source = VALID_SOURCES.contains(sourceParam) ? sourceParam : null;
             }
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
-            // nosemgrep: tainted-session-from-http-request -- demographicNo/appointmentNo/curProviderNo validated as numeric/alphanumeric;
+            // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- demographicNo/appointmentNo/curProviderNo validated as numeric/alphanumeric;
             // status validated [a-zA-Z]{1,2}; dates validated YYYY-MM-DD; times validated HH:MM; encType validated alphanumeric;
             // source whitelisted to {"encounter","messenger"}; reason/userName sanitized for control chars and length-capped;
             // eChartId is server-generated from setUpEncounterPage()
             request.getSession().setAttribute("EctSessionBean", bean);
-            request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request -- server-generated ID from EctSessionBean.setUpEncounterPage()
+            request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- server-generated ID from EctSessionBean.setUpEncounterPage()
 
             long notesCount = caseManagementNoteDao.getNotesCountByDemographicId(bean.getDemographicNo());
             if (notesCount == 0

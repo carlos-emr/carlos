@@ -64,7 +64,7 @@ public class OscarDownload extends GenericDownload {
                 return;
             }
 
-            String backupfilepath = (String) session.getAttribute(homepath);
+            String backupfilepath = (String) session.getAttribute(homepath); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): homepath is a server-configured constant key, not user input
             if (backupfilepath != null
                     && !backupfilepath.isEmpty()
                     && ((String) session.getAttribute("user")) != null) {

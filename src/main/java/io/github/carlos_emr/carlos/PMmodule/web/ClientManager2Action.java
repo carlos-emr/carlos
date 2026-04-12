@@ -353,9 +353,9 @@ public class ClientManager2Action extends ActionSupport {
         LogAction.log("read", "pmm client record", id, request);
 
         Demographic demographic = clientManager.getClientByDemographicNo(id);
-        request.getSession().setAttribute("clientGender", demographic.getSex()); // nosemgrep: tainted-session-from-http-request
-        request.getSession().setAttribute("clientAge", demographic.getAge()); // nosemgrep: tainted-session-from-http-request
-        request.getSession().setAttribute("demographicId", demographic.getDemographicNo()); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("clientGender", demographic.getSex()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.getSession().setAttribute("clientAge", demographic.getAge()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.getSession().setAttribute("demographicId", demographic.getDemographicNo()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         return "edit";
     }
@@ -657,7 +657,7 @@ public class ClientManager2Action extends ActionSupport {
 
     public String remove_joint_admission() {
         String clientId = request.getParameter("dependentClientId");
-        clientManager.removeJointAdmission(Integer.valueOf(clientId), (String) request.getSession().getAttribute("user"));
+        clientManager.removeJointAdmission(Integer.valueOf(clientId), (String) request.getSession().getAttribute("user")); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): reads authenticated provider from own session (set by Login2Action post-auth)
         setEditAttributes(request, request.getParameter("clientId"));
         return "edit";
     }

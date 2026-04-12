@@ -196,9 +196,9 @@ public class AddEForm2Action extends ActionSupport {
                 openerValues.add(null);
                 continue;
             }
-            String val = (String) se.getAttribute(lnk); // nosemgrep: tainted-session-from-http-request -- key is validated by validateEformLink()
+            String val = (String) se.getAttribute(lnk); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- key is validated by validateEformLink()
             openerValues.add(val);
-            if (val != null) se.removeAttribute(lnk); // nosemgrep: tainted-session-from-http-request -- session cleanup
+            if (val != null) se.removeAttribute(lnk); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- session cleanup
         }
 
         //----names parsed
@@ -254,7 +254,7 @@ public class AddEForm2Action extends ActionSupport {
                 // The expected key format is: providerNo_demographicNo_fid_openerName
                 String expectedPrefix = providerNo + "_" + demographic_no + "_" + fid + "_";
                 if (eform_link.startsWith(expectedPrefix) && eform_link.length() <= 100) {
-                    se.setAttribute(eform_link, fdid);
+                    se.setAttribute(eform_link, fdid); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fdid is Integer.parseInt-validated queue document ID; key validated by validateEformLink()
                 } else {
                     logger.warn("Invalid eform_link rejected: {}", LogSanitizer.sanitize(eform_link)); // nosemgrep: crlf-injection-logs-deepsemgrep -- sanitized via LogSanitizer (OWASP Encode.forJava) // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 }
@@ -518,29 +518,29 @@ public class AddEForm2Action extends ActionSupport {
      * @param settings EmailAttachmentSettings containing all attachment configuration
      */
     private void addEmailAttachmentsToSession(HttpServletRequest request, EmailAttachmentSettings settings) {
-        // nosemgrep: tainted-session-from-http-request -- all values are validated booleans, sanitized strings,
+        // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- all values are validated booleans, sanitized strings,
         // or document ID arrays sourced from the eForm save workflow. Output encoding is in EmailCompose2Action.
         HttpSession session = request.getSession();
-        session.setAttribute("deleteEFormAfterEmail", settings.deleteEFormAfterEmail()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("isEmailEncrypted", settings.isEmailEncrypted()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("isEmailAttachmentEncrypted", settings.isEmailAttachmentEncrypted()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("isEmailAutoSend", settings.isEmailAutoSend()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("openEFormAfterEmail", settings.openAfterEmail()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("attachEFormItSelf", settings.attachEFormItSelf()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("fdid", settings.fdid()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("demographicId", settings.demographicNo()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("attachedEForms", settings.attachedEForms()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("attachedDocuments", settings.attachedDocuments()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("attachedLabs", settings.attachedLabs()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("attachedHRMDocuments", settings.attachedHRMDocuments()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("attachedForms", settings.attachedForms()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("emailPDFPassword", settings.emailPDFPassword()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("emailPDFPasswordClue", settings.emailPDFPasswordClue()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("senderEmail", settings.senderEmail()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("subjectEmail", settings.subjectEmail()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("bodyEmail", settings.bodyEmail()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("encryptedMessageEmail", settings.encryptedMessageEmail()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("emailPatientChartOption", settings.emailPatientChartOption()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("deleteEFormAfterEmail", settings.deleteEFormAfterEmail()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("isEmailEncrypted", settings.isEmailEncrypted()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("isEmailAttachmentEncrypted", settings.isEmailAttachmentEncrypted()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("isEmailAutoSend", settings.isEmailAutoSend()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("openEFormAfterEmail", settings.openAfterEmail()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("attachEFormItSelf", settings.attachEFormItSelf()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("fdid", settings.fdid()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("demographicId", settings.demographicNo()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("attachedEForms", settings.attachedEForms()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("attachedDocuments", settings.attachedDocuments()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("attachedLabs", settings.attachedLabs()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("attachedHRMDocuments", settings.attachedHRMDocuments()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("attachedForms", settings.attachedForms()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("emailPDFPassword", settings.emailPDFPassword()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("emailPDFPasswordClue", settings.emailPDFPasswordClue()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("senderEmail", settings.senderEmail()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("subjectEmail", settings.subjectEmail()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("bodyEmail", settings.bodyEmail()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("encryptedMessageEmail", settings.encryptedMessageEmail()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("emailPatientChartOption", settings.emailPatientChartOption()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
     }
 
     /**

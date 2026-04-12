@@ -154,7 +154,7 @@ public class EctDisplayAction extends ActionSupport {
             }
             bean.providerNo = request.getParameter("providerNo");
             if (bean.providerNo == null) {
-                bean.providerNo = (String) request.getSession().getAttribute("user");
+                bean.providerNo = (String) request.getSession().getAttribute("user"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fallback to authenticated provider from own session
             }
             bean.demographicNo = demoNoParam;
             String apptNoParam = request.getParameter("appointmentNo");
@@ -186,10 +186,10 @@ public class EctDisplayAction extends ActionSupport {
             bean.encType = encTypeParam;
             bean.userName = request.getParameter("userName");
             if (bean.userName == null) {
-                bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " " + ((String) request.getSession().getAttribute("userlastname"));
+                bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " " + ((String) request.getSession().getAttribute("userlastname")); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fallback to authenticated user's name from own session
             } else if (!SAFE_TEXT.matcher(bean.userName).matches() || bean.userName.length() > 100) {
                 logger.warn("Rejected invalid userName at trust boundary, falling back to session-derived name");
-                bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " " + ((String) request.getSession().getAttribute("userlastname"));
+                bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " " + ((String) request.getSession().getAttribute("userlastname")); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fallback to authenticated user's name from own session after rejecting invalid param
             }
 
             String apptDateParam = request.getParameter("appointmentDate");
@@ -223,11 +223,11 @@ public class EctDisplayAction extends ActionSupport {
                 bean.oscarMsgID = null;
             }
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
-            // nosemgrep: tainted-session-from-http-request -- demographicNo/appointmentNo validated numeric;
+            // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- demographicNo/appointmentNo validated numeric;
             // status validated [a-zA-Z]{1,2}; dates validated YYYY-MM-DD; time validated HH:MM; encType validated alphanumeric;
             // reason/userName sanitized for control chars and length-capped; eChartId is server-generated
             request.getSession().setAttribute("EctSessionBean", bean);
-            request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request -- server-generated ID from EctSessionBean.setUpEncounterPage()
+            request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- server-generated ID from EctSessionBean.setUpEncounterPage()
             String sourceParam = request.getParameter("source");
             if (sourceParam != null) {
                 bean.source = VALID_SOURCES.contains(sourceParam) ? sourceParam : null;
