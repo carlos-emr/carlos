@@ -1,0 +1,10 @@
+
+rules:
+  - id: process-builder-concatenation
+    message: Concatenation found
+    languages: [java]
+    severity: ERROR
+    patterns:
+      - pattern-either:
+          - pattern: new ProcessBuilder(..., $X + $Y, ...);
+          - pattern: $PB.command(..., $X + $Y, ...);

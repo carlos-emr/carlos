@@ -108,12 +108,17 @@ public class AuditLogManager {
         try {
             String s = null;
 
-            ProcessBuilder pb = new ProcessBuilder(
+            String whereClause = String.format("dateTime < '%s'", formatter2.format(endDateToPurge));
+            String resultFile = String.format("--result-file=%s", filename);
+            String userArg = String.format("--user=%s", user);
+
+            ProcessBuilder pb = new ProcessBuilder();
+            pb.command(
                     mysqldump,
-                    "--user=" + user,
-                    "-w", "dateTime < '" + formatter2.format(endDateToPurge) + "'",
+                    userArg,
+                    "-w", whereClause,
                     "-t",
-                    "--result-file=" + filename,
+                    resultFile,
                     dbName,
                     "log"
             );
