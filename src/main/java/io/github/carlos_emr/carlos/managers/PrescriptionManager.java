@@ -31,6 +31,7 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
+import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.prescript.dto.DrugListItemDTO;
@@ -82,7 +83,7 @@ public interface PrescriptionManager {
      * @param loggedInInfo LoggedInInfo the logged-in user context
      * @param demographicNo Integer the patient demographic number
      * @return List of DrugListItemDTO for the patient's prescriptions
-     * @throws org.springframework.security.access.AccessDeniedException if the caller lacks {@code _demographic} read privilege for this patient
+     * @throws AccessDeniedException if the caller lacks {@code _demographic} read privilege for this patient
      * @since 2026-04-11
      */
     List<DrugListItemDTO> getDrugDTOs(LoggedInInfo loggedInInfo, Integer demographicNo);
