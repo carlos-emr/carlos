@@ -643,8 +643,16 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
      */
     @Override
     public List<DrugListItemDTO> findDrugDTOsByDemographicId(Integer demographicId) {
-        TypedQuery<DrugListItemDTO> query = entityManager.createQuery(
-                "SELECT NEW io.github.carlos_emr.carlos.prescript.dto.DrugListItemDTO(d.id, d.demographicId, d.brandName, d.genericName, d.customName, d.dosage, d.route, d.freqCode, d.duration, d.durUnit, d.quantity, d.repeat, d.rxDate, d.endDate, d.lastRefillDate, d.archived, d.longTerm, d.providerNo, d.special, d.scriptNo) FROM Drug d WHERE d.demographicId = :demoId ORDER BY d.rxDate DESC",
+        TypedQuery<DrugListItemDTO> query = entityManager.createQuery("""
+                SELECT NEW io.github.carlos_emr.carlos.prescript.dto.DrugListItemDTO(
+                    d.id, d.demographicId, d.brandName, d.genericName, d.customName,
+                    d.dosage, d.route, d.freqCode, d.duration, d.durUnit, d.quantity,
+                    d.repeat, d.rxDate, d.endDate, d.lastRefillDate, d.archived,
+                    d.longTerm, d.providerNo, d.special, d.scriptNo)
+                FROM Drug d
+                WHERE d.demographicId = :demoId
+                ORDER BY d.rxDate DESC
+                """,
                 DrugListItemDTO.class);
         query.setParameter("demoId", demographicId);
         return query.getResultList();

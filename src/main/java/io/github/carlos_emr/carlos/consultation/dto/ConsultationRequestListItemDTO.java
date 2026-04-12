@@ -23,7 +23,10 @@ package io.github.carlos_emr.carlos.consultation.dto;
 
 import java.io.Serializable;
 import java.util.Date;
+import java.util.Objects;
 
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.utility.DtoFormatUtils;
 
 /**
@@ -111,6 +114,29 @@ public class ConsultationRequestListItemDTO implements Serializable {
         this.lastUpdateDate = lastUpdateDate;
         this.specialistLastName = specialistLastName;
         this.specialistFirstName = specialistFirstName;
+    }
+
+    /**
+     * Creates a DTO from a full {@link ConsultationRequest} entity. Pulls
+     * specialist name from the already-loaded {@code ProfessionalSpecialist}
+     * relationship when present; otherwise leaves it null.
+     *
+     * @param cr ConsultationRequest the entity to convert; must not be null
+     * @return ConsultationRequestListItemDTO a lightweight projection
+     * @since 2026-04-12
+     */
+    public static ConsultationRequestListItemDTO fromEntity(ConsultationRequest cr) {
+        Objects.requireNonNull(cr, "ConsultationRequest entity must not be null for DTO conversion");
+        ProfessionalSpecialist ps = cr.getProfessionalSpecialist();
+        return new ConsultationRequestListItemDTO(
+                cr.getId(), cr.getReferralDate(), cr.getServiceId(), cr.getDemographicId(),
+                cr.getProviderNo(), cr.getStatus(), cr.getStatusText(), cr.getUrgency(),
+                cr.getReasonForReferral(), cr.getAppointmentDate(), cr.getFollowUpDate(),
+                cr.getSendTo(), cr.getSiteName(), cr.getLetterheadName(), cr.getSource(),
+                cr.getLastUpdateDate(),
+                ps == null ? null : ps.getLastName(),
+                ps == null ? null : ps.getFirstName()
+        );
     }
 
     /**

@@ -23,6 +23,10 @@ package io.github.carlos_emr.carlos.casemgmt.dto;
 
 import java.io.Serializable;
 import java.util.Date;
+import java.util.Objects;
+
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
+import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 
 /**
  * Lightweight DTO for case management issue list views. Eliminates the
@@ -92,6 +96,27 @@ public class CaseManagementIssueListDTO implements Serializable {
         this.programId = programId;
         this.issueCode = issueCode;
         this.issueDescription = issueDescription;
+    }
+
+    /**
+     * Creates a DTO from a full {@link CaseManagementIssue} entity. Pulls
+     * {@code issue.code}/{@code issue.description} via the already-loaded
+     * {@code Issue} relationship when present; otherwise leaves them null.
+     *
+     * @param cmi CaseManagementIssue the entity to convert; must not be null
+     * @return CaseManagementIssueListDTO a lightweight projection
+     * @since 2026-04-12
+     */
+    public static CaseManagementIssueListDTO fromEntity(CaseManagementIssue cmi) {
+        Objects.requireNonNull(cmi, "CaseManagementIssue entity must not be null for DTO conversion");
+        Issue issue = cmi.getIssue();
+        return new CaseManagementIssueListDTO(
+                cmi.getId(), cmi.getDemographic_no(), cmi.getIssue_id(), cmi.getType(),
+                cmi.isAcute(), cmi.isCertain(), cmi.isMajor(), cmi.isResolved(),
+                cmi.getUpdate_date(), cmi.getProgram_id(),
+                issue == null ? null : issue.getCode(),
+                issue == null ? null : issue.getDescription()
+        );
     }
 
     public Long getId() { return id; }

@@ -829,7 +829,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
      */
     @Override
     public List<ConsultationRequestListItemDTO> getConsultationDTOs(LoggedInInfo loggedInInfo, Integer demographicId) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicId)) {
             throw new SecurityException("missing required sec object (_con)");
         }
         List<ConsultationRequestListItemDTO> results = consultationRequestDtoDao.findConsultationDTOsByDemographicId(demographicId);

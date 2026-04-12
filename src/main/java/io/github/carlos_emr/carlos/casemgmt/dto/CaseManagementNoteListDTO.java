@@ -23,7 +23,10 @@ package io.github.carlos_emr.carlos.casemgmt.dto;
 
 import java.io.Serializable;
 import java.util.Date;
+import java.util.Objects;
 
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.DtoFormatUtils;
 
 /**
@@ -71,12 +74,31 @@ public class CaseManagementNoteListDTO implements Serializable {
     private String providerLastName;
     private String providerFirstName;
 
+    /** Default constructor for serialization/framework binding. */
     public CaseManagementNoteListDTO() {
     }
 
     /**
      * Projection constructor for HQL constructor expressions.
      * Parameter order must match the SELECT NEW clause exactly.
+     *
+     * @param id Long note row identifier
+     * @param updateDate Date last-update timestamp
+     * @param observationDate Date clinical observation date
+     * @param demographicNo String demographic surrogate key (String per HBM mapping)
+     * @param signed boolean signature flag
+     * @param providerNo String authoring provider number
+     * @param signingProviderNo String signing provider number (may differ from authoring provider)
+     * @param encounterType String encounter type code
+     * @param billingCode String billing code
+     * @param programNo String program number
+     * @param uuid String note UUID used for history linkage
+     * @param locked boolean locked flag
+     * @param archived boolean archived flag
+     * @param appointmentNo Integer associated appointment id (nullable)
+     * @param providerLastName String authoring provider last name (from LEFT JOIN)
+     * @param providerFirstName String authoring provider first name (from LEFT JOIN)
+     * @since 2026-04-11
      */
     public CaseManagementNoteListDTO(Long id, Date updateDate, Date observationDate,
                                      String demographicNo, boolean signed, String providerNo,
@@ -100,6 +122,29 @@ public class CaseManagementNoteListDTO implements Serializable {
         this.appointmentNo = appointmentNo;
         this.providerLastName = providerLastName;
         this.providerFirstName = providerFirstName;
+    }
+
+    /**
+     * Creates a DTO from a full {@link CaseManagementNote} entity. Pulls provider
+     * name from the already-loaded {@code Provider} relationship when present;
+     * otherwise leaves it null.
+     *
+     * @param cmn CaseManagementNote the entity to convert; must not be null
+     * @return CaseManagementNoteListDTO a lightweight projection
+     * @since 2026-04-12
+     */
+    public static CaseManagementNoteListDTO fromEntity(CaseManagementNote cmn) {
+        Objects.requireNonNull(cmn, "CaseManagementNote entity must not be null for DTO conversion");
+        Provider provider = cmn.getProvider();
+        return new CaseManagementNoteListDTO(
+                cmn.getId(), cmn.getUpdate_date(), cmn.getObservation_date(),
+                cmn.getDemographic_no(), cmn.isSigned(), cmn.getProviderNo(),
+                cmn.getSigning_provider_no(), cmn.getEncounter_type(),
+                cmn.getBilling_code(), cmn.getProgram_no(), cmn.getUuid(),
+                cmn.isLocked(), cmn.isArchived(), cmn.getAppointmentNo(),
+                provider == null ? null : provider.getLastName(),
+                provider == null ? null : provider.getFirstName()
+        );
     }
 
     /**

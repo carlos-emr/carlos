@@ -227,8 +227,18 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
      */
     @Override
     public List<ConsultationRequestListItemDTO> findConsultationDTOsByDemographicId(Integer demographicId) {
-        Query query = entityManager.createQuery(
-                "SELECT NEW io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemDTO(cr.id, cr.referralDate, cr.serviceId, cr.demographicId, cr.providerNo, cr.status, cr.statusText, cr.urgency, cr.reasonForReferral, cr.appointmentDate, cr.followUpDate, cr.sendTo, cr.siteName, cr.letterheadName, cr.source, cr.lastUpdateDate, ps.lastName, ps.firstName) FROM ConsultationRequest cr LEFT JOIN cr.professionalSpecialist ps WHERE cr.demographicId = :demoId ORDER BY cr.referralDate DESC");
+        Query query = entityManager.createQuery("""
+                SELECT NEW io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemDTO(
+                    cr.id, cr.referralDate, cr.serviceId, cr.demographicId,
+                    cr.providerNo, cr.status, cr.statusText, cr.urgency,
+                    cr.reasonForReferral, cr.appointmentDate, cr.followUpDate,
+                    cr.sendTo, cr.siteName, cr.letterheadName, cr.source, cr.lastUpdateDate,
+                    ps.lastName, ps.firstName)
+                FROM ConsultationRequest cr
+                LEFT JOIN cr.professionalSpecialist ps
+                WHERE cr.demographicId = :demoId
+                ORDER BY cr.referralDate DESC
+                """);
         query.setParameter("demoId", demographicId);
         return query.getResultList();
     }

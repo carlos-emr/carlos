@@ -513,8 +513,19 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
      */
     @Override
     public List<DocumentListItemDTO> findDocumentDTOsByDemographicNo(Integer demographicNo) {
-        Query query = entityManager.createQuery(
-                "SELECT NEW io.github.carlos_emr.carlos.documentManager.dto.DocumentListItemDTO(d.documentNo, d.doctype, d.docClass, d.docSubClass, d.docdesc, d.docfilename, d.doccreator, d.responsible, d.source, d.status, d.contenttype, d.contentdatetime, d.observationdate, d.reviewer, d.reviewdatetime, d.numberofpages, d.appointmentNo, d.abnormal) FROM Document d WHERE d.documentNo IN (SELECT c.id.documentNo FROM CtlDocument c WHERE c.id.module = 'demographic' AND c.id.moduleId = :demoNo) AND d.status != 'D' ORDER BY d.observationdate DESC");
+        Query query = entityManager.createQuery("""
+                SELECT NEW io.github.carlos_emr.carlos.documentManager.dto.DocumentListItemDTO(
+                    d.documentNo, d.doctype, d.docClass, d.docSubClass, d.docdesc,
+                    d.docfilename, d.doccreator, d.responsible, d.source, d.status,
+                    d.contenttype, d.contentdatetime, d.observationdate, d.reviewer,
+                    d.reviewdatetime, d.numberofpages, d.appointmentNo, d.abnormal)
+                FROM Document d
+                WHERE d.documentNo IN (
+                    SELECT c.id.documentNo FROM CtlDocument c
+                    WHERE c.id.module = 'demographic' AND c.id.moduleId = :demoNo)
+                AND d.status != 'D'
+                ORDER BY d.observationdate DESC
+                """);
         query.setParameter("demoNo", demographicNo);
         return query.getResultList();
     }

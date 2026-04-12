@@ -174,8 +174,15 @@ public class AllergyDaoImpl extends AbstractDaoImpl<Allergy> implements AllergyD
      */
     @Override
     public List<AllergyListItemDTO> findAllergyDTOsByDemographicNo(Integer demographicNo) {
-        Query query = entityManager.createQuery(
-                "SELECT NEW io.github.carlos_emr.carlos.allergy.dto.AllergyListItemDTO(a.id, a.demographicNo, a.entryDate, a.description, a.reaction, a.archived, a.nonDrug, a.typeCode, a.startDate, a.severityOfReaction, a.onsetOfReaction, a.lifeStage, a.reactionType, a.providerNo) FROM Allergy a WHERE a.demographicNo = :demoNo ORDER BY a.entryDate DESC");
+        Query query = entityManager.createQuery("""
+                SELECT NEW io.github.carlos_emr.carlos.allergy.dto.AllergyListItemDTO(
+                    a.id, a.demographicNo, a.entryDate, a.description, a.reaction,
+                    a.archived, a.nonDrug, a.typeCode, a.startDate, a.severityOfReaction,
+                    a.onsetOfReaction, a.lifeStage, a.reactionType, a.providerNo)
+                FROM Allergy a
+                WHERE a.demographicNo = :demoNo
+                ORDER BY a.entryDate DESC
+                """);
         query.setParameter("demoNo", demographicNo);
         return query.getResultList();
     }

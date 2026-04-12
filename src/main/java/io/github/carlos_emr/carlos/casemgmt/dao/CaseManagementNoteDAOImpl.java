@@ -743,8 +743,20 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNoteListDTO> findNoteDTOsByDemographicNo(String demographicNo) {
-        Query<CaseManagementNoteListDTO> query = currentSession().createQuery(
-                "SELECT NEW io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteListDTO(cmn.id, cmn.update_date, cmn.observation_date, cmn.demographic_no, cmn.signed, cmn.providerNo, cmn.signing_provider_no, cmn.encounter_type, cmn.billing_code, cmn.program_no, cmn.uuid, cmn.locked, cmn.archived, cmn.appointmentNo, p.LastName, p.FirstName) FROM CaseManagementNote cmn LEFT JOIN Provider p ON p.ProviderNo = cmn.providerNo WHERE cmn.demographic_no = :demoNo ORDER BY cmn.observation_date DESC",
+        // HBM-mapped Provider uses PascalCase property names (ProviderNo, LastName,
+        // FirstName) per Provider.hbm.xml; HQL must reference the HBM name attribute.
+        Query<CaseManagementNoteListDTO> query = currentSession().createQuery("""
+                SELECT NEW io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteListDTO(
+                    cmn.id, cmn.update_date, cmn.observation_date, cmn.demographic_no,
+                    cmn.signed, cmn.providerNo, cmn.signing_provider_no, cmn.encounter_type,
+                    cmn.billing_code, cmn.program_no, cmn.uuid,
+                    cmn.locked, cmn.archived, cmn.appointmentNo,
+                    p.LastName, p.FirstName)
+                FROM CaseManagementNote cmn
+                LEFT JOIN Provider p ON p.ProviderNo = cmn.providerNo
+                WHERE cmn.demographic_no = :demoNo
+                ORDER BY cmn.observation_date DESC
+                """,
                 CaseManagementNoteListDTO.class);
         query.setParameter("demoNo", demographicNo);
         return query.list();

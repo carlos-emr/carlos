@@ -242,8 +242,16 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
      */
     @Override
     public List<PreventionListItemDTO> findPreventionDTOsByDemographicId(Integer demographicId) {
-        Query query = entityManager.createQuery(
-                "SELECT NEW io.github.carlos_emr.carlos.prevention.dto.PreventionListItemDTO(p.id, p.demographicId, p.preventionType, p.preventionDate, p.creationDate, p.providerNo, p.creatorProviderNo, p.deleted, p.refused, p.never, p.nextDate, p.lastUpdateDate) FROM Prevention p WHERE p.demographicId = :demoId ORDER BY p.preventionDate DESC");
+        Query query = entityManager.createQuery("""
+                SELECT NEW io.github.carlos_emr.carlos.prevention.dto.PreventionListItemDTO(
+                    p.id, p.demographicId, p.preventionType, p.preventionDate,
+                    p.creationDate, p.providerNo, p.creatorProviderNo,
+                    p.deleted, p.refused, p.never,
+                    p.nextDate, p.lastUpdateDate)
+                FROM Prevention p
+                WHERE p.demographicId = :demoId
+                ORDER BY p.preventionDate DESC
+                """);
         query.setParameter("demoId", demographicId);
         return query.getResultList();
     }

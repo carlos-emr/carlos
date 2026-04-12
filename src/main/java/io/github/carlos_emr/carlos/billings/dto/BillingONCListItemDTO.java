@@ -33,6 +33,15 @@ import java.util.Date;
  * <p>Omits: full BillingONItem EAGER collection, HIN/ver/DOB (PHI), internal
  * transaction codes, reference numbers, provider OHIP/RMA numbers, etc.</p>
  *
+ * <p><b>No {@code fromEntity(...)} helper:</b> {@code BillingONCHeader1} stores
+ * {@code billingDate}, {@code billingTime}, and {@code admissionDate} as
+ * {@code String} fields but exposes them only through {@code Date}-returning
+ * getters (one of which declares a checked {@code ParseException}). Matching
+ * the JPQL field-access projection from an in-memory entity would require a
+ * fragile {@code SimpleDateFormat} round-trip. Construct this DTO via the
+ * JPQL {@code SELECT NEW} projection (the only supported path in practice)
+ * rather than from an entity instance.</p>
+ *
  * @since 2026-04-11
  */
 public class BillingONCListItemDTO implements Serializable {

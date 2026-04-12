@@ -23,6 +23,9 @@ package io.github.carlos_emr.carlos.prevention.dto;
 
 import java.io.Serializable;
 import java.util.Date;
+import java.util.Objects;
+
+import io.github.carlos_emr.carlos.commn.model.Prevention;
 
 /**
  * Lightweight data transfer object for immunization/prevention history list views,
@@ -87,6 +90,31 @@ public class PreventionListItemDTO implements Serializable {
         this.never = never;
         this.nextDate = nextDate;
         this.lastUpdateDate = lastUpdateDate;
+    }
+
+    /**
+     * Creates a DTO from a full {@link Prevention} entity. Preserves the raw
+     * multi-valued {@code refused} status ('0'..'3') via {@code getRefusedRawValue()}
+     * — the boolean accessor {@code isRefused()} would collapse '2' (ineligible) and
+     * '3' (completed externally) back to '0', which this helper avoids.
+     *
+     * @param p Prevention the entity to convert; must not be null
+     * @return PreventionListItemDTO a lightweight projection
+     * @since 2026-04-12
+     */
+    public static PreventionListItemDTO fromEntity(Prevention p) {
+        Objects.requireNonNull(p, "Prevention entity must not be null for DTO conversion");
+        int refusedRaw = p.getRefusedRawValue();
+        char refused = (refusedRaw >= 0 && refusedRaw <= 3) ? (char) ('0' + refusedRaw) : '0';
+        return new PreventionListItemDTO(
+                p.getId(), p.getDemographicId(), p.getPreventionType(),
+                p.getPreventionDate(), p.getCreationDate(), p.getProviderNo(),
+                p.getCreatorProviderNo(),
+                p.isDeleted() ? '1' : '0',
+                refused,
+                p.isNever() ? '1' : '0',
+                p.getNextDate(), p.getLastUpdateDate()
+        );
     }
 
     /**

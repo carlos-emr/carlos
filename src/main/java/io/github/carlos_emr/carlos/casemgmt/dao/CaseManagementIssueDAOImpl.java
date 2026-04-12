@@ -217,8 +217,17 @@ public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements 
             log.warn("findIssueDTOsByDemographicNo: invalid demographicNo '{}'", LogSanitizer.sanitize(demographicNo));
             return new ArrayList<>();
         }
-        org.hibernate.query.Query<CaseManagementIssueListDTO> query = currentSession().createQuery(
-                "SELECT NEW io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementIssueListDTO(cmi.id, cmi.demographic_no, cmi.issue_id, cmi.type, cmi.acute, cmi.certain, cmi.major, cmi.resolved, cmi.update_date, cmi.program_id, i.code, i.description) FROM CaseManagementIssue cmi LEFT JOIN cmi.issue i WHERE cmi.demographic_no = :demoNo ORDER BY cmi.update_date DESC",
+        org.hibernate.query.Query<CaseManagementIssueListDTO> query = currentSession().createQuery("""
+                SELECT NEW io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementIssueListDTO(
+                    cmi.id, cmi.demographic_no, cmi.issue_id, cmi.type,
+                    cmi.acute, cmi.certain, cmi.major, cmi.resolved,
+                    cmi.update_date, cmi.program_id,
+                    i.code, i.description)
+                FROM CaseManagementIssue cmi
+                LEFT JOIN cmi.issue i
+                WHERE cmi.demographic_no = :demoNo
+                ORDER BY cmi.update_date DESC
+                """,
                 CaseManagementIssueListDTO.class);
         query.setParameter("demoNo", demoNoInt);
         return query.list();
