@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,16 +16,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
- *
- *
- * Now maintained by the CARLOS EMR Project (2026+).
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.admin.web;
 
@@ -41,22 +34,22 @@ import org.apache.struts2.ServletActionContext;
 /**
  * Admin action for uploading a new flowsheet XML definition.
  *
- * <p>Requires any of {@code _admin r}, {@code _admin.misc r}, or {@code _admin.flowsheet r}
+ * <p>Requires any of {@code _admin w}, {@code _admin.misc w}, or {@code _admin.flowsheet w}
  * privilege and POST method. After the security and method checks, forwards to the JSP which
  * handles the multipart file upload. On completion the JSP redirects to the flowsheet list
  * (PRG pattern).</p>
  *
  * @since 2026-04-05
+ * @throws SecurityException if the logged-in user lacks the required admin privilege
  */
 public class ManageFlowsheetsUpload2Action extends ActionSupport {
-
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     @Override
     public String execute() throws Exception {
+        HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
@@ -66,7 +59,7 @@ public class ManageFlowsheetsUpload2Action extends ActionSupport {
         }
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(405);
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
             return NONE;
         }
 

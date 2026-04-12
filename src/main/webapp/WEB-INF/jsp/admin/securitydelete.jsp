@@ -49,19 +49,12 @@
     }
 %>
 
-<%@ page import="java.sql.*, java.util.*" errorPage="/errorpage.jsp" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogAction,io.github.carlos_emr.carlos.log.LogConst" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
+<%@ page errorPage="/errorpage.jsp" %>
 <%
-    if (!"POST".equalsIgnoreCase(request.getMethod())) {
-        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
-        return;
-    }
-    SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
+    // Delete logic is handled by SecurityDelete2Action; this JSP only displays results.
+    String msg = (String) request.getAttribute("msg");
+    if (msg == null) msg = "";
 %>
 <html>
     <head>
@@ -76,29 +69,8 @@
                     <fmt:message key="admin.securitydelete.description"/></font></th>
             </tr>
         </table>
-        <%
-            int rowsAffected = 0;
-            Security s = securityDao.find(Integer.parseInt(request.getParameter("keyword")));
-            if (s != null) {
-                securityDao.remove(s.getId());
-                rowsAffected = 1;
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_SECURITY,
-                        request.getParameter("keyword"), request.getRemoteAddr());
-            }
-
-            if (rowsAffected == 1) {
-        %>
         <p>
-        <h2><fmt:message key="admin.securitydelete.msgDeletionSuccess"/>:
-            <%= Encode.forHtml(StringUtils.noNull(request.getParameter("keyword"))) %>.</h2>
-        <%
-        } else {
-        %>
-        <h1><fmt:message key="admin.securitydelete.msgDeletionFailure"/>:
-            <%= Encode.forHtml(StringUtils.noNull(request.getParameter("keyword"))) %>.</h1>
-        <%
-            }
-        %>
+        <h2><%= Encode.forHtml(msg) %></h2>
         <p></p>
 
     </center>

@@ -117,9 +117,9 @@
     </div>
 
     <form method="post" name="baseurl" action="${pageContext.request.contextPath}/admin/UnLock.do">
-        <% if (!msg.equals("")) { %>
+        <% if (!msg.isEmpty()) { %>
         <div class="alert alert-success">
-            <%=msg%>
+            <%= Encode.forHtml(msg) %>
         </div>
         <% } %>
         <div class="card card-body bg-body-tertiary">

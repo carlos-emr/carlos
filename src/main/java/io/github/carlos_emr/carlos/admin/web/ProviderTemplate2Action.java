@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,28 +16,22 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
- *
- *
- * Now maintained by the CARLOS EMR Project (2026+).
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.admin.web;
 
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.EncounterTemplateDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterTemplate;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -50,17 +45,16 @@ import org.apache.struts2.ServletActionContext;
  * and requires {@code _newCasemgmt.templates w} privilege.</p>
  *
  * @since 2026-04-05
+ * @throws SecurityException if the logged-in user lacks the required admin privilege
  */
 public class ProviderTemplate2Action extends ActionSupport {
-
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private EncounterTemplateDao encounterTemplateDao = SpringUtils.getBean(EncounterTemplateDao.class);
 
     @Override
     public String execute() throws Exception {
+        HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.templates", "w", null)) {
@@ -74,25 +68,44 @@ public class ProviderTemplate2Action extends ActionSupport {
                 && ("Save".equalsIgnoreCase(trimmedOp) || "Delete".equalsIgnoreCase(trimmedOp))) {
 
             String templateName = request.getParameter("name");
-            if ("Save".equalsIgnoreCase(trimmedOp)) {
-                String templateValue = request.getParameter("value");
-                EncounterTemplate existing = encounterTemplateDao.find(templateName);
-                if (existing != null) {
-                    existing.setEncounterTemplateValue(templateValue);
-                    encounterTemplateDao.merge(existing);
-                } else {
-                    EncounterTemplate newTemplate = new EncounterTemplate();
-                    newTemplate.setEncounterTemplateName(templateName);
-                    newTemplate.setEncounterTemplateValue(templateValue);
-                    newTemplate.setCreatorProviderNo(loggedInInfo.getLoggedInProviderNo());
-                    newTemplate.setCreatedDate(new java.util.Date());
-                    encounterTemplateDao.persist(newTemplate);
+            if (templateName == null || templateName.trim().isEmpty()) {
+                request.setAttribute("resultMsg", "Template name is required.");
+            } else if ("Save".equalsIgnoreCase(trimmedOp)) {
+                try {
+                    String templateValue = request.getParameter("value");
+                    EncounterTemplate existing = encounterTemplateDao.find(templateName);
+                    if (existing != null) {
+                        existing.setEncounterTemplateValue(templateValue);
+                        encounterTemplateDao.merge(existing);
+                    } else {
+                        EncounterTemplate newTemplate = new EncounterTemplate();
+                        newTemplate.setEncounterTemplateName(templateName);
+                        newTemplate.setEncounterTemplateValue(templateValue);
+                        newTemplate.setCreatorProviderNo(loggedInInfo.getLoggedInProviderNo());
+                        newTemplate.setCreatedDate(new java.util.Date());
+                        encounterTemplateDao.persist(newTemplate);
+                    }
+                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(),
+                            LogConst.UPDATE, "encounterTemplate", templateName, request.getRemoteAddr());
+                    request.setAttribute("resultMsg", "Template saved.");
+                } catch (RuntimeException e) {
+                    MiscUtils.getLogger().error("Failed to save encounter template", e);
+                    request.setAttribute("resultMsg", "Failed to save template.");
                 }
             } else {
-                // Delete
-                EncounterTemplate toDelete = encounterTemplateDao.find(templateName);
-                if (toDelete != null) {
-                    encounterTemplateDao.remove(toDelete);
+                try {
+                    EncounterTemplate toDelete = encounterTemplateDao.find(templateName);
+                    if (toDelete != null) {
+                        encounterTemplateDao.remove(toDelete);
+                        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(),
+                                LogConst.DELETE, "encounterTemplate", templateName, request.getRemoteAddr());
+                        request.setAttribute("resultMsg", "Template deleted.");
+                    } else {
+                        request.setAttribute("resultMsg", "Template not found.");
+                    }
+                } catch (RuntimeException e) {
+                    MiscUtils.getLogger().error("Failed to delete encounter template", e);
+                    request.setAttribute("resultMsg", "Failed to delete template.");
                 }
             }
         }

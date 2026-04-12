@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,25 +16,14 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
- *
- *
- * Now maintained by the CARLOS EMR Project (2026+).
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.admin.web;
 
 import java.util.Vector;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-
-import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.login.LoginCheckLogin;
@@ -53,16 +43,15 @@ import org.apache.struts2.ServletActionContext;
  * Always loads the current lock list into the {@code lockList} request attribute.</p>
  *
  * @since 2026-04-05
+ * @throws SecurityException if the logged-in user lacks the required admin privilege
  */
 public class UnLock2Action extends ActionSupport {
-
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     @Override
     public String execute() {
+        HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)
@@ -76,13 +65,19 @@ public class UnLock2Action extends ActionSupport {
             String userName = request.getParameter("userName");
             if (userName != null && !userName.isEmpty()) {
                 LoginCheckLogin loginCheckLogin = new LoginCheckLogin();
-                loginCheckLogin.unlock(userName);
+                boolean wasLocked = loginCheckLogin.unlock(userName);
 
-                String providerNo = loggedInInfo.getLoggedInProviderNo();
-                String ip = request.getRemoteAddr();
-                LogAction.addLog(providerNo, "unlock", "adminUnlock", userName, ip);
-
-                request.setAttribute("msg", "Account unlocked: " + Encode.forHtml(userName));
+                if (wasLocked) {
+                    String providerNo = loggedInInfo.getLoggedInProviderNo();
+                    String ip = request.getRemoteAddr();
+                    LogAction.addLog(providerNo, "unlock", "adminUnlock", userName, ip);
+                    request.setAttribute("msg", "Account unlocked: ".concat(userName));
+                } else {
+                    request.setAttribute("msg",
+                            "Account was not in the lock list (it may have already been unlocked): ".concat(userName));
+                }
+            } else {
+                request.setAttribute("msg", "No username was selected.");
             }
         }
 

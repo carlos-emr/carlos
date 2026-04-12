@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,16 +16,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
- *
- *
- * Now maintained by the CARLOS EMR Project (2026+).
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.admin.web;
 
@@ -52,17 +45,17 @@ import org.apache.struts2.ServletActionContext;
  * Performs a hard delete via {@link SecurityDao} and logs the action for the audit trail.</p>
  *
  * @since 2026-04-05
+ * @throws SecurityException if the logged-in user lacks the required admin privilege
  */
 public class SecurityDelete2Action extends ActionSupport {
-
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
 
     @Override
     public String execute() throws Exception {
+        HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
@@ -71,13 +64,13 @@ public class SecurityDelete2Action extends ActionSupport {
         }
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(405);
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
             return NONE;
         }
 
         String securityNoStr = request.getParameter("keyword");
         if (securityNoStr != null && !securityNoStr.isEmpty()) {
-            executeDelete(loggedInInfo, securityNoStr);
+            executeDelete(request, loggedInInfo, securityNoStr);
         } else {
             request.setAttribute("msg", "No security identifier was provided.");
         }
@@ -91,7 +84,7 @@ public class SecurityDelete2Action extends ActionSupport {
      * @param loggedInInfo the current session context
      * @param securityNoStr the raw security-number parameter value
      */
-    private void executeDelete(LoggedInInfo loggedInInfo, String securityNoStr) {
+    private void executeDelete(HttpServletRequest request, LoggedInInfo loggedInInfo, String securityNoStr) {
         try {
             int securityNo = Integer.parseInt(securityNoStr);
             Security entity = securityDao.find(securityNo);
@@ -99,6 +92,12 @@ public class SecurityDelete2Action extends ActionSupport {
                 String userName = entity.getUserName();
                 try {
                     securityDao.remove(entity);
+                } catch (RuntimeException e) {
+                    MiscUtils.getLogger().error("Failed to delete security entry", e);
+                    request.setAttribute("msg", "Failed to delete security entry.");
+                    return;
+                }
+                try {
                     LogAction.addLog(
                         loggedInInfo.getLoggedInProviderNo(),
                         LogConst.DELETE,
@@ -106,12 +105,10 @@ public class SecurityDelete2Action extends ActionSupport {
                         securityNoStr,
                         request.getRemoteAddr()
                     );
-                    String encodedName = Encode.forHtml(userName);
-                    request.setAttribute("msg", "Security entry deleted for user: ".concat(encodedName));
                 } catch (RuntimeException e) {
-                    MiscUtils.getLogger().error("Failed to delete security entry", e);
-                    request.setAttribute("msg", "Failed to delete security entry.");
+                    MiscUtils.getLogger().error("Audit log failed after security entry deletion", e);
                 }
+                request.setAttribute("msg", "Security entry deleted for user: ".concat(Encode.forHtml(userName)));
             } else {
                 request.setAttribute("msg", "Security entry not found.");
             }
