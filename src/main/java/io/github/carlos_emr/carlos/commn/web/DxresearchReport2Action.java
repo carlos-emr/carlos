@@ -183,17 +183,17 @@ public class DxresearchReport2Action extends ActionSupport {
             return getQuickListName();
         }
 
-        request.getSession().setAttribute("listview", new DxRegistedPTInfo()); // nosemgrep: tainted-session-from-http-request -- new empty DxRegistedPTInfo object, no user input
+        request.getSession().setAttribute("listview", new DxRegistedPTInfo()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- new empty DxRegistedPTInfo object, no user input
         dxQuickListBeanHandler quicklistHd = new dxQuickListBeanHandler();
-        request.getSession().setAttribute("allQuickLists", quicklistHd); // nosemgrep: tainted-session-from-http-request -- DAO-sourced quick list handler, no user input
+        request.getSession().setAttribute("allQuickLists", quicklistHd); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- DAO-sourced quick list handler, no user input
         dxResearchCodingSystem codingSys = new dxResearchCodingSystem();
-        request.getSession().setAttribute("codingSystem", codingSys); // nosemgrep: tainted-session-from-http-request -- new coding system reference object, no user input
+        request.getSession().setAttribute("codingSystem", codingSys); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- new coding system reference object, no user input
         // Whitelist-validate the existing session value before writing it back (CWE-501).
         // If the value is null or not in the allowlist, remove it from session so that the
         // JSP fallback defaults to "patientRegistedAll" (see oscarReportDxReg.jsp).
         String radiovaluestatus = (String) request.getSession().getAttribute("radiovaluestatus");
         if (radiovaluestatus != null && VALID_STATUS_VALUES.contains(radiovaluestatus)) {
-            request.getSession().setAttribute("radiovaluestatus", radiovaluestatus); // nosemgrep: tainted-session-from-http-request -- allowlist-validated against VALID_STATUS_VALUES set
+            request.getSession().setAttribute("radiovaluestatus", radiovaluestatus); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- allowlist-validated against VALID_STATUS_VALUES set
         } else {
             request.getSession().removeAttribute("radiovaluestatus");
         }
@@ -210,12 +210,12 @@ public class DxresearchReport2Action extends ActionSupport {
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedAll(codeSearch, providerNoList);
-        request.getSession().setAttribute("listview", patientInfo); // nosemgrep: tainted-session-from-http-request -- provider_no validated by getValidatedProviderNoList(); patientInfo is DAO query result
+        request.getSession().setAttribute("listview", patientInfo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- provider_no validated by getValidatedProviderNoList(); patientInfo is DAO query result
         if (patientInfo == null || patientInfo.size() == 0) {
-            request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request -- hardcoded integer
+            request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- hardcoded integer
         } else
-            request.getSession().setAttribute("Counter", patientInfo.size()); // nosemgrep: tainted-session-from-http-request -- integer derived from list size
-        request.getSession().setAttribute("radiovaluestatus", "patientRegistedAll"); // nosemgrep: tainted-session-from-http-request -- hardcoded string literal
+            request.getSession().setAttribute("Counter", patientInfo.size()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- integer derived from list size
+        request.getSession().setAttribute("radiovaluestatus", "patientRegistedAll"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- hardcoded string literal
         return SUCCESS;
     }
 
@@ -263,12 +263,12 @@ public class DxresearchReport2Action extends ActionSupport {
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedDistincted(codeSearch, providerNoList);
-        request.getSession().setAttribute("listview", patientInfo); // nosemgrep: tainted-session-from-http-request -- provider_no validated; values are DAO results
+        request.getSession().setAttribute("listview", patientInfo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- provider_no validated; values are DAO results
         if (patientInfo == null || patientInfo.size() == 0) {
-            request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request -- hardcoded integer
+            request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- hardcoded integer
         } else
-            request.getSession().setAttribute("Counter", patientInfo.size()); // nosemgrep: tainted-session-from-http-request -- integer derived from list size
-        request.getSession().setAttribute("radiovaluestatus", "patientRegistedDistincted"); // nosemgrep: tainted-session-from-http-request -- hardcoded string literal
+            request.getSession().setAttribute("Counter", patientInfo.size()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- integer derived from list size
+        request.getSession().setAttribute("radiovaluestatus", "patientRegistedDistincted"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- hardcoded string literal
         return SUCCESS;
     }
 
@@ -291,12 +291,12 @@ public class DxresearchReport2Action extends ActionSupport {
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedDeleted(codeSearch, providerNoList);
-        request.getSession().setAttribute("listview", patientInfo); // nosemgrep: tainted-session-from-http-request -- provider_no validated; values are DAO results
+        request.getSession().setAttribute("listview", patientInfo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- provider_no validated; values are DAO results
         if (patientInfo == null || patientInfo.size() == 0) {
-            request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request -- hardcoded integer
+            request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- hardcoded integer
         } else
-            request.getSession().setAttribute("Counter", patientInfo.size()); // nosemgrep: tainted-session-from-http-request -- integer derived from list size
-        request.getSession().setAttribute("radiovaluestatus", "patientRegistedDeleted"); // nosemgrep: tainted-session-from-http-request -- hardcoded string literal
+            request.getSession().setAttribute("Counter", patientInfo.size()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- integer derived from list size
+        request.getSession().setAttribute("radiovaluestatus", "patientRegistedDeleted"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- hardcoded string literal
         return SUCCESS;
     }
 
@@ -309,12 +309,12 @@ public class DxresearchReport2Action extends ActionSupport {
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedActive(codeSearch, providerNoList);
-        request.getSession().setAttribute("listview", patientInfo); // nosemgrep: tainted-session-from-http-request -- provider_no validated; values are DAO results
+        request.getSession().setAttribute("listview", patientInfo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- provider_no validated; values are DAO results
         if (patientInfo == null || patientInfo.size() == 0) {
-            request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request -- hardcoded integer
+            request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- hardcoded integer
         } else
-            request.getSession().setAttribute("Counter", patientInfo.size()); // nosemgrep: tainted-session-from-http-request -- integer derived from list size
-        request.getSession().setAttribute("radiovaluestatus", "patientRegistedActive"); // nosemgrep: tainted-session-from-http-request -- hardcoded string literal
+            request.getSession().setAttribute("Counter", patientInfo.size()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- integer derived from list size
+        request.getSession().setAttribute("radiovaluestatus", "patientRegistedActive"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- hardcoded string literal
         return SUCCESS;
     }
 
@@ -327,12 +327,12 @@ public class DxresearchReport2Action extends ActionSupport {
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedResolve(codeSearch, providerNoList);
-        request.getSession().setAttribute("listview", patientInfo); // nosemgrep: tainted-session-from-http-request -- provider_no validated; values are DAO results
+        request.getSession().setAttribute("listview", patientInfo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- provider_no validated; values are DAO results
         if (patientInfo == null || patientInfo.size() == 0) {
-            request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request -- hardcoded integer
+            request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- hardcoded integer
         } else
-            request.getSession().setAttribute("Counter", patientInfo.size()); // nosemgrep: tainted-session-from-http-request -- integer derived from list size
-        request.getSession().setAttribute("radiovaluestatus", "patientRegistedResolve"); // nosemgrep: tainted-session-from-http-request -- hardcoded string literal
+            request.getSession().setAttribute("Counter", patientInfo.size()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- integer derived from list size
+        request.getSession().setAttribute("radiovaluestatus", "patientRegistedResolve"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- hardcoded string literal
         return SUCCESS;
     }
 
@@ -345,7 +345,7 @@ public class DxresearchReport2Action extends ActionSupport {
 
         // Length-limit before storing in session to avoid unbounded session storage; output encoding is applied at render time in the JSP.
         editingCodeDesc = editingCodeDesc != null && editingCodeDesc.length() > 1000 ? editingCodeDesc.substring(0, 1000) : editingCodeDesc;
-        request.getSession().setAttribute("editingCodeDesc", editingCodeDesc); // nosemgrep: tainted-session-from-http-request -- raw value is stored intentionally and output encoding is applied at render time
+        request.getSession().setAttribute("editingCodeDesc", editingCodeDesc); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- raw value is stored intentionally and output encoding is applied at render time
 
         return SUCCESS;
     }
@@ -399,7 +399,7 @@ public class DxresearchReport2Action extends ActionSupport {
             codeSearch.add(newAddition);
         }
 
-        request.getSession().setAttribute("codeSearch", codeSearch); // nosemgrep: tainted-session-from-http-request -- codeSystem allowlisted via enum valueOf(); codeSingle validated by CODE_PATTERN; codeDescription from DAO lookup
+        request.getSession().setAttribute("codeSearch", codeSearch); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- codeSystem allowlisted via enum valueOf(); codeSingle validated by CODE_PATTERN; codeDescription from DAO lookup
         return SUCCESS;
     }
 
@@ -412,7 +412,7 @@ public class DxresearchReport2Action extends ActionSupport {
             existcodeSearch.clear();
         }
 
-        request.getSession().setAttribute("codeSearch", existcodeSearch); // nosemgrep: tainted-session-from-http-request -- cleared list from existing session attribute, no new user input
+        request.getSession().setAttribute("codeSearch", existcodeSearch); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- cleared list from existing session attribute, no new user input
 
         return SUCCESS;
     }

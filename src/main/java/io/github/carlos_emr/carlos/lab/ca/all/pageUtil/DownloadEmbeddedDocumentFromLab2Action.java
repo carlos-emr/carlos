@@ -85,7 +85,7 @@ public class DownloadEmbeddedDocumentFromLab2Action extends ActionSupport {
 
         // Write file to response.
         OutputStream output = response.getOutputStream();
-        output.write(decodedData); // nosemgrep: no-direct-response-writer -- application/pdf binary write
+        output.write(decodedData); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- application/pdf binary write
         output.close();
 
 

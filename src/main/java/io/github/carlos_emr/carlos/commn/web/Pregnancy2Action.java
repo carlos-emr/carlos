@@ -298,7 +298,7 @@ public class Pregnancy2Action extends ActionSupport {
             } else {
                 p.setProperty("o_otherTests1", "Vaginal Anal GBS");
             }
-            request.getSession().setAttribute("labReq07" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
+            request.getSession().setAttribute("labReq07" + demographicNo, p); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep - demographicNo validated as numeric at method entry
         } else {
             FrmLabReq10Record lr = new FrmLabReq10Record();
             Properties p = lr.getFormRecord(loggedInInfo, demographicNo, 0);
@@ -309,7 +309,7 @@ public class Pregnancy2Action extends ActionSupport {
             } else {
                 p.setProperty("o_otherTests1", "Vaginal Anal GBS");
             }
-            request.getSession().setAttribute("labReq10" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
+            request.getSession().setAttribute("labReq10" + demographicNo, p); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep - demographicNo validated as numeric at method entry
         }
 
         return null;
@@ -339,7 +339,7 @@ public class Pregnancy2Action extends ActionSupport {
             if (hbElectrophoresis != null && hbElectrophoresis.equals("checked")) {
                 p.setProperty("o_otherTests1", "Hb Electrophoresis");
             }
-            request.getSession().setAttribute("labReq07" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
+            request.getSession().setAttribute("labReq07" + demographicNo, p); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep - demographicNo validated as numeric at method entry
 
         } else {
             FrmLabReq10Record lr = new FrmLabReq10Record();
@@ -352,7 +352,7 @@ public class Pregnancy2Action extends ActionSupport {
             if (hbElectrophoresis != null && hbElectrophoresis.equals("checked")) {
                 p.setProperty("o_otherTests1", "Hb Electrophoresis");
             }
-            request.getSession().setAttribute("labReq10" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
+            request.getSession().setAttribute("labReq10" + demographicNo, p); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep - demographicNo validated as numeric at method entry
 
         }
 
@@ -379,7 +379,7 @@ public class Pregnancy2Action extends ActionSupport {
         ObjectNode json = objectMapper.valueToTree(new LabelValueBean("allergies", output.toString().trim()));
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().println(json); // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type
+        response.getWriter().println(json); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- JSON API response with application/json content-type
         return null;
     }
 
@@ -413,7 +413,7 @@ public class Pregnancy2Action extends ActionSupport {
         ObjectNode json = objectMapper.valueToTree(new LabelValueBean("meds", output.toString().trim()));
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().println(json); // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type
+        response.getWriter().println(json); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- JSON API response with application/json content-type
         return null;
     }
 
@@ -475,7 +475,7 @@ public class Pregnancy2Action extends ActionSupport {
                 props.setProperty(name, request.getParameter(name));
             }
 
-            props.setProperty("provider_no", (String) request.getSession().getAttribute("user"));
+            props.setProperty("provider_no", (String) request.getSession().getAttribute("user")); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): reads authenticated provider from own session (set by Login2Action post-auth)
             newID = rec.saveFormRecord(props);
             String ip = request.getRemoteAddr();
             LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, formClass,
@@ -493,7 +493,7 @@ public class Pregnancy2Action extends ActionSupport {
 
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().print(jsonObj.toString()); // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type
+        response.getWriter().print(jsonObj.toString()); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- JSON API response with application/json content-type
 
         return null;
     }
@@ -511,7 +511,7 @@ public class Pregnancy2Action extends ActionSupport {
         ArrayNode json = objectMapper.valueToTree(m);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().print(json.toString()); // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type
+        response.getWriter().print(json.toString()); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- JSON API response with application/json content-type
 
         return null;
     }
@@ -655,7 +655,7 @@ Repeat antibody screen
                 p.setProperty("o_otherTests1", "1 Hr 50gm GLUCOSE Screen");
             }
 
-            request.getSession().setAttribute("labReq07" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
+            request.getSession().setAttribute("labReq07" + demographicNo, p); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep - demographicNo validated as numeric at method entry
         } else {
             FrmLabReq10Record lr = new FrmLabReq10Record();
             Properties p = lr.getFormRecord(loggedInInfo, demographicNo, 0);
@@ -674,7 +674,7 @@ Repeat antibody screen
                 p.setProperty("o_otherTests1", "1 Hr 50gm GLUCOSE Screen");
             }
 
-            request.getSession().setAttribute("labReq10" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
+            request.getSession().setAttribute("labReq10" + demographicNo, p); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep - demographicNo validated as numeric at method entry
         }
         return null;
     }
@@ -699,7 +699,7 @@ Repeat antibody screen
             if (glucose != null && glucose.equals("checked")) {
                 p.setProperty("o_otherTests1", "2 Hr 75gm GLUCOSE Screen");
             }
-            request.getSession().setAttribute("labReq07" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
+            request.getSession().setAttribute("labReq07" + demographicNo, p); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep - demographicNo validated as numeric at method entry
         } else {
             FrmLabReq10Record lr = new FrmLabReq10Record();
             Properties p = lr.getFormRecord(loggedInInfo, demographicNo, 0);
@@ -708,7 +708,7 @@ Repeat antibody screen
             if (glucose != null && glucose.equals("checked")) {
                 p.setProperty("o_otherTests1", "2 Hr 75gm GLUCOSE Screen");
             }
-            request.getSession().setAttribute("labReq10" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
+            request.getSession().setAttribute("labReq10" + demographicNo, p); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep - demographicNo validated as numeric at method entry
         }
         return null;
     }
@@ -871,7 +871,7 @@ Repeat antibody screen
         ArrayNode json = objectMapper.valueToTree(results);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().print(json.toString()); // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type
+        response.getWriter().print(json.toString()); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- JSON API response with application/json content-type
         return null;
     }
 }

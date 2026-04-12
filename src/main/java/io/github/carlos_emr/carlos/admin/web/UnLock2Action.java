@@ -43,7 +43,6 @@ import org.apache.struts2.ServletActionContext;
  * Always loads the current lock list into the {@code lockList} request attribute.</p>
  *
  * @since 2026-04-05
- * @throws SecurityException if the logged-in user lacks the required admin privilege
  */
 public class UnLock2Action extends ActionSupport {
 

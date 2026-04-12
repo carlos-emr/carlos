@@ -320,7 +320,7 @@ public class EctSaveEncounter2Action extends ActionSupport {
             httpservletrequest.setAttribute("encounter", "true");
             // nosemgrep: tainted-session-from-http-request -- appointment_no validated numeric above; apptProvider/patientName/patientNo
             // from authenticated EctSessionBean; billRegion/billForm from server config; apptDate from session; status validated [a-zA-Z]{1,2}
-            httpservletrequest.getSession().setAttribute("billingSessionBean", bean);
+            httpservletrequest.getSession().setAttribute("billingSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): bean fields validated (appointment_no numeric, status [a-zA-Z]{1,2}); providerNo/patientNo from validated EctSessionBean
             forward = "bill";
         } else if (httpservletrequest.getParameter("btnPressed").equals("Sign,Save and Exit")) {
             forward = "success";
