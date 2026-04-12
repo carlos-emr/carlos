@@ -1,0 +1,5 @@
+## Sentinel Journal
+## 2024-05-24 - SQL Injection via Raw String Concatenation in EFormReportToolDaoImpl
+**Vulnerability:** Found a severe SQL injection vulnerability in `EFormReportToolDaoImpl.populateReportTableItem`. User input from `EFormValue.getVarValue()` was being concatenated directly into a `createNativeQuery` string wrapped in single quotes without any sanitization or parameterized querying.
+**Learning:** Even internal utility functions like report population that might seem isolated from direct user requests can process user-supplied data (e-form field values in this case). When building dynamic SQL statements, especially INSERT queries with variable columns, we cannot rely on raw string concatenation for the data values.
+**Prevention:** Always use parameterized queries or prepared statements, even when the column names must be dynamically assembled. For dynamic INSERT statements, build the SQL string with parameter placeholders (e.g., `?`) and then use `query.setParameter(position, value)` to safely bind the user-supplied data.
