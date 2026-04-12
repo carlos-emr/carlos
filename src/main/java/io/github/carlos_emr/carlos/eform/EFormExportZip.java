@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.Map.Entry;
@@ -262,31 +263,30 @@ public class EFormExportZip {
         for (Entry<String, File> tempFile : tempFiles.entrySet()) {
             _log.info("looking at " + tempFile.getKey());
             if (eformTable.containsKey(tempFile.getKey())) {  //if file name matches eform
-                FileInputStream fis = new FileInputStream(tempFile.getValue());
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                inputToOutput(fis, baos);
-                String html = new String(baos.toByteArray());
-                _log.debug("THIS IS WHAT THE HTML is" + html);
-                eformTable.get(tempFile.getKey()).setFormHtml(html);
-                fis.close();
-                baos.close();
+                try (FileInputStream fis = new FileInputStream(tempFile.getValue());
+                     ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                    inputToOutput(fis, baos);
+                    String html = new String(baos.toByteArray(), StandardCharsets.UTF_8);
+                    _log.debug("THIS IS WHAT THE HTML is" + html);
+                    eformTable.get(tempFile.getKey()).setFormHtml(html);
+                }
             } else if (eformTableFailed.containsKey(tempFile.getKey())) {
                 //do not save file if eform fails
             } else {
-                FileInputStream fis = new FileInputStream(tempFile.getValue());
                 // Zip Slip prevention: validatePath() sanitizes the key and enforces
                 // containment within the image folder. The key is already basename-only
                 // from the extraction loop above, but validatePath() provides defence-in-depth.
                 File imageFile = PathValidationUtils.validatePath(tempFile.getKey(), ImageUpload2Action.getImageFolder());
                 if (imageFile.exists()) {
-                    errors.add("Image '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
-                    _log.info("EForm Import: Image with name '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
+                    errors.add("Image '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded. Please resolve.");
+                    _log.info("EForm Import: Image with name '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded. Please resolve.");
+                    continue;
                 }
-                try (OutputStream os = new FileOutputStream(imageFile)) {
+                try (FileInputStream fis = new FileInputStream(tempFile.getValue());
+                     OutputStream os = new FileOutputStream(imageFile)) {
                     inputToOutput(fis, os);
                 }
                 _log.info("Loaded eform file: " + tempFile.getKey());
-                fis.close();
             }
         }
         _log.info("Registering: " + eformTable.values().size() + " eforms");

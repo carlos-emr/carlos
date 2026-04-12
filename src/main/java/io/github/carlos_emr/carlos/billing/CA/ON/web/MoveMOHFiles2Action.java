@@ -207,7 +207,8 @@ public class MoveMOHFiles2Action extends ActionSupport {
      * which EDT folder category (e.g., inbox, outbox, error) the user is working with.</p>
      *
      * @param folderName String identifier for the EDT folder (e.g., "INBOX", "OUTBOX", "ERROR")
-     * @return String representing the absolute filesystem path for the specified EDT folder
+     * @return String the absolute filesystem path for the specified EDT folder,
+     *         or {@code null} if {@code folderName} does not match any known EDT folder
      */
     private String getFolderPath(String folderName) {
         EDTFolder folder = EDTFolder.getFolder(folderName);

@@ -28,6 +28,14 @@ public enum EDTFolder {
         return path;
     }
 
+    /**
+     * Returns the {@link EDTFolder} enum constant whose name matches {@code name}
+     * (case-insensitive).
+     *
+     * @param name String the folder name to look up (e.g., {@code "inbox"}, {@code "OUTBOX"})
+     * @return EDTFolder the matching enum constant, or {@code null} if no constant
+     *         matches {@code name}
+     */
     public static EDTFolder getFolder(String name) {
         for (EDTFolder f : EDTFolder.values()) {
             if (f.name().equalsIgnoreCase(name)) {
