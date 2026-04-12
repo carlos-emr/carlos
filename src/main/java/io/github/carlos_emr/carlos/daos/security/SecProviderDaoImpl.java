@@ -82,7 +82,13 @@ public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao
     public void delete(SecProvider persistentInstance) {
         logger.debug("deleting Provider instance");
         try {
-            entityManager().remove(persistentInstance);
+            // Pre-migration Hibernate Session.delete() accepted detached entities.
+            // JPA EntityManager.remove() requires a managed instance, so reattach via
+            // merge() first when the caller passes a detached entity.
+            SecProvider managed = entityManager().contains(persistentInstance)
+                    ? persistentInstance
+                    : entityManager().merge(persistentInstance);
+            entityManager().remove(managed);
             logger.debug("delete successful");
         } catch (RuntimeException re) {
             logger.error("delete failed", re);

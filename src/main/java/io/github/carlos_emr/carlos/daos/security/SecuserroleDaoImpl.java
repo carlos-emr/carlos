@@ -118,7 +118,13 @@ public class SecuserroleDaoImpl extends AbstractJpaDao implements SecuserroleDao
     public void delete(Secuserrole persistentInstance) {
         logger.debug("deleting Secuserrole instance");
         try {
-            entityManager().remove(persistentInstance);
+            // Pre-migration Hibernate Session.delete() accepted detached entities.
+            // JPA EntityManager.remove() requires a managed instance, so reattach via
+            // merge() first when the caller passes a detached entity.
+            Secuserrole managed = entityManager().contains(persistentInstance)
+                    ? persistentInstance
+                    : entityManager().merge(persistentInstance);
+            entityManager().remove(managed);
             logger.debug("delete successful");
         } catch (RuntimeException re) {
             logger.error("delete failed", re);

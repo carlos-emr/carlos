@@ -44,6 +44,7 @@ import org.apache.logging.log4j.Logger;
 import jakarta.persistence.Query;
 import jakarta.persistence.TypedQuery;
 import io.github.carlos_emr.carlos.commn.NativeSql;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.commn.dao.ProviderFacilityDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderFacility;
@@ -202,7 +203,8 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
             } catch (NumberFormatException e) {
                 // Caller asked for providers in a specific program but passed a non-numeric id.
                 // Return empty rather than silently widening the result to all active providers.
-                log.warn("getActiveProviders: non-numeric programId '{}', returning empty list", programId);
+                log.warn("getActiveProviders: non-numeric programId '{}', returning empty list",
+                        LogSanitizer.sanitize(programId));
                 return Collections.emptyList();
             }
         } else if (facilityId != null && "0".equals(facilityId) == false) {
