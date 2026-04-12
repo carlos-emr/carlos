@@ -506,7 +506,7 @@ function fmtOscarMsg() {
 
 											<c:if test="${ demoattached.key eq demographic_no }">
 												<input
-													onclick="javascript:popup('${ e:forJavaScript(demographic_no) }', '${ e:forJavaScript(messageID) }', '${ e:forJavaScript(providerNo) }');"
+													onclick="javascript:popup('${ e:forJavaScriptAttribute(demographic_no) }', '${ e:forJavaScriptAttribute(messageID) }', '${ e:forJavaScriptAttribute(providerNo) }');"
 													class="btn DoNotPrint" type="button"  name="writeToEncounter"
 													value="<fmt:message key="messenger.ViewMessage.writeToE" />">
 											 </c:if>
