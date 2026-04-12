@@ -467,9 +467,9 @@
                                class="form-control form-control-sm" style="width: 9rem;"
                                value="<%=Encode.forHtmlAttribute(UtilDateUtilities.DateToString(new java.util.Date(), "dd/MM/yyyy"))%>"
                                readonly>
-                        <div class="input-group-append">
+                        
                           <button type="button" id="f_trigger_b" class="btn btn-outline-secondary btn-sm"><i class="fa fa-calendar" aria-hidden="true"></i></button>
-                        </div>
+                        
                     </div>
                     <div class="form-text"><fmt:message key="ddmmyyyy"/></div>
                 </div>
