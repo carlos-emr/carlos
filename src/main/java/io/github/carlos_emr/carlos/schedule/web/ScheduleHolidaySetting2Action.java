@@ -43,6 +43,14 @@ public final class ScheduleHolidaySetting2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Validates schedule admin write privilege and POST-only enforcement for Save/Delete operations.
+     *
+     * @return String {@link #SUCCESS} when access is allowed, {@link #NONE} when a mutation arrived via non-POST
+     * @throws SecurityException when the required privilege is missing
+     * @throws Exception if writing the 405 response fails
+     * @since 2026-04-05
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -52,8 +60,9 @@ public final class ScheduleHolidaySetting2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin.schedule)");
         }
 
-        String dboperation = request.getParameter("dboperation");
-        boolean isMutation = dboperation != null && !dboperation.trim().isEmpty();
+        String op = request.getParameter("dboperation");
+        op = (op == null) ? "" : op.trim();
+        boolean isMutation = "Save".equalsIgnoreCase(op) || "Delete".equalsIgnoreCase(op);
         if (isMutation && !"POST".equalsIgnoreCase(request.getMethod())) {
             ServletActionContext.getResponse().sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;

@@ -43,6 +43,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     String wlid = (String) request.getAttribute("WLId");
     if (wlid == null) {
@@ -203,12 +204,12 @@
                                                     </option>
                                                 </c:forEach>
                                             </select>
-                                            <a href="#" onClick="popupPage(${ctr.index}, '${waitingListBean.patientName}', '${waitingListBean.demographicNo}', '${today}', 400, 780, '<%= request.getContextPath() %>/schedule/FlipView.do?originalpage=<%= request.getContextPath() %>/waitinglist/DisplayWaitingList.jsp'); return false;">
+                                            <a href="#" onClick="popupPage(${ctr.index}, '${e:forJavaScript(waitingListBean.patientName)}', '${e:forJavaScript(waitingListBean.demographicNo)}', '${e:forJavaScript(today)}', 400, 780, '<%= request.getContextPath() %>/schedule/FlipView.do?originalpage=<%= request.getContextPath() %>/waitinglist/DisplayWaitingList.jsp'); return false;">
                                                 make_appt
                                             </a>
                                         </td>
                                         <td class="${styleClass}">
-                                            <a href="#" onClick="removePatient('${waitingListBean.demographicNo}', '${WLId}');">remove</a>
+                                            <a href="#" onClick="removePatient('${e:forJavaScript(waitingListBean.demographicNo)}', '${e:forJavaScript(WLId)}');">remove</a>
                                         </td>
                                     </tr>
                                     </c:forEach>

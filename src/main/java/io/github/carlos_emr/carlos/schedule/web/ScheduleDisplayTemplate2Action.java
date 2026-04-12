@@ -32,7 +32,9 @@ import org.apache.struts2.ServletActionContext;
 
 /**
  * Gate action for the schedule template display preview popup.
- * Enforces appointment read privilege before forwarding to the JSP.
+ * Invoked via async fetch from TemplateApplying.do (guarded by _admin.schedule w),
+ * so either _admin.schedule w or _appointment r is accepted to avoid breaking
+ * schedule admins who lack direct appointment privileges.
  *
  * @since 2026-04-05
  */
@@ -40,13 +42,22 @@ public final class ScheduleDisplayTemplate2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Validates that the caller holds either _admin.schedule w or _appointment r.
+     *
+     * @return String {@link #SUCCESS} when access is allowed
+     * @throws SecurityException when neither privilege is held
+     * @since 2026-04-05
+     */
     @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "r", null)) {
-            throw new SecurityException("missing required sec object (_appointment)");
+        boolean hasScheduleAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_admin.schedule", "w", null);
+        boolean hasAppointment = securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "r", null);
+        if (!hasScheduleAdmin && !hasAppointment) {
+            throw new SecurityException("missing required sec object (_admin.schedule or _appointment)");
         }
 
         return SUCCESS;

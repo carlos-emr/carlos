@@ -56,6 +56,7 @@
     boolean scheduleOverlaps = false;
 %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page
         import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
         errorPage="/errorpage.jsp" %>
@@ -79,7 +80,7 @@
     ScheduleHolidayDao scheduleHolidayDao = SpringUtils.getBean(ScheduleHolidayDao.class);
 %>
 <%
-    String provider_name = URLDecoder.decode(request.getParameter("provider_name"));
+    String provider_name = URLDecoder.decode(StringUtils.noNull(request.getParameter("provider_name")), StandardCharsets.UTF_8);
     String provider_no = request.getParameter("provider_no");
     if (provider_no == null || provider_no.isEmpty()) {
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -384,7 +385,7 @@
 
                             %>
                             <td bgcolor='<%=bgcolor.toString()%>'><a href="#"
-                                                                     onclick="popupPage(260,720,'${pageContext.request.contextPath}/schedule/DatePopup.do?provider_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(provider_no))%>&year=<%=year%>&month=<%=month%>&day=<%=dateGrid[i][j]%>&bFistDisp=1')">
+                                                                     onclick="popupPage(260,720,'${pageContext.request.contextPath}/schedule/DatePopup.do?provider_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(provider_no))%>&year=<%=year%>&month=<%=month%>&day=<%=dateGrid[i][j]%>&bFirstDisp=1')">
                                 <font color="red"><%= dateGrid[i][j] %>
                                 </font> <font size="-3"
                                               color="blue"><%=strHolidayName.toString()%>

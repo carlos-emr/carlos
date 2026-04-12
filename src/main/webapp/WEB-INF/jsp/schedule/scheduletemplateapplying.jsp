@@ -245,7 +245,10 @@
                     }
                 }
             }
-            response.sendRedirect(request.getContextPath() + "/schedule/TemplateApplying.do?provider_no=" + param[0] + "&provider_name=" + URLEncoder.encode(request.getParameter("provider_name"), StandardCharsets.UTF_8));
+            String providerNoParam = URLEncoder.encode(StringUtils.noNull(param.length > 0 ? param[0] : ""), StandardCharsets.UTF_8);
+            String providerNameParam = URLEncoder.encode(StringUtils.noNull(request.getParameter("provider_name")), StandardCharsets.UTF_8);
+            response.sendRedirect(request.getContextPath() + "/schedule/TemplateApplying.do?provider_no=" + providerNoParam + "&provider_name=" + providerNameParam);
+            return;
         } else {
     %>
 
@@ -291,7 +294,7 @@
 
             function selectrschedule(s) {
                 var ref = "${pageContext.request.contextPath}/schedule/TemplateApplying.do";
-                ref += "?provider_no=<%=URLEncoder.encode(request.getParameter("provider_no"), StandardCharsets.UTF_8)%>&provider_name=<%=URLEncoder.encode(request.getParameter("provider_name"), StandardCharsets.UTF_8)%>";
+                ref += "?provider_no=<%=URLEncoder.encode(StringUtils.noNull(request.getParameter("provider_no")), StandardCharsets.UTF_8)%>&provider_name=<%=URLEncoder.encode(StringUtils.noNull(request.getParameter("provider_name")), StandardCharsets.UTF_8)%>";
                 ref += "&sdate=" + s.options[s.selectedIndex].value;
                 window.location.href = ref;
             }

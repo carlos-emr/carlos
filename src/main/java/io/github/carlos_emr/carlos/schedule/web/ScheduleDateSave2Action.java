@@ -42,6 +42,14 @@ public final class ScheduleDateSave2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Validates appointment write privilege and enforces POST-only access for the save endpoint.
+     *
+     * @return String {@link #SUCCESS} when access is allowed, {@link #NONE} when the request is non-POST
+     * @throws SecurityException when the required privilege is missing
+     * @throws Exception if writing the 405 response fails
+     * @since 2026-04-05
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

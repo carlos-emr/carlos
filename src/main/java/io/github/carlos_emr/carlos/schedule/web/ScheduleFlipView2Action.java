@@ -40,6 +40,13 @@ public final class ScheduleFlipView2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Validates appointment read privilege for the flip-view (monthly overview) page.
+     *
+     * @return String {@link #SUCCESS} when access is allowed
+     * @throws SecurityException when the required privilege is missing
+     * @since 2026-04-05
+     */
     @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
