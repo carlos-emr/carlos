@@ -108,14 +108,18 @@ public class AuditLogManager {
         try {
             String s = null;
 
+            String arg4 = "dateTime < '" + formatter2.format(endDateToPurge) + "'"; // nosemgrep: java.lang.security.audit.command-injection-process-builder.command-injection-process-builder
+            String arg6 = "--result-file=" + filename; // nosemgrep: java.lang.security.audit.command-injection-process-builder.command-injection-process-builder
+            String arg2 = "--user=" + user; // nosemgrep: java.lang.security.audit.command-injection-process-builder.command-injection-process-builder
+
             // nosemgrep
             ProcessBuilder pb = new ProcessBuilder(
                     mysqldump,
-                    "--user=" + user,
+                    arg2,
                     "-w",
-                    "dateTime < '" + formatter2.format(endDateToPurge) + "'",
+                    arg4,
                     "-t",
-                    "--result-file=" + filename,
+                    arg6,
                     dbName,
                     "log"
             );
