@@ -91,10 +91,6 @@
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message var="exitConfirmMsg" key="appointment.appointmentgrouprecords.msgExitConfirmation"/>
 <fmt:message var="deleteConfirmMsg" key="appointment.appointmentgrouprecords.msgDeleteConfirmation"/>
-<fmt:message var="dayLabel" key="day"/>
-<fmt:message var="weekLabel" key="week"/>
-<fmt:message var="monthLabel" key="month"/>
-<fmt:message var="yearLabel" key="year"/>
 
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -416,28 +412,28 @@
                     <div class="d-flex gap-3 flex-wrap">
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="dateUnit" id="dateUnitDay"
-                                   value="day" checked onclick='onCheck(this, "${e:forJavaScript(dayLabel)}")'>
+                                   value="day" checked onclick='onCheck(this, "day")'>
                             <label class="form-check-label" for="dateUnitDay">
                                 <fmt:message key="day"/>
                             </label>
                         </div>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="dateUnit" id="dateUnitWeek"
-                                   value="week" onclick='onCheck(this, "${e:forJavaScript(weekLabel)}")'>
+                                   value="week" onclick='onCheck(this, "week")'>
                             <label class="form-check-label" for="dateUnitWeek">
                                 <fmt:message key="week"/>
                             </label>
                         </div>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="dateUnit" id="dateUnitMonth"
-                                   value="month" onclick='onCheck(this, "${e:forJavaScript(monthLabel)}")'>
+                                   value="month" onclick='onCheck(this, "month")'>
                             <label class="form-check-label" for="dateUnitMonth">
                                 <fmt:message key="month"/>
                             </label>
                         </div>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="dateUnit" id="dateUnitYear"
-                                   value="year" onclick='onCheck(this, "${e:forJavaScript(yearLabel)}")'>
+                                   value="year" onclick='onCheck(this, "year")'>
                             <label class="form-check-label" for="dateUnitYear">
                                 <fmt:message key="year"/>
                             </label>
@@ -462,7 +458,7 @@
                         </select>
                         <input type="text" name="everyUnit" id="everyUnit"
                                class="form-control form-control-sm" style="width: 8rem;"
-                               value="<fmt:message key="day"/>" readonly>
+                               value="day" readonly>
                     </div>
                 </div>
 
