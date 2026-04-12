@@ -95,7 +95,7 @@
                 s = s.replace('/', '-');
                 var e = document.reportform.endDate.value.replace('/', '-');
                 e = e.replace('/', '-');
-                var u = 'reportedblist.jsp?startDate=' + s + '&endDate=' + e;
+                var u = '<%= request.getContextPath() %>/report/reportedblist.jsp?startDate=' + encodeURIComponent(s) + '&endDate=' + encodeURIComponent(e);
                 popupPage(600, 750, u);
             }
 

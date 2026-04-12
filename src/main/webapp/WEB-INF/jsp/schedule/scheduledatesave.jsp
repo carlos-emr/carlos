@@ -78,7 +78,7 @@
                 sd.setReason("");
                 sd.setHour(scheduleRscheduleBean.getDateAvailHour(request.getParameter("date")));
                 sd.setCreator(user_name);
-                sd.setStatus(scheduleRscheduleBean.active.toCharArray()[0]);
+                sd.setStatus(scheduleRscheduleBean.active.charAt(0));
                 scheduleDateDao.persist(sd);
             }
         }
@@ -86,15 +86,19 @@
 
         if (request.getParameter("Submit") != null && request.getParameter("Submit").equals(" Save ")) {
 
+            if (available == null || available.isEmpty()) {
+                throw new IllegalArgumentException("missing required parameter: available");
+            }
+
             sd = new ScheduleDate();
             sd.setDate(MyDateFormat.getSysDate(request.getParameter("date")));
             sd.setProviderNo(provider_no);
-            sd.setAvailable(available.toCharArray()[0]);
-            sd.setPriority(priority.toCharArray()[0]);
+            sd.setAvailable(available.charAt(0));
+            sd.setPriority(priority.charAt(0));
             sd.setReason(reason);
             sd.setHour(hour);
             sd.setCreator(user_name);
-            sd.setStatus(scheduleRscheduleBean.active.toCharArray()[0]);
+            sd.setStatus(scheduleRscheduleBean.active.charAt(0));
             scheduleDateDao.persist(sd);
 
             scheduleDateBean.put(request.getParameter("date"), new HScheduleDate(available, priority, reason, hour, user_name));

@@ -79,8 +79,6 @@
     </head>
     <body bgcolor="ivory" bgproperties="fixed" onLoad="setfocus()"
           topmargin="0" leftmargin="0" rightmargin="0">
-    <form method="post" name="schedule" action="${pageContext.request.contextPath}/schedule/CreateDate.do">
-
         <table border="0" width="100%">
             <tr>
                 <td width="150" bgcolor="#009966"><!--left column-->
@@ -139,8 +137,6 @@
                 </td>
             </tr>
         </table>
-
-    </form>
 
 
     </body>
