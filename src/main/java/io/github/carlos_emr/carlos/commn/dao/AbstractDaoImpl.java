@@ -457,6 +457,17 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
      * Saves or updates the entity based on depending if it's persistent, as
      * determined by {@link AbstractModel#isPersistent()}
      *
+     * <p><strong>Cache invalidation notice:</strong> This method delegates to
+     * {@link #merge(AbstractModel)} or {@link #persist(AbstractModel)} via a
+     * direct (self) invocation that bypasses the Spring AOP proxy. Therefore,
+     * {@code @CacheEvict} annotations on subclass overrides of {@code merge()}
+     * and {@code persist()} are <em>not</em> triggered when this method is
+     * called. Subclasses that cache their read methods (e.g. via
+     * {@code @Cacheable}) must either override this method with the appropriate
+     * {@code @CacheEvict} annotation, or callers should invoke the
+     * {@code persist()}/{@code merge()} entry points directly so that proxy
+     * interception fires.</p>
+     *
      * @param entity Entity to be saved or updated
      * @return Returns the entity
      */

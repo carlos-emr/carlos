@@ -31,6 +31,8 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import jakarta.persistence.Query;
@@ -57,7 +59,7 @@ public class LookupListDaoImpl extends AbstractDaoImpl<LookupList> implements Lo
         @SuppressWarnings("unchecked")
         List<LookupList> result = q.getResultList();
 
-        return result;
+        return Collections.unmodifiableList(new ArrayList<>(result));
     }
 
     @Cacheable(value = "lookupLists", key = "'name:' + #name")
