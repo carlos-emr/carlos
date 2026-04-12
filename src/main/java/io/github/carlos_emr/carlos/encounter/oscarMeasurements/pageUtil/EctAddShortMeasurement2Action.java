@@ -99,7 +99,7 @@ public class EctAddShortMeasurement2Action extends ActionSupport {
             String encodedFollowupValue = URLEncoder.encode(followUpValue != null ? followUpValue : "", "UTF-8");
             String encodedDate = URLEncoder.encode(UtilDateUtilities.DateToString(new Date()), "UTF-8");
             
-            response.getWriter().print("id=" + encodedId + // nosemgrep: no-direct-response-writer -- text/plain response with URLEncoder.encode()
+            response.getWriter().print("id=" + encodedId + // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- text/plain response with URLEncoder.encode()
                                       "&followupValue=" + encodedFollowupValue + 
                                       "&Date=" + encodedDate);
         }

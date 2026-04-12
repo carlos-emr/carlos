@@ -1255,7 +1255,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (f != null && f.equals("none")) {
             response.setContentType("text/plain");
             response.setCharacterEncoding("UTF-8");
-            response.getWriter().println(note.getId());
+            response.getWriter().println(note.getId()); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- text/plain response writing numeric note id
             return null;
         }
 

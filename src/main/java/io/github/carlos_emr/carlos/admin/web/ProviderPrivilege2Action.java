@@ -39,7 +39,6 @@ import org.apache.struts2.ServletActionContext;
  * present); non-POST requests for those operations receive HTTP 405.</p>
  *
  * @since 2026-04-05
- * @throws SecurityException if the logged-in user lacks the required admin privilege
  */
 public class ProviderPrivilege2Action extends ActionSupport {
 

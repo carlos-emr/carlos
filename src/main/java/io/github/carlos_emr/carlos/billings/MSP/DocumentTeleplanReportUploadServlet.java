@@ -146,7 +146,7 @@ public class DocumentTeleplanReportUploadServlet extends HttpServlet {
                 for (int i = 0; i < 2; i++) enddata[i] = 0;
             }
             if (bwri) {
-                dest.write(data, 0, count); // nosemgrep: no-direct-response-writer -- binary file upload processing
+                dest.write(data, 0, count); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary file upload processing
                 for (int i = 0; i < BUFFER; i++) data[i] = 0;
             }
         } //end while

@@ -76,7 +76,6 @@ import org.owasp.encoder.Encode;
  * </ul>
  *
  * @since 2026-04-05
- * @throws SecurityException if the logged-in user lacks the required admin privilege
  */
 public class LogReport2Action extends ActionSupport {
 

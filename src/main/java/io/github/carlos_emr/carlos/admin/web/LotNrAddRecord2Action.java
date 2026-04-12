@@ -42,7 +42,6 @@ import org.apache.struts2.ServletActionContext;
  * duplicate active record, or creates a new {@link PreventionsLotNrs} entry otherwise.</p>
  *
  * @since 2026-04-05
- * @throws SecurityException if the logged-in user lacks the required admin privilege
  */
 public class LotNrAddRecord2Action extends ActionSupport {
 

@@ -78,7 +78,7 @@ public class SearchProviderAutoComplete2Action extends ActionSupport {
 
         response.setContentType("application/json");
         ObjectNode jsonArray = objectMapper.valueToTree(d);
-        response.getWriter().write(jsonArray.toString()); // nosemgrep: servletresponse-writer-xss, servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
+        response.getWriter().write(jsonArray.toString()); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
         return null;
 
     }
@@ -111,7 +111,7 @@ public class SearchProviderAutoComplete2Action extends ActionSupport {
         }
 
         response.setContentType("application/json");
-        response.getWriter().write(objectMapper.writeValueAsString(results)); // nosemgrep: servletresponse-writer-xss, servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
+        response.getWriter().write(objectMapper.writeValueAsString(results)); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
 
         return null;
     }
