@@ -360,6 +360,12 @@ public final class Login2Action extends ActionSupport {
         if (request.getParameter("forcedpasswordchange") != null
                 && request.getParameter("forcedpasswordchange").equalsIgnoreCase("true")) {
             // Coming back from force password change.
+            //
+            // Only userName and (hashed) password are retrieved from session; pin and
+            // nextPage are NOT stored in session (see setUserInfoToSession Javadoc).
+            // nextPage is propagated via the hidden form field carried by
+            // forcepasswordreset.jsp; pin is re-entered by the user after a successful
+            // reset via a fresh login on the login page.
             userName = (String) request.getSession().getAttribute("userName");
 
             // Username is only letters and numbers
@@ -369,17 +375,12 @@ public final class Login2Action extends ActionSupport {
 
             password = (String) request.getSession().getAttribute("password");
 
-            pin = (String) request.getSession().getAttribute("pin");
-
-            // pins are integers only
-            if (!Pattern.matches("[0-9]{4}", pin)) {
-                pin = "";
-            }
-            nextPage = (String) request.getSession().getAttribute("nextPage");
-            // Validate nextPage retrieved from session to prevent open redirect (CWE-601 defense in depth)
+            // nextPage is a request parameter (hidden form field), not a session attribute
+            nextPage = request.getParameter("nextPage");
+            // Validate nextPage to prevent open redirect (CWE-601)
             if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
                 if (nextPage != null) {
-                    logger.warn("Rejected invalid nextPage from session: {}", LogSanitizer.sanitize(nextPage));
+                    logger.warn("Rejected invalid nextPage on password-reset return: {}", LogSanitizer.sanitize(nextPage));
                 }
                 nextPage = null;
             }
@@ -401,10 +402,19 @@ public final class Login2Action extends ActionSupport {
 
                 persistNewPassword(userName, newPassword);
 
-                password = newPassword;
-
-                // Remove the attributes from session
+                // Remove the stashed session attributes
                 removeAttributesFromSession(request);
+
+                // Password changed successfully. Rather than re-authenticating inline
+                // (which would require the PIN to survive the round-trip via session),
+                // redirect the user to the login page so they re-enter full credentials
+                // with their new password. nextPage is preserved as a query parameter.
+                String loginUrl = request.getContextPath() + "/index.jsp?msg=password_changed";
+                if (nextPage != null) {
+                    loginUrl = loginUrl + "&nextPage=" + Encode.forUriComponent(nextPage);
+                }
+                response.sendRedirect(loginUrl);
+                return NONE;
             } catch (Exception e) {
                 logger.error("Error", e);
                 String newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Setting values to the session.";
@@ -415,9 +425,6 @@ public final class Login2Action extends ActionSupport {
                 response.sendRedirect(newURL);
                 return NONE;
             }
-
-            // make sure this checking doesn't happen again
-            forcedpasswordchange = false;
 
         } else {
             // >> 3. Standard Login Attempt
@@ -547,10 +554,16 @@ public final class Login2Action extends ActionSupport {
                     security.isForcePasswordReset() != null && security.isForcePasswordReset()
                     && forcedpasswordchange) {
 
+                // Propagate nextPage to the reset page as a query parameter (not session);
+                // the JSP carries it forward as a hidden form field and the return path
+                // re-validates it via RedirectValidationUtils.
                 String newURL = request.getContextPath() + "/forcepasswordreset.jsp";
+                if (nextPage != null && RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
+                    newURL = newURL + "?nextPage=" + Encode.forUriComponent(nextPage);
+                }
 
                 try {
-                    setUserInfoToSession(request, userName, password, pin, nextPage);
+                    setUserInfoToSession(request, userName, password);
                 } catch (Exception e) {
                     logger.error("Error", e);
                     newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Setting values to the session.";
@@ -605,7 +618,7 @@ public final class Login2Action extends ActionSupport {
                 if (Objects.nonNull(sec) && sec.isUsingMfa()) {
                     // MFA Enabled
                     try {
-                        setUserInfoToSession(request, userName, password, pin, nextPage);
+                        setUserInfoToSession(request, userName, password);
                         request.getSession().setAttribute("cl", cl); // nosemgrep: tainted-session-from-http-request
                     } catch (Exception e) {
                         throw new RuntimeException(e);
@@ -661,8 +674,21 @@ public final class Login2Action extends ActionSupport {
                 ArrayList<String> newDocArr = (ArrayList<String>) request.getSession().getServletContext()
                         .getAttribute("CaseMgmtUsers");
                 if ("enabled".equals(providerPreference.getDefaultNewOscarCme())) {
-                    newDocArr.add(providerNo);
-                    session.setAttribute("CaseMgmtUsers", newDocArr); // nosemgrep: tainted-session-from-http-request
+                    // Re-validate providerNo before mutating the ServletContext-scoped list
+                    // (shared across all user sessions). Prevents an unvalidated value from
+                    // leaking into other users' sessions via the shared reference.
+                    if (Pattern.matches("[A-Za-z0-9_-]{1,20}", providerNo)) {
+                        synchronized (newDocArr) {
+                            if (!newDocArr.contains(providerNo)) {
+                                newDocArr.add(providerNo);
+                            }
+                        }
+                        // Store a defensive copy in the session so this user's view of the
+                        // list cannot be mutated by another user's login flow.
+                        session.setAttribute("CaseMgmtUsers", new ArrayList<>(newDocArr)); // nosemgrep: tainted-session-from-http-request -- providerNo regex-validated; defensive copy prevents shared-reference leakage
+                    } else {
+                        logger.warn("Rejected invalid providerNo for CaseMgmtUsers list: {}", LogSanitizer.sanitize(providerNo));
+                    }
                 }
             }
             session.setAttribute("starthour", providerPreference.getStartHour().toString()); // nosemgrep: tainted-session-from-http-request
@@ -871,15 +897,18 @@ public final class Login2Action extends ActionSupport {
      * <ul>
      *   <li>userName - The authenticated username</li>
      *   <li>password - The encoded password hash</li>
-     *   <li>pin - The provider PIN code</li>
-     *   <li>nextPage - The post-authentication redirect target</li>
      * </ul>
+     *
+     * <p>Also removes the legacy {@code pin} and {@code nextPage} session keys for
+     * backward-compatibility with sessions created before those fields were moved off
+     * the session entirely.
      *
      * @param request HttpServletRequest containing the session to clean
      */
     private void removeAttributesFromSession(HttpServletRequest request) {
         request.getSession().removeAttribute("userName");
         request.getSession().removeAttribute("password");
+        // Legacy keys — no longer written, but cleared for sessions that predate the change.
         request.getSession().removeAttribute("pin");
         request.getSession().removeAttribute("nextPage");
     }
@@ -887,48 +916,43 @@ public final class Login2Action extends ActionSupport {
     /**
      * Stores user authentication information in the session for forced password reset flow.
      *
-     * <p>During the forced password reset process, the user's credentials are temporarily
-     * stored in the session so they can be re-authenticated after successfully changing
-     * their password. The password is encoded before storage for security.
+     * <p>During the forced-password-change and MFA flows, the username and hashed password
+     * are temporarily stashed in the session so the user can be identified on return from
+     * the relevant prompt page. The password is SHA-1 hashed before storage.
      *
-     * <p>The {@code nextPage} parameter is validated against open redirect (CWE-601) before
-     * being stored. Any value that is absolute, protocol-relative, or contains backslash
-     * bypasses is rejected and stored as {@code null} (defense in depth).
+     * <p><strong>What is NOT stored (by design):</strong>
+     * <ul>
+     *   <li><b>PIN</b> — never written to the session. The PIN is a second authentication
+     *       factor; storing it in session even transiently expands the attack surface for
+     *       session-hijack / XSS vectors. After a successful password reset, the user is
+     *       redirected to the login page and re-enters their PIN fresh.</li>
+     *   <li><b>nextPage</b> — never written to the session. A session-stored redirect target
+     *       is a latent CWE-601 vector (the attribute can resurface outside the validation
+     *       context). Callers propagate nextPage via the URL / hidden form fields instead,
+     *       and re-validate with {@link RedirectValidationUtils} at each read.</li>
+     * </ul>
      *
      * <p>Session attributes set:
      * <ul>
      *   <li>userName - String the authenticated username (validated alphanumeric)</li>
      *   <li>password - String the SHA-encoded password hash</li>
-     *   <li>pin - String the 4-digit provider PIN</li>
-     *   <li>nextPage - String the validated relative URL, or null if invalid/absent</li>
      * </ul>
      *
      * @param request HttpServletRequest to access the session
      * @param userName String the username (must match [a-zA-Z0-9]{1,10} pattern)
-     * @param password String the plain-text password (will be encoded before storage)
-     * @param pin String the 4-digit PIN (must match [0-9]{4} pattern)
-     * @param nextPage String the relative URL to redirect to after password reset (validated before storage)
+     * @param password String the plain-text password (will be SHA-1 encoded before storage)
      * @throws Exception if password encoding fails
      * @see #encodePassword for password encoding algorithm
      * @see #removeAttributesFromSession for cleanup after password reset
-     * @see RedirectValidationUtils#isValidRelativeRedirect for redirect URL validation logic
      */
-    private void setUserInfoToSession(HttpServletRequest request, String userName, String password, String pin,
-                                      String nextPage) throws Exception {
-        // Login credentials stored temporarily for forced password change flow; cleared after login via removeAttributesFromSession()
-        request.getSession().setAttribute("userName", userName); // nosemgrep: tainted-session-from-http-request -- validated via Pattern [a-zA-Z0-9]{1,10} at login entry; temporary storage for MFA flow
-        request.getSession().setAttribute("password", encodePassword(password)); // nosemgrep: tainted-session-from-http-request -- SHA-1 hashed via encodePassword() before session storage; never stored as plaintext
-        request.getSession().setAttribute("pin", pin); // nosemgrep: tainted-session-from-http-request -- validated via Pattern [0-9]{4} at login entry; temporary storage for MFA flow
-        // Validate nextPage before session storage to prevent open redirect via session (CWE-601 defense in depth)
-        if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
-            if (nextPage != null) {
-                logger.warn("Rejected invalid nextPage before session storage: {}", LogSanitizer.sanitize(nextPage));
-            }
-            nextPage = null;
-        }
-        // nextPage validated via RedirectValidationUtils above
-        request.getSession().setAttribute("nextPage", nextPage); // nosemgrep: tainted-session-from-http-request
-
+    private void setUserInfoToSession(HttpServletRequest request, String userName, String password) throws Exception {
+        // Only the username + hashed password are stashed for the forced-password-change
+        // round-trip. PIN and nextPage are NOT stored in session (CWE-601 / session-data-
+        // exposure defence — see Login2Action Javadoc on the forced-password-change flow).
+        // PIN is re-entered by the user after successful reset; nextPage is propagated
+        // as a request parameter via forcepasswordreset.jsp's hidden form field.
+        request.getSession().setAttribute("userName", userName); // nosemgrep: tainted-session-from-http-request -- validated via Pattern [a-zA-Z0-9]{1,10} at login entry
+        request.getSession().setAttribute("password", encodePassword(password)); // nosemgrep: tainted-session-from-http-request -- SHA-1 hashed via encodePassword() before session storage
     }
 
     /**

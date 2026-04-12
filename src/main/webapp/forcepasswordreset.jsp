@@ -29,6 +29,7 @@
 
 --%>
 
+<%@ page import="io.github.carlos_emr.carlos.utility.RedirectValidationUtils" %>
 <%
     //Make sure user has logged in first and username is in the session
 
@@ -38,6 +39,13 @@
     String errormsg = "";
     if (request.getParameter("errormsg") != null) {
         errormsg = request.getParameter("errormsg");
+    }
+    // nextPage is passed as a query parameter from Login2Action (not session) to
+    // avoid CWE-601 session-persisted redirect. Validate here before propagating as
+    // a hidden form field so a rejected value never reaches the page.
+    String nextPageParam = request.getParameter("nextPage");
+    if (nextPageParam != null && !RedirectValidationUtils.isValidRelativeRedirect(nextPageParam)) {
+        nextPageParam = null;
     }
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -274,6 +282,16 @@
         </table>
 
         <input type=hidden name='forcedpasswordchange' value='true'/>
+        <%
+            // nextPage carried forward as a hidden form field so it survives the
+            // password-reset round-trip without ever touching the session (CWE-601
+            // defence). Value was validated server-side above.
+            if (nextPageParam != null) {
+        %>
+        <input type="hidden" name="nextPage" value="<%= Encode.forHtmlAttribute(nextPageParam) %>"/>
+        <%
+            }
+        %>
 
     </form>
     </body>
