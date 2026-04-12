@@ -507,7 +507,7 @@ function validateFields() {
 												<summary>
 													<input type="checkbox" name="tableDFR" id="member_group_${ e:forHtmlAttribute(fn:replace(group.key.id, ' ', '_')) }"
 															value="${ e:forHtmlAttribute(group.key.id) }" onclick="checkGroup(this)" >
-													<label for="member_group_${ e:forHtmlAttribute(fn:replace(group.key.id, ' ', '_')) }" ><c:out value="${ group.key.groupDesc }" /></label>
+													<label for="member_group_${ e:forHtmlAttribute(fn:replace(group.key.id, ' ', '_')) }" >${ e:forHtml(group.key.groupDesc) }</label>
 												</summary>
 
 												<c:forEach items="${ group.value }" var="member">
@@ -516,7 +516,7 @@ function validateFields() {
 															id="${ e:forHtmlAttribute(fn:replace(group.key.id, ' ', '_')) }-${ e:forHtmlAttribute(fn:replace(member.id.compositeId, ' ', '_')) }" value="${ e:forHtmlAttribute(member.id.compositeId) }" >
 
 														<label for="${ e:forHtmlAttribute(fn:replace(group.key.id, ' ', '_')) }-${ e:forHtmlAttribute(fn:replace(member.id.compositeId, ' ', '_')) }" >
-															<c:out value="${ member.lastName }" />, <c:out value="${ member.firstName }" />
+															${ e:forHtml(member.lastName) }, ${ e:forHtml(member.firstName) }
 														</label>
 													</div>
 												</c:forEach>
@@ -548,7 +548,7 @@ function validateFields() {
 													<input type="checkbox" name="provider" id="0-${ e:forHtmlAttribute(fn:replace(member.id.compositeId, ' ', '_')) }"
 														value="${ e:forHtmlAttribute(member.id.compositeId) }"  ${ providerChecked ? 'checked' : '' }/>
 													<label for="0-${ e:forHtmlAttribute(fn:replace(member.id.compositeId, ' ', '_')) }" >
-														<c:out value="${ member.lastName }" />, <c:out value="${ member.firstName }" />
+														${ e:forHtml(member.lastName) }, ${ e:forHtml(member.firstName) }
 													</label>
 												</div>
 
