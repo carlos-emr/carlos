@@ -35,6 +35,7 @@ import java.util.Date;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemDTO;
 
 public interface ConsultationRequestDao extends AbstractDao<ConsultationRequest> {
 
@@ -63,4 +64,14 @@ public interface ConsultationRequestDao extends AbstractDao<ConsultationRequest>
     List<ConsultationRequest> findByDemographicAndServices(Integer demographicNo, List<String> serviceNameList);
 
     List<Integer> findNewConsultationsSinceDemoKey(String keyName);
+
+    /**
+     * Returns lightweight consultation request DTOs for a demographic, eliminating
+     * 3 EAGER entity joins. Pre-joins specialist name.
+     *
+     * @param demographicId Integer the patient demographic number
+     * @return List of ConsultationRequestListItemDTO
+     * @since 2026-04-11
+     */
+    List<ConsultationRequestListItemDTO> findConsultationDTOsByDemographicId(Integer demographicId);
 }
