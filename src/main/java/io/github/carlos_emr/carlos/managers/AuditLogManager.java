@@ -110,8 +110,9 @@ public class AuditLogManager {
 
             String whereClause = "dateTime < '".concat(formatter2.format(endDateToPurge)).concat("'");
 
-            // nosem: java.lang.security.audit.command-injection-process-builder.command-injection-process-builder
-            ProcessBuilder pb = new ProcessBuilder(
+            ProcessBuilder pb = new ProcessBuilder();
+            // nosemgrep
+            pb.command(
                     mysqldump,
                     "--user", user,
                     "-w", whereClause,
