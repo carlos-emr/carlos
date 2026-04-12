@@ -154,7 +154,7 @@ public class EctDisplayAction extends ActionSupport {
             }
             bean.providerNo = request.getParameter("providerNo");
             if (bean.providerNo != null && !bean.providerNo.matches("[a-zA-Z0-9]{1,6}")) {
-                logger.warn("Invalid providerNo rejected at trust boundary, falling back to session user");
+                logger.warn("Invalid providerNo rejected at trust boundary, falling back to session user: {}", LogSanitizer.sanitize(bean.providerNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 bean.providerNo = null;
             }
             if (bean.providerNo == null) {
