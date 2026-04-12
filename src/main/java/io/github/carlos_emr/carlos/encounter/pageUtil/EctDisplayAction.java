@@ -153,6 +153,10 @@ public class EctDisplayAction extends ActionSupport {
                 bean.currentDate = new Date();
             }
             bean.providerNo = request.getParameter("providerNo");
+            if (bean.providerNo != null && !bean.providerNo.isEmpty() && !bean.providerNo.matches("[a-zA-Z0-9]{1,6}")) {
+                logger.warn("Invalid providerNo rejected at trust boundary, falling back to session user");
+                bean.providerNo = null;
+            }
             if (bean.providerNo == null) {
                 bean.providerNo = (String) request.getSession().getAttribute("user"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fallback to authenticated provider from own session
             }
@@ -225,7 +229,9 @@ public class EctDisplayAction extends ActionSupport {
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
             // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- demographicNo/appointmentNo validated numeric;
             // status validated [a-zA-Z]{1,2}; dates validated YYYY-MM-DD; time validated HH:MM; encType validated alphanumeric;
-            // reason/userName sanitized for control chars and length-capped; eChartId is server-generated
+            // reason/userName sanitized for control chars and length-capped; eChartId is server-generated;
+            // providerNo unvalidated-format but validated via [a-zA-Z0-9]{1,6} pattern below; used only as DAO lookup key;
+            // authz enforced at privilege gate (line 144) before session mutation
             request.getSession().setAttribute("EctSessionBean", bean);
             request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- server-generated ID from EctSessionBean.setUpEncounterPage()
             String sourceParam = request.getParameter("source");

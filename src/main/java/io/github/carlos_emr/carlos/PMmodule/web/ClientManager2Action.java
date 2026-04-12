@@ -657,7 +657,13 @@ public class ClientManager2Action extends ActionSupport {
 
     public String remove_joint_admission() {
         String clientId = request.getParameter("dependentClientId");
-        clientManager.removeJointAdmission(Integer.valueOf(clientId), (String) request.getSession().getAttribute("user")); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): reads authenticated provider from own session (set by Login2Action post-auth)
+        try {
+            clientManager.removeJointAdmission(Integer.valueOf(clientId), (String) request.getSession().getAttribute("user")); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): reads authenticated provider from own session (set by Login2Action post-auth)
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid dependentClientId rejected in remove_joint_admission: {}", LogSanitizer.sanitize(clientId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            setEditAttributes(request, request.getParameter("clientId"));
+            return "edit";
+        }
         setEditAttributes(request, request.getParameter("clientId"));
         return "edit";
     }

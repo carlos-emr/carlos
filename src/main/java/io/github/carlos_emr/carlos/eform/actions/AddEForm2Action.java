@@ -534,8 +534,8 @@ public class AddEForm2Action extends ActionSupport {
         session.setAttribute("attachedLabs", settings.attachedLabs()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         session.setAttribute("attachedHRMDocuments", settings.attachedHRMDocuments()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         session.setAttribute("attachedForms", settings.attachedForms()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("emailPDFPassword", settings.emailPDFPassword()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("emailPDFPasswordClue", settings.emailPDFPasswordClue()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("emailPDFPassword", settings.emailPDFPassword()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- eForm workflow value from EmailAttachmentSettings, not raw request param
+        session.setAttribute("emailPDFPasswordClue", settings.emailPDFPasswordClue()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- eForm workflow value from EmailAttachmentSettings, not raw request param
         session.setAttribute("senderEmail", settings.senderEmail()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         session.setAttribute("subjectEmail", settings.subjectEmail()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         session.setAttribute("bodyEmail", settings.bodyEmail()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
