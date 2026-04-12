@@ -63,10 +63,23 @@ class MsgDisplayMessagesBeanUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should return sentinel when DAO returns no locations")
-    void shouldReturnSentinel_whenDaoReturnsNoLocations() {
+    @DisplayName("should return sentinel when DAO returns null")
+    void shouldReturnSentinel_whenDaoReturnsNull() {
         OscarCommLocationsDao dao = createAndRegisterMock(OscarCommLocationsDao.class);
         when(dao.findByCurrent1(1)).thenReturn(null);
+
+        MsgDisplayMessagesBean bean = new MsgDisplayMessagesBean();
+
+        String result = bean.getCurrentLocationId();
+
+        assertThat(result).isEqualTo("0");
+    }
+
+    @Test
+    @DisplayName("should return sentinel when DAO returns empty list (no IndexOutOfBoundsException)")
+    void shouldReturnSentinel_whenDaoReturnsEmptyList() {
+        OscarCommLocationsDao dao = createAndRegisterMock(OscarCommLocationsDao.class);
+        when(dao.findByCurrent1(1)).thenReturn(Collections.emptyList());
 
         MsgDisplayMessagesBean bean = new MsgDisplayMessagesBean();
 

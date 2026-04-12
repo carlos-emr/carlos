@@ -235,7 +235,7 @@ public class MsgDisplayMessagesBean implements java.io.Serializable {
             List<OscarCommLocations> oscarCommLocations = oscarCommLocationsDao.findByCurrent1(1);
             Integer oscarCommLocationsID = null;
 
-            if (oscarCommLocations != null) {
+            if (oscarCommLocations != null && !oscarCommLocations.isEmpty()) {
                 oscarCommLocationsID = oscarCommLocations.get(0).getId();
             }
 

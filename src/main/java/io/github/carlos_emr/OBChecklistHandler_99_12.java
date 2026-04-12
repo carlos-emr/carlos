@@ -284,8 +284,10 @@ public class OBChecklistHandler_99_12 extends DefaultHandler {
         try {
             now.setTime(df.parse(savedar1params.getProperty("finalEDB")));
         } catch (java.text.ParseException pe) {
-            // Avoid logging the exception object; its message echoes the unparseable input.
-            MiscUtils.getLogger().error("Error parsing finalEDB date in OBChecklistHandler_99_12");
+            // Log only the exception class, not pe itself — the message echoes the
+            // unparseable input which could be a patient-context date value.
+            MiscUtils.getLogger().error("Error parsing finalEDB date in OBChecklistHandler_99_12: "
+                    + pe.getClass().getSimpleName());
         }
         now.add(Calendar.DATE, -280);
     }
