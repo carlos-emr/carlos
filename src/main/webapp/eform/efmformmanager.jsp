@@ -32,6 +32,7 @@
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     String orderByRequest = request.getParameter("orderby");
@@ -44,23 +45,23 @@
 <html>
     <head>
     <title>E-Form Manager</title>
-        <link rel="stylesheet" href="<%= request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css">
+        <link rel="stylesheet" href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css">
         <link rel="stylesheet" href="<%= request.getContextPath() %>/css/fontawesome-all.min.css">
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css">
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
 
 
     <script language="javascript">
         function checkFormAndDisable() {
             if (document.forms[0].formHtml.value == "") {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.msgFileMissing"/>");
+                alert("<fmt:message key="eform.uploadhtml.msgFileMissing"/>");
             } else {
-                document.forms[0].subm.value = "<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.processing"/>";
+                document.forms[0].subm.value = "<fmt:message key="eform.uploadimages.processing"/>";
                 document.forms[0].subm.disabled = true;
                 document.forms[0].submit();
             }
@@ -71,7 +72,7 @@
         }
 
         function confirmNDelete(fid) {
-            if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.confirmDelete"/>")) {
+            if (confirm("<fmt:message key="eform.uploadhtml.confirmDelete"/>")) {
                 var form = document.createElement('form');
                 form.method = 'post';
                 form.action = '<%= request.getContextPath() %>/eform/delEForm.do';
@@ -141,9 +142,9 @@
 
     <%@ include file="efmTopNav.jspf" %>
 
-    <h3 style='display:inline;padding-right:10px'><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.msgLibrary"/></h3> <a
+    <h3 style='display:inline;padding-right:10px'><fmt:message key="eform.uploadhtml.msgLibrary"/></h3> <a
             href="<%= request.getContextPath() %>/eform/efmformmanagerdeleted.jsp" class="contentLink">View Deleted
-        <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnDeleted"/>--> </a>
+        <!--<fmt:message key="eform.uploadhtml.btnDeleted"/>--> </a>
 
 
     <ul class="nav nav-pills" id="eformOptions">
@@ -182,15 +183,15 @@
                 <th></th>
 
                 <th><a href="<%= request.getContextPath() %>/eform/efmformmanager.jsp?orderby=form_name"
-                       class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnFormName"/></a></th>
+                       class="contentLink"><fmt:message key="eform.uploadhtml.btnFormName"/></a></th>
                 <th><a href="<%= request.getContextPath() %>/eform/efmformmanager.jsp?orderby=form_subject"
-                       class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnSubject"/></a></th>
+                       class="contentLink"><fmt:message key="eform.uploadhtml.btnSubject"/></a></th>
 
                 <th><a href="<%= request.getContextPath() %>/eform/efmformmanager.jsp?"
-                       class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnDate"/></a></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnTime"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnRoleType"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.msgAction"/></th>
+                       class="contentLink"><fmt:message key="eform.uploadhtml.btnDate"/></a></th>
+                <th><fmt:message key="eform.uploadhtml.btnTime"/></th>
+                <th><fmt:message key="eform.uploadhtml.btnRoleType"/></th>
+                <th><fmt:message key="eform.uploadhtml.msgAction"/></th>
             </tr>
             </thead>
 
@@ -221,20 +222,20 @@
                     <div class="btn-group">
                         <a class="btn btn-link contentLink"
                            href="<%= request.getContextPath() %>/eform/efmformmanageredit.jsp?fid=<%= curForm.get("fid")%>"
-                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.editform"/><%=curForm.get("formName")%>'><i
-                                class="fa-solid fa-pencil" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.editform"/>"></i></a>
+                           title='<fmt:message key="eform.uploadhtml.editform"/><%=curForm.get("formName")%>'><i
+                                class="fa-solid fa-pencil" title="<fmt:message key="eform.uploadhtml.editform"/>"></i></a>
 
 
                         <a class="btn btn-link"
                            href='<%= request.getContextPath() %>/eform/manageEForm.do?method=exportEForm&fid=<%=curForm.get("fid")%>'
-                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnExport"/> <%=curForm.get("formName")%>'><i
-                                class="fa-solid fa-download" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnExport"/>"></i></a>
+                           title='<fmt:message key="eform.uploadhtml.btnExport"/> <%=curForm.get("formName")%>'><i
+                                class="fa-solid fa-download" title="<fmt:message key="eform.uploadhtml.btnExport"/>"></i></a>
 
 
                         <a class="btn btn-link contentLink"
                            href='javascript:void(0);' onclick='confirmNDelete("<%=curForm.get("fid")%>")'
-                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnDelete"/> <%=curForm.get("formName")%>'><i
-                                class="fa-solid fa-trash" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnDelete"/>"></i></a>
+                           title='<fmt:message key="eform.uploadhtml.btnDelete"/> <%=curForm.get("formName")%>'><i
+                                class="fa-solid fa-trash" title="<fmt:message key="eform.uploadhtml.btnDelete"/>"></i></a>
                     </div>
                 </td>
 

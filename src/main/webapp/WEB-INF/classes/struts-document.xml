@@ -77,7 +77,6 @@
             <result name="failAdd">/documentManager/documentReport.jsp</result>
             <result name="failEdit">/documentManager/editDocument.jsp</result>
             <result name="successEdit">/documentManager/closeWindow.html</result>
-            <result name="fastUploadSuccess">/documentManager/uploadMultiDocument.jsp</result>
         </action>
         <action name="documentManager/combinePDFs" class="io.github.carlos_emr.carlos.documentManager.actions.CombinePDF2Action">
             <result name="success">/documentManager/documentReport.jsp</result>

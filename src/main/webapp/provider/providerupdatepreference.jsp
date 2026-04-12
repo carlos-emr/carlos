@@ -52,6 +52,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
@@ -82,7 +83,7 @@
     <center>
         <table border="0" cellspacing="0" cellpadding="0" width="90%">
             <tr bgcolor="#486ebd">
-                <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerupdatepreference.description"/></font></th>
+                <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:message key="provider.providerupdatepreference.description"/></font></th>
             </tr>
         </table>
         <%
@@ -99,7 +100,9 @@
             }
 
             String programId_forCME = request.getParameter("case_program_id");
-            request.getSession().setAttribute("case_program_id", programId_forCME);
+            if (programId_forCME != null && programId_forCME.matches("\\d+")) {
+                request.getSession().setAttribute("case_program_id", programId_forCME);
+            }
 
             String selected_site = (String) request.getParameter("site");
             if (selected_site != null) {
@@ -181,7 +184,7 @@
         </script>
         <% } else { %>
         <div style="color: red; font-weight: bold; padding: 20px; text-align: center;">
-            <p><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerupdatepreference.error"/></p>
+            <p><fmt:message key="provider.providerupdatepreference.error"/></p>
             <% if (errorDetails != null && !errorDetails.isEmpty()) { %>
             <p style="font-size: 0.9em; color: #666;"><fmt:message key="provider.providerupdatepreference.error.details"/>: <%= org.owasp.encoder.Encode.forHtml(errorDetails) %></p>
             <% } %>
@@ -192,7 +195,7 @@
         <hr width="90%"/>
         <form><input type="button"
                      value=
-                         <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> onClick="self.close()">
+                         <fmt:message key="global.btnClose"/> onClick="self.close()">
         </form>
     </center>
     </body>

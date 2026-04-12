@@ -47,6 +47,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ValidationsDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%
@@ -85,7 +86,7 @@
 
     <head>
         <title>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.measurements"/>
+            <fmt:message key="encounter.Index.measurements"/>
         </title><!--I18n-->
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
@@ -94,7 +95,7 @@
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
         <!-- Prototype.js removed (Phase 4d migration) -->
 
@@ -211,7 +212,7 @@
             }
 
             function masterDateFill(v) {
-                var x =<%=measurements.length%>;
+                var x =<%= (int) measurements.length %>; <%-- measurements.length is a server-side int — no XSS risk --%>
 
 
                 for (i = 0; i <= x; i++) {
@@ -344,8 +345,8 @@
                         </td>
                         <td style="text-align:right">
                             <a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
-                            | <a href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a>
+                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a>
+                            | <a href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a>
                         </td>
                     </tr>
                 </table>
@@ -364,7 +365,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><%=Encode.forHtml(error)%></li>
             <% } %>
         </ul>
     </div>
@@ -394,7 +395,7 @@
                     <div style="float:left;margin-left:30px;">
                         <label for="prevDate<%=iDate%>" class="fields">Obs Date/Time: </label>
 
-                        <input type="text" name="date-<%=iDate%>" id="prevDate<%=iDate%>" value="<%=prevDate%>"
+                        <input type="text" name="date-<%=iDate%>" id="prevDate<%=iDate%>" value="<%=Encode.forHtmlAttribute(prevDate)%>"
                                size="17" onchange="javascript:masterDateFill(this.value);">
                         <% if (id == null) { %>
                         <a id="date<%=iDate%>"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar"
@@ -414,7 +415,7 @@
                 <!-- END of Master Calendar Input -->
 
                 <form action="${pageContext.request.contextPath}/<%=saveAction%>" id="measurementForm" method="post">
-                    <input type="hidden" name="numType" value="<%=measurements.length%>"/>
+                    <input type="hidden" name="numType" value="<%= (int) measurements.length %>"/> <%-- measurements.length is a server-side int — no XSS risk --%>
                     <input type="hidden" name="groupName" value=""/>
                     <input type="hidden" name="css" value=""/>
                     <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
@@ -450,11 +451,11 @@
 
                     <input type="hidden" name="measurement" value="<%= Encode.forHtmlAttribute(measurement) %>"/>
 
-                    <input type="hidden" name="<%= "inputType-" + ctr %>" value="<%=mtypeBean.getType()%>"/>
+                    <input type="hidden" name="<%= "inputType-" + ctr %>" value="<%=Encode.forHtmlAttribute(mtypeBean.getType())%>"/>
                     <input type="hidden" name="<%= "inputTypeDisplayName-" + ctr %>"
-                           value="<%=mtypeBean.getTypeDisplayName()%>"/>
+                           value="<%=Encode.forHtmlAttribute(mtypeBean.getTypeDisplayName())%>"/>
                     <input type="hidden" name="<%= "validation-" + ctr %>"
-                           value="<%=mtypeBean.getValidation()%>"/>
+                           value="<%=Encode.forHtmlAttribute(mtypeBean.getValidation())%>"/>
 
                     <% if (id != null) { %>
                     <input type="hidden" name="id" value="<%= Encode.forHtmlAttribute(id) %>"/>
@@ -463,17 +464,17 @@
 
                     <div class="prevention">
                         <fieldset>
-                            <legend>Measurement : <%=mtypeBean.getTypeDisplayName()%>
+                            <legend>Measurement : <%=Encode.forHtml(mtypeBean.getTypeDisplayName())%>
                             </legend>
                             <div style="float:left;display:none;">
                                 <input type="radio" name="<%= "inputMInstrc-" + ctr %>"
-                                       value="<%=mtypeBean.getMeasuringInstrc()%>" checked/>
+                                       value="<%=Encode.forHtmlAttribute(mtypeBean.getMeasuringInstrc())%>" checked/>
                             </div>
                             <div style="float:left;margin-left:30px;">
                                 <label for="prevDate<%=ctr%>" class="fields">Obs Date/Time:</label>
 
                                 <input type="text" name="<%= "date-" + ctr %>" id="prevDate<%=ctr%>"
-                                       value="<%=prevDate%>" size="17">
+                                       value="<%=Encode.forHtmlAttribute(prevDate)%>" size="17">
 
                                 <% if (id == null) { %>
                                 <a id="date<%=ctr%>"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar"
@@ -489,7 +490,7 @@
                                     <option value=""></option>
                                     <% String[] opts = validations.getName().contains("/") ? validations.getName().split("/") : validations.getRegularExp().split("\\|");
                                         for (String opt : opts) {%>
-                                    <option value="<%=opt%>"  <%=sel(opt, val)%>><%=opt%>
+                                    <option value="<%=Encode.forHtmlAttribute(opt)%>"  <%=sel(opt, val)%>><%=Encode.forHtml(opt)%>
                                     </option>
                                     <% }%>
                                 </select>
@@ -504,7 +505,7 @@
                                 </select>
                                 <%} else {%>
                                 <input type="text" id="<%= "inputValue-" + ctr %>"
-                                       name="<%= "inputValue-" + ctr %>" size="5" value="<%=val%>"/> <br/>
+                                       name="<%= "inputValue-" + ctr %>" size="5" value="<%=Encode.forHtmlAttribute(val)%>"/> <br/>
                                 <%}%>
                             </div>
                             <br/>
@@ -516,7 +517,7 @@
                             </div>
                             <fieldset>
                                 <legend>Comments</legend>
-                                <textarea name="<%= "comments-" + ctr %>"><%=comment%></textarea>
+                                <textarea name="<%= "comments-" + ctr %>"><%=Encode.forHtmlContent(comment)%></textarea>
                             </fieldset>
                         </fieldset>
 

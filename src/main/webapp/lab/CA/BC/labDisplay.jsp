@@ -47,6 +47,7 @@
 <%@ page
         import="java.util.*, io.github.carlos_emr.carlos.mds.data.*,io.github.carlos_emr.carlos.lab.ca.bc.PathNet.*,io.github.carlos_emr.carlos.lab.ca.on.CML.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%
 
@@ -67,7 +68,7 @@
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-    <title><%=lab.pName%> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.title"/></title>
+    <title><%=lab.pName%> <fmt:message key="oscarMDS.segmentDisplay.title"/></title>
     <script language="javascript" type="text/javascript"
             src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
     <link rel="stylesheet" type="text/css"
@@ -78,7 +79,7 @@
 <script language="JavaScript">
     function getComment() {
         var ret = true;
-        var commentVal = prompt('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.msgComment"/>', '');
+        var commentVal = prompt('<fmt:message key="oscarMDS.segmentDisplay.msgComment"/>', '');
 
         if (commentVal == null)
             ret = false;
@@ -102,10 +103,27 @@
         value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("segmentID"))) %>"/> <input
         type="hidden" name="selectedProviders" value=""/>
     <input type="hidden" name="favorites" value=""/>
-    <input type="hidden" name="labType" value="BCP"/> <input type="hidden"
-                                                             name="labType<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("segmentID"))) %>BCP"
-                                                             value="imNotNull"/> <input type="hidden" name="providerNo"
-                                                                                        value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>"/>
+    <input type="hidden" name="labType" value="BCP"/>
+    <%
+        String safeSegmentIdBCP = null;
+        String segmentIdParamBCP = StringUtils.noNull(request.getParameter("segmentID")).trim();
+        try {
+            if (!segmentIdParamBCP.isEmpty()) {
+                long parsedIdBCP = Long.parseLong(segmentIdParamBCP);
+                if (parsedIdBCP >= 0) {
+                    safeSegmentIdBCP = Long.toString(parsedIdBCP);
+                }
+            }
+        } catch (NumberFormatException e) {
+            safeSegmentIdBCP = null;
+        }
+    %>
+    <% if (safeSegmentIdBCP != null) { %>
+    <input type="hidden" name="labType<%=safeSegmentIdBCP%>BCP"
+           value="imNotNull"/> <%-- segmentID is a numeric DB key; encoding would break server-side getParameter lookup --%>
+    <% } %>
+    <input type="hidden" name="providerNo"
+           value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>"/>
 </form>
 <form name="acknowledgeForm" method="post"
       action="<%=request.getContextPath()%>/oscarMDS/UpdateStatus.do">
@@ -127,14 +145,14 @@
                                 type="hidden" name="labType"
                                 value="BCP"/> <% if (request.getParameter("providerNo") != null /*&& ! mDSSegmentData.getAcknowledgedStatus(request.getParameter("providerNo")) */) { %>
                             <input type="submit"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
+                                   value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
                                    onclick="return getComment();"> <% } %> <input type="button"
                                                                                   class="smallButton"
-                                                                                  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnForward"/>"
+                                                                                  value="<fmt:message key="oscarMDS.index.btnForward"/>"
                                                                                   onClick="popupStart(397, 700, '<%= request.getContextPath() %>/oscarMDS/SelectProvider.jsp', 'providerselect')">
-                            <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> "
+                            <input type="button" value=" <fmt:message key="global.btnClose"/> "
                                    onClick="window.close()"> <input type="button"
-                                                                    value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
+                                                                    value=" <fmt:message key="global.btnPrint"/> "
                                                                     onClick="window.print()"> <% if (lab.getDemographicNo() != null && !lab.getDemographicNo().equals("") && !lab.getDemographicNo().equalsIgnoreCase("null")) { %>
                             <input type="button" value="Msg"
                                    onclick="popup(700,960,'${pageContext.request.contextPath}/messenger/SendDemoMessage.do?demographic_no=<%=lab.getDemographicNo()%>','msg')"/>
@@ -142,7 +160,7 @@
                                    onclick="popup(450,600,'${pageContext.request.contextPath}/tickler/ForwardDemographicTickler.do?demographic_no=<%=lab.getDemographicNo()%>','tickler')"/>
                             <% } %> <% if (request.getParameter("searchProviderNo") != null) { // we were called from e-chart %>
                             <input type="button"
-                                   value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
+                                   value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
                                    onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=BCP&segmentID=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(request.getParameter("segmentID")))) %>&name=<%=Encode.forJavaScriptAttribute(java.net.URLEncoder.encode(lab.pName, StandardCharsets.UTF_8))%>', 'searchPatientWindow')">
                             <% } %>
                             <!--input type="button" value="Link To Lab Req" onClick="popupStart(360, 680, 'linkToLabReq.jsp?demo=<%=lab.getDemographicNo()%>&type=BCP&segmentID=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(request.getParameter("segmentID")))) %>', 'searchPatientWindow')"-->
@@ -186,10 +204,10 @@
                     %>
                     <tr>
                         <td width="66%" align="middle" class="Cell">
-                            <div class="Field2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDetailResults"/></div>
+                            <div class="Field2"><fmt:message key="oscarMDS.segmentDisplay.formDetailResults"/></div>
                         </td>
                         <td width="33%" align="middle" class="Cell">
-                            <div class="Field2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResultsInfo"/></div>
+                            <div class="Field2"><fmt:message key="oscarMDS.segmentDisplay.formResultsInfo"/></div>
                         </td>
                     </tr>
                     <tr>
@@ -206,7 +224,7 @@
                                                            width="100%">
                                                         <tr>
                                                             <td colspan="2" nowrap>
-                                                                <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formPatientName"/>: </strong>
+                                                                <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formPatientName"/>: </strong>
                                                                 </div>
                                                             </td>
                                                             <td colspan="2" nowrap>
@@ -221,7 +239,7 @@
                                                         </tr>
                                                         <tr>
                                                             <td colspan="2" nowrap>
-                                                                <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateBirth"/>: </strong>
+                                                                <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formDateBirth"/>: </strong>
                                                                 </div>
                                                             </td>
                                                             <td colspan="2" nowrap>
@@ -231,7 +249,7 @@
                                                         </tr>
                                                         <tr>
                                                             <td colspan="2" nowrap>
-                                                                <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong><%=lab.getAge()%> <%
+                                                                <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong><%=lab.getAge()%> <%
                                                                     try {
                                                                         lab.getAge();
                                                                     } catch (Exception e) {
@@ -242,7 +260,7 @@
                                                                 </div>
                                                             </td>
                                                             <td colspan="2" nowrap>
-                                                                <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong><%=lab.pSex%>
+                                                                <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong><%=lab.pSex%>
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -250,8 +268,8 @@
                                                             <td colspan="2" nowrap>
                                                                 <div class="FieldData"><strong>
                                                                     <% if (!lab.pHealthNum.startsWith("X")) {%>
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formHealthNumber"/> <%} else {%>
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formMDSIDNumber"/>
+                                                                    <fmt:message key="oscarMDS.segmentDisplay.formHealthNumber"/> <%} else {%>
+                                                                    <fmt:message key="oscarMDS.segmentDisplay.formMDSIDNumber"/>
                                                                     <%}%></strong></div>
                                                             </td>
                                                             <td colspan="2" nowrap>
@@ -268,7 +286,7 @@
                                                         <tr>
                                                             <td nowrap>
                                                                 <div align="left" class="FieldData">
-                                                                    <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formHomePhone"/>: </strong>
+                                                                    <strong><fmt:message key="oscarMDS.segmentDisplay.formHomePhone"/>: </strong>
                                                                 </div>
                                                             </td>
                                                             <td nowrap>
@@ -280,7 +298,7 @@
                                                         <tr>
                                                             <td nowrap>
                                                                 <div align="left" class="FieldData">
-                                                                    <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formWorkPhone"/>: </strong>
+                                                                    <strong><fmt:message key="oscarMDS.segmentDisplay.formWorkPhone"/>: </strong>
                                                                 </div>
                                                             </td>
                                                             <td nowrap>
@@ -302,7 +320,7 @@
                                                         <tr>
                                                             <td nowrap>
                                                                 <div align="left" class="FieldData">
-                                                                    <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formPatientLocation"/>: </strong>
+                                                                    <strong><fmt:message key="oscarMDS.segmentDisplay.formPatientLocation"/>: </strong>
                                                                 </div>
                                                             </td>
                                                             <td nowrap>
@@ -323,7 +341,7 @@
                             <table width="100%" border="0" cellspacing="0" cellpadding="1">
                                 <tr>
                                     <td>
-                                        <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateService"/>:</strong></div>
+                                        <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formDateService"/>:</strong></div>
                                     </td>
                                     <td>
                                         <div class="FieldData" nowrap="nowrap"><%= lab.serviceDate %>
@@ -332,7 +350,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formReportStatus"/>:</strong></div>
+                                        <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formReportStatus"/>:</strong></div>
                                     </td>
                                     <td>
                                         <div class="FieldData" nowrap="nowrap"><%= lab.status %>
@@ -344,7 +362,7 @@
                                 </tr>
                                 <tr>
                                     <td nowrap>
-                                        <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formClientRefer"/>:</strong></div>
+                                        <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formClientRefer"/>:</strong></div>
                                     </td>
                                     <td nowrap>
                                         <div class="FieldData" nowrap="nowrap"><%= lab.docNum%>
@@ -353,7 +371,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAccession"/>:</strong></div>
+                                        <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formAccession"/>:</strong></div>
                                     </td>
                                     <td>
                                         <div class="FieldData" nowrap="nowrap"><%= lab.accessionNum%>
@@ -369,15 +387,15 @@
                                    bordercolor="#CCCCCC">
                                 <tr>
                                     <td bgcolor="white">
-                                        <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formRequestingClient"/>: </strong> <%= lab.docName%>
+                                        <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formRequestingClient"/>: </strong> <%= lab.docName%>
                                         </div>
                                     </td>
                                     <td bgcolor="white">
-                                        <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formReportToClient"/>: </strong> <%= ""/*mDSSegmentData.providers.admittingDoctor not sure*/%>
+                                        <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formReportToClient"/>: </strong> <%= ""/*mDSSegmentData.providers.admittingDoctor not sure*/%>
                                         </div>
                                     </td>
                                     <td bgcolor="white" align="right">
-                                        <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formCCClient"/>: </strong> <%=lab.ccedDocs%>
+                                        <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formCCClient"/>: </strong> <%=lab.ccedDocs%>
 
                                         </div>
                                     </td>
@@ -469,14 +487,14 @@
                        bgcolor="#CCCCFF" bordercolor="#9966FF" bordercolordark="#bfcbe3"
                        name="tblDiscs" id="tblDiscs">
                     <tr class="Field2">
-                        <td width="25%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
-                        <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
-                        <td width="5%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAbn"/></td>
-                        <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formReferenceRange"/></td>
-                        <td width="10%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formUnits"/></td>
-                        <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
-                        <td width="6%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestLocation"/></td>
-                        <td width="6%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
+                        <td width="25%" align="middle" valign="bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
+                        <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
+                        <td width="5%" align="middle" valign="bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formAbn"/></td>
+                        <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formReferenceRange"/></td>
+                        <td width="10%" align="middle" valign="bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formUnits"/></td>
+                        <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
+                        <td width="6%" align="middle" valign="bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formTestLocation"/></td>
+                        <td width="6%" align="middle" valign="bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
                     </tr>
 
                     <%
@@ -576,14 +594,14 @@
                         <td align="left" width="50%">
                             <% if (request.getParameter("providerNo") != null /*&& ! mDSSegmentData.getAcknowledgedStatus(request.getParameter("providerNo")) */) { %>
                             <input type="submit"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
+                                   value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
                                    onclick="getComment()"> <% } %> <input type="button"
                                                                           class="smallButton"
-                                                                          value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnForward"/>"
+                                                                          value="<fmt:message key="oscarMDS.index.btnForward"/>"
                                                                           onClick="popupStart(397, 700, '<%= request.getContextPath() %>/oscarMDS/SelectProvider.jsp', 'providerselect')">
-                            <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> "
+                            <input type="button" value=" <fmt:message key="global.btnClose"/> "
                                    onClick="window.close()"> <input type="button"
-                                                                    value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
+                                                                    value=" <fmt:message key="global.btnPrint"/> "
                                                                     onClick="window.print()"> <% if (lab.getDemographicNo() != null && !lab.getDemographicNo().equals("") && !lab.getDemographicNo().equalsIgnoreCase("null")) { %>
                             <input type="button" value="Msg"
                                    onclick="popup(700,960,'${pageContext.request.contextPath}/messenger/SendDemoMessage.do?demographic_no=<%=lab.getDemographicNo()%>','msg')"/>
@@ -591,12 +609,12 @@
                                    onclick="popup(450,600,'${pageContext.request.contextPath}/tickler/ForwardDemographicTickler.do?demographic_no=<%=lab.getDemographicNo()%>','tickler')"/>
                             <% } %> <% if (request.getParameter("searchProviderNo") != null) { // we were called from e-chart %>
                             <input type="button"
-                                   value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
+                                   value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
                                    onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=BCP&segmentID=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(request.getParameter("segmentID")))) %>&name=<%=Encode.forJavaScriptAttribute(java.net.URLEncoder.encode(lab.pName, StandardCharsets.UTF_8))%>', 'searchPatientWindow')">
                             <% } %>
                         </td>
                         <td width="50%" valign="center" align="left"><span
-                                class="Field2"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.msgReportEnd"/></i></span></td>
+                                class="Field2"><i><fmt:message key="oscarMDS.segmentDisplay.msgReportEnd"/></i></span></td>
                     </tr>
                 </table>
             </td>

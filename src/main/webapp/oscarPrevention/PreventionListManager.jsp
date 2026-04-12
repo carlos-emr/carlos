@@ -35,6 +35,7 @@
 <%@page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
@@ -55,10 +56,10 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.preventionlistmanager.title"/></title>
+    <title><fmt:message key="oscarprevention.preventionlistmanager.title"/></title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" media="screen">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" media="screen">
 
     <style>
         .table tbody tr:hover td, .table tbody tr:hover th {
@@ -76,7 +77,7 @@
 <body>
 
 <div class="container-fluid">
-    <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.preventionlistmanager.title"/></h1>
+    <h1><fmt:message key="oscarprevention.preventionlistmanager.title"/></h1>
     <p class="lead">Customize which prevention items to display on the prevention list.</p>
     <p style="margin-top:-20px"><span class="badge bg-info">Info</span> Any changes made here will affect every
         provider using the prevention module. To add/remove any item from the prevention list simply click on the item
@@ -170,7 +171,7 @@
 
 <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
-<script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
 <script>
     $(".prevention-item").click(function () {

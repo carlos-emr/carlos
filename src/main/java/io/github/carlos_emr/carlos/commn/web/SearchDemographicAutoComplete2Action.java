@@ -33,7 +33,10 @@ package io.github.carlos_emr.carlos.commn.web;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -46,14 +49,14 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicCust;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO;
 import io.github.carlos_emr.carlos.utility.AppointmentUtil;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
-import io.github.carlos_emr.carlos.prescript.data.RxProviderData.Provider;
 
 /**
  * Struts 2 action providing JSON autocomplete results for demographic (patient) searches.
@@ -102,7 +105,6 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         boolean activeOnly = false;
         activeOnly = request.getParameter("activeOnly") != null && request.getParameter("activeOnly").equalsIgnoreCase("true");
         boolean jqueryJSON = request.getParameter("jqueryJSON") != null && request.getParameter("jqueryJSON").equalsIgnoreCase("true");
-        RxProviderData rx = new RxProviderData();
 
 
         if (searchStr == null || searchStr.trim().isEmpty()) {
@@ -160,8 +162,35 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         }
 
 
-        // Hoist DAO lookup outside loop to avoid N+1 bean resolution on every iteration
+        // Hoist DAO lookups outside loop to avoid N+1 bean resolution on every iteration
         DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
+        ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+
+        // Batch-load all referenced provider numbers in a single query instead of N+1 RxProviderData lookups
+        Set<String> providerNos = new LinkedHashSet<>();
+        for (Demographic demo : list) {
+            if (demo.getProviderNo() != null && !demo.getProviderNo().isEmpty()) {
+                providerNos.add(demo.getProviderNo());
+            }
+        }
+        boolean workflowEnhance = CarlosProperties.getInstance().isPropertyActive("workflow_enhance");
+        // Pre-load all DemographicCust records to avoid N+1 queries in the render loop
+        Map<Integer, DemographicCust> dcMap = new HashMap<>();
+        for (Demographic demo : list) {
+            DemographicCust dc = demographicCustDao.find(demo.getDemographicNo());
+            dcMap.put(demo.getDemographicNo(), dc);
+            if (workflowEnhance && dc != null) {
+                String n = StringUtils.trimToNull(dc.getNurse());
+                String r = StringUtils.trimToNull(dc.getResident());
+                String m = StringUtils.trimToNull(dc.getMidwife());
+                if (n != null) providerNos.add(n);
+                if (r != null) providerNos.add(r);
+                if (m != null) providerNos.add(m);
+            }
+        }
+        Map<String, ProviderSummaryDTO> providerMap = providerNos.isEmpty()
+                ? new HashMap<>()
+                : providerDao.getProviderSummariesByIds(providerNos);
 
         List<HashMap<String, String>> secondList = new ArrayList<HashMap<String, String>>();
         for (Demographic demo : list) {
@@ -178,42 +207,30 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             h.put("hin", demo.getHin() != null ? demo.getHin() : "");
             h.put("address", demo.getAddress() != null ? demo.getAddress() : "");
 
-
-            Provider p = rx.getProvider(demo.getProviderNo());
-            if (demo.getProviderNo() != null) {
+            if (demo.getProviderNo() != null && !demo.getProviderNo().isEmpty()) {
                 h.put("providerNo", demo.getProviderNo());
-            }
-            if (p.getSurname() != null && p.getFirstName() != null) {
-                h.put("providerName", p.getSurname() + ", " + p.getFirstName());
+                ProviderSummaryDTO prov = providerMap.get(demo.getProviderNo());
+                if (prov != null) {
+                    h.put("providerName", prov.getFormattedName());
+                }
             }
 
-            DemographicCust demographicCust = demographicCustDao.find(demo.getDemographicNo());
+            // Reuse pre-loaded DemographicCust from the cache
+            DemographicCust demographicCust = dcMap.get(demo.getDemographicNo());
 
             String alertText = (demographicCust != null && demographicCust.getAlert() != null) ? demographicCust.getAlert() : "";
             h.put("alert", alertText);
 
-            if (CarlosProperties.getInstance().isPropertyActive("workflow_enhance")) {
+            if (workflowEnhance) {
                 h.put("nextAppointment", AppointmentUtil.getNextAppointment(demo.getDemographicNo() + ""));
 
                 if (demographicCust != null) {
                     String cust1 = StringUtils.trimToNull(demographicCust.getNurse());
                     String cust2 = StringUtils.trimToNull(demographicCust.getResident());
                     String cust4 = StringUtils.trimToNull(demographicCust.getMidwife());
-                    if (cust1 != null) {
-                        h.put("cust1", cust1);
-                        p = rx.getProvider(cust1);
-                        h.put("cust1Name", p.getSurname() + ", " + p.getFirstName());
-                    }
-                    if (cust2 != null) {
-                        h.put("cust2", cust2);
-                        p = rx.getProvider(cust2);
-                        h.put("cust2Name", p.getSurname() + ", " + p.getFirstName());
-                    }
-                    if (cust4 != null) {
-                        h.put("cust4", cust4);
-                        p = rx.getProvider(cust4);
-                        h.put("cust4Name", p.getSurname() + ", " + p.getFirstName());
-                    }
+                    putCustProvider(h, "cust1", cust1, providerMap);
+                    putCustProvider(h, "cust2", cust2, providerMap);
+                    putCustProvider(h, "cust4", cust4, providerMap);
                 }
             }
 
@@ -240,6 +257,14 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         }
         return null;
 
+    }
+
+    private static void putCustProvider(HashMap<String, String> h, String key, String providerNo,
+                                           Map<String, ProviderSummaryDTO> providerMap) {
+        if (providerNo == null) return;
+        h.put(key, providerNo);
+        ProviderSummaryDTO prov = providerMap.get(providerNo);
+        if (prov != null) h.put(key + "Name", prov.getFormattedName());
     }
 
     private String formatJSON(List<HashMap<String, String>> info) {

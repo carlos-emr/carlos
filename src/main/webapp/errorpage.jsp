@@ -46,8 +46,8 @@
 <!-- only true can access exception object -->
 <%@ taglib uri='jakarta.tags.core' prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <fmt:message key="messenger.config.MessengerAdmin.goBack" var="btnBackTitle"/>
 <fmt:message key="provider.appointmentProviderAdminDay.schedView" var="btnExitTitle"/>
 <jsp:useBean id="LoginResourceBean" beanName="io.github.carlos_emr.carlos.login.LoginResourceBean" type="io.github.carlos_emr.carlos.login.LoginResourceBean"/>
@@ -59,7 +59,7 @@
         <fmt:message key="error.description"/>
     </title>
     <link rel="shortcut icon" href="${e:forUri(pageContext.request.contextPath)}/images/favicon.ico"/>
-    <link rel="stylesheet" href="${e:forUri(pageContext.request.contextPath)}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="${e:forUri(pageContext.request.contextPath)}/library/bootstrap/5.3.8/css/bootstrap.min.css"/>
 
     <style media="all">
 
@@ -178,6 +178,7 @@
                     </div>
                 </c:if>
                 <div id="support_text">
+                    <%-- Intentionally unescaped: supportText contains trusted HTML from server-side login .env / deployment configuration on disk, not user input or UI admin content. --%>
                     <c:out value="${ LoginResourceBean.supportText }" escapeXml="false"/>
                 </div>
             </div>

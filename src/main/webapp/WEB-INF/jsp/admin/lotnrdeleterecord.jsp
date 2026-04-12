@@ -52,12 +52,13 @@
 </security:oscarSec>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotdeleterecord.title"/></title>
+        <title><fmt:message key="admin.lotdeleterecord.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
     </head>
 
@@ -66,7 +67,7 @@
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">
                 <th><font face="Helvetica" color="#FFFFFF">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotdeleterecord.description"/>
+                    <fmt:message key="admin.lotdeleterecord.description"/>
                 </font></th>
             </tr>
         </table>

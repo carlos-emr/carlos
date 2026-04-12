@@ -41,7 +41,10 @@
 <c:if test="${authenticated eq true}">
 
     <%@page import="io.github.carlos_emr.carlos.utility.DigitalSignatureUtils" %>
+    <%@page import="io.github.carlos_emr.carlos.utility.LogSanitizer" %>
     <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+    <%@page import="io.github.carlos_emr.carlos.utility.PathValidationUtils" %>
+    <%@page import="java.io.File" %>
     <%@page import="java.io.FileOutputStream" %>
     <%@page import="java.io.InputStream" %>
     <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -62,8 +65,26 @@
         String signatureKey = request.getParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY);
 		ModuleType moduleType = ModuleType.getByName(request.getParameter(ModuleType.class.getSimpleName()));
 
+        // Reject signatureKey values containing anything other than alphanumeric characters
+        // to prevent path traversal (e.g. "../" sequences) from escaping the temp directory.
+        if (signatureKey != null && !signatureKey.matches("[a-zA-Z0-9]+")) {
+            MiscUtils.getLogger().warn("Invalid signatureKey rejected: {}", LogSanitizer.sanitize(signatureKey));
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid signature key");
+            return;
+        }
+
         if (signatureKey != null) {
             String filename = DigitalSignatureUtils.getTempFilePath(signatureKey);
+
+            // Defence-in-depth: confirm the resolved path is within the temp directory
+            try {
+                File tmpDir = new File(System.getProperty("java.io.tmpdir"));
+                PathValidationUtils.validateExistingPath(new File(filename), tmpDir);
+            } catch (SecurityException e) {
+                MiscUtils.getLogger().warn("Path traversal attempt blocked for signatureKey: {}", LogSanitizer.sanitize(signatureKey));
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid signature key");
+                return;
+            }
 
             if ("IPAD".equalsIgnoreCase(uploadSource) && imageString != null && !imageString.isEmpty()) {
 

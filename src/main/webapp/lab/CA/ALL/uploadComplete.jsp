@@ -1,9 +1,10 @@
 <%@page contentType="text/xml; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@page import="javax.xml.parsers.*, org.w3c.dom.*, io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilXML" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.XmlUtils" %>
 <%
 
-    DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+    DocumentBuilder builder = XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder();
     Document doc = builder.newDocument();
 
     Element element = doc.createElement("labUploadResult");

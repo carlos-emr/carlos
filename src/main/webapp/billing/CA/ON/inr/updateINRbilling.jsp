@@ -134,7 +134,7 @@
 
 <table BORDER="0" CELLPADDING="1" CELLSPACING="0" WIDTH="100%"
        BGCOLOR="#C4D9E7">
-    <FORM NAME="serviceform" ACTION="dbUpdateINRbilling.jsp" METHOD="POST">
+    <FORM NAME="serviceform" ACTION="DbUpdateINRbilling.do" METHOD="POST">
         <tr valign="top">
             <td rowspan="2" ALIGN="right" valign="middle">
                 <div align="center">
@@ -162,13 +162,13 @@
                             <td width="29%"><font size="1"
                                                   face="Arial, Helvetica, sans-serif">Demographic HIN</font></td>
                             <td width="50%"><input type="text" name="demo_hin"
-                                                   value="<%=demo_hin%> " size="20" readonly></td>
+                                                   value="<%=Encode.forHtmlAttribute(demo_hin)%> " size="20" readonly></td>
                         </tr>
                         <tr>
                             <td width="29%"><font size="1"
                                                   face="Arial, Helvetica, sans-serif">Demographic DOB</font></td>
                             <td width="50%"><input type="text" name="demo_dob"
-                                                   value="<%=demo_dob%> " size="20" readonly></td>
+                                                   value="<%=Encode.forHtmlAttribute(demo_dob)%> " size="20" readonly></td>
                         </tr>
                         <tr>
                             <td width="29%"><font face="Arial, Helvetica, sans-serif"

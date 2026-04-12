@@ -25,6 +25,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <html>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ page import="io.github.carlos_emr.carlos.utility.DateRange" %>
 <%! boolean bMultisites = IsPropertiesOn.isMultisitesEnable(); %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -64,7 +65,7 @@
 <jsp:useBean id="SxmlMisc" class="io.github.carlos_emr.SxmlMisc" scope="session"/>
 
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></title>
+    <title><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></title>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
     <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
@@ -305,7 +306,7 @@
 <body>
 
 <div class="container-fluid">
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></h3>
+    <h3><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></h3>
 
     <form name="serviceform" id="serviceform"
           action="<%=request.getContextPath() %>/billing/CA/ON/billingOHIPsimulation.jsp">
@@ -314,8 +315,8 @@
             <input type="hidden" name="submit" value="Create Report">
 
             Bill Center:
-            <input type="hidden" name="billcenter" value="<%=billCenter%>">
-            <%=healthOffice%>
+            <input type="hidden" name="billcenter" value="<%=Encode.forHtmlAttribute(billCenter)%>">
+            <%=Encode.forHtml(healthOffice)%>
 
             <button type='button' name='print' value='Print' class="btn float-end" onClick='window.print()'><i
                     class="fa-solid fa-print"></i> Print
@@ -330,10 +331,10 @@
             %>
 
 
-            <input type="hidden" name="monthCode" value="<%=monthCode%>">
+            <input type="hidden" name="monthCode" value="<%=Encode.forHtmlAttribute(monthCode)%>">
             <input type="hidden" name="verCode" value="V03">
-            <input type="hidden" name="curUser" value="<%=user_no%>">
-            <input type="hidden" name="curDate" value="<%=nowDate%>">
+            <input type="hidden" name="curUser" value="<%=Encode.forHtmlAttribute(user_no)%>">
+            <input type="hidden" name="curDate" value="<%=Encode.forHtmlAttribute(nowDate)%>">
 
 
             <div class="col-md-12" style="margin:4px;">
@@ -363,10 +364,10 @@
                             for (int i = 0; i < providerStr.size(); i++) {
                                 String temp[] = ((String) providerStr.get(i)).split("\\|");
                         %>
-                        <option value="<%=temp[0]%>"
-                                <%=providerview.equals(temp[0]) ? "selected" : (providerStr.size() == 1 ? "selected" : "")%>><%=temp[1]%>
+                        <option value="<%=Encode.forHtmlAttribute(temp[0])%>"
+                                <%=providerview.equals(temp[0]) ? "selected" : (providerStr.size() == 1 ? "selected" : "")%>><%=Encode.forHtml(temp[1])%>
                             ,
-                            <%=temp[2]%>
+                            <%=Encode.forHtml(temp[2])%>
                         </option>
                         <%
                             }

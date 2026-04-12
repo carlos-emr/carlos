@@ -47,12 +47,13 @@
 <%@ page
         import="java.util.*,io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%
-    String labType = request.getParameter("labType");
-    String demographicNo = request.getParameter("demographic_no");
-    String testName = request.getParameter("testName");
+    String labType = StringUtils.noNull(request.getParameter("labType"));
+    String demographicNo = StringUtils.noNull(request.getParameter("demographic_no"));
+    String testName = StringUtils.noNull(request.getParameter("testName"));
     String identifier = request.getParameter("identifier");
     if (identifier == null) {
         identifier = "NULL";
@@ -73,14 +74,14 @@
     if (request.getParameterValues("drug") != null) {
         String[] drugs = request.getParameterValues("drug");
         for (String d : drugs) {
-            sb.append("&drug=" + d);
+            sb.append("&drug=" + Encode.forUriComponent(d));
             h.put(d, "drug");
         }
     } else {
         for (int idx = 0; idx < arr.length; ++idx) {
             RxPrescriptionData.Prescription drug = arr[idx];
             if (!drug.isCustom()) {
-                sb.append("&drug=" + drug.getRegionalIdentifier());
+                sb.append("&drug=" + Encode.forUriComponent(drug.getRegionalIdentifier()));
                 h.put(drug.getRegionalIdentifier(), "drug");
             }
         }
@@ -95,18 +96,19 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath()%>/js/global.js"></script>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.chartDrugProfile.title"/></title>
+    <title><fmt:message key="oscarRx.chartDrugProfile.title"/></title>
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 </head>
 
 <script language="JavaScript">
     function getComment() {
-        var commentVal = prompt('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.msgComment"/>', '');
+        var commentVal = prompt('<fmt:message key="oscarMDS.segmentDisplay.msgComment"/>', '');
         document.acknowledgeForm.comment.value = commentVal;
         return true;
     }
@@ -128,12 +130,12 @@
                    bgcolor="black">
                 <tr>
                     <td width="66%" align="left" class="Cell">
-                        <div style="color:white;margin-left:5px;" class="Field2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDetailResults"/></div>
+                        <div style="color:white;margin-left:5px;" class="Field2"><fmt:message key="oscarMDS.segmentDisplay.formDetailResults"/></div>
                     </td>
                     <td align="right">
 
-                        <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>" onClick="window.close()"/>
-                        <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>" onClick="window.print()"/>
+                        <input type="button" value="<fmt:message key="global.btnClose"/>" onClick="window.close()"/>
+                        <input type="button" value="<fmt:message key="global.btnPrint"/>" onClick="window.print()"/>
 
 
                     </td>
@@ -179,7 +181,7 @@
                                 }
                         %>
                         <li><input type="checkbox"  <%=getChecked(h, drug.getRegionalIdentifier())%> name="drug"
-                                   value="<%=drug.getRegionalIdentifier()%>"/> <%=drug.getFullOutLine().replaceAll(";", " ")%>
+                                   value="<%=Encode.forHtmlAttribute(drug.getRegionalIdentifier())%>"/> <%=Encode.forHtml(drug.getFullOutLine().replaceAll(";", " "))%>
                         </li>
                         <%
                             }

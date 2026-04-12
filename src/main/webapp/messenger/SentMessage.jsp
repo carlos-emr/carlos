@@ -61,11 +61,11 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<fmt:setBundle basename="oscarResources"/>
 <%
     // Build role string for security validation
     String userrole = (String) session.getAttribute("userrole");
@@ -86,7 +86,7 @@
 <html>
     <head>
 <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-<link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+<link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
 <%-- global.css: CARLOS color overrides for Bootstrap (messenger pages don't use global-head.jspf) --%>
 <link rel="stylesheet" href="<%=request.getContextPath() %>/share/css/global.css">
 <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">

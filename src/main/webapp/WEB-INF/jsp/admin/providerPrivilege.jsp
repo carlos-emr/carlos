@@ -70,13 +70,14 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.RecycleBinDao" %>
 <%@ page import="org.springframework.dao.DataIntegrityViolationException" %>
 <%@ page import="org.springframework.web.util.HtmlUtils" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     SecRoleDao secRoleDao = SpringUtils.getBean(SecRoleDao.class);
@@ -179,9 +180,9 @@
                 secExceptionMsg = divEx.getMostSpecificCause().getLocalizedMessage();
             }
             if (secExceptionMsg.length() > 0)
-                msg += secExceptionMsg;
+                msg += Encode.forHtml(secExceptionMsg);
             else {
-                msg += "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + privilege + " is added. ";
+                msg += "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + Encode.forHtml(privilege) + " is added. ";
                 LogAction.addLog(curUser_no, LogConst.ADD, LogConst.CON_PRIVILEGE, roleUserGroup + "|" + encodedObjectName + "|" + privilege, ip);
             }
         }
@@ -236,10 +237,10 @@
             sop.setPrivilege(privilege);
             sop.setPriority(Integer.parseInt(priority));
             secObjPrivilegeDao.merge(sop);
-            msg = "Role/Obj/Rights " + roleUserGroup + "/" + objectName + "/" + privilege + " is updated. ";
+            msg = "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + Encode.forHtml(privilege) + " is updated. ";
             LogAction.addLog(curUser_no, LogConst.UPDATE, LogConst.CON_PRIVILEGE, roleUserGroup + "|" + objectName + "|" + privilege, ip);
         } else {
-            msg = "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + privilege + " is <span style='color:red'>NOT</span> updated!!! ";
+            msg = "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + Encode.forHtml(privilege) + " is <span style='color:red'>NOT</span> updated!!! ";
         }
 
     }
@@ -262,7 +263,7 @@
             priority = String.valueOf(sop.getPriority());
             provider_no = sop.getProviderNo();
             secObjPrivilegeDao.remove(sop.getId());
-            msg = "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + privilege + " is deleted. ";
+            msg = "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + Encode.forHtml(privilege) + " is deleted. ";
 
             RecycleBin recycleBin = new RecycleBin();
             recycleBin.setProviderNo(curUser_no);
@@ -276,7 +277,7 @@
             recycleBinDao.persist(recycleBin);
             LogAction.addLog(curUser_no, LogConst.DELETE, LogConst.CON_PRIVILEGE, roleUserGroup + "|" + objectName, ip);
         } else {
-            msg = "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + privilege + " is <span style='color:red'>NOT</span> deleted!!! ";
+            msg = "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + Encode.forHtml(privilege) + " is <span style='color:red'>NOT</span> deleted!!! ";
         }
     }
 
@@ -291,7 +292,7 @@
           rel="stylesheet">
     <link href="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
 
-    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <!-- Bootstrap 2.3.1 -->
 
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
@@ -304,10 +305,10 @@
     <script>
         jQuery(document).ready(function () {
             jQuery('#addtbl').DataTable({
-                "lengthMenu": [[8, 16, 32, -1], [8, 16, 32, "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.LeftNavBar.AllLabs"/>"]],
+                "lengthMenu": [[8, 16, 32, -1], [8, 16, 32, "<fmt:message key="encounter.LeftNavBar.AllLabs"/>"]],
                 "order": [],
                 "language": {
-                    "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18n.datatablescode"/>.json"
+                    "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
                 }
             });
         });
@@ -451,7 +452,7 @@
             for (int i = 0; i < vec.size(); i++) {
                 bgColor = bgColor.equals("#f5f5f5;") ? color : "#f5f5f5;";
                 String roleUser = (vec.get(i)).getProperty("roleUserGroup", "");
-                String roleUserName = vecProviderNo.contains(roleUser) ? "" + (String) vecProviderName.get(vecProviderNo.indexOf(roleUser)) + "" : roleUser;
+                String roleUserName = vecProviderNo.contains(roleUser) ? Encode.forHtmlContent((String) vecProviderName.get(vecProviderNo.indexOf(roleUser))) : roleUser;
                 String obj = (vec.get(i)).getProperty("objectName", "");
         %>
         <form name="myformrow<%=i%>" action="${pageContext.request.contextPath}/admin/ProviderPrivilege.do"
@@ -470,9 +471,9 @@
                                 out.print("</br>");
                                 bSet = false;
                             }
-                    %> <input type="checkbox" name="privilege<%=vecRightsName.get(j)%>"
+                    %> <input type="checkbox" name="privilege<%=Encode.forHtmlAttribute(vecRightsName.get(j).toString())%>"
                     <%=priv.indexOf(((String)vecRightsName.get(j)))>=0?"checked":""%> >
-                    <%=((String) vecRightsDesc.get(j)).replaceAll("Only", "O")%>
+                    <%=Encode.forHtml(((String) vecRightsDesc.get(j)).replaceAll("Only", "O"))%>
                     <% }%> <!--input type="text" name="privilege" value="<%--= priv--%>" /-->
                 </td>
                 <td><select name="priority" class="input-min" style="width:50px">
@@ -513,7 +514,7 @@
         </select> or <select name="roleUserGroup1">
         <option value="">-</option>
         <% for (int j = 0; j < vecProviderNo.size(); j++) {%>
-        <option value="<%=vecProviderNo.get(j)%>"><%= Encode.forHtmlContent((String) vecProviderName.get(j)) %>
+        <option value="<%=Encode.forHtmlAttribute(vecProviderNo.get(j).toString())%>"><%= Encode.forHtmlContent((String) vecProviderName.get(j)) %>
         </option>
         <% }%>
         <option value="_principal">_principal</option>
@@ -549,7 +550,7 @@
                     %> <input type="text" name="object$<%=objName%>" value=""> <% } else {
 
                     objName = (String) vecObjectId.get(i);
-                %> <input type="checkbox" name="object$<%=objName%>"> <%= vecObjectId.get(i) %>
+                %> <input type="checkbox" name="object$<%=Encode.forHtmlAttribute(objName)%>"> <%= Encode.forHtml(vecObjectId.get(i).toString()) %>
                     <% if (objName.startsWith("_queue.")) {
                         String d = null;
                         SecObjectName son = secObjectNameDao.find(objName);
@@ -564,7 +565,7 @@
                         }
                     %>
 
-                    <%=d%>
+                    <%=Encode.forHtml(d)%>
                     <%
                             }
                         }
@@ -579,10 +580,10 @@
                                 bSet = false;
                             }
                     %> <input type="checkbox"
-                              name="privilege$<%=objName%>$<%=vecRightsName.get(j)%>"/> <%=vecRightsDesc.get(j)%>
+                              name="privilege$<%=Encode.forHtmlAttribute(objName)%>$<%=Encode.forHtmlAttribute(vecRightsName.get(j).toString())%>"/> <%=Encode.forHtml(vecRightsDesc.get(j).toString())%>
                     <% }%>
                 </td>
-                <td><select name="priority$<%=objName%>" style="width:50px;">
+                <td><select name="priority$<%=Encode.forHtmlAttribute(objName)%>" style="width:50px;">
                     <option value="">-</option>
                     <% for (int j = 10; j >= 0; j--) { %>
                     <option value="<%=j%>" <%= ("" + j).equals("0") ? "selected" : "" %>>
@@ -618,7 +619,7 @@
                                 bSet = false;
                             }
                     %> <input type="checkbox"
-                              name="privilege$Name1$<%=vecRightsName.get(j)%>"> <%=vecRightsDesc.get(j)%>
+                              name="privilege$Name1$<%=Encode.forHtmlAttribute(vecRightsName.get(j).toString())%>"> <%=Encode.forHtml(vecRightsDesc.get(j).toString())%>
                     <% }%>
                 </td>
                 <td>Priority <select name="priority$Name1" style="width:50px;">

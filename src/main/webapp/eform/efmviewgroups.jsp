@@ -34,6 +34,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -67,16 +68,16 @@
         groups = EFormUtil.getEFormGroups();
     }
 %>
-<form action="<%=url%>" name="groupselect" method="get">
+<form action="<%=Encode.forHtmlAttribute(url)%>" name="groupselect" method="get">
     <input type="hidden" id="group_view" name="group_view" value="">
-    <input type="hidden" name="demographic_no" value="<%=demographic_no%>">
-    <input type="hidden" name="apptProvider" value="<%=apptProvider%>">
-    <input type="hidden" name="appointment" value="<%=appointment%>">
+    <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no)%>">
+    <input type="hidden" name="apptProvider" value="<%=Encode.forHtmlAttribute(apptProvider)%>">
+    <input type="hidden" name="appointment" value="<%=Encode.forHtmlAttribute(appointment)%>">
     <input type="hidden" name="parentAjaxId" value="<%= Encode.forHtmlAttribute(parentAjaxId) %>">
     <div class="grouplist">
-        <div class="grouplistHeader"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgViewGroup"/>:</div>
+        <div class="grouplistHeader"><fmt:message key="eform.showmyform.msgViewGroup"/>:</div>
         <ul class="grouplist">
-            <li><a href="#" onclick="document.forms['groupselect'].submit()"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgShowAll"/></b></a></li>
+            <li><a href="#" onclick="document.forms['groupselect'].submit()"><b><fmt:message key="eform.showmyform.msgShowAll"/></b></a></li>
             <%
                 for (int i = 0; i < groups.size(); i++) {
                     String selected = "";
@@ -86,14 +87,14 @@
                     if (group.equals(groupView)) selected = "selected";
             %>
             <li class="<%=selected%>"><a href="#"
-                                         onclick="document.getElementById('group_view').value='<%=group%>'; document.forms['groupselect'].submit();"><%=group%>
-                (<%=size%>)</a></li>
+                                         onclick="document.getElementById('group_view').value='<%=Encode.forJavaScriptAttribute(group)%>'; document.forms['groupselect'].submit();"><%=Encode.forHtml(group)%>
+                (<%=Encode.forHtml(size)%>)</a></li>
             <% } %>
         </ul>
         <security:oscarSec roleName="<%=roleName$%>"
                            objectName="_admin,_admin.eform" rights="r" reverse="<%=false%>">
             <a href="#"
                onclick="popup(600, 1200, '<%= request.getContextPath() %>/administration/?show=Forms&load=Groups', 'editGroups')"
-               style="color: #835921;"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgEditGroups"/></a>
+               style="color: #835921;"><fmt:message key="eform.showmyform.msgEditGroups"/></a>
         </security:oscarSec></div>
 </form>

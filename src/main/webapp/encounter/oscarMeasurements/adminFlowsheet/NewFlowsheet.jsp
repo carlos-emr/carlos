@@ -42,7 +42,7 @@
 <html>
 <head>
         <title>Create New Flowsheet</title>
-        <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <script type="text/javascript">
         function checkForm() {
             var displayName = document.getElementById("displayName").value;

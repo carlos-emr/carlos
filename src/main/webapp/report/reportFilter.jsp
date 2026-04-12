@@ -46,6 +46,7 @@
     Vector vec = reportFilter.getNameList(reportId, n);
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <html>
     <head>
@@ -59,7 +60,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
         <!-- the following script defines the Calendar.setup helper function, which makes
                adding a calendar a matter of 1 or 2 lines of code. -->
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
@@ -109,7 +110,7 @@
     <center>
         <table BORDER="1" CELLPADDING="0" CELLSPACING="0" WIDTH="80%">
             <tr BGCOLOR="#CCFFFF">
-                <th><%=reportName%>
+                <th><%=Encode.forHtml(reportName)%>
                 </th>
             </tr>
         </table>
@@ -138,13 +139,13 @@
                 <td align="right" width="20%"><b><input type="checkbox"
                                                         name="<%="filter_" + itemId%>" <%="1".equals(itemId)?"checked":""%>></b>
                 </td>
-                <td><%=strElt[0]%>
+                <td><%=Encode.forHtml(strElt[0])%>
                 </td>
                 <td width="5%" align="right"><input type="hidden"
-                                                    name="<%="value_" + itemId%>" value="<%=strElt[1]%>"> <input
-                        type="hidden" name="<%="position_" + itemId%>" value="<%=strElt[2]%>">
+                                                    name="<%="value_" + itemId%>" value="<%=Encode.forHtmlAttribute(strElt[1])%>"> <input
+                        type="hidden" name="<%="position_" + itemId%>" value="<%=Encode.forHtmlAttribute(strElt[2])%>">
                     <input type="hidden" name="<%="dateFormat_" + itemId%>"
-                           value="<%=strElt[5]%>"></td>
+                           value="<%=Encode.forHtmlAttribute(strElt[5])%>"></td>
             </tr>
             <% } %>
             <tr bgcolor="silver">

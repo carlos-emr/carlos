@@ -30,6 +30,7 @@
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -69,7 +70,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formlist.title"/></title>
+        <title><fmt:message key="encounter.formlist.title"/></title>
         <link rel="stylesheet" type="text/css" href="encounterStyles.css">
         <script type="text/javascript" language=javascript>
 
@@ -119,15 +120,15 @@
           rightmargin="0">
     <table border=0 cellspacing=0 cellpadding=0 width="100%">
         <tr bgcolor="<%=deepcolor%>">
-            <th><font face="Helvetica"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formlist.msgFormList"/></font></th>
+            <th><font face="Helvetica"><fmt:message key="encounter.formlist.msgFormList"/></font></th>
         </tr>
     </table>
     <center>
         <table BORDER="0" CELLPADDING="2" CELLSPACING="2" WIDTH="65%" BGCOLOR="white">
             <tr BGCOLOR="<%=tableTitle%>">
-                <th width=35% nowrap><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formlist.formName"/></th>
-                <th width=30% nowrap><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formlist.formCreated"/></th>
-                <th width=35% nowrap><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formlist.formEditedTime"/></th>
+                <th width=35% nowrap><fmt:message key="encounter.formlist.formName"/></th>
+                <th width=30% nowrap><fmt:message key="encounter.formlist.formCreated"/></th>
+                <th width=35% nowrap><fmt:message key="encounter.formlist.formEditedTime"/></th>
             </tr>
 
             <%
@@ -159,18 +160,18 @@
                         }
             %>
             <tr bgcolor='<%= yellow ? "yellow" : j%2 == 0 ? (i%2 == 0 ?weakcolor:deepcolor) : (i%2 == 0 ?"white":"#eeeeee")%>'>
-                <td><a href=# onClick="popupPageK('<%=hash + "started"%>','<%=request.getContextPath()
-									+ "/form/forwardshortcutname.do?formname=" + frm.getFormName()
-									+ "&demographic_no=" + demoNo 
+                <td><a href=# onClick="popupPageK('<%=Encode.forJavaScriptAttribute(hash + "started")%>','<%=Encode.forJavaScriptAttribute(request.getContextPath()
+									+ "/form/forwardshortcutname.do?formname=" + Encode.forUriComponent(frm.getFormName())
+									+ "&demographic_no=" + Encode.forUriComponent(demoNo)
 									+ "&formId=" + pfrm.getFormId()
-									+ "&provNo=" + provNo
+									+ "&provNo=" + Encode.forUriComponent(provNo))
 									%>'); return false;">
 
-                    <%=frm.getFormName() + (yellow ? " (current)" : "")%>
+                    <%=Encode.forHtml(frm.getFormName() + (yellow ? " (current)" : ""))%>
                 </a></td>
-                <td align='center'><%=pfrm.getCreated()%>
+                <td align='center'><%=Encode.forHtml(pfrm.getCreated())%>
                 </td>
-                <td align='center'><%=pfrm.getEdited()%>
+                <td align='center'><%=Encode.forHtml(pfrm.getEdited())%>
                 </td>
             </tr>
             <%
@@ -187,15 +188,15 @@
                     if (nLastPage >= 0) {
             %>
             <a
-                    href="formlist.jsp?demographic_no=<%= Encode.forUriComponent(demoNo) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formlist.formLastpage"/></a>
+                    href="formlist.jsp?demographic_no=<%= Encode.forUriComponent(demoNo) %>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>"><fmt:message key="encounter.formlist.formLastpage"/></a>
             |
             <%
                 }
                 if (nItems == intLimit2) {
             %>
             <a
-                    href="formlist.jsp?demographic_no=<%= Encode.forUriComponent(demoNo) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formlist.formNextPage"/></a>
+                    href="formlist.jsp?demographic_no=<%= Encode.forUriComponent(demoNo) %>&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>">
+                <fmt:message key="encounter.formlist.formNextPage"/></a>
             </td>
             </tr>
             <%

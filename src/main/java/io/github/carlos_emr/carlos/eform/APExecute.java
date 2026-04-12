@@ -50,18 +50,33 @@ public class APExecute {
     public APExecute() {
     }
 
-    
+
     private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    private static String requireDigitsOnly(String placeholderName, String value) {
+        if (value == null || value.isEmpty()) return value;
+        if (!value.matches("-?\\d+")) {
+            throw new IllegalArgumentException("Non-numeric value for placeholder: " + placeholderName);
+        }
+        return value;
+    }
 
     public String execute(String ap, String demographicNo) {
         EFormLoader.getInstance();
         DatabaseAP dap = EFormLoader.getAP(ap);
-        
+
         if (dap == null) {
             MiscUtils.getLogger().error("DatabaseAP not found for ap: " + ap);
             return "";
         }
-        
+
+        try {
+            requireDigitsOnly("demographic", demographicNo);
+        } catch (IllegalArgumentException e) {
+            MiscUtils.getLogger().error("Invalid demographic number for AP {}: {}", ap, e.getMessage());
+            return "";
+        }
+
         String sql = DatabaseAP.parserReplace("demographic", demographicNo, dap.getApSQL());
         String output = dap.getApOutput();
         MiscUtils.getLogger().debug("SQL----" + sql);
@@ -94,6 +109,14 @@ public class APExecute {
         }
         
         MiscUtils.getLogger().debug("AP:" + ap);
+
+        try {
+            requireDigitsOnly("demographic", demographicNo);
+        } catch (IllegalArgumentException e) {
+            MiscUtils.getLogger().error("Invalid demographic number for AP {}: {}", ap, e.getMessage());
+            return "";
+        }
+
         String sql = DatabaseAP.parserReplace("invoiceNo", String.valueOf(invoiceNo), dap.getApSQL());
         sql = DatabaseAP.parserReplace("demographic", demographicNo, sql);
 

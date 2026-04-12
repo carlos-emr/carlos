@@ -57,6 +57,7 @@
         import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" %>
 
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}"
        scope="request"/>
 
@@ -120,11 +121,11 @@
 
 <div class="pb-2 mt-4 mb-3 border-bottom">
     <h3>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.title"/>
+        <fmt:message key="oscarReport.oscarReportVisitControl.title"/>
         <div class="float-end">
             <button name="print" onclick="window.print()" class="btn d-print-none">
                 <i class="fa-solid fa-print"></i>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>
+                <fmt:message key="global.btnPrint"/>
             </button>
         </div>
     </h3>
@@ -134,7 +135,7 @@
       class="card card-body bg-body-tertiary d-print-none" id="visitForm">
     <fieldset>
         <h4>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.title"/>
+            <fmt:message key="oscarReport.oscarReportVisitControl.title"/>
             <br> <small>Please select the report type, provider and
             service begin and end dates.</small>
         </h4>
@@ -145,13 +146,13 @@
                     <input class="form-check-input" type="radio" id="reportActionLk"
                            name="reportAction" onClick="toggleDivs();" value="lk"
                         <%=reportAction.equals("lk")?"checked":""%>>
-                    <label class="form-check-label" for="reportActionLk"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.msgLarryKainReport"/></label>
+                    <label class="form-check-label" for="reportActionLk"><fmt:message key="oscarReport.oscarReportVisitControl.msgLarryKainReport"/></label>
                 </div>
                 <div class="form-check form-check-inline">
                     <input class="form-check-input" type="radio" id="reportActionVr"
                            name="reportAction" onClick="toggleDivs();" value="vr"
                         <%=reportAction.equals("vr") || reportAction.equals("")?"checked":""%>>
-                    <label class="form-check-label" for="reportActionVr"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.msgVisitReport"/></label>
+                    <label class="form-check-label" for="reportActionVr"><fmt:message key="oscarReport.oscarReportVisitControl.msgVisitReport"/></label>
                 </div>
             </div>
         </div>
@@ -162,7 +163,7 @@
                 <select id="providerview" name="providerview"
                         <%=reportAction.equals("lk") ? "disabled" : ""%>>
                     <option value="%">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.msgSelectProviderAll"/>
+                        <fmt:message key="oscarReport.oscarReportVisitControl.msgSelectProviderAll"/>
                     </option>
                     <%
                         for (ReportProvider rps : reportProviderDao.findByAction("visitreport")) {
@@ -199,7 +200,7 @@
         <div class="mb-3">
             <div>
                 <button type="submit" class="btn btn-primary">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.btnCreateReport"/>
+                    <fmt:message key="oscarReport.oscarReportVisitControl.btnCreateReport"/>
                 </button>
             </div>
         </div>

@@ -31,6 +31,7 @@
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
@@ -67,7 +68,7 @@
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.title"/></title>
+    <title><fmt:message key="provider.setDocumentDescriptionTemplate.title"/></title>
     <script language="javascript" type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
 
     <script type="text/javascript">
@@ -99,7 +100,7 @@
                     getDocumentDescriptionTemplateFromSelectedDocType();
                 });
             } else {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionCannotBeEmpty"/>");
+                alert("<fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionCannotBeEmpty"/>");
             }
         }
 
@@ -125,7 +126,7 @@
                     getDocumentDescriptionTemplateFromSelectedDocType();
                 });
             } else {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionCannotBeEmpty"/>");
+                alert("<fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionCannotBeEmpty"/>");
             }
         }
 
@@ -147,7 +148,7 @@
                     getDocumentDescriptionTemplateFromSelectedDocType();
                 });
             } else {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionCannotBeEmpty"/>");
+                alert("<fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionCannotBeEmpty"/>");
             }
         }
 
@@ -306,19 +307,19 @@
 <form method="post" name="docDescriptionForm" action="${pageContext.request.contextPath}/admin/DisplayDocumentDescriptionTemplate.do">
     <div id="usefault" style="<%=providerNo==null? "visibility:hidden" : ""%>">
         <input type="checkbox" name="useclinicdefault" <%=clinicDefault == true ? "checked='checked'" : ""%>
-               id="useclinicdefault" onclick="checkClinicDefault()"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.useClinicDefault"/>
+               id="useclinicdefault" onclick="checkClinicDefault()"><fmt:message key="provider.setDocumentDescriptionTemplate.useClinicDefault"/>
     </div>
     <% if (providerNo == null) {%>
-    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.setClinicDefault"/>
+    <fmt:message key="provider.setDocumentDescriptionTemplate.setClinicDefault"/>
     <%}%>
     <p>
 
     <table id="docTypeTable">
         <tr>
-            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.Type"/>:</td>
+            <td><fmt:message key="provider.setDocumentDescriptionTemplate.Type"/>:</td>
             <td>
                 <select name="docType" id="docType" onchange="getDocumentDescriptionTemplateFromSelectedDocType()">
-                    <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.selectType"/></option>
+                    <option value=""><fmt:message key="dms.incomingDocs.selectType"/></option>
                     <%
                         for (int j = 0; j < docTypes.size(); j++) {
                             String docType = (String) docTypes.get(j);
@@ -331,7 +332,7 @@
         </tr>
         <tr>
             <td>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.Description"/>:
+                <fmt:message key="provider.setDocumentDescriptionTemplate.Description"/>:
             </td>
             <td>
                 <div id="docDescriptionList"></div>
@@ -343,8 +344,8 @@
 
     <table style="visibility:hidden" id="tblDesc">
         <tr>
-            <th align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionShortcut"/></th>
-            <th align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.Description"/></th>
+            <th align="left"><fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionShortcut"/></th>
+            <th align="left"><fmt:message key="provider.setDocumentDescriptionTemplate.Description"/></th>
         </tr>
         <tr>
             <td><input type="hidden" name="providerNo" value="<%=(providerNo==null?"null":providerNo)%>"><input
@@ -354,11 +355,11 @@
         </tr>
         <tr>
             <td colspan="2"><input type="button"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.Add"/>"
+                                   value="<fmt:message key="provider.setDocumentDescriptionTemplate.Add"/>"
                                    id="addDescription" onclick="adddocDescription()">
-                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.Update"/>"
+                <input type="button" value="<fmt:message key="provider.setDocumentDescriptionTemplate.Update"/>"
                        id="updateDescription" onclick="updatedocDescription()">
-                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.Delete"/>"
+                <input type="button" value="<fmt:message key="provider.setDocumentDescriptionTemplate.Delete"/>"
                        id="deleteDescription" onclick="deletedocDescription()">
             </td>
         </tr>

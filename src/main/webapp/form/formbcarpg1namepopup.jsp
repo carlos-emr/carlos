@@ -21,6 +21,8 @@
 %>
 
 <%@ page import="java.sql.*" errorPage="/errorpage.jsp" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <jsp:useBean id="providerNameBean" class="java.util.Properties" scope="page"/>
 
@@ -32,6 +34,7 @@
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -45,9 +48,7 @@
                 <% if(fieldName.equals("pg1_priCare") ) {%>
                 opener.document.forms[0].pg1_priCare.value = v;
                 <% } else {%>
-                opener.document.forms[0]
-            .<%=fieldName%>.
-                value = v;
+                opener.document.forms[0]["<%= Encode.forJavaScript(StringUtils.noNull(fieldName)) %>"].value = v;
                 <% }%>
                 opener.recheckForm();
             }
@@ -63,9 +64,9 @@
         </tr>
         <tr>
             <td align="right">
-                <!--input type="button" name="Button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>" onClick="window.print()"-->
+                <!--input type="button" name="Button" value="<fmt:message key="global.btnPrint"/>" onClick="window.print()"-->
                 <input type="button" name="Button"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
+                       value="<fmt:message key="global.btnCancel"/>"
                        onClick="window.close()">
                 </th>
         </tr>
@@ -95,10 +96,10 @@
             <tr bgcolor="<%=bgColor%>"
                 onMouseOver="this.style.backgroundColor='pink';"
                 onMouseout="this.style.backgroundColor='<%=bgColor%>';"
-                onClick='typeInData("<%=firstName + " " + lastName%>");'>
-                <td nowrap><%=firstName%>
+                onClick='typeInData("<%= Encode.forJavaScriptAttribute(firstName + " " + lastName) %>");'>
+                <td nowrap><%= Encode.forHtml(firstName) %>
                 </td>
-                <td nowrap><%=lastName%>
+                <td nowrap><%= Encode.forHtml(lastName) %>
                 </td>
             </tr>
             <%

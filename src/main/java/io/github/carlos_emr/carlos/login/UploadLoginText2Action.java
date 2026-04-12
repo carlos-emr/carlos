@@ -98,7 +98,7 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
                 prop.setName("aua_valid_duration");
                 prop.setValue(validDurationNumber + " " + validDurationPeriod);
             } else {
-                _logger.error("Not a valid Period :{}", LogSanitizer.sanitize(validDurationPeriod));
+                _logger.error("Not a valid Period :{}", LogSanitizer.sanitize(validDurationPeriod)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             }
         }
 
@@ -150,6 +150,11 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
 
     @StrutsParameter
     public void setImportFile(File importFile) {
-        this.importFile = importFile;
+        if (importFile != null) {
+            this.importFile = PathValidationUtils.validateUpload(importFile);
+        }
+        else {
+            this.importFile = null;
+        }
     }
 }

@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.app;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
@@ -215,6 +216,7 @@ public class HttpMethodGuardFilter implements Filter {
             "providerrole.jsp",
             "providertemplate.jsp",
             "billingsettings.jsp",
+            "demographicmergerecord.jsp",
             // Billing forms
             "billingcorrection.jsp",
             "billingcorrectionsubmit.jsp",
@@ -496,11 +498,11 @@ public class HttpMethodGuardFilter implements Filter {
         String methodParam = request.getParameter("method");
         String detail = methodParam != null ? path + "?method=" + methodParam : path;
 
-        LOGGER.warn("Blocked {} request on mutator endpoint: {} (remote: {}, session: {})",
-                request.getMethod(),
-                detail,
-                request.getRemoteAddr(),
-                request.getRequestedSessionId() != null ? "present" : "none");
+        LOGGER.warn("Blocked {} request on mutator endpoint: {} (remote: {}, session: {})", // NOSONAR javasecurity:S5145 — all user-controlled args sanitized below
+                LogSanitizer.sanitize(request.getMethod()),
+                LogSanitizer.sanitize(detail),
+                LogSanitizer.sanitize(request.getRemoteAddr()),
+                request.getRequestedSessionId() != null ? "present" : "none"); // NOSONAR java:S2254 — session ID value is never exposed; only null/non-null checked for logging
 
         response.setHeader("Allow", "POST");
         response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED,

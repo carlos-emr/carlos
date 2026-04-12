@@ -39,6 +39,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
@@ -51,6 +52,7 @@
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay,io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayLocal" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="org.owasp.encoder.Encode" %>
+
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
@@ -68,13 +70,13 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart"
                    rights="r" reverse="<%=true%>">
-    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.accessDenied"/>
+    <fmt:message key="encounter.noteBrowser.accessDenied"/>
     <% response.sendRedirect(request.getContextPath() + "/noRights.html"); %>
 </security:oscarSec>
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName='<%="_eChart$"+demographicID%>' rights="o"
                    reverse="<%=false%>">
-    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.accessDenied"/>
+    <fmt:message key="encounter.noteBrowser.accessDenied"/>
     <% response.sendRedirect(request.getContextPath() + "/noRights.html"); %>
 </security:oscarSec>
 
@@ -138,8 +140,8 @@
 
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.title"/> - <oscar:nameage
-            demographicNo="<%=demographicID%>"/></title>
+    <title><fmt:message key="encounter.noteBrowser.title"/> - <oscar:nameage
+            demographicNo="<%=Encode.forHtmlAttribute(demographicID)%>"/></title>
     <script type="text/javascript">
 
         function popup(vheight, vwidth, varpage) { //open a new popup window
@@ -321,7 +323,7 @@
                 if (combinePdf == true) {
                     showPageCombineImg(docList);
                 } else {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgOnlyPDFCanBeCombined"/>");
+                    alert("<fmt:message key="encounter.noteBrowser.msgOnlyPDFCanBeCombined"/>");
                     setdefaultdoc();
                 }
 
@@ -421,9 +423,6 @@
             popup(450, 600, '<%=request.getContextPath()%>/tickler/ForwardDemographicTickler.do?docType=DOC&docId=' + docid + '&demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'tickler');
         }
 
-        function DocAnnotation() {
-            popup(350, 500, '<%= request.getContextPath() %>/annotation/annotation.jsp?display=Documents&table_id=' + docid + '&demo=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'anwin');
-        }
 
         function DocEdit() {
             var th = document.getElementById('doclist');
@@ -478,34 +477,34 @@
         <%}%>
         <tr>
             <td align="left" valign="top" width="50%">
-                <oscar:nameage demographicNo="<%=demographicID%>"/><br>
+                <oscar:nameage demographicNo="<%=Encode.forHtmlAttribute(demographicID)%>"/><br>
 
                 <input type="hidden" name="viewstatus" value="<%= Encode.forHtmlAttribute(viewstatus) %>">
-                <input type="hidden" name="sortorder" value="<%=sortorder%>">
+                <input type="hidden" name="sortorder" value="<%=Encode.forHtmlAttribute(sortorder)%>">
 
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgViewStatus"/> <select id="selviewstatus"
+                <fmt:message key="encounter.noteBrowser.msgViewStatus"/> <select id="selviewstatus"
                                                                                        name="selviewstatus"
                                                                                        onchange="ReLoadDoc()">
                 <option value="all"
-                        <%=viewstatus.equalsIgnoreCase("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgAll"/></option>
+                        <%=viewstatus.equalsIgnoreCase("all") ? "selected" : ""%>><fmt:message key="encounter.noteBrowser.msgAll"/></option>
                 <option value="deleted"
-                        <%=viewstatus.equalsIgnoreCase("deleted") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgDeleted"/></option>
+                        <%=viewstatus.equalsIgnoreCase("deleted") ? "selected" : ""%>><fmt:message key="encounter.noteBrowser.msgDeleted"/></option>
                 <option value="active"
-                        <%=viewstatus.equalsIgnoreCase("active") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgPublished"/></option>
+                        <%=viewstatus.equalsIgnoreCase("active") ? "selected" : ""%>><fmt:message key="encounter.noteBrowser.msgPublished"/></option>
             </select>
 
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgSortDate"/>
+                <fmt:message key="encounter.noteBrowser.msgSortDate"/>
                 <select id="selsortorder" name="selsortorder" onchange="ReLoadDoc()">
                     <option value="Content"
-                            <%=sortorder.equalsIgnoreCase("Content") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgContent"/></option>
+                            <%=sortorder.equalsIgnoreCase("Content") ? "selected" : ""%>><fmt:message key="encounter.noteBrowser.msgContent"/></option>
                     <option value="Observation"
-                            <%=sortorder.equalsIgnoreCase("Observation") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgObservation"/></option>
+                            <%=sortorder.equalsIgnoreCase("Observation") ? "selected" : ""%>><fmt:message key="encounter.noteBrowser.msgObservation"/></option>
                     <option value="Update"
-                            <%=sortorder.equalsIgnoreCase("Update") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgUpdate"/></option>
+                            <%=sortorder.equalsIgnoreCase("Update") ? "selected" : ""%>><fmt:message key="encounter.noteBrowser.msgUpdate"/></option>
 
                 </select>
                 <fieldset>
-                    <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgView"/>:</legend>
+                    <legend><fmt:message key="encounter.noteBrowser.msgView"/>:</legend>
                     <input type="hidden" name="view" value="<%=Encode.forHtmlAttribute(view)%>">
                     <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicID) %>">
                     <input type="hidden" name="undelDocumentNo" value="">
@@ -519,23 +518,21 @@
                     </a> <% for (int i3 = 0; i3 < doctypes.size(); i3++) {%>
                     | <a
                         href="#"
-                        onclick="LoadView('<%=URLEncoder.encode((String) doctypes.get(i3),"UTF-8")%>')"><%=view.equals(doctypes.get(i3)) ? "<b>" : ""%><%=(String) doctypes.get(i3)%><%=view.equals(doctypes.get(i3)) ? "</b>" : ""%>
+                        onclick="LoadView('<%=URLEncoder.encode((String) doctypes.get(i3),"UTF-8")%>')"><%=view.equals(doctypes.get(i3)) ? "<b>" : ""%><%=Encode.forHtml((String) doctypes.get(i3))%><%=view.equals(doctypes.get(i3)) ? "</b>" : ""%>
                 </a>
                     <%}%>
                 </fieldset>
                 <div id="docbuttons">
                     <% if (viewstatus.equalsIgnoreCase("active")) {%>
                     <% if (module.equalsIgnoreCase("demographic")) {%>
-                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgAddTickler"/>"
+                    <input type="button" value="<fmt:message key="encounter.noteBrowser.msgAddTickler"/>"
                            onclick="AddTickler();"> <%}%>
-                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgAnnotate"/>"
-                           onclick="DocAnnotation()">
-                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgEdit"/>"
+                    <input type="button" value="<fmt:message key="encounter.noteBrowser.msgEdit"/>"
                            onclick="DocEdit();">
-                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgDelete"/>"
+                    <input type="button" value="<fmt:message key="encounter.noteBrowser.msgDelete"/>"
                            onclick="DeleteDoc();">
                     <div id="refilebutton">
-                        <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgRefile"/>"
+                        <input type="button" value="<fmt:message key="encounter.noteBrowser.msgRefile"/>"
                                onclick="RefileDoc();">
                         <select id="queueList" name="queueList" onchange="setQueue();">
                             <%
@@ -543,13 +540,13 @@
                                     int id = (Integer) ht.get("id");
                                     String qName = (String) ht.get("queue");
                             %>
-                            <option value="<%=id%>" <%=((id == queueId) ? " selected" : "")%>><%= qName%>
+                            <option value="<%=id%>" <%=((id == queueId) ? " selected" : "")%>><%= Encode.forHtml(qName)%>
                             </option>
                             <%}%>
                         </select>
                     </div>
                     <%} else if (viewstatus.equalsIgnoreCase("deleted")) {%>
-                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgUndelete"/>"
+                    <input type="button" value="<fmt:message key="encounter.noteBrowser.msgUndelete"/>"
                            onclick="UnDeleteDoc();">
                     <%}%>
                 </div>
@@ -558,16 +555,16 @@
                 <div id="docinfo"></div>
                 <div id="printnotesbutton"><input type='image' src="<%= request.getContextPath() %>/encounter/graphics/document-print.png"
                                                   onclick="PrintEncounter();"
-                                                  title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnPrint"/>'
+                                                  title='<fmt:message key="encounter.Index.btnPrint"/>'
                                                   id="imgPrintEncounter"></div>
             </td>
             <td valign="top">
                 <fieldset>
                     <legend><%
                         if (sortorder.equals("Content")) { %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgContent"/><%} else {%>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgUpdate"/> <%}%>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.ObservationTypeDescription"/></legend>
+                        <fmt:message key="encounter.noteBrowser.msgContent"/><%} else {%>
+                        <fmt:message key="encounter.noteBrowser.msgUpdate"/> <%}%>
+                        <fmt:message key="encounter.noteBrowser.ObservationTypeDescription"/></legend>
                     <SELECT MULTIPLE SIZE=5 id="doclist" onchange="getDoc();">
                         <%
                             for (int i2 = 0; i2 < docs.size(); i2++) {
@@ -583,7 +580,7 @@
                 </fieldset>
 
                 <fieldset>
-                    <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.encounterNote"/></legend>
+                    <legend><fmt:message key="encounter.noteBrowser.encounterNote"/></legend>
                     <select MULTIPLE SIZE=5 id="encounterlist" onchange="getEncounter();">
                         <%
                             CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
@@ -599,14 +596,14 @@
                                 NoteDisplay curNote = notesToDisplay.get(idx);
                                 if (!(curNote.isDocument()) && !(curNote.isEformData()) && !(curNote.isRxAnnotation()) && !(curNote.isCpp())) {
                         %>
-                        <option value="<%=curNote.getNoteId()%>"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <%=Encode.forHtml(curNote.getProviderName())%>
+                        <option value="<%=Encode.forHtmlAttribute(String.valueOf(curNote.getNoteId()))%>"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <%=Encode.forHtml(curNote.getProviderName())%>
                         </option>
                         <%
                             }
 
                             if (curNote.isExternalNote()) {
                         %>
-                        <option value="<%=curNote.getNoteId()%>"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <%=Encode.forHtml(curNote.getProviderName())%>
+                        <option value="<%=Encode.forHtmlAttribute(String.valueOf(curNote.getNoteId()))%>"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <%=Encode.forHtml(curNote.getProviderName())%>
                         </option>
                         <%
                                 }

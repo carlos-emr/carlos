@@ -39,11 +39,12 @@
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBeanHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBean" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <html>
     <head>
         <script src="${pageContext.request.contextPath}/js/global.js"></script>
         <!-- Bootstrap -->
-        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
         <title>Change Waiting List Name</title>
 
@@ -87,11 +88,11 @@
     <form action="${pageContext.request.contextPath}/waitinglist/WLEditWaitingListNameAction.do?edit=Y.do" method="post">
         <input type="hidden" name="actionChosen" id="actionChosen"/>
 
-        <h3>&nbsp;&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarwaitinglist.displayPatientWaitingList.waitinglist"/></h3>
+        <h3>&nbsp;&nbsp;<fmt:message key="oscarwaitinglist.displayPatientWaitingList.waitinglist"/></h3>
         <%
             if (message != null && !message.equals("")) {
         %>
-        <div class="alert"><fmt:setBundle basename="oscarResources"/><fmt:message key="<%=message%>"/></div>
+        <div class="alert"><fmt:message key="<%=message%>"/></div>
         <%
             }
         %>
@@ -99,11 +100,11 @@
             <div class="row">
                 <div class="col-md-6">
                     <fieldset>
-                        <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="marc-hi.affinityDomains.manageExisting"/></legend>
-                        <label class="form-label" for="selectedWL"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.config.MessengerAdmin.rename"/></label>
+                        <legend><fmt:message key="marc-hi.affinityDomains.manageExisting"/></legend>
+                        <label class="form-label" for="selectedWL"><fmt:message key="messenger.config.MessengerAdmin.rename"/></label>
                         <div>
                             <select name="selectedWL" id="selectedWL">
-                                <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.cbselectwaitinglist"/></option>
+                                <option value=""><fmt:message key="demographic.demographicaddrecordhtm.cbselectwaitinglist"/></option>
                                 <%
                                     for (int i = 0; i < allWaitingListName.size(); i++) {
                                         WLWaitingListNameBean wLBean = (WLWaitingListNameBean) allWaitingListName.get(i);
@@ -116,29 +117,29 @@
                                 <%}%>
                             </select>
                             <input type="text" class="form-control d-inline-block w-auto" name="wlChangedName" placeholder="" value="">
-                            <input type="submit" class="btn btn-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnSave"/>"
+                            <input type="submit" class="btn btn-secondary" value="<fmt:message key="global.btnSave"/>"
                                    onclick="resetFields('change');document.forms[0].actionChosen.value='change'">
                         </div> <!-- class="controls" -->
                     </fieldset>
                 </div> <!-- class="col-md-4" -->
                 <div class="col-md-6">
                     <fieldset>
-                        <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.formReportStatusNew"/></legend>
-                        <label class="form-label" for="wlNewName"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.config.MessengerAdmin.newGroup"/></label>
+                        <legend><fmt:message key="oscarMDS.search.formReportStatusNew"/></legend>
+                        <label class="form-label" for="wlNewName"><fmt:message key="messenger.config.MessengerAdmin.newGroup"/></label>
                         <div>
                             <input type="text" class="form-control d-inline-block w-auto" name="wlNewName" id="wlNewName" placeholder="" value="">
-                            <input type="submit" class="btn btn-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnSave"/>"
+                            <input type="submit" class="btn btn-secondary" value="<fmt:message key="global.btnSave"/>"
                                    onclick="resetFields('create');document.forms[0].actionChosen.value='create'">
                         </div> <!-- class="controls" -->
                     </fieldset>
                 </div> <!-- class="col-md-4" -->
                 <div class="col-md-6">
                     <fieldset>
-                        <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDelete"/></legend>
-                        <label class="form-label" for="selectedWL2"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDeleteList"/></label>
+                        <legend><fmt:message key="global.btnDelete"/></legend>
+                        <label class="form-label" for="selectedWL2"><fmt:message key="global.btnDeleteList"/></label>
                         <div>
                             <select name="selectedWL2" id="selectedWL2">
-                                <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.cbselectwaitinglist"/></option>
+                                <option value=""><fmt:message key="demographic.demographicaddrecordhtm.cbselectwaitinglist"/></option>
                                 <%
                                     for (int i = 0; i < allWaitingListName.size(); i++) {
                                         WLWaitingListNameBean wLBean = (WLWaitingListNameBean) allWaitingListName.get(i);
@@ -150,7 +151,7 @@
                                 </option>
                                 <%}%>
                             </select>
-                            <input type="submit" class="btn btn-warning" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDelete"/>"
+                            <input type="submit" class="btn btn-warning" value="<fmt:message key="global.btnDelete"/>"
                                    onclick="resetFields('remove');document.forms[0].actionChosen.value='remove'">
                         </div> <!-- class="controls" -->
                     </fieldset>
@@ -159,7 +160,7 @@
         </div>
         <!-- end editWrapper -->
         <div>
-            <input type="reset" class="btn btn-link" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>'
+            <input type="reset" class="btn btn-link" value='<fmt:message key="global.btnClose"/>'
                    onClick="window.close();">
         </div>
     </form>

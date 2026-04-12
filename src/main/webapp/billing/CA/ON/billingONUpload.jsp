@@ -29,13 +29,14 @@
     session.setAttribute("homepath", props.getProperty("project_home", ""));
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ page import="io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadMOHFile"/></title>
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <title><fmt:message key="admin.admin.uploadMOHFile"/></title>
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
     <script type="text/javascript">
         function onSubmit() {
@@ -69,7 +70,7 @@
 </head>
 
 <body>
-<h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadMOHFile"/></h3>
+<h3><fmt:message key="admin.admin.uploadMOHFile"/></h3>
 <div class="container-fluid card card-body bg-body-tertiary">
     <form id="form1" name="form1" method="post" action="" ENCTYPE="multipart/form-data" onsubmit="return onSubmit();">
         Select diskette<input style="margin-left:40px;" type="file" name="file1" value="" required>

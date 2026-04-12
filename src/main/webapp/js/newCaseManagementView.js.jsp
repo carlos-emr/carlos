@@ -35,6 +35,7 @@
     <%@page contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
     <%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour"%>
     <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
     var numNotes = 0;   //How many saved notes do we have?
     var ctx;        //url context
@@ -98,7 +99,7 @@
         }
         var page = "" + varpage;
         windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=600,screenY=200,top=0,left=0";
-        //var popup =window.open(page, "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.popupPageWindow"/>", windowprops);
+        //var popup =window.open(page, "<fmt:message key="encounter.Index.popupPageWindow"/>", windowprops);
         openWindows[name] = window.open(page, name, windowprops);
 
         if (openWindows[name] != null) {
@@ -786,11 +787,6 @@
         $(editElem).style.top = top + "px";
         $(editElem).style.display = "table";
 
-        //Prepare Annotation Window & Extra Fields
-        var now = new Date();
-        document.getElementById('annotation_attrib').value = "anno" + now.getTime();
-        var obj = {};
-        Element.observe('anno', 'click', openAnnotation.bindAsEventListener(obj, noteId, cppDisplay, demoNo));
         prepareExtraFields(cppDisplay, noteExts);
 
         //Set note position order
@@ -942,13 +938,6 @@
 
     }
 
-    function openAnnotation() {
-        var atbname = document.getElementById('annotation_attrib').value;
-        var data = $A(arguments);
-        var addr = ctx + "/annotation/annotation.jsp?atbname=" + atbname + "&table_id=" + data[1] + "&display=" + data[2] + "&demo=" + data[3];
-        window.open(addr, "anwin", "width=400,height=500");
-        Event.stop(data[0]);
-    }
 
 function updateCPPNote() {
     try {
@@ -1493,10 +1482,6 @@ function updateCPPNote() {
             var editAnchor = "<a title='Edit' id='edit" + nId + "' href='#' onclick='" + func + " return false;' style='float: right; margin-right: 5px;'>" + editLabel + "</a>";
             var editId = "edit" + nId;
 
-            var attribName = "anno" + (new Date().getTime());
-            var attribAnchor = "<input id='anno" + nId + "' height='10px;' width='10px' type='image' src='" + ctx + "/encounter/graphics/annotation.png' title='" + annotationLabel + "' style='float: right; margin-right: 5px; margin-bottom: 3px;'" +
-                "onclick=\"window.open('" + ctx + "/annotation/annotation.jsp?atbname=" + attribName + "&table_id=" + nId + "&display=EChartNote&demo=" + demographicNo + "','anwin','width=400,height=500');$('annotation_attribname').value='" + attribName + "'; return false;\">";
-
             $(parent).insertAdjacentHTML('afterbegin', editAnchor);
             $(editId).insertAdjacentHTML('afterend', input);
 
@@ -1504,7 +1489,6 @@ function updateCPPNote() {
             if (nId.substr(0, 1) != "0") {
                 Element.remove(printImg);
                 $(editId).insertAdjacentHTML('beforebegin', printimg);
-                $(editId).insertAdjacentHTML('afterend', attribAnchor);
                 $(parent).insertAdjacentHTML('afterbegin', img);
             }
 
@@ -1963,17 +1947,12 @@ function updateCPPNote() {
 
 
         var editAnchor = "edit" + nId;
-        var annoAnchor = "anno" + nId;
         var date = "d" + nId;
         var content = "c" + nId;
 
         // remove edit anchor
         if ($(editAnchor) != null)
             Element.remove(editAnchor);
-
-        // Remove annotation anchor
-        if ($(annoAnchor) != null)
-            Element.remove(annoAnchor);
 
         //check for line item displayed when note is minimized
         if ($(date) != null) {
@@ -3604,10 +3583,6 @@ function autoSave() {
                 var editAnchor = "<a title='Edit' id='edit" + nId + "' href='#' onclick='" + func + " return false;' style='float: right; margin-right: 5px;'>" + editLabel + "</a>";
                 var editId = "edit" + nId;
 
-                var attribName = "anno" + (new Date().getTime());
-                var attribAnchor = "<input id='anno" + nId + "' height='10px;' width='10px' type='image' src='" + ctx + "/encounter/graphics/annotation.png' title='" + annotationLabel + "' style='float: right; margin-right: 5px; margin-bottom: 3px;'" +
-                    "onclick=\"window.open('" + ctx + "/annotation/annotation.jsp?atbname=" + attribName + "&table_id=" + nId + "&display=EChartNote&demo=" + demographicNo + "','anwin','width=400,height=500');$('annotation_attribname').value='" + attribName + "'; return false;\">";
-
                 $(parent).insertAdjacentHTML('afterbegin', editAnchor);
                 $(editId).insertAdjacentHTML('afterend', input);
 
@@ -3615,7 +3590,6 @@ function autoSave() {
                 if (nId.substr(0, 1) != "0") {
                     Element.remove(printImg);
                     $(editId).insertAdjacentHTML('beforebegin', printimg);
-                    $(editId).insertAdjacentHTML('afterend', attribAnchor);
                     $(parent).insertAdjacentHTML('afterbegin', img);
                 }
 

@@ -4,7 +4,6 @@
 <%@ page import="java.text.DecimalFormat" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -70,6 +69,7 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -91,7 +91,6 @@
     List<Provider> midwifes = (List<Provider>) request.getAttribute("midwifes");
     List<CountryCode> countryList = (List<CountryCode>) request.getAttribute("countryList");
     boolean hasImportExtra = Boolean.TRUE.equals(request.getAttribute("hasImportExtra"));
-    String annotation_display = (String) request.getAttribute("annotation_display");
     String usSigned = (String) request.getAttribute("usSigned");
     String privacyConsent = (String) request.getAttribute("privacyConsent");
     String informedConsent = (String) request.getAttribute("informedConsent");
@@ -238,45 +237,45 @@
                                                     <div class="demographicWrapper">
                                                         <div class="leftSection">
                                                             <div class="demographicSection" id="demographic">
-                                                                <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgDemographic"/></h3>
+                                                                <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.msgDemographic"/></h3>
                                                                 <%
                                                                     for (String key : demoExt.keySet()) {
                                                                         if (key.endsWith("_id")) {
                                                                 %>
                                                                 <input type="hidden" name="<%= key %>"
-                                                                       value="<%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demoExt.get(key)))%>"/>
+                                                                       value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get(key)))%>"/>
                                                                 <%
                                                                         }
                                                                     }
                                                                 %>
                                                                 <ul>
 
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgDemoTitle"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.msgDemoTitle"/>:</span>
                                                                         <span class="info"><%=StringUtils.trimToEmpty(demographic.getTitle())%></span>
                                                                     </li>
 
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formLastName"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formLastName"/>:</span>
                                                                         <span class="info"><%=Encode.forHtmlContent(demographic.getLastName())%></span>
                                                                     </li>
                                                                     <li><span class="label">
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formFirstName"/>:</span>
+							<fmt:message key="demographic.demographiceditdemographic.formFirstName"/>:</span>
                                                                         <span class="info"><%=Encode.forHtmlContent(demographic.getFirstName())%></span>
                                                                     </li>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formMiddleNames"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formMiddleNames"/>:</span>
                                                                         <span class="info"> <%=Encode.forHtmlContent(demographic.getMiddleNames())%></span>
                                                                     </li>
                                                                     <li>
-														<span class="label" style="color:red;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formNameUsed"/>:
+														<span class="label" style="color:red;"><fmt:message key="demographic.demographicaddrecordhtm.formNameUsed"/>:
 														</span>
                                                                         <span class="info" style="color:red;">
 															<%= Encode.forHtml(demographic.getAlias()) %>
 														</span>
                                                                     </li>
 
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formPronouns"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographicaddrecordhtm.formPronouns"/>:</span>
                                                                         <span class="info"><%=Encode.forHtmlContent(StringUtils.trimToEmpty(demographic.getPronoun()))%></span>
                                                                     </li>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formSex"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formSex"/>:</span>
                                                                         <span class="info"><%
                                                                             String viewSexCode = demographic.getSex() != null ? demographic.getSex().toUpperCase() : "U";
                                                                             String viewGenderKey;
@@ -289,22 +288,22 @@
                                                                             }
                                                                         %><%= Encode.forHtml(oscarResources.getString(viewGenderKey)) %></span>
                                                                     </li>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formGender"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographicaddrecordhtm.formGender"/>:</span>
                                                                         <span class="info"><%=Encode.forHtmlContent(StringUtils.trimToEmpty(demographic.getGender()))%></span>
                                                                     </li>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgDemoAge"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.msgDemoAge"/>:</span>
                                                                         <span class="info"><%=demographic.getAgeAsOf(new Date())%>&nbsp;(
-	                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formDOB"/>: <%=birthYear%>-<%=birthMonth%>-<%=birthDate%>)
+	                                                        <fmt:message key="demographic.demographiceditdemographic.formDOB"/>: <%=birthYear%>-<%=birthMonth%>-<%=birthDate%>)
                                                         </span>
                                                                     </li>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgDemoLanguage"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.msgDemoLanguage"/>:</span>
                                                                         <span class="info"><%=StringUtils.trimToEmpty(demographic.getOfficialLanguage())%></span>
                                                                     </li>
                                                                     <% if (demographic.getCountryOfOrigin() != null && !demographic.getCountryOfOrigin().equals("") && !demographic.getCountryOfOrigin().equals("-1")) {
                                                                         CountryCode countryCode = ccDAO.getCountryCode(demographic.getCountryOfOrigin());
                                                                         if (countryCode != null) {
                                                                     %>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgCountryOfOrigin"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.msgCountryOfOrigin"/>:</span>
                                                                         <span class="info"><%=countryCode.getCountryName() %></span>
                                                                     </li>
                                                                     <% }
@@ -312,14 +311,14 @@
                                                                     %>
                                                                     <% String sp_lang = demographic.getSpokenLanguage();
                                                                         if (sp_lang != null && sp_lang.length() > 0) { %>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgSpokenLang"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.msgSpokenLang"/>:</span>
                                                                         <span class="info"><%=sp_lang%></span>
                                                                     </li>
                                                                     <% } %>
 
                                                                     <% String sin = demographic.getSin();
                                                                         if (sin != null && sin.length() > 0) { %>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgSIN"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.msgSIN"/>:</span>
                                                                         <span class="info"><%=sin%></span>
                                                                     </li>
                                                                     <% } %>
@@ -362,10 +361,10 @@
                                                             <%if (!oscarProps.isPropertyActive("NEW_CONTACTS_UI")) { %>
 
                                                             <div class="demographicSection" id="otherContacts">
-                                                                <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgOtherContacts"/>
+                                                                <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.msgOtherContacts"/>
                                                                     <a class="h3-pill" href="javascript: function myFunction() {return false; }"
                                                                             onClick="popup(700,960,'<%= request.getContextPath() %>/demographic/AddAlternateContact.jsp?demo=<%=demographic.getDemographicNo()%>','AddRelation')">
-                                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgAddRelation"/></a>
+                                                                        <fmt:message key="demographic.demographiceditdemographic.msgAddRelation"/></a>
                                                                 </h3>
                                                                 <ul>
                                                                     <%
@@ -396,11 +395,11 @@
                                                             <% } else { %>
 
                                                             <div class="demographicSection" id="otherContacts2">
-                                                                <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgOtherContacts"/>:
+                                                                <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.msgOtherContacts"/>:
                                                                     <b><a
                                                                             href="javascript: function myFunction() {return false; }"
                                                                             onClick="popup(700,960,'Contact.do?method=manage&demographic_no=<%=demographic.getDemographicNo()%>','ManageContacts')">
-                                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgManageContacts"/><!--i18n--></a></b>
+                                                                        <fmt:message key="demographic.demographiceditdemographic.msgManageContacts"/><!--i18n--></a></b>
                                                                 </h3>
                                                                 <ul>
                                                                     <%
@@ -432,21 +431,21 @@
 
                                                             <% } %>
                                                             <div class="demographicSection" id="clinicStatus">
-                                                                <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgClinicStatus"/>
+                                                                <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.msgClinicStatus"/>
                                                                     <a class="h3-pill" href="#"
-                                                                        onclick="popup(1000, 650, '<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/demographic/EnrollmentHistory.jsp?demographicNo=" + Encode.forUriComponent(demographic_no)) %>', 'enrollmentHistory'); return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgEnrollmentHistory"/></a>
+                                                                        onclick="popup(1000, 650, '<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/demographic/EnrollmentHistory.jsp?demographicNo=" + Encode.forUriComponent(demographic_no)) %>', 'enrollmentHistory'); return false;"><fmt:message key="demographic.demographiceditdemographic.msgEnrollmentHistory"/></a>
                                                                 </h3>
                                                                 <ul>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formRosterStatus"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formRosterStatus"/>:</span>
                                                                         <span class="info"><%=demographic.getRosterStatusDisplay()%></span>
                                                                     </li>
                                                                     <%if ("RO".equals(demographic.getRosterStatus()) || "TE".equals(demographic.getRosterStatus())) { %>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.DateJoined"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.DateJoined"/>:</span>
                                                                         <span class="info"><%=MyDateFormat.getMyStandardDate(demographic.getRosterDate())%></span>
                                                                     </li>
                                                                     <% } %>
                                                                     <%if ("RO".equals(demographic.getRosterStatus())) { %>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.RosterEnrolledTo"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.RosterEnrolledTo"/>:</span>
                                                                         <span class="info">
                                                         <%
                                                             String enrolledTo = "";
@@ -462,11 +461,11 @@
                                                                     </li>
                                                                     <% } %>
                                                                     <%if ("TE".equals(demographic.getRosterStatus())) { %>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.RosterTerminationDate"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.RosterTerminationDate"/>:</span>
                                                                         <span class="info"><%=MyDateFormat.getMyStandardDate(demographic.getRosterTerminationDate())%></span>
                                                                     </li>
                                                                     <%if (null != demographic.getRosterTerminationDate()) { %>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.RosterTerminationReason"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.RosterTerminationReason"/>:</span>
                                                                         <span class="info"><%=Util.rosterTermReasonProperties.getReasonByCode(demographic.getRosterTerminationReason()) %></span>
                                                                     </li>
                                                                     <%
@@ -474,7 +473,7 @@
                                                                         }
                                                                     %>
 
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formPatientStatus"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formPatientStatus"/>:</span>
                                                                         <span class="info">
 							<%
                                 String PatStat = demographic.getPatientStatus();
@@ -491,7 +490,7 @@
                                                         </span>
                                                                     </li>
                                                                     <li><span class="label">
-							 	<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.PatientStatusDate"/>:</span>
+							 	<fmt:message key="demographic.demographiceditdemographic.PatientStatusDate"/>:</span>
                                                                         <span class="info">
                                 <%
                                     String tmpDate = "";
@@ -502,7 +501,7 @@
                                 <%=tmpDate%></span>
                                                                     </li>
 
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formChartNo"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formChartNo"/>:</span>
                                                                         <span class="info"><%=StringUtils.trimToEmpty(demographic.getChartNo())%></span>
                                                                     </li>
                                                                     <% if (oscarProps.isPropertyActive("meditech_id")) { %>
@@ -510,20 +509,20 @@
                                                                         <span class="info"><%=OtherIdManager.getDemoOtherId(demographic_no, "meditech_id")%></span>
                                                                     </li>
                                                                     <% } %>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.cytolNum"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.cytolNum"/>:</span>
                                                                         <span class="info"><%=StringUtils.trimToEmpty(demoExt.get("cytolNum"))%></span>
                                                                     </li>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formDateJoined1"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formDateJoined1"/>:</span>
                                                                         <span class="info"><%=MyDateFormat.getMyStandardDate(demographic.getDateJoined())%></span>
                                                                     </li>
                                                                     <li>
-                                                        <span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formEndDate"/>:</span>
+                                                        <span class="label"><fmt:message key="demographic.demographiceditdemographic.formEndDate"/>:</span>
                                                                         <span class="info"><%=MyDateFormat.getMyStandardDate(demographic.getEndDate())%></span>
                                                                     </li>
 
                                                                     <%if (!"true".equals(CarlosProperties.getInstance().getProperty("phu.hide", "false"))) { %>
                                                                     <li><span class="label">
-								<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formPHU"/>:</span>
+								<fmt:message key="demographic.demographiceditdemographic.formPHU"/>:</span>
                                                                         <span class="info"><c:out
                                                                                 value="${phuName}"/></span>
                                                                     </li>
@@ -533,7 +532,7 @@
                                                             </div>
 
                                                             <div class="demographicSection" id="alert">
-                                                                <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formAlert"/></h3>
+                                                                <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.formAlert"/></h3>
                                                                 <b style="color: brown;"><%=alert%>
                                                                 </b>
                                                                 &nbsp;
@@ -541,7 +540,7 @@
 
                                                             <div class="demographicSection"
                                                                  id="rxInteractionWarningLevelDisplay">
-                                                                <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.rxInteractionWarningLevel"/></h3>
+                                                                <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.rxInteractionWarningLevel"/></h3>
                                                                 <%
                                                                     // warningLevel already defined in preamble
                                                                     String warningLevelStr = "Not Specified";
@@ -558,14 +557,14 @@
                                                                         warningLevelStr = "None";
                                                                     }
                                                                 %>
-                                                                <span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.rxInteractionWarningLevel"/>:</span>
+                                                                <span class="label"><fmt:message key="demographic.demographiceditdemographic.rxInteractionWarningLevel"/>:</span>
                                                                 <span class="info"><%=warningLevelStr%></span>
 
 
                                                             </div>
 
                                                             <div class="demographicSection" id="paperChartIndicator">
-                                                                <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.paperChartIndicator"/></h3>
+                                                                <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.paperChartIndicator"/></h3>
                                                                 <%
                                                                     String archived = demoExt.get("paper_chart_archived");
                                                                     String archivedStr = "", archivedDate = "", archivedProgram = "";
@@ -583,13 +582,13 @@
                                                                     }
                                                                 %>
                                                                 <ul>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.paperChartIndicator.archived"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.paperChartIndicator.archived"/>:</span>
                                                                         <span class="info"><%=archivedStr %></span>
                                                                     </li>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.paperChartIndicator.dateArchived"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.paperChartIndicator.dateArchived"/>:</span>
                                                                         <span class="info"><%=archivedDate %></span>
                                                                     </li>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.paperChartIndicator.programArchived"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.paperChartIndicator.programArchived"/>:</span>
                                                                         <span class="info"><%=archivedProgram %></span>
                                                                     </li>
                                                                 </ul>
@@ -600,7 +599,7 @@
                                                                                         value="true">
 
                                                                 <div class="demographicSection" id="consent">
-                                                                    <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.consent"/></h3>
+                                                                    <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.consent"/></h3>
 
                                                                     <ul>
 
@@ -618,13 +617,13 @@
 
                                                                             if (showConsentsThisTime) { %>
 
-                                                                        <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.privacyConsent"/>:</span>
+                                                                        <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.privacyConsent"/>:</span>
                                                                             <span class="info"><%=privacyConsent %></span>
                                                                         </li>
-                                                                        <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.informedConsent"/>:</span>
+                                                                        <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.informedConsent"/>:</span>
                                                                             <span class="info"><%=informedConsent %></span>
                                                                         </li>
-                                                                        <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.usConsent"/>:</span>
+                                                                        <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.usConsent"/>:</span>
                                                                             <span class="info"><%=usSigned %></span>
                                                                         </li>
 
@@ -734,94 +733,94 @@
 
                                                         <div class="rightSection">
                                                             <div class="demographicSection" id="contactInformation">
-                                                                <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgContactInfo"/></h3>
+                                                                <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.msgContactInfo"/></h3>
                                                                 <ul>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formPhoneH"/>(<span
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formPhoneH"/>(<span
                                                                             class="popup"
                                                                             onmouseover="nhpup.popup(homePhoneHistory);"
                                                                             title="Home phone History">History</span>):</span>
                                                                         <span class="info"><%=StringUtils.trimToEmpty(demographic.getPhone())%> <%=StringUtils.trimToEmpty(demoExt.get("hPhoneExt"))%></span>
                                                                     </li>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formPhoneW"/>(<span
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formPhoneW"/>(<span
                                                                             class="popup"
                                                                             onmouseover="nhpup.popup(workPhoneHistory);"
                                                                             title="Work phone History">History</span>):</span>
                                                                         <span class="info"><%=StringUtils.trimToEmpty(demographic.getPhone2())%> <%=StringUtils.trimToEmpty(demoExt.get("wPhoneExt"))%></span>
                                                                     </li>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formPhoneC"/>(<span
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formPhoneC"/>(<span
                                                                             class="popup"
                                                                             onmouseover="nhpup.popup(cellPhoneHistory);"
                                                                             title="cell phone History">History</span>):</span>
                                                                         <span class="info"><%=StringUtils.trimToEmpty(demoExt.get("demo_cell"))%></span>
                                                                     </li>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formPhoneComment"/>:</span>
-                                                                        <span class="info"><%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%></span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographicaddrecordhtm.formPhoneComment"/>:</span>
+                                                                        <span class="info"><%=Encode.forHtml(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%></span>
                                                                     </li>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formAddr"/>(<span
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formAddr"/>(<span
                                                                             class="popup"
                                                                             onmouseover="nhpup.popup(addressHistory);"
                                                                             title="Address History">History</span>):</span>
-                                                                        <span class="info"><%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getAddress()))%></span>
+                                                                        <span class="info"><%=Encode.forHtml(StringUtils.trimToEmpty(demographic.getAddress()))%></span>
                                                                     </li>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formCity"/>:</span>
-                                                                        <span class="info"><%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getCity()))%></span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formCity"/>:</span>
+                                                                        <span class="info"><%=Encode.forHtml(StringUtils.trimToEmpty(demographic.getCity()))%></span>
                                                                     </li>
                                                                     <li><span class="label">
 							<% if (oscarProps.getProperty("demographicLabelProvince") == null) { %>
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formProcvince"/> <% } else {
+							<fmt:message key="demographic.demographiceditdemographic.formProcvince"/> <% } else {
                                                                         out.print(oscarProps.getProperty("demographicLabelProvince"));
                                                                     } %>:</span>
                                                                         <span class="info"><%=StringUtils.trimToEmpty(ISO36612.getInstance().translateCodeToHumanReadableString(demographic.getProvince()))%></span>
                                                                     </li>
                                                                     <li><span class="label">
 							<% if (oscarProps.getProperty("demographicLabelPostal") == null) { %>
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formPostal"/> <% } else {
+							<fmt:message key="demographic.demographiceditdemographic.formPostal"/> <% } else {
                                                                         out.print(oscarProps.getProperty("demographicLabelPostal"));
                                                                     } %>:</span>
                                                                         <span class="info"><%=StringUtils.trimToEmpty(demographic.getPostal())%></span>
                                                                     </li>
 
 
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResidentialAddr"/>:</span>
-                                                                        <span class="info"><%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getResidentialAddress()))%></span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formResidentialAddr"/>:</span>
+                                                                        <span class="info"><%=Encode.forHtml(StringUtils.trimToEmpty(demographic.getResidentialAddress()))%></span>
                                                                     </li>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResidentialCity"/>:</span>
-                                                                        <span class="info"><%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getResidentialCity()))%></span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formResidentialCity"/>:</span>
+                                                                        <span class="info"><%=Encode.forHtml(StringUtils.trimToEmpty(demographic.getResidentialCity()))%></span>
                                                                     </li>
                                                                     <li><span class="label">
-														<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResidentialProvince"/>:</span>
+														<fmt:message key="demographic.demographiceditdemographic.formResidentialProvince"/>:</span>
                                                                         <span class="info"><%=StringUtils.trimToEmpty(ISO36612.getInstance().translateCodeToHumanReadableString(demographic.getResidentialProvince()))%></span>
                                                                     </li>
                                                                     <li><span class="label">
 
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResidentialPostal"/>:</span>
+							<fmt:message key="demographic.demographiceditdemographic.formResidentialPostal"/>:</span>
                                                                         <span class="info"><%=StringUtils.trimToEmpty(demographic.getResidentialPostal())%></span>
                                                                     </li>
 
 
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formEmail"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formEmail"/>:</span>
                                                                         <span class="info"><%=demographic.getEmail() != null ? demographic.getEmail() : ""%></span>
                                                                     </li>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formNewsLetter"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formNewsLetter"/>:</span>
                                                                         <span class="info"><%=demographic.getNewsletter() != null ? demographic.getNewsletter() : "Unknown"%></span>
                                                                     </li>
                                                                 </ul>
                                                             </div>
 
                                                             <div class="demographicSection" id="healthInsurance">
-                                                                <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgHealthIns"/></h3>
+                                                                <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.msgHealthIns"/></h3>
                                                                 <ul>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formHin"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formHin"/>:</span>
                                                                         <span class="info"><%=StringUtils.trimToEmpty(demographic.getHin())%>
 							&nbsp; <%=StringUtils.trimToEmpty(demographic.getVer())%></span>
                                                                     </li>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formHCType"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formHCType"/>:</span>
                                                                         <span class="info"><%=demographic.getHcType() == null ? "" : demographic.getHcType() %></span>
                                                                     </li>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formEFFDate"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formEFFDate"/>:</span>
                                                                         <span class="info"><%=MyDateFormat.getMyStandardDate(demographic.getEffDate())%></span>
                                                                     </li>
-                                                                    <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formHCRenewDate"/>:</span>
+                                                                    <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formHCRenewDate"/>:</span>
                                                                         <span class="info"><%=MyDateFormat.getMyStandardDate(demographic.getHcRenewDate())%></span>
                                                                     </li>
                                                                 </ul>
@@ -847,7 +846,7 @@
                                                             <oscar:oscarPropertiesCheck value="true"
                                                                                         property="workflow_enhance">
                                                                 <div class="demographicSection">
-                                                                    <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgInternalProviders"/></h3>
+                                                                    <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.msgInternalProviders"/></h3>
                                                                     <div style="background-color: #EEEEFF;">
                                                                         <ul>
                                                                             <%-- timeStrToMins() is now in DemographicEditHelper and available via preamble --%>
@@ -1002,7 +1001,7 @@
                                                                                 <% if (oscarProps.getProperty("demographicLabelDoctor") != null) {
                                                                                     out.print(oscarProps.getProperty("demographicLabelDoctor", ""));
                                                                                 } else { %>
-                                                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formDoctor"/>
+                                                                                <fmt:message key="demographic.demographiceditdemographic.formDoctor"/>
                                                                                 <% } %>:
                                                                                 <b><%=providerBean.getProperty(demographic.getProviderNo(), "")%>
                                                                                 </b>
@@ -1229,32 +1228,32 @@
 
                                                                 <div class="demographicSection"
                                                                      id="patientClinicStatus">
-                                                                    <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgPatientClinicStatus"/></h3>
+                                                                    <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.msgPatientClinicStatus"/></h3>
                                                                     <ul>
                                                                         <li><span class="label">
 							<% if (oscarProps.getProperty("demographicLabelDoctor") != null) {
                                 out.print(oscarProps.getProperty("demographicLabelDoctor", ""));
                             } else { %>
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formMRP"/>
+							<fmt:message key="demographic.demographiceditdemographic.formMRP"/>
                                                     <% } %>:</span><span class="info">
                                                     <%if (demographic != null && demographic.getProviderNo() != null) {%>
                                                            <%=providerBean.getProperty(demographic.getProviderNo(), "")%>
                                                     <%}%>
                                                     </span>
                                                                         </li>
-                                                                        <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formNurse"/>:</span><span
+                                                                        <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formNurse"/>:</span><span
                                                                                 class="info"><%=providerBean.getProperty(nurse == null ? "" : nurse, "")%></span>
                                                                         </li>
-                                                                        <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formMidwife"/>:</span><span
+                                                                        <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formMidwife"/>:</span><span
                                                                                 class="info"><%=providerBean.getProperty(midwife == null ? "" : midwife, "")%></span>
                                                                         </li>
-                                                                        <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResident"/>:</span>
+                                                                        <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formResident"/>:</span>
                                                                             <span class="info"><%=providerBean.getProperty(resident == null ? "" : resident, "")%></span>
                                                                         </li>
-                                                                        <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>:</span><span
+                                                                        <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>:</span><span
                                                                                 class="info"><%=rd%></span>
                                                                         </li>
-                                                                        <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formRefDocNo"/>:</span><span
+                                                                        <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formRefDocNo"/>:</span><span
                                                                                 class="info"><%=rdohip%></span>
                                                                         </li>
                                                                     </ul>
@@ -1268,19 +1267,9 @@
 
 
                                                             <div class="demographicSection" id="notes">
-                                                                <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formNotes"/></h3>
+                                                                <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.formNotes"/></h3>
 
-                                                                <%=StringEscapeUtils.escapeHtml4(notes)%>&nbsp;
-                                                                <%if (hasImportExtra) { %>
-                                                                <a href="javascript:void(0);"
-                                                                   title="Extra data from Import"
-                                                                   onclick="window.open('<%= request.getContextPath() %>/annotation/importExtra.jsp?display=<%=Encode.forJavaScriptAttribute(annotation_display)%>&amp;table_id=<%=Encode.forJavaScriptAttribute(demographic_no)%>&amp;demo=<%=Encode.forJavaScriptAttribute(demographic_no)%>','anwin','width=400,height=250');">
-                                                                    <img src="<%= request.getContextPath() %>/images/notes.gif" align="right"
-                                                                         alt="Extra data from Import" height="16"
-                                                                         width="13" border="0"> </a>
-                                                                <%} %>
-
-
+                                                                <%=Encode.forHtml(notes)%>&nbsp;
                                                             </div>
 
                                                                 <%-- TOGGLED OFF PROGRAM ADMISSIONS --%>

@@ -54,9 +54,12 @@ import io.github.carlos_emr.carlos.lab.ca.all.util.GDMLLabHL7Generator;
 import io.github.carlos_emr.carlos.lab.ca.all.util.MDSLabHL7Generator;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 
+import io.github.carlos_emr.CarlosProperties;
+
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 public class SubmitLabByForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -184,7 +187,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
                 firstSep = hl7.indexOf('\n');
             }
             String mshSegment = firstSep > 0 ? hl7.substring(0, firstSep) : "[MSH extraction failed]";
-            logger.info("HL7 generated (length={}, MSH={})", hl7.length(), LogSanitizer.sanitize(mshSegment, 400));
+            logger.info("HL7 generated (length={}, MSH={})", hl7.length(), LogSanitizer.sanitize(mshSegment, 400)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         } else {
             logger.error("HL7 generation returned null for lab submission");
             addActionError("Failed to generate lab result. Please verify all required fields and try again.");
@@ -196,17 +199,19 @@ public class SubmitLabByForm2Action extends ActionSupport {
         ByteArrayInputStream is = new ByteArrayInputStream(hl7.getBytes());
         String filePath = Utilities.saveFile(is, filename);
         is.close();
-        File file = new File(filePath);
+        File uploadDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+        File file = PathValidationUtils.validateExistingPath(new File(filePath), uploadDir);
 
-        FileInputStream fis = new FileInputStream(filePath);
-        int checkFileUploadedSuccessfully = FileUploadCheck.addFile(file.getName(), fis, providerNo);
-        fis.close();
+        int checkFileUploadedSuccessfully;
+        try (FileInputStream fis = new FileInputStream(file)) {
+            checkFileUploadedSuccessfully = FileUploadCheck.addFile(file.getName(), fis, providerNo);
+        }
 
         String outcome = null;
 
         if (checkFileUploadedSuccessfully != FileUploadCheck.UNSUCCESSFUL_SAVE) {
-            logger.info("filePath {}", LogSanitizer.sanitize(filePath));
-            logger.info("Type :{}", LogSanitizer.sanitize(labName));
+            logger.info("filePath {}", LogSanitizer.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.info("Type :{}", LogSanitizer.sanitize(labName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             MessageHandler msgHandler = HandlerClassFactory.getHandler(labName);
             if (msgHandler != null) {
                 logger.info("MESSAGE HANDLER {}", msgHandler.getClass().getName());
@@ -236,7 +241,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
 		// Generate appropriate HL7 format based on lab type
 		String labType = lab.getLabName();
 		labType = labType == null ? "" : labType.trim().toUpperCase();
-		logger.info("Generating HL7 for lab type: [{}]", LogSanitizer.sanitize(labType));
+		logger.info("Generating HL7 for lab type: [{}]", LogSanitizer.sanitize(labType)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 
 		switch (labType) {
 			case "MDS":
@@ -246,7 +251,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
 			case "CML":
 				return CMLLabHL7Generator.generate(lab);
 			default:
-				logger.error("Unsupported lab type: [{}]; defaulting to CML.", LogSanitizer.sanitize(labType));
+				logger.error("Unsupported lab type: [{}]; defaulting to CML.", LogSanitizer.sanitize(labType)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 				return CMLLabHL7Generator.generate(lab);
 		}
 	}

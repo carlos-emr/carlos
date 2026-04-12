@@ -36,14 +36,13 @@
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page language="java" import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@page import="org.owasp.encoder.Encode" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
@@ -86,14 +85,13 @@
     %>
 </c:if>
 <%
-    String annotation_display = CaseManagementNoteLink.DISP_ALLERGY;
     RxPatientData.Patient patient = (RxPatientData.Patient) session.getAttribute("Patient");
     request.setAttribute("patient", patient);
     SecurityManager securityManager = new SecurityManager();
 %>
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="EditAllergies.title"/></title>
+        <title><fmt:message key="EditAllergies.title"/></title>
 
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
@@ -437,16 +435,16 @@
                 <table>
                     <tr class="DivCCBreadCrumbs">
                         <td>
-                            <a href="SearchDrug3.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a>
+                            <a href="SearchDrug3.jsp"><fmt:message key="SearchDrug.title"/></a>
                             &nbsp;&gt;&nbsp;
-                            <b><fmt:setBundle basename="oscarResources"/><fmt:message key="EditAllergies.title"/></b>
+                            <b><fmt:message key="EditAllergies.title"/></b>
                         </td>
                     </tr>
                     <!----Start new rows here-->
 
                     <tr class="DivContentSectionHead">
                         <td>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="EditAllergies.section1Title"/>
+                            <fmt:message key="EditAllergies.section1Title"/>
                         </td>
                     </tr>
                     <tr id="patientDataRow">
@@ -454,7 +452,7 @@
                             <table>
                                 <tr>
                                     <td>
-                                        <b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.nameText"/></b>
+                                        <b><fmt:message key="SearchDrug.nameText"/></b>
                                         ${patient.getSurname() }, ${patient.getFirstName() }<br/>
                                     </td>
                                     <td>&nbsp;</td>
@@ -467,7 +465,7 @@
                     </tr>
                     <tr>
                         <td class="DivContentSectionHead">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="EditAllergies.section2Title"/>
+                            <fmt:message key="EditAllergies.section2Title"/>
                             <span class="view_menu">View:
 <%
 
@@ -493,7 +491,7 @@
         if (strView.equals(navArray[i])) {
             out.print(" <span class='view_selected'>" + navArray[i] + "</span>");
         } else {
-            out.print("<span class='view_menu'><a href='ShowAllergies2.jsp?demographicNo=" + demoNo + "&view=" + navArray[i] + "'>");
+            out.print("<span class='view_menu'><a href='ShowAllergies2.jsp?demographicNo=" + Encode.forUriComponent(demoNo) + "&view=" + Encode.forUriComponent(navArray[i]) + "'>");
             out.print(navArray[i]);
             out.print("</a></span>");
          }
@@ -537,8 +535,6 @@
 							<td><b>Start Date</b></td>
 							<td><b>Life Stage</b></td>
 							<td><b>Age Of Onset</b></td>
-              <td><b><img src="<%= request.getContextPath() %>/images/notes.gif" border="0" width="10" height="12"
-                          alt="Annotation"></b></td>
 							<td><b>Action</b></td>
 						</tr>
                                             <%
@@ -611,42 +607,28 @@
                                             <tr bgcolor="<%=trColour%>" id="allergy_<%= allergy.getAllergyId() %>">
                                                 <td><%=labelStatus%>
                                                 </td>
-                                                <td><%=entryDate == null ? "" : entryDate %>
+                                                <td><%=entryDate == null ? "" : Encode.forHtml(entryDate) %>
                                                 </td>
-                                                <td><%=allergy.getLastUpdateDate() != null ? DateUtils.formatDate(allergy.getLastUpdateDate(), request.getLocale()) : "" %>
+                                                <td><%=allergy.getLastUpdateDate() != null ? Encode.forHtml(DateUtils.formatDate(allergy.getLastUpdateDate(), request.getLocale())) : "" %>
                                                 </td>
                                                 <td <%=title%> ><%=Encode.forHtml(allergy.getDescription())%>
                                                 </td>
-                                                <td><%=allergy.getTypeDesc() %>
+                                                <td><%=Encode.forHtml(allergy.getTypeDesc()) %>
                                                 </td>
 
                                                 <td><%=allergy.getTypeCode() == 0 && allergy.isNonDrug() == null ? "<i>&lt;Not Set&gt;</i>" : ""%><%=allergy.getTypeCode() == 0 && allergy.isNonDrug() != null && allergy.isNonDrug() ? "*" : "" %>
                                                 </td>
-                                                <td bgcolor="<%=sevColour%>"><%=allergy.getSeverityOfReactionDesc() %>
+                                                <td bgcolor="<%=sevColour%>"><%=Encode.forHtml(allergy.getSeverityOfReactionDesc()) %>
                                                 </td>
-                                                <td><%=allergy.getOnSetOfReactionDesc() %>
+                                                <td><%=Encode.forHtml(allergy.getOnSetOfReactionDesc()) %>
                                                 </td>
                                                 <td><%=allergy.getReaction() != null ? Encode.forHtml(allergy.getReaction()) : "" %>
                                                 </td>
-                                                <td><%=startDate == null ? "" : startDate %>
+                                                <td><%=startDate == null ? "" : Encode.forHtml(startDate) %>
                                                 </td>
-                                                <td><%=allergy.getLifeStageDesc() %>
+                                                <td><%=Encode.forHtml(allergy.getLifeStageDesc()) %>
                                                 </td>
-                                                <td><%=allergy.getAgeOfOnset() == null ? "" : allergy.getAgeOfOnset()%>
-                                                </td>
-                                                <%
-                                                    CaseManagementManager cmm = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
-                                                    @SuppressWarnings("unchecked")
-                                                    List<CaseManagementNoteLink> existingAnnots = cmm.getLinkByTableId(CaseManagementNoteLink.ALLERGIES, Long.valueOf(allergy.getAllergyId()));
-                                                %>
-                                                <td>
-                                                    <a href="#" title="Annotation" onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=annotation_display%>&table_id=<%=String.valueOf(allergy.getAllergyId())%>&demo=${patient.getDemographicNo()}','anwin','width=400,height=500');">
-                                                        <% if (existingAnnots.size() > 0) {%>
-                                                        <img src="<%= request.getContextPath() %>/images/filledNotes.gif" border="0"/>
-                                                        <% } else { %>
-                                                        <img src="<%= request.getContextPath() %>/images/notes.gif" border="0">
-                                                        <% } %>
-                                                    </a>
+                                                <td><%=allergy.getAgeOfOnset() == null ? "" : Encode.forHtml(String.valueOf(allergy.getAgeOfOnset()))%>
                                                 </td>
                                                 <td>
                                                     <%
@@ -659,7 +641,7 @@
                                                     </a> |
                                                     <% } %>
                                                     <a href="#" class="modifyAllergyLink"
-                                                       id="modifyAllergy:<%= labelAction %>_ID=<%=allergy.getDrugrefId() %>&name=<%=allergy.getDescription() %>&type=<%=allergy.getTypeCode() %>&allergyToArchive=<%=allergy.getId() %>">
+                                                       id="modifyAllergy:<%= labelAction %>_ID=<%=allergy.getDrugrefId() %>&name=<%=Encode.forHtmlAttribute(allergy.getDescription()) %>&type=<%=allergy.getTypeCode() %>&allergyToArchive=<%=allergy.getId() %>">
                                                         <%=intArchived == 0 ? "Modify" : labelAction%>
                                                     </a>
                                                     <% } %>

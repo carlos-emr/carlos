@@ -45,6 +45,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*" %>
@@ -110,7 +111,7 @@
 
     <!-- language for the calendar -->
     <script type="text/javascript"
-            src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+            src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
 
     <!-- the following script defines the Calendar.setup helper function, which makes
            adding a calendar a matter of 1 or 2 lines of code. -->
@@ -120,12 +121,7 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/mouseover.js"></script>
 
     <!--Text Area text max limit code -->
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/txtCounter/x_core.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/txtCounter/x_dom.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/txtCounter/x_event.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/txtCounter/ylib.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/txtCounter/y_TextCounter.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/txtCounter/y_util.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/js/carlosTextCounter.js"></script>
     <%
         String project_home = request.getContextPath().substring(1);
     %>
@@ -277,7 +273,7 @@
             if (checkMeasures()) {
                 popPage(url, name);
             } else {
-                alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.frmError"/>');
+                alert('<fmt:message key="encounter.formRourke2006.frmError"/>');
             }
         }
 
@@ -782,7 +778,7 @@
                 document.forms["frmP1"].submit();
             }
         } else {
-            alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.frmError"/>');
+            alert('<fmt:message key="encounter.formRourke2006.frmError"/>');
         }
         return false;
     }
@@ -796,7 +792,7 @@
                 document.forms["frmP1"].submit();
             }
         } else {
-            alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.frmError"/>');
+            alert('<fmt:message key="encounter.formRourke2006.frmError"/>');
         }
         return false;
     }

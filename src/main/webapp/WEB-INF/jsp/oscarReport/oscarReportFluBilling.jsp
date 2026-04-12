@@ -47,9 +47,11 @@
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptFluReportData" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
 <%
@@ -91,8 +93,8 @@
 
 <div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.title"/>
-        <%=years%>
+        <fmt:message key="oscarReport.oscarReportFluBilling.title"/>
+        <%=Encode.forHtml(years)%>
     </h4>
 </div>
 
@@ -109,33 +111,33 @@
 
     </select> <select name="proNo" class="form-select">
     <option value="-1" <%=selled("-1", pros)%>>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.msgAllProviders"/>
+        <fmt:message key="oscarReport.oscarReportFluBilling.msgAllProviders"/>
     </option>
     <%
         for (Provider p : providers) {
     %>
-    <option value="<%=p.getProviderNo()%>" <%=selled(p.getProviderNo(), pros)%>><%=p.getFormattedName()%>
+    <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>" <%=selled(p.getProviderNo(), pros)%>><%=Encode.forHtml(p.getFormattedName())%>
     </option>
     <%
         }
     %>
 </select>
     <button type="submit" class="btn btn-primary">
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.btnUpdate"/>
+        <fmt:message key="oscarReport.oscarReportFluBilling.btnUpdate"/>
     </button>
 </form>
 
 <table class="table table-bordered table-striped table-sm table-hover">
     <thead>
     <tr>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.msgName"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.msgDOB"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.msgAge"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.msgRoster"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.msgPatientStatus"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.msgPhone"/></th>
+        <th><fmt:message key="oscarReport.oscarReportFluBilling.msgName"/></th>
+        <th><fmt:message key="oscarReport.oscarReportFluBilling.msgDOB"/></th>
+        <th><fmt:message key="oscarReport.oscarReportFluBilling.msgAge"/></th>
+        <th><fmt:message key="oscarReport.oscarReportFluBilling.msgRoster"/></th>
+        <th><fmt:message key="oscarReport.oscarReportFluBilling.msgPatientStatus"/></th>
+        <th><fmt:message key="oscarReport.oscarReportFluBilling.msgPhone"/></th>
 
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.msgBillingDate"/></th>
+        <th><fmt:message key="oscarReport.oscarReportFluBilling.msgBillingDate"/></th>
     </tr>
     </thead>
     <tbody>
@@ -147,19 +149,19 @@
             count = count + 1;
     %>
     <tr>
-        <td><%=demoData.demoName%>
+        <td><%=Encode.forHtml(demoData.demoName)%>
         </td>
-        <td><%=demoData.getDemoDOB()%>
+        <td><%=Encode.forHtml(demoData.getDemoDOB())%>
         </td>
-        <td><%=demoData.getDemoAge()%>
+        <td><%=Encode.forHtml(demoData.getDemoAge())%>
         </td>
-        <td><%=demoData.demoRosterStatus%>
+        <td><%=Encode.forHtml(demoData.demoRosterStatus)%>
         </td>
-        <td><%=demoData.demoPatientStatus%>
+        <td><%=Encode.forHtml(demoData.demoPatientStatus)%>
         </td>
-        <td><%=demoData.getDemoPhone()%>
+        <td><%=Encode.forHtml(demoData.getDemoPhone())%>
         </td>
-        <td><%=demoData.getBillingDate(fluData.years)%>
+        <td><%=Encode.forHtml(demoData.getBillingDate(fluData.years))%>
         </td>
     </tr>
     <%

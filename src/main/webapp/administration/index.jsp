@@ -74,6 +74,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
@@ -109,7 +110,6 @@
     int curDay = cal.get(Calendar.DAY_OF_MONTH);
 %>
 
-<fmt:setBundle basename="oscarResources"/>
 <!doctype html>
 <html lang="en">
 

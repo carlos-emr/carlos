@@ -29,6 +29,8 @@
 
 package io.github.carlos_emr.carlos.form.pageUtil;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;
@@ -53,6 +55,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.encounter.data.EctEChartBean;
@@ -108,9 +111,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
         String demo = request.getParameter("demographic_no");
         String providerNo = (String) session.getAttribute("user");
         if (demo == null || bean != null) {
-            request.getSession().setAttribute("EctSessionBean", bean);
             demo = bean.getDemographicNo();
-
         }
 
         if (demo != null) {
@@ -153,9 +154,15 @@ public final class FrmSetupForm2Action extends ActionSupport {
 
         try {
             MiscUtils.getLogger().debug("formId=" + formId + "opening " + formName + ".xml");
-            // formName already validated above, safe to use in resource path
-            InputStream is = getClass().getResourceAsStream("/../../form/" + formName + ".xml");
-            Vector measurementTypes = EctFindMeasurementTypeUtil.checkMeasurmentTypes(is, formName);
+            // Validate the form XML file path to prevent path traversal
+            String formDirPath = request.getSession().getServletContext().getRealPath("/form/");
+            if (formDirPath == null) {
+                throw new IOException("Cannot resolve form directory path — exploded WAR deployment required");
+            }
+            File formDir = new File(formDirPath);
+            File validatedForm = PathValidationUtils.validatePath(formName + ".xml", formDir);
+            try (InputStream is = new FileInputStream(validatedForm)) {
+            Vector measurementTypes = EctFindMeasurementTypeUtil.checkMeasurmentTypes(is, formName); // deepcode ignore java/XXE: XXE protection applied internally via XmlUtils.createSecureJaxbSource()
             EctMeasurementTypesBean mt;
 
             ResultSet rs;
@@ -186,7 +193,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
                 }
 
             }
-            is.close();
+            } // end try-with-resources (InputStream is)
         }
 		/*
 		catch (SQLException e) {
@@ -272,28 +279,36 @@ public final class FrmSetupForm2Action extends ActionSupport {
                     }
                     
                     // Using parameterized values for formId and demographicNo
-                    // Note: Table name cannot be parameterized, but formName is validated above
-                    String sql = "SELECT * FROM form" + formName + " WHERE ID=? AND demographic_no=?";
+                    // Note: Table name cannot be parameterized, but formName is validated above by isValidFormName()
+                    String sql = "SELECT * FROM form" + formName + " WHERE ID=? AND demographic_no=?"; // nosemgrep: formatted-sql-string -- formName validated by isValidFormName() regex allowlist (alphanumeric + underscore only)
                     Connection connection = DbConnectionFilter.getThreadLocalDbConnection();
-                    PreparedStatement ps = connection.prepareStatement(sql);
-                    ps.setInt(1, Integer.parseInt(formId));
-                    ps.setInt(2, Integer.parseInt(demographicNo));
-                    ResultSet rs = ps.executeQuery();
+                    try (PreparedStatement ps = connection.prepareStatement(sql); // codeql[java/sql-injection] // nosemgrep: tainted-sql-from-http-request — formName validated by isValidFormName() regex; ID and demographic_no are parameterized via PreparedStatement
+                         ResultSet rs = configureAndExecuteGetFormRecordQuery(ps, formId, demographicNo)) {
 
-                    if (rs.next()) {
-                        ResultSetMetaData md = rs.getMetaData();
-                        for (int i = 1; i <= md.getColumnCount(); i++) {
-                            String name = md.getColumnName(i);
-                            String value = Misc.getString(rs, i);
-                            if (value != null) props.setProperty(name, value);
+                        if (rs.next()) {
+                            ResultSetMetaData md = rs.getMetaData();
+                            for (int i = 1; i <= md.getColumnCount(); i++) {
+                                String name = md.getColumnName(i);
+                                String value = Misc.getString(rs, i);
+                                if (value != null) props.setProperty(name, value);
+                            }
                         }
                     }
                 } else return null;
             } else return null;
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("Non-numeric formId or demographicNo in getFormRecord");
+            return null;
         } catch (SQLException e) {
             MiscUtils.getLogger().error("Error", e);
         }
         return props;
+    }
+
+    private ResultSet configureAndExecuteGetFormRecordQuery(PreparedStatement ps, String formId, String demographicNo) throws SQLException {
+        ps.setInt(1, Integer.parseInt(formId));
+        ps.setInt(2, Integer.parseInt(demographicNo));
+        return ps.executeQuery(); // nosemgrep: formatted-sql-string — PreparedStatement; formName validated by isValidFormName regex
     }
 
     private void addLastData(EctMeasurementTypesBean mt, String demo) {

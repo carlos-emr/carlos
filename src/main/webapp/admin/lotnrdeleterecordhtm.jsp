@@ -31,6 +31,7 @@
 <%@page import="java.text.SimpleDateFormat, java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.util.*" %>
 <%@page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -84,7 +85,7 @@
         function onsub() {
             if (document.deletelotnr.prevention.value == "" ||
                 document.deletelotnr.lotnr.value == "") {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.adddelete_lot_nr.msgMissingParams"/>");
+                alert("<fmt:message key="admin.admin.adddelete_lot_nr.msgMissingParams"/>");
                 return false;
             }
         }
@@ -92,7 +93,7 @@
     </script>
     <head>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.delete_lot_nr.title"/></title>
+        <title><fmt:message key="admin.admin.delete_lot_nr.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
         <script LANGUAGE="JavaScript">
 
@@ -103,14 +104,14 @@
     <center>
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">
-                <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.delete_lot_nr.description"/></font></th>
+                <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.admin.delete_lot_nr.description"/></font></th>
             </tr>
         </table>
         <form method="post" action="${pageContext.request.contextPath}/admin/LotNrDeleteRecord.do" name="deletelotnr"
               onsubmit="return onsub();">
             <table cellspacing="0" cellpadding="2" width="90%" border="0">
                 <tr>
-                    <td width="50%" align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.add_lot_nr.prevention"/><font color="red">:</font></td>
+                    <td width="50%" align="right"><fmt:message key="admin.admin.add_lot_nr.prevention"/><font color="red">:</font></td>
                     <td>
                         <input type="text" name="prevention" size=30 maxlength="30"
                                value="<%=request.getParameter("prevention")==null?"":Encode.forHtmlAttribute(request.getParameter("prevention"))%>">
@@ -118,7 +119,7 @@
                 </tr>
 
                 <tr>
-                    <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.add_lot_nr.lotnr"/>:
+                    <td align="right"><fmt:message key="admin.admin.add_lot_nr.lotnr"/>:
                     </td>
                     <td><input type="text" name="lotnr" size="20"
                                maxlength="20"
@@ -129,7 +130,7 @@
                     <td colspan="2">
                         <div align="center">
                             <input type="submit" name="submitbtn"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotdeleterecordhtm.btnlotDeleteRecord"/>">
+                                   value="<fmt:message key="admin.lotdeleterecordhtm.btnlotDeleteRecord"/>">
                         </div>
                     </td>
                 </tr>

@@ -36,7 +36,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -66,6 +65,8 @@ import io.github.carlos_emr.carlos.commn.Gender;
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
+import io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO;
+import io.github.carlos_emr.carlos.demographic.dto.DemographicListItemDTO;
 import io.github.carlos_emr.carlos.event.DemographicCreateEvent;
 import io.github.carlos_emr.carlos.event.DemographicUpdateEvent;
 import io.github.carlos_emr.carlos.integration.hl7.generators.HL7A04Generator;
@@ -257,15 +258,17 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     public Set getArchiveDemographicByProgramOptimized(int programId, Date dt, Date defdt) {
         Set<Demographic> archivedClients = new java.util.LinkedHashSet<Demographic>();
 
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        String sqlQuery = "select distinct d.demographic_no,d.first_name,d.last_name,(select count(*) from admission a where client_id=d.demographic_no and admission_status='current' and program_id="
-            + programId + " and admission_date<='" + sdf.format(dt)
-            + "') as is_active from admission a,demographic d where a.client_id=d.demographic_no and (d.patient_status='AC' or d.patient_status='' or d.patient_status=null) and program_id="
-            + programId
+        String sqlQuery = "select distinct d.demographic_no,d.first_name,d.last_name,"
+            + "(select count(*) from admission a2 where a2.client_id=d.demographic_no and a2.admission_status='current' and a2.program_id=:programId and a2.admission_date<=:admissionDate)"
+            + " as is_active from admission a,demographic d where a.client_id=d.demographic_no"
+            + " and (d.patient_status='AC' or d.patient_status='' or d.patient_status is null)"
+            + " and a.program_id=:programId"
             + " and (d.anonymous is null or d.anonymous != 'one-time-anonymous') ORDER BY d.last_name,d.first_name";
         Session session = currentSession();
 
         NativeQuery q = session.createNativeQuery(sqlQuery);
+        q.setParameter("programId", programId);
+        q.setParameter("admissionDate", dt);
         q.addScalar("d.demographic_no");
         q.addScalar("d.first_name");
         q.addScalar("d.last_name");
@@ -2417,10 +2420,20 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             return q.list();
     }
 
+    /** Allowlisted HQL field names for {@link #findByField}. */
+    private static final java.util.Set<String> VALID_FIND_BY_FIELDS = java.util.Set.of(
+        "DemographicNo", "LastName", "FirstName", "ChartNo", "Sex", "YearOfBirth", "PatientStatus"
+    );
+
     @SuppressWarnings("unchecked")
     @Override
     public List<Demographic> findByField(String fieldName, Object fieldValue, String orderBy, int offset) {
         boolean isFieldValueEmpty = fieldValue == null || fieldValue.equals("");
+
+        // Validate fieldName against allowlist to prevent HQL injection
+        if (fieldName != null && !VALID_FIND_BY_FIELDS.contains(fieldName)) {
+            fieldName = "LastName";
+        }
 
         String sql = "FROM Demographic d WHERE d." + fieldName + " LIKE :fieldValue";
         if (isFieldValueEmpty) {
@@ -2428,11 +2441,15 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         }
 
         if (orderBy != null && !orderBy.isEmpty()) {
+            // Validate orderBy against allowlist to prevent HQL injection
+            if (!VALID_FIND_BY_FIELDS.contains(orderBy)) {
+                orderBy = "LastName";
+            }
             sql = sql + " ORDER BY d." + orderBy;
         }
 
         Session s = currentSession();
-            Query q = s.createQuery(sql);
+            Query q = s.createQuery(sql); // nosemgrep: hibernate-sqli — query uses named parameter :fieldValue bound via setParameter below
             if (!isFieldValueEmpty) {
                 q.setParameter("fieldValue", fieldValue);
             }
@@ -2473,12 +2490,15 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             + "and (patient_status = 'AC' or patient_status = 'UHIP') "
             + "and (roster_status='RO' or roster_status='NR' or roster_status='FS' or roster_status='RF' or roster_status='PL')";
         if (providerNo != null && !providerNo.equals("-1")) {
-            sql = sql + " and provider_no = '" + providerNo + "' ";
+            sql = sql + " and provider_no = :providerNo ";
         }
         sql = sql + " order by last_name ";
 
         Session session = currentSession();
             NativeQuery sqlQuery = session.createNativeQuery(sql);
+            if (providerNo != null && !providerNo.equals("-1")) {
+                sqlQuery.setParameter("providerNo", providerNo);
+            }
             return sqlQuery.list();
     }
 
@@ -2962,6 +2982,71 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             startIndex,
             numToReturn,
             true);
+    }
+
+    // --- DTO projection methods ---
+
+    /**
+     * Returns a lightweight header projection for a single demographic, including
+     * the most responsible provider's name via a LEFT JOIN.
+     *
+     * @param demographicNo Integer the demographic ID to retrieve
+     * @return DemographicHeaderDTO the header projection, or {@code null} if not found or demographicNo is null
+     * @since 2026-04-11
+     */
+    @Override
+    public DemographicHeaderDTO getDemographicHeader(Integer demographicNo) {
+        if (demographicNo == null) {
+            return null;
+        }
+        Query<DemographicHeaderDTO> query = currentSession().createQuery(
+                "SELECT NEW io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO(d.DemographicNo, d.LastName, d.FirstName, d.Sex, d.SexDesc, d.YearOfBirth, d.MonthOfBirth, d.DateOfBirth, d.Hin, d.Ver, d.HcType, d.ChartNo, d.PatientStatus, d.RosterStatus, d.ProviderNo, p.LastName, p.FirstName) FROM Demographic d LEFT JOIN Provider p ON p.ProviderNo = d.ProviderNo WHERE d.DemographicNo = :demoNo",
+                DemographicHeaderDTO.class);
+        query.setParameter("demoNo", demographicNo);
+        query.setMaxResults(1);
+        List<DemographicHeaderDTO> results = query.list();
+        return results.isEmpty() ? null : results.get(0);
+    }
+
+    /**
+     * Searches demographics by name and returns lightweight list item projections.
+     * Supports "lastName" or "lastName,firstName" format. Results are ordered by
+     * last name then first name ascending.
+     *
+     * @param searchString String the search string in "lastName" or "lastName,firstName" format
+     * @param limit int maximum number of results to return
+     * @param offset int starting position for pagination
+     * @param providerNo String the provider number for program domain restriction (can be null to skip)
+     * @param outOfDomain boolean if true, skip program domain restriction even when providerNo is set
+     * @return List of DemographicListItemDTO matching demographics, ordered by name
+     * @since 2026-04-11
+     */
+    @Override
+    public List<DemographicListItemDTO> searchDemographicDTOByName(String searchString, int limit, int offset,
+                                                                    String providerNo, boolean outOfDomain) {
+        String baseQuery = "SELECT NEW io.github.carlos_emr.carlos.demographic.dto.DemographicListItemDTO(d.DemographicNo, d.LastName, d.FirstName, d.Alias, d.Sex, d.YearOfBirth, d.MonthOfBirth, d.DateOfBirth, d.PatientStatus, d.RosterStatus, d.ProviderNo, d.ChartNo, d.Phone, d.Email, d.Hin, d.Address) FROM Demographic d WHERE d.LastName like :lastName";
+        String[] name = Objects.requireNonNullElse(searchString, "").split(",");
+        boolean hasFirstName = name.length == 2;
+
+        if (hasFirstName) {
+            baseQuery = baseQuery.concat(" and (d.FirstName like :firstName or d.Alias like :firstName)");
+        }
+        if (providerNo != null && !outOfDomain) {
+            baseQuery = baseQuery.concat(" AND d.id IN (" + PROGRAM_DOMAIN_RESTRICTION + ")");
+        }
+        baseQuery = baseQuery.concat(" ORDER BY d.LastName ASC, d.FirstName ASC");
+
+        Query<DemographicListItemDTO> query = currentSession().createQuery(baseQuery, DemographicListItemDTO.class);
+        query.setParameter("lastName", name[0].trim() + "%");
+        if (hasFirstName) {
+            query.setParameter("firstName", name[1].trim() + "%");
+        }
+        if (providerNo != null && !outOfDomain) {
+            query.setParameter("providerNo", providerNo);
+        }
+        query.setFirstResult(offset);
+        query.setMaxResults(limit);
+        return query.list();
     }
 
 }

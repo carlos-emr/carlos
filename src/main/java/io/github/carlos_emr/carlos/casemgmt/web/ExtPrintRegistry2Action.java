@@ -58,7 +58,7 @@ public class ExtPrintRegistry2Action extends ActionSupport {
 
         ExtPrintRegistry.addEntry(name, bean);
 
-        logger.info("ext print registry added {}:{}", LogSanitizer.sanitize(name), LogSanitizer.sanitize(bean));
+        logger.info("ext print registry added {}:{}", LogSanitizer.sanitize(name), LogSanitizer.sanitize(bean)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         return null;
     }
 

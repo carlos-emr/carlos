@@ -50,6 +50,7 @@
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -84,17 +85,17 @@
 <!DOCTYPE HTML >
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.bc.title"/></title>
+    <title><fmt:message key="billing.bc.title"/></title>
 
     <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
+          href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css"/>
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.servletContext.contextPath}/css/fontawesome-all.min.css"/>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
             <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
     <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+            src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
     <script language="JavaScript">
         //<!--
@@ -314,7 +315,7 @@
         <div id="page-header">
             <table id="oscarBillingHeader">
                 <tr>
-                    <td id="oscarBillingHeaderLeftColumn"><h1><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.bc.title"/></h1></td>
+                    <td id="oscarBillingHeaderLeftColumn"><h1><fmt:message key="billing.bc.title"/></h1></td>
 
                     <td id="oscarBillingHeaderCenterColumn">
                         Billing Summary
@@ -452,11 +453,11 @@
                                 <td>
                                     <table class="table table-sm table-striped">
                                         <tr class="table-heading">
-                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.code"/></td>
-                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.desc"/></td>
-                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.unit"/></td>
-                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.fee"/></td>
-                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.total"/></td>
+                                            <td><fmt:message key="billing.service.code"/></td>
+                                            <td><fmt:message key="billing.service.desc"/></td>
+                                            <td><fmt:message key="billing.service.unit"/></td>
+                                            <td><fmt:message key="billing.service.fee"/></td>
+                                            <td><fmt:message key="billing.service.total"/></td>
                                         </tr>
                                         <% for (int i = 0; i < billItem.size(); i++) {
                                             BillingBillingManager.BillingItem bi = (BillingBillingManager.BillingItem) billItem.get(i);
@@ -487,8 +488,8 @@
 
                                     <table class="table table-sm table-striped">
                                         <tr class="table-heading">
-                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.diagnostic.code"/></td>
-                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.diagnostic.desc"/></td>
+                                            <td><fmt:message key="billing.diagnostic.code"/></td>
+                                            <td><fmt:message key="billing.diagnostic.desc"/></td>
                                         </tr>
                                         <c:if test="${ not empty billingSessionBean.dx1 }">
                                             <tr>

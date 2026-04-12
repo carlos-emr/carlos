@@ -51,6 +51,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -64,6 +65,8 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderInboxItem" %>
 <%!
@@ -141,18 +144,12 @@
     <script language="javascript" type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
     <!-- Prototype.js/effects.js/controls.js removed — using vanilla JS (Phase 1c migration) -->
 
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/yahoo-dom-event.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/connection-min.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/animation-min.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/datasource-min.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/autocomplete-min.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.css"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/demographicProviderAutocomplete.js"></script>
-    <script type="text/javascript"
-            src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-            <script src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
-
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/yui/css/fonts-min.css"/>
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/yui/css/autocomplete.css"/>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/js/carlosAutocomplete.js"></script>
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/demographicProviderAutocomplete.css"/>
 
     <style type="text/css">
@@ -190,7 +187,7 @@
         //?segmentID=1&providerNo=999998&searchProviderNo=999998&status=A&demoName=
         function checkDelete(docId, docDescription) {
             // revision Apr 05 2004 - we now allow anyone to delete documents
-            if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDelete"/> " + docDescription)) {
+            if (confirm("<fmt:message key="dms.documentReport.msgDelete"/> " + docDescription)) {
                 var form = document.createElement('form');
                 form.method = 'post';
                 form.action = 'MultiPageDocDisplay.jsp';
@@ -238,21 +235,21 @@
             </td>
             <td align="left" valign="top" class="docTable">
                 <fieldset>
-                    <legend>Patient: <%=demoName%>
+                    <legend>Patient: <%=Encode.forHtml(demoName)%>
                     </legend>
                     <table border="0">
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.DocumentUploaded"/></td>
-                            <td><%=curdoc.getDateTimeStamp()%>
+                            <td><fmt:message key="inboxmanager.document.DocumentUploaded"/></td>
+                            <td><%=Encode.forHtml(StringUtils.noNull(curdoc.getDateTimeStamp()))%>
                             </td>
                         </tr>
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.ContentType"/></td>
-                            <td><%=contentType%>
+                            <td><fmt:message key="inboxmanager.document.ContentType"/></td>
+                            <td><%=Encode.forHtml(contentType)%>
                             </td>
                         </tr>
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.NumberOfPages"/></td>
+                            <td><fmt:message key="inboxmanager.document.NumberOfPages"/></td>
                             <td><span id="viewedPage_<%=docId%>"
                                       class="<%= numOfPage > 1 ? "multiPage" : "singlePage" %>">1</span>&nbsp; of &nbsp;<span
                                     id="numPages_<%=docId %>"
@@ -264,35 +261,35 @@
                     <form id="forms_<%=docId%>" onsubmit="return updateDocument(this.id);">
                         <input type="hidden" name="method" value="documentUpdate"/>
                         <input type="hidden" name="documentId" value="<%=docId%>"/>
-                        <input type="hidden" name="providerNo" value="<%=providerNo%>"/>
-                        <input type="hidden" name="searchProviderNo" value="<%=searchProviderNo%>"/>
-                        <input type="hidden" name="status" value="<%=status%>"/>
+                        <input type="hidden" name="providerNo" value="<%=Encode.forHtmlAttribute(providerNo)%>"/>
+                        <input type="hidden" name="searchProviderNo" value="<%=Encode.forHtmlAttribute(searchProviderNo)%>"/>
+                        <input type="hidden" name="status" value="<%=Encode.forHtmlAttribute(status)%>"/>
                         <table border="0">
                             <tr>
-                                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDocType"/>:</td>
+                                <td><fmt:message key="dms.documentReport.msgDocType"/>:</td>
                                 <td>
                                     <select tabindex="<%=tabindex++%>" name="docType" id="docType">
-                                        <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formSelect"/></option>
+                                        <option value=""><fmt:message key="dms.addDocument.formSelect"/></option>
                                         <%
                                             for (int j = 0; j < doctypes.size(); j++) {
                                                 String doctype = (String) doctypes.get(j);
                                         %>
-                                        <option value="<%= doctype%>" <%=(curdoc.getType().equals(doctype)) ? " selected" : ""%>><%= doctype%>
+                                        <option value="<%= Encode.forHtmlAttribute(doctype)%>" <%=(curdoc.getType().equals(doctype)) ? " selected" : ""%>><%= Encode.forHtml(doctype)%>
                                         </option>
                                         <%}%>
                                     </select>
                                 </td>
                             </tr>
                             <tr>
-                                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDocDesc"/>:</td>
+                                <td><fmt:message key="dms.documentReport.msgDocDesc"/>:</td>
                                 <td><input tabindex="<%=tabindex++%>" type="text" name="documentDescription"
-                                           value="<%=curdoc.getDescription()%>"/></td>
+                                           value="<%=Encode.forHtmlAttribute(curdoc.getDescription())%>"/></td>
                             </tr>
                             <tr>
                                 <td>Observation Date:</td>
                                 <td>
                                     <input tabindex="<%=tabindex++%>" id="observationDate<%=docId%>"
-                                           name="observationDate" type="text" value="<%=curdoc.getObservationDate()%>">
+                                           name="observationDate" type="text" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(curdoc.getObservationDate()))%>">
                                     <a id="obsdate<%=docId%>"
                                        onmouseover="renderCalendar(this.id,'observationDate<%=docId%>' );"
                                        href="javascript:void(0);"><img title="Calendar"
@@ -305,11 +302,11 @@
                                 </td>
                                 <td><%if (!demographicID.equals("-1")) {%>
                                     <input id="saved<%=docId%>" type="hidden" name="saved" value="true"/>
-                                    <input type="hidden" value="<%=demographicID%>" name="demog"
+                                    <input type="hidden" value="<%=Encode.forHtmlAttribute(demographicID)%>" name="demog"
                                            id="demofind<%=docId%>"/>
-                                    <%=demoName%><%} else {%>
+                                    <%=Encode.forHtml(demoName)%><%} else {%>
                                     <input id="saved<%=docId%>" type="hidden" name="saved" value="false"/>
-                                    <input type="hidden" name="demog" value="<%=demographicID%>"
+                                    <input type="hidden" name="demog" value="<%=Encode.forHtmlAttribute(demographicID)%>"
                                            id="demofind<%=docId%>"/>
                                     <input tabindex="<%=tabindex++%>" type="text" id="autocompletedemo<%=docId%>"
                                            onchange="checkSave('<%=docId%>')" name="demographicKeyword"/>
@@ -461,85 +458,27 @@
                                             oscarLog(windowprops);
                                             var popup = window.open(varpage, windowname, windowprops);
                                         }
-                                        YAHOO.example.BasicRemote = function () {
-                                            var url = "<%= request.getContextPath() %>/provider/SearchProvider.do";
-                                            var oDS = new YAHOO.util.XHRDataSource(url, {
-                                                connMethodPost: true,
-                                                connXhrMode: 'ignoreStaleResponses'
-                                            });
-                                            oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;// Set the responseType
-                                            // Define the schema of the delimited resultsTEST, PATIENT(1985-06-15)
-                                            oDS.responseSchema = {
-                                                resultsList: "results",
-                                                fields: ["providerNo", "firstName", "lastName"]
-                                            };
-                                            // Enable caching
-                                            oDS.maxCacheEntries = 0;
-                                            //oDS.connXhrMode ="cancelStaleRequests";
-                                            //oscarLog("autocompleteprov<%=docId%>");
-                                            //oscarLog("autocomplete_choicesprov<%=docId%>");
-                                            //oscarLog($("autocompleteprov<%=docId%>"));
-                                            //oscarLog($("autocomplete_choicesprov<%=docId%>"));
-                                            // Instantiate the AutoComplete
-                                            var oAC = new YAHOO.widget.AutoComplete("autocompleteprov<%=docId%>", "autocomplete_choicesprov<%=docId%>", oDS);
-                                            oAC.queryMatchSubset = true;
-                                            oAC.minQueryLength = 3;
-                                            oAC.maxResultsDisplayed = 25;
-                                            oAC.formatResult = resultFormatter3;
-                                            //oAC.typeAhead = true;
-                                            oAC.queryMatchContains = true;
-                                            oscarLog(oAC);
-                                            oscarLog(oAC.itemSelectEvent);
-                                            oAC.itemSelectEvent.subscribe(function (type, args) {
-                                                oscarLog(args);
-                                                var myAC = args[0];
-                                                var str = myAC.getInputEl().id.replace("autocompleteprov", "provfind");
-                                                oscarLog(str);
-                                                oscarLog(args[2]);
-                                                var oData = args[2];
-                                                document.getElementById(str).value = args[2][0];//li.id;
-                                                oscarLog("str value=" + document.getElementById(str).value);
-                                                oscarLog(args[2][1] + "--" + args[2][0]);
-                                                myAC.getInputEl().value = args[2][2] + "," + args[2][1];
-                                                oscarLog("--" + args[0].getInputEl().value);
-                                                //selectedDemos.push(args[0].getInputEl().value);
+                                        initProviderAutocomplete("#autocompleteprov<%=docId%>", "<%= request.getContextPath() %>",
+                                            function (providerNo, firstName, lastName) {
+                                                document.getElementById("provfind<%=docId%>").value = providerNo;
 
-                                                //enable Save button whenever a selection is made
                                                 var bdoc = document.createElement('a');
                                                 bdoc.setAttribute("id", "removeProv<%=docId%>");
                                                 bdoc.setAttribute("onclick", "removeProv(this);");
                                                 bdoc.appendChild(document.createTextNode(" -remove- "));
-                                                oscarLog("--");
                                                 var adoc = document.createElement('div');
-                                                adoc.appendChild(document.createTextNode(oData[2] + " " + oData[1]));
-                                                oscarLog("--==");
+                                                adoc.appendChild(document.createTextNode(lastName + " " + firstName));
                                                 var idoc = document.createElement('input');
                                                 idoc.setAttribute("type", "hidden");
                                                 idoc.setAttribute("name", "flagproviders");
-                                                idoc.setAttribute("value", oData[0]);
-                                                //console.log(oData[0]);
-                                                //console.log(myAC);
-                                                //   console.log(elLI);
-                                                //   console.log(oData);
-                                                //   console.log(aArgs);
-                                                //   console.log(sType);
+                                                idoc.setAttribute("value", providerNo);
                                                 adoc.appendChild(idoc);
-
                                                 adoc.appendChild(bdoc);
                                                 var providerList = document.getElementById('providerList<%=docId%>');
-                                                //    console.log('Now HERE'+providerList);
                                                 providerList.appendChild(adoc);
 
-                                                myAC.getInputEl().value = '';//;oData.fname + " " + oData.lname ;
-
+                                                document.getElementById("autocompleteprov<%=docId%>").value = '';
                                             });
-
-
-                                            return {
-                                                oDS: oDS,
-                                                oAC: oAC
-                                            };
-                                        }();
                                         refreshParent = function () {
                                             window.opener.location.reload();
                                         }
@@ -661,67 +600,15 @@
                                             });
                                         }
 
-                                        YAHOO.example.BasicRemote = function () {
-                                            if (document.getElementById("autocompletedemo<%=docId%>") && document.getElementById("autocomplete_choices<%=docId%>")) {
-                                                oscarLog('in basic remote');
-                                                //var oDS = new YAHOO.util.XHRDataSource("http://localhost:8080/drugref2/test4.jsp");
-                                                var url = "<%=request.getContextPath()%>/demographic/SearchDemographic.do";
-                                                var oDS = new YAHOO.util.XHRDataSource(url, {
-                                                    connMethodPost: true,
-                                                    connXhrMode: 'ignoreStaleResponses'
-                                                });
-                                                oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;// Set the responseType
-                                                // Define the schema of the delimited resultsTEST, PATIENT(1985-06-15)
-                                                oDS.responseSchema = {
-                                                    resultsList: "results",
-                                                    fields: ["formattedName", "fomattedDob", "demographicNo", "status"]
-                                                };
-                                                // Enable caching
-                                                oDS.maxCacheEntries = 0;
-                                                //oDS.connXhrMode ="cancelStaleRequests";
-                                                //oscarLog("autocompletedemo<%=docId%>");
-                                                //oscarLog("autocomplete_choices<%=docId%>");
-
-                                                //var elinput=window.frames[0].document.getElementById("autocompletedemo<%=docId%>");
-                                                //var elcontainer=window.frames[0].document.getElementById("autocomplete_choices<%=docId%>");
-                                                //oscarLog('elinput='+elinput+';elcontainer='+elcontainer);
-                                                // Instantiate the AutoComplete
-                                                //var oAC = new YAHOO.widget.AutoComplete("autocompletedemo<%=docId%>", "autocomplete_choices<%=docId%>", oDS);
-                                                var oAC = new YAHOO.widget.AutoComplete("autocompletedemo<%=docId%>", "autocomplete_choices<%=docId%>", oDS);
-                                                //oscarLog('oAc='+oAC);
-                                                //oscarLog('oDs='+oDS);
-                                                //oscarLog('resultFormatter2='+resultFormatter2);
-                                                oAC.queryMatchSubset = true;
-                                                oAC.minQueryLength = 3;
-                                                oAC.maxResultsDisplayed = 25;
-                                                oAC.formatResult = resultFormatter2;
-                                                //oAC.typeAhead = true;
-                                                oAC.queryMatchContains = true;
-                                                //oscarLog(oAC);
-                                                //oscarLog(oAC.itemSelectEvent);
-                                                oAC.itemSelectEvent.subscribe(function (type, args) {
-                                                    //oscarLog(args);
-                                                    //oscarLog(args[0].getInputEl().id);
-                                                    var str = args[0].getInputEl().id.replace("autocompletedemo", "demofind");
-                                                    //oscarLog(str);
-                                                    document.getElementById(str).value = args[2][2];//li.id;
-                                                    //oscarLog("str value="+document.getElementById(str).value);
-                                                    //oscarLog(args[2][1]+"--"+args[2][0]);
-                                                    args[0].getInputEl().value = args[2][0] + "(" + args[2][1] + ")";
-                                                    //oscarLog("--"+args[0].getInputEl().value);
-                                                    selectedDemos.push(args[0].getInputEl().value);
-                                                    //enable Save button whenever a selection is made
+                                        if (document.getElementById("autocompletedemo<%=docId%>")) {
+                                            initDemographicAutocomplete("#autocompletedemo<%=docId%>", "<%=request.getContextPath()%>",
+                                                function (demographicNo, formattedName, formattedDob) {
+                                                    document.getElementById("demofind<%=docId%>").value = demographicNo;
+                                                    document.getElementById("autocompletedemo<%=docId%>").value = formattedName + "(" + formattedDob + ")";
+                                                    selectedDemos.push(document.getElementById("autocompletedemo<%=docId%>").value);
                                                     document.getElementById('save<%=docId%>').disabled = false;
-
                                                 });
-
-
-                                                return {
-                                                    oDS: oDS,
-                                                    oAC: oAC
-                                                };
-                                            }
-                                        }();
+                                        }
 
                                         updateDocument = function (eleId) {
                                             if (!checkObservationDate(eleId)) {
@@ -811,14 +698,14 @@
 
 
                             <tr>
-                                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgCreator"/>:</td>
-                                <td><%=curdoc.getCreatorName()%>
+                                <td><fmt:message key="dms.documentReport.msgCreator"/>:</td>
+                                <td><%=Encode.forHtml(StringUtils.noNull(curdoc.getCreatorName()))%>
                                 </td>
                             </tr>
 
                             <tr>
                                 <td colspan="2" align="right"><a id="saveSucessMsg_<%=docId%>"
-                                                                 style="display:none;color:blue;"><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.SuccessfullySavedMsg"/></a><%if (!demographicID.equals("-1")) {%><input
+                                                                 style="display:none;color:blue;"><fmt:message key="inboxmanager.document.SuccessfullySavedMsg"/></a><%if (!demographicID.equals("-1")) {%><input
                                         type="submit" name="save" tabindex="<%=tabindex++%>" id="save<%=docId%>"
                                         value="Save"/><%} else {%><input type="submit" name="save"
                                                                          tabindex="<%=tabindex++%>" id="save<%=docId%>"
@@ -838,7 +725,7 @@
                                                 String s = p.getProperty(pItem.getProviderNo(), pItem.getProviderNo());
                                                 if (!s.equals("0")) {
                                         %>
-                                        <li><%=s%>
+                                        <li><%=Encode.forHtml(s)%>
                                         </li>
                                         <%
                                                 }
@@ -865,7 +752,7 @@
                                     <!--center-->
                                     <% for (int i = 0; i < ackList.size(); i++) {
                                         ReportStatus report = (ReportStatus) ackList.get(i); %>
-                                    <%= report.getProviderName() %> :
+                                    <%= Encode.forHtml(report.getProviderName()) %> :
 
                                     <% String ackStatus = report.getStatus();
                                         if (providerNo.equals(report.getOscarProviderNo())) {
@@ -879,11 +766,11 @@
                                             ackStatus = "Not Acknowledged";
                                         }
                                     %>
-                                    <font color="red"><%= ackStatus %>
+                                    <font color="red"><%= Encode.forHtml(ackStatus) %>
                                     </font>
                                     &nbsp;
-                                    <%= report.getTimestamp() == null ? "" : report.getTimestamp() %>,&nbsp;
-                                    comment: <%= (report.getComment() == null || report.getComment().equals("") ? "no comment" : report.getComment()) %>
+                                    <%= report.getTimestamp() == null ? "" : Encode.forHtml(String.valueOf(report.getTimestamp())) %>,&nbsp;
+                                    comment: <%= Encode.forHtml(report.getComment() == null || report.getComment().equals("") ? "no comment" : report.getComment()) %>
 
                                     <br>
                                     <% }
@@ -916,7 +803,7 @@
                     </form>
                 </fieldset>
                 <fieldset>
-                    <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.Comment"/></legend>
+                    <legend><fmt:message key="inboxmanager.document.Comment"/></legend>
                     <form name="acknowledgeForm_<%=docId%>" id="acknowledgeForm_<%=docId%>"
                           onsubmit="updateStatus('acknowledgeForm_<%=docId%>');" method="post"
                           action="javascript:void(0);">
@@ -940,36 +827,36 @@
                                         <tr>
                                             <td>
                                                 <input type="submit" tabindex="<%=tabindex++%>"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>">
+                                                       value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>">
                                                 <input type="button" tabindex="<%=tabindex++%>" class="smallButton"
                                                        value="Comment"
                                                        onclick="addDocComment('<%=docId%>','<%=curAckStatus%>')"/>
                                                 <input type="button" tabindex="<%=tabindex++%>" class="smallButton"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnForward"/>"
+                                                       value="<fmt:message key="oscarMDS.index.btnForward"/>"
                                                        onClick="ForwardSelectedRows(<%=docId%> + ':DOC', null, null);">
                                                 <input type="button" tabindex="<%=tabindex++%>" class="smallButton"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnFile"/>"
+                                                       value="<fmt:message key="oscarMDS.index.btnFile"/>"
                                                        onclick="fileDoc('<%=documentNo%>');">
                                                 <input type="button" tabindex="<%=tabindex++%>"
-                                                       value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> "
+                                                       value=" <fmt:message key="global.btnClose"/> "
                                                        onClick="window.close()">
                                                 <input type="button" tabindex="<%=tabindex++%>"
-                                                       value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
+                                                       value=" <fmt:message key="global.btnPrint"/> "
                                                        onClick="popup(700,960,'<%=url2%>','file download')">
                                                 <% if (demographicID != null && !demographicID.equals("") && !demographicID.equalsIgnoreCase("null") && !demographicID.equals("-1")) {
                                                     String eURL = request.getContextPath() + "/encounter/IncomingEncounter.do?providerNo=" + providerNo + "&appointmentNo=&demographicNo=" + demographicID + "&curProviderNo=&reason=" + java.net.URLEncoder.encode("Document Notes", "UTF-8") + "&encType=" + java.net.URLEncoder.encode("encounter without client", "UTF-8") + "&userName=" + java.net.URLEncoder.encode(provider.getFullName(), StandardCharsets.UTF_8) + "&curDate=" + UtilDateUtilities.getToday("yyyy-MM-dd") + "&appointmentDate=&startTime=&status=";
                                                 %>
                                                 <input type="button" tabindex="<%=tabindex++%>" value="Msg"
-                                                       onclick="popup(700,960,'<%=request.getContextPath()%>/messenger/SendDemoMessage.do?demographic_no=<%=demographicID%>','msg')"/>
+                                                       onclick="popup(700,960,'<%=request.getContextPath()%>/messenger/SendDemoMessage.do?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographicID))%>','msg')"/>
                                                 <input type="button" tabindex="<%=tabindex++%>" value="Tickler"
-                                                       onclick="popup(450,600,'<%=request.getContextPath()%>/tickler/ForwardDemographicTickler.do?docType=DOC&docId=<%=docId%>&demographic_no=<%=demographicID%>&providerNo=<%=providerNo%>','tickler')"/>
+                                                       onclick="popup(450,600,'<%=request.getContextPath()%>/tickler/ForwardDemographicTickler.do?docType=DOC&docId=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(docId))%>&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographicID))%>&providerNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(providerNo))%>','tickler')"/>
                                                 <input type="button" tabindex="<%=tabindex++%>" value="eChart"
                                                        onclick="popup(710,1024,'<%=eURL%>','encounter')"/>
                                                 <%
                                                     if (curdoc.getCreatorId().equals(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo())) {
                                                 %>
                                                 <input type="button" tabindex="<%=tabindex++%>" value="Delete"
-                                                       onClick="javascript: checkDelete('<%=curdoc.getDocId()%>','<%=curdoc.getDescription()%>')"/>
+                                                       onClick="javascript: checkDelete('<%=Encode.forJavaScriptAttribute(curdoc.getDocId())%>','<%=Encode.forJavaScriptAttribute(curdoc.getDescription())%>')"/>
 
                                                 <%
                                                 } else {
@@ -977,7 +864,7 @@
                                                 <security:oscarSec roleName="<%=roleName$%>"
                                                                    objectName="_admin,_admin.edocdelete" rights="r">
                                                     <input type="button" tabindex="<%=tabindex++%>" value="Delete"
-                                                           onClick="javascript: checkDelete('<%=curdoc.getDocId()%>','<%=curdoc.getDescription()%>')"/>
+                                                           onClick="javascript: checkDelete('<%=Encode.forJavaScriptAttribute(curdoc.getDocId())%>','<%=Encode.forJavaScriptAttribute(curdoc.getDescription())%>')"/>
                                                 </security:oscarSec>
                                                 <% } %>
                                                 <%}

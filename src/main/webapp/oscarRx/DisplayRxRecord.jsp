@@ -43,6 +43,7 @@
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DrugDao,io.github.carlos_emr.carlos.commn.model.Drug,io.github.carlos_emr.carlos.utility.MiscUtils,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao,io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -131,7 +132,7 @@
 <head>
     <script type="text/javascript" src="<%= request.getContextPath()%>/js/global.js"></script>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.DisplayRxRecord.title"/></title>
+    <title><fmt:message key="oscarRx.DisplayRxRecord.title"/></title>
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     <style>
@@ -140,10 +141,6 @@
         }
     </style>
     <script>
-        function openAnnotation() {
-            ///annotation/annotation.jsp?display=Prescriptions&table_id=173&demo=185&drugSpecial=HYZAAR%2012.5MG/100MG%20take%201%20OD%20for%2030%20days%20Qty:30%20Repeats:0
-
-        }
 
         function updateForm() {
             popup(250, 500, '<%=request.getContextPath()%>/oscarRx/updateForm.jsp?id=<%=drugId%>', '<%=drugId%>');
@@ -182,11 +179,11 @@
                    bgcolor="black">
                 <tr>
                     <td width="66%" align="left" class="Cell">
-                        <div style="color:white;margin-left:5px;" class="Field2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDetailResults"/></div>
+                        <div style="color:white;margin-left:5px;" class="Field2"><fmt:message key="oscarMDS.segmentDisplay.formDetailResults"/></div>
                     </td>
                     <td align="right">
-                        <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>" onClick="window.close()"/>
-                        <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>" onClick="window.print()"/>
+                        <input type="button" value="<fmt:message key="global.btnClose"/>" onClick="window.close()"/>
+                        <input type="button" value="<fmt:message key="global.btnPrint"/>" onClick="window.print()"/>
                     </td>
                 </tr>
             </table>
@@ -374,11 +371,11 @@
                     <td class="label">Long Term:</td>
                     <td>
                         <% if (drug.getLongTerm() == null) { %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgUnset"/>
+                        <fmt:message key="WriteScript.msgUnset"/>
                         <% } else if (drug.getLongTerm()) { %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgYes"/>
+                        <fmt:message key="WriteScript.msgYes"/>
                         <% } else { %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgNo"/>
+                        <fmt:message key="WriteScript.msgNo"/>
                         <% } %>
                     </td>
                 </tr>
@@ -391,11 +388,11 @@
                     <td class="label">Past Medication:</td>
                     <td>
                         <% if (drug.getPastMed() == null) { %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgUnset"/>
+                        <fmt:message key="WriteScript.msgUnset"/>
                         <% } else if (drug.getPastMed()) { %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgYes"/>
+                        <fmt:message key="WriteScript.msgYes"/>
                         <% } else { %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgNo"/>
+                        <fmt:message key="WriteScript.msgNo"/>
                         <% } %>
                     </td>
                 </tr>
@@ -403,11 +400,11 @@
                     <td class="label">Patient Compliance:</td>
                     <td>
                         <% if (drug.getPatientCompliance() == null) { %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgUnset"/>
+                        <fmt:message key="WriteScript.msgUnset"/>
                         <% } else if (drug.getPatientCompliance()) { %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgYes"/>
+                        <fmt:message key="WriteScript.msgYes"/>
                         <% } else { %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgNo"/>
+                        <fmt:message key="WriteScript.msgNo"/>
                         <% } %>
                     </td>
 
@@ -501,10 +498,6 @@
             </table>
 
             <br/>
-
-            <input type="button" value="Annotation" title="Annotation" class="ControlPushButton"
-                   onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink.DISP_PRESCRIP%>&table_id=<%=drug.getId()%>&demo=<%=drug.getDemographicId()%>','anwin','width=400,height=500');">
-
 
             <%--
             Unused Items

@@ -37,6 +37,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -111,10 +112,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.title"/></title>
+    <title><fmt:message key="admin.resourcebaseurl.title"/></title>
 
 
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     <link href="<%=request.getContextPath() %>/library/toastui/toastui-editor.min.css" rel="stylesheet">
 
@@ -134,7 +135,7 @@
 
 <div class="container-fluid">
 
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBaseURLSetting"/></h3>
+    <h3><fmt:message key="admin.admin.btnBaseURLSetting"/></h3>
 
     <%if (request.getParameter("websiteSave") != null) {%>
     <div class="alert alert-success">
@@ -158,13 +159,13 @@
             <form method="post" name="baseurl" id="websiteForm" action="${pageContext.request.contextPath}/admin/ResourceBaseUrl.do" class="d-flex flex-wrap align-items-center gap-2">
 
                 <h4>Website</h4>
-                <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.formBaseUrl"/><br>-->
+                <!--<fmt:message key="admin.resourcebaseurl.formBaseUrl"/><br>-->
                 <input type="text" name="resource_baseurl" style="width:100%;margin-bottom:10px"
-                       placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.formBaseUrlExample"/>"
-                       value="<%if(resource_baseurl_value!=null){ out.print(resource_baseurl_value);}%>">
+                       placeholder="<fmt:message key="admin.resourcebaseurl.formBaseUrlExample"/>"
+                       value="<%if(resource_baseurl_value!=null){ out.print(Encode.forHtmlAttribute(resource_baseurl_value));}%>">
                 <div class="col-md-8">
                     <input type="submit" class="btn float-end" name="websiteSave" id="websiteSave"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>">
+                           value="<fmt:message key="admin.resourcebaseurl.btnSave"/>">
                 </div>
 
             </form>
@@ -189,7 +190,7 @@
                         <div class='alert alert-plain'>Character Limit = 2000</div>
                     </div>
                     <input type="submit" class="btn float-end" name="detailsSave" id="detailsSave"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>">
+                           value="<fmt:message key="admin.resourcebaseurl.btnSave"/>">
                 </div>
             </form>
         </div><!-- col-md-8 -->
@@ -199,7 +200,7 @@
 
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
-<script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 <script src="<%=request.getContextPath() %>/library/dompurify/purify.min.js"></script>
 <script src="<%=request.getContextPath() %>/library/toastui/toastui-editor-all.min.js"></script>
 

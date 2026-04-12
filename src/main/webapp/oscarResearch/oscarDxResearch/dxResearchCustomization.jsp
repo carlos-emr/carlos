@@ -43,9 +43,9 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ page import="org.owasp.encoder.Encode" %>
 
-<fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE html>
 <html>

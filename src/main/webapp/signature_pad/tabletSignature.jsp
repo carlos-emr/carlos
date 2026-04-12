@@ -23,6 +23,7 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
@@ -43,7 +44,7 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
     <script type="text/javascript"
             src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
     <script type="text/javascript"
-            src="<%= request.getContextPath() %>/share/javascript/jquery/jquery.form.js"></script>
+            src="<%= request.getContextPath() %>/library/jquery/jquery.form.js"></script>
 
 </head>
 <%
@@ -51,7 +52,7 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
     if (requestIdKey == null) {
         requestIdKey = DigitalSignatureUtils.generateSignatureRequestId(loggedInInfo.getLoggedInProviderNo());
     }
-    String imageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + requestIdKey;
+    String imageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + Encode.forUriComponent(requestIdKey);
     String storedImageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_stored.name() + "&digitalSignatureId=";
     boolean saveToDB = "true".equals(request.getParameter("saveToDB"));
 %>
@@ -64,7 +65,7 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
 
     var storedImageUrl = "<%= Encode.forJavaScript(storedImageUrl) %>";
 
-    var contextPath = "<%=request.getContextPath() %>";
+    var contextPath = "<%= Encode.forJavaScript(request.getContextPath()) %>";
 
 </script>
 
@@ -73,9 +74,9 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
 <div class="verticalCenterDiv">
     <div class="centerDiv">
         <canvas id='canvas'></canvas>
-        <div><span id="signMessage" style="color:#FFFFFF; font-family: arial, helvetica, sans-serif;"><fmt:setBundle basename="oscarResources"/><fmt:message key="tabletSignature.msgSignAbove"/></span>
-            <button id="clear" style="display:none"><fmt:setBundle basename="oscarResources"/><fmt:message key="tabletSignature.btnClear"/></button>
-            <button id="save" style="display:none;"><fmt:setBundle basename="oscarResources"/><fmt:message key="tabletSignature.btnSave"/></button>
+        <div><span id="signMessage" style="color:#FFFFFF; font-family: arial, helvetica, sans-serif;"><fmt:message key="tabletSignature.msgSignAbove"/></span>
+            <button id="clear" style="display:none"><fmt:message key="tabletSignature.btnClear"/></button>
+            <button id="save" style="display:none;"><fmt:message key="tabletSignature.btnSave"/></button>
         </div>
     </div>
 </div>

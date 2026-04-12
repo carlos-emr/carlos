@@ -52,6 +52,7 @@
 <body>
 
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}"
        scope="request"/>
 
@@ -73,6 +74,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     DemographicDao demographicDao = SpringUtils
             .getBean(DemographicDao.class);
@@ -102,11 +104,11 @@
 
 <div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.title"/>
+        <fmt:message key="oscarReport.oscarReportCatchment.title"/>
         <div class="float-end">
             <button name='print' onClick='window.print()' class="btn btn-secondary">
                 <i class="fa-solid fa-print"></i>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>
+                <fmt:message key="global.btnPrint"/>
             </button>
         </div>
     </h4>
@@ -115,16 +117,16 @@
 <table class="table table-bordered table-striped table-sm table-hover">
     <thead>
     <tr>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgDemographic"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgSex"/>
+        <th><fmt:message key="oscarReport.oscarReportCatchment.msgDemographic"/></th>
+        <th><fmt:message key="oscarReport.oscarReportCatchment.msgSex"/>
         </th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgDOB"/>
+        <th><fmt:message key="oscarReport.oscarReportCatchment.msgDOB"/>
         </th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgCity"/>
+        <th><fmt:message key="oscarReport.oscarReportCatchment.msgCity"/>
         </th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgProvince"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgPostal"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgStatus"/></th>
+        <th><fmt:message key="oscarReport.oscarReportCatchment.msgProvince"/></th>
+        <th><fmt:message key="oscarReport.oscarReportCatchment.msgPostal"/></th>
+        <th><fmt:message key="oscarReport.oscarReportCatchment.msgStatus"/></th>
     </tr>
     </thead>
     <%
@@ -133,19 +135,19 @@
             nItems++;
     %>
     <tr>
-        <td><%=d.getLastName()%>,<%=d.getFirstName()%>
+        <td><%=Encode.forHtml(d.getLastName())%>,<%=Encode.forHtml(d.getFirstName())%>
         </td>
-        <td><%=d.getSex()%>
+        <td><%=Encode.forHtml(d.getSex())%>
         </td>
-        <td><%=d.getDateOfBirth()%>-<%=d.getMonthOfBirth()%>-<%=d.getYearOfBirth()%>
+        <td><%=Encode.forHtml(d.getDateOfBirth())%>-<%=Encode.forHtml(d.getMonthOfBirth())%>-<%=Encode.forHtml(d.getYearOfBirth())%>
         </td>
-        <td><%=d.getCity()%>
+        <td><%=Encode.forHtml(d.getCity())%>
         </td>
-        <td><%=d.getProvince()%>
+        <td><%=Encode.forHtml(d.getProvince())%>
         </td>
-        <td><%=d.getPostal()%>
+        <td><%=Encode.forHtml(d.getPostal())%>
         </td>
-        <td><%=d.getPatientStatus()%>
+        <td><%=Encode.forHtml(d.getPatientStatus())%>
         </td>
     </tr>
     <%
@@ -164,14 +166,14 @@
 <nav>
 <ul class="pagination justify-content-between">
     <li class="page-item <%=nLastPage >= 0 ? "" : "disabled"%>"><a
-            href="${ctx}/oscarReport/oscarReportCatchment.jsp?limit1=<%=nLastPage%>&limit2=<%=strLimit2%>"
+            href="${ctx}/oscarReport/oscarReportCatchment.jsp?limit1=<%=nLastPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>"
             class="page-link contentLink"> &larr; Previous Page
     </a></li>
     <li
             class="page-item <%=nItems == Integer.parseInt(strLimit2) ? "" : "disabled"%>">
         <a
-                href="${ctx}/oscarReport/oscarReportCatchment.jsp?limit1=<%=nNextPage%>&limit2=<%=strLimit2%>"
-                class="page-link contentLink"> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgNextPage"/> &rarr;
+                href="${ctx}/oscarReport/oscarReportCatchment.jsp?limit1=<%=nNextPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>"
+                class="page-link contentLink"> <fmt:message key="oscarReport.oscarReportCatchment.msgNextPage"/> &rarr;
         </a>
     </li>
 </ul>

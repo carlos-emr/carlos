@@ -30,6 +30,7 @@
 --%>
 <!DOCTYPE html>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ page
@@ -44,7 +45,7 @@
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title>Measurement Mapping Configuration</title>
         <!-- css -->
-        <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
+        <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
         <script>
 
             function newWindow(varpage, windowname) {
@@ -127,11 +128,11 @@
                     <table style="width:100%">
                         <tr>
                             <td><input type="button" class="btn btn-secondary"
-                                       value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> "
+                                       value=" <fmt:message key="global.btnClose"/> "
                                        onClick="window.close()"></td>
                             <td style="text-align:right"><a
-                                    href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                                    href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
+                                    href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/About.jsp')"><fmt:message key="global.about"/></a> | <a
+                                    href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/License.jsp')"><fmt:message key="global.license"/></a></td>
                         </tr>
                     </table>
                 </td>

@@ -27,6 +27,7 @@
 
 
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -50,13 +51,13 @@
     <thead>
     <tr class="title">
         <!--
-    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="issueAdmin.id"/></th>
+    <th><fmt:message key="issueAdmin.id"/></th>
 -->
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="issueAdmin.code"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="issueAdmin.description"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="issueAdmin.role"/></th>
+        <th><fmt:message key="issueAdmin.code"/></th>
+        <th><fmt:message key="issueAdmin.description"/></th>
+        <th><fmt:message key="issueAdmin.role"/></th>
         <!--
-    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="issueAdmin.update_date"/></th>
+    <th><fmt:message key="issueAdmin.update_date"/></th>
 -->
     </tr>
     </thead>

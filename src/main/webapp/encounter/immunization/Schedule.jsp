@@ -98,13 +98,14 @@
 
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.Schedule.title"/></title>
+    <title><fmt:message key="encounter.immunization.Schedule.title"/></title>
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounterStyles.css">
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
@@ -118,7 +119,7 @@
 
         function edit(nodeName, colName) {
             windowprops = "height=443,width=630,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-            window.open("ScheduleEdit.jsp?node=" + nodeName + "&name=" + colName, "<fmt:setBundle basename='oscarResources'/><fmt:message key='encounter.immunization.Schedule.msgRecordImm'/>", windowprops);
+            window.open("ScheduleEdit.jsp?node=" + nodeName + "&name=" + colName, "<fmt:message key='encounter.immunization.Schedule.msgRecordImm'/>", windowprops);
         }
 
         function returnEdit(nodeName, givenDate, refusedDate, lot, provider, comments) {
@@ -129,7 +130,7 @@
                 label = givenDate;
             } else {
                 if (refusedDate != "") {
-                    label = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.Schedule.msgRefused"/>" + " " + refusedDate;
+                    label = "<fmt:message key="encounter.immunization.Schedule.msgRefused"/>" + " " + refusedDate;
                 } else {
                     label = "";
                 }
@@ -199,7 +200,7 @@
 <table class="MainTable" id="scrollNumber1" name="encounterTable">
     <tr class="MainTableTopRow">
         <td class="MainTableTopRowLeftColumn">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.Schedule.msgImm"/>
+            <fmt:message key="encounter.immunization.Schedule.msgImm"/>
         </td>
         <td class="MainTableTopRowRightColumn">
             <table class="TopStatusBar">
@@ -207,12 +208,12 @@
                     <td class="Header"
                         style="padding-left:2px;padding-right:2px;border-right:2px solid #003399;text-align:left;font-size:80%;font-weight:bold;width:100%;"
                         NOWRAP>
-                        <%=last_name %>, <%=first_name%> <%=sex%> <%=age%>
+                        <%=Encode.forHtml(last_name)%>, <%=Encode.forHtml(first_name)%> <%=Encode.forHtml(sex)%> <%=Encode.forHtml(age)%>
                     </td>
                     <td>
                     </td>
                     <td style="text-align:right" NOWRAP>
-                        <a href="javascript:window.close();"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/></a> |
+                        <a href="javascript:window.close();"><fmt:message key="global.btnClose"/></a> |
                     </td>
                 </tr>
             </table>
@@ -233,12 +234,12 @@
                                 <tr>
                                     <td>
 
-                                        <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnSave"/>"
+                                        <input type="button" value="<fmt:message key="global.btnSave"/>"
                                                onclick="formSubmit('Save');" style="width:100px"/>
                                     </td>
                                     <td align="right">
                                         <input type="button"
-                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.Schedule.btnConf"/>"
+                                               value="<fmt:message key="encounter.immunization.Schedule.btnConf"/>"
                                                onclick="formSubmit('Configure');" style="width:100px"/>
                                     </td>
                                     <td>
@@ -246,7 +247,7 @@
                                                style="width:100px"/>
                                     </td>
                                     <td>
-                                        <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>"
+                                        <input type="button" value="<fmt:message key="global.btnClose"/>"
                                                onclick="window.close();" style="width:100px"/>
                                     </td>
                                 </tr>
@@ -278,7 +279,7 @@
                                        id="chkSet<%=i%>"/>
                                 <a href=#
                                    onclick="javascript:showSetName('tblSet<%=i%>', 'chkSet<%=i%>');" <%=fontStyle%> >
-                                    <%= set.getAttribute("name") %>
+                                    <%=Encode.forHtml(set.getAttribute("name"))%>
                                 </a>
                                 &nbsp;&nbsp;
 
@@ -316,12 +317,12 @@
                                     <%
                                         for (int j = 0; j < columns.getLength(); j++) {
                                             Element column = (Element) columns.item(j);%>
-                                    <td class="head"><%= column.getAttribute("name") %>&nbsp;</td>
+                                    <td class="head"><%=Encode.forHtml(column.getAttribute("name"))%>&nbsp;</td>
                                     <%
                                             colCount = j + 2;
                                         }
                                     %>
-                                    <td class="head"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.Schedule.msgComments"/></td>
+                                    <td class="head"><fmt:message key="encounter.immunization.Schedule.msgComments"/></td>
                                 </tr>
                                 <%
                                     }
@@ -341,7 +342,7 @@
                                             <%   }else{%>
 
                                 <tr>
-                                    <td class="head"><%= sName %>
+                                    <td class="head"><%=Encode.forHtml(sName)%>
                                     </td>
                                     <% }
 
@@ -429,10 +430,10 @@
 
                                 s += "<span id='" + id + "_label' style='font-size:8pt;width:75px'>";
                                 if (givenDate.length() > 0) {
-                                    s += givenDate;
+                                    s += Encode.forHtml(givenDate);
                                 } else {
                                     if (refusedDate.length() > 0) {
-                                        s += "Refused " + refusedDate;
+                                        s += "Refused " + Encode.forHtml(refusedDate);
                                     } else {
                                         s += "&nbsp;";
                                     }
@@ -455,15 +456,15 @@
                                 <tr>
                                     <td><input type="hidden" name="hdnAction"/></td>
                                     <td><input type="button"
-                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnSave"/>"
+                                               value="<fmt:message key="global.btnSave"/>"
                                                onclick="formSubmit('Save');" style="width: 100px"/></td>
                                     <td><input type="button"
-                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.Schedule.btnConf"/>"
+                                               value="<fmt:message key="encounter.immunization.Schedule.btnConf"/>"
                                                onclick="formSubmit('Configure');" style="width: 100px"/></td>
                                     <td><input type="button" value="Show All"
                                                onclick="formSubmit('ShowAll');" style="width: 100px"/></td>
                                     <td><input type="button"
-                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>"
+                                               value="<fmt:message key="global.btnClose"/>"
                                                onclick="window.close();" style="width: 100px"/></td>
                                 </tr>
                             </table>

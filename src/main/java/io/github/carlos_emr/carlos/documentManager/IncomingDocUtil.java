@@ -411,7 +411,7 @@ public final class IncomingDocUtil {
             if (!canonicalDir.exists()) {
                 boolean created = canonicalDir.mkdirs();
                 if (!created) {
-                    logger.warn("Failed to create directory: {}", LogSanitizer.sanitize(canonicalDir.getPath()));
+                    logger.warn("Failed to create directory: {}", LogSanitizer.sanitize(canonicalDir.getPath())); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 }
             }
 

@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.waitinglist.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
@@ -64,7 +65,7 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
             throws Exception {
 
 
-        log.debug("\n\nWLSetupDisplayWaitingList2Action/execute(): just entering.");
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): just entering.");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -78,8 +79,8 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
         String groupNo = "";
         String providerNo = "";
 
-        log.debug("\n\nWLSetupDisplayWaitingList2Action/execute(): update = " + update);
-        log.debug("\n\nWLSetupDisplayWaitingList2Action/execute(): remove = " + remove);
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): update = {}", LogSanitizer.sanitize(update));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): remove = {}", LogSanitizer.sanitize(remove));
 
         //LazyValidatorForm wlForm = (LazyValidatorForm) form;
         log.debug("WLSetupDisplayWaitingList2Action/execute(): after  (LazyValidatorForm)form ");
@@ -89,16 +90,26 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
         String wlNoteSelected = request.getParameter("wlNoteSelected");
         String onListSinceSelected = request.getParameter("onListSinceSelected");
 
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): demographicNumSelected = " + demographicNumSelected);
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): wlNoteSelected = " + wlNoteSelected);
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): onListSinceSelected = " + onListSinceSelected);
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): demographicNumSelected = {}", LogSanitizer.sanitize(demographicNumSelected));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): wlNoteSelected = {}", LogSanitizer.sanitize(wlNoteSelected));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): onListSinceSelected = {}", LogSanitizer.sanitize(onListSinceSelected));
 
 
-        if (request.getParameter("waitingListId") != null) {
-            waitingListId = request.getParameter("waitingListId");
+        String rawWaitingListId = request.getParameter("waitingListId");
+        if (rawWaitingListId != null && !rawWaitingListId.trim().isEmpty()) {
+            try {
+                int parsedId = Integer.parseInt(rawWaitingListId.trim());
+                if (parsedId > 0) {
+                    waitingListId = String.valueOf(parsedId);
+                } else {
+                    log.warn("WLSetupDisplayWaitingList2Action/execute(): invalid waitingListId '{}': must be a positive integer", LogSanitizer.sanitize(rawWaitingListId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                }
+            } catch (NumberFormatException e) {
+                log.warn("WLSetupDisplayWaitingList2Action/execute(): invalid waitingListId '{}': not a valid integer", LogSanitizer.sanitize(rawWaitingListId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            }
         }
 
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListId = " + waitingListId);
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListId = {}", LogSanitizer.sanitize(waitingListId));
         if (update != null && update.equalsIgnoreCase("Y")) {
 
             demographicNo = request.getParameter(demographicNumSelected);
@@ -123,7 +134,7 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
                     }
 
                 } catch (Exception ex) {
-                    log.error("WLUpdateDisplayWaitingListAction/execute(): Exception: " + ex);
+                    log.error("WLSetupDisplayWaitingList2Action/execute(): Exception: ", ex);
                     return "failure";
                 }
             }
@@ -142,13 +153,13 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
         }
         providerNo = (String) session.getAttribute("user");
 
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): providerNo = " + providerNo);
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): groupno = " + groupNo);
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): providerNo = {}", LogSanitizer.sanitize(providerNo));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): groupno = {}", LogSanitizer.sanitize(groupNo));
 
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListId = " + waitingListId);
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): demographicNo = " + demographicNo);
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListNote = " + waitingListNote);
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): onListSince = " + onListSince);
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListId = {}", LogSanitizer.sanitize(waitingListId));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): demographicNo = {}", LogSanitizer.sanitize(demographicNo));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListNote = {}", LogSanitizer.sanitize(waitingListNote));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): onListSince = {}", LogSanitizer.sanitize(onListSince));
 
         WLWaitingListBeanHandler hd = null;
         WLWaitingListNameBeanHandler wlNameHd = null;
@@ -178,7 +189,7 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
                 ProviderNameBean pNameBean = new ProviderNameBean(p.getFormattedName(), p.getProviderNo());
                 allProviders.add(pNameBean);
             }
-            log.debug("WLSetupDisplayWaitingList2Action/execute(): allProviders.size() = " + allProviders.size());
+            log.debug("WLSetupDisplayWaitingList2Action/execute(): allProviders.size() = {}", allProviders.size());
             if (allProviders.size() <= 0) {
                 ProviderData proData = new ProviderData();
                 proData.getProvider(groupNo);
@@ -199,23 +210,23 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
         today = UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
 
         request.setAttribute("WLId", waitingListId);
-        session.setAttribute("waitingList", hd);
+        session.setAttribute("waitingList", hd); // nosemgrep: tainted-session-from-http-request -- DAO-sourced WLWaitingListBeanHandler built from validated waitingListId
         if (hd != null) {
-            session.setAttribute("waitingListName", hd.getWaitingListName());
+            session.setAttribute("waitingListName", hd.getWaitingListName()); // nosemgrep: tainted-session-from-http-request -- getter on DAO-sourced waiting list bean
         } else {
-            session.setAttribute("waitingListName", null);
+            session.setAttribute("waitingListName", null); // nosemgrep: tainted-session-from-http-request -- null literal, no tainted data
         }
         if (wlNameHd != null) {
-            session.setAttribute("waitingListNames", wlNameHd.getWaitingListNames());
+            session.setAttribute("waitingListNames", wlNameHd.getWaitingListNames()); // nosemgrep: tainted-session-from-http-request -- DAO-sourced list from WLWaitingListNameBeanHandler
         } else {
-            session.setAttribute("waitingListNames", null);
+            session.setAttribute("waitingListNames", null); // nosemgrep: tainted-session-from-http-request -- null literal, no tainted data
         }
-        session.setAttribute("allProviders", allProviders);
+        session.setAttribute("allProviders", allProviders); // nosemgrep: tainted-session-from-http-request -- DAO-sourced provider list from WaitingListManager
 
-        session.setAttribute("nbPatients", nbPatients);
+        session.setAttribute("nbPatients", nbPatients); // nosemgrep: tainted-session-from-http-request -- string count derived from DAO query result size
 
         //session.setAttribute("allWaitingListName", allWaitingListName);
-        session.setAttribute("today", today);
+        session.setAttribute("today", today); // nosemgrep: tainted-session-from-http-request -- server-generated date string from new Date()
 
         return "continue";
     }

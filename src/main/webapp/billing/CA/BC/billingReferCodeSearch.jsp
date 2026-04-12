@@ -34,6 +34,7 @@
 %>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Billingreferral" %>
@@ -139,9 +140,7 @@
 
         function CodeAttach(File0) {
             self.close();
-            self.opener.document
-        .<%=formName%>.<%=formElement%>.
-            value = File0;
+            self.opener.document["<%= Encode.forJavaScript(StringUtils.noNull(formName)) %>"]["<%= Encode.forJavaScript(StringUtils.noNull(formElement)) %>"].value = File0;
         }
 
     </script>
@@ -211,9 +210,9 @@
             <td width="12%"><font face="Arial, Helvetica, sans-serif"
                                   size="2">
                 <% if (Dcode.compareTo(xcodeName) == 0 || Dcode.compareTo(xcodeName1) == 0 || Dcode.compareTo(xcodeName2) == 0) { %><input
-                    type="checkbox" name="code_<%=Dcode%>" checked>
-                <%} else {%><input type="checkbox" name="code_<%=Dcode%>">
-                <%}%><%=Dcode%>
+                    type="checkbox" name="code_<%=Encode.forHtmlAttribute(Dcode)%>" checked>
+                <%} else {%><input type="checkbox" name="code_<%=Encode.forHtmlAttribute(Dcode)%>">
+                <%}%><%=Encode.forHtml(Dcode)%>
             </font></td>
             <td width="22%"><font face="Arial, Helvetica, sans-serif"
                                   size="2"><%=Encode.forHtml(DcodeDesc)%>

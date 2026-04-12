@@ -90,11 +90,11 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <jsp:useBean id="providerBean" class="java.util.Properties"
              scope="session"/>
 <!DOCTYPE html>
-<fmt:setBundle basename="oscarResources"/>
 <fmt:message var="msgOnUnbilledText" key="provider.appointmentProviderAdminDay.onUnbilled"/>
 <fmt:message var="dtLanguageCode" key="global.i18n.datatablescode"/>
 <html>
@@ -110,7 +110,7 @@
             if (confirm("${e:forJavaScript(msgOnUnbilledText)}")) {
                 var form = document.createElement('form');
                 form.method = 'post';
-                form.action = 'billingDeleteNoAppt.jsp';
+                form.action = '<%= request.getContextPath() %>/billing/CA/ON/BillingDeleteNoAppt.do';
                 form.target = 'unbill_popup';
                 var fields = {billing_no: billingNo, billCode: billCode, dboperation: 'delete_bill', hotclick: '0'};
                 for (var key in fields) {

@@ -31,7 +31,9 @@
 <%@ page
         import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*, io.github.carlos_emr.carlos.util.*, org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     HashMap<String, Object> curform = new HashMap<String, Object>();
@@ -62,7 +64,7 @@
     if (curform.get("showLatestFormOnly") == null) curform.put("showLatestFormOnly", false);
     if (curform.get("patientIndependent") == null) curform.put("patientIndependent", false);
 
-    String formHtml = StringEscapeUtils.escapeHtml4((String) curform.get("formHtml"));
+    String formHtml = Encode.forHtml((String) curform.get("formHtml"));
     if (formHtml == null) {
         formHtml = "";
     }
@@ -71,7 +73,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgEditEform"/></title>
+        <title><fmt:message key="eform.edithtml.msgEditEform"/></title>
 
         <style>
             .input-error {
@@ -91,7 +93,7 @@
 
         <script type="text/javascript" language="JavaScript">
             function openLastSaved() {
-                window.open('<%=request.getContextPath()%>/eform/efmshowform_data.jsp?fid=<%= curform.get("fid") %>', 'PreviewForm', 'toolbar=no, location=no, status=yes, menubar=no, scrollbars=yes, resizable=yes, width=700, height=600, left=300, top=100');
+                window.open('<%=request.getContextPath()%>/eform/efmshowform_data.jsp?fid=<%= Encode.forUriComponent((String) curform.get("fid")) %>', 'PreviewForm', 'toolbar=no, location=no, status=yes, menubar=no, scrollbars=yes, resizable=yes, width=700, height=600, left=300, top=100');
             }
 
             //using this to check if page is being viewing in admin panel or in popup
@@ -101,7 +103,7 @@
                 document.getElementById("popupDisplay").style.display = 'none';
                 document.getElementById("panelDisplay").style.display = 'inline';
             } else {
-                document.write('<link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">');
+                document.write('<link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">');
             }
 
             <% if ((request.getAttribute("success") != null) && (errors.size() == 0)) { %>
@@ -111,7 +113,7 @@
             <%}%>
         </script>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
-    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
     </head>
 
@@ -120,7 +122,7 @@
     <%@ include file="efmTopNav.jspf" %>
 
     <%if (request.getParameter("fid") != null) {%>
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgEditEform"/></h3>
+    <h3><fmt:message key="eform.edithtml.msgEditEform"/></h3>
     <%} else {%>
     <h3>Create New eForm</h3>
     <%}%>
@@ -133,7 +135,7 @@
             <% if ((request.getAttribute("success") != null) && (errors.size() == 0)) { %>
             <div class="alert alert-success">
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgChangesSaved"/>.
+                <fmt:message key="eform.edithtml.msgChangesSaved"/>.
             </div>
             <% } %>
 
@@ -143,16 +145,16 @@
             %>
             <div class="alert alert-danger">
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="<%=formNameMissing%>"/>
+                <fmt:message key="<%=formNameMissing%>"/>
             </div>
             <%} else if (errors.containsKey("formNameExists")) { %>
             <div class="alert alert-danger">
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="<%=formNameMissing%>"/>
+                <fmt:message key="<%=formNameMissing%>"/>
             </div>
             <%}%>
 
-            <input type="hidden" name="fid" id="fid" value="<%= curform.get("fid")%>">
+            <input type="hidden" name="fid" id="fid" value="<%= Encode.forHtmlAttribute((String) curform.get("fid"))%>">
 
             <% if ((request.getAttribute("success") == null) || (errors.size() != 0)) {%>
             <!--error? -->
@@ -160,16 +162,16 @@
 
             <!--LAST SAVED-->
             <div style="position:absolute;top:2px;right:4px;">
-                <em><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgLastModified"/>:    <%= curform.get("formDate")%>&nbsp;<%= curform.get("formTime") %>
+                <em><fmt:message key="eform.edithtml.msgLastModified"/>:    <%= Encode.forHtml((String) curform.get("formDate"))%>&nbsp;<%= Encode.forHtml((String) curform.get("formTime")) %>
                 </em>
             </div>
 
             <!--FORM NAME-->
             <div style="display:inline-block">
 
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.formName"/>:
+                <fmt:message key="eform.uploadhtml.formName"/>:
                 <br/>
-                <input type="text" name="formName" value="<%= curform.get("formName") %>"
+                <input type="text" name="formName" value="<%= Encode.forHtmlAttribute((String) curform.get("formName")) %>"
                        class="<% if (errors.containsKey("formNameMissing") || (errors.containsKey("formNameExists"))) { %> input-error <% } %>"
                        size="30"/>
                 <br/>
@@ -178,13 +180,13 @@
 
             <!--FORM ADDITIONAL INFO-->
             <div style="display:inline-block">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.formSubject"/>:<br/>
-                <input type="text" name="formSubject" value="<%= curform.get("formSubject") %>" size="30"/><br/>
+                <fmt:message key="eform.uploadhtml.formSubject"/>:<br/>
+                <input type="text" name="formSubject" value="<%= Encode.forHtmlAttribute((String) curform.get("formSubject")) %>" size="30"/><br/>
             </div>
 
             <!--ROLE TYPE-->
             <div style="display:inline-block">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnRoleType"/><br/>
+                <fmt:message key="eform.uploadhtml.btnRoleType"/><br/>
                 <select name="roleType">
                     <option value="">- select one -</option>
                     <% ArrayList roleList = EFormUtil.listSecRole();
@@ -195,7 +197,7 @@
                                 selected = "selected";
                             }
                     %>
-                    <option value="<%=roleList.get(i) %>" <%= selected%> %><%=roleList.get(i) %>
+                    <option value="<%=Encode.forHtmlAttribute((String) roleList.get(i)) %>" <%= selected%>><%=Encode.forHtml((String) roleList.get(i)) %>
                     </option>
 
                     <%} %>
@@ -204,38 +206,38 @@
 
             <!--PATIENT INDEPENDANT-->
             <div style="display:inline-block">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.showLatestFormOnly"/> <input type="checkbox"
+                <fmt:message key="eform.uploadhtml.showLatestFormOnly"/> <input type="checkbox"
                                                                                  name="showLatestFormOnly"
                                                                                  value="true" <%= (Boolean) curform.get("showLatestFormOnly") ? "checked" : "" %> />
                 <br/>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.patientIndependent"/> <input type="checkbox"
+                <fmt:message key="eform.uploadhtml.patientIndependent"/> <input type="checkbox"
                                                                                  name="patientIndependent"
                                                                                  value="true" <%= (Boolean) curform.get("patientIndependent") ? "checked" : "" %> /><br/>
             </div>
 
             <br/>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgEditHtml"/>:<br/>
+            <fmt:message key="eform.edithtml.msgEditHtml"/>:<br/>
             <textarea wrap="off" name="formHtml" style="" class="form-control" rows="40"><%= formHtml%></textarea><br/>
 
             <p>
             <div id="panelDisplay">
                 <a href="<%=request.getContextPath()%>/eform/efmformmanager.jsp" class="btn contentLink">
                     <i class="fa-solid fa-circle-arrow-left"></i> Back to eForm Library
-                    <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgBackToForms"/>-->
+                    <!--<fmt:message key="eform.edithtml.msgBackToForms"/>-->
                 </a>
                 <input type="button" class="btn btn-secondary"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgPreviewLast"/>" <% if (curform.get("fid") == null) {%>
+                       value="<fmt:message key="eform.edithtml.msgPreviewLast"/>" <% if (curform.get("fid") == null) {%>
                        disabled    <%}%> name="previewlast" onclick="openLastSaved()">
-                <a href="<%=request.getContextPath()%>/eform/efmformmanageredit.jsp?fid=<%= curform.get("fid") %>"
-                   class="btn contentLink"> <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.cancelChanges"/></a>
+                <a href="<%=request.getContextPath()%>/eform/efmformmanageredit.jsp?fid=<%= Encode.forUriComponent((String) curform.get("fid")) %>"
+                   class="btn contentLink"> <fmt:message key="eform.edithtml.cancelChanges"/></a>
             </div>
 
             <a href="#" class="btn btn-secondary" id="popupDisplay" onClick="window.close()">
                 <i class="fa-solid fa-circle-arrow-left"></i> Back to eForm Library
-                <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgBackToForms"/>-->
+                <!--<fmt:message key="eform.edithtml.msgBackToForms"/>-->
             </a>
 
-            <input type="submit" class="btn btn-primary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgSave"/>"
+            <input type="submit" class="btn btn-primary" value="<fmt:message key="eform.edithtml.msgSave"/>"
                    data-bs-loading-text="Saving..." name="savebtn" id="savebtn">
 
             </p>

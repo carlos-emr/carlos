@@ -47,6 +47,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Set;
+import java.util.regex.Pattern;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 
@@ -67,6 +69,14 @@ public class EctDisplayAction extends ActionSupport {
     protected static final int CROP_LEN_TITLE = 45;
     protected static final int MAX_LEN_KEY = 12;
     protected static final int CROP_LEN_KEY = 9;
+
+    // CWE-501 trust boundary validation patterns
+    private static final Pattern SAFE_STATUS = Pattern.compile("[a-zA-Z]{1,2}");
+    private static final Pattern SAFE_DATE = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
+    private static final Pattern SAFE_TIME = Pattern.compile("[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?");
+    // Any character except ASCII control chars (allows Unicode for bilingual Canadian EMR)
+    private static final Pattern SAFE_TEXT = Pattern.compile("[^\\p{Cntrl}]*");
+    private static final Set<String> VALID_SOURCES = Set.of("encounter", "messenger");
 
     private boolean enabled;
 
@@ -117,7 +127,25 @@ public class EctDisplayAction extends ActionSupport {
         boolean isJsonRequest = request.getParameter("json") != null && request.getParameter("json").equalsIgnoreCase("true");
         request.setAttribute("isJsonRequest", isJsonRequest);
 
-        if (bean == null || request.getParameter("demographicNo") != null) {
+        boolean rebuildBean = bean == null || request.getParameter("demographicNo") != null;
+
+        // Extract and validate demographicNo early so the privilege check can run before any session mutation
+        String demoNoParam;
+        if (rebuildBean) {
+            demoNoParam = request.getParameter("demographicNo");
+            if (demoNoParam != null && !demoNoParam.isEmpty() && !demoNoParam.matches("\\d+")) {
+                throw new SecurityException("Invalid non-numeric demographicNo");
+            }
+        } else {
+            demoNoParam = bean.demographicNo;
+        }
+
+        // Privilege check BEFORE any session.setAttribute to prevent unauthorized session mutation (CWE-501)
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demoNoParam)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
+        if (rebuildBean) {
             bean = new EctSessionBean();
             bean.currentDate = UtilDateUtilities.StringToDate(request.getParameter("curDate"));
 
@@ -128,34 +156,84 @@ public class EctDisplayAction extends ActionSupport {
             if (bean.providerNo == null) {
                 bean.providerNo = (String) request.getSession().getAttribute("user");
             }
-            bean.demographicNo = request.getParameter("demographicNo");
-            bean.appointmentNo = request.getParameter("appointmentNo");
+            bean.demographicNo = demoNoParam;
+            String apptNoParam = request.getParameter("appointmentNo");
+            if (apptNoParam != null && !apptNoParam.isEmpty() && !apptNoParam.matches("\\d+")) {
+                throw new SecurityException("Invalid non-numeric appointmentNo");
+            }
+            bean.appointmentNo = apptNoParam;
             bean.curProviderNo = request.getParameter("curProviderNo");
-            bean.reason = request.getParameter("reason");
-            bean.encType = request.getParameter("encType");
+            if (bean.curProviderNo != null && !bean.curProviderNo.isEmpty() && !bean.curProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
+                logger.warn("Invalid curProviderNo rejected, falling back to logged-in provider: {}", LogSanitizer.sanitize(bean.curProviderNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                bean.curProviderNo = null;
+            }
+            // Fall back to authenticated provider — the logged-in user IS the provider unless viewing another provider's schedule
+            if (bean.curProviderNo == null || bean.curProviderNo.trim().isEmpty()) {
+                bean.curProviderNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProvider().getProviderNo();
+            }
+            // CWE-501 trust boundary: validate structured fields, sanitize free-text
+            String reasonParam = request.getParameter("reason");
+            if (reasonParam != null && (!SAFE_TEXT.matcher(reasonParam).matches() || reasonParam.length() > 255)) {
+                logger.warn("Rejected invalid reason at trust boundary");
+                reasonParam = null;
+            }
+            bean.reason = reasonParam;
+            String encTypeParam = request.getParameter("encType");
+            if (encTypeParam != null && !encTypeParam.matches("[a-zA-Z0-9_ ]{1,50}")) {
+                logger.warn("Rejected invalid encType at trust boundary: {}", LogSanitizer.sanitize(encTypeParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                encTypeParam = null;
+            }
+            bean.encType = encTypeParam;
             bean.userName = request.getParameter("userName");
             if (bean.userName == null) {
                 bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " " + ((String) request.getSession().getAttribute("userlastname"));
+            } else if (!SAFE_TEXT.matcher(bean.userName).matches() || bean.userName.length() > 100) {
+                logger.warn("Rejected invalid userName at trust boundary, falling back to session-derived name");
+                bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " " + ((String) request.getSession().getAttribute("userlastname"));
             }
 
-            bean.appointmentDate = request.getParameter("appointmentDate");
-            bean.startTime = request.getParameter("startTime");
-            bean.status = request.getParameter("status");
-            bean.date = request.getParameter("date");
+            String apptDateParam = request.getParameter("appointmentDate");
+            if (apptDateParam != null && !SAFE_DATE.matcher(apptDateParam).matches()) {
+                logger.warn("Rejected invalid appointmentDate at trust boundary: {}", LogSanitizer.sanitize(apptDateParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                apptDateParam = null;
+            }
+            bean.appointmentDate = apptDateParam;
+            String startTimeParam = request.getParameter("startTime");
+            if (startTimeParam != null && !SAFE_TIME.matcher(startTimeParam).matches()) {
+                logger.warn("Rejected invalid startTime at trust boundary: {}", LogSanitizer.sanitize(startTimeParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                startTimeParam = null;
+            }
+            bean.startTime = startTimeParam;
+            String statusParam = request.getParameter("status");
+            if (statusParam != null && !SAFE_STATUS.matcher(statusParam).matches()) {
+                logger.warn("Rejected invalid status at trust boundary: {}", LogSanitizer.sanitize(statusParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                statusParam = null;
+            }
+            bean.status = statusParam;
+            String dateParam = request.getParameter("date");
+            if (dateParam != null && !SAFE_DATE.matcher(dateParam).matches()) {
+                logger.warn("Rejected invalid date at trust boundary: {}", LogSanitizer.sanitize(dateParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                dateParam = null;
+            }
+            bean.date = dateParam;
             bean.check = "myCheck";
             bean.oscarMsgID = request.getParameter("msgId");
+            if (bean.oscarMsgID != null && !bean.oscarMsgID.matches("\\d+")) {
+                logger.warn("Invalid msgId: {}", LogSanitizer.sanitize(bean.oscarMsgID)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                bean.oscarMsgID = null;
+            }
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
+            // nosemgrep: tainted-session-from-http-request -- demographicNo/appointmentNo validated numeric;
+            // status validated [a-zA-Z]{1,2}; dates validated YYYY-MM-DD; time validated HH:MM; encType validated alphanumeric;
+            // reason/userName sanitized for control chars and length-capped; eChartId is server-generated
             request.getSession().setAttribute("EctSessionBean", bean);
-            request.getSession().setAttribute("eChartID", bean.eChartId);
-            if (request.getParameter("source") != null) {
-                bean.source = request.getParameter("source");
+            request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request -- server-generated ID from EctSessionBean.setUpEncounterPage()
+            String sourceParam = request.getParameter("source");
+            if (sourceParam != null) {
+                bean.source = VALID_SOURCES.contains(sourceParam) ? sourceParam : null;
             }
 
             request.setAttribute("EctSessionBean", bean);
-        }
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", bean.demographicNo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
         }
 
         //Can we handle request?

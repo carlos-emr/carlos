@@ -47,17 +47,17 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
-<fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE html>
 <html>
     <head>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title><fmt:message key="admin.admin.UpdateDrugref"/></title>
-        <link href="<c:out value="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>" rel="stylesheet" type="text/css">
+        <link href="<c:out value="${ctx}/library/bootstrap/5.3.8/css/bootstrap.min.css"/>" rel="stylesheet" type="text/css">
 
         <script>
             function getCsrfToken() {

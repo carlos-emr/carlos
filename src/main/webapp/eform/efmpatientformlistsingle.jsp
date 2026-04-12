@@ -54,18 +54,19 @@
 
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <html>
 
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.title"/></title>
+        <title><fmt:message key="eform.showmyform.title"/></title>
 
-		<link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"><!-- Bootstrap -->
+		<link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"><!-- Bootstrap -->
 		<link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
 
 		<script src="${pageContext.request.contextPath}/js/global.js"></script>
-		<script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+		<script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 		<script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
 		<script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
 
@@ -81,7 +82,7 @@
 					"order": [],
 					"bPaginate": false,
 					"language": {
-						"url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18n.datatablescode"/>.json"
+						"url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
 					}
 				});
 			});
@@ -144,11 +145,11 @@
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgFormLybrary"/></td>
+                        <td><fmt:message key="eform.showmyform.msgFormLybrary"/></td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
+                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
+                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>
@@ -159,12 +160,12 @@
                 <div>
                     <table class="elements" width="100%">
                         <tr bgcolor=<%=deepColor%>>
-                            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.btnFormName"/></th>
+                            <th><fmt:message key="eform.showmyform.btnFormName"/></th>
                             <th><a
-                                    href="efmpatientformlistsingle.jsp?fdid=<%= Encode.forUriComponent(fdid) %>&demographic_no=<%= Encode.forUriComponent(demographic_no) %>&orderby=form_subject&parentAjaxId=<%= Encode.forUriComponent(parentAjaxId) %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.btnSubject"/></a></th>
+                                    href="efmpatientformlistsingle.jsp?fdid=<%= Encode.forUriComponent(fdid) %>&demographic_no=<%= Encode.forUriComponent(demographic_no) %>&orderby=form_subject&parentAjaxId=<%= Encode.forUriComponent(parentAjaxId) %>"><fmt:message key="eform.showmyform.btnSubject"/></a></th>
                             <th><a
-                                    href="efmpatientformlistsingle.jsp?fdid=<%= Encode.forUriComponent(fdid) %>&demographic_no=<%= Encode.forUriComponent(demographic_no) %>&parentAjaxId=<%= Encode.forUriComponent(parentAjaxId) %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.formDate"/></a></th>
-                            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgAction"/></th>
+                                    href="efmpatientformlistsingle.jsp?fdid=<%= Encode.forUriComponent(fdid) %>&demographic_no=<%= Encode.forUriComponent(demographic_no) %>&parentAjaxId=<%= Encode.forUriComponent(parentAjaxId) %>"><fmt:message key="eform.showmyform.formDate"/></a></th>
+                            <th><fmt:message key="eform.showmyform.msgAction"/></th>
                         </tr>
                         <%
                             ArrayList<HashMap<String, ? extends Object>> eForms;
@@ -177,8 +178,8 @@
                             <td>
                                 <a href="#"
                                    ONCLICK="popupPage('efmshowform_data.jsp?fdid=<%=curform.get("fdid")%>&appointment=<%= Encode.forUriComponent(appointment) %>', '<%="FormP" + i%>'); return false;"
-                                   TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgViewFrm"/>"
-                                   onmouseover="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%=curform.get("formName")%>
+                                   TITLE="<fmt:message key="eform.showmyform.msgViewFrm"/>"
+                                   onmouseover="window.status='<fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%=curform.get("formName")%>
                                 </a>
                             </td>
                             <td><%=curform.get("formSubject")%>
@@ -191,7 +192,7 @@
                                     <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
                                     <input type="hidden" name="callpage" value="single"/>
                                     <input type="hidden" name="parentAjaxId" value="<%= Encode.forHtmlAttribute(parentAjaxId) %>"/>
-                                    <a href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this eform?')){this.closest('form').submit();}"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.btnDelete"/></a>
+                                    <a href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this eform?')){this.closest('form').submit();}"><fmt:message key="eform.uploadimages.btnDelete"/></a>
                                 </form>
                             </td>
                         </tr>
@@ -200,7 +201,7 @@
                             if (eForms.size() <= 0) {
                         %>
                         <tr>
-                            <td align='center' colspan='5'><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgNoData"/></td>
+                            <td align='center' colspan='5'><fmt:message key="eform.showmyform.msgNoData"/></td>
                         </tr>
                         <%
                             }

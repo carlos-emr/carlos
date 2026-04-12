@@ -31,6 +31,7 @@
 <!DOCTYPE html>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%
@@ -51,14 +52,14 @@
 
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.traceabilityReport"/></title>
+        <title><fmt:message key="admin.admin.traceabilityReport"/></title>
         <!--<script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>-->
 
         <script src="${ pageContext.servletContext.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="${ pageContext.servletContext.contextPath }/library/jquery/jquery-compat.js"></script>
 
-        <script src="${ pageContext.servletContext.contextPath }/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-        <link href="${ pageContext.servletContext.contextPath }/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <script src="${ pageContext.servletContext.contextPath }/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+        <link href="${ pageContext.servletContext.contextPath }/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
         <link href="${ pageContext.servletContext.contextPath }/library/jquery/jquery-ui.structure-1.14.2.min.css"
               rel="stylesheet">
@@ -78,7 +79,7 @@
 
             function validateInput() {
                 if (document.forms[1].file.value == "") {
-                    alert("<fmt:setBundle basename='oscarResources'/><fmt:message key='admin.admin.downloadEmpty'/>");
+                    alert("<fmt:message key='admin.admin.downloadEmpty'/>");
                     return false;
                 }
             }
@@ -93,10 +94,10 @@
 
     </head>
     <body>
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.traceabilityReport"/></h3>
+    <h3><fmt:message key="admin.admin.traceabilityReport"/></h3>
 
     <div class="card card-body bg-body-tertiary">
-        <h4><fmt:setBundle basename='oscarResources'/><fmt:message key='admin.admin.downloadTraceabilityData'/></h4>
+        <h4><fmt:message key='admin.admin.downloadTraceabilityData'/></h4>
         This screen will allow you to check your OSCAR against another OSCAR to see if it is running the same version.
         You can click "Download Traceability Data from this Oscar" to generate a file with information about the system.
         This file contains information only about the OSCAR program itself -- it does not include any PHI.
@@ -108,7 +109,7 @@
     </div>
 
     <div class="card card-body bg-body-tertiary">
-        <h4><fmt:setBundle basename='oscarResources'/><fmt:message key='admin.admin.traceabilityReport'/></h4>
+        <h4><fmt:message key='admin.admin.traceabilityReport'/></h4>
         If you have a Traceability Data file from another Oscar, you can choose it and click "Generate Traceability
         Report" to create a file which will let you know what files in the OSCAR program have been modified, added, or
         removed.
@@ -116,7 +117,7 @@
         <form action="GenerateTraceabilityReportAction.do" method="post" enctype="multipart/form-data"
               onsubmit="return validateInput()">
             <input type="file" name="file"/>
-            <span title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"
+            <span title="<fmt:message key="global.uploadWarningBody"/>"
                   style="vertical-align:middle;font-family:arial;font-size:20px;font-weight:bold;color:#ABABAB;cursor:pointer"><img
                     alt="alert" src="<%= request.getContextPath() %>/images/icon_alertsml.gif"/></span>
 

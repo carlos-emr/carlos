@@ -47,8 +47,23 @@
         String searchModeParam = request.getParameter("search_mode");
         String orderByParam = request.getParameter("orderby");
 
+        // Keep search mode validation separate from order-by validation so DAO search semantics are preserved.
+        java.util.Set<String> VALID_ORDER_BY_COLUMNS = java.util.Set.of("company_name", "attention", "address", "city", "province", "postcode", "telephone", "fax", "id");
+        java.util.Set<String> VALID_SEARCH_MODES = java.util.Set.of(
+                "search_name",
+                "company_name",
+                "attention",
+                "address",
+                "city",
+                "province",
+                "postcode",
+                "telephone",
+                "fax");
+        if (orderByParam == null || !VALID_ORDER_BY_COLUMNS.contains(orderByParam)) { orderByParam = "company_name"; }
+        if (searchModeParam == null || !VALID_SEARCH_MODES.contains(searchModeParam)) { searchModeParam = "search_name"; }
+
         Billing3rdPartyAddressDao dao = SpringUtils.getBean(Billing3rdPartyAddressDao.class);
-        for (Billing3rdPartyAddress ba : dao.findAddresses(searchModeParam, orderByParam, keyword, strLimit1, strLimit2)) {
+        for (Billing3rdPartyAddress ba : dao.findAddresses(searchModeParam, orderByParam, keyword, strLimit1, strLimit2)) { // deepcode ignore SqlInjection: searchModeParam and orderByParam validated against dedicated DAO-compatible allowlists above
             prop = new Properties();
             prop.setProperty("id", "" + ba.getId());
             prop.setProperty("attention", ba.getAttention());
@@ -65,11 +80,11 @@
 %>
 <%@ page errorPage="/errorpage.jsp"
          import="java.util.*,java.sql.*,java.net.*" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.apache.commons.text.WordUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <html>
     <head>
@@ -156,9 +171,9 @@
             </tr>
         </table>
         <input type='hidden' name='param'
-               value="<%=StringEscapeUtils.escapeHtml4(param)%>">
+               value="<%=Encode.forHtmlAttribute(param)%>">
         <input type='hidden' name='param2'
-               value="<%=StringEscapeUtils.escapeHtml4(param2)%>">
+               value="<%=Encode.forHtmlAttribute(param2)%>">
         <table width="95%" border="0">
             <tr>
                 <td align="left">Results based on keyword(s): <%= Encode.forHtml(keyword == null ? "" : keyword) %>
@@ -183,35 +198,35 @@
                     prop = (Properties) vec.get(i);
                     String bgColor = i % 2 == 0 ? "#EEEEFF" : "ivory";
                     String strOnClick = param.length() > 0 ? "typeInData1('"
-                            + StringEscapeUtils.escapeEcmaScript((prop.getProperty("attention", "").equals("") ? "" : (prop.getProperty("attention") + "\n")))
-                            + StringEscapeUtils.escapeEcmaScript(prop.getProperty("company_name", "").equals("") ? "" : (prop.getProperty("company_name") + "\n"))
-                            + StringEscapeUtils.escapeEcmaScript(prop.getProperty("address", "").equals("") ? "" : (prop.getProperty("address") + "\n"))
-                            + StringEscapeUtils.escapeEcmaScript(prop.getProperty("city", "").equals("") ? "" : (prop.getProperty("city") + " "))
-                            + StringEscapeUtils.escapeEcmaScript(prop.getProperty("province", "").equals("") ? "" : (prop.getProperty("province") + " "))
-                            + StringEscapeUtils.escapeEcmaScript(prop.getProperty("postcode", "").equals("") ? "" : (prop.getProperty("postcode") + "\n"))
-                            + StringEscapeUtils.escapeEcmaScript(prop.getProperty("telephone", "").equals("") ? "" : (prop.getProperty("telephone") + "\n"))
-                            + StringEscapeUtils.escapeEcmaScript(prop.getProperty("fax", "").equals("") ? "" : (prop.getProperty("fax") + "\n"))
+                            + Encode.forJavaScript((prop.getProperty("attention", "").equals("") ? "" : (prop.getProperty("attention") + "\n")))
+                            + Encode.forJavaScript(prop.getProperty("company_name", "").equals("") ? "" : (prop.getProperty("company_name") + "\n"))
+                            + Encode.forJavaScript(prop.getProperty("address", "").equals("") ? "" : (prop.getProperty("address") + "\n"))
+                            + Encode.forJavaScript(prop.getProperty("city", "").equals("") ? "" : (prop.getProperty("city") + " "))
+                            + Encode.forJavaScript(prop.getProperty("province", "").equals("") ? "" : (prop.getProperty("province") + " "))
+                            + Encode.forJavaScript(prop.getProperty("postcode", "").equals("") ? "" : (prop.getProperty("postcode") + "\n"))
+                            + Encode.forJavaScript(prop.getProperty("telephone", "").equals("") ? "" : (prop.getProperty("telephone") + "\n"))
+                            + Encode.forJavaScript(prop.getProperty("fax", "").equals("") ? "" : (prop.getProperty("fax") + "\n"))
                             + "')" : "typeInData1('"
-                            + prop.getProperty("city", "") + "')";
+                            + Encode.forJavaScript(prop.getProperty("city", "")) + "')";
 
             %>
             <tr align="center" bgcolor="<%=bgColor%>"
                 onMouseOver="this.style.cursor='pointer';this.style.backgroundColor='pink';"
                 onMouseout="this.style.backgroundColor='<%=bgColor%>';"
-                onClick="<%=StringEscapeUtils.escapeHtml4(strOnClick)%>">
-                <td><%=prop.getProperty("attention", "")%>
+                onClick="<%=Encode.forHtmlAttribute(strOnClick)%>">
+                <td><%=Encode.forHtml(prop.getProperty("attention", ""))%>
                 </td>
-                <td><%=WordUtils.capitalize(prop.getProperty("company_name", "").toLowerCase())%>
+                <td><%=Encode.forHtml(WordUtils.capitalize(prop.getProperty("company_name", "").toLowerCase()))%>
                 </td>
-                <td><%=WordUtils.capitalize(prop.getProperty("address", "").toLowerCase())%>
+                <td><%=Encode.forHtml(WordUtils.capitalize(prop.getProperty("address", "").toLowerCase()))%>
                 </td>
-                <td><%=prop.getProperty("city", "")%>
+                <td><%=Encode.forHtml(prop.getProperty("city", ""))%>
                 </td>
-                <td><%=prop.getProperty("postcode", "")%>
+                <td><%=Encode.forHtml(prop.getProperty("postcode", ""))%>
                 </td>
-                <td><%=prop.getProperty("telephone", "")%>
+                <td><%=Encode.forHtml(prop.getProperty("telephone", ""))%>
                 </td>
-                <!--td><%=prop.getProperty("fax", "")%></td-->
+                <!--td><%=Encode.forHtml(prop.getProperty("fax", ""))%></td-->
             </tr>
             <%
                 }
@@ -228,18 +243,18 @@
         %> <%
         if (nItems == 0 && nLastPage <= 0) {
 
-    %> <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.noResultsWereFound"/> <%
+    %> <fmt:message key="demographic.search.noResultsWereFound"/> <%
         }
     %>
         <script language="JavaScript">
             <!--
             function last() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/ON/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("keyword")))%>&search_mode=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("search_mode")))%>&orderby=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("orderby")))%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/ON/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8"))%>&search_mode=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8"))%>&orderby=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8"))%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
                 document.nextform.submit();
             }
 
             function next() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/ON/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("keyword")))%>&search_mode=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("search_mode")))%>&orderby=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("orderby")))%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/ON/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8"))%>&search_mode=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8"))%>&orderby=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8"))%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
                 document.nextform.submit();
             }
 
@@ -251,13 +266,13 @@
                 if (nLastPage >= 0) {
 
             %> <input type="submit" class="mbttn" name="submit"
-                      value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/>"
+                      value="<fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/>"
                       onClick="last()"> <%
             }
             if (nItems == Integer.parseInt(strLimit2)) {
 
         %> <input type="submit" class="mbttn" name="submit"
-                  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/>"
+                  value="<fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/>"
                   onClick="next()"> <%
             }
         %>

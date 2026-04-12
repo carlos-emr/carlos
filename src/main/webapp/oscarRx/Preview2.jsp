@@ -30,12 +30,11 @@
 --%>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProSignatureData, io.github.carlos_emr.carlos.providers.data.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.rx.data.*" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-
 <%@ page import="io.github.carlos_emr.*,
                  java.lang.*,
                  java.util.Date,
@@ -93,7 +92,7 @@
             <%--<script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>--%>
             <%--<script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>--%>
             <%--<script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>--%>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.title"/></title>
+        <title><fmt:message key="RxPreview.title"/></title>
         <style media="print">
             .noprint {
                 display: none;
@@ -292,7 +291,7 @@
             pharmacy = pharmacyData.getPharmacy(pharmacyId);
             if (pharmacy != null) {
                 pharmaFax = pharmacy.getFax();
-                pharmaFax2 = "<fmt:setBundle basename='oscarResources'/><fmt:message key='RxPreview.msgFax'/>" + ": " + pharmacy.getFax();
+                pharmaFax2 = "<fmt:message key='RxPreview.msgFax'/>" + ": " + pharmacy.getFax();
                 pharmaName = pharmacy.getName();
             }
         }
@@ -331,13 +330,13 @@
                                         String patientDOB = patient.getDOB() == null ? "" : formatter.format(patient.getDOB());
 
                                         String docInfo = doctorName + "\n" + provider.getClinicName().replaceAll("\\(\\d{6}\\)", "")
-                                                + "<fmt:setBundle basename='oscarResources'/><fmt:message key='RxPreview.PractNo'/>" + pracNo
+                                                + "<fmt:message key='RxPreview.PractNo'/>" + pracNo
                                                 + "\n" + provider.getClinicAddress() + "\n"
                                                 + provider.getClinicCity() + "   "
                                                 + provider.getClinicPostal() + "\n"
-                                                + "<fmt:setBundle basename='oscarResources'/><fmt:message key='RxPreview.msgTel'/>" + ": "
+                                                + "<fmt:message key='RxPreview.msgTel'/>" + ": "
                                                 + provider.getClinicPhone() + "\n"
-                                                + "<fmt:setBundle basename='oscarResources'/><fmt:message key='RxPreview.msgFax'/>" + ": "
+                                                + "<fmt:message key='RxPreview.msgFax'/>" + ": "
                                                 + provider.getClinicFax();
 
                                         String patientInfo = patient.getFirstName() + " "
@@ -345,14 +344,14 @@
                                                 + patientAddress + "\n"
                                                 + patientCity + "   "
                                                 + patientPostal + "\n"
-                                                + "<fmt:setBundle basename='oscarResources'/><fmt:message key='RxPreview.msgTel'/>" + ": " + patientPhone
+                                                + "<fmt:message key='RxPreview.msgTel'/>" + ": " + patientPhone
                                                 + (patientDOB != null && !patientDOB.trim().equals("") ? "\n"
-                                                + "<fmt:setBundle basename='oscarResources'/><fmt:message key='RxPreview.msgDOB'/>" + ": " + patientDOB : "")
-                                                + (!patientHin.trim().equals("") ? "\n" + "<fmt:setBundle basename='oscarResources'/><fmt:message key='oscar.rx.hin'/>" + ": " + patientHin : "");
+                                                + "<fmt:message key='RxPreview.msgDOB'/>" + ": " + patientDOB : "")
+                                                + (!patientHin.trim().equals("") ? "\n" + "<fmt:message key='oscar.rx.hin'/>" + ": " + patientHin : "");
                                     }
                                 %>
                                 <input type="hidden" name="doctorName"
-                                       value="<%= StringEscapeUtils.escapeHtml4(doctorName) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(doctorName) %>"/>
                                 <c:choose>
                                     <c:when test="${empty infirmaryView_programAddress}">
                                         <%
@@ -366,9 +365,9 @@
                                             request.setAttribute("phone", finalPhone);
                                         %>
                                         <input type="hidden" name="clinicName"
-                                               value="<%= StringEscapeUtils.escapeHtml4(clinicTitle.replaceAll("(<br>)","\\\n")) %>"/>
+                                               value="<%= Encode.forHtmlAttribute(clinicTitle.replaceAll("(<br>)","\\\n")) %>"/>
                                         <input type="hidden" name="clinicPhone"
-                                               value="<%= StringEscapeUtils.escapeHtml4(finalPhone) %>"/>
+                                               value="<%= Encode.forHtmlAttribute(finalPhone) %>"/>
                                         <input type="hidden" id="finalFax" name="clinicFax" value=""/>
                                     </c:when>
                                     <c:otherwise>
@@ -395,16 +394,16 @@
                                     </c:otherwise>
                                 </c:choose>
                                 <input type="hidden" name="patientName"
-                                       value="<%= StringEscapeUtils.escapeHtml4(patient.getFirstName())+ " " +StringEscapeUtils.escapeHtml4(patient.getSurname()) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(patient.getFirstName())+ " " +Encode.forHtmlAttribute(patient.getSurname()) %>"/>
                                 <input type="hidden" name="patientDOB"
-                                       value="<%= StringEscapeUtils.escapeHtml4(patientDOBStr) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(patientDOBStr) %>"/>
                                 <input type="hidden" name="pharmaFax" value="<%=pharmaFax%>"/>
                                 <input type="hidden" name="pharmaName" value="<%=pharmaName%>"/>
-                                <input type="hidden" name="pracNo" value="<%= StringEscapeUtils.escapeHtml4(pracNo) %>"/>
+                                <input type="hidden" name="pracNo" value="<%= Encode.forHtmlAttribute(pracNo) %>"/>
                                 <input type="hidden" name="showPatientDOB" value="<%=showPatientDOB%>"/>
                                 <input type="hidden" name="pdfId" id="pdfId" value=""/>
                                 <input type="hidden" name="patientAddress"
-                                       value="<%= StringEscapeUtils.escapeHtml4(patientAddress) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(patientAddress) %>"/>
                                 <%
                                     int check = (patientCity.trim().length() > 0 ? 1 : 0) | (patientProvince.trim().length() > 0 ? 2 : 0);
                                     String patientCityPostal = String.format("%s%s%s %s",
@@ -419,18 +418,18 @@
                                     }
                                 %>
                                 <input type="hidden" name="patientCityPostal"
-                                       value="<%= StringEscapeUtils.escapeHtml4(patientCityPostal)%>"/>
+                                       value="<%= Encode.forHtmlAttribute(patientCityPostal)%>"/>
                                 <input type="hidden" name="patientHIN"
-                                       value="<%= StringEscapeUtils.escapeHtml4(patientHin) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(patientHin) %>"/>
                                 <input type="hidden" name="patientChartNo"
-                                       value="<%=StringEscapeUtils.escapeHtml4(ptChartNo)%>"/>
+                                       value="<%=Encode.forHtmlAttribute(ptChartNo)%>"/>
                                 <input type="hidden" name="bandNumber" value="${ bandNumber }"/>
                                 <input type="hidden" name="patientPhone"
-                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgTel"/>: <%=StringEscapeUtils.escapeHtml4(patientPhone) %>"/>
+                                       value="<fmt:message key="RxPreview.msgTel"/>: <%=Encode.forHtmlAttribute(patientPhone) %>"/>
                                 <input type="hidden" name="rxDate"
-                                       value="<%= StringEscapeUtils.escapeHtml4(RxUtil.DateToString(rxDate, "MMMM d, yyyy")) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(RxUtil.DateToString(rxDate, "MMMM d, yyyy")) %>"/>
                                 <input type="hidden" name="sigDoctorName"
-                                       value="<%= StringEscapeUtils.escapeHtml4(doctorName) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(doctorName) %>"/>
                                 <!--img src="img/prescript.gif" border="0"-->
                             </th>
                             <th valign=top height="100px" id="clinicAddress">
@@ -443,7 +442,7 @@
                                         <%= provider.getClinicCity() %>&nbsp;&nbsp;<%=provider.getClinicProvince()%>&nbsp;&nbsp;
                                         <%= provider.getClinicPostal() %>
                                         <% if (provider.getPractitionerNo() != null && !provider.getPractitionerNo().equals("")) { %>
-                                        <br><fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.PractNo"/>:<%= provider.getPractitionerNo() %>
+                                        <br><fmt:message key="RxPreview.PractNo"/>:<%= provider.getPractitionerNo() %>
                                         <% } %>
                                         <br>
                                         <%
@@ -466,9 +465,9 @@
                                             request.setAttribute("phone", finalPhone);
 
                                         %>
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgTel"/>: <%= finalPhone %><br>
+                                        <fmt:message key="RxPreview.msgTel"/>: <%= finalPhone %><br>
                                         <oscar:oscarPropertiesCheck property="RXFAX" value="yes">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgFax"/>: <%= finalFax %><br>
+                                            <fmt:message key="RxPreview.msgFax"/>: <%= finalFax %><br>
                                         </oscar:oscarPropertiesCheck>
                                     </c:when>
                                     <c:otherwise>
@@ -494,9 +493,9 @@
 
                                         %>
                                         <c:out value="${infirmaryView_programAddress}" escapeXml="false"/><br>
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgTel"/>: <%=finalPhone %><br>
+                                        <fmt:message key="RxPreview.msgTel"/>: <%=finalPhone %><br>
                                         <oscar:oscarPropertiesCheck property="RXFAX" value="yes">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgFax"/>: <%=finalFax %>
+                                            <fmt:message key="RxPreview.msgFax"/>: <%=finalFax %>
                                         </oscar:oscarPropertiesCheck>
                                     </c:otherwise>
                                 </c:choose>
@@ -505,24 +504,24 @@
                         <tr>
                             <th colspan=2 valign=top height="75px">
 								<span style="float: left">
-									<%= Encode.forHtmlContent(patient.getFirstName()) %> <%= Encode.forHtmlContent(patient.getSurname()) %> <%if (showPatientDOB) {%><br>DOB:<%= Encode.forHtmlContent(StringEscapeUtils.escapeHtml4(patientDOBStr)) %> <%}%><br>
+									<%= Encode.forHtmlContent(patient.getFirstName()) %> <%= Encode.forHtmlContent(patient.getSurname()) %> <%if (showPatientDOB) {%><br>DOB:<%= Encode.forHtmlContent(patientDOBStr) %> <%}%><br>
 										<%= Encode.forHtmlContent(patientAddress) %><br>
 										<%= Encode.forHtmlContent(patientCityPostal) %><br>
 										<%= Encode.forHtmlContent(patientPhone) %><br>
 										<oscar:oscarPropertiesCheck value="true" property="showRxBandNumber">
                                             <c:if test="${ not empty bandNumber }">
                                                 <br/>
-                                                <b><fmt:setBundle basename="oscarResources"/><fmt:message key="io.github.carlos_emr.carlos.rx.bandNumber"/></b>
+                                                <b><fmt:message key="io.github.carlos_emr.carlos.rx.bandNumber"/></b>
                                                 <c:out value="${ bandNumber }"/>
                                             </c:if>
                                         </oscar:oscarPropertiesCheck>
 										<b>
 											<% if (!props.getProperty("showRxHin", "").equals("false")) { %>
-												<fmt:setBundle basename="oscarResources"/><fmt:message key="io.github.carlos_emr.carlos.rx.hin"/><%= Encode.forHtmlContent(patientHin) %>
+												<fmt:message key="io.github.carlos_emr.carlos.rx.hin"/><%= Encode.forHtmlContent(patientHin) %>
 											<% } %>
 										</b><br>
 										<% if (props.getProperty("showRxChartNo", "").equalsIgnoreCase("true")) { %>
-											<fmt:setBundle basename="oscarResources"/><fmt:message key="io.github.carlos_emr.carlos.rx.chartNo"/><%=ptChartNo%>
+											<fmt:message key="io.github.carlos_emr.carlos.rx.chartNo"/><%=ptChartNo%>
 										<% } %>
 								</span>
                                 <span style="float:right">
@@ -537,7 +536,7 @@
                         } %>
 
                         <tr valign=bottom>
-                            <td height=25px width=25%><fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgSignature"/>:</td>
+                            <td height=25px width=25%><fmt:message key="RxPreview.msgSignature"/>:</td>
                             <td height=25px width=75% style="border-bottom: 2px solid;">
                                 <%
                                     String signatureRequestId = null;
@@ -613,7 +612,7 @@
                                 &nbsp; <%= Encode.forHtmlContent(doctorName) %>
                                 <% if (pracNo != null && !pracNo.equals("") && !pracNo.equalsIgnoreCase("null")) { %>
                                 <br>
-                                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.PractNo"/> <%= pracNo%>
+                                &nbsp;<fmt:message key="RxPreview.PractNo"/> <%= pracNo%>
                                 <% } %>
                             </td>
                         </tr>
@@ -626,9 +625,9 @@
                         <tr valign=bottom>
                             <td height=55px colspan="2">
 										<span style="float:right; font-size:10px;">
-											<fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgReprintBy"/> <%=Encode.forHtmlContent(ProviderData.getProviderName(strUser))%> <br>
-											<fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgOrigPrinted"/>:&nbsp;<%=rx.getPrintDate()%> <br>
-											<fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgTimesPrinted"/>:&nbsp;<%=String.valueOf(rx.getNumPrints())%>
+											<fmt:message key="RxPreview.msgReprintBy"/> <%=Encode.forHtmlContent(ProviderData.getProviderName(strUser))%> <br>
+											<fmt:message key="RxPreview.msgOrigPrinted"/>:&nbsp;<%=rx.getPrintDate()%> <br>
+											<fmt:message key="RxPreview.msgTimesPrinted"/>:&nbsp;<%=String.valueOf(rx.getNumPrints())%>
 										</span>
                                 <input type="hidden" name="origPrintDate" value="<%=rx.getPrintDate()%>"/>
                                 <input type="hidden" name="numPrints" value="<%=String.valueOf(rx.getNumPrints())%>"/>
@@ -686,7 +685,7 @@
                         </tr>
 
                         <input type="hidden" name="rx"
-                               value="<%= StringEscapeUtils.escapeHtml4(strRx.replaceAll(";","\\\n")) %>"/>
+                               value="<%= Encode.forHtmlAttribute(strRx.replaceAll(";","\\\n")) %>"/>
                         <input type="hidden" name="rx_no_newlines" value="<%= strRxNoNewLines.toString() %>"/>
                         <input type="hidden" name="additNotes" value=""/>
                         </tbody>

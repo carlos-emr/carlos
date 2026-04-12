@@ -30,6 +30,7 @@
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -59,7 +60,7 @@
         <select class="form-select" size="10" style="width:100%;height:100%;">
             <c:forEach items="${ dxList }" var="dx">
                 <option onClick="quickPickDiagnostic('${ dx.dx }');return false;" title="${ dx.desc }">
-                    <c:out value="${ dx.dx }"/> - <c:out value="${ dx.numMonthSinceDate }m"/>
+                    ${e:forHtml(dx.dx)} - ${e:forHtml(dx.numMonthSinceDate)}m
                 </option>
             </c:forEach>
         </select>

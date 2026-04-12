@@ -33,6 +33,7 @@
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <!DOCTYPE html>
@@ -45,7 +46,7 @@
             }
 
             function deleteImg(image) {
-                if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.imgDelete"/>")) {
+                if (confirm("<fmt:message key="eform.uploadimages.imgDelete"/>")) {
                     var form = document.createElement('form');
                     form.method = 'post';
                     form.action = '<%=request.getContextPath()%>/eform/deleteImage.do';
@@ -59,8 +60,8 @@
                 }
             }
         </script>
-    <link rel="stylesheet" href="<%= request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css">
-    <script type="text/javascript" src="<%= request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css">
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     </head>
 
     <body topmargin="0" leftmargin="0" rightmargin="0">
@@ -76,8 +77,8 @@
     <table class="table table-sm table-striped table-hover" id="tblImage">
         <thead>
         <tr>
-            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.msgimgName"/></th>
-            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.msgImgAction"/></th>
+            <th><fmt:message key="eform.uploadimages.msgimgName"/></th>
+            <th><fmt:message key="eform.uploadimages.msgImgAction"/></th>
         </tr>
         </thead>
 
@@ -102,7 +103,7 @@
 
             <td>
                 <a href="javascript:void(0);" onclick="deleteImg('<%=Encode.forJavaScript(curimage)%>');"
-                   class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.btnDelete"/></a>
+                   class="contentLink"><fmt:message key="eform.uploadimages.btnDelete"/></a>
             </td>
         </tr>
         <% } %>

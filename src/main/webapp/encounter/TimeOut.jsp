@@ -31,6 +31,7 @@
 
 <!-- Jan 20, 2003,-->
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%
@@ -55,19 +56,19 @@
     </script>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.timeOut.title"/></title>
+        <title><fmt:message key="encounter.timeOut.title"/></title>
     </head>
     <body onload="javascript:loadUp()">
 
     <!--  -->
     <table class="MainTable" id="scrollNumber1"
-           name="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.timeOut.msgEncounter"/>">
+           name="<fmt:message key="encounter.timeOut.msgEncounter"/>">
         <tr class="MainTableTopRow">
             <td class="MainTableTopRowLeftColumn"></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
-                        <td style="color: white"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.timeOut.msgSaveExit"/></td>
+                        <td style="color: white"><fmt:message key="encounter.timeOut.msgSaveExit"/></td>
                         <td></td>
                         <td></td>
                     </tr>

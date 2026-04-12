@@ -58,6 +58,7 @@
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -90,9 +91,9 @@
 
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.title"/></title>
+        <title><fmt:message key="demographic.demographicexport.title"/></title>
 
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
         <SCRIPT LANGUAGE="JavaScript">
 
@@ -374,13 +375,13 @@
         if (!userRole.toLowerCase().contains("admin")) { %>
     <div class="alert alert-danger">
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.msgsorry"/>
+        <fmt:message key="demographic.demographicexport.msgsorry"/>
     </div>
     <%
     } else if (!tmp_dir_ready) { %>
     <div class="alert alert-danger">
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.msgerror"/>
+        <fmt:message key="demographic.demographicexport.msgerror"/>
     </div>
     <%
     } else {
@@ -391,15 +392,14 @@
         <div id="exportLoadingOverlay">
             <div id="exportLoadingContent">
                 <div class="export-spinner"></div>
-                <div><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.preparingExport"/></div>
+                <div><fmt:message key="demographic.demographicexport.preparingExport"/></div>
             </div>
         </div>
-        <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.title"/> </h3>
+        <h3><fmt:message key="demographic.demographicexport.title"/> </h3>
 
         <div class="col-md-2">
             <% if (demographicNo == null) { %>
-            <a href='<c:out value="${ctx}/demographic/cihiExportOMD4.do"></c:out>'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.cihiexport"/></a><br>
-            <a href='<c:out value="${ctx}/demographic/eRourkeExport.do"></c:out>'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.rourke2009export"/></a>
+            <a href='<c:out value="${ctx}/demographic/eRourkeExport.do"></c:out>'><fmt:message key="demographic.demographicexport.rourke2009export"/></a>
             <%} %>
         </div><!--span2-->
 
@@ -407,27 +407,27 @@
 
             <!-- Success message shown after export completes -->
             <div id="exportSuccessMessage" class="alert alert-success">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.exportSuccess"/>
+                <fmt:message key="demographic.demographicexport.exportSuccess"/>
                 <br/><br/>
                 <fmt:message key="demographic.demographicexport.downloadNotStarted"/> <a href="javascript:void(0);" onclick="retryExport()"><fmt:message key="demographic.demographicexport.clickToDownload"/></a>
             </div>
 
             <!-- Error message shown if export fails -->
             <div id="exportErrorMessage" class="alert alert-danger">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.exportError"/>
+                <fmt:message key="demographic.demographicexport.exportError"/>
                 <br/><br/>
-                <button type="button" class="btn btn-secondary" onclick="retryExport()"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.retry"/></button>
+                <button type="button" class="btn btn-secondary" onclick="retryExport()"><fmt:message key="demographic.demographicexport.retry"/></button>
             </div>
 
             <form id="DemographicExportForm" name="DemographicExportForm" action="${pageContext.request.contextPath}/demographic/DemographicExport.do" method="post" target="exportDownloadFrame" onsubmit="return handleExportSubmit();">
 
                 <% if (demographicNo != null) { %>
                 <input type="hidden" name="demographicNo" id="demographicNo" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.exportingdemographicno"/><%=Encode.forHtml(demographicNo)%>
+                <fmt:message key="demographic.demographicexport.exportingdemographicno"/><%=Encode.forHtml(demographicNo)%>
                 <%} else {%>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.patientset"/><br>
+                <fmt:message key="demographic.demographicexport.patientset"/><br>
                 <select style="width: 189px" name="patientSet" id="patientSet">
-                    <option value="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.selectset"/></option>
+                    <option value="-1"><fmt:message key="demographic.demographicexport.selectset"/></option>
                     <%
                         /*			    for (int i =0 ; i < queryArray.size(); i++){
                         RptSearchData.SearchCriteria sc = (RptSearchData.SearchCriteria) queryArray.get(i);
@@ -444,9 +444,9 @@
 
                 <br>
 
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.providers"/><br>
+                <fmt:message key="demographic.demographicexport.providers"/><br>
                 <select style="width: 189px" name="providerNo" id="providerNo">
-                    <option value="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.selectProvider"/></option>
+                    <option value="-1"><fmt:message key="demographic.demographicexport.selectProvider"/></option>
                     <%
                         ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
                         List<Provider> providers = providerDao.getActiveProviders();
@@ -469,7 +469,7 @@
                 <br>
 
 
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.exporttemplate"/><br>
+                <fmt:message key="demographic.demographicexport.exporttemplate"/><br>
                 <select style="width: 189px" name="template">
                     <option
                             value="<%=(new Integer(DemographicExportAction42Action.CMS4)).toString() %>">EMR DM 5.0</option>
@@ -478,25 +478,25 @@
 
                 <br>
 
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.exportcategories"/><br>
+                <fmt:message key="demographic.demographicexport.exportcategories"/><br>
 
                 <input type="checkbox" onClick="toggle(this)"/>Select All<br/>
 
-                <input type="checkbox" name="exPersonalHistory" value="true" /><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.personalhistory"/><br>
-                <input type="checkbox" name="exFamilyHistory" value="true" /><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.familyhistory"/><br>
-                <input type="checkbox" name="exPastHealth" value="true" /><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.pasthealth"/><br>
-                <input type="checkbox" name="exProblemList" value="true" /><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.problemlist"/><br>
-                <input type="checkbox" name="exRiskFactors" value="true" /><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.riskfactors"/><br>
-                <input type="checkbox" name="exAllergiesAndAdverseReactions" value="true" /><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.allergiesadversereaction"/><br>
-                <input type="checkbox" name="exMedicationsAndTreatments" value="true" /><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.medicationstreatments"/><br>
+                <input type="checkbox" name="exPersonalHistory" value="true" /><fmt:message key="demographic.demographicexport.personalhistory"/><br>
+                <input type="checkbox" name="exFamilyHistory" value="true" /><fmt:message key="demographic.demographicexport.familyhistory"/><br>
+                <input type="checkbox" name="exPastHealth" value="true" /><fmt:message key="demographic.demographicexport.pasthealth"/><br>
+                <input type="checkbox" name="exProblemList" value="true" /><fmt:message key="demographic.demographicexport.problemlist"/><br>
+                <input type="checkbox" name="exRiskFactors" value="true" /><fmt:message key="demographic.demographicexport.riskfactors"/><br>
+                <input type="checkbox" name="exAllergiesAndAdverseReactions" value="true" /><fmt:message key="demographic.demographicexport.allergiesadversereaction"/><br>
+                <input type="checkbox" name="exMedicationsAndTreatments" value="true" /><fmt:message key="demographic.demographicexport.medicationstreatments"/><br>
 
-                <input type="checkbox" name="exImmunizations" value="true" /><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.immunization"/><br>
-                <input type="checkbox" name="exLaboratoryResults" value="true" /><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.laboratoryresults"/><br>
-                <input type="checkbox" name="exAppointments" value="true" /><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.appointments"/><br>
-                <input type="checkbox" name="exClinicalNotes" value="true" /><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.clinicalnotes"/><br>
-                <input type="checkbox" name="exReportsReceived" value="true" /><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.reportsreceived"/><br>
-                <input type="checkbox" name="exCareElements" value="true" /><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.careelements"/><br>
-                <input type="checkbox" name="exAlertsAndSpecialNeeds" value="true" /><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.alertsandspecialneeds"/>
+                <input type="checkbox" name="exImmunizations" value="true" /><fmt:message key="demographic.demographicexport.immunization"/><br>
+                <input type="checkbox" name="exLaboratoryResults" value="true" /><fmt:message key="demographic.demographicexport.laboratoryresults"/><br>
+                <input type="checkbox" name="exAppointments" value="true" /><fmt:message key="demographic.demographicexport.appointments"/><br>
+                <input type="checkbox" name="exClinicalNotes" value="true" /><fmt:message key="demographic.demographicexport.clinicalnotes"/><br>
+                <input type="checkbox" name="exReportsReceived" value="true" /><fmt:message key="demographic.demographicexport.reportsreceived"/><br>
+                <input type="checkbox" name="exCareElements" value="true" /><fmt:message key="demographic.demographicexport.careelements"/><br>
+                <input type="checkbox" name="exAlertsAndSpecialNeeds" value="true" /><fmt:message key="demographic.demographicexport.alertsandspecialneeds"/>
 
                 <br>
                 <input type="hidden" name="pgpReady" id="pgpReady" value="<%=pgp_ready%>"/>
@@ -507,12 +507,12 @@
 
                 <div class="alert alert-danger">
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.msgwarning"/>
+                    <fmt:message key="demographic.demographicexport.msgwarning"/>
                 </div>
 
                 <% } %>
 
-                <input class="btn btn-primary" type="submit" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="export"/>"/>
+                <input class="btn btn-primary" type="submit" value="<fmt:message key="export"/>"/>
 
             </form>
 
@@ -523,7 +523,7 @@
 
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
-    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
     </body>
 </html>

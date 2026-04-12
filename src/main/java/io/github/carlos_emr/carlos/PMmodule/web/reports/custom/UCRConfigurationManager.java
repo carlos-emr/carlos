@@ -28,11 +28,14 @@
 package io.github.carlos_emr.carlos.PMmodule.web.reports.custom;
 
 import java.io.File;
+import java.io.FileInputStream;
 
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.Unmarshaller;
+import javax.xml.transform.sax.SAXSource;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 public class UCRConfigurationManager {
 
@@ -58,7 +61,10 @@ public class UCRConfigurationManager {
             }
             JAXBContext ctx = JAXBContext.newInstance(UCRConfiguration.class);
             Unmarshaller unmarshaller = ctx.createUnmarshaller();
-            config = (UCRConfiguration) unmarshaller.unmarshal(f);
+            try (FileInputStream fis = new FileInputStream(f)) {
+                SAXSource source = XmlUtils.createSecureJaxbSource(fis);
+                config = (UCRConfiguration) unmarshaller.unmarshal(source);
+            }
             logger.debug("parsed config file");
             return config;
         } else {

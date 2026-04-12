@@ -33,6 +33,7 @@
 <%! boolean bMultisites = IsPropertiesOn.isMultisitesEnable(); %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -44,7 +45,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*, java.util.Properties" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -294,7 +295,7 @@
     <title>CARLOS Billing</title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
 
 
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
@@ -570,7 +571,7 @@
 
 <body onload="showtotal(),calculatePayment()">
 
-<form method="post" name="titlesearch" action="billingONSave.jsp" onsubmit="return onSave();">
+<form method="post" name="titlesearch" action="<%= request.getContextPath() %>/billing/CA/ON/BillingONSave.do" onsubmit="return onSave();">
     <input type="hidden" name="url_back" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("url_back"))) %>">
     <input type="hidden" name="billNo_old" id="billNo_old" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("billNo_old"))) %>"/>
     <input type="hidden" name="billStatus_old" id="billStatus_old" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("billStatus_old"))) %>"/>
@@ -608,7 +609,15 @@
                                 <tr>
                                     <!--<input type="text" name="checkFlag" id="checkFlag" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("checkFlag"))) %>" />  -->
                                     <td style="white-space:nowrap; width:30%; text-align:center"><b>Service Date</b><br>
-                                        <%= request.getParameter("service_date") != null ? String.join("<br>", java.util.Arrays.stream(request.getParameter("service_date").split("\\n")).map(Encode::forHtml).toArray(String[]::new)) : "" %>
+                                        <%
+                                        if (request.getParameter("service_date") != null) {
+                                            String[] serviceDateLines = request.getParameter("service_date").split("\\n");
+                                            for (int sdi = 0; sdi < serviceDateLines.length; sdi++) {
+                                                if (sdi > 0) out.print("<br>");
+                                                out.print(Encode.forHtml(serviceDateLines[sdi]));
+                                            }
+                                        }
+                                        %>
                                     </td>
                                     <td style="text-align:center; width:33%"><b>Diagnostic Code</b><br>
                                         <%=Encode.forHtml(dxCode)%><br>
@@ -629,10 +638,14 @@
                                    class="myGreen">
                                 <tr>
                                     <td style="white-space:nowrap;width:30%"><b>Billing Physician</b></td>
-                                    <td style="width:20%"><%=providerBean.getProperty(request.getParameter("xml_provider") != null ? request.getParameter("xml_provider").substring(0, request.getParameter("xml_provider").indexOf("|")) : "", "")%>
+                                    <%
+                                        String xmlProvider = request.getParameter("xml_provider");
+                                        int xmlProviderSeparatorIndex = xmlProvider == null ? -1 : xmlProvider.indexOf("|");
+                                    %>
+                                    <td style="width:20%"><%= Encode.forHtml(providerBean.getProperty(xmlProviderSeparatorIndex >= 0 ? xmlProvider.substring(0, xmlProviderSeparatorIndex) : "", ""))%>
                                     </td>
                                     <td style="white-space:nowrap; width:30%"><b>MRP</b></td>
-                                    <td style="width:20%"><%=assgProvider_no == null ? "N/A" : providerBean.getProperty(assgProvider_no, "")%>
+                                    <td style="width:20%"><%= Encode.forHtml(assgProvider_no == null ? "N/A" : providerBean.getProperty(assgProvider_no, ""))%>
                                     </td>
                                 </tr>
                                 <tr>
@@ -722,8 +735,8 @@
                     <tr style="color:white">
                         <td align=center>
                             <div class='myError'>
-                                (<fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.ca.on.billingON.review.invoiceNo"/><%=String.valueOf(bCh1.getId())%>
-                                ) A003A - <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.ca.on.billingON.review.msgServiceCodeAlreadyBilled"/>
+                                (<fmt:message key="oscar.billing.ca.on.billingON.review.invoiceNo"/><%=String.valueOf(bCh1.getId())%>
+                                ) A003A - <fmt:message key="oscar.billing.ca.on.billingON.review.msgServiceCodeAlreadyBilled"/>
                             </div>
                         </td>
                     </tr>
@@ -751,7 +764,7 @@
                     <tr class="alert alert-danger">
                         <td align=center>
                             &nbsp;<br>
-                            Service code "<%=serviceCodeValue%>" is invalid. Please go back to correct it.
+                            Service code "<%= Encode.forHtml(StringUtils.noNull(serviceCodeValue)) %>" is invalid. Please go back to correct it.
                         </td>
                     </tr>
                         <%
@@ -1062,7 +1075,7 @@
                     tempLoc = request.getParameter("site");
                 }
             %>
-            <textarea name="comment" style="width:600px;"><%=tempLoc %></textarea>
+            <textarea name="comment" style="width:600px;"><%= Encode.forHtml(StringUtils.noNull(tempLoc)) %></textarea>
         </td>
     </tr>
     <tr>
@@ -1152,7 +1165,7 @@
                         <table id="privateBillInfo" style="width:100%">
                             <tr>
                                 <td>Bill To [<a href=# onclick="scriptAttach('billTo'); return false;">Search</a>]<br>
-                                    <textarea name="billto" id="billTo" cols=30 rows=6><%=strPatientAddr %></textarea>
+                                    <textarea name="billto" id="billTo" cols=30 rows=6><%= Encode.forHtml(StringUtils.noNull(strPatientAddr)) %></textarea>
                                 </td>
                                 <td>Remit To [<a href=# onclick="scriptAttach('remitTo'); return false;">Search</a>]<br>
                                     <textarea name="remitto" id="remitTo" value="" cols=30
@@ -1160,17 +1173,23 @@
                                 <td>Payee<br>
                                     <%
                                         String providerNo = request.getParameter("xml_provider");
-                                        int indexnumber = providerNo.indexOf("|");
-                                        if (indexnumber != -1) {
-                                            providerNo = providerNo.substring(0, indexnumber);
+                                        if (providerNo != null) {
+                                            int indexnumber = providerNo.indexOf("|");
+                                            if (indexnumber != -1) {
+                                                providerNo = providerNo.substring(0, indexnumber);
+                                            }
                                         }
 
                                         String payeename = "";
                                         String lname = "";
                                         String fname = "";
-                                        Provider p = providerDao.getProvider(providerNo);
-                                        lname = p.getLastName();
-                                        fname = p.getFirstName();
+                                        if (providerNo != null) {
+                                            Provider p = providerDao.getProvider(providerNo);
+                                            if (p != null) {
+                                                lname = p.getLastName() != null ? p.getLastName() : "";
+                                                fname = p.getFirstName() != null ? p.getFirstName() : "";
+                                            }
+                                        }
                                         payeename = fname + " " + lname;
 
                                         Properties prop = CarlosProperties.getInstance();
@@ -1178,11 +1197,11 @@
                                         payee = payee.trim();
                                         if (payee.length() > 0) {
                                     %>
-                                    <textarea id="payee" name="payee" value="" cols=20 rows=6><%=payee%></textarea></td>
+                                    <textarea id="payee" name="payee" value="" cols=20 rows=6><%=Encode.forHtml(payee)%></textarea></td>
                                     <% } else { %>
-                                <textarea id="payee" name="payee" value="" cols=20 rows=6><%=payeename%></textarea>
+                                <textarea id="payee" name="payee" value="" cols=20 rows=6><%=Encode.forHtml(payeename)%></textarea>
                     </td>
-                    <input type="hidden" name="payeename1" id="payeename1" value="<%=payeename%>"/>
+                    <input type="hidden" name="payeename1" id="payeename1" value="<%=Encode.forHtmlAttribute(payeename)%>"/>
                     <% } %>
                 </tr>
             </table>
@@ -1190,11 +1209,11 @@
                 <tr>
                     <td>
                         Billing Notes:<br>
-                        <textarea name="comment" cols=100 rows=6><%=tempLoc %></textarea>
+                        <textarea name="comment" cols=100 rows=6><%= Encode.forHtml(StringUtils.noNull(tempLoc)) %></textarea>
                     </td>
                     <td style="text-align:right">
                         <input type="hidden" name="provider_no"
-                               value="<%= Encode.forHtmlAttribute(request.getParameter("xml_provider") != null && request.getParameter("xml_provider").contains("|") ? request.getParameter("xml_provider").substring(0, request.getParameter("xml_provider").indexOf("|")) : "") %>"/>
+                               value="<%= providerNo != null ? Encode.forHtmlAttribute(providerNo) : "" %>"/>
                         GST Billed:<input type="text" id="gst" name="gst" value="<%=gstTotal%>"><br>
                         <input type="hidden" id="gstBilledTotal" name="gstBilledTotal" value="<%=gstbilledtotal%>">
                         Total:<input type="text" id="stotal" disabled name="stotal" value="0.00"><br>
@@ -1240,8 +1259,8 @@
                 for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                     String temp = e.nextElement().toString();
             %>
-            <input type="hidden" name="<%= temp %>"
-                   value="<%=StringEscapeUtils.escapeHtml4(request.getParameter(temp))%>"/>
+            <input type="hidden" name="<%= Encode.forHtmlAttribute(temp) %>"
+                   value="<%=Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter(temp)))%>"/>
             <%
                 }
 
@@ -1343,7 +1362,7 @@
         //alert("calling get NEW current Dx Code List");
         var url = "<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/currentCodeList.jsp";
         var ran_number = Math.round(Math.random() * 1000000);
-        var params = "demographicNo=<%= Encode.forJavaScript(demo_no) %>&rand=" + ran_number;  //hack to get around ie caching the page
+        var params = "demographicNo=<%= Encode.forJavaScript(StringUtils.noNull(demo_no)) %>&rand=" + ran_number;  //hack to get around ie caching the page
         //alert(params);
         //new Ajax.Updater('dxFullListing',url, {method:'get',parameters:params,asynchronous:true});
 
@@ -1370,7 +1389,7 @@
                                                    style="font-size:small;">show/hide</a></h3>
         <div class="wrapper" id="dxFullListing">
             <jsp:include page="/oscarResearch/oscarDxResearch/currentCodeList.jsp">
-                <jsp:param name="demographicNo" value="<%= demo_no %>"/>
+                <jsp:param name="demographicNo" value="<%= StringUtils.noNull(demo_no) %>"/>
             </jsp:include>
         </div>
     </div>
@@ -1380,13 +1399,13 @@
         <h3>&nbsp;Dx Quick Pick Add Lists &nbsp;<a href="#" onclick="toggle('dxForm'); return false;"
                                                    style="font-size:small;">show/hide</a></h3>
         <form id="dxForm">
-            <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(demo_no) %>"/>
+            <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(demo_no)) %>"/>
             <input type="hidden" name="providerNo" value="<%=session.getAttribute("user")%>"/>
             <input type="hidden" name="forward" value=""/>
             <input type="hidden" name="forwardTo" value="codeList"/>
             <div class="wrapper" id="dxListing">
                 <jsp:include page="/oscarResearch/oscarDxResearch/quickCodeList.jsp">
-                    <jsp:param name="demographicNo" value="<%= demo_no %>"/>
+                    <jsp:param name="demographicNo" value="<%= StringUtils.noNull(demo_no) %>"/>
                 </jsp:include>
             </div>
             <input type="button" value="Add To Disease Registry" class="btn btn-secondary" onclick="addToDiseaseRegistry()"/>

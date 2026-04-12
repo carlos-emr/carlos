@@ -33,6 +33,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.LookupList" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -78,7 +79,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providerupdateprovider.title"/></title>
+        <title><fmt:message key="admin.providerupdateprovider.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
         <script LANGUAGE="JavaScript">
             <!--
@@ -113,7 +114,7 @@
                     document.updatearecord.last_name.value == "" ||
                     document.updatearecord.first_name.value == "" ||
                     document.updatearecord.provider_type.value == "") {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="global.msgInputKeyword"/>");
+                    alert("<fmt:message key="global.msgInputKeyword"/>");
                     return false;
                 }
 
@@ -167,10 +168,10 @@
     <center>
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">
-                <th><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providerupdateprovider.description"/></font></th>
+                <th><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.providerupdateprovider.description"/></font></th>
             </tr>
         </table>
-        <p><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.notFound">Provider not found</fmt:message></p>
+        <p><fmt:message key="admin.provider.notFound">Provider not found</fmt:message></p>
     </center>
     </body>
     </html>
@@ -189,7 +190,7 @@
     <center>
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">
-                <th><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providerupdateprovider.description"/></font></th>
+                <th><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.providerupdateprovider.description"/></font></th>
             </tr>
         </table>
 
@@ -199,17 +200,17 @@
                    datasrc='#xml_list'>
 
                 <tr>
-                    <td width="50%" align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formProviderNo"/>:
+                    <td width="50%" align="right"><fmt:message key="admin.provider.formProviderNo"/>:
                     </td>
                     <td>
                                 <% String provider_no = provider.getId(); %>
-                                <%= provider_no %>
-                        <input type="hidden" name="provider_no" value="<%= provider_no %>">
+                                <%= Encode.forHtml(provider_no) %>
+                        <input type="hidden" name="provider_no" value="<%= Encode.forHtmlAttribute(provider_no) %>">
 
                 </tr>
                 <tr>
                     <td>
-                        <div align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formLastName"/>:
+                        <div align="right"><fmt:message key="admin.provider.formLastName"/>:
                         </div>
                     </td>
                     <td><input type="text" index="3" name="last_name"
@@ -217,7 +218,7 @@
                 </tr>
                 <tr>
                     <td>
-                        <div align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formFirstName"/>:
+                        <div align="right"><fmt:message key="admin.provider.formFirstName"/>:
                         </div>
                     </td>
                     <td><input type="text" index="4" name="first_name"
@@ -228,7 +229,7 @@
                 <% if (IsPropertiesOn.isMultisitesEnable()) { %>
                 <tr>
                     <td>
-                        <div align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.sitesAssigned"/><font color="red">:</font>
+                        <div align="right"><fmt:message key="admin.provider.sitesAssigned"/><font color="red">:</font>
                         </div>
                     </td>
                     <td>
@@ -239,8 +240,8 @@
                             for (int i = 0; i < sites.size(); i++) {
                         %>
                         <input type="checkbox" name="sites"
-                               value="<%= sites.get(i).getSiteId() %>" <%= psites.contains(sites.get(i))?"checked='checked'":"" %> <%=((!isSiteAccessPrivacy) || siteIDs.contains(sites.get(i).getSiteId()) ? "" : " disabled ") %>>
-                        <%= sites.get(i).getName() %><br/>
+                               value="<%= Encode.forHtmlAttribute(sites.get(i).getSiteId() == null ? "" : String.valueOf(sites.get(i).getSiteId())) %>" <%= psites.contains(sites.get(i))?"checked='checked'":"" %> <%=((!isSiteAccessPrivacy) || siteIDs.contains(sites.get(i).getSiteId()) ? "" : " disabled ") %>>
+                        <%= Encode.forHtmlContent(sites.get(i).getName() == null ? "" : sites.get(i).getName()) %><br/>
                         <%
                             }
                         %>
@@ -249,30 +250,30 @@
                 <% } %>
 
                 <tr>
-                    <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formType"/>:
+                    <td align="right"><fmt:message key="admin.provider.formType"/>:
                     </td>
                     <td>
                         <select id="provider_type" name="provider_type">
                             <option value="receptionist"
                                     <% if ("receptionist".equals(provider.getProviderType())) { %>
-                                    SELECTED <%}%>><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formType.optionReceptionist"/></option>
+                                    SELECTED <%}%>><fmt:message key="admin.provider.formType.optionReceptionist"/></option>
                             <option value="doctor"
                                     <% if ("doctor".equals(provider.getProviderType())) { %>
-                                    SELECTED <%}%>><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formType.optionDoctor"/></option>
+                                    SELECTED <%}%>><fmt:message key="admin.provider.formType.optionDoctor"/></option>
                             <option value="nurse"
                                     <% if ("nurse".equals(provider.getProviderType())) { %>
-                                    SELECTED <%}%>><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formType.optionNurse"/></option>
+                                    SELECTED <%}%>><fmt:message key="admin.provider.formType.optionNurse"/></option>
                             <option value="resident"
                                     <% if ("resident".equals(provider.getProviderType())) { %>
-                                    SELECTED <%}%>><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formType.optionResident"/></option>
+                                    SELECTED <%}%>><fmt:message key="admin.provider.formType.optionResident"/></option>
                             <option value="midwife"
                                     <% if ("midwife".equals(provider.getProviderType())) { %>
-                                    SELECTED <%}%>><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formType.optionMidwife"/></option>
+                                    SELECTED <%}%>><fmt:message key="admin.provider.formType.optionMidwife"/></option>
                             <option value="admin"
                                     <% if ("admin".equals(provider.getProviderType())) { %>
-                                    SELECTED <%}%>><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formType.optionAdmin"/></option>
+                                    SELECTED <%}%>><fmt:message key="admin.provider.formType.optionAdmin"/></option>
                         </select>
-                        <!--input type="text" name="provider_type" value="<%= provider.getProviderType() %>" maxlength="15" -->
+                        <%-- Removed: unused commented-out provider_type input (XSS vector via stored providerType) --%>
                     </td>
                 </tr>
                 <%
@@ -294,8 +295,8 @@
                     for( ProviderData p : providerL ) {
                         
                     %>
-                        <option value="<%=p.getId()%>"
-                                <%if( provider.getSupervisor() != null &&  provider.getSupervisor().equals(p.getId())){%>SELECTED<%}%>><%=p.getLastName() + ", " + p.getFirstName()%>
+                        <option value="<%=Encode.forHtmlAttribute(p.getId() == null ? "" : p.getId())%>"
+                                <%if( provider.getSupervisor() != null &&  provider.getSupervisor().equals(p.getId())){%>SELECTED<%}%>><%=Encode.forHtmlContent((p.getLastName() == null ? "" : p.getLastName()) + ", " + (p.getFirstName() == null ? "" : p.getFirstName()))%>
                         </option>
 
                                 <%
@@ -305,19 +306,19 @@
                 </tr>
                 <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formSpecialty"/>:
+                        <td align="right"><fmt:message key="admin.provider.formSpecialty"/>:
                         </td>
                         <td><input type="text" name="specialty"
                                    value="<%= Encode.forHtmlAttribute(provider.getSpecialty() == null ? "" : provider.getSpecialty()) %>" maxlength="40"></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formTeam"/>:
+                        <td align="right"><fmt:message key="admin.provider.formTeam"/>:
                         </td>
                         <td><input type="text" name="team"
                                    value="<%= Encode.forHtmlAttribute(provider.getTeam() == null ? "" : provider.getTeam()) %>" maxlength="20"></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formSex"/>:
+                        <td align="right"><fmt:message key="admin.provider.formSex"/>:
                         </td>
                         <td><select name="sex" id="sex">
                             <option value=""></option>
@@ -329,122 +330,122 @@
                         </td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formDOB"/>:
+                        <td align="right"><fmt:message key="admin.provider.formDOB"/>:
                         </td>
                         <td><input type="text" name="dob"
                                    value="<%= MyDateFormat.getMyStandardDate(provider.getDob()) %>"
                                    maxlength="11"></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formAddress"/>:
+                        <td align="right"><fmt:message key="admin.provider.formAddress"/>:
                         </td>
                         <td><input type="text" name="address"
                                    value="<%= Encode.forHtmlAttribute(provider.getAddress()==null ? "" : provider.getAddress()) %>" size="40"
                                    maxlength="40"></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formHomePhone"/>:
+                        <td align="right"><fmt:message key="admin.provider.formHomePhone"/>:
                         </td>
                         <td><input type="text" name="phone"
                                    value="<%= Encode.forHtmlAttribute(provider.getPhone()==null ? "" : provider.getPhone()) %>"></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formWorkPhone"/>:
+                        <td align="right"><fmt:message key="admin.provider.formWorkPhone"/>:
                         </td>
                         <td><input type="text" name="workphone"
                                    value="<%= Encode.forHtmlAttribute(provider.getWorkPhone()==null ? "" : provider.getWorkPhone()) %>"
                                    maxlength="50"></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formEmail"/>:</td>
+                        <td align="right"><fmt:message key="admin.provider.formEmail"/>:</td>
                         <td><input type="text" name="email"
                                    value="<%= Encode.forHtmlAttribute(provider.getEmail()==null ? "" : provider.getEmail()) %>"
                                    maxlength="50"></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formPager"/>:
+                        <td align="right"><fmt:message key="admin.provider.formPager"/>:
                         </td>
                         <td><input type="text" name="xml_p_pager"
                                    value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_pager")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_pager")) %>"
                                    datafld='xml_p_pager'></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formCell"/>:
+                        <td align="right"><fmt:message key="admin.provider.formCell"/>:
                         </td>
                         <td><input type="text" name="xml_p_cell"
                                    value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_cell")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_cell")) %>"
                                    datafld='xml_p_cell'></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formOtherPhone"/>:
+                        <td align="right"><fmt:message key="admin.provider.formOtherPhone"/>:
                         </td>
                         <td><input type="text" name="xml_p_phone2"
                                    value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_phone2")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_phone2")) %>"
                                    datafld='xml_p_phone2'></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formFax"/>:
+                        <td align="right"><fmt:message key="admin.provider.formFax"/>:
                         </td>
                         <td><input type="text" name="xml_p_fax"
                                    value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_fax")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_fax")) %>"
                                    datafld='xml_p_fax'></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formOhipNo"/>:
+                        <td align="right"><fmt:message key="admin.provider.formOhipNo"/>:
                         </td>
                         <td><input type="text" name="ohip_no"
                                    value="<%= Encode.forHtmlAttribute(provider.getOhipNo()==null ? "" : provider.getOhipNo()) %>" maxlength="20">
                         </td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formRmaNo"/>:
+                        <td align="right"><fmt:message key="admin.provider.formRmaNo"/>:
                         </td>
                         <td><input type="text" name="rma_no"
                                    value="<%= Encode.forHtmlAttribute(provider.getRmaNo()==null ? "" : provider.getRmaNo()) %>" maxlength="20">
                         </td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formBillingNo"/>:
+                        <td align="right"><fmt:message key="admin.provider.formBillingNo"/>:
                         </td>
                         <td><input type="text" name="billing_no"
                                    value="<%= Encode.forHtmlAttribute(provider.getBillingNo()==null ? "" : provider.getBillingNo()) %>"
                                    maxlength="20"></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formHsoNo"/>:
+                        <td align="right"><fmt:message key="admin.provider.formHsoNo"/>:
                         </td>
                         <td><input type="text" name="hso_no"
                                    value="<%= Encode.forHtmlAttribute(provider.getHsoNo()==null ? "" : provider.getHsoNo()) %>" maxlength="10">
                         </td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formStatus"/>:
+                        <td align="right"><fmt:message key="admin.provider.formStatus"/>:
                         </td>
                         <td>
                             <input type="radio" id="statusActive" name="status"
                                    value="1" <%="1".equals(provider.getStatus()) ? "checked" : ""%>><label
-                                for="statusActive"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formStatusActive"/></label>
+                                for="statusActive"><fmt:message key="admin.provider.formStatusActive"/></label>
                             <input type="radio" id="statusInactive" name="status"
                                    value="0" <%=!"1".equals(provider.getStatus()) ? "checked" : ""%>><label
-                                for="statusInactive"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formStatusInactive"/></label>
+                                for="statusInactive"><fmt:message key="admin.provider.formStatusInactive"/></label>
                         </td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formSpecialtyCode"/>:
+                        <td align="right"><fmt:message key="admin.provider.formSpecialtyCode"/>:
                         </td>
                         <td><input type="text" name="xml_p_specialty_code"
                                    value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_specialty_code")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_specialty_code")) %>"
                                    datafld='xml_p_specialty_code'></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formBillingGroupNo"/>:
+                        <td align="right"><fmt:message key="admin.provider.formBillingGroupNo"/>:
                         </td>
                         <td><input type="text" name="xml_p_billinggroup_no"
                                    value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_billinggroup_no")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_billinggroup_no")) %>"
                                    datafld='xml_p_billinggroup_no'></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formCPSIDType"/>:
+                        <td align="right"><fmt:message key="admin.provider.formCPSIDType"/>:
                         </td>
                         <td>
                             <select name="practitionerNoType" id="practitionerNoType">
@@ -461,7 +462,7 @@
                                             }
                                 %>
 
-                                <option value="<%=llItem.getValue()%>" <%=selected %>><%=llItem.getLabel()%>
+                                <option value="<%=Encode.forHtmlAttribute(llItem.getValue() == null ? "" : llItem.getValue())%>" <%=selected %>><%=Encode.forHtmlContent(llItem.getLabel() == null ? "" : llItem.getLabel())%>
                                 </option>
                                 <%
                                     }
@@ -478,7 +479,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formCPSID"/>:
+                        <td align="right"><fmt:message key="admin.provider.formCPSID"/>:
                         </td>
                         <td><input type="text" name="practitionerNo"
                                    value="<%= Encode.forHtmlAttribute(provider.getPractitionerNo()==null ? "" : provider.getPractitionerNo()) %>"
@@ -488,19 +489,19 @@
                         UserPropertyDAO userPropertyDAO = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
                     %>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formOfficialFirstName"/>:</td>
+                        <td align="right"><fmt:message key="admin.provider.formOfficialFirstName"/>:</td>
                         <td><input type="text" name="officialFirstName"
                                    value="<%= Encode.forHtmlAttribute(StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_FIRST_NAME))) %>"
                                    maxlength="255"></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formOfficialSecondName"/>:</td>
+                        <td align="right"><fmt:message key="admin.provider.formOfficialSecondName"/>:</td>
                         <td><input type="text" name="officialSecondName"
                                    value="<%= Encode.forHtmlAttribute(StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_SECOND_NAME))) %>"
                                    maxlength="255"></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formOfficialLastName"/>:</td>
+                        <td align="right"><fmt:message key="admin.provider.formOfficialLastName"/>:</td>
                         <td><input type="text" name="officialLastName"
                                    value="<%= Encode.forHtmlAttribute(StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_LAST_NAME))) %>"
                                    maxlength="255"></td>
@@ -518,7 +519,7 @@
                                         ClinicNbr tempNbr = nbrIter.next();
                                         String valueString = tempNbr.getNbrValue() + " | " + tempNbr.getNbrString();
                                 %>
-                                <option value="<%=tempNbr.getNbrValue()%>" <%=SxmlMisc.getXmlContent(provider.getComments(), "xml_p_nbr").startsWith(tempNbr.getNbrValue()) ? "selected" : ""%>><%=valueString%>
+                                <option value="<%=Encode.forHtmlAttribute(tempNbr.getNbrValue() == null ? "" : tempNbr.getNbrValue())%>" <%=StringUtils.defaultString(SxmlMisc.getXmlContent(provider.getComments(), "xml_p_nbr")).startsWith(tempNbr.getNbrValue() == null ? "" : tempNbr.getNbrValue()) ? "selected" : ""%>><%=Encode.forHtmlContent(valueString)%>
                                 </option>
                                 <%}%>
 
@@ -540,8 +541,8 @@
                                     billCode = (String) keys.nextElement();
                                     codeDesc = billCenter.getAllBillCenter().getProperty(billCode);
                             %>
-                            <option value=<%= billCode %>
-                                    <%=currentBillCode.compareTo(billCode) == 0 ? "selected" : ""%>><%= codeDesc%>
+                            <option value="<%= Encode.forHtmlAttribute(billCode) %>"
+                                    <%=currentBillCode.compareTo(billCode) == 0 ? "selected" : ""%>><%= Encode.forHtmlContent(codeDesc)%>
                             </option>
                             <%
                                 }
@@ -554,21 +555,21 @@
 
                 </caisi:isModuleLoad>
                 <tr>
-                    <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formSlpUsername"/>:
+                    <td align="right"><fmt:message key="admin.provider.formSlpUsername"/>:
                     </td>
                     <td><input type="text" name="xml_p_slpusername"
                                value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_slpusername")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_slpusername")) %>"
                                datafld='xml_p_slpusername'></td>
                 </tr>
                 <tr>
-                    <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formSlpPassword"/>:
+                    <td align="right"><fmt:message key="admin.provider.formSlpPassword"/>:
                     </td>
                     <td><input type="text" name="xml_p_slppassword"
                                value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_slppassword")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_slppassword")) %>"
                                datafld='xml_p_slppassword'></td>
                 </tr>
                 <tr>
-                    <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.login.title.confidentiality"/>:
+                    <td align="right"><fmt:message key="provider.login.title.confidentiality"/>:
                     </td>
                     <td><input type="text" readonly name="signed_confidentiality"
                                value="<%= Encode.forHtmlAttribute(provider.getSignedConfidentiality()==null ? "" : String.valueOf(provider.getSignedConfidentiality())) %>">
@@ -580,7 +581,7 @@
                     <td colspan="2">
                         <div align="center"><input type="submit"
                                                    name="subbutton"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providerupdateprovider.btnSubmit"/>">
+                                                   value="<fmt:message key="admin.providerupdateprovider.btnSubmit"/>">
                         </div>
                     </td>
                 </tr>

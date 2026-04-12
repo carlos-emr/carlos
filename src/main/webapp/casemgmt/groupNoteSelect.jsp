@@ -102,9 +102,9 @@
     <!-- current links? -->
 
     <tr>
-        <td><%=demographic.getFormattedName() %>
+        <td><%=Encode.forHtml(demographic.getFormattedName()) %>
         </td>
-        <td><%=link.isAnonymous() %>
+        <td><%=Encode.forHtml(String.valueOf(link.isAnonymous())) %>
         </td>
     </tr>
 
@@ -127,8 +127,8 @@
                 }
         %>
         <tr>
-            <td><input type="checkbox" name="group_client_id" value="<%=demographic.getDemographicNo()%>"/></td>
-            <td><%=demographic.getFormattedName()%>
+            <td><input type="checkbox" name="group_client_id" value="<%=Encode.forHtmlAttribute(String.valueOf(demographic.getDemographicNo()))%>"/></td>
+            <td><%=Encode.forHtml(demographic.getFormattedName())%>
             </td>
         </tr>
         <%

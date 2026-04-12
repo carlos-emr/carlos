@@ -54,13 +54,14 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.ScheduleConfig.title"/></title>
+    <title><fmt:message key="encounter.immunization.ScheduleConfig.title"/></title>
     <%
         EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
 
@@ -94,7 +95,7 @@
 <table class="MainTable" id="scrollNumber1" name="encounterTable">
     <tr class="MainTableTopRow">
         <td class="MainTableTopRowLeftColumn">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.ScheduleConfig.msgImm"/>
+            <fmt:message key="encounter.immunization.ScheduleConfig.msgImm"/>
         </td>
         <td class="MainTableTopRowRightColumn">
             <table class="TopStatusBar">
@@ -102,13 +103,13 @@
                     <td class="Header"
                         style="padding-left:2px;padding-right:2px;border-right:2px solid #003399;text-align:left;font-size:80%;font-weight:bold;width:100%;"
                         NOWRAP>
-                        <%=last_name %>, <%=first_name%> <%=sex%> <%=age%>
+                        <%=Encode.forHtml(last_name)%>, <%=Encode.forHtml(first_name)%> <%=Encode.forHtml(sex)%> <%=Encode.forHtml(age)%>
                     </td>
                     <td>
                     </td>
                     <td style="text-align:right" NOWRAP>
-                        <a href="javascript:history.go(-1);"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/></a> | <a
-                            href="javascript:window.close();"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/></a> |
+                        <a href="javascript:history.go(-1);"><fmt:message key="global.btnBack"/></a> | <a
+                            href="javascript:window.close();"><fmt:message key="global.btnClose"/></a> |
                     </td>
                 </tr>
             </table>
@@ -138,7 +139,7 @@
                 %>
                 <div style="font-weight: bold"><input type="checkbox"
                                                       name="chkSet<%--=i--%>"
-                                                      value="<%=cfgId.get(i)%>"/> <%=(String) cfgSet.get(i)%>;
+                                                      value="<%=Encode.forHtmlAttribute(String.valueOf(cfgId.get(i)))%>"/> <%=Encode.forHtml((String) cfgSet.get(i))%>;
                 </div>
                 <%
                     }
@@ -148,13 +149,13 @@
                     <tr>
                         <td>
                             <input type="submit" name="submit"
-                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.ScheduleConfig.addTemplate"/>" />
-                            <input type="button" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>'
+                                    value="<fmt:message key="encounter.immunization.ScheduleConfig.addTemplate"/>" />
+                            <input type="button" value='<fmt:message key="global.btnCancel"/>'
                                    onclick="javascript:location.href='loadSchedule.do?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demoNo))%>';"/>
                         </td>
                         <td align="right">
                             <input type="button"
-                                   value='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.ScheduleConfig.createTemplate"/>'
+                                   value='<fmt:message key="encounter.immunization.ScheduleConfig.createTemplate"/>'
                                    onclick="javascript:location.href='config/initConfig.do';"/>
                         </td>
                     </tr>

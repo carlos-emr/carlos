@@ -33,6 +33,7 @@
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     String user = (String) session.getAttribute("user");
@@ -64,7 +65,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.frmGroups"/></title>
+        <title><fmt:message key="admin.admin.frmGroups"/></title>
 
         <style>
             .contentLink {
@@ -80,15 +81,15 @@
 
         </style>
 
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
-    <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     </head>
 
     <body>
     <%@ include file="efmTopNav.jspf" %>
 
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.frmGroups"/></h3>
+    <h3><fmt:message key="admin.admin.frmGroups"/></h3>
     <div class="row">
         <div class="card card-body bg-body-tertiary col-md-6">
 
@@ -98,9 +99,9 @@
                 <div>
                     <div class="input-group">
                         <input type="text" name="groupName" class="check"
-                               placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.addGroup"/>">
+                               placeholder="<fmt:message key="eform.groups.addGroup"/>">
                         <input type="submit" name="subm" class="btn btn-primary groupAdd"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.addGroup"/>" disabled>
+                               value="<fmt:message key="eform.groups.addGroup"/>" disabled>
                     </div>
                 </div>
             </form>
@@ -145,11 +146,11 @@
 ><i
                                     class="fa-solid fa-trash"></i></a>
                         </form></td>
-                    <td title="<%=groupName%>"><a
+                    <td title="<%=Encode.forHtmlAttribute(groupName)%>"><a
                             href='<%= request.getContextPath() %>/eform/efmmanageformgroups.jsp?orderby=form_name&group_view=<%=URLEncoder.encode(groupName, "UTF-8")%>'
-                            class="contentLink"><%=groupName%>
+                            class="contentLink"><%=Encode.forHtml(groupName)%>
                     </a></td>
-                    <td><%= (String) curhash.get("count") %>
+                    <td><%= Encode.forHtml((String) curhash.get("count")) %>
                     </td>
 
                 </tr>
@@ -163,7 +164,7 @@
         <!--EFORMS IN GROUP-->
 
         <div class="card card-body bg-body-tertiary col-md-6">
-            <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.contents"/>: <%=Encode.forHtml(groupView)%>
+            <h4><fmt:message key="eform.groups.contents"/>: <%=Encode.forHtml(groupView)%>
             </h4>
 
             <table class="table table-sm table-striped">
@@ -175,14 +176,14 @@
                     <th>
                         <a href="<%= request.getContextPath() %>/eform/efmmanageformgroups.jsp?orderby=form_name&group_view=<%= Encode.forUriComponent(groupView) %>"
                            class="contentLink">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnFormName"/>
+                            <fmt:message key="eform.uploadhtml.btnFormName"/>
                         </a>
                     </th>
 
                     <th>
                         <a href="<%= request.getContextPath() %>/eform/efmmanageformgroups.jsp?group_view=<%= Encode.forUriComponent(groupView) %>"
                            class="contentLink">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnDate"/>
+                            <fmt:message key="eform.uploadhtml.btnDate"/>
                         </a>
                     </th>
 
@@ -197,13 +198,13 @@
                             for (int i = 0; i < eForms.size(); i++) {
                                 HashMap<String, ? extends Object> curForm = eForms.get(i);
                 %>
-                <tr data-bs-toggle="popover" data-bs-html="true" data-bs-title="<%=curForm.get("formName")%>"
-                    data-bs-content="<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnSubject"/>:</strong><br> <%=curForm.get("formSubject")%> <br> <small><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnFile"/>: <%=curForm.get("formFileName")%></small>"
+                <tr data-bs-toggle="popover" data-bs-html="true" data-bs-title="<%=Encode.forHtmlAttribute(Encode.forHtml((String) curForm.get("formName")))%>"
+                    data-bs-content="<strong><fmt:message key="eform.uploadhtml.btnSubject"/>:</strong><br> <%=Encode.forHtmlAttribute(Encode.forHtml((String) curForm.get("formSubject")))%> <br> <small><fmt:message key="eform.uploadhtml.btnFile"/>: <%=Encode.forHtmlAttribute(Encode.forHtml((String) curForm.get("formFileName")))%></small>"
                     data-bs-trigger="hover" data-bs-placement="bottom">
 
                     <td>
                         <form method="post" action="<%= request.getContextPath() %>/eforms/removeFromGroup.do" style="display:inline;">
-                            <input type="hidden" name="fid" value="<%=curForm.get("fid")%>"/>
+                            <input type="hidden" name="fid" value="<%=Encode.forHtmlAttribute((String) curForm.get("fid"))%>"/>
                             <input type="hidden" name="groupName" value="<%=Encode.forHtmlAttribute(groupView)%>"/>
                             <a href="javascript:void(0);"
                                title="remove from group" class="btn btn-sm btn-secondary"
@@ -214,10 +215,10 @@
                     </td>
 
                     <td><a href="#"
-                           onclick="newWindow('<%= request.getContextPath() %>/eform/efmshowform_data.jsp?fid=<%=curForm.get("fid")%>', '<%="FormG" + i%>'); return false;"><%=curForm.get("formName")%>
+                           onclick="newWindow('<%= request.getContextPath() %>/eform/efmshowform_data.jsp?fid=<%=Encode.forUriComponent((String) curForm.get("fid"))%>', '<%="FormG" + i%>'); return false;"><%=Encode.forHtml((String) curForm.get("formName"))%>
                     </a></td>
 
-                    <td align='center'><%=curForm.get("formDate")%>
+                    <td align='center'><%=Encode.forHtml((String) curForm.get("formDate"))%>
                     </td>
 
 
@@ -225,12 +226,12 @@
                 <% }
                 } else { %>
                 <tr align="center">
-                    <td colspan="5"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.noFormsInGroup"/></td>
+                    <td colspan="5"><fmt:message key="eform.groups.noFormsInGroup"/></td>
                 </tr>
                 <% }
                 } else {%>
                 <tr align="center">
-                    <td colspan="5"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.noGroupMsg"/></td>
+                    <td colspan="5"><fmt:message key="eform.groups.noGroupMsg"/></td>
                 </tr>
                 <% } %>
                 </tbody>
@@ -249,7 +250,7 @@
              aria-hidden="true">
             <div class="modal-dialog"><div class="modal-content">
             <div class="modal-header">
-                <h3 id="myModalLabel"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.addToGroup"/> <%=Encode.forHtml(groupView)%>
+                <h3 id="myModalLabel"><fmt:message key="eform.groups.addToGroup"/> <%=Encode.forHtml(groupView)%>
                 </h3>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -263,7 +264,7 @@
                                 HashMap<String, ? extends Object> curhash = forms.get(i);
                         %>
                         <option
-                                value='<%= (String) curhash.get("fid")%>'><%= (String) curhash.get("formName")%> | <%= (String) curhash.get("formDate")%>
+                                value='<%= Encode.forHtmlAttribute((String) curhash.get("fid"))%>'><%= Encode.forHtml((String) curhash.get("formName"))%> | <%= Encode.forHtml((String) curhash.get("formDate"))%>
                         </option>
                         <% } %>
                     </select>

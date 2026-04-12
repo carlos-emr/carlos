@@ -33,6 +33,7 @@
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 
@@ -43,7 +44,7 @@
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css" rel="stylesheet">
 
@@ -57,7 +58,7 @@
             }
         </style>
     <link rel="stylesheet" href="<%=Encode.forHtmlAttribute(request.getContextPath())%>/css/fontawesome-all.min.css">
-    <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
     </head>
 
@@ -91,17 +92,17 @@
 <% } %></div>
 
         <div class='uploadEformTitle'>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.formName"/> <span class="text-danger textExists" style='display:none;'>Name already exists</span><br>
+            <fmt:message key="eform.uploadhtml.formName"/> <span class="text-danger textExists" style='display:none;'>Name already exists</span><br>
             <input type="text" name="formName" size="30" class="check" required>
         </div>
 
         <div class='uploadEformTitle'>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.formSubject"/><br>
+            <fmt:message key="eform.uploadhtml.formSubject"/><br>
             <input type="text" name="formSubject" size="30">
         </div>
 
         <div class='uploadEformTitle'>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnRoleType"/><br>
+            <fmt:message key="eform.uploadhtml.btnRoleType"/><br>
             <select name="roleType">
                 <option value="">- select one -</option>
                 <% ArrayList roleList = EFormUtil.listSecRole();
@@ -118,23 +119,23 @@
         <div class='uploadEformTitle'>
             <div class="form-check">
                 <input type="checkbox" class="form-check-input" name="showLatestFormOnly" id="showLatestFormOnly" value="true"/>
-                <label class="form-check-label" for="showLatestFormOnly"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.showLatestFormOnly"/></label>
+                <label class="form-check-label" for="showLatestFormOnly"><fmt:message key="eform.uploadhtml.showLatestFormOnly"/></label>
             </div>
             <div class="form-check">
                 <input type="checkbox" class="form-check-input" name="patientIndependent" id="patientIndependent" value="true"/>
-                <label class="form-check-label" for="patientIndependent"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.patientIndependent"/></label>
+                <label class="form-check-label" for="patientIndependent"><fmt:message key="eform.uploadhtml.patientIndependent"/></label>
             </div>
         </div>
 
         <input type="file" name="formHtml" id="formHtml" class="check" size="50" required>
         <span style="color:red;">
 								         <i class="fa-solid fa-triangle-exclamation"
-                                            title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"></i>
+                                            title="<fmt:message key="global.uploadWarningBody"/>"></i>
 								        </span>
 
 
         <input type="submit" name="subm" class="btn btn-primary upload"
-               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnUpload"/>" disabled>
+               value="<fmt:message key="eform.uploadhtml.btnUpload"/>" disabled>
 
     </form>
 

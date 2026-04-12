@@ -30,7 +30,9 @@
 package io.github.carlos_emr.carlos.report.data;
 
 import java.io.IOException;
-import java.io.PrintStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 import jakarta.servlet.ServletException;
@@ -38,16 +40,19 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 public class PatientListByAppt extends HttpServlet {
 
+    private static final Logger log = MiscUtils.getLogger();
 
     private static final long serialVersionUID = 1L;
 
@@ -58,42 +63,85 @@ public class PatientListByAppt extends HttpServlet {
      * @param response servlet response
      */
     protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        response.setContentType("plain/text");
-        response.setHeader("Content-disposition", "attachment; filename=patientlist.txt");
+        try {
+            response.setContentType("text/plain; charset=UTF-8");
+            response.setHeader("Content-disposition", "attachment; filename=patientlist.txt");
 
-        String drNo = request.getParameter("provider_no");
-        // clear dr no value for all doc's
-        if (drNo != null && drNo.equals("all")) {
-            drNo = null;
+            String drNo = request.getParameter("provider_no");
+            // clear dr no value for all doc's
+            if (drNo != null && drNo.equals("all")) {
+                drNo = null;
+            }
+            String datefrom = request.getParameter("date_from");
+            String dateto = request.getParameter("date_to");
+
+            Date from = datefrom != null ? ConversionUtils.fromDateString(datefrom) : null;
+            Date to = dateto != null ? ConversionUtils.fromDateString(dateto) : null;
+
+            OscarAppointmentDao dao = SpringUtils.getBean(OscarAppointmentDao.class);
+
+            try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(
+                    response.getOutputStream(), StandardCharsets.UTF_8), true)) {
+
+                for (Object[] o : dao.findPatientAppointments(drNo, from, to)) {
+                    Demographic d = (Demographic) o[0];
+                    Appointment a = (Appointment) o[1];
+                    Provider p = (Provider) o[2];
+
+                    // nosemgrep: no-direct-response-writer -- text/plain CSV download with Content-Disposition: attachment, not HTML
+                    pw.print(escapeCsv(d.getLastName()) + ",");
+                    pw.print(escapeCsv(d.getFirstName()) + ",");
+                    pw.print(escapeCsv(d.getPhone()) + ",");
+                    pw.print(escapeCsv(d.getPhone2()) + ",");
+                    pw.print(ConversionUtils.toTimeString(a.getStartTime()) + ",");
+                    pw.print(ConversionUtils.toDateString(a.getAppointmentDate()) + ",");
+                    pw.print(escapeCsv(a.getType().replaceAll("\r\n", "")) + ",");
+                    pw.print(escapeCsv(p.getFirstName() + " " + p.getLastName()) + ",");
+                    pw.print(escapeCsv(a.getLocation()));
+                    pw.print("\n");
+                }
+                pw.println("");
+            }
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error in PatientListByAppt", e);
+            if (!response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
+            }
         }
-        String datefrom = request.getParameter("date_from");
-        String dateto = request.getParameter("date_to");
+    }
 
-        Date from = datefrom != null ? ConversionUtils.fromDateString(datefrom) : null;
-        Date to = dateto != null ? ConversionUtils.fromDateString(dateto) : null;
-
-        OscarAppointmentDao dao = SpringUtils.getBean(OscarAppointmentDao.class);
-
-        PrintStream ps = new PrintStream(response.getOutputStream());
-
-        for (Object[] o : dao.findPatientAppointments(drNo, from, to)) {
-            Demographic d = (Demographic) o[0];
-            Appointment a = (Appointment) o[1];
-            Provider p = (Provider) o[2];
-
-            ps.print(d.getLastName() + ",");
-            ps.print(d.getFirstName() + ",");
-            ps.print(d.getPhone() + ",");
-            ps.print(d.getPhone2() + ",");
-            ps.print(ConversionUtils.toTimeString(a.getStartTime()) + ",");
-            ps.print(ConversionUtils.toDateString(a.getAppointmentDate()) + ",");
-            ps.print(a.getType().replaceAll("\r\n", "") + ",");
-            ps.print(p.getFirstName() + " ");
-            ps.print(p.getLastName() + ",");
-            ps.print(a.getLocation());
-            ps.print("\n");
+    /**
+     * Escapes a value for RFC 4180 CSV output. Wraps the value in double-quotes
+     * if it contains commas, double-quotes, or newlines, and escapes embedded
+     * double-quotes by doubling them. Also prevents spreadsheet formula injection
+     * by prefixing values that start with formula trigger characters (=, +, -, @,
+     * tab, carriage return) with a single quote so spreadsheet applications treat
+     * them as literal text rather than formulas.
+     *
+     * @param value the raw field value; null is treated as an empty string
+     * @return the RFC 4180 escaped field value, safe from formula injection
+     */
+    private static String escapeCsv(String value) {
+        if (value == null) {
+            return "";
         }
-        ps.println("");
+        // Prevent spreadsheet formula injection: values starting with these characters
+        // are interpreted as formulas by Excel/Google Sheets. Prefix with single-quote
+        // to force literal text treatment. Phone numbers (+1...) are a common real case.
+        if (!value.isEmpty()) {
+            char first = value.charAt(0);
+            if (first == '=' || first == '+' || first == '-' || first == '@'
+                    || first == '\t' || first == '\r') {
+                value = "'" + value;
+            }
+        }
+        boolean needsQuoting = value.contains(",") || value.contains("\"")
+                || value.contains("\n") || value.contains("\r");
+        String escaped = value.replace("\"", "\"\"");
+        return needsQuoting ? "\"" + escaped + "\"" : escaped;
     }
 
     // <editor-fold defaultstate="collapsed" desc="HttpServlet methods. Click on the + sign on the left to edit the code.">
