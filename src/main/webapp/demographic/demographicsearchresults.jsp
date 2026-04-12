@@ -237,14 +237,14 @@
                 }
             }
 
-            <% if (fromMessenger) { %>
             /**
              * Writes the selected patient back to the messenger compose/view form in the
              * opener window and closes this search popup.
              *
              * Uses direct DOM access (same pattern as the appointment search popup) rather
-             * than a server-side redirect through DemographicLinkMsg.do, which is unreliable
-             * after multi-hop popup navigation.
+             * than a server-side redirect through DemographicLinkMsg.do, which was unreliable
+             * after multi-hop popup navigation. Always defined; only called from onclick
+             * links rendered when fromMessenger=true, so harmless in non-messenger contexts.
              *
              * @param {string} keyword   - Patient display name (Last, First)
              * @param {string} demoNo    - Patient demographic number
@@ -261,7 +261,6 @@
                 }
                 window.close();
             }
-            <% } %>
         </SCRIPT>
     </head>
 
