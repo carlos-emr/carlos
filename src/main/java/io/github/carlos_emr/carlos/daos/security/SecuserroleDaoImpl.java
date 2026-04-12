@@ -357,8 +357,14 @@ public class SecuserroleDaoImpl extends AbstractJpaDao implements SecuserroleDao
     public void attachClean(Secuserrole instance) {
         logger.debug("attaching clean Secuserrole instance");
         try {
-            // JPA equivalent of Hibernate Session.lock(LockMode.NONE): re-attach without acquiring a database lock
-            entityManager().merge(instance);
+            // JPA has no direct equivalent of Hibernate Session.lock(entity, LockMode.NONE) for reattach.
+            // If the entity is already managed, there is nothing to do. If it is detached, merge() is
+            // the only JPA-standard reattach path — unlike lock(NONE), merge may trigger UPDATE on flush
+            // if the detached state differs from the database row. Callers relying on the old "clean"
+            // (no-UPDATE) semantics must ensure the instance is not dirty before calling.
+            if (!entityManager().contains(instance)) {
+                entityManager().merge(instance);
+            }
             logger.debug("attach successful");
         } catch (RuntimeException re) {
             logger.error("attach failed", re);

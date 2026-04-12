@@ -200,9 +200,10 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
             try {
                 rs = (List<Provider>) JpqlQueryHelper.find(entityManager(), sSQL, Long.valueOf(programId));
             } catch (NumberFormatException e) {
-                log.warn("getActiveProviders: invalid programId '{}', returning all active providers", programId);
-                rs = (List<Provider>) JpqlQueryHelper.find(entityManager(),
-                        "FROM  Provider p where p.Status='1' ORDER BY p.LastName");
+                // Caller asked for providers in a specific program but passed a non-numeric id.
+                // Return empty rather than silently widening the result to all active providers.
+                log.warn("getActiveProviders: non-numeric programId '{}', returning empty list", programId);
+                return Collections.emptyList();
             }
         } else if (facilityId != null && "0".equals(facilityId) == false) {
             sSQL = "FROM  Provider p where p.Status='1' and p.ProviderNo in "

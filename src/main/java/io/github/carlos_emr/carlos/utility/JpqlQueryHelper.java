@@ -73,8 +73,7 @@ public final class JpqlQueryHelper {
     public static List<?> find(EntityManager em, String jpql, Object... params) {
         Objects.requireNonNull(em, "EntityManager must not be null — is there an active @Transactional?");
         try {
-            // nosemgrep: hibernate-sqli — this IS the parameterization utility; params bound via bindPositionalParams below
-            Query query = em.createQuery(jpql);
+            Query query = em.createQuery(jpql); // nosemgrep: java.lang.security.audit.sqli.jpa-sqli.jpa-sqli
             bindPositionalParams(query, params);
             return query.getResultList();
         } catch (PersistenceException e) {
@@ -99,8 +98,7 @@ public final class JpqlQueryHelper {
     public static List<?> findWithLimit(EntityManager em, String jpql, int maxResults, Object... params) {
         Objects.requireNonNull(em, "EntityManager must not be null — is there an active @Transactional?");
         try {
-            // nosemgrep: hibernate-sqli — this IS the parameterization utility; params bound below
-            Query query = em.createQuery(jpql);
+            Query query = em.createQuery(jpql); // nosemgrep: java.lang.security.audit.sqli.jpa-sqli.jpa-sqli
             bindPositionalParams(query, params);
             if (maxResults >= 0) {
                 query.setMaxResults(maxResults);
@@ -128,8 +126,7 @@ public final class JpqlQueryHelper {
     public static List<?> find(EntityManager em, String jpql, Map<String, Object> namedParams) {
         Objects.requireNonNull(em, "EntityManager must not be null — is there an active @Transactional?");
         try {
-            // nosemgrep: hibernate-sqli — this IS the parameterization utility; named params bound below
-            Query query = em.createQuery(jpql);
+            Query query = em.createQuery(jpql); // nosemgrep: java.lang.security.audit.sqli.jpa-sqli.jpa-sqli
             bindNamedParams(query, namedParams);
             return query.getResultList();
         } catch (PersistenceException e) {
@@ -153,8 +150,7 @@ public final class JpqlQueryHelper {
     public static List<?> findWithLimit(EntityManager em, String jpql, int maxResults, Map<String, Object> namedParams) {
         Objects.requireNonNull(em, "EntityManager must not be null — is there an active @Transactional?");
         try {
-            // nosemgrep: hibernate-sqli — this IS the parameterization utility; named params bound below
-            Query query = em.createQuery(jpql);
+            Query query = em.createQuery(jpql); // nosemgrep: java.lang.security.audit.sqli.jpa-sqli.jpa-sqli
             bindNamedParams(query, namedParams);
             if (maxResults >= 0) {
                 query.setMaxResults(maxResults);
@@ -180,8 +176,7 @@ public final class JpqlQueryHelper {
     public static int bulkUpdate(EntityManager em, String jpql, Object... params) {
         Objects.requireNonNull(em, "EntityManager must not be null — is there an active @Transactional?");
         try {
-            // nosemgrep: hibernate-sqli — this IS the parameterization utility; params bound below
-            Query query = em.createQuery(jpql);
+            Query query = em.createQuery(jpql); // nosemgrep: java.lang.security.audit.sqli.jpa-sqli.jpa-sqli
             bindPositionalParams(query, params);
             return query.executeUpdate();
         } catch (PersistenceException e) {
@@ -207,8 +202,7 @@ public final class JpqlQueryHelper {
     public static List<?> findWithPagination(EntityManager em, String jpql, int firstResult, int maxResults, Map<String, Object> namedParams) {
         Objects.requireNonNull(em, "EntityManager must not be null — is there an active @Transactional?");
         try {
-            // nosemgrep: hibernate-sqli — this IS the parameterization utility; named params bound below
-            Query query = em.createQuery(jpql);
+            Query query = em.createQuery(jpql); // nosemgrep: java.lang.security.audit.sqli.jpa-sqli.jpa-sqli
             bindNamedParams(query, namedParams);
             if (firstResult >= 0) {
                 query.setFirstResult(firstResult);
