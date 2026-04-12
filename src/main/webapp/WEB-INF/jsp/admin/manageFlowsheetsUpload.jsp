@@ -30,7 +30,7 @@
 --%>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
-<%-- This JSP is the first page you see when you enter 'report by template' --%>
+<%-- Handles multipart flowsheet XML upload, then redirects to the flowsheet list. --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -57,6 +57,7 @@
 
 <%@ page import="java.io.InputStream" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="jakarta.servlet.http.Part" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet" %>
@@ -94,9 +95,10 @@
                 }
             }
         } catch (Exception e) {
-            // Error handling - redirect will follow
+            MiscUtils.getLogger().error("Failed to upload flowsheet definition", e);
+            session.setAttribute("flashError", "Flowsheet upload failed: " + e.getMessage());
         }
     }
 
-    response.sendRedirect("manageFlowsheets.jsp");
+    response.sendRedirect(request.getContextPath() + "/admin/ManageFlowsheets.do");
 %>

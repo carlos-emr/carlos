@@ -100,14 +100,14 @@
         </table>
         <table cellspacing="0" cellpadding="0" width="100%" border="0"
                BGCOLOR="<%=weakcolor%>">
-            <form method="post" action="lotnrsearchresults.jsp" name="searchlotnr"
+            <form method="post" action="${pageContext.request.contextPath}/admin/LotNrSearchResults.do" name="searchlotnr"
                   onsubmit="return onsub();">
                 <tr valign="top">
                     <td rowspan="2" align="right" valign="middle"><font
                             face="Verdana" color="#0000FF"><b><i><fmt:message key="admin.search.formSearchCriteria"/></i></b></font></td>
                     <td nowrap><font size="1" face="Verdana" color="#0000FF">
                         <input type="radio"
-                                <%=request.getParameter("search_mode").equals("search_prev")?"checked":""%>
+                                <%="search_prev".equals(request.getParameter("search_mode"))?"checked":""%>
                                name="search_mode" value="search_prev"
                                onclick="document.forms['searchlotnr'].keyword.focus();"><fmt:message key="admin.lotnrsearch.prevention"/></font></td>
                     <td valign="middle" rowspan="2" ALIGN="left"><input type="text"
@@ -156,10 +156,10 @@
                         nItems++;
                 %>
                 <tr bgcolor="<%=bodd?"white":weakcolor%>">
-                    <td><%=Encode.forHtmlContent(pRec.getPreventionType())%>
+                    <td><%=Encode.forHtml(pRec.getPreventionType())%>
                     </td>
                     <td><a
-                            href="lotnrdeleterecordhtm.jsp?prevention=<%=URLEncoder.encode(pRec.getPreventionType(), StandardCharsets.UTF_8)%>&lotnr=<%=URLEncoder.encode(pRec.getLotNr(), StandardCharsets.UTF_8)%>"><%= Encode.forHtmlContent(pRec.getLotNr())%>
+                     href="${pageContext.request.contextPath}/admin/lotnrdeleterecordhtm.jsp?prevention=<%=Encode.forUriComponent(pRec.getPreventionType())%>&lotnr=<%=URLEncoder.encode(pRec.getLotNr(), StandardCharsets.UTF_8)%>"><%=Encode.forHtml(pRec.getLotNr())%>
                     </a></td>
                 </tr>
                 <% }
@@ -178,16 +178,16 @@
                 nLastPage = limit1 - limit2;
                 if (nLastPage >= 0) {
             %> <a
-                href="lotnrsearchresults.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&limit1=<%=nLastPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnLastPage"/></a> | <%
+                href="${pageContext.request.contextPath}/admin/LotNrSearchResults.do?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&limit1=<%=nLastPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnLastPage"/></a> | <%
             }
             if (nItems == limit2) {
         %> <a
-                href="lotnrsearchresults.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&limit1=<%=nNextPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnNextPage"/></a> <%
+                href="${pageContext.request.contextPath}/admin/LotNrSearchResults.do?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&limit1=<%=nNextPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnNextPage"/></a> <%
             }
         %>
             <p><fmt:message key="admin.lotnrsearchresults.msgClickForEditing"/></p>
             <br/>
-            <a href="lotnraddrecordhtm.jsp">Add new Lot #</a>
+            <a href="${pageContext.request.contextPath}/admin/lotnraddrecordhtm.jsp">Add new Lot #</a>
         </center>
     </body>
 </html>

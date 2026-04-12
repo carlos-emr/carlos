@@ -40,8 +40,6 @@
 
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    String curUser_no = (String) session.getAttribute("user");
-    boolean isSiteAccessPrivacy = false;
     boolean authed = true;
 %>
 
@@ -56,49 +54,23 @@
 %>
 
 
-<security:oscarSec objectName="_site_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false">
-    <%isSiteAccessPrivacy = true; %>
-</security:oscarSec>
-
-
 <%
     String tdTitleColor = "#CCCC99";
     String tdSubtitleColor = "#CCFF99";
     String tdInterlColor = "white";
     String startDate = request.getParameter("startDate");
     String endDate = request.getParameter("endDate");
-    Vector vecProvider = new Vector();
     Properties prop = null;
-    String providerName = "";
-    String sql = "";
-//providers name list, date, action, create button
-%>
-
-<%
-    DBPreparedHandler dbObj = new DBPreparedHandler();
-    Properties propName = new Properties();
-    // select providers list
-    if (isSiteAccessPrivacy) {
-        sql = "select p.* from provider p INNER JOIN providersite s ON p.provider_no = s.provider_no WHERE s.site_id IN (SELECT site_id from providersite where provider_no=?) order by p.first_name, p.last_name";
-    } else {
-        sql = "select * from provider p order by p.first_name, p.last_name ";
-    }
-    ResultSet rs = isSiteAccessPrivacy ? dbObj.queryResults(sql, new String[]{curUser_no}) : dbObj.queryResults(sql, new DBPreparedHandlerParam[0]);
-
-    while (rs.next()) {
-        propName.setProperty(Misc.getString(rs, "provider_no"), Misc.getString(rs, "first_name") + " " + Misc.getString(rs, "last_name"));
-        prop = new Properties();
-
-        prop.setProperty("providerNo", Misc.getString(rs, "provider_no"));
-        prop.setProperty("name", Misc.getString(rs, "first_name") + " " + Misc.getString(rs, "last_name"));
-        vecProvider.add(prop);
-    }
+    // Provider list and name map are populated by LogReport2Action using parameterized SQL.
+    @SuppressWarnings("unchecked")
+    java.util.Vector<Properties> vecProvider = (java.util.Vector<Properties>) request.getAttribute("vecProvider");
+    Properties propName = (Properties) request.getAttribute("propName");
+    if (vecProvider == null) vecProvider = new java.util.Vector<>();
+    if (propName == null) propName = new Properties();
 %>
 
 <%@page import="io.github.carlos_emr.Misc" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandler" %>
-<%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandlerParam" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <html>
     <head>
@@ -147,7 +119,7 @@
 
     </head>
     <body>
-    <form name="myform" class="card card-body bg-body-tertiary" action="logReport.jsp" method="POST" onSubmit="return(onSub());">
+    <form name="myform" class="card card-body bg-body-tertiary" action="${pageContext.request.contextPath}/admin/LogReport.do" method="POST" onSubmit="return(onSub());">
         <fieldset>
             <h3>Log Admin Report <small>Please select the provider, start and end dates.</small></h3>
 
@@ -207,73 +179,21 @@
         </fieldset>
     </form>
     <%
+        String dateError = (String) request.getAttribute("dateError");
+        if (dateError != null && !dateError.isEmpty()) {
+    %>
+    <div class="alert alert-danger" role="alert"><%= Encode.forHtml(dateError) %></div>
+    <%
+        }
         out.flush();
         //String startDate = "";
         //String endDate = "";
-        boolean bAll = false;
-        Vector<Properties> vec = new Vector<Properties>();
-        String providerNo = "";
-        if (request.getParameter("submit") != null) {
-            providerNo = request.getParameter("providerNo");
-            String action = request.getParameter("submit");
-            String content = request.getParameter("content");
-            if (content.equals("login")) content = "login";
-            if (content.equals("admin")) content = "%";
-
-            String sDate = request.getParameter("startDate");
-            String eDate = request.getParameter("endDate");
-            String strDbType = CarlosProperties.getInstance().getProperty("db_type").trim();
-            if ("".equals(sDate) || sDate == null) sDate = "1900-01-01";
-            if ("".equals(eDate) || eDate == null) eDate = "2999-01-01";
-
-            DBPreparedHandlerParam[] params;
-
-            if ("*".equals(providerNo)) {
-                bAll = true;
-                if (isSiteAccessPrivacy) {
-                    sql = "select * from log force index (datetime) where dateTime <= ?";
-                    sql += " and dateTime >= ? and content like ? ";
-                    sql += "and provider_no IN (SELECT provider_no FROM providersite WHERE site_id IN (SELECT site_id from providersite where provider_no=?) )";
-                    sql += " order by dateTime desc ";
-                    params = new DBPreparedHandlerParam[4];
-                    params[0] = new DBPreparedHandlerParam(MyDateFormat.getSysDateEX(eDate, 1));
-                    params[1] = new DBPreparedHandlerParam(MyDateFormat.getSysDate(sDate));
-                    params[2] = new DBPreparedHandlerParam(content);
-                    params[3] = new DBPreparedHandlerParam(curUser_no);
-                } else {
-                    sql = "select * from log force index (datetime) where dateTime <= ?";
-                    sql += " and dateTime >= ? and content like ? order by dateTime desc ";
-                    params = new DBPreparedHandlerParam[3];
-                    params[0] = new DBPreparedHandlerParam(MyDateFormat.getSysDateEX(eDate, 1));
-                    params[1] = new DBPreparedHandlerParam(MyDateFormat.getSysDate(sDate));
-                    params[2] = new DBPreparedHandlerParam(content);
-                }
-            } else {
-                sql = "select * from log force index (datetime) where provider_no=? and dateTime <= ?";
-                sql += " and dateTime >= ? and content like ? order by dateTime desc ";
-                params = new DBPreparedHandlerParam[4];
-                params[0] = new DBPreparedHandlerParam(providerNo);
-                params[1] = new DBPreparedHandlerParam(MyDateFormat.getSysDateEX(eDate, 1));
-                params[2] = new DBPreparedHandlerParam(MyDateFormat.getSysDate(sDate));
-                params[3] = new DBPreparedHandlerParam(content);
-            }
-            rs = dbObj.queryResults(sql, params);
-            while (rs.next()) {
-                prop = new Properties();
-                prop.setProperty("dateTime", "" + rs.getTimestamp("dateTime"));
-                prop.setProperty("action", Encode.forHtmlContent(Misc.getString(rs, "action")));
-                prop.setProperty("content", Encode.forHtmlContent(Misc.getString(rs, "content")));
-                prop.setProperty("contentId", Encode.forHtmlContent(Misc.getString(rs, "contentId")));
-                prop.setProperty("ip", Misc.getString(rs, "ip"));
-                prop.setProperty("provider_no", Encode.forHtmlContent(Misc.getString(rs, "provider_no")));
-                prop.setProperty("demographic_no", Encode.forHtmlContent(Misc.getString(rs, "demographic_no")));
-                prop.setProperty("data", Encode.forHtmlContent(Misc.getString(rs, "data")).replaceAll("\n", "\n<br/>"));
-                vec.add(prop);
-            }
-
-            //startDate = sDate;
-            //endDate = eDate;
-        }
+        Vector<Properties> vec = (Vector<Properties>) request.getAttribute("vec");
+        Boolean bAllAttr = (Boolean) request.getAttribute("bAll");
+        boolean bAll = bAllAttr != null && bAllAttr;
+        String providerNo = (String) request.getAttribute("providerNo");
+        if (providerNo == null) providerNo = "";
+        if (vec == null) vec = new Vector<Properties>();
     %>
     <h4><%
         if (propName.getProperty(providerNo, "").equals("")) {
@@ -321,7 +241,7 @@ for (int i = 0; i < vec.size(); i++) {
             <td><c:out value='<%=propName.getProperty(prop.getProperty("provider_no"), "")%>'/></td>
             <% } %>
             <td><c:out value='<%=prop.getProperty("demographic_no")%>'/></td>
-            <td><c:out value='<%=prop.getProperty("data") %>'/></td>
+            <td><%=prop.getProperty("data") %></td>
         </tr>
 
                 <% } %>

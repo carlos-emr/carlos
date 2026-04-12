@@ -53,28 +53,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-
-<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogAction,io.github.carlos_emr.carlos.log.LogConst" %>
-<%@ page import="io.github.carlos_emr.carlos.log.*, io.github.carlos_emr.carlos.db.*" %>
-
-<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-
-<jsp:useBean id="apptMainBean" class="io.github.carlos_emr.AppointmentMainBean" scope="session"/>
-
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
-<%
-    if (!"POST".equalsIgnoreCase(request.getMethod())) {
-        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
-        return;
-    }
-    PreventionsLotNrsDao PreventionsLotNrsDao = (PreventionsLotNrsDao) SpringUtils.getBean(PreventionsLotNrsDao.class);
-    String prevention = request.getParameter("prevention");
-    String lotNr = request.getParameter("lotnr");
-%>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <html>
     <head>
@@ -93,32 +72,11 @@
             </tr>
         </table>
         <%
-            String curUser_no = (String) session.getAttribute("user");
-
-            List<String> lotnrs = PreventionsLotNrsDao.findLotNrs(prevention, false);
-            if (!lotnrs.contains(lotNr)) {
+            // All business logic (soft-delete) is handled by LotNrDeleteRecord2Action.
+            // This JSP only displays the outcome.
+            String resultMsg = (String) request.getAttribute("resultMsg");
         %>
-        <fmt:message key="admin.lotdeleterecord.msgNonExistentLotnr"/>
-        <%
-        } else {
-            PreventionsLotNrs p = PreventionsLotNrsDao.findByName(prevention, lotNr, false);
-            if (p != null) {
-                p.setDeleted(true);
-                PreventionsLotNrsDao.merge(p);
-            }
-
-            lotnrs = PreventionsLotNrsDao.findLotNrs(prevention, false);
-            if (!lotnrs.contains(lotNr)) {
-        %>
-        <fmt:message key="admin.lotdeleterecord.msgDeletionSuccess"/>
-        <%
-        } else {
-        %>
-        <fmt:message key="admin.lotdeleterecord.msgDeletionFailure"/>
-        <%
-                }
-            }
-        %>
+        <%= resultMsg != null ? Encode.forHtml(resultMsg) : "" %>
 
     </center>
     </body>

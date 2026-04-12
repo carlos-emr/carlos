@@ -45,41 +45,13 @@
 %>
 
 <%
-    String curUser_no = (String) session.getAttribute("user");
+    String curUser_no = (String) request.getAttribute("curUser_no");
 %>
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*,io.github.carlos_emr.carlos.util.*" errorPage="/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.EncounterTemplate" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.EncounterTemplateDao" %>
+<%@ page import="java.util.*, io.github.carlos_emr.carlos.commn.model.EncounterTemplate" errorPage="/errorpage.jsp" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-
-<%
-    EncounterTemplateDao encounterTemplateDao = SpringUtils.getBean(EncounterTemplateDao.class);
-%>
-<%
-    //save or delete the settings
-    int rowsAffected = 0;
-    if (request.getParameter("dboperation") != null && (request.getParameter("dboperation").compareTo(" Save ") == 0 ||
-            request.getParameter("dboperation").equals("Delete"))) {
-
-        EncounterTemplate et = encounterTemplateDao.find(request.getParameter("name"));
-        if (et != null) {
-            encounterTemplateDao.remove(et.getId());
-        }
-
-        if (request.getParameter("dboperation") != null && request.getParameter("dboperation").equals(" Save ")) {
-            et = new EncounterTemplate();
-            et.setEncounterTemplateName(request.getParameter("name"));
-            et.setEncounterTemplateValue(request.getParameter("value"));
-            et.setCreatorProviderNo(request.getParameter("creator"));
-            et.setCreatedDate(new java.util.Date());
-            encounterTemplateDao.persist(et);
-        }
-    }
-%>
 
 <html>
     <head>
@@ -120,19 +92,22 @@
                 <h3><fmt:message key="admin.providertemplate.msgTitle"/></h3>
 
                 <div class="card card-body bg-body-tertiary">
-                    <form name="edittemplate" method="post" action="providertemplate.jsp" class="d-flex flex-wrap align-items-center gap-2">
+                    <form name="edittemplate" method="post" action="${pageContext.request.contextPath}/admin/ProviderTemplate.do" class="d-flex flex-wrap align-items-center gap-2">
                         <!--<fmt:message key="admin.providertemplate.formEdit"/>:-->
                         Select Template<br>
                         <select name="name">
                             <%
-                                List<EncounterTemplate> allTemplates = encounterTemplateDao.findAll();
+                                @SuppressWarnings("unchecked")
+                                List<EncounterTemplate> allTemplates = (List<EncounterTemplate>) request.getAttribute("allTemplates");
 
-                                for (EncounterTemplate encounterTemplate : allTemplates) {
-                                    String templateName = Encode.forHtmlAttribute(encounterTemplate.getEncounterTemplateName());
+                                if (allTemplates != null) {
+                                    for (EncounterTemplate encounterTemplate : allTemplates) {
+                                        String templateName = Encode.forHtmlAttribute(encounterTemplate.getEncounterTemplateName());
                             %>
                             <option value="<%=templateName%>"><%=templateName%>
                             </option>
                             <%
+                                    }
                                 }
                             %>
                         </select>
@@ -145,20 +120,14 @@
                 </div>
 
                 <%
-                    boolean bEdit = request.getParameter("dboperation") != null && request.getParameter("dboperation").equals("Edit") ? true : false;
-                    String tName = null;
-                    String tValue = null;
-                    if (bEdit) {
-                        List<EncounterTemplate> templates = encounterTemplateDao.findByName(request.getParameter("name"));
-                        for (EncounterTemplate template : templates) {
-                            tName = template.getEncounterTemplateName();
-                            tValue = template.getEncounterTemplateValue();
-                        }
-                    }
+                    EncounterTemplate editTemplate = (EncounterTemplate) request.getAttribute("editTemplate");
+                    boolean bEdit = editTemplate != null;
+                    String tName = bEdit ? editTemplate.getEncounterTemplateName() : null;
+                    String tValue = bEdit ? editTemplate.getEncounterTemplateValue() : null;
                 %>
 
                 <div class="card card-body bg-body-tertiary">
-                    <form name="template" method="post" action="providertemplate.jsp">
+                    <form name="template" method="post" action="${pageContext.request.contextPath}/admin/ProviderTemplate.do">
                         <input type="hidden" name="dboperation" value="">
 
                         <fmt:message key="admin.providertemplate.formTemplateName"/>:<br>

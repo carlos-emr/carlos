@@ -57,25 +57,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
-<%
-    String method = request.getParameter("method");
-    if (method != null) {
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
-            return;
-        }
-        if (method.equals("disable")) {
-            String name = request.getParameter("name");
-            MeasurementTemplateFlowSheetConfig.getInstance().disableFlowsheet(name);
-        }
-        if (method.equals("enable")) {
-            String name = request.getParameter("name");
-            MeasurementTemplateFlowSheetConfig.getInstance().enableFlowsheet(name);
-        }
-        response.sendRedirect("manageFlowsheets.jsp");
-    }
-
-%>
+<%-- Enable/disable mutations are handled by ManageFlowsheets2Action (PRG pattern). --%>
 
 
 <html>
@@ -89,13 +71,7 @@
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath()%>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
-        <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css">
-<script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
-        <script src="<%=request.getContextPath()%>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
-
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
 
 
@@ -120,17 +96,11 @@
 		}
 	</style>
 
-        <script>
-            jQuery(function () {
-            });
-        </script>
-
-
     </head>
 
     <body>
 
-<form id="flowsheetActionForm" method="post" action="manageFlowsheets.jsp" style="display:none;">
+<form id="flowsheetActionForm" method="post" action="${pageContext.request.contextPath}/admin/ManageFlowsheets.do" style="display:none;">
 	<input type="hidden" name="method" value=""/>
 	<input type="hidden" name="name" value=""/>
 </form>
@@ -198,7 +168,7 @@
 				<h4>Upload Custom Flowsheet</h4>
 			</div>
 		<div class="card-body">
-			<form enctype="multipart/form-data" method="POST" action="<%=request.getContextPath()%>/admin/manageFlowsheetsUpload.jsp">
+			<form enctype="multipart/form-data" method="POST" action="${pageContext.request.contextPath}/admin/ManageFlowsheetsUpload.do">
         <input type="file" name="flowsheet_file">
 				<span title="<fmt:message key="global.uploadWarningBody"/>" style="vertical-align:middle;cursor:pointer"><img alt="alert" src="<%=request.getContextPath()%>/images/icon_alertsml.gif"/></span>
         <input type="submit" value="Upload" class="btn btn-primary">

@@ -79,12 +79,12 @@ String curProvider_no = (String)session.getAttribute("user");
 					<fmt:message key="admin.admin.btnSearchLogin"/>
 				</a></li>
 
-				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/providerRole.jsp">
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ProviderRole.do">
 				<fmt:message key="admin.admin.assignRole"/></a></li>
 
 				<security:oscarSec roleName="<%=roleName$%>"
 					objectName="_admin,_admin.unlockAccount" rights="r">
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/unLock.jsp">
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/UnLock.do">
 					<fmt:message key="admin.admin.unlockAcct"/></a></li>
 				</security:oscarSec>
 			</ul>
@@ -234,7 +234,7 @@ String curProvider_no = (String)session.getAttribute("user");
 		                        <li><a href='javascript:void(0);' class="xlink" rel='${ctx}/billing/CA/ON/managePaymentType.do'><fmt:message key="admin.admin.managePaymentType"/></a></li>
 		                </oscar:oscarPropertiesCheck>
 
-                    <li><a href='javascript:void(0);' class="xlink" rel='${ctx}/admin/billingSettings.jsp'><fmt:message key="admin.admin.billingSettings"/></a></li>
+                    <li><a href='javascript:void(0);' class="xlink" rel='${ctx}/admin/BillingSettings.do'><fmt:message key="admin.admin.billingSettings"/></a></li>
 			</ul>
 			</div>
 			</div>
@@ -427,7 +427,7 @@ String curProvider_no = (String)session.getAttribute("user");
 			<div class="accordion-body">
 			<ul>
 				<li><a href='javascript:void(0);'
-					class="xlink" rel="${ctx}/admin/providertemplate.jsp"><fmt:message key="admin.admin.btnInsertTemplate"/></a></li>
+					class="xlink" rel="${ctx}/admin/ProviderTemplate.do"><fmt:message key="admin.admin.btnInsertTemplate"/></a></li>
 			</ul>
 			</div>
 			</div>
@@ -460,11 +460,11 @@ String curProvider_no = (String)session.getAttribute("user");
 					<li><a href="javascript:void(0);" class="xlink" rel='${ctx}/appointment/appointmentTypeAction.do'><fmt:message key="admin.admin.appointmentTypeList"/></a></li>
 								
 					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/admin/adminnewgroup.jsp?submit=blank"><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
+						class="xlink" rel="${ctx}/admin/AdminNewGroup.do?submit=blank"><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
 					<li><a href="javascript:void(0);"
 						class="xlink" rel="${ctx}/admin/admindisplaymygroup.jsp"><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></a></li>
 					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/admin/groupnoacl.jsp"><fmt:message key="admin.admin.btnGroupNoAcl"/></a></li>
+						class="xlink" rel="${ctx}/admin/GroupNoAcl.do"><fmt:message key="admin.admin.btnGroupNoAcl"/></a></li>
 		            <oscar:oscarPropertiesCheck property="billregion" value="ON">
 		           
 		            <li><a href='javascript:void(0);'
@@ -579,20 +579,20 @@ String curProvider_no = (String)session.getAttribute("user");
 			<ul>
 				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="r" reverse="<%=false%>">
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/providerAddRole.jsp">
+						class="xlink" rel="${ctx}/admin/ProviderAddRole.do">
 					<fmt:message key="admin.admin.addRole"/></a></li>
 				</security:oscarSec>
 
 				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.document" rights="r" reverse="<%=false%>">			
 								
 				<li><a href='javascript:void(0);'
-					class="xlink" rel="${ctx}/admin/displayDocumentDescriptionTemplate.jsp?setDefault=true"><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>		
+					class="xlink" rel="${ctx}/admin/DisplayDocumentDescriptionTemplate.do?setDefault=true"><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>		
 				</security:oscarSec>		
 						
 						
 				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">			
 				<li><a href='javascript:void(0);'
-					class="xlink" rel="${ctx}/admin/providerPrivilege.jsp">
+					class="xlink" rel="${ctx}/admin/ProviderPrivilege.do">
 				<fmt:message key="admin.admin.assignRightsObject"/></a></li>
 				
 					<li><a href='javascript:void(0);'
@@ -628,7 +628,7 @@ String curProvider_no = (String)session.getAttribute("user");
 										
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">	
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/resourcebaseurl.jsp"
+						class="xlink" rel="${ctx}/admin/ResourceBaseUrl.do"
 						title='<fmt:message key="admin.admin.baseURLSettingTitle"/>'><fmt:message key="admin.admin.btnBaseURLSetting"/></a></li>
 					</security:oscarSec>	
 				
@@ -650,7 +650,7 @@ String curProvider_no = (String)session.getAttribute("user");
 					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/encounter/oscarMeasurements/adminFlowsheet/NewFlowsheet.jsp"><fmt:message key="admin.admin.newFlowsheet"/></a></li>
 					</security:oscarSec>
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.flowsheet" rights="r" reverse="<%=false%>">
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/manageFlowsheets.jsp"><fmt:message key="admin.admin.flowsheetManager"/></a></li>
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ManageFlowsheets.do"><fmt:message key="admin.admin.flowsheetManager"/></a></li>
 					</security:oscarSec>
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
 			      	<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/lotnraddrecordhtm.jsp"><fmt:message key="admin.admin.add_lot_nr.title"/></a></li>
@@ -766,7 +766,7 @@ String curProvider_no = (String)session.getAttribute("user");
 				<security:oscarSec roleName="<%=roleName$%>"
 					objectName="_admin,_admin.securityLogReport" rights="r">
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/logReport.jsp?keyword=admin">
+						class="xlink" rel="${ctx}/admin/LogReport.do?keyword=admin">
 					<fmt:message key="admin.admin.securityLogReport"/></a></li>
 				</security:oscarSec>
 				
@@ -859,9 +859,9 @@ String curProvider_no = (String)session.getAttribute("user");
 		                        <li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/demographic/demographicImport.jsp"><fmt:message key="admin.admin.DemoImport"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/demographicmergerecord.jsp"><fmt:message key="admin.admin.mergeRec"/></a></li>
+						class="xlink" rel="${ctx}/admin/DemographicMergeRecord.do"><fmt:message key="admin.admin.mergeRec"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/updatedemographicprovider.jsp"><fmt:message key="admin.admin.btnUpdatePatientProvider"/></a></li>
+						class="xlink" rel="${ctx}/admin/UpdateDemographicProvider.do"><fmt:message key="admin.admin.btnUpdatePatientProvider"/></a></li>
 						<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/admin/FixRolesOnNotes.do"><fmt:message key="admin.admin.btnFixNotes"/></a></li>
 						

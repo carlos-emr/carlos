@@ -32,14 +32,9 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page errorPage="/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.login.*" %>
-<%@ page import="io.github.carlos_emr.carlos.log.*" %>
-
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
-<%@ page import="io.github.carlos_emr.carlos.login.LoginCheckLogin" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
@@ -68,22 +63,13 @@
 
 
 <%
-    String ip = request.getRemoteAddr();
-    String msg = "";
-    LoginCheckLogin cl = new LoginCheckLogin();
-    Vector vec = cl.findLockList();
-    if (vec == null) vec = new Vector();
+    // Read unlock result message and lock list from the Action (UnLock2Action)
+    String msg = (String) request.getAttribute("msg");
+    if (msg == null) msg = "";
 
-    if (request.getParameter("submit") != null) {
-        // unlock
-        if (request.getParameter("userName") != null && request.getParameter("userName").length() > 0) {
-            String userName = request.getParameter("userName");
-            vec.remove(userName);
-            cl.unlock(userName);
-            LogAction.addLog(curUser_no, "unlock", "adminUnlock", userName, ip);
-            msg = "The login account " + Encode.forHtml(userName) + " was unlocked.";
-        }
-    }
+    @SuppressWarnings("unchecked")
+    Vector vec = (Vector) request.getAttribute("lockList");
+    if (vec == null) vec = new Vector();
 
     //multi-office limit
     if (isSiteAccessPrivacy && vec.size() > 0) {
@@ -130,10 +116,10 @@
         </div>
     </div>
 
-    <form method="post" name="baseurl" action="unLock.jsp">
-        <% if (!msg.equals("")) { %>
+    <form method="post" name="baseurl" action="${pageContext.request.contextPath}/admin/UnLock.do">
+        <% if (!msg.isEmpty()) { %>
         <div class="alert alert-success">
-            <%=msg%>
+            <%= Encode.forHtml(msg) %>
         </div>
         <% } %>
         <div class="card card-body bg-body-tertiary">
