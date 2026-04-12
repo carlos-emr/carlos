@@ -195,54 +195,66 @@
     <%@ include file="/includes/global-head.jspf" %>
 
     <script>
-        // Global timer variables for monitoring iframe content loading
-        var timerID = null;
-        var timerRunning = false;
-
         // i18n message strings for JavaScript dialogs
         var MSGS = {
             exitConfirm: '${e:forJavaScript(exitConfirmMsg)}'
         };
 
         /**
-         * Updates the iframe source URL for document loading.
-         * @param {string} url - URL to load in the preview iframe
+         * Loads a URL into the hidden srcFrame and returns a Promise that resolves
+         * with the frame's body innerHTML once the document has fully loaded.
+         *
+         * Replaces the previous pattern of:
+         *   SetBottomURL(url);
+         *   setTimeout("GetBottomSRC()", 1000);      // arbitrary 1-second delay
+         *   timerID = setInterval("CheckSrcText()", 1000);  // polling loop
+         *
+         * The load event fires exactly when the frame document is ready, so there
+         * is no arbitrary wait and no polling overhead.
+         *
+         * @param {string} url - URL to load in the srcFrame; falls back to form url field if empty
+         * @returns {Promise<string>} Resolves with the loaded document's body innerHTML
          */
-        function SetBottomURL(url) {
-            var f = parent.srcFrame;
-            f.location = (url !== "") ? url : document.forms[0].url.value;
+        function loadFrameContent(url) {
+            return new Promise(function(resolve) {
+                var frameEl = parent.document.querySelector('frame[name="srcFrame"]');
+                var targetUrl = (url !== "") ? url : document.forms[0].url.value;
+
+                function onLoad() {
+                    frameEl.removeEventListener('load', onLoad);
+                    // Defer one tick so the frame DOM is fully accessible after the load event
+                    setTimeout(function() {
+                        resolve(parent.srcFrame.document.body.innerHTML);
+                    }, 0);
+                }
+
+                frameEl.addEventListener('load', onLoad);
+                parent.srcFrame.location = targetUrl;
+            });
         }
 
         /**
-         * Extracts HTML content from the loaded iframe and stores in form field.
-         */
-        function GetBottomSRC() {
-            var f = parent.srcFrame;
-            document.forms[0].srcText.value = f.document.body.innerHTML;
-        }
-
-        /**
-         * Initiates PDF preview generation process.
+         * Initiates PDF preview generation: loads the document URL into the hidden
+         * srcFrame, captures its HTML, then submits the form.
+         *
          * @param {string} url - Document URL to preview
          */
         function PreviewPDF(url) {
             document.forms[0].srcText.value = "";
             document.forms[0].isPreview.value = true;
-            SetBottomURL(url);
-            setTimeout("GetBottomSRC()", 1000);
-            timerID = setInterval("CheckSrcText()", 1000);
-            timerRunning = true;
-        }
-
-        function testing() {
-            document.forms[0].isPreview.value = true;
-            timerID = setInterval("CheckSrcText()", 1000);
-            timerRunning = true;
+            loadFrameContent(url).then(function(content) {
+                document.forms[0].srcText.value = content;
+                document.forms[0].submit();
+            });
         }
 
         /**
-         * Handles batch PDF attachment processing for selected documents.
-         * @param {number} number - Index of attachment to process (-1 for batch mode)
+         * Handles batch PDF attachment processing for the selected documents.
+         * Loads each document into the hidden srcFrame in turn, captures its HTML,
+         * and submits the form to trigger server-side PDF conversion.
+         *
+         * @param {number} number - Index of the attachment to process; pass -1 to
+         *                          start a fresh batch from the first checked item
          */
         function AttachingPDF(number) {
             var uriArray = document.forms[0].uriArray;
@@ -275,7 +287,7 @@
                     }
                 }
             } else {
-                // Count checked items and find first one for batch processing
+                // Count checked items and record the first for batch processing
                 for (var i = 0; i < indexArray.length; i++) {
                     if (indexArray[i].checked) {
                         j++;
@@ -286,7 +298,7 @@
                 }
             }
 
-            // Submit immediately if no items selected
+            // Submit immediately if no items are selected
             if (j === 0) {
                 document.forms[0].submit();
                 return;
@@ -294,23 +306,10 @@
 
             document.forms[0].attachmentCount.value = j;
             document.forms[0].attachmentTitle.value = titleArray[wantedIndex].value;
-            SetBottomURL(uriArray[wantedIndex].value);
-            setTimeout("GetBottomSRC()", 1000);
-            timerID = setInterval("CheckSrcText()", 1000);
-            timerRunning = true;
-        }
-
-        /**
-         * Monitors iframe content loading and submits form when content is ready.
-         */
-        function CheckSrcText() {
-            if (document.forms[0].srcText.value !== "") {
-                if (timerRunning) {
-                    clearInterval(timerID);
-                }
-                timerRunning = false;
+            loadFrameContent(uriArray[wantedIndex].value).then(function(content) {
+                document.forms[0].srcText.value = content;
                 document.forms[0].submit();
-            }
+            });
         }
     </script>
 </head>
