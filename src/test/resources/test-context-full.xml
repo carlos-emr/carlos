@@ -112,8 +112,11 @@
         </property>
     </bean>
 
-    <!-- JPA EntityManagerFactory - creates schema for all HBM mappings -->
-    <bean id="entityManagerFactory" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+    <!-- JPA EntityManagerFactory - creates schema for all HBM mappings.
+         primary="true" disambiguates from sessionFactory (Hibernate SessionFactory
+         also implements EntityManagerFactory), so @PersistenceContext injections
+         from AbstractJpaDao resolve cleanly in the dual-context test setup. -->
+    <bean id="entityManagerFactory" primary="true" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
         <property name="dataSource" ref="dataSource" />
         <property name="persistenceProvider">
             <bean class="org.hibernate.jpa.HibernatePersistenceProvider" />

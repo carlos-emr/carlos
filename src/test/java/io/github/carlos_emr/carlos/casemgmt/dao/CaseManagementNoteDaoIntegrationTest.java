@@ -1313,10 +1313,13 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
                 .findNotesByDemographicAndIssueCode(DEMO_NO,
                     new String[]{"FNDIC001", "FNDIC002"});
 
-            // Then - both requested codes returned; third is excluded
+            // Then - exactly the two requested notes, third excluded. Size check
+            // guards against the IN clause being dropped entirely (which would
+            // return every note for the demographic).
             assertThat(results)
+                .hasSize(2)
                 .extracting(CaseManagementNote::getId)
-                .contains(n1.getId(), n2.getId())
+                .containsExactlyInAnyOrder(n1.getId(), n2.getId())
                 .doesNotContain(excluded.getId());
         }
 
