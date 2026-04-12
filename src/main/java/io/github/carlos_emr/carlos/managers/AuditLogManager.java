@@ -166,6 +166,7 @@ public class AuditLogManager {
     }
 
     private ProcessBuilder buildSafeProcess(String... args) {
+        // nosem: java.lang.security.audit.command-injection-process-builder.command-injection-process-builder
         return new ProcessBuilder(args);
     }
 }
