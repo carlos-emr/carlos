@@ -159,6 +159,15 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
             assertThat(executeAction(inject(new ScheduleTemplateCodeSetting2Action())))
                     .isEqualTo(ActionSupport.SUCCESS);
         }
+
+        @Test
+        void shouldSucceed_whenSaveOnPost() throws Exception {
+            allowPrivilege("_admin.schedule", "w");
+            mockRequest.setMethod("POST");
+            addRequestParameter("dboperation", "Save");
+            assertThat(executeAction(inject(new ScheduleTemplateCodeSetting2Action())))
+                    .isEqualTo(ActionSupport.SUCCESS);
+        }
     }
 
     @Nested
@@ -198,6 +207,15 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
             allowPrivilege("_admin.schedule", "w");
             mockRequest.setMethod("GET");
             addRequestParameter("dboperation", "Edit");
+            assertThat(executeAction(inject(new ScheduleHolidaySetting2Action())))
+                    .isEqualTo(ActionSupport.SUCCESS);
+        }
+
+        @Test
+        void shouldSucceed_whenSaveOnPost() throws Exception {
+            allowPrivilege("_admin.schedule", "w");
+            mockRequest.setMethod("POST");
+            addRequestParameter("dboperation", " Save ");
             assertThat(executeAction(inject(new ScheduleHolidaySetting2Action())))
                     .isEqualTo(ActionSupport.SUCCESS);
         }
@@ -261,6 +279,26 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
             assertThat(executeAction(inject(new ScheduleCreateDate2Action())))
                     .isEqualTo(ActionSupport.SUCCESS);
         }
+
+        @Test
+        @DisplayName("should 405 when bFirstDisp is absent on GET (absent treated as mutation)")
+        void shouldReturn405_whenBFirstDispAbsentOnGet() throws Exception {
+            allowPrivilege("_admin.schedule", "w");
+            mockRequest.setMethod("GET");
+            String result = executeAction(inject(new ScheduleCreateDate2Action()));
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        }
+
+        @Test
+        @DisplayName("should succeed when bFirstDisp=1 on POST (bulk generation happy path)")
+        void shouldSucceed_whenBulkWriteOnPost() throws Exception {
+            allowPrivilege("_admin.schedule", "w");
+            mockRequest.setMethod("POST");
+            addRequestParameter("bFirstDisp", "1");
+            assertThat(executeAction(inject(new ScheduleCreateDate2Action())))
+                    .isEqualTo(ActionSupport.SUCCESS);
+        }
     }
 
     @Nested
@@ -287,6 +325,15 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
         void shouldSucceedOnGetForDisplay() throws Exception {
             allowPrivilege("_admin.schedule", "w");
             mockRequest.setMethod("GET");
+            assertThat(executeAction(inject(new ScheduleTemplateApplying2Action())))
+                    .isEqualTo(ActionSupport.SUCCESS);
+        }
+
+        @Test
+        void shouldSucceed_whenDeleteOnPost() throws Exception {
+            allowPrivilege("_admin.schedule", "w");
+            mockRequest.setMethod("POST");
+            addRequestParameter("delete", "1");
             assertThat(executeAction(inject(new ScheduleTemplateApplying2Action())))
                     .isEqualTo(ActionSupport.SUCCESS);
         }

@@ -173,11 +173,11 @@
                                             <c:out value="${waitingListBean.position}"/>
                                         </td>
                                         <td class="${styleClass}">
-                                            <a href="#" onclick="popupDemographicPage('<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=${waitingListBean.demographicNo}'); return false;">
+                                            <a href="#" onclick="popupDemographicPage('<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=${e:forJavaScript(e:forUriComponent(waitingListBean.demographicNo))}'); return false;">
                                                 <c:out value="${waitingListBean.patientName}"/>
                                             </a>
                                             <input type="button" value="Update" name="update_${ctr.index}" style="font-size: 7pt;"
-                                                   onClick="updateWaitingList('${waitingListBean.waitingListID}', ${ctr.index});"/>
+                                                   onClick="updateWaitingList('${e:forJavaScript(waitingListBean.waitingListID)}', ${ctr.index});"/>
                                         </td>
                                         <td class="${styleClass}">
                                             <textarea cols="45" name="note" indexed="true" class="data3" onblur="setParameters(this);"></textarea>
