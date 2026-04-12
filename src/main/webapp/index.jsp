@@ -32,6 +32,8 @@
 
 <%@ page import="io.github.carlos_emr.carlos.login.UAgentInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MfaManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.RedirectValidationUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri='jakarta.tags.core' prefix="c" %>
@@ -50,6 +52,15 @@
     // Show a success banner so the user knows why they are being asked to log in again.
     boolean passwordChangedMsg = "password_changed".equals(request.getParameter("msg"));
     pageContext.setAttribute("passwordChangedMsg", passwordChangedMsg);
+
+    // Carry postLoginRedirect through the login form for post-password-reset re-login flow.
+    // Login2Action sets this to the original destination the user was trying to reach before
+    // the forced-password-change intercepted them. Validated server-side here (CWE-601).
+    String postLoginRedirectParam = request.getParameter("postLoginRedirect");
+    if (postLoginRedirectParam != null && !RedirectValidationUtils.isValidRelativeRedirect(postLoginRedirectParam)) {
+        postLoginRedirectParam = null;
+    }
+    pageContext.setAttribute("postLoginRedirect", postLoginRedirectParam);
 %>
 
 <jsp:useBean id="LoginResourceBean" beanName="io.github.carlos_emr.carlos.login.LoginResourceBean" type="io.github.carlos_emr.carlos.login.LoginResourceBean"/>
@@ -686,6 +697,11 @@ body {
                             <input type="hidden" id="loginType" name="loginType" value="">
                             <input type=hidden name='propname'
                                    value='<fmt:message key="loginApplication.propertyFile"/>'>
+                            <%-- Carry postLoginRedirect through the login POST for post-password-reset
+                                 re-login flow. Value is validated server-side above (CWE-601). --%>
+                            <% if (postLoginRedirectParam != null) { %>
+                            <input type="hidden" name="postLoginRedirect" value="<%= Encode.forHtmlAttribute(postLoginRedirectParam) %>"/>
+                            <% } %>
 
                             <div id="buttonContainer">
                                 <c:choose>

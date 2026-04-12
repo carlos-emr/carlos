@@ -353,6 +353,8 @@ public final class Login2Action extends ActionSupport {
         String password = "";
         String pin = "";
         String nextPage = "";
+        // Destination carried from a forced-password-reset round-trip; validated before use.
+        String postLoginRedirect = null;
         boolean forcedpasswordchange = true;
         String where = "failure";
 
@@ -413,10 +415,11 @@ public final class Login2Action extends ActionSupport {
                 // Password changed successfully. Rather than re-authenticating inline
                 // (which would require the PIN to survive the round-trip via session),
                 // redirect the user to the login page so they re-enter full credentials
-                // with their new password. nextPage is preserved as a query parameter.
+                // with their new password. postLoginRedirect carries the original destination
+                // through the re-login form without colliding with the facility-selection nextPage flow.
                 String loginUrl = request.getContextPath() + "/index.jsp?msg=password_changed";
                 if (nextPage != null) {
-                    loginUrl = loginUrl + "&nextPage=" + Encode.forUriComponent(nextPage);
+                    loginUrl = loginUrl + "&postLoginRedirect=" + Encode.forUriComponent(nextPage);
                 }
                 response.sendRedirect(loginUrl);
                 return NONE;
@@ -447,6 +450,14 @@ public final class Login2Action extends ActionSupport {
                 pin = "";
             }
             nextPage = request.getParameter("nextPage");
+
+            // Post-password-reset re-login: the login form carries the original destination as
+            // postLoginRedirect (distinct from nextPage which is used for facility-selection return).
+            postLoginRedirect = request.getParameter("postLoginRedirect");
+            if (postLoginRedirect != null && !RedirectValidationUtils.isValidRelativeRedirect(postLoginRedirect)) {
+                logger.warn("Rejected invalid postLoginRedirect on login: {}", LogSanitizer.sanitize(postLoginRedirect));
+                postLoginRedirect = null;
+            }
 
             logger.debug("nextPage: {}", LogSanitizer.sanitize(nextPage));
             if (nextPage != null) {
@@ -763,6 +774,15 @@ public final class Login2Action extends ActionSupport {
                     request.getSession().setAttribute("currentFacility", facility); // nosemgrep: tainted-session-from-http-request
                     LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + first_id, ip);
                 }
+            }
+
+            // Post-password-reset re-login: redirect to the original destination after full
+            // session and facility setup. Only reachable here for single-facility and
+            // no-facility providers; multi-facility providers were already redirected to
+            // select_facility.jsp above and will land on the default post-login page.
+            if (postLoginRedirect != null) {
+                response.sendRedirect(postLoginRedirect);
+                return NONE;
             }
 
             if (UserRoleUtils.hasRole(request, "Patient Intake")) {
