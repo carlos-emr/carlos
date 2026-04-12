@@ -70,7 +70,7 @@ public class PrivateBillingController extends HttpServlet {
      */
     public PrivateBillingController() {
         super();
-        dao = new PrivateBillingDAO();
+        dao = SpringUtils.getBean(PrivateBillingDAO.class);
         providerDao = SpringUtils.getBean(ProviderDao.class);
     }
 
