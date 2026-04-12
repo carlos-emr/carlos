@@ -166,7 +166,13 @@ public class AuditLogManager {
     }
 
     private ProcessBuilder buildSafeProcess(String... args) {
-        // nosem: java.lang.security.audit.command-injection-process-builder.command-injection-process-builder
-        return new ProcessBuilder(args);
+        String[] sanitizedArgs = new String[args.length];
+        for (int i = 0; i < args.length; i++) {
+            if (args[i] != null) {
+                // Ensure no command injection characters are present
+                sanitizedArgs[i] = args[i].replaceAll("[^a-zA-Z0-9_\\-\\.:< ='\"/\\\\]", "");
+            }
+        }
+        return new ProcessBuilder(sanitizedArgs);
     }
 }
