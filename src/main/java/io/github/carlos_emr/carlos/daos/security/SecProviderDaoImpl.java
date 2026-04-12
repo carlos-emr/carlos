@@ -38,6 +38,8 @@ import org.hibernate.Session;
 import org.hibernate.query.Query;
 import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.model.security.SecProvider;
@@ -52,6 +54,15 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
             ADDRESS, PHONE, WORK_PHONE, OHIP_NO, RMA_NO, BILLING_NO,
             HSO_NO, STATUS, COMMENTS, PROVIDER_ACTIVITY);
 
+    // SecProvider and Provider both map to the same `provider` table.
+    // All write methods must evict the Provider-level caches so that
+    // ProviderDaoImpl's @Cacheable reads do not serve stale data after
+    // a SecProvider write.
+    @Caching(evict = {
+        @CacheEvict(value = "providerNames", allEntries = true),
+        @CacheEvict(value = "activeProviders", allEntries = true),
+        @CacheEvict(value = "activeProviderSummaries", allEntries = true)
+    })
     @Override
     public void save(SecProvider transientInstance) {
         logger.debug("saving Provider instance");
@@ -64,6 +75,11 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
         }
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = "providerNames", allEntries = true),
+        @CacheEvict(value = "activeProviders", allEntries = true),
+        @CacheEvict(value = "activeProviderSummaries", allEntries = true)
+    })
     @Override
     public void saveOrUpdate(SecProvider transientInstance) {
         logger.debug("saving Provider instance");
@@ -80,6 +96,11 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
         }
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = "providerNames", allEntries = true),
+        @CacheEvict(value = "activeProviders", allEntries = true),
+        @CacheEvict(value = "activeProviderSummaries", allEntries = true)
+    })
     @Override
     public void delete(SecProvider persistentInstance) {
         logger.debug("deleting Provider instance");
@@ -243,6 +264,11 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
         }
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = "providerNames", allEntries = true),
+        @CacheEvict(value = "activeProviders", allEntries = true),
+        @CacheEvict(value = "activeProviderSummaries", allEntries = true)
+    })
     @Override
     public SecProviderDao merge(SecProviderDao detachedInstance) {
         logger.debug("merging Provider instance");
@@ -257,6 +283,11 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
         }
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = "providerNames", allEntries = true),
+        @CacheEvict(value = "activeProviders", allEntries = true),
+        @CacheEvict(value = "activeProviderSummaries", allEntries = true)
+    })
     @Override
     public void attachDirty(SecProviderDao instance) {
         logger.debug("attaching dirty Provider instance");

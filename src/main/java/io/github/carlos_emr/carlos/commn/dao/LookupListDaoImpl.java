@@ -35,7 +35,9 @@ import java.util.List;
 
 import jakarta.persistence.Query;
 
+import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.commn.model.LookupList;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
 
@@ -67,5 +69,31 @@ public class LookupListDaoImpl extends AbstractDaoImpl<LookupList> implements Lo
         LookupList ll = this.getSingleResultOrNull(q);
 
         return ll;
+    }
+
+    // Defense-in-depth: evict at the DAO layer so that any future code calling
+    // these methods directly (bypassing LookupListManager) still invalidates the cache.
+    @CacheEvict(value = "lookupLists", allEntries = true)
+    @Override
+    public void persist(AbstractModel<?> o) {
+        super.persist(o);
+    }
+
+    @CacheEvict(value = "lookupLists", allEntries = true)
+    @Override
+    public void merge(AbstractModel<?> o) {
+        super.merge(o);
+    }
+
+    @CacheEvict(value = "lookupLists", allEntries = true)
+    @Override
+    public void remove(AbstractModel<?> o) {
+        super.remove(o);
+    }
+
+    @CacheEvict(value = "lookupLists", allEntries = true)
+    @Override
+    public boolean remove(Object id) {
+        return super.remove(id);
     }
 }

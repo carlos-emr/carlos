@@ -92,6 +92,17 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
         batchPersist(oList, 25);
     }
 
+    /**
+     * Persists a list of entities in batches using a dedicated EntityManager.
+     *
+     * <p><strong>Cache invalidation notice:</strong> This method uses a separate
+     * EntityManager and bypasses Spring AOP proxying, so {@code @CacheEvict}
+     * annotations on subclass overrides of {@link #persist(AbstractModel)} are
+     * <em>not</em> triggered here. Subclasses that cache their read methods (e.g.
+     * via {@code @Cacheable}) and also expose batch-write operations must override
+     * this method and annotate it with the appropriate {@code @CacheEvict} to
+     * prevent stale cache entries after a batch persist.</p>
+     */
     @Override
     public void batchPersist(List<T> oList, int batchSize) {
         EntityManager batchEntityManager = null;
@@ -137,6 +148,17 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
         batchRemove(oList, 25);
     }
 
+    /**
+     * Removes a list of entities in batches using a dedicated EntityManager.
+     *
+     * <p><strong>Cache invalidation notice:</strong> This method uses a separate
+     * EntityManager and bypasses Spring AOP proxying, so {@code @CacheEvict}
+     * annotations on subclass overrides of {@link #remove(AbstractModel)} are
+     * <em>not</em> triggered here. Subclasses that cache their read methods (e.g.
+     * via {@code @Cacheable}) and also expose batch-write operations must override
+     * this method and annotate it with the appropriate {@code @CacheEvict} to
+     * prevent stale cache entries after a batch remove.</p>
+     */
     @Override
     public void batchRemove(List<T> oList, int batchSize) {
         EntityManager batchEntityManager = null;
