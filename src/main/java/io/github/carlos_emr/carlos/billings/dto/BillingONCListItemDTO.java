@@ -56,11 +56,29 @@ public class BillingONCListItemDTO implements Serializable {
     private String clinic;
     private String demographicName;
 
+    /** Default constructor for serialization/framework binding. */
     public BillingONCListItemDTO() {
     }
 
     /**
      * Projection constructor for JPQL constructor expressions.
+     *
+     * @param id Integer billing header identifier
+     * @param demographicNo Integer demographic primary key
+     * @param providerNo String provider identifier
+     * @param appointmentNo Integer appointment identifier
+     * @param billingDate String billing date string
+     * @param billingTime String billing time string
+     * @param status String billing status code
+     * @param payProgram String payment program
+     * @param visitType String visit type code
+     * @param admissionDate String admission date string
+     * @param faciltyNum String facility number
+     * @param total BigDecimal billed total
+     * @param paid BigDecimal paid amount
+     * @param timestamp Date record timestamp
+     * @param clinic String clinic identifier/name
+     * @param demographicName String patient display name
      */
     public BillingONCListItemDTO(Integer id, Integer demographicNo, String providerNo,
                                  Integer appointmentNo, String billingDate, String billingTime,

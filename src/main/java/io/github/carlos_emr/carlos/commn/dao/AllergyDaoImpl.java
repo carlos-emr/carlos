@@ -165,6 +165,13 @@ public class AllergyDaoImpl extends AbstractDaoImpl<Allergy> implements AllergyD
         return (results);
     }
 
+    /**
+     * Returns lightweight allergy list DTOs for a demographic, ordered by entry date descending.
+     *
+     * @param demographicNo Integer the demographic identifier
+     * @return List&lt;AllergyListItemDTO&gt; ordered by entry date descending; empty if none found
+     * @since 2026-04-11
+     */
     @Override
     public List<AllergyListItemDTO> findAllergyDTOsByDemographicNo(Integer demographicNo) {
         Query query = entityManager.createQuery(

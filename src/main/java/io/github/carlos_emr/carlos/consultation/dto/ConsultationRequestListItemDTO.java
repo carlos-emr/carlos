@@ -59,11 +59,32 @@ public class ConsultationRequestListItemDTO implements Serializable {
     private String specialistLastName;
     private String specialistFirstName;
 
+    /** Default constructor for serialization/framework binding. */
     public ConsultationRequestListItemDTO() {
     }
 
     /**
      * Projection constructor for JPQL constructor expressions.
+     *
+     * @param id Integer the consultation request ID
+     * @param referralDate Date the referral date
+     * @param serviceId Integer the consultation service ID
+     * @param demographicId Integer the patient demographic number
+     * @param providerNo String the referring provider number
+     * @param status String the status code
+     * @param statusText String the status display text
+     * @param urgency String the urgency code
+     * @param reasonForReferral String the referral reason
+     * @param appointmentDate Date the appointment date
+     * @param followUpDate Date the follow-up date
+     * @param sendTo String the destination/team
+     * @param siteName String the site name
+     * @param letterheadName String the letterhead name
+     * @param source String the source system
+     * @param lastUpdateDate Date the last update timestamp
+     * @param specialistLastName String the specialist last name (from LEFT JOIN)
+     * @param specialistFirstName String the specialist first name (from LEFT JOIN)
+     * @since 2026-04-11
      */
     public ConsultationRequestListItemDTO(Integer id, Date referralDate, Integer serviceId,
                                           Integer demographicId, String providerNo,

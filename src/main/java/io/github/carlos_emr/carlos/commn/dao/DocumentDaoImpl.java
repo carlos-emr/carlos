@@ -500,11 +500,29 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         return getSingleResultOrNull(query);
     }
 
+    /**
+     * Returns lightweight document list DTOs for a demographic number.
+     *
+     * <p>Uses {@code c.id.documentNo}, {@code c.id.module}, {@code c.id.moduleId} to
+     * traverse the {@code @EmbeddedId} on {@code CtlDocument}. Active (non-deleted)
+     * documents only.</p>
+     *
+     * @param demographicNo String the demographic number (must be a valid integer string)
+     * @return List&lt;DocumentListItemDTO&gt; ordered by observation date descending,
+     *         or an empty list if {@code demographicNo} is not a valid integer
+     * @since 2026-04-11
+     */
     @Override
     public List<DocumentListItemDTO> findDocumentDTOsByDemographicNo(String demographicNo) {
+        int demoNoInt;
+        try {
+            demoNoInt = Integer.parseInt(demographicNo);
+        } catch (NumberFormatException e) {
+            return java.util.Collections.emptyList();
+        }
         Query query = entityManager.createQuery(
-                "SELECT NEW io.github.carlos_emr.carlos.documentManager.dto.DocumentListItemDTO(d.documentNo, d.doctype, d.docClass, d.docSubClass, d.docdesc, d.docfilename, d.doccreator, d.responsible, d.source, d.status, d.contenttype, d.contentdatetime, d.observationdate, d.reviewer, d.reviewdatetime, d.numberofpages, d.appointmentNo, d.abnormal) FROM Document d WHERE d.documentNo IN (SELECT c.documentNo FROM CtlDocument c WHERE c.module = 'demographic' AND c.moduleId = :demoNo) AND d.status != 'D' ORDER BY d.observationdate DESC");
-        query.setParameter("demoNo", Integer.parseInt(demographicNo));
+                "SELECT NEW io.github.carlos_emr.carlos.documentManager.dto.DocumentListItemDTO(d.documentNo, d.doctype, d.docClass, d.docSubClass, d.docdesc, d.docfilename, d.doccreator, d.responsible, d.source, d.status, d.contenttype, d.contentdatetime, d.observationdate, d.reviewer, d.reviewdatetime, d.numberofpages, d.appointmentNo, d.abnormal) FROM Document d WHERE d.documentNo IN (SELECT c.id.documentNo FROM CtlDocument c WHERE c.id.module = 'demographic' AND c.id.moduleId = :demoNo) AND d.status != 'D' ORDER BY d.observationdate DESC");
+        query.setParameter("demoNo", demoNoInt);
         return query.getResultList();
     }
 }

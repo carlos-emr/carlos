@@ -45,7 +45,7 @@ public class AllergyListItemDTO implements Serializable {
     private Date entryDate;
     private String description;
     private String reaction;
-    private boolean archived;
+    private Boolean archived;
     private Boolean nonDrug;
     private Integer typeCode;
     private Date startDate;
@@ -55,14 +55,31 @@ public class AllergyListItemDTO implements Serializable {
     private String reactionType;
     private String providerNo;
 
+    /** Default constructor for serialization/framework binding. */
     public AllergyListItemDTO() {
     }
 
     /**
      * Projection constructor for JPQL constructor expressions.
+     *
+     * @param id Integer the allergy record ID
+     * @param demographicNo Integer the patient demographic number
+     * @param entryDate Date the date the allergy was entered
+     * @param description String the allergy description
+     * @param reaction String the reaction description
+     * @param archived Boolean whether the allergy is archived (null-safe for projections)
+     * @param nonDrug Boolean whether this is a non-drug allergy
+     * @param typeCode Integer the allergy type code
+     * @param startDate Date the allergy start date
+     * @param severityOfReaction String the severity of reaction
+     * @param onsetOfReaction String the onset of reaction
+     * @param lifeStage String the life stage
+     * @param reactionType String the reaction type
+     * @param providerNo String the provider number
+     * @since 2026-04-11
      */
     public AllergyListItemDTO(Integer id, Integer demographicNo, Date entryDate, String description,
-                              String reaction, boolean archived, Boolean nonDrug, Integer typeCode,
+                              String reaction, Boolean archived, Boolean nonDrug, Integer typeCode,
                               Date startDate, String severityOfReaction, String onsetOfReaction,
                               String lifeStage, String reactionType, String providerNo) {
         this.id = id;
@@ -107,8 +124,8 @@ public class AllergyListItemDTO implements Serializable {
     public void setDescription(String description) { this.description = description; }
     public String getReaction() { return reaction; }
     public void setReaction(String reaction) { this.reaction = reaction; }
-    public boolean isArchived() { return archived; }
-    public void setArchived(boolean archived) { this.archived = archived; }
+    public Boolean getArchived() { return archived; }
+    public void setArchived(Boolean archived) { this.archived = archived; }
     public Boolean getNonDrug() { return nonDrug; }
     public void setNonDrug(Boolean nonDrug) { this.nonDrug = nonDrug; }
     public Integer getTypeCode() { return typeCode; }

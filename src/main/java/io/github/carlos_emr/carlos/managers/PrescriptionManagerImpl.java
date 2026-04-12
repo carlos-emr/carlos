@@ -401,11 +401,16 @@ public class PrescriptionManagerImpl implements PrescriptionManager {
         return true;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public List<DrugListItemDTO> getDrugDTOs(LoggedInInfo loggedInInfo, Integer demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demographicNo)) {
-            throw new RuntimeException("missing required sec object (_demographic)");
+            throw new AccessDeniedException("_demographic", "r", demographicNo);
         }
+        LogAction.addLogSynchronous(loggedInInfo, "PrescriptionManager.getDrugDTOs",
+                "demographicNo=" + demographicNo);
         return drugDao.findDrugDTOsByDemographicId(demographicNo);
     }
 

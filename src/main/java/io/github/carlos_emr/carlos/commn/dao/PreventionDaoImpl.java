@@ -232,6 +232,14 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
         return query.getResultList();
     }
 
+    /**
+     * Returns lightweight prevention/immunization list DTOs for a demographic, ordered by
+     * prevention date descending. Eliminates the EAGER-loaded {@code PreventionExt} collection.
+     *
+     * @param demographicId Integer the patient demographic identifier
+     * @return List&lt;PreventionListItemDTO&gt; ordered by preventionDate descending; empty if none found
+     * @since 2026-04-11
+     */
     @Override
     public List<PreventionListItemDTO> findPreventionDTOsByDemographicId(Integer demographicId) {
         Query query = entityManager.createQuery(

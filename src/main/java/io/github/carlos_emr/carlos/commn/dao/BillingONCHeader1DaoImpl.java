@@ -917,10 +917,18 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return results;
     }
 
+    /**
+     * Returns lightweight Ontario billing header DTOs for a demographic, excluding
+     * soft-deleted records ({@code status = 'D'}), ordered by billing date descending.
+     *
+     * @param demographicNo Integer the patient demographic number
+     * @return List&lt;BillingONCListItemDTO&gt; of active billing records ordered by billing date descending
+     * @since 2026-04-11
+     */
     @Override
     public List<BillingONCListItemDTO> findBillingDTOsByDemographicNo(Integer demographicNo) {
         Query query = entityManager.createQuery(
-                "SELECT NEW io.github.carlos_emr.carlos.billings.dto.BillingONCListItemDTO(b.id, b.demographicNo, b.providerNo, b.appointmentNo, b.billingDate, b.billingTime, b.status, b.payProgram, b.visitType, b.admissionDate, b.faciltyNum, b.total, b.paid, b.timestamp, b.clinic, b.demographicName) FROM BillingONCHeader1 b WHERE b.demographicNo = :demoNo ORDER BY b.billingDate DESC");
+                "SELECT NEW io.github.carlos_emr.carlos.billings.dto.BillingONCListItemDTO(b.id, b.demographicNo, b.providerNo, b.appointmentNo, b.billingDate, b.billingTime, b.status, b.payProgram, b.visitType, b.admissionDate, b.faciltyNum, b.total, b.paid, b.timestamp, b.clinic, b.demographicName) FROM BillingONCHeader1 b WHERE b.demographicNo = :demoNo AND b.status <> 'D' ORDER BY b.billingDate DESC");
         query.setParameter("demoNo", demographicNo);
         return query.getResultList();
     }

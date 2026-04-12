@@ -54,12 +54,27 @@ public class CaseManagementIssueListDTO implements Serializable {
     private String issueCode;
     private String issueDescription;
 
+    /** Default constructor for serialization/framework binding. */
     public CaseManagementIssueListDTO() {
     }
 
     /**
      * Projection constructor for HQL constructor expressions.
      * Parameter order must match the SELECT NEW clause exactly.
+     *
+     * @param id Long issue row identifier
+     * @param demographicNo String demographic surrogate key
+     * @param issueId Long issue identifier
+     * @param type String issue type
+     * @param acute boolean acute flag
+     * @param certain boolean certainty flag
+     * @param major boolean major flag
+     * @param resolved boolean resolved flag
+     * @param updateDate Date update timestamp
+     * @param programId Integer program identifier
+     * @param issueCode String joined issue code (from Issue entity)
+     * @param issueDescription String joined issue description (from Issue entity)
+     * @since 2026-04-11
      */
     public CaseManagementIssueListDTO(Long id, String demographicNo, Long issueId, String type,
                                       boolean acute, boolean certain, boolean major, boolean resolved,

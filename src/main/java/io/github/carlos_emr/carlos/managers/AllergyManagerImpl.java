@@ -55,6 +55,9 @@ public class AllergyManagerImpl implements AllergyManager {
     @Autowired
     private PatientConsentManager patientConsentManager;
 
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
+
     @Override
     public Allergy getAllergy(LoggedInInfo loggedInInfo, Integer id) {
         Allergy result = allergyDao.find(id);
@@ -124,6 +127,9 @@ public class AllergyManagerImpl implements AllergyManager {
 
     @Override
     public List<AllergyListItemDTO> getAllergyDTOs(LoggedInInfo loggedInInfo, Integer demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {
+            throw new SecurityException("missing required sec object (_allergy)");
+        }
         List<AllergyListItemDTO> results = allergyDao.findAllergyDTOsByDemographicNo(demographicNo);
 
         LogAction.addLogSynchronous(loggedInInfo, "AllergyManager.getAllergyDTOs",

@@ -586,11 +586,17 @@ public class DocumentManagerImpl implements DocumentManager {
 		return null;
 	}
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public List<DocumentListItemDTO> getDocumentDTOs(LoggedInInfo loggedInInfo, Integer demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", "")) {
-            throw new RuntimeException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required sec object (_edoc)");
         }
-        return documentDao.findDocumentDTOsByDemographicNo(String.valueOf(demographicNo));
+        List<DocumentListItemDTO> results = documentDao.findDocumentDTOsByDemographicNo(String.valueOf(demographicNo));
+        LogAction.addLog(loggedInInfo, "DocumentManager.getDocumentDTOs",
+                "demographicNo=" + demographicNo, "", "", "");
+        return results;
     }
 }

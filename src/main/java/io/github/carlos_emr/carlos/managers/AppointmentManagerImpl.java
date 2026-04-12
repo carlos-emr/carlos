@@ -332,11 +332,16 @@ public class AppointmentManagerImpl implements AppointmentManager {
         return appointmentString;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public List<AppointmentListItemDTO> getDayAppointmentDTOs(LoggedInInfo loggedInInfo, Date date, String providerNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "r", null)) {
-            throw new RuntimeException("missing required sec object (_appointment)");
+            throw new SecurityException("missing required sec object (_appointment)");
         }
+        LogAction.addLogSynchronous(loggedInInfo, "AppointmentManager.getDayAppointmentDTOs",
+                "date=" + date + ", providerNo=" + providerNo);
         return appointmentDao.findDayAppointmentDTOs(date, providerNo);
     }
 

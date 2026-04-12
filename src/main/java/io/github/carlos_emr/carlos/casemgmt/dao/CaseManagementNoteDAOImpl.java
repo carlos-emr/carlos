@@ -729,6 +729,16 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
         return issueIdList;
     }
 
+    /**
+     * Returns lightweight case management note list DTOs for a demographic, ordered by
+     * observation date descending. Pre-joins provider name (HBM PascalCase:
+     * {@code p.LastName}, {@code p.FirstName}) via LEFT JOIN. Eliminates 3 {@code lazy=false}
+     * collections on the full {@code CaseManagementNote} entity.
+     *
+     * @param demographicNo String the demographic number
+     * @return List&lt;CaseManagementNoteListDTO&gt; ordered by observation_date descending; empty if none found
+     * @since 2026-04-11
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNoteListDTO> findNoteDTOsByDemographicNo(String demographicNo) {

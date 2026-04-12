@@ -824,8 +824,15 @@ public class ConsultationManagerImpl implements ConsultationManager {
         return extraMap;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public List<ConsultationRequestListItemDTO> getConsultationDTOs(Integer demographicId) {
-        return consultationRequestDtoDao.findConsultationDTOsByDemographicId(demographicId);
+    public List<ConsultationRequestListItemDTO> getConsultationDTOs(LoggedInInfo loggedInInfo, Integer demographicId) {
+        checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+        List<ConsultationRequestListItemDTO> results = consultationRequestDtoDao.findConsultationDTOsByDemographicId(demographicId);
+        LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.getConsultationDTOs",
+                "demographicId=" + demographicId);
+        return results;
     }
 }

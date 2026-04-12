@@ -23,9 +23,6 @@ package io.github.carlos_emr.carlos.prevention.dto;
 
 import java.io.Serializable;
 import java.util.Date;
-import java.util.Objects;
-
-import io.github.carlos_emr.carlos.commn.model.Prevention;
 
 /**
  * Lightweight data transfer object for immunization/prevention history list views,
@@ -48,12 +45,13 @@ public class PreventionListItemDTO implements Serializable {
     private Date creationDate;
     private String providerNo;
     private String creatorProviderNo;
-    private char deleted;
-    private char refused;
-    private char never;
+    private char deleted = '0';
+    private char refused = '0';
+    private char never = '0';
     private Date nextDate;
     private Date lastUpdateDate;
 
+    /** Default constructor for serialization/framework binding. */
     public PreventionListItemDTO() {
     }
 
@@ -67,9 +65,9 @@ public class PreventionListItemDTO implements Serializable {
      * @param creationDate Date the record creation date
      * @param providerNo String the administering provider number
      * @param creatorProviderNo String the record creator provider number
-     * @param deleted char deletion flag ('0' or '1')
-     * @param refused char refusal flag ('0' or '1')
-     * @param never char never-administer flag ('0' or '1')
+     * @param deleted char deletion flag ('0'=active, '1'=deleted)
+     * @param refused char refusal/status flag ('0'=active, '1'=refused, '2'=ineligible, '3'=completedExternally)
+     * @param never char never-administer flag ('0'=active, '1'=never)
      * @param nextDate Date the next scheduled date
      * @param lastUpdateDate Date the last update timestamp
      */
@@ -89,25 +87,6 @@ public class PreventionListItemDTO implements Serializable {
         this.never = never;
         this.nextDate = nextDate;
         this.lastUpdateDate = lastUpdateDate;
-    }
-
-    /**
-     * Creates a PreventionListItemDTO from a full Prevention entity.
-     *
-     * @param p Prevention the entity to convert; must not be null
-     * @return PreventionListItemDTO a lightweight projection
-     */
-    public static PreventionListItemDTO fromEntity(Prevention p) {
-        Objects.requireNonNull(p, "Prevention entity must not be null for DTO conversion");
-        return new PreventionListItemDTO(
-                p.getId(), p.getDemographicId(), p.getPreventionType(),
-                p.getPreventionDate(), p.getCreationDate(), p.getProviderNo(),
-                p.getCreatorProviderNo(),
-                p.isDeleted() ? '1' : '0',
-                p.isRefused() ? '1' : '0',
-                p.isNever() ? '1' : '0',
-                p.getNextDate(), p.getLastUpdateDate()
-        );
     }
 
     /**

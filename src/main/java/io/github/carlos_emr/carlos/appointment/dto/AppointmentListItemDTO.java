@@ -50,7 +50,7 @@ public class AppointmentListItemDTO implements Serializable {
     private Date startTime;
     private Date endTime;
     private String name;
-    private int demographicNo;
+    private Integer demographicNo;
     private String status;
     private String type;
     private String reason;
@@ -63,6 +63,7 @@ public class AppointmentListItemDTO implements Serializable {
     private String patientLastName;
     private String patientFirstName;
 
+    /** Default constructor for serialization/framework binding. */
     public AppointmentListItemDTO() {
     }
 
@@ -75,7 +76,7 @@ public class AppointmentListItemDTO implements Serializable {
      * @param startTime Date the start time
      * @param endTime Date the end time
      * @param name String the appointment name/label
-     * @param demographicNo int the patient demographic number
+     * @param demographicNo Integer the patient demographic number
      * @param status String the appointment status
      * @param type String the appointment type
      * @param reason String the appointment reason
@@ -88,7 +89,7 @@ public class AppointmentListItemDTO implements Serializable {
      * @param patientFirstName String the patient's first name (from LEFT JOIN)
      */
     public AppointmentListItemDTO(Integer id, String providerNo, Date appointmentDate,
-                                  Date startTime, Date endTime, String name, int demographicNo,
+                                  Date startTime, Date endTime, String name, Integer demographicNo,
                                   String status, String type, String reason, String location,
                                   String notes, String urgency, String remarks, Integer reasonCode,
                                   String patientLastName, String patientFirstName) {
@@ -150,8 +151,8 @@ public class AppointmentListItemDTO implements Serializable {
     public void setEndTime(Date endTime) { this.endTime = endTime; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
-    public int getDemographicNo() { return demographicNo; }
-    public void setDemographicNo(int demographicNo) { this.demographicNo = demographicNo; }
+    public Integer getDemographicNo() { return demographicNo; }
+    public void setDemographicNo(Integer demographicNo) { this.demographicNo = demographicNo; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
     public String getType() { return type; }

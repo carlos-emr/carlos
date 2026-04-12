@@ -632,6 +632,14 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         return typedQuery.getResultList();
     }
 
+    /**
+     * Returns lightweight drug/prescription list DTOs for a demographic, ordered by
+     * prescription date descending. Carries 20 fields vs 101 on the full Drug entity.
+     *
+     * @param demographicId Integer the patient demographic identifier
+     * @return List&lt;DrugListItemDTO&gt; ordered by rxDate descending; empty if none found
+     * @since 2026-04-11
+     */
     @Override
     public List<DrugListItemDTO> findDrugDTOsByDemographicId(Integer demographicId) {
         TypedQuery<DrugListItemDTO> query = entityManager.createQuery(

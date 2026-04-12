@@ -822,6 +822,16 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return query.getResultList();
     }
 
+    /**
+     * Returns lightweight appointment list DTOs for a provider's day schedule.
+     * Uses HBM-mapped PascalCase property names ({@code d.DemographicNo}, {@code d.LastName},
+     * {@code d.FirstName}) as defined in {@code Demographic.hbm.xml}.
+     *
+     * @param date Date the appointment date to query
+     * @param providerNo String the provider number to filter by
+     * @return List&lt;AppointmentListItemDTO&gt; ordered by start time ascending; empty if none found
+     * @since 2026-04-11
+     */
     @Override
     public List<AppointmentListItemDTO> findDayAppointmentDTOs(Date date, String providerNo) {
         Query query = entityManager.createQuery(
