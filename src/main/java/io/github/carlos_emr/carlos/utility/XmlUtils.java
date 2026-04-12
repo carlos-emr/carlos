@@ -241,7 +241,7 @@ public final class XmlUtils {
     }
 
     /**
-     * Creates a {@link SchemaFactory} with external access disabled.
+     * Creates a {@link javax.xml.validation.SchemaFactory} with external access disabled.
      *
      * <p>Sets {@code ACCESS_EXTERNAL_DTD} and {@code ACCESS_EXTERNAL_SCHEMA} to empty strings
      * so that no external DTD or schema resources can be loaded during schema compilation.

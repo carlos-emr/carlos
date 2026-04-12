@@ -344,7 +344,7 @@
             <div class="row">
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.unlockAccount" rights="r">
                     <div class="card card-body bg-body-tertiary quick-links">
-                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/unLock.jsp"><i
+                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/UnLock.do"><i
                                 class="fa-solid fa-user fa-4x"></i>
                             <h5><fmt:message key="admin.admin.unlockAcct"/></h5></a>
                     </div>
@@ -393,7 +393,7 @@
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.encounter" rights="r"
                                    reverse="<%=false%>">
                     <div class="card card-body bg-body-tertiary quick-links">
-                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/providertemplate.jsp"><i
+                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ProviderTemplate.do"><i
                                 class="fa-solid fa-suitcase-medical fa-4x"></i>
                             <h5><fmt:message key="admin.admin.btnInsertTemplate"/></h5></a>
                     </div>
@@ -402,7 +402,7 @@
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="r"
                                    reverse="<%=false%>">
                     <div class="card card-body bg-body-tertiary quick-links">
-                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/providerPrivilege.jsp"><i
+                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ProviderPrivilege.do"><i
                                 class="fa-solid fa-wrench fa-4x"></i>
                             <h5><fmt:message key="admin.admin.assignRightsObject"/></h5></a>
                     </div>

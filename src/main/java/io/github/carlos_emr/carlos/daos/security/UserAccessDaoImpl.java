@@ -32,12 +32,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 @Transactional
-public class UserAccessDaoImpl extends AbstractHibernateDao implements UserAccessDao {
+public class UserAccessDaoImpl extends AbstractJpaDao implements UserAccessDao {
 
     @SuppressWarnings("unchecked")
     @Override
@@ -48,10 +48,10 @@ public class UserAccessDaoImpl extends AbstractHibernateDao implements UserAcces
             Map<String, Object> params = new HashMap<>();
             params.put("providerNo", providerNo);
             params.put("shelterPattern", shelterPattern);
-            return HqlQueryHelper.find(currentSession(), hql, params);
+            return JpqlQueryHelper.find(entityManager(), hql, params);
         } else {
             String sSQL = "from UserAccessValue s where s.providerNo= ?1 order by s.functionCd, s.privilege desc, s.orgCd";
-            return HqlQueryHelper.find(currentSession(), sSQL, providerNo);
+            return JpqlQueryHelper.find(entityManager(), sSQL, providerNo);
         }
     }
 
@@ -64,10 +64,10 @@ public class UserAccessDaoImpl extends AbstractHibernateDao implements UserAcces
             Map<String, Object> params = new HashMap<>();
             params.put("providerNo", providerNo);
             params.put("shelterPattern", shelterPattern);
-            return HqlQueryHelper.find(currentSession(), hql, params);
+            return JpqlQueryHelper.find(entityManager(), hql, params);
         } else {
             String sSQL = "select distinct o.codecsv from UserAccessValue s, LstOrgcd o where s.providerNo= ?1 and s.privilege>='r' and s.orgCd=o.code order by o.codecsv";
-            return HqlQueryHelper.find(currentSession(), sSQL, providerNo);
+            return JpqlQueryHelper.find(entityManager(), sSQL, providerNo);
         }
     }
 }

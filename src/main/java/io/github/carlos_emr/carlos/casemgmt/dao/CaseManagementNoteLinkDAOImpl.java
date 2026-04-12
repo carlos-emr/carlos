@@ -34,16 +34,16 @@ package io.github.carlos_emr.carlos.casemgmt.dao;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 @Transactional
-public class CaseManagementNoteLinkDAOImpl extends AbstractHibernateDao implements CaseManagementNoteLinkDAO {
+public class CaseManagementNoteLinkDAOImpl extends AbstractJpaDao implements CaseManagementNoteLinkDAO {
 
     @Override
     public CaseManagementNoteLink getNoteLink(Long id) {
-        CaseManagementNoteLink noteLink = currentSession().find(CaseManagementNoteLink.class, id);
+        CaseManagementNoteLink noteLink = entityManager().find(CaseManagementNoteLink.class, id);
         return noteLink;
     }
 
@@ -51,35 +51,35 @@ public class CaseManagementNoteLinkDAOImpl extends AbstractHibernateDao implemen
     @Override
     public List<CaseManagementNoteLink> getLinkByTableId(Integer tableName, Long tableId) {
         String hql = "from CaseManagementNoteLink cLink where cLink.tableName = ?1 and cLink.tableId = ?2 order by cLink.id";
-        return (List<CaseManagementNoteLink>) HqlQueryHelper.find(currentSession(), hql, tableName, tableId);
+        return (List<CaseManagementNoteLink>) JpqlQueryHelper.find(entityManager(), hql, tableName, tableId);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNoteLink> getLinkByTableId(Integer tableName, Long tableId, String otherId) {
         String hql = "from CaseManagementNoteLink cLink where cLink.tableName = ?1 and cLink.tableId = ?2 and cLink.otherId=?3 order by cLink.id";
-        return (List<CaseManagementNoteLink>) HqlQueryHelper.find(currentSession(), hql, tableName, tableId, otherId);
+        return (List<CaseManagementNoteLink>) JpqlQueryHelper.find(entityManager(), hql, tableName, tableId, otherId);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNoteLink> getLinkByTableIdDesc(Integer tableName, Long tableId) {
         String hql = "from CaseManagementNoteLink cLink where cLink.tableName = ?1 and cLink.tableId = ?2 order by cLink.id desc";
-        return (List<CaseManagementNoteLink>) HqlQueryHelper.find(currentSession(), hql, tableName, tableId);
+        return (List<CaseManagementNoteLink>) JpqlQueryHelper.find(entityManager(), hql, tableName, tableId);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNoteLink> getLinkByTableIdDesc(Integer tableName, Long tableId, String otherId) {
         String hql = "from CaseManagementNoteLink cLink where cLink.tableName = ?1 and cLink.tableId = ?2 and cLink.otherId=?3 order by cLink.id desc";
-        return (List<CaseManagementNoteLink>) HqlQueryHelper.find(currentSession(), hql, tableName, tableId, otherId);
+        return (List<CaseManagementNoteLink>) JpqlQueryHelper.find(entityManager(), hql, tableName, tableId, otherId);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNoteLink> getLinkByNote(Long noteId) {
         String hql = "from CaseManagementNoteLink cLink where cLink.noteId = ?1 order by cLink.id";
-        return (List<CaseManagementNoteLink>) HqlQueryHelper.find(currentSession(), hql, noteId);
+        return (List<CaseManagementNoteLink>) JpqlQueryHelper.find(entityManager(), hql, noteId);
     }
 
     @Override
@@ -105,11 +105,11 @@ public class CaseManagementNoteLinkDAOImpl extends AbstractHibernateDao implemen
 
     @Override
     public void save(CaseManagementNoteLink cLink) {
-        currentSession().persist(cLink);
+        entityManager().persist(cLink);
     }
 
     @Override
     public void update(CaseManagementNoteLink cLink) {
-        currentSession().merge(cLink);
+        entityManager().merge(cLink);
     }
 }

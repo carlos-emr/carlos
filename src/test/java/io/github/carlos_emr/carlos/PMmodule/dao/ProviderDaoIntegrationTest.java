@@ -685,6 +685,27 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
                 .contains("T001", "T002", "T003")
                 .doesNotContain("T004");
         }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list for non-numeric programId")
+        void shouldReturnEmptyList_forNonNumericProgramId() {
+            // Regression guard: non-numeric programId must NOT silently widen
+            // to all active providers (which was the pre-fix behavior).
+            List<Provider> results = providerDao.getActiveProviders(null, "not-a-number");
+
+            assertThat(results).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list for empty-string programId")
+        void shouldReturnEmptyList_forEmptyStringProgramId() {
+            // Empty string hits the NumberFormatException branch (Long.valueOf("") throws).
+            List<Provider> results = providerDao.getActiveProviders(null, "");
+
+            assertThat(results).isEmpty();
+        }
     }
 
     /** Tests for getProviderName and getProviderNameLastFirst edge cases. */

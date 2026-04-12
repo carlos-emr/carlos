@@ -34,28 +34,28 @@ package io.github.carlos_emr.carlos.daos;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Provider;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 /**
  * DAO implementation for provider data access.
  */
 @Transactional
-public class ProviderDAOImpl extends AbstractHibernateDao implements ProviderDAO {
+public class ProviderDAOImpl extends AbstractJpaDao implements ProviderDAO {
 
     @SuppressWarnings("unchecked")
     public List<Provider> getProviders() {
-        return (List<Provider>) HqlQueryHelper.find(currentSession(), "from Provider p order by p.LastName");
+        return (List<Provider>) JpqlQueryHelper.find(entityManager(), "from Provider p order by p.LastName");
     }
 
     public Provider getProvider(String provider_no) {
-        return currentSession().find(Provider.class, provider_no);
+        return entityManager().find(Provider.class, provider_no);
     }
 
     @SuppressWarnings("unchecked")
     public Provider getProviderByName(String lastName, String firstName) {
-        List<Provider> results = (List<Provider>) HqlQueryHelper.find(currentSession(), "from Provider p where p.FirstName = ?1 and p.LastName = ?2", firstName, lastName);
+        List<Provider> results = (List<Provider>) JpqlQueryHelper.find(entityManager(), "from Provider p where p.FirstName = ?1 and p.LastName = ?2", firstName, lastName);
         return results.isEmpty() ? null : results.get(0);
     }
 
