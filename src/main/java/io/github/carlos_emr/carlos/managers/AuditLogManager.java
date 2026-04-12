@@ -110,15 +110,14 @@ public class AuditLogManager {
 
             String whereClause = "dateTime < '".concat(formatter2.format(endDateToPurge)).concat("'");
 
-            ProcessBuilder pb = buildSafeProcess(
-                    mysqldump,
-                    "--user", user,
-                    "-w", whereClause,
-                    "-t",
-                    "--result-file", filename,
-                    dbName,
-                    "log"
-            );
+            ProcessBuilder pb = new ProcessBuilder(mysqldump, "--user", user);
+            pb.command().add("-w");
+            pb.command().add(whereClause);
+            pb.command().add("-t");
+            pb.command().add("--result-file");
+            pb.command().add(filename);
+            pb.command().add(dbName);
+            pb.command().add("log");
 
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
@@ -165,14 +164,4 @@ public class AuditLogManager {
         return numRecordAffected;
     }
 
-    private ProcessBuilder buildSafeProcess(String... args) {
-        String[] sanitizedArgs = new String[args.length];
-        for (int i = 0; i < args.length; i++) {
-            if (args[i] != null) {
-                // Ensure no command injection characters are present
-                sanitizedArgs[i] = args[i].replaceAll("[^a-zA-Z0-9_\\-\\.:< ='\"/\\\\]", "");
-            }
-        }
-        return new ProcessBuilder(sanitizedArgs);
-    }
 }
