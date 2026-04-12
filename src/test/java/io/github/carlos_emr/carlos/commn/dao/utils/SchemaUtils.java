@@ -307,20 +307,25 @@ public class SchemaUtils {
         logger.info("#------------>> loadFileIntoMySQL() : " + filename);
 
         String dir = new File(filename).getParent();
-        String env[] = null;
-        String envStr = null;
+        String[] commandString = {"mysql", "--user=" + ConfigUtils.getProperty("db_user"), "--host=" + ConfigUtils.getProperty("db_host"), "-e", "source " + filename, ConfigUtils.getProperty("db_schema")};
+        logger.debug("ProcessBuilder command string : " + Arrays.toString(commandString));
+
+        ProcessBuilder pb = new ProcessBuilder(commandString);
+        pb.directory(new File(dir));
+
         if (System.getProperty("os.name").startsWith("Windows")) {
-            envStr = "SYSTEMROOT=" + System.getenv("SYSTEMROOT");
-        }
-        if (envStr != null) {
-            env = new String[]{envStr};
-        } else {
-            env = new String[]{};
+            String systemRoot = System.getenv("SYSTEMROOT");
+            if (systemRoot != null) {
+                pb.environment().put("SYSTEMROOT", systemRoot);
+            }
         }
 
-        String[] commandString = {"mysql", "--user=" + ConfigUtils.getProperty("db_user"), "--password=" + ConfigUtils.getProperty("db_password"), "--host=" + ConfigUtils.getProperty("db_host"), "-e", "source " + filename, ConfigUtils.getProperty("db_schema")};
-        logger.debug("Runtime exec command string : " + Arrays.toString(commandString));
-        Process p = Runtime.getRuntime().exec(commandString, env, new File(dir));
+        String dbPassword = ConfigUtils.getProperty("db_password");
+        if (dbPassword != null) {
+            pb.environment().put("MYSQL_PWD", dbPassword);
+        }
+
+        Process p = pb.start();
 
         try (
                 BufferedReader stdInput = new BufferedReader(new InputStreamReader(p.getInputStream()));

@@ -1,0 +1,4 @@
+## 2025-04-12 - Secure Execution of System Commands
+**Vulnerability:** Calling external system processes (like `mysqldump` and `mysql`) via `Runtime.getRuntime().exec` and passing sensitive information (database passwords) as command-line arguments (e.g., `--password=...`). This exposes the secrets to process monitoring tools like `ps`.
+**Learning:** `Runtime.getRuntime().exec` is not only less flexible but doesn't easily allow secure injection of environment variables without overwriting the entire environment or building complex arrays. Command-line arguments are visible to the OS process list.
+**Prevention:** Always use `ProcessBuilder` when executing external commands. Inject sensitive credentials securely via environment variables (e.g., `pb.environment().put("MYSQL_PWD", password)`) to avoid exposing them on the command line.
