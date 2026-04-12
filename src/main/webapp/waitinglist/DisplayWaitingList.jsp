@@ -174,7 +174,7 @@
                                         </td>
                                         <td class="${styleClass}">
                                             <a href="#" onclick="popupDemographicPage('<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=${e:forJavaScript(e:forUriComponent(waitingListBean.demographicNo))}'); return false;">
-                                                <c:out value="${waitingListBean.patientName}"/>
+                                                ${e:forHtml(waitingListBean.patientName)}
                                             </a>
                                             <input type="button" value="Update" name="update_${ctr.index}" style="font-size: 7pt;"
                                                    onClick="updateWaitingList('${e:forJavaScript(waitingListBean.waitingListID)}', ${ctr.index});"/>
