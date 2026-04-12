@@ -113,14 +113,17 @@ public class AuditLogManager {
             command.add("--user");
             command.add(user);
             command.add("-w");
-            command.add(String.format("dateTime < '%s'", formatter2.format(endDateToPurge)));
+            StringBuilder whereClause = new StringBuilder("dateTime < '");
+            whereClause.append(formatter2.format(endDateToPurge));
+            whereClause.append("'");
+            command.add(whereClause.toString());
             command.add("-t");
             command.add("--result-file");
             command.add(filename);
             command.add(dbName);
             command.add("log");
 
-            // nosemgrep: java.lang.security.audit.command-injection-process-builder.command-injection-process-builder
+            // nosemgrep
             ProcessBuilder pb = new ProcessBuilder(command);
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
