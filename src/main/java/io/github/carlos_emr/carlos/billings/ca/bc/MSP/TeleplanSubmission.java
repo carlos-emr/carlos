@@ -225,7 +225,7 @@ public class TeleplanSubmission {
         FileOutputStream out = new FileOutputStream(file);
         BufferedOutputStream bufout = new BufferedOutputStream(out);
         PrintStream p = new PrintStream(bufout);
-        p.println(fileValue); // nosemgrep: no-direct-response-writer -- MSP billing data stream
+        p.println(fileValue); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- MSP billing data stream
         p.close();
     }
 

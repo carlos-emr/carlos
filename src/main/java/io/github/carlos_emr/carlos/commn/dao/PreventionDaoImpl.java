@@ -37,6 +37,7 @@ import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionListItemDTO;
 
 public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements PreventionDao {
 
@@ -231,5 +232,28 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
         return query.getResultList();
     }
 
+    /**
+     * Returns lightweight prevention/immunization list DTOs for a demographic, ordered by
+     * prevention date descending. Eliminates the EAGER-loaded {@code PreventionExt} collection.
+     *
+     * @param demographicId Integer the patient demographic identifier
+     * @return List&lt;PreventionListItemDTO&gt; ordered by preventionDate descending; empty if none found
+     * @since 2026-04-11
+     */
+    @Override
+    public List<PreventionListItemDTO> findPreventionDTOsByDemographicId(Integer demographicId) {
+        Query query = entityManager.createQuery("""
+                SELECT NEW io.github.carlos_emr.carlos.prevention.dto.PreventionListItemDTO(
+                    p.id, p.demographicId, p.preventionType, p.preventionDate,
+                    p.creationDate, p.providerNo, p.creatorProviderNo,
+                    p.deleted, p.refused, p.never,
+                    p.nextDate, p.lastUpdateDate)
+                FROM Prevention p
+                WHERE p.demographicId = :demoId
+                ORDER BY p.preventionDate DESC
+                """);
+        query.setParameter("demoId", demographicId);
+        return query.getResultList();
+    }
 
 }

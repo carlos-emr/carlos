@@ -236,6 +236,31 @@
                     popup.focus();
                 }
             }
+
+            /**
+             * Writes the selected patient back to the messenger compose/view form in the
+             * opener window and closes this search popup.
+             *
+             * Uses direct DOM access (same pattern as the appointment search popup) rather
+             * than a server-side redirect through DemographicLinkMsg.do, which was unreliable
+             * after multi-hop popup navigation. Always defined; only called from onclick
+             * links rendered when fromMessenger=true, so harmless in non-messenger contexts.
+             *
+             * @param {string} keyword   - Patient display name (Last, First)
+             * @param {string} demoNo    - Patient demographic number
+             */
+            function selectForMessenger(keyword, demoNo) {
+                try {
+                    if (window.opener && !window.opener.closed) {
+                        window.opener.document.forms[0].demographic_no.value = demoNo;
+                        window.opener.document.forms[0].selectedDemo.value = keyword;
+                        window.opener.document.forms[0].keyword.value = keyword;
+                    }
+                } catch (e) {
+                    // cross-window DOM access failed; popup will still close
+                }
+                window.close();
+            }
         </SCRIPT>
     </head>
 
@@ -407,8 +432,10 @@
                         <%
 
                             if (fromMessenger) {
+                                String messengerPatientName = Misc.toUpperLowerCase(demo.getLastName() + ", " + demo.getFirstName());
                         %>
-                        <a href="DemographicLinkMsg.do?keyword=<%=Encode.forUriComponent(Misc.toUpperLowerCase(demo.getLastName()+", "+demo.getFirstName()))%>&demographic_no=<%= Encode.forUriComponent(dem_no) %>"><%=Encode.forHtml(demo.getDemographicNo().toString())%>
+                        <a href="javascript:void(0)"
+                           onclick="selectForMessenger('<%=Encode.forJavaScriptAttribute(messengerPatientName)%>','<%=Encode.forJavaScriptAttribute(dem_no)%>')"><%=Encode.forHtml(demo.getDemographicNo().toString())%>
                         </a></td>
                     <%
                     } else {

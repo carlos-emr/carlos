@@ -45,6 +45,7 @@ import java.util.Map;
 import jakarta.persistence.PersistenceException;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
+import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteListDTO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementSearchBean;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -310,4 +311,14 @@ public interface CaseManagementNoteDAO {
             SqlUtils.closeResources(c, null, null);
         }
     }
+
+    /**
+     * Returns lightweight note DTOs with pre-joined provider name, eliminating
+     * 3 lazy=false HBM relationships (provider, issues, extend).
+     *
+     * @param demographicNo String the patient demographic number
+     * @return List of CaseManagementNoteListDTO
+     * @since 2026-04-11
+     */
+    public List<CaseManagementNoteListDTO> findNoteDTOsByDemographicNo(String demographicNo);
 }

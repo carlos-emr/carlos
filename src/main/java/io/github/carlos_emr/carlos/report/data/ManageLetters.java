@@ -122,7 +122,7 @@ public class ManageLetters {
 
         if (r != null) {
             try {
-                // nosemgrep: no-direct-response-writer -- binary report file bytes written to stream, not HTML response
+                // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary report file bytes written to stream, not HTML response
                 out.write(r.getReportFile(), 0, r.getReportFile().length);
             } catch (IOException e) {
                 logger.error("Error", e);

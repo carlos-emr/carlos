@@ -106,8 +106,8 @@ public final class dxResearchCodeSearch2Action extends ActionSupport {
 
         dxCodeSearchBeanHandler hd = new dxCodeSearchBeanHandler(codeType, xml_research);
         HttpSession session = request.getSession();
-        session.setAttribute("allMatchedCodes", hd); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("codeType", codeType); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("allMatchedCodes", hd); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("codeType", codeType); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         return SUCCESS;
     }

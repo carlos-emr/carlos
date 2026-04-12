@@ -32,6 +32,8 @@
 package io.github.carlos_emr.carlos.casemgmt.service;
 
 import io.github.carlos_emr.carlos.casemgmt.dao.*;
+import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementIssueListDTO;
+import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteListDTO;
 import io.github.carlos_emr.carlos.casemgmt.model.*;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
@@ -385,5 +387,33 @@ public interface CaseManagementManager {
     public void setCPPMedicalHistory(CaseManagementCPP cpp, String providerNo, List accessRight);
 
     public String listNotes(String code, String providerNo, String demoNo);
+
+    /**
+     * Returns lightweight case management issue DTOs for a demographic.
+     * Enforces {@code _demographic} read privilege scoped to the patient
+     * and writes a synchronous audit log entry. The underlying DAO guards
+     * against non-numeric input — see
+     * {@link CaseManagementIssueDAO#findIssueDTOsByDemographicNo(String)}.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context
+     * @param demographicNo String the patient demographic number
+     * @return List&lt;CaseManagementIssueListDTO&gt; ordered by update_date descending
+     * @throws SecurityException if the caller lacks {@code _demographic} read privilege
+     * @since 2026-04-12
+     */
+    List<CaseManagementIssueListDTO> getIssueDTOs(LoggedInInfo loggedInInfo, String demographicNo);
+
+    /**
+     * Returns lightweight case management note DTOs for a demographic.
+     * Enforces {@code _demographic} read privilege scoped to the patient
+     * and writes a synchronous audit log entry.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context
+     * @param demographicNo String the patient demographic number
+     * @return List&lt;CaseManagementNoteListDTO&gt; ordered by observation_date descending
+     * @throws SecurityException if the caller lacks {@code _demographic} read privilege
+     * @since 2026-04-12
+     */
+    List<CaseManagementNoteListDTO> getNoteDTOs(LoggedInInfo loggedInInfo, String demographicNo);
 
 }

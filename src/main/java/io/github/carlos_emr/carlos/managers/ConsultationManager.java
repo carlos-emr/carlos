@@ -41,6 +41,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemDTO;
 import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequestExt;
@@ -379,4 +380,16 @@ public interface ConsultationManager {
      * @return Map mapping extension key to its String value
      */
     public Map<String, String> getExtValuesAsMap(List<ConsultationRequestExt> extras);
+
+    /**
+     * Returns lightweight consultation request DTOs for a demographic, eliminating
+     * 3 EAGER entity joins. Enforces {@code _con} read privilege.
+     *
+     * @param loggedInInfo LoggedInInfo the session context used for privilege checking
+     * @param demographicId Integer the patient demographic number
+     * @return List&lt;ConsultationRequestListItemDTO&gt; ordered by referral date descending
+     * @throws SecurityException if the caller lacks the {@code _con} read privilege
+     * @since 2026-04-11
+     */
+    List<ConsultationRequestListItemDTO> getConsultationDTOs(LoggedInInfo loggedInInfo, Integer demographicId);
 }

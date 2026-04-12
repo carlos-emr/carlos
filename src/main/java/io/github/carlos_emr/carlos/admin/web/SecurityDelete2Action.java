@@ -43,7 +43,6 @@ import org.apache.struts2.ServletActionContext;
  * Performs a hard delete via {@link SecurityDao} and logs the action for the audit trail.</p>
  *
  * @since 2026-04-05
- * @throws SecurityException if the logged-in user lacks the required admin privilege
  */
 public class SecurityDelete2Action extends ActionSupport {
 

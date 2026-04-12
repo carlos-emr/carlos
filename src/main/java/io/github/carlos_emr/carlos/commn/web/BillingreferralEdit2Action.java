@@ -172,12 +172,12 @@ public class BillingreferralEdit2Action extends ActionSupport {
             }
         }
 
-        request.getSession().setAttribute("billingReferralAdminCheckList", checkedSpecs); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("billingReferralAdminCheckList", checkedSpecs); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         ArrayNode arr = objectMapper.valueToTree(checkedSpecs);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().print(arr); // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type
+        response.getWriter().print(arr); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- JSON API response with application/json content-type
 
         return null;
     }

@@ -333,7 +333,7 @@ public class Fax2Action extends ActionSupport {
 
                 int data;
                 while ((data = bfis.read()) != -1) {
-                    outs.write(data); // nosemgrep: no-direct-response-writer -- binary fax document download
+                    outs.write(data); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary fax document download
                 }
                 outs.flush();
             } catch (IOException e) {

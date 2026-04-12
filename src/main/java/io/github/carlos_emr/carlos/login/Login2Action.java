@@ -467,7 +467,7 @@ public final class Login2Action extends ActionSupport {
                         return NONE;
                     }
                     // facilityId validated via Integer.parseInt() and facilityDao.find() above
-                    request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility); // nosemgrep: tainted-session-from-http-request
+                    request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
                     LogAction.addLog(username, LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityId, ip);
                     response.sendRedirect(nextPage);
                     return NONE;

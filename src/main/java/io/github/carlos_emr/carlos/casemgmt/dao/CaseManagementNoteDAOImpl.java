@@ -53,6 +53,7 @@ import org.hibernate.Hibernate;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
+import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteListDTO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementSearchBean;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -724,5 +725,38 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
             issueIdList.add(Long.parseLong(id.trim()));
         }
         return issueIdList;
+    }
+
+    /**
+     * Returns lightweight case management note list DTOs for a demographic, ordered by
+     * observation date descending. Pre-joins provider name (HBM PascalCase:
+     * {@code p.LastName}, {@code p.FirstName}) via LEFT JOIN. Eliminates 3 {@code lazy=false}
+     * collections on the full {@code CaseManagementNote} entity.
+     *
+     * @param demographicNo String the demographic number
+     * @return List&lt;CaseManagementNoteListDTO&gt; ordered by observation_date descending; empty if none found
+     * @throws org.hibernate.HibernateException if the underlying query fails
+     * @since 2026-04-11
+     */
+    @SuppressWarnings("unchecked")
+    @Override
+    public List<CaseManagementNoteListDTO> findNoteDTOsByDemographicNo(String demographicNo) {
+        // HBM-mapped Provider uses PascalCase property names (ProviderNo, LastName,
+        // FirstName) per Provider.hbm.xml; HQL must reference the HBM name attribute.
+        Query<CaseManagementNoteListDTO> query = currentSession().createQuery("""
+                SELECT NEW io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteListDTO(
+                    cmn.id, cmn.update_date, cmn.observation_date, cmn.demographic_no,
+                    cmn.signed, cmn.providerNo, cmn.signing_provider_no, cmn.encounter_type,
+                    cmn.billing_code, cmn.program_no, cmn.uuid,
+                    cmn.locked, cmn.archived, cmn.appointmentNo,
+                    p.LastName, p.FirstName)
+                FROM CaseManagementNote cmn
+                LEFT JOIN Provider p ON p.ProviderNo = cmn.providerNo
+                WHERE cmn.demographic_no = :demoNo
+                ORDER BY cmn.observation_date DESC
+                """,
+                CaseManagementNoteListDTO.class);
+        query.setParameter("demoNo", demographicNo);
+        return query.list();
     }
 }

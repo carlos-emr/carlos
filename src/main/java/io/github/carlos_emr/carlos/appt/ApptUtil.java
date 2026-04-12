@@ -134,7 +134,7 @@ public class ApptUtil {
         obj.setUrgency(sanitizeText(request.getParameter("urgency"), MAX_FIELD_LEN));
         // nosemgrep: tainted-session-from-http-request -- numeric IDs validated via regex; status validated against [a-zA-Z]{1,2};
         // date/time validated against format patterns; free-text fields length-capped and control characters rejected via SAFE_TEXT
-        request.getSession().setAttribute(SESSION_APPT_BEAN, obj);
+        request.getSession().setAttribute(SESSION_APPT_BEAN, obj); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): ApptData bean fields regex-validated/sanitized by sanitizeText() before storage
     }
 
     public static ApptData getAppointmentFromSession(HttpServletRequest request) {
