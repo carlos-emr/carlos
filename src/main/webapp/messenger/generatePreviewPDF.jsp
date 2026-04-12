@@ -168,6 +168,7 @@
 
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
+  <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="messenger.CreateMessage.title"/>
         </title>
