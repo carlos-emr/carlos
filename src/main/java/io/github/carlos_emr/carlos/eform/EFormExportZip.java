@@ -202,6 +202,10 @@ public class EFormExportZip {
         Hashtable<String, File> tempFiles = new Hashtable<String, File>(); //references extracted files in the temp folder
         //first runthrough, get the properties files, construct eforms, cache files
         while ((ze = zis.getNextEntry()) != null) {
+            if (ze.isDirectory()) {
+                zis.closeEntry();
+                continue;
+            }
             // Zip Slip defence: strip any path components from the zip entry name.
             // A malicious zip entry like "../../etc/passwd" becomes just "passwd".
             String entryBaseName = FilenameUtils.getName(ze.getName());
@@ -241,9 +245,9 @@ public class EFormExportZip {
                 // containment within imageTempFolderDir.
                 File tempFile = PathValidationUtils.validatePath(entryBaseName, imageTempFolderDir);
                 tempFiles.put(entryBaseName, tempFile); //reference so we can find it later
-                FileOutputStream fos = new FileOutputStream(tempFile);
-                inputToOutput(zis, fos);
-                fos.close();
+                try (FileOutputStream fos = new FileOutputStream(tempFile)) {
+                    inputToOutput(zis, fos);
+                }
                 //store temp files in memory
                 /*ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 inputToOutput(zis, baos);
@@ -278,11 +282,11 @@ public class EFormExportZip {
                     errors.add("Image '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
                     _log.info("EForm Import: Image with name '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
                 }
-                OutputStream os = new FileOutputStream(imageFile);
-                inputToOutput(fis, os);
+                try (OutputStream os = new FileOutputStream(imageFile)) {
+                    inputToOutput(fis, os);
+                }
                 _log.info("Loaded eform file: " + tempFile.getKey());
                 fis.close();
-                os.close();
             }
         }
         _log.info("Registering: " + eformTable.values().size() + " eforms");
@@ -296,8 +300,11 @@ public class EFormExportZip {
     }
 
     private void deleteDirectory(File directory) {
-        for (File file : directory.listFiles()) {
-            file.delete();
+        File[] files = directory.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                file.delete();
+            }
         }
         directory.delete();
     }

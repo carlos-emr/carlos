@@ -476,7 +476,7 @@ public class PathValidationUtilsTest {
         @DisplayName("should return file when existing path is inside allowed directory")
         void shouldReturnFile_whenExistingPathInsideAllowedDir() throws IOException {
             File inside = tempDir.resolve("inside.txt").toFile();
-            inside.createNewFile();
+            assertThat(inside.createNewFile()).isTrue();
 
             File result = PathValidationUtils.validateExistingPath(inside, allowedDir);
 
@@ -503,7 +503,7 @@ public class PathValidationUtilsTest {
         @DisplayName("should throw SecurityException when allowedDir is null")
         void shouldThrowSecurityException_whenExistingPathAllowedDirIsNull() throws IOException {
             File inside = tempDir.resolve("inside.txt").toFile();
-            inside.createNewFile();
+            assertThat(inside.createNewFile()).isTrue();
 
             assertThatThrownBy(() -> PathValidationUtils.validateExistingPath(inside, null))
                 .isInstanceOf(SecurityException.class);

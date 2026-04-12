@@ -134,24 +134,28 @@ public class MoveMOHFiles2Action extends ActionSupport {
 
         if (isValid) {
             String folderPath = getFolderPath(folderParam);
-            File folderFile = new File(folderPath);
-            for (String fileName : fileNames) {
-                File file;
-                try {
-                    String decodedName = URLDecoder.decode(fileName, StandardCharsets.UTF_8);
-                    file = PathValidationUtils.validatePath(decodedName, folderFile);
-                } catch (SecurityException e) {
-                    logger.warn("Invalid file location {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-                    errors.append("File is not in a valid location: ").append(Encode.forHtml(fileName)).append(".<br/>");
-                    continue;
-                }
+            if (folderPath == null) {
+                errors.append("Unrecognized folder: ").append(Encode.forHtml(folderParam)).append(".<br/>");
+            } else {
+                File folderFile = new File(folderPath);
+                for (String fileName : fileNames) {
+                    File file;
+                    try {
+                        String decodedName = URLDecoder.decode(fileName, StandardCharsets.UTF_8);
+                        file = PathValidationUtils.validatePath(decodedName, folderFile);
+                    } catch (IllegalArgumentException | SecurityException e) {
+                        logger.warn("Invalid file location {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                        errors.append("File is not in a valid location: ").append(Encode.forHtml(fileName)).append(".<br/>");
+                        continue;
+                    }
 
-                if (file.exists()) {
-                    boolean isMoved = moveFile(file);
-                    if (isMoved) {
-                        messages.append("Archived file ").append(Encode.forHtml(file.getName())).append(" successfully.<br/>");
-                    } else {
-                        errors.append("Unable to archive ").append(Encode.forHtml(file.getName()));
+                    if (file.exists()) {
+                        boolean isMoved = moveFile(file);
+                        if (isMoved) {
+                            messages.append("Archived file ").append(Encode.forHtml(file.getName())).append(" successfully.<br/>");
+                        } else {
+                            errors.append("Unable to archive ").append(Encode.forHtml(file.getName()));
+                        }
                     }
                 }
             }
@@ -206,7 +210,7 @@ public class MoveMOHFiles2Action extends ActionSupport {
      * @return String representing the absolute filesystem path for the specified EDT folder
      */
     private String getFolderPath(String folderName) {
-    EDTFolder folder = EDTFolder.getFolder(folderName);
-    return folder.getPath();
+        EDTFolder folder = EDTFolder.getFolder(folderName);
+        return folder != null ? folder.getPath() : null;
     }
 }

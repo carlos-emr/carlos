@@ -34,7 +34,7 @@ public enum EDTFolder {
                 return f;
             }
         }
-        return INBOX;
+        return null;
     }
 
     public boolean providesAccessToFiles() {

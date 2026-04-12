@@ -28,7 +28,7 @@ Location: `.github/codeql/extensions/carlos-java-models/`
 
 Models `PathValidationUtils` methods as `summaryModel` entries (safe argument → return value, user-controlled argument omitted), and `LogSanitizer` / guard methods as `neutralModel` entries. CodeQL's dataflow engine cuts taint at each sanitizer boundary.
 
-Wired into `.github/codeql/codeql-config.yml` via the `packs:` key. If default-setup silently ignores local pack references, the repo must convert to advanced-setup with a dedicated workflow file — see "Open" below.
+Wired into `.github/codeql/codeql-config.yml` via the `packs:` key. If default-setup silently ignores local pack references, the repo must convert to advanced-setup with a dedicated workflow file — see "CodeQL default-setup vs advanced-setup" in the Known follow-ups section of PR #1592, or the follow-up issue once filed.
 
 **Precision property**: the model entries name specific method signatures. A new file sink that does not pass through one of these methods still raises a fresh CodeQL alert. Adding new wrappers requires editing `models/path-validation-sanitizers.yml`.
 

@@ -219,8 +219,11 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
                 // labelFile is always a value from a hardcoded map (Chartlabel.xml or
                 // SexualHealthClinicLabel.xml), never user-controlled. validatePath()
                 // makes the safety explicit to scanners and provides defence-in-depth.
-                File validatedLabel = PathValidationUtils.validatePath(labelFile, new File(System.getProperty("user.home")));
-                ins = new FileInputStream(validatedLabel);
+                String userHome = System.getProperty("user.home");
+                if (userHome != null) {
+                    File validatedLabel = PathValidationUtils.validatePath(labelFile, new File(userHome));
+                    ins = new FileInputStream(validatedLabel);
+                }
             } catch (SecurityException | FileNotFoundException ex1) {
                 logger.warn(labelFile + " not found in user's home directory. Using default instead (classpath)", ex1);
             }

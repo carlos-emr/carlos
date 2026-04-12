@@ -28,6 +28,10 @@
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean bodd = false;
     EDTFolder folder = EDTFolder.getFolder(request.getParameter("folder"));
+    if (folder == null) {
+        response.sendError(400, "Unrecognized folder parameter");
+        return;
+    }
     String folderPath = folder.getPath();
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.backup,_admin.billing" rights="r" reverse="<%=true%>">
