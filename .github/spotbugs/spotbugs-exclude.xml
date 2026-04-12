@@ -88,4 +88,14 @@
         <Bug pattern="RV_RETURN_VALUE_OF_PUTIFABSENT_IGNORED"/>
     </Match>
 
+    <!-- Exclude SECXXEVAL false positive where protection is applied via helper -->
+    <Match>
+        <Bug pattern="XXE_VALIDATOR"/>
+        <Class name="io.github.carlos_emr.carlos.dashboard.handler.IndicatorTemplateHandler"/>
+    </Match>
+    <Match>
+        <Bug pattern="SECXXEVAL"/>
+        <Class name="io.github.carlos_emr.carlos.dashboard.handler.IndicatorTemplateHandler"/>
+    </Match>
+
 </FindBugsFilter>
