@@ -227,24 +227,24 @@ public class MsgViewMessage2Action extends ActionSupport {
         // Store all message data in session for display.
         // All values below are either validated (parseInt/whitelist) or sourced from
         // the database via authenticated DAO lookup. Output encoding is in ViewMessage.jsp.
-        request.getSession().setAttribute("attachedDemographics", attachedDemographics); // nosemgrep: tainted-session-from-http-request
-        request.getSession().setAttribute("viewMessageMessage", msgDisplayMessage.getMessageBody()); // nosemgrep: tainted-session-from-http-request
-        request.getSession().setAttribute("viewMessageSubject", msgDisplayMessage.getThesubject()); // nosemgrep: tainted-session-from-http-request
-        request.getSession().setAttribute("viewMessageSentby", msgDisplayMessage.getSentby()); // nosemgrep: tainted-session-from-http-request
-        request.getSession().setAttribute("viewMessageSentto", msgDisplayMessage.getSentto()); // nosemgrep: tainted-session-from-http-request
-        request.getSession().setAttribute("viewMessageTime", msgDisplayMessage.getThetime()); // nosemgrep: tainted-session-from-http-request
-        request.getSession().setAttribute("viewMessageDate", msgDisplayMessage.getThedate()); // nosemgrep: tainted-session-from-http-request
-        request.getSession().setAttribute("viewMessageAttach", msgDisplayMessage.getAttach()); // nosemgrep: tainted-session-from-http-request
-        request.getSession().setAttribute("viewMessagePDFAttach", msgDisplayMessage.getPdfAttach()); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("attachedDemographics", attachedDemographics); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.getSession().setAttribute("viewMessageMessage", msgDisplayMessage.getMessageBody()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.getSession().setAttribute("viewMessageSubject", msgDisplayMessage.getThesubject()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.getSession().setAttribute("viewMessageSentby", msgDisplayMessage.getSentby()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.getSession().setAttribute("viewMessageSentto", msgDisplayMessage.getSentto()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.getSession().setAttribute("viewMessageTime", msgDisplayMessage.getThetime()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.getSession().setAttribute("viewMessageDate", msgDisplayMessage.getThedate()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.getSession().setAttribute("viewMessageAttach", msgDisplayMessage.getAttach()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.getSession().setAttribute("viewMessagePDFAttach", msgDisplayMessage.getPdfAttach()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         String canonicalMessageNo = String.valueOf(parsedMessageNo);
-        request.getSession().setAttribute("viewMessageId", canonicalMessageNo); // nosemgrep: tainted-session-from-http-request
-        request.getSession().setAttribute("viewMessageNo", canonicalMessageNo); // nosemgrep: tainted-session-from-http-request
-        request.getSession().setAttribute("viewMessagePosition", messagePosition); // nosemgrep: tainted-session-from-http-request
-        request.getSession().setAttribute("from", from); // nosemgrep: tainted-session-from-http-request -- whitelisted to "encounter"|"messenger"
-        request.getSession().setAttribute("providerNo", providerNo); // nosemgrep: tainted-session-from-http-request -- authenticated provider number from LoggedInInfo session
+        request.getSession().setAttribute("viewMessageId", canonicalMessageNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.getSession().setAttribute("viewMessageNo", canonicalMessageNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.getSession().setAttribute("viewMessagePosition", messagePosition); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.getSession().setAttribute("from", from); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- whitelisted to "encounter"|"messenger"
+        request.getSession().setAttribute("providerNo", providerNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- authenticated provider number from LoggedInInfo session
 
         if (orderBy != null) {
-            request.getSession().setAttribute("orderBy", orderBy); // nosemgrep: tainted-session-from-http-request
+            request.getSession().setAttribute("orderBy", orderBy); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         }
 
         MiscUtils.getLogger().debug("viewMessagePosition: " + messagePosition + "IsLastMsg: " + request.getAttribute("viewMessageIsLastMsg"));
@@ -269,7 +269,7 @@ public class MsgViewMessage2Action extends ActionSupport {
 
         // Set today's date for display
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd-MMM-yyyy");
-        request.getSession().setAttribute("today", simpleDateFormat.format(new Date(System.currentTimeMillis()))); // nosemgrep: tainted-session-from-http-request -- server-generated formatted date from system clock
+        request.getSession().setAttribute("today", simpleDateFormat.format(new Date(System.currentTimeMillis()))); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- server-generated formatted date from system clock
 
         // Validate boxType against allowlist before using in redirect URL
         if (!boxType.matches("[0-3]?")) {

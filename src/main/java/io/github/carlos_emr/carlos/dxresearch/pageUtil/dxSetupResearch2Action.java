@@ -104,12 +104,12 @@ public final class dxSetupResearch2Action extends ActionSupport {
         }
 
         HttpSession session = request.getSession();
-        session.setAttribute("codingSystem", codingSys); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("allQuickLists", quicklistHd); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("allQuickListItems", quicklistItemsHd); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("allDiagnostics", hd); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("demographicNo", demographicNo); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("providerNo", providerNo); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("codingSystem", codingSys); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("allQuickLists", quicklistHd); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("allQuickListItems", quicklistItemsHd); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("allDiagnostics", hd); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("demographicNo", demographicNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("providerNo", providerNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         return SUCCESS;
     }

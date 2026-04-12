@@ -78,9 +78,9 @@ public class ClientSearchAction22Action extends ActionSupport {
 
     public String form() {
         if (clientManager.isOutsideOfDomainEnabled()) {
-            request.getSession().setAttribute("outsideOfDomainEnabled", "true"); // nosemgrep: tainted-session-from-http-request
+            request.getSession().setAttribute("outsideOfDomainEnabled", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         } else {
-            request.getSession().setAttribute("outsideOfDomainEnabled", "false"); // nosemgrep: tainted-session-from-http-request
+            request.getSession().setAttribute("outsideOfDomainEnabled", "false"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         }
 
 
@@ -91,9 +91,9 @@ public class ClientSearchAction22Action extends ActionSupport {
 
     public String attachForm() {
         if (clientManager.isOutsideOfDomainEnabled()) {
-            request.getSession().setAttribute("outsideOfDomainEnabled", "true"); // nosemgrep: tainted-session-from-http-request
+            request.getSession().setAttribute("outsideOfDomainEnabled", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         } else {
-            request.getSession().setAttribute("outsideOfDomainEnabled", "false"); // nosemgrep: tainted-session-from-http-request
+            request.getSession().setAttribute("outsideOfDomainEnabled", "false"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         }
 
         String noteId = request.getParameter("noteId");
@@ -118,7 +118,7 @@ public class ClientSearchAction22Action extends ActionSupport {
                 CaseManagementNote note = caseManagementNoteDao.getNote(parsedNoteId);
                 if (note != null) {
                     String validatedNoteId = String.valueOf(parsedNoteId);
-                    request.getSession().setAttribute("noteId", validatedNoteId); // nosemgrep: tainted-session-from-http-request
+                    request.getSession().setAttribute("noteId", validatedNoteId); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
                     request.setAttribute("noteId", validatedNoteId);
                 } else {
                     logger.warn("Rejected noteId that does not exist in database (trust boundary enforcement) - provider: {}", providerNo);
