@@ -79,10 +79,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
-<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -184,7 +180,7 @@
                 appointmentDao.persist(a);
 
 
-                gCalDate.setTime(UtilDateUtilities.StringToDate(param[1], "yyyy-MM-dd"));
+                gCalDate.setTime(iDate);
                 gCalDate = addDateByYMD(gCalDate, everyUnit, delta);
 
                 if (gCalDate.after(gEndDate))
@@ -516,8 +512,8 @@
 
             <%
                 String temp = null;
-                for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
-                    temp = e.nextElement().toString();
+                for (Enumeration paramNames = request.getParameterNames(); paramNames.hasMoreElements(); ) {
+                    temp = paramNames.nextElement().toString();
                     if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no"))
                         continue;
                     out.println("<input type='hidden' name='" + Encode.forHtmlAttribute(temp) + "' value=\"" + Encode.forHtmlAttribute(request.getParameter(temp) != null ? request.getParameter(temp) : "") + "\">");
