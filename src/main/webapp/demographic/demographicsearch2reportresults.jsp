@@ -346,7 +346,7 @@
     </form>
 </CENTER>
 <a href="#" onClick="history.go(-1);return false;">
-    <img src="<%= request.getContextPath() %>/images/leftarrow.gif" border="0" width="25" height="20" align="absmiddle"> Back
+    <img src="<%= request.getContextPath() %>/images/leftarrow.gif" alt="" border="0" width="25" height="20" align="absmiddle"> Back
 </a>
 </body>
 </html>

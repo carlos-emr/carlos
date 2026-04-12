@@ -4293,7 +4293,7 @@
                                                                    name="paper_chart_archived_date"
                                                                    id="paper_chart_archived_date"
                                                                    value="<%=paperChartIndicatorDate%>">
-                                                            <img src="<%= request.getContextPath() %>/images/cal.gif" id="archive_date_cal">
+                                                            <img src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" id="archive_date_cal">
 
                                                             <input type="hidden" name="paper_chart_archived_program"
                                                                    id="paper_chart_archived_program"
@@ -4759,7 +4759,7 @@
                                                                                                 id="waiting_list_referral_date"
                                                                                                 size="11"
                                                                                                 value="<%=wlReferralDate%>" <%=wLReadonly%>><img
-                                                                                src="<%= request.getContextPath() %>/images/cal.gif"
+                                                                                src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar"
                                                                                 id="referral_date_cal">
                                                                         </td>
                                                                         <td><!-- padding --></td>
