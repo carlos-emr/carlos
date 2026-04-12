@@ -123,8 +123,7 @@ public class AuditLogManager {
             command.add(dbName);
             command.add("log");
 
-            // nosemgrep
-            ProcessBuilder pb = new ProcessBuilder(command);
+            ProcessBuilder pb = new ProcessBuilder(command); // nosemgrep
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
             }
