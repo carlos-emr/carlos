@@ -581,6 +581,13 @@ function validateFields() {
 							bean.setSubject(null);
 							bean.setMessage(null);
 						}%>
+					<%-- Client-side indicator shown when attachment popup closes (onAttachmentAdded callback).
+					     Separate from the server-side block above so it can appear even when
+					     the page is not reloaded (avoids losing demographic_no). --%>
+					<div id="pdf-attachment-indicator" style="display:none">
+						<br>
+						<fmt:message key="messenger.CreateMessage.msgAttachments" />
+					</div>
 					</td>
 				</tr>
 
@@ -671,6 +678,15 @@ function validateFields() {
         if (typeof editor !== 'undefined') {
             document.getElementsByName("message")[0].value = editor.getMarkdown();
         }
+    }
+
+    /**
+     * Called by selfCloseAndRefreshOpener.jsp when PDF attachment is complete.
+     * Shows the attachment indicator without reloading the page, which would
+     * lose the demographic_no request attribute that is not in the URL.
+     */
+    function onAttachmentAdded() {
+        document.getElementById('pdf-attachment-indicator').style.display = '';
     }
 
 </script>
