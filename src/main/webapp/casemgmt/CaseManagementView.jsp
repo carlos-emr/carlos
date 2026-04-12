@@ -34,7 +34,7 @@
 <%-- Updated by Eugene Petruhin on 27 jan 2009 while fixing #2510693 --%>
 
 <%@ include file="/casemgmt/taglibs.jsp" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
@@ -380,7 +380,7 @@
                                             var="noteURL"/>
                                     &nbsp;|&nbsp;
                                     <span style="text-decoration: underline; cursor: pointer; color: blue"
-                                        onclick="popupNotePage('${e:forJavaScript(noteURL)}')">New
+                                        onclick="popupNotePage('${e:forJavaScriptAttribute(noteURL)}')">New
                         Note</span>
                                 </c:if>
                             </security:oscarSec>
@@ -392,7 +392,7 @@
                                         var="noteURL"/>
                                 &nbsp;|&nbsp;
                                 <span style="text-decoration: underline; cursor: pointer; color: blue"
-                                    onclick="popupNotePage('${e:forJavaScript(noteURL)}')">Restore
+                                    onclick="popupNotePage('${e:forJavaScriptAttribute(noteURL)}')">Restore
                         Lost Note</span>
                             </c:if></td>
                         <td align="right">Provider: <select
@@ -448,7 +448,7 @@
                                                     var="notesURL"/>
                                                 <img src="<c:out value="${ctx}"/>/images/edit_white.png"
                                                     title="Edit/Sign Note" style="cursor: pointer"
-                                                    onclick="popupNotePage('${e:forJavaScript(notesURL)}')"/>
+                                                    onclick="popupNotePage('${e:forJavaScriptAttribute(notesURL)}')"/>
                                             </c:when>
                                             <c:otherwise>
                                                 <img src="<c:out value="${ctx}"/>/images/transparent_icon.gif" title=""/>
@@ -461,7 +461,7 @@
                                                 var="historyURL"/>
                                             <img src="<c:out value="${ctx}"/>/images/history.gif" title="Note History"
                                                 style="cursor: pointer"
-                                                onclick="popupHistoryPage('${e:forJavaScript(historyURL)}')">
+                                                onclick="popupHistoryPage('${e:forJavaScriptAttribute(historyURL)}')">
                                         </c:when>
                                         <c:otherwise>
                                             <img src="<c:out value="${ctx}"/>/images/transparent_icon.gif" title=""/>
@@ -475,7 +475,7 @@
                                                         var="lockedURL"/>
                                                 <img src="<c:out value="${ctx}"/>/images/ulock.gif"
                                                     title="Unlock" style="cursor: pointer"
-                                                    onclick="popupPage('${e:forJavaScript(lockedURL)}')"/>
+                                                    onclick="popupPage('${e:forJavaScriptAttribute(lockedURL)}')"/>
                                             </c:when>
                                             <c:otherwise>
                                                 <img src="<c:out value="${ctx}"/>/images/transparent_icon.gif"
@@ -550,14 +550,14 @@
                                                         <c:url value="/CaseManagementEntry.do?method=edit&from=casemgmt&noteId=${requestScope.noteId}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                                             var="notesURL"/>
                                                         <input type="button" value="Edit and Sign"
-                                                            onclick="popupNotePage('${e:forJavaScript(notesURL)}')">
+                                                            onclick="popupNotePage('${e:forJavaScriptAttribute(notesURL)}')">
                                                     </c:if>
                                                 </security:oscarSec>
                                                 <c:if test="${note.hasHistory == true}">
                                                     <c:url value="/CaseManagementEntry.do?method=history&from=casemgmt&noteId=${requestScope.noteId}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                                         var="historyURL"/>
                                                     <input type="button" value="Note History"
-                                                        onclick="popupHistoryPage('${e:forJavaScript(historyURL)}')">
+                                                        onclick="popupHistoryPage('${e:forJavaScriptAttribute(historyURL)}')">
                                                 </c:if>
                                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes"
                                                                 rights="u">
@@ -565,7 +565,7 @@
                                                         <c:url value="/CaseManagementView.do?method=unlock&noteId=${requestScope.noteId}"
                                                             var="lockedURL"/>
                                                         <input type="button" value="Unlock"
-                                                            onclick="popupPage('${e:forJavaScript(lockedURL)}')">
+                                                            onclick="popupPage('${e:forJavaScriptAttribute(lockedURL)}')">
                                                     </c:if>
                                                 </security:oscarSec>
                                             </td>
@@ -616,7 +616,7 @@
                         &nbsp;|&nbsp;
 
                         <span style="text-decoration: underline; cursor: pointer; color: blue"
-                            onclick="popupNotePage('${e:forJavaScript(noteURL)}')">New
+                            onclick="popupNotePage('${e:forJavaScriptAttribute(noteURL)}')">New
                 Note</span>
                     </c:if>
                 </security:oscarSec>
@@ -628,7 +628,7 @@
                         var="noteURL"/>
                 &nbsp;|&nbsp;
                 <span style="text-decoration: underline; cursor: pointer; color: blue"
-                    onclick="popupNotePage('${e:forJavaScript(noteURL)}')">Restore
+                    onclick="popupNotePage('${e:forJavaScriptAttribute(noteURL)}')">Restore
                         Lost Note</span>
             </c:if>
 
@@ -642,7 +642,7 @@
                         value="/CaseManagementEntry.do?method=edit&note_edit=new&from=casemgmt&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                         var="noteURL"/>
                 <span style="text-decoration: underline; cursor: pointer; color: blue"
-                    onclick="popupNotePage('${e:forJavaScript(noteURL)}')">New
+                    onclick="popupNotePage('${e:forJavaScriptAttribute(noteURL)}')">New
             Note</span>
             </c:if>
         </security:oscarSec>

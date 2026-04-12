@@ -37,7 +37,7 @@
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -281,12 +281,12 @@
 
                 <input type="checkbox" id="${id}" name="issueCheckList[${status.index}].checked" ${disabled ? 'disabled="disabled"' : ''}/>
 
-                <a href="#" onclick="return displayIssue('${e:forJavaScript(winame)}');">
+                <a href="#" onclick="return displayIssue('${e:forJavaScriptAttribute(winame)}');">
                     <c:out value="${issueCheckList.issueDisplay.description}" />
                 </a>
 
                 <c:if test="${issueCheckList.used == false}">
-                    <c:set var="submitDelete" value="removeIssue('${e:forJavaScript(winame)}');document.forms['caseManagementEntryForm'].deleteId.value='${status.index}';return ajaxUpdateIssues('issueDelete', $('noteIssues').up().id);" />
+                    <c:set var="submitDelete" value="removeIssue('${e:forJavaScriptAttribute(winame)}');document.forms['caseManagementEntryForm'].deleteId.value='${status.index}';return ajaxUpdateIssues('issueDelete', $('noteIssues').up().id);" />
                     &nbsp;
                     <a href="#" onclick="${submitDelete}">Delete</a>&nbsp;
                 </c:if>
@@ -366,12 +366,12 @@
 
             <input type="checkbox" id="${id}" name="issueCheckList[${status.index}].checked" ${disabled ? 'disabled="disabled"' : ''} />
 
-            <a href="#" onclick="return displayIssue('${e:forJavaScript(winame)}');">
+            <a href="#" onclick="return displayIssue('${e:forJavaScriptAttribute(winame)}');">
                 ${e:forHtml(issueCheckList.issueDisplay.description)}
             </a>
 
             <c:if test="${issueCheckList.used == false}">
-                <c:set var="submitDelete" value="removeIssue('${e:forJavaScript(winame)}');document.forms['caseManagementEntryForm'].deleteId.value='${status.index}';return ajaxUpdateIssues('issueDelete', $('noteIssues').up().id);" />
+                <c:set var="submitDelete" value="removeIssue('${e:forJavaScriptAttribute(winame)}');document.forms['caseManagementEntryForm'].deleteId.value='${status.index}';return ajaxUpdateIssues('issueDelete', $('noteIssues').up().id);" />
                 &nbsp;
                 <a href="#" onclick="${submitDelete}">Delete</a>
                 &nbsp;
