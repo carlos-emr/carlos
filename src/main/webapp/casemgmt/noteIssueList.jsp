@@ -367,7 +367,7 @@
             <input type="checkbox" id="${id}" name="issueCheckList[${status.index}].checked" ${disabled ? 'disabled="disabled"' : ''} />
 
             <a href="#" onclick="return displayIssue('${e:forJavaScript(winame)}');">
-                ${issueCheckList.issueDisplay.description}
+                ${e:forHtml(issueCheckList.issueDisplay.description)}
             </a>
 
             <c:if test="${issueCheckList.used == false}">
