@@ -60,6 +60,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
@@ -274,7 +275,8 @@ public class DtoManagerSecurityUnitTest extends CarlosUnitTestBase {
         assertThat(result).isSameAs(expected);
         verify(dao).findAllergyDTOsByDemographicNo(DEMO_NO);
         logActionMock.verify(() -> LogAction.addLogSynchronous(
-                eq(mockLoggedInInfo), eq("AllergyManager.getAllergyDTOs"), anyString()));
+                eq(mockLoggedInInfo), eq("AllergyManager.getAllergyDTOs"),
+                contains("demographicNo=" + DEMO_NO)));
     }
 
     @Test
@@ -294,7 +296,8 @@ public class DtoManagerSecurityUnitTest extends CarlosUnitTestBase {
         assertThat(result).isSameAs(expected);
         verify(dao).findDayAppointmentDTOs(date, PROVIDER_NO);
         logActionMock.verify(() -> LogAction.addLogSynchronous(
-                eq(mockLoggedInInfo), eq("AppointmentManager.getDayAppointmentDTOs"), anyString()));
+                eq(mockLoggedInInfo), eq("AppointmentManager.getDayAppointmentDTOs"),
+                contains("providerNo=" + PROVIDER_NO)));
     }
 
     @Test
@@ -313,7 +316,8 @@ public class DtoManagerSecurityUnitTest extends CarlosUnitTestBase {
         assertThat(result).isSameAs(expected);
         verify(dao).findConsultationDTOsByDemographicId(DEMO_NO);
         logActionMock.verify(() -> LogAction.addLogSynchronous(
-                eq(mockLoggedInInfo), eq("ConsultationManager.getConsultationDTOs"), anyString()));
+                eq(mockLoggedInInfo), eq("ConsultationManager.getConsultationDTOs"),
+                contains("demographicId=" + DEMO_NO)));
     }
 
     @Test
@@ -332,7 +336,8 @@ public class DtoManagerSecurityUnitTest extends CarlosUnitTestBase {
         assertThat(result).isSameAs(expected);
         verify(dao).findDocumentDTOsByDemographicNo(DEMO_NO);
         logActionMock.verify(() -> LogAction.addLogSynchronous(
-                eq(mockLoggedInInfo), eq("DocumentManager.getDocumentDTOs"), anyString()));
+                eq(mockLoggedInInfo), eq("DocumentManager.getDocumentDTOs"),
+                contains("demographicNo=" + DEMO_NO)));
     }
 
     @Test
@@ -351,7 +356,8 @@ public class DtoManagerSecurityUnitTest extends CarlosUnitTestBase {
         assertThat(result).isSameAs(expected);
         verify(dao).findDrugDTOsByDemographicId(DEMO_NO);
         logActionMock.verify(() -> LogAction.addLogSynchronous(
-                eq(mockLoggedInInfo), eq("PrescriptionManager.getDrugDTOs"), anyString()));
+                eq(mockLoggedInInfo), eq("PrescriptionManager.getDrugDTOs"),
+                contains("demographicNo=" + DEMO_NO)));
     }
 
     @Test
@@ -370,7 +376,8 @@ public class DtoManagerSecurityUnitTest extends CarlosUnitTestBase {
         assertThat(result).isSameAs(expected);
         verify(dao).findPreventionDTOsByDemographicId(DEMO_NO);
         logActionMock.verify(() -> LogAction.addLogSynchronous(
-                eq(mockLoggedInInfo), eq("PreventionManager.getPreventionDTOs"), anyString()));
+                eq(mockLoggedInInfo), eq("PreventionManager.getPreventionDTOs"),
+                contains("demographicNo=" + DEMO_NO)));
     }
 
     @Test
@@ -389,7 +396,8 @@ public class DtoManagerSecurityUnitTest extends CarlosUnitTestBase {
         assertThat(result).isSameAs(expected);
         verify(dao).findBillingDTOsByDemographicNo(DEMO_NO);
         logActionMock.verify(() -> LogAction.addLogSynchronous(
-                eq(mockLoggedInInfo), eq("BillingONManager.getBillingDTOs"), anyString()));
+                eq(mockLoggedInInfo), eq("BillingONManager.getBillingDTOs"),
+                contains("demographicNo=" + DEMO_NO)));
     }
 
     @Test
@@ -408,7 +416,8 @@ public class DtoManagerSecurityUnitTest extends CarlosUnitTestBase {
         assertThat(result).isSameAs(expected);
         verify(dao).findIssueDTOsByDemographicNo(DEMO_NO_STR);
         logActionMock.verify(() -> LogAction.addLogSynchronous(
-                eq(mockLoggedInInfo), eq("CaseManagementManager.getIssueDTOs"), anyString()));
+                eq(mockLoggedInInfo), eq("CaseManagementManager.getIssueDTOs"),
+                contains("demographicNo=" + DEMO_NO_STR)));
     }
 
     @Test
@@ -427,6 +436,7 @@ public class DtoManagerSecurityUnitTest extends CarlosUnitTestBase {
         assertThat(result).isSameAs(expected);
         verify(dao).findNoteDTOsByDemographicNo(DEMO_NO_STR);
         logActionMock.verify(() -> LogAction.addLogSynchronous(
-                eq(mockLoggedInInfo), eq("CaseManagementManager.getNoteDTOs"), anyString()));
+                eq(mockLoggedInInfo), eq("CaseManagementManager.getNoteDTOs"),
+                contains("demographicNo=" + DEMO_NO_STR)));
     }
 }
