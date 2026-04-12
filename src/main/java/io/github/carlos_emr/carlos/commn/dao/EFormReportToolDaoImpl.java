@@ -59,11 +59,13 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
             Query q = entityManager.createNativeQuery("select distinct demographicNo from  " + eft.getTableName());
             List<Integer> demoNos = q.getResultList();
             for (Integer demoNo : demoNos) {
-                Query q2 = entityManager.createNativeQuery("select id from " + eft.getTableName() + " where demographicNo = " + demoNo + " order by dateFormCreated desc,fdid desc").setMaxResults(1);
+                Query q2 = entityManager.createNativeQuery("select id from " + eft.getTableName() + " where demographicNo = ?1 order by dateFormCreated desc,fdid desc").setMaxResults(1);
+                q2.setParameter(1, demoNo);
                 List<Integer> idList = q2.getResultList();
 
                 //update the first result
-                Query q3 = entityManager.createNativeQuery("update " + eft.getTableName() + " set eft_latest=1 where id=" + idList.get(0));
+                Query q3 = entityManager.createNativeQuery("update " + eft.getTableName() + " set eft_latest=1 where id=?1");
+                q3.setParameter(1, idList.get(0));
                 q3.executeUpdate();
             }
 
@@ -123,24 +125,25 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
 
         sb.deleteCharAt(sb.length() - 1);
 
-        sb.append(" ) VALUES (");
-        sb.append(fdid + ",");
-        sb.append(demographicNo + ",");
-        sb.append("\'" + DateFormatUtils.format(dateFormCreated, "yyyy-MM-dd HH:mm:ss") + "\',");
-        sb.append("\'" + providerNo + "\',");
-        sb.append("0,");
-        sb.append("now(),");
-        for (EFormValue v : values) {
-            sb.append("\'" + v.getVarValue() + "\'");
-            sb.append(",");
+        sb.append(" ) VALUES (?, ?, ?, ?, 0, now()");
+        for (int i = 0; i < values.size(); i++) {
+            sb.append(", ?");
         }
-        sb.deleteCharAt(sb.length() - 1);
 
         sb.append(")");
 
         //logger.debug("sql=" + sb.toString());
 
         Query q = entityManager.createNativeQuery(sb.toString());
+        int paramIndex = 1;
+        q.setParameter(paramIndex++, fdid);
+        q.setParameter(paramIndex++, demographicNo);
+        q.setParameter(paramIndex++, DateFormatUtils.format(dateFormCreated, "yyyy-MM-dd HH:mm:ss"));
+        q.setParameter(paramIndex++, providerNo);
+        for (EFormValue v : values) {
+            q.setParameter(paramIndex++, v.getVarValue());
+        }
+
         q.executeUpdate();
     }
 
