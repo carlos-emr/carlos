@@ -112,7 +112,7 @@ public class DbManageBillingformBilltype2Action extends ActionSupport {
                     cbt.setBillType(billtype);
                     ctlBillingTypeDao.merge(cbt);
                 } else {
-                    MiscUtils.getLogger().error(
+                    MiscUtils.getLogger().error( // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                             "DbManageBillingformBilltype2Action: no CtlBillingType found for servicetype={} — update failed",
                             LogSanitizer.sanitize(servicetype));
                     response.sendError(HttpServletResponse.SC_NOT_FOUND,

@@ -3690,7 +3690,7 @@ public class DemographicExportAction42Action extends ActionSupport {
         // Check whether document is valid; validation stops at first error detected.
         Validator validator;
         try {
-            validator = XmlUtils.createSecureValidator(schema);
+            validator = XmlUtils.createSecureValidator(schema); // nosemgrep: validator-xxe -- XXE protection applied by XmlUtils.createSecureValidator()
         } catch (SAXException e) {
             logger.error("Failed to create secure validator", e);
             return false;

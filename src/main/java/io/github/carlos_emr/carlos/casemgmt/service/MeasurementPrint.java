@@ -85,9 +85,9 @@ public class MeasurementPrint implements ExtPrint {
         String endDate = request.getParameter("pEndDate");
         String demographicNo = request.getParameter("demographicNo");
 
-        logger.info("startDate = {}", LogSanitizer.sanitize(startDate));
-        logger.info("endDate = {}", LogSanitizer.sanitize(endDate));
-        logger.info("demographicNo = {}", LogSanitizer.sanitize(demographicNo));
+        logger.info("startDate = {}", LogSanitizer.sanitize(startDate)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+        logger.info("endDate = {}", LogSanitizer.sanitize(endDate)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+        logger.info("demographicNo = {}", LogSanitizer.sanitize(demographicNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 
         List<Measurement> measurements = null;
 

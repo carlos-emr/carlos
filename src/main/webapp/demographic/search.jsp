@@ -47,13 +47,14 @@
 <!DOCTYPE HTML>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <% Boolean isMobileOptimized = session.getAttribute("mobileOptimized") != null; %>
 
 <html>
 <head>
     <%@ include file="/includes/global-head.jspf" %>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.title"/></title>
+    <title><fmt:message key="demographic.search.title"/></title>
 
     <script type="text/javascript">
         // Enable global barcode scanner listener for this page
@@ -72,13 +73,13 @@
 
         <!-- <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic.addnew" rights="r">  -->
         <div class="createNew">
-            <a class="action-link" href="demographicaddarecordhtm.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.btnCreateNew"/></a>
+            <a class="action-link" href="demographicaddarecordhtm.jsp"><fmt:message key="demographic.search.btnCreateNew"/></a>
         </div>
         <!-- </security:oscarSec> -->
 
         <oscar:oscarPropertiesCheck
                 property="SHOW_FILE_IMPORT_SEARCH" value="yes">
-            &nbsp;&nbsp;&nbsp;<a class="action-link" href="demographicImport.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.importNewDemographic"/></a>
+            &nbsp;&nbsp;&nbsp;<a class="action-link" href="demographicImport.jsp"><fmt:message key="demographic.search.importNewDemographic"/></a>
         </oscar:oscarPropertiesCheck>
     </div>
     </body>

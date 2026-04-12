@@ -382,7 +382,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
         resp.setHeader("X-Content-Type-Options", "nosniff");
         try {
             PrintWriter writer = resp.getWriter();
-            writer.write(json);
+            writer.write(json); // nosemgrep: servletresponse-writer-xss, servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
             writer.flush();
         } catch (IOException e) {
             MiscUtils.getLogger().debug("Failed to write JSON response (client may have disconnected)", e);

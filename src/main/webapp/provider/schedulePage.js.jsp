@@ -30,6 +30,7 @@
 --%>
 <%@ page contentType="application/javascript; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
@@ -371,13 +372,13 @@ function updateTooltipsForProvider(providerNo, showReason) {
 
 function confirmPopupPage(height, width, queryString, doConfirm, allowDay, allowWeek){
 if (doConfirm == "Yes") {
-if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.confirmBooking"/>")){
+if (confirm("<fmt:message key="provider.appointmentProviderAdminDay.confirmBooking"/>")){
 popupPage(height, width, queryString);
 }
 }
 else if (doConfirm == "Day"){
 if (allowDay == "No") {
-alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.sameDay"/>");
+alert("<fmt:message key="provider.appointmentProviderAdminDay.sameDay"/>");
 }
 else {
 popupPage(height, width, queryString);
@@ -385,7 +386,7 @@ popupPage(height, width, queryString);
 }
 else if (doConfirm == "Wk"){
 if (allowWeek == "No") {
-alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.sameWeek"/>");
+alert("<fmt:message key="provider.appointmentProviderAdminDay.sameWeek"/>");
 }
 else {
 popupPage2(queryString, 'appointment', height, width);
@@ -417,7 +418,7 @@ function popupPage(vheight,vwidth,varpage) {
 var page = "" + varpage;
 if (openEncounterInTab && !isForceWindowUrl(page)) { return popupTab(page); }
 windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
-var popup=window.open(page, "<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>", windowprops);
+var popup=window.open(page, "<fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>", windowprops);
 if (popup != null) {
 if (popup.opener == null) {
 popup.opener = self;
@@ -501,7 +502,7 @@ function popupOscarRx(vheight,vwidth,varpage) {
 var page = varpage;
 if (openEncounterInTab && !isForceWindowUrl(page)) { return popupTab(page); }
 windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-var popup=window.open(varpage, "<fmt:setBundle basename="oscarResources"/><fmt:message key="global.oscarRx"/>_appt", windowprops);
+var popup=window.open(varpage, "<fmt:message key="global.oscarRx"/>_appt", windowprops);
 if (popup != null) {
 if (popup.opener == null) {
 popup.opener = self;
@@ -549,7 +550,7 @@ document.location.reload();
 }
 
 function onUnbilled(url) {
-if(confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.onUnbilled"/>")) {
+if(confirm("<fmt:message key="provider.appointmentProviderAdminDay.onUnbilled"/>")) {
 popupPage(700,720, url);
 }
 }

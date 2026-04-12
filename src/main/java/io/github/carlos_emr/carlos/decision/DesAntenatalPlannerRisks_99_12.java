@@ -99,7 +99,7 @@ public class DesAntenatalPlannerRisks_99_12 {
         try {
             SAXParserFactory factory = XmlUtils.createSecureSAXParserFactory();
             SAXParser saxParser = factory.newSAXParser();
-            XMLReader reader = saxParser.getXMLReader();
+            XMLReader reader = saxParser.getXMLReader(); // nosemgrep: xmlreader-xxe, xmlreader-xxe-parameter-entities -- XXE protection applied by XmlUtils.createSecureSAXParserFactory()
 
             ContentHandler contentHandler = new DesAntenatalPlannerRisksHandler_99_12();
             reader.setContentHandler(contentHandler);
@@ -140,7 +140,7 @@ public class DesAntenatalPlannerRisks_99_12 {
         try {
             SAXParserFactory factory = XmlUtils.createSecureSAXParserFactory();
             SAXParser saxParser = factory.newSAXParser();
-            XMLReader reader = saxParser.getXMLReader();
+            XMLReader reader = saxParser.getXMLReader(); // nosemgrep: xmlreader-xxe, xmlreader-xxe-parameter-entities -- XXE protection applied by XmlUtils.createSecureSAXParserFactory()
 
             ContentHandler contentHandler = new DesAntenatalPlannerRisksHandler_99_12();
             reader.setContentHandler(contentHandler);

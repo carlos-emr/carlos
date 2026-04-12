@@ -46,6 +46,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar"%>
 <%@ taglib uri="jakarta.tags.core" prefix="c"%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
 	LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -66,7 +67,6 @@
 	Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographic_no);
 %>
 
-<fmt:setBundle basename="oscarResources"/>
 
 <html>
 	<head>

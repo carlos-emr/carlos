@@ -73,7 +73,7 @@ public class DefaultHandler implements MessageHandler {
     }
 
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
-        logger.info("DefaultHandler.parse: Called with serviceName={}, fileName={}, fileId={}", LogSanitizer.sanitize(serviceName), LogSanitizer.sanitize(fileName), fileId);
+        logger.info("DefaultHandler.parse: Called with serviceName={}, fileName={}, fileId={}", LogSanitizer.sanitize(serviceName), LogSanitizer.sanitize(fileName), fileId); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         Document xmlDoc = getXML(fileName);
 
         /*

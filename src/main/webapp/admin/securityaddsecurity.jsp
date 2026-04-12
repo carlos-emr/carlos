@@ -47,6 +47,7 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="java.sql.*, java.util.*,java.security.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.db.*" errorPage="/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction,io.github.carlos_emr.carlos.log.LogConst" %>
@@ -60,21 +61,21 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityaddsecurity.title"/></title>
+        <title><fmt:message key="admin.securityaddsecurity.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
     </head>
     <body topmargin="0" leftmargin="0" rightmargin="0">
     <center>
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">
-                <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityaddsecurity.description"/></font></th>
+                <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.securityaddsecurity.description"/></font></th>
             </tr>
         </table>
         <%
             SecurityAddSecurityHelper helper = new SecurityAddSecurityHelper();
             helper.addProvider(pageContext);
         %>
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="${message}"/></h1>
+        <h1><fmt:message key="${message}"/></h1>
 
     </center>
     </body>

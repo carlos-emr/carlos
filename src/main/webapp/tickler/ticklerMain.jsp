@@ -46,6 +46,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -151,7 +152,7 @@
 
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.managerHeading"/></title>
+        <title><fmt:message key="tickler.ticklerMain.managerHeading"/></title>
 
         <%@ include file="/includes/global-head.jspf" %>
         <script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
@@ -276,7 +277,6 @@
 
 
             const ctx = '${pageContext.request.contextPath}';
-            <fmt:setBundle basename="oscarResources"/>
             <fmt:message key="tickler.ticklerMain.tooltipEdit" var="msgTooltipEdit"/>
             <fmt:message key="tickler.ticklerMain.tooltipAddNote" var="msgTooltipAddNote"/>
             <fmt:message key="tickler.ticklerMain.tooltipViewAttachment" var="msgTooltipViewAttachment"/>
@@ -681,7 +681,7 @@
                          viewBox="0 0 16 16">
                         <path d="M15.807.531c-.174-.177-.41-.289-.64-.363a3.765 3.765 0 0 0-.833-.15c-.62-.049-1.394 0-2.252.175C10.365.545 8.264 1.415 6.315 3.1c-1.95 1.686-3.168 3.724-3.758 5.423-.294.847-.44 1.634-.429 2.268.005.316.05.62.154.88.017.04.035.082.056.122A68.362 68.362 0 0 0 .08 15.198a.528.528 0 0 0 .157.72.504.504 0 0 0 .705-.16 67.606 67.606 0 0 1 2.158-3.26c.285.141.616.195.958.182.513-.02 1.098-.188 1.723-.49 1.25-.605 2.744-1.787 4.303-3.642l1.518-1.55a.528.528 0 0 0 0-.739l-.729-.744 1.311.209a.504.504 0 0 0 .443-.15c.222-.23.444-.46.663-.684.663-.68 1.292-1.325 1.763-1.892.314-.378.585-.752.754-1.107.163-.345.278-.773.112-1.188a.524.524 0 0 0-.112-.172ZM3.733 11.62C5.385 9.374 7.24 7.215 9.309 5.394l1.21 1.234-1.171 1.196a.526.526 0 0 0-.027.03c-1.5 1.789-2.891 2.867-3.977 3.393-.544.263-.99.378-1.324.39a1.282 1.282 0 0 1-.287-.018Zm6.769-7.22c1.31-1.028 2.7-1.914 4.172-2.6a6.85 6.85 0 0 1-.4.523c-.442.533-1.028 1.134-1.681 1.804l-.51.524-1.581-.25Zm3.346-3.357C9.594 3.147 6.045 6.8 3.149 10.678c.007-.464.121-1.086.37-1.806.533-1.535 1.65-3.415 3.455-4.976 1.807-1.561 3.746-2.36 5.31-2.68a7.97 7.97 0 0 1 1.564-.173Z"/>
                     </svg>
-                    &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.managerHeading"/>
+                    &nbsp;<fmt:message key="tickler.ticklerMain.managerHeading"/>
                 </h4>
             </div>
 
@@ -693,22 +693,22 @@
                 <div class="row mb-2">
                     <div class="col-12">
                         <label class="fw-semibold">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formDateRange"/>
+                            <fmt:message key="tickler.ticklerMain.formDateRange"/>
                             <a href="javascript:void(0)" id="dateRange" onClick="allYear()">
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnViewAll"/>
+                                <fmt:message key="tickler.ticklerMain.btnViewAll"/>
                             </a>
                         </label>
                     </div>
                 </div>
                 <div class="row mb-2">
-                    <label for="xml_vdate" class="col-sm-3 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formFrom"/></label>
+                    <label for="xml_vdate" class="col-sm-3 col-form-label"><fmt:message key="tickler.ticklerMain.formFrom"/></label>
                     <div class="col-sm-9">
                         <input type="date" class="form-control" name="xml_vdate" id="xml_vdate"
                                value="<%=org.owasp.encoder.Encode.forHtmlAttribute(xml_vdate)%>">
                     </div>
                 </div>
                 <div class="row mb-2">
-                    <label for="xml_appointment_date" class="col-sm-3 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formTo"/></label>
+                    <label for="xml_appointment_date" class="col-sm-3 col-form-label"><fmt:message key="tickler.ticklerMain.formTo"/></label>
                     <div class="col-sm-9">
                         <input type="date" class="form-control" name="xml_appointment_date" id="xml_appointment_date"
                                value="<%=org.owasp.encoder.Encode.forHtmlAttribute(xml_appointment_date)%>">
@@ -716,11 +716,11 @@
                 </div>
                 <div class="row mb-2">
                     <label for="mrpview" class="col-sm-3 col-form-label">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.MRP"/>
+                        <fmt:message key="tickler.ticklerMain.MRP"/>
                     </label>
                     <div class="col-sm-9">
                         <select id="mrpview" class="form-select" name="mrpview">
-                            <option value="all" <%=mrpview.equals("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formAllProviders"/></option>
+                            <option value="all" <%=mrpview.equals("all") ? "selected" : ""%>><fmt:message key="tickler.ticklerMain.formAllProviders"/></option>
                             <%
                                 for (Provider p : providers) {
                             %>
@@ -733,11 +733,11 @@
                 </div>
                 <div class="row mb-2">
                     <label for="providerview" class="col-sm-3 col-form-label">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgCreator"/>
+                        <fmt:message key="tickler.ticklerMain.msgCreator"/>
                     </label>
                     <div class="col-sm-9">
                         <select id="providerview" class="form-select" name="providerview">
-                            <option value="all" <%=providerview.equals("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formAllProviders"/></option>
+                            <option value="all" <%=providerview.equals("all") ? "selected" : ""%>><fmt:message key="tickler.ticklerMain.formAllProviders"/></option>
                             <%
                                 for (Provider p : providers) {
                             %>
@@ -750,7 +750,7 @@
                 </div>
                 <div class="row mb-2">
                     <label for="assignedTo" class="col-sm-3 col-form-label">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgAssignedTo"/>
+                        <fmt:message key="tickler.ticklerMain.msgAssignedTo"/>
                     </label>
                     <div class="col-sm-9">
                         <%
@@ -772,7 +772,7 @@
                             }
                         </script>
                         <select id="site" class="form-select mb-1" name="site" onchange="changeSite(this)">
-                            <option value="none"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.selectClinic"/></option>
+                            <option value="none"><fmt:message key="tickler.ticklerMain.selectClinic"/></option>
                             <%
                                 for (int i = 0; i < sites.size(); i++) {
                             %>
@@ -803,7 +803,7 @@
                                     }
                                 }
                             %>
-                            <option value="all" <%=assignedTo.equals("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formAllProviders"/></option>
+                            <option value="all" <%=assignedTo.equals("all") ? "selected" : ""%>><fmt:message key="tickler.ticklerMain.formAllProviders"/></option>
                             <%
                                 for (Provider p : providers) {
                             %>
@@ -818,36 +818,33 @@
                     </div>
                 </div>
                 <div class="row mb-2">
-                    <label for="ticklerview" class="col-sm-3 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formFilter"/></label>
+                    <label for="ticklerview" class="col-sm-3 col-form-label"><fmt:message key="tickler.ticklerMain.formFilter"/></label>
                     <div class="col-sm-9">
                         <select id="ticklerview" class="form-select" name="ticklerview">
                             <option value="A" <%=ticklerview.equals("A") ? "selected" : ""%>>
-                                <fmt:setBundle basename="oscarResources"/>
                                 <fmt:message key="tickler.ticklerMain.formActive"/></option>
                             <option value="C" <%=ticklerview.equals("C") ? "selected" : ""%>>
-                                <fmt:setBundle basename="oscarResources"/>
                                 <fmt:message key="tickler.ticklerMain.formCompleted"/></option>
                             <option value="D" <%=ticklerview.equals("D") ? "selected" : ""%>>
-                                <fmt:setBundle basename="oscarResources"/>
                                 <fmt:message key="tickler.ticklerMain.formDeleted"/></option>
                         </select>
 
                         <input type="button" class="btn btn-sm btn-primary noprint" id="formSubmitBtn"
-                               value="<fmt:setBundle basename='oscarResources'/><fmt:message key='tickler.ticklerMain.btnCreateReport'/>">
+                               value="<fmt:message key='tickler.ticklerMain.btnCreateReport'/>">
                         <input type="button" class="btn btn-sm btn-primary noprint" id="saveViewButton"
-                               value="<fmt:setBundle basename='oscarResources'/><fmt:message key='tickler.ticklerMain.msgSaveView'/>" onclick="saveView();">
+                               value="<fmt:message key='tickler.ticklerMain.msgSaveView'/>" onclick="saveView();">
                     </div>
                 </div>
 
             </c:if>
             <c:if test="${hasDemoView}">
                 <div class="row mb-3">
-                    <label for="ticklerview" class="col-sm-3 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formFilter"/></label>
+                    <label for="ticklerview" class="col-sm-3 col-form-label"><fmt:message key="tickler.ticklerMain.formFilter"/></label>
                     <div class="col-sm-9">
                         <select id="ticklerview" class="form-select" name="ticklerview">
-                            <option value="A" <%=ticklerview.equals("A") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formActive"/></option>
-                            <option value="C" <%=ticklerview.equals("C") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formCompleted"/></option>
-                            <option value="D" <%=ticklerview.equals("D") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formDeleted"/></option>
+                            <option value="A" <%=ticklerview.equals("A") ? "selected" : ""%>><fmt:message key="tickler.ticklerMain.formActive"/></option>
+                            <option value="C" <%=ticklerview.equals("C") ? "selected" : ""%>><fmt:message key="tickler.ticklerMain.formCompleted"/></option>
+                            <option value="D" <%=ticklerview.equals("D") ? "selected" : ""%>><fmt:message key="tickler.ticklerMain.formDeleted"/></option>
                         </select>
                     </div>
                 </div>
@@ -861,14 +858,14 @@
                 <tr>
                     <th class="col-checkbox">&nbsp;</th>
                     <th>&nbsp;</th>
-                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgDemographicName"/></th>
-                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgCreator"/></th>
-                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgDate"/></th>
-                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgDateofMsg"/></th>
-                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.Priority"/></th>
-                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.taskAssignedTo"/></th>
-                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.status"/></th>
-                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgMessage"/></th>
+                    <th><fmt:message key="tickler.ticklerMain.msgDemographicName"/></th>
+                    <th><fmt:message key="tickler.ticklerMain.msgCreator"/></th>
+                    <th><fmt:message key="tickler.ticklerMain.msgDate"/></th>
+                    <th><fmt:message key="tickler.ticklerMain.msgDateofMsg"/></th>
+                    <th><fmt:message key="tickler.ticklerMain.Priority"/></th>
+                    <th><fmt:message key="tickler.ticklerMain.taskAssignedTo"/></th>
+                    <th><fmt:message key="tickler.ticklerMain.status"/></th>
+                    <th><fmt:message key="tickler.ticklerMain.msgMessage"/></th>
                     <th></th>
                 </tr>
                 </thead>
@@ -880,34 +877,34 @@
 
                 <tr class="noprint">
                     <td class="white"><a id="checkAllLink" name="checkAllLink"
-                                         href="javascript:CheckAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnCheckAll"/></a> - <a href="javascript:ClearAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnClearAll"/></a>
+                                         href="javascript:CheckAll();"><fmt:message key="tickler.ticklerMain.btnCheckAll"/></a> - <a href="javascript:ClearAll();"><fmt:message key="tickler.ticklerMain.btnClearAll"/></a>
 
                         <input type="hidden" name="submit_form" value="">
                         <%
                             if (ticklerview.compareTo("D") == 0) {
                         %>
                         <input type="button" class="btn btn-secondary"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnEraseCompletely"/>" class="sbttn"
+                               value="<fmt:message key="tickler.ticklerMain.btnEraseCompletely"/>" class="sbttn"
                                onclick="document.forms['ticklerform'].submit_form.value='Erase Completely'; document.forms['ticklerform'].submit();">
                         <%
                         } else {
                         %>
-                        <input type="button" class="btn btn-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnComplete"/>"
+                        <input type="button" class="btn btn-secondary" value="<fmt:message key="tickler.ticklerMain.btnComplete"/>"
                                class="sbttn"
                                onclick="document.forms['ticklerform'].submit_form.value='Complete'; document.forms['ticklerform'].submit();">
                         <input type="button" class="btn btn-danger"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnDelete"/>" class="sbttn"
+                               value="<fmt:message key="tickler.ticklerMain.btnDelete"/>" class="sbttn"
                                onclick="document.forms['ticklerform'].submit_form.value='Delete'; document.forms['ticklerform'].submit();">
                         <%
                             }
                         %>
                         <input type="button" class="btn btn-primary"
-                               value="<fmt:setBundle basename='oscarResources'/><fmt:message key='tickler.ticklerMain.btnAddTickler'/>"
+                               value="<fmt:message key='tickler.ticklerMain.btnAddTickler'/>"
                                onClick="popupPage('500','800', 'ticklerAdd.jsp?updateParent=true&parentAjaxId=<%= Encode.forUriComponent(parentAjaxId != null ? parentAjaxId : "") %>&bFirstDisp=false&messageID=null&demographic_no=<%= Encode.forUriComponent(demoviewParam != null ? demoviewParam : "") %>')">
                         <%-- Back: tries opener reload (if opened as popup), then history back,
                              then window close as last resort. Matches search.jsp pattern. --%>
                         <input type="button" name="button" class="btn btn-secondary"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
+                               value="<fmt:message key="global.btnBack"/>"
                                onclick="try{if(window.opener&&!window.opener.closed){window.opener.location.reload();window.close();}else if(window.history.length>1){window.history.back();}else{window.close();}}catch(e){window.history.back();}"
                                >
                     </td>
@@ -929,7 +926,7 @@
                 <table style="width:100%;">
                     <tr>
                         <td>
-                            <label for="tickler_note"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.noteLabel"/></label>
+                            <label for="tickler_note"><fmt:message key="tickler.ticklerMain.noteLabel"/></label>
                             <textarea class="form-control" id="tickler_note" rows="5" name="tickler_note"
                                       style="width:100%;"
                                       oninput='this.style.height = "";this.style.height = this.scrollHeight + "px"'
@@ -938,23 +935,23 @@
                     </tr>
                     <tr>
                         <td nowrap="nowrap">
-                            <label for="tickler_note_obsDate"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.noteDate"/></label>
+                            <label for="tickler_note_obsDate"><fmt:message key="tickler.ticklerMain.noteDate"/></label>
                             <span id="tickler_note_obsDate"></span>
 
-                            <label for="tickler_note_revision_url"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.noteRev"/></label>
+                            <label for="tickler_note_revision_url"><fmt:message key="tickler.ticklerMain.noteRev"/></label>
                             <a id="tickler_note_revision_url" href="javascript:void(0)" onClick="">
                                 <span id="tickler_note_revision"></span>
                             </a>
 
-                            <label for="tickler_note_editor"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.noteEditor"/></label>
+                            <label for="tickler_note_editor"><fmt:message key="tickler.ticklerMain.noteEditor"/></label>
                             <span id="tickler_note_editor"></span>
                         </td>
                     </tr>
 
                 </table>
                 <div class="float-end">
-                    <button type="button" class="btn btn-primary" onclick="saveNoteDialog()"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.save"/></button>
-                    <button type="button" class="btn btn-danger" onclick="closeNoteDialog()"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/></button>
+                    <button type="button" class="btn btn-primary" onclick="saveNoteDialog()"><fmt:message key="global.save"/></button>
+                    <button type="button" class="btn btn-danger" onclick="closeNoteDialog()"><fmt:message key="global.btnCancel"/></button>
                 </div>
             </form>
         </div>

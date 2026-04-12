@@ -30,6 +30,7 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page import="io.github.carlos_emr.carlos.rx.data.*,java.util.*" %>
@@ -58,7 +59,7 @@
 <!DOCTYPE HTML>
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.title"/></title>
+        <title><fmt:message key="SelectPharmacy.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <jsp:include page="/images/spinner.jsp" flush="true"/>
 
@@ -547,9 +548,9 @@
             <table id="AutoNumber1">
                 <tr>
                     <th class="DivContentTitle">
-                        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.title"/>
+                        <h2><fmt:message key="SelectPharmacy.title"/>
                             <span style="font-size: small;">
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.nameText"/>
+						<fmt:message key="SearchDrug.nameText"/>
                         <%=surname%>, <%=firstName%>
                     </span>
                             <input type=button class="btn btn-secondary float-end" onclick="returnToRx();"
@@ -620,12 +621,12 @@
                                     <table id="pharmacyList" class="table table-sm table-striped"
                                            style="margin-top:5px;width:100%">
                                         <tr class="sticky-heading">
-                                            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.table.pharmacyName"/></th>
-                                            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.table.address"/></th>
-                                            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.table.city"/></th>
-                                            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.table.postalCode"/></th>
-                                            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.table.phone"/></th>
-                                            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.table.fax"/></th>
+                                            <th><fmt:message key="SelectPharmacy.table.pharmacyName"/></th>
+                                            <th><fmt:message key="SelectPharmacy.table.address"/></th>
+                                            <th><fmt:message key="SelectPharmacy.table.city"/></th>
+                                            <th><fmt:message key="SelectPharmacy.table.postalCode"/></th>
+                                            <th><fmt:message key="SelectPharmacy.table.phone"/></th>
+                                            <th><fmt:message key="SelectPharmacy.table.fax"/></th>
                                             <th></th>
                                             <th></th>
                                         </tr>
@@ -654,9 +655,9 @@
                                                                rights="w" reverse="false">
 
                                                 <td onclick="event.stopPropagation()"><a href="javascript:void(0)"
-                                                                                         onclick="editPharmacy(<%=ph.getId()%>);"><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.editLink"/></a></td>
+                                                                                         onclick="editPharmacy(<%=ph.getId()%>);"><fmt:message key="SelectPharmacy.editLink"/></a></td>
                                                 <td onclick="event.stopPropagation()"><a href="javascript:void(0)"
-                                                                                         class="deletePharm"><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.deleteLink"/></a></td>
+                                                                                         class="deletePharm"><fmt:message key="SelectPharmacy.deleteLink"/></a></td>
 
                                             </security:oscarSec>
                                         </tr>

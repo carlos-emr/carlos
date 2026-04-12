@@ -30,6 +30,7 @@
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ page
@@ -265,14 +266,14 @@
                                 <legend>Current Indications</legend>
                                 <table>
                                     <tr>
-                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectReason.table.codingSystem"/></th>
-                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectReason.table.code"/></th>
-                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectReason.table.description"/></th>
-                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectReason.table.comments"/></th>
-                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectReason.table.primaryReasonFlag"/></th>
-                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectReason.table.provider"/></th>
+                                        <th><fmt:message key="SelectReason.table.codingSystem"/></th>
+                                        <th><fmt:message key="SelectReason.table.code"/></th>
+                                        <th><fmt:message key="SelectReason.table.description"/></th>
+                                        <th><fmt:message key="SelectReason.table.comments"/></th>
+                                        <th><fmt:message key="SelectReason.table.primaryReasonFlag"/></th>
+                                        <th><fmt:message key="SelectReason.table.provider"/></th>
                                         <th>
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="SelectReason.table.dateCoded"/>
+                                                <fmt:message key="SelectReason.table.dateCoded"/>
                                         <th>
                                         <th>&nbsp;</th>
                                     </tr>

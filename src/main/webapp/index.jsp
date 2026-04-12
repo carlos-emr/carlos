@@ -33,6 +33,7 @@
 <%@ page import="io.github.carlos_emr.carlos.login.UAgentInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MfaManager" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri='jakarta.tags.core' prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ page contentType="text/html;charset=UTF-8" pageEncoding="UTF-8" session="false" %>
@@ -54,7 +55,7 @@
     <head>
         <%@ include file="/includes/global-head.jspf" %>
         <title>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.title"/>
+            <fmt:message key="loginApplication.title"/>
         </title>
 
         <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
@@ -610,14 +611,14 @@ body {
 
                     <!-- default text if logo is missing -->
                     <h2 id="default_logo" style="display:none;">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.formLabel"/>
+                        <fmt:message key="loginApplication.formLabel"/>
                     </h2>
                 </div>
 
                 <c:if test='${ param.login eq "failed" }'>
                     <c:set var="login_error" value="is-invalid" scope="page"/>
                     <div class="alert">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.formFailedLabel"/>
+                        <fmt:message key="loginApplication.formFailedLabel"/>
                     </div>
                 </c:if>
 
@@ -635,7 +636,7 @@ body {
                         <form action="login.do" method="POST" name="loginForm">
 
                             <div class="mb-3 ${ login_error }">
-                                <input type="text" name="username" id="username" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="Logon.userName"/>"
+                                <input type="text" name="username" id="username" placeholder="<fmt:message key="Logon.userName"/>"
                                        value="" size="15" maxlength="15" autocomplete="off"
                                        class="form-control" required>
                             </div>
@@ -694,9 +695,9 @@ body {
 
                         <c:if test="${ LoginResourceBean.acceptableUseAgreementManager.auaAvailable }">
     			            <span class="extrasmall">
-	                        	<fmt:setBundle basename="oscarResources"/><fmt:message key="global.aua"/> &nbsp;
+	                        	<fmt:message key="global.aua"/> &nbsp;
 	                        	<a href="javascript:void(0);" onclick="showHideItem('auaText');">
-	                        		<fmt:setBundle basename="oscarResources"/><fmt:message key="global.showhide"/>
+	                        		<fmt:message key="global.showhide"/>
 	                        	</a>
 	                        </span>
                         </c:if>
@@ -753,7 +754,7 @@ body {
     </div>
     <footer>
      	<span id="license" class="extrasmall">
-     		<fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.leftRmk2"/>
+     		<fmt:message key="loginApplication.leftRmk2"/>
      	</span>
     </footer>
 

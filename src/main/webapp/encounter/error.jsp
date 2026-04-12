@@ -30,18 +30,19 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.error.title"/></title>
+        <title><fmt:message key="encounter.error.title"/></title>
     </head>
     <body style="width: 600px">
-    <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.error.msgExpired"/></h2>
-    <p><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.error.msgSessionFailed"/>
+    <h2><fmt:message key="encounter.error.msgExpired"/></h2>
+    <p><fmt:message key="encounter.error.msgSessionFailed"/>
     <p><input type="button"
-              value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>" onclick="window.close();">
+              value="<fmt:message key="global.btnClose"/>" onclick="window.close();">
     </body>
 </html>

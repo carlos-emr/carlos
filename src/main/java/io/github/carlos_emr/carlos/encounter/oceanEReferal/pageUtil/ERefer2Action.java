@@ -158,7 +158,7 @@ public class ERefer2Action extends ActionSupport {
         response.setContentType("text/plain");
         response.setCharacterEncoding("UTF-8");
         try (PrintWriter writer = response.getWriter()) {
-            writer.write(eReferAttachment.getId().toString());
+            writer.write(eReferAttachment.getId().toString()); // nosemgrep: servletresponse-writer-xss -- text/plain response writing numeric database ID
         } catch (IOException e) {
             logger.error("Failed to write the eReferAttachment ID to the response", e);
         }

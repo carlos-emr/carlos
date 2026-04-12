@@ -35,12 +35,13 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicprintdemographic.title"/></title>
+        <title><fmt:message key="demographic.demographicprintdemographic.title"/></title>
         <script language="JavaScript">
             <!--
 
@@ -103,10 +104,10 @@
                     ,&nbsp;<%= Encode.forHtml(StringUtils.noNull(request.getParameter("first_name"))) %>&nbsp;<%= Encode.forHtml(StringUtils.noNull(request.getParameter("chart_no"))) %>
                 </b><br><%= Encode.forHtml(StringUtils.noNull(request.getParameter("address"))) %><br><%= Encode.forHtml(StringUtils.noNull(request.getParameter("city"))) %>
                     ,&nbsp;<%= Encode.forHtml(StringUtils.noNull(request.getParameter("province"))) %>,&nbsp;<%= Encode.forHtml(StringUtils.noNull(request.getParameter("postal"))) %><br>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgHome"/>:&nbsp;<%= Encode.forHtml(StringUtils.noNull(request.getParameter("phone"))) %>
+                    <fmt:message key="demographic.demographiclabelprintsetting.msgHome"/>:&nbsp;<%= Encode.forHtml(StringUtils.noNull(request.getParameter("phone"))) %>
                     <br><%= Encode.forHtml(StringUtils.noNull(request.getParameter("dob"))) %>&nbsp;<%= Encode.forHtml(StringUtils.noNull(request.getParameter("sex"))) %>
                     <br><%= Encode.forHtml(StringUtils.noNull(request.getParameter("hin"))) %><br>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgBus"/>:<%= Encode.forHtml(StringUtils.noNull(request.getParameter("phone2"))) %>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgDr"/>&nbsp;<%= Encode.forHtml(StringUtils.noNull(request.getParameter("providername"))) %>
+                    <fmt:message key="demographic.demographiclabelprintsetting.msgBus"/>:<%= Encode.forHtml(StringUtils.noNull(request.getParameter("phone2"))) %>&nbsp;<fmt:message key="demographic.demographiclabelprintsetting.msgDr"/>&nbsp;<%= Encode.forHtml(StringUtils.noNull(request.getParameter("providername"))) %>
                     <br>
                 </font></td>
             </tr>
@@ -175,12 +176,12 @@
     <div ID="blockDiv1"
          STYLE="position: absolute; visibility: visible; z-index: 2; left: 620px; top: 0px; width: 70px; height: 20px;">
         <input type="button" name="button"
-               value="<fmt:setBundle basename='oscarResources'/><fmt:message key='global.btnPrint'/>" onClick="window.print();">
+               value="<fmt:message key='global.btnPrint'/>" onClick="window.print();">
     </div>
     <div ID="blockDiv1"
          STYLE="position: absolute; visibility: visible; z-index: 2; left: 620px; top: 24px; width: 70px; height: 20px;">
         <input type="button" name="button"
-               value="<fmt:setBundle basename='oscarResources'/><fmt:message key='global.btnBack'/>"
+               value="<fmt:message key='global.btnBack'/>"
                onClick="javascript:history.go(-1);return false;"></div>
 
     </body>

@@ -34,6 +34,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%
@@ -57,12 +58,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/> - <fmt:message key="tickler.ticklerTextSuggest.textSuggestTitle"/></title>
+    <title><fmt:message key="global.tickler"/> - <fmt:message key="tickler.ticklerTextSuggest.textSuggestTitle"/></title>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
     <script type="application/javascript">
         function setEmpty(selectbox) {
-            var emptyTxt = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.empty"/>";
+            var emptyTxt = "<fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.empty"/>";
             var emptyVal = "0";
             var op = document.createElement("option");
             try {
@@ -149,15 +150,15 @@
 </head>
 <body>
 <div class="container">
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/> <fmt:message key="tickler.ticklerTextSuggest.textSuggestTitle"/></h3>
+    <h3><fmt:message key="global.tickler"/> <fmt:message key="tickler.ticklerTextSuggest.textSuggestTitle"/></h3>
     <form action="${pageContext.request.contextPath}/tickler/EditTicklerTextSuggest.do" method="post">
         <input type="hidden" name="method" value="updateTextSuggest">
         <table style="display: flex;justify-content: space-evenly;align-items: stretch;">
 
             <tr>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.activeText"/></th>
+                <th><fmt:message key="tickler.ticklerTextSuggest.activeText"/></th>
                 <th></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.inactiveText"/></th>
+                <th><fmt:message key="tickler.ticklerTextSuggest.inactiveText"/></th>
             </tr>
             <tr>
                 <td style="vertical-align: top">
@@ -209,13 +210,13 @@
             </tr>
             <tr>
                 <td colspan="3">
-                    <label for="newTextSuggest"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.enterText"/>:</label>
+                    <label for="newTextSuggest"><fmt:message key="tickler.ticklerTextSuggest.enterText"/>:</label>
                     <div class="input-group">
                         <input id="newTextSuggest" class="form-control" name="newTextSuggest" type="text"
                                maxlength="100"/>
                         <div class="input-group">
                             <input type="button" class="btn btn-secondary" name="addNewTextSuggest"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.addText"/>"
+                                   value="<fmt:message key="tickler.ticklerTextSuggest.addText"/>"
                                    onclick="addToList('activeText','newTextSuggest')"/>
                         </div>
                     </div>
@@ -225,10 +226,10 @@
                 <td colspan="3">
                     <div class="mb-3 float-end">
                         <input type="button" class="btn btn-primary" name="saveTextChanges"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.save"/>"
+                               value="<fmt:message key="tickler.ticklerTextSuggest.save"/>"
                                onclick="doSelect('activeText');doSelect('inactiveText');this.form.submit();"/>
                         <input type="button" class="btn btn-secondary" name="cancelTextChanges"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
+                               value="<fmt:message key="global.btnBack"/>"
                                onclick="window.close()"/>
                     </div>
                 </td>

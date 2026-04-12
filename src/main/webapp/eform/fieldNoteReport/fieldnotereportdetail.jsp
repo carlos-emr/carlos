@@ -36,6 +36,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     String residentId = request.getParameter("residentId");
@@ -94,7 +95,7 @@
 %>
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.report"/></title>
+        <title><fmt:message key="admin.fieldNote.report"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
         <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/eformStyle.css">
         <style>
@@ -107,7 +108,7 @@
     </head>
 
     <body>
-    <div class="eformInputHeading" align="center"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.report"/></div>
+    <div class="eformInputHeading" align="center"><fmt:message key="admin.fieldNote.report"/></div>
 
     <% if ("download".equals(method)) { //if-start
     %>
@@ -219,7 +220,7 @@
     <table width="100%">
         <tr>
             <td valign="top">
-                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.close"/>" onclick="window.close();"/>
+                <input type="button" value="<fmt:message key="admin.fieldNote.close"/>" onclick="window.close();"/>
             </td>
             <td>
                 <table>
@@ -382,7 +383,7 @@
     </table>
     <br/>
 
-    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.close"/>" onclick="window.close();"/>
+    <input type="button" value="<fmt:message key="admin.fieldNote.close"/>" onclick="window.close();"/>
     <% } //if-end
     %>
 

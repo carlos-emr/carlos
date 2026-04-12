@@ -82,6 +82,7 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib prefix="e" uri="owasp.encoder.jakarta" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -90,7 +91,6 @@
     boolean authed = true;
 %>
 
-<fmt:setBundle basename="oscarResources"/>
 
 <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="w" reverse="<%=true%>">
     <%authed = false; %>
@@ -593,7 +593,7 @@
                         <input name="xml_appointment_date" class="form-control" id="xml_appointment_date" type="date"
                                maxlength="10" value="<%=strDate%>"/>
 
-                        <div id="todayButton" class="today-button mt-2" onclick="addTime(0, 'days')"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerEdit.btnToday"/></div>
+                        <div id="todayButton" class="today-button mt-2" onclick="addTime(0, 'days')"><fmt:message key="tickler.ticklerEdit.btnToday"/></div>
                         <div id="quickPickDateOptions" class="grid"></div>
                     </div>
                 </div>
@@ -610,7 +610,7 @@
                 <input type="button" class="btn btn-primary" name="updateTickler"
                        value="<fmt:message key="tickler.ticklerEdit.update"/>" onClick="validate(this.form)"/>
                 <input type="button" class="btn btn-secondary" name="cancelChangeTickler"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>" onClick="window.close()"/>
+                       value="<fmt:message key="global.btnBack"/>" onClick="window.close()"/>
             </div>
         </form>
     </div>

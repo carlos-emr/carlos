@@ -53,6 +53,7 @@
         import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.carlos.commn.OtherIdManager,io.github.carlos_emr.carlos.demographic.data.*,java.text.SimpleDateFormat,io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.event.EventService" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
@@ -77,7 +78,7 @@
         <table border="0" cellspacing="0" cellpadding="0" width="90%">
             <tr bgcolor="#486ebd">
                 <th align="CENTER"><font face="Helvetica" color="#FFFFFF">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgMainLabel"/></font></th>
+                    <fmt:message key="appointment.addappointment.msgMainLabel"/></font></th>
             </tr>
         </table>
         <%
@@ -132,7 +133,7 @@
             if (rowsAffected == 1) {
         %>
         <p>
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgAddSuccess"/></h1>
+        <h1><fmt:message key="appointment.addappointment.msgAddSuccess"/></h1>
 
         <script LANGUAGE="JavaScript">
             self.opener.refresh();
@@ -156,7 +157,7 @@
         } else {
         %>
         <p>
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgAddFailure"/></h1>
+        <h1><fmt:message key="appointment.addappointment.msgAddFailure"/></h1>
 
         <%
             }
@@ -164,7 +165,7 @@
         <p></p>
         <hr width="90%"/>
         <form>
-            <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>" onClick="window.close();">
+            <input type="button" value="<fmt:message key="global.btnClose"/>" onClick="window.close();">
         </form>
     </center>
     </body>

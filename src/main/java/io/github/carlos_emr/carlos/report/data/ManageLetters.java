@@ -122,12 +122,13 @@ public class ManageLetters {
 
         if (r != null) {
             try {
+                // nosemgrep: no-direct-response-writer -- binary report file bytes written to stream, not HTML response
                 out.write(r.getReportFile(), 0, r.getReportFile().length);
             } catch (IOException e) {
                 logger.error("Error", e);
             }
         } else {
-            logger.error("Could not find letter for id: {}", LogSanitizer.sanitize(id));
+            logger.error("Could not find letter for id: {}", LogSanitizer.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         }
 
     }

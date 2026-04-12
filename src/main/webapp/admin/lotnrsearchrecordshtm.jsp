@@ -30,6 +30,7 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs" %>
@@ -62,7 +63,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchrecordshtm.title"/></title>
+        <title><fmt:message key="admin.lotnrsearchrecordshtm.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
         <script LANGUAGE="JavaScript">
             <!--
@@ -92,7 +93,7 @@
     <center>
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">
-                <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchrecordshtm.description"/></font></th>
+                <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.lotnrsearchrecordshtm.description"/></font></th>
             </tr>
         </table>
 
@@ -103,10 +104,10 @@
                   onsubmit="return onsub();">
                 <tr valign="top">
                     <td rowspan="2" align="right" valign="middle"><font
-                            face="Verdana" color="#0000FF"><b><i><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.search.formSearchCriteria"/></i></b></font></td>
+                            face="Verdana" color="#0000FF"><b><i><fmt:message key="admin.search.formSearchCriteria"/></i></b></font></td>
                     <td nowrap><font size="1" face="Verdana" color="#0000FF">
                         <input type="radio" checked name="search_mode" value="search_prev"
-                               onclick="document.forms['searchlotnr'].keyword.focus();"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearch.prevention"/></font></td>
+                               onclick="document.forms['searchlotnr'].keyword.focus();"><fmt:message key="admin.lotnrsearch.prevention"/></font></td>
 
 
                     <td valign="middle" rowspan="2" ALIGN="left"><input type="text"
@@ -117,12 +118,12 @@
                                 TYPE="hidden" NAME="limit2" VALUE="10"> <INPUT
                                 TYPE="SUBMIT" NAME="button"
                                 VALUE=
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearch.btnSubmit"/> SIZE="17"></td>
+                                    <fmt:message key="admin.lotnrsearch.btnSubmit"/> SIZE="17"></td>
                 </tr>
             </form>
         </table>
 
-        <p><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearchrecordshtm.msgInstructions"/></p>
+        <p><fmt:message key="admin.providersearchrecordshtm.msgInstructions"/></p>
 
     </center>
     </body>

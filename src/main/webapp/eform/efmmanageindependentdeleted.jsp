@@ -47,13 +47,14 @@
     else orderBy = orderByRequest;
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
 <html>
 
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.title"/></title>
+        <title><fmt:message key="eform.showmyform.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css">
         <link rel="stylesheet" href="<%= request.getContextPath() %>/css/fontawesome-all.min.css">
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
@@ -103,11 +104,11 @@
 
 
     <div class="card card-body bg-body-tertiary">
-        <h3 style="display:inline"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.frmIndependent"/>s</h3> <i
+        <h3 style="display:inline"><fmt:message key="admin.admin.frmIndependent"/>s</h3> <i
             class="fa-solid fa-circle-question"></i>
 
         <p>View: <a href="<%=request.getContextPath()%>/eform/efmmanageindependent.jsp"
-                    class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.independent.btnCurrent"/></a> | <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.independent.btnDeleted"/></p>
+                    class="contentLink"><fmt:message key="eform.independent.btnCurrent"/></a> | <fmt:message key="eform.independent.btnDeleted"/></p>
 
         <table id="scrollNumber1" name="encounterTable" class="table table-sm table-striped">
             <thead>
@@ -115,28 +116,28 @@
                 <th>
                     <a href="<%=request.getContextPath()%>/eform/efmmanageindependent.jsp?orderby=<%=EFormUtil.NAME%>"
                        class="contentLink">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.btnFormName"/>
+                        <fmt:message key="eform.showmyform.btnFormName"/>
                     </a>
                 </th>
                 <th>
                     <a href="<%=request.getContextPath()%>/eform/efmmanageindependent.jsp?orderby=<%=EFormUtil.SUBJECT%>"
                        class="contentLink">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.btnSubject"/>
+                        <fmt:message key="eform.showmyform.btnSubject"/>
                     </a>
                 </th>
                 <th>
                     <a href="<%=request.getContextPath()%>/eform/efmmanageindependent.jsp?orderby=<%=EFormUtil.PROVIDER%>"
                        class="contentLink">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.btnFormProvider"/>
+                        <fmt:message key="eform.showmyform.btnFormProvider"/>
                     </a>
                 </th>
                 <th>
                     <a href="<%=request.getContextPath()%>/eform/efmmanageindependent.jsp" class="contentLink">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.formDate"/>
+                        <fmt:message key="eform.showmyform.formDate"/>
                     </a>
                 </th>
                 <th>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgAction"/>
+                    <fmt:message key="eform.showmyform.msgAction"/>
                 </th>
             </tr>
             </thead>
@@ -152,8 +153,8 @@
             <tr bgcolor="<%=((i % 2) == 1)?"#F2F2F2":"white"%>">
                 <td><a href="#"
                        ONCLICK="popupPage('<%=request.getContextPath()%>/eform/efmshowform_data.jsp?fdid=<%=curform.get("fdid")%>', '<%="FormP" + i%>'); return false;"
-                       TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgViewFrm"/>"
-                       onmouseover="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%=curform.get("formName")%>
+                       TITLE="<fmt:message key="eform.showmyform.msgViewFrm"/>"
+                       onmouseover="window.status='<fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%=curform.get("formName")%>
                 </a></td>
                 <td><%=curform.get("formSubject")%>
                 </td>
@@ -164,7 +165,7 @@
                 <td align='center'>
                     <a href="javascript:void(0);"
                        onClick="if(confirm('Are you sure you want to restore this eform?')){unRemoveIndependent('<%=curform.get("fdid")%>');}"
-                       class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnRestore"/></a>
+                       class="contentLink"><fmt:message key="global.btnRestore"/></a>
                 </td>
             </tr>
             <%
@@ -173,7 +174,7 @@
             %>
             <tr>
                 <td align='center' colspan='5'>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgNoData"/>
+                    <fmt:message key="eform.showmyform.msgNoData"/>
                 </td>
             </tr>
             <%

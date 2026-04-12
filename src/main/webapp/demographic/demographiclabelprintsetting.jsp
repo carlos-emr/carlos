@@ -60,6 +60,7 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%
@@ -74,7 +75,7 @@
 
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.title"/></title>
+        <title><fmt:message key="demographic.demographiclabelprintsetting.title"/></title>
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <!-- Bootstrap -->
 
@@ -109,7 +110,7 @@
         </script>
     </head>
     <body onLoad="setfocus()">
-    <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgMainLabel"/></h4>
+    <h4><fmt:message key="demographic.demographiclabelprintsetting.msgMainLabel"/></h4>
 
     <%
         GregorianCalendar now = new GregorianCalendar();
@@ -125,7 +126,7 @@
         Demographic demo = demographicDao.getDemographic(demoNo);
         if (demo == null) {
     %>
-    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgFailed"/>
+    <fmt:message key="demographic.demographiclabelprintsetting.msgFailed"/>
     <%
         } else {
             ProviderData provider = providerDao.findByProviderNo(demo.getProviderNo());
@@ -166,9 +167,9 @@
         <div class="card card-body bg-body-tertiary">
             <table style="width:100%">
                 <tr style="text-align:center">
-                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgLabel"/></th>
-                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgNumeberOfLabel"/></th>
-                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgLocation"/>
+                    <th><fmt:message key="demographic.demographiclabelprintsetting.msgLabel"/></th>
+                    <th><fmt:message key="demographic.demographiclabelprintsetting.msgNumeberOfLabel"/></th>
+                    <th><fmt:message key="demographic.demographiclabelprintsetting.msgLocation"/>
                         <input type="hidden" name="address" value="<%=Encode.forHtmlAttribute(address)%>">
                         <input type="hidden" name="chart_no" value="<%=Encode.forHtmlAttribute(chart_no)%>">
                         <input type="hidden" name="city" value="<%=Encode.forHtmlAttribute(city)%>">
@@ -202,46 +203,46 @@
                         </table>
                     </td>
                     <td style="text-align:center; background-color:#CCCCCC"><a href="#" onClick="onNewPatient()">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.btnNewPatientLabel"/></a><br><br>
+                        <fmt:message key="demographic.demographiclabelprintsetting.btnNewPatientLabel"/></a><br><br>
                         <input type="checkbox" name="label1checkbox" value="checked">
                         <input type="text" name="label1no" size="2" maxlength="2"
                                value="<%= oscarVariables.getProperty("label.1no","1") %>"/>
                     </td>
                     <td rowspan=5 style="vertical-align:middle; background-color:#999999;">
                         <div class="mb-3">
-                            <label class="form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.formLeft"/>:</label>
+                            <label class="form-label"><fmt:message key="demographic.demographiclabelprintsetting.formLeft"/>:</label>
                             <div>
                                 <input type="text" class="form-control form-control-sm d-inline-block w-auto" name="left"
-                                       placeholder="<fmt:setBundle basename='oscarResources'/><fmt:message key='demographic.demographiclabelprintsetting.msgPx'/>"
+                                       placeholder="<fmt:message key='demographic.demographiclabelprintsetting.msgPx'/>"
                                        maxlength="3" value="<%= oscarVariables.getProperty("label.left","200") %>">&nbsp;
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgPx"/>
+                                <fmt:message key="demographic.demographiclabelprintsetting.msgPx"/>
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.formTop"/>:</label>
+                            <label class="form-label"><fmt:message key="demographic.demographiclabelprintsetting.formTop"/>:</label>
                             <div>
                                 <input type="text" class="form-control form-control-sm d-inline-block w-auto" name="top" maxlength="3"
                                        value="<%= oscarVariables.getProperty("label.top","0")%>"
-                                       placeholder="<fmt:setBundle basename='oscarResources'/><fmt:message key='demographic.demographiclabelprintsetting.msgPx'/>">&nbsp;
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgPx"/>
+                                       placeholder="<fmt:message key='demographic.demographiclabelprintsetting.msgPx'/>">&nbsp;
+                                <fmt:message key="demographic.demographiclabelprintsetting.msgPx"/>
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.formHeight"/>:</label>
+                            <label class="form-label"><fmt:message key="demographic.demographiclabelprintsetting.formHeight"/>:</label>
                             <div>
                                 <input type="text" class="form-control form-control-sm d-inline-block w-auto" name="height" maxlength="3"
                                        value="<%= oscarVariables.getProperty("label.height","145")%>"
-                                       placeholder="<fmt:setBundle basename='oscarResources'/><fmt:message key='demographic.demographiclabelprintsetting.msgPx'/>">&nbsp;
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgPx"/>
+                                       placeholder="<fmt:message key='demographic.demographiclabelprintsetting.msgPx'/>">&nbsp;
+                                <fmt:message key="demographic.demographiclabelprintsetting.msgPx"/>
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.formGap"/>:</label>
+                            <label class="form-label"><fmt:message key="demographic.demographiclabelprintsetting.formGap"/>:</label>
                             <div>
                                 <input type="text" class="form-control form-control-sm d-inline-block w-auto" name="gap" size="3" maxlength="3"
                                        value="<%= oscarVariables.getProperty("label.gap","0")%>"
-                                       placeholder="<fmt:setBundle basename='oscarResources'/><fmt:message key='demographic.demographiclabelprintsetting.msgPx'/>">&nbsp;
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgPx"/>
+                                       placeholder="<fmt:message key='demographic.demographiclabelprintsetting.msgPx'/>">&nbsp;
+                                <fmt:message key="demographic.demographiclabelprintsetting.msgPx"/>
                             </div>
                         </div>
                     </td>
@@ -253,9 +254,9 @@
                                 <td style="border: solid 1px; background-color: white;">
 				<span id="copytext2"
                       class="copytext"> <b><%=Encode.forHtml(last_name)%>,&nbsp;<%=Encode.forHtml(first_name)%>&nbsp;<%=Encode.forHtml(chart_no)%></b><br><%=Encode.forHtml(address)%><br><%=Encode.forHtml(city)%>,&nbsp;<%=Encode.forHtml(province)%>,&nbsp;<%=Encode.forHtml(postal)%><br>
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgHome"/>:&nbsp;<%=Encode.forHtml(phone)%><br><%=Encode.forHtml(dob)%>&nbsp;<%=Encode.forHtml(sex)%><br><%=Encode.forHtml(hin)%><br>
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgBus"/>:<%=phone2Display%>&nbsp;
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgDr"/>&nbsp;<%=Encode.forHtml(providername)%><br>
+				<fmt:message key="demographic.demographiclabelprintsetting.msgHome"/>:&nbsp;<%=Encode.forHtml(phone)%><br><%=Encode.forHtml(dob)%>&nbsp;<%=Encode.forHtml(sex)%><br><%=Encode.forHtml(hin)%><br>
+				<fmt:message key="demographic.demographiclabelprintsetting.msgBus"/>:<%=phone2Display%>&nbsp;
+				<fmt:message key="demographic.demographiclabelprintsetting.msgDr"/>&nbsp;<%=Encode.forHtml(providername)%><br>
 				</span></td>
                             </tr>
                         </table>
@@ -317,9 +318,9 @@
                 <tr>
                     <td style="text-align:left" colspan="3"><br><input type="submit" name="Submit"
                                                                        class="btn btn-primary"
-                                                                       value="<fmt:setBundle basename='oscarResources'/><fmt:message key='demographic.demographiclabelprintsetting.btnPrintPreviewPrint'/>">
+                                                                       value="<fmt:message key='demographic.demographiclabelprintsetting.btnPrintPreviewPrint'/>">
                         <input type="button" class="btn btn-link" name="button"
-                               value="<fmt:setBundle basename='oscarResources'/><fmt:message key='global.btnBack'/>"
+                               value="<fmt:message key='global.btnBack'/>"
                                onClick="window.close();"></td>
                 </tr>
             </table>

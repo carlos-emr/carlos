@@ -29,6 +29,7 @@
 
 --%>
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}"
        scope="request"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -65,7 +66,7 @@
 
 <div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.serverLog"/>
+        <fmt:message key="admin.admin.serverLog"/>
     </h4>
 </div>
 

@@ -164,7 +164,7 @@ public class EctDisplayAction extends ActionSupport {
             bean.appointmentNo = apptNoParam;
             bean.curProviderNo = request.getParameter("curProviderNo");
             if (bean.curProviderNo != null && !bean.curProviderNo.isEmpty() && !bean.curProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
-                logger.warn("Invalid curProviderNo rejected, falling back to logged-in provider: {}", LogSanitizer.sanitize(bean.curProviderNo));
+                logger.warn("Invalid curProviderNo rejected, falling back to logged-in provider: {}", LogSanitizer.sanitize(bean.curProviderNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 bean.curProviderNo = null;
             }
             // Fall back to authenticated provider — the logged-in user IS the provider unless viewing another provider's schedule
@@ -180,7 +180,7 @@ public class EctDisplayAction extends ActionSupport {
             bean.reason = reasonParam;
             String encTypeParam = request.getParameter("encType");
             if (encTypeParam != null && !encTypeParam.matches("[a-zA-Z0-9_ ]{1,50}")) {
-                logger.warn("Rejected invalid encType at trust boundary: {}", LogSanitizer.sanitize(encTypeParam));
+                logger.warn("Rejected invalid encType at trust boundary: {}", LogSanitizer.sanitize(encTypeParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 encTypeParam = null;
             }
             bean.encType = encTypeParam;
@@ -194,32 +194,32 @@ public class EctDisplayAction extends ActionSupport {
 
             String apptDateParam = request.getParameter("appointmentDate");
             if (apptDateParam != null && !SAFE_DATE.matcher(apptDateParam).matches()) {
-                logger.warn("Rejected invalid appointmentDate at trust boundary: {}", LogSanitizer.sanitize(apptDateParam));
+                logger.warn("Rejected invalid appointmentDate at trust boundary: {}", LogSanitizer.sanitize(apptDateParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 apptDateParam = null;
             }
             bean.appointmentDate = apptDateParam;
             String startTimeParam = request.getParameter("startTime");
             if (startTimeParam != null && !SAFE_TIME.matcher(startTimeParam).matches()) {
-                logger.warn("Rejected invalid startTime at trust boundary: {}", LogSanitizer.sanitize(startTimeParam));
+                logger.warn("Rejected invalid startTime at trust boundary: {}", LogSanitizer.sanitize(startTimeParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 startTimeParam = null;
             }
             bean.startTime = startTimeParam;
             String statusParam = request.getParameter("status");
             if (statusParam != null && !SAFE_STATUS.matcher(statusParam).matches()) {
-                logger.warn("Rejected invalid status at trust boundary: {}", LogSanitizer.sanitize(statusParam));
+                logger.warn("Rejected invalid status at trust boundary: {}", LogSanitizer.sanitize(statusParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 statusParam = null;
             }
             bean.status = statusParam;
             String dateParam = request.getParameter("date");
             if (dateParam != null && !SAFE_DATE.matcher(dateParam).matches()) {
-                logger.warn("Rejected invalid date at trust boundary: {}", LogSanitizer.sanitize(dateParam));
+                logger.warn("Rejected invalid date at trust boundary: {}", LogSanitizer.sanitize(dateParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 dateParam = null;
             }
             bean.date = dateParam;
             bean.check = "myCheck";
             bean.oscarMsgID = request.getParameter("msgId");
             if (bean.oscarMsgID != null && !bean.oscarMsgID.matches("\\d+")) {
-                logger.warn("Invalid msgId: {}", LogSanitizer.sanitize(bean.oscarMsgID));
+                logger.warn("Invalid msgId: {}", LogSanitizer.sanitize(bean.oscarMsgID)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 bean.oscarMsgID = null;
             }
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));

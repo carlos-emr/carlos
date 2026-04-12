@@ -216,7 +216,7 @@ public class TicklerHandler {
             for (int i = 0; i < parts.length; i++) {
                 String part = parts[i].trim();
                 if (part.isEmpty()) {
-                    MiscUtils.getLogger().error("Empty token in demographic list at index {}: {}", i, LogSanitizer.sanitize(demographicIds));
+                    MiscUtils.getLogger().error("Empty token in demographic list at index {}: {}", i, LogSanitizer.sanitize(demographicIds)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     return false;
                 }
                 demographicArray[i] = Integer.parseInt(part);

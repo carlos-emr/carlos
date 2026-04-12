@@ -41,6 +41,8 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -57,11 +59,15 @@ public class BillingreferralEdit2Action extends ActionSupport {
 
 
     private ProfessionalSpecialistDao psDao = SpringUtils.getBean(ProfessionalSpecialistDao.class);
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public String execute() throws Exception {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "r", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
         String method = request.getParameter("method");
         if ("searchByNo".equals(method)) {
             return searchByNo();
@@ -129,6 +135,9 @@ public class BillingreferralEdit2Action extends ActionSupport {
     }
 
     public String modifyBatch() throws IOException {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing write)");
+        }
         String referralId = request.getParameter("id");
         String checked = request.getParameter("checked");
         String clear = request.getParameter("clear");
@@ -168,7 +177,7 @@ public class BillingreferralEdit2Action extends ActionSupport {
         ArrayNode arr = objectMapper.valueToTree(checkedSpecs);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().print(arr);
+        response.getWriter().print(arr); // nosemgrep: no-direct-response-writer -- JSON API response with application/json content-type
 
         return null;
     }

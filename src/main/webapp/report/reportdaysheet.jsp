@@ -30,6 +30,7 @@
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
@@ -110,7 +111,7 @@
 <html>
     <head>
         <%@ include file="/includes/global-head.jspf" %>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.title"/></title>
+        <title><fmt:message key="report.reportdaysheet.title"/></title>
         <!-- Prototype.js removed — using vanilla JS (Phase 1c migration) -->
 
         <script language="JavaScript">
@@ -160,16 +161,16 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:text-bottom">
                     <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5z"/>
                 </svg>
-                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgMainLabel"/>
+                &nbsp;<fmt:message key="report.reportdaysheet.msgMainLabel"/>
             </h4>
             <span style="margin-left:15px;">
                 <input type="checkbox" onclick="hideOnSource();" id="onlySelfBooked"/>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgSelfBookedCheck"/>
+                <fmt:message key="report.reportdaysheet.msgSelfBookedCheck"/>
             </span>
             <span style="float:right;">
                 <span style="margin-right:10px; font-size:12px; color:#888;"><%=createtime%></span>
-                <input type="button" class="btn btn-sm btn-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.btnPrint"/>" onClick="window.print()">
-                <input type="button" class="btn btn-sm btn-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/>" onClick="window.close()">
+                <input type="button" class="btn btn-sm btn-secondary" value="<fmt:message key="report.reportdaysheet.btnPrint"/>" onClick="window.print()">
+                <input type="button" class="btn btn-sm btn-secondary" value="<fmt:message key="global.btnExit"/>" onClick="window.close()">
             </span>
         </div>
 
@@ -265,20 +266,20 @@
     <table class="table table-sm table-bordered table-striped" style="font-size:13px; margin-bottom:0;">
         <thead>
         <tr>
-            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=start_time<%= encodedDsmode %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgAppointmentTime"/></a></th>
-            <th style="width:15%"><a href="<%=sortBaseUrl%>&orderby=name<%= encodedDsmode %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgPatientLastName"/></a></th>
+            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=start_time<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgAppointmentTime"/></a></th>
+            <th style="width:15%"><a href="<%=sortBaseUrl%>&orderby=name<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgPatientLastName"/></a></th>
             <th style="width:10%"><a href="<%=sortBaseUrl%>&orderby=phone<%= encodedDsmode %>">Phone</a></th>
             <th style="width:3%"><a href="<%=sortBaseUrl%>&orderby=sex<%= encodedDsmode %>">Gender</a></th>
             <th style="width:9%"><a href="<%=sortBaseUrl%>&orderby=hin<%= encodedDsmode %>">Health Card</a></th>
             <th style="width:5%"><a href="<%=sortBaseUrl%>&orderby=ver<%= encodedDsmode %>">Version</a></th>
-            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=chart_no<%= encodedDsmode %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgChartNo"/></a></th>
+            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=chart_no<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgChartNo"/></a></th>
             <% if (!bDob) {%>
-            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=roster_status<%= encodedDsmode %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgRosterStatus"/></a></th>
+            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=roster_status<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgRosterStatus"/></a></th>
             <% } else {%>
             <th style="width:10%">DOB</th>
             <% }%>
-            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgBookingStatus"/></th>
-            <th style="width:30%"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgComments"/></th>
+            <th><fmt:message key="report.reportdaysheet.msgBookingStatus"/></th>
+            <th style="width:30%"><fmt:message key="report.reportdaysheet.msgComments"/></th>
         </tr>
         </thead>
         <tbody>
@@ -305,7 +306,7 @@
                 <%if (rsdemo.getString("bookingSource") == null) {%>
                 &nbsp;
                 <%} else {%>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgSelfBooked"/>
+                <fmt:message key="report.reportdaysheet.msgSelfBooked"/>
                 <%}%>
             </td>
             <td>

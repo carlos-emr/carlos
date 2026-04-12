@@ -46,6 +46,7 @@
 
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.data.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <link rel="stylesheet" type="text/css"
@@ -56,18 +57,18 @@
     </script>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> - <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgEditMyFavorite"/></title>
+        <title><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> - <fmt:message key="oscarReport.RptByExample.MsgEditMyFavorite"/></title>
     </head>
 
     <body vlink="#0000FF" class="BodyStyle">
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <form action="${pageContext.request.contextPath}/oscarReport/RptByExamplesFavorite.do" method="post">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.CDMReport.msgReport"/></td>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="oscarReport.CDMReport.msgReport"/></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> - <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgEditMyFavorite"/></td>
+                        <td><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> - <fmt:message key="oscarReport.RptByExample.MsgEditMyFavorite"/></td>
                     </tr>
                 </table>
             </td>
@@ -85,7 +86,7 @@
                     <tr>
                         <td><input type="button" value="Add" onclick="submit();"/> <input
                                 type="button"
-                                value="<fmt:setBundle basename='oscarResources'/><fmt:message key='oscarReport.RptByExample.MsgCancel'/>"
+                                value="<fmt:message key='oscarReport.RptByExample.MsgCancel'/>"
                                 onclick="javascript:history.back(1);"/></td>
                     </tr>
                     <tr></tr>

@@ -30,6 +30,7 @@
 --%>
 
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.Properties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Contact" %>
 <%
@@ -208,7 +209,7 @@
             <tr>
                 <td align="center" bgcolor="#CCCCFF" colspan="2">
                     <input type="button" name="Edit" value="Edit" onclick="edit()">
-                    <input type="button" name="Cancel" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnExit"/>"
+                    <input type="button" name="Cancel" value="<fmt:message key="admin.resourcebaseurl.btnExit"/>"
                            onClick="window.close()">
                 </td>
             </tr>

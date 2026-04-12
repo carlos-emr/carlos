@@ -179,11 +179,11 @@ public class EctIncomingEncounter2Action extends ActionSupport {
                 String selectClientmo = request.getParameter("selectId");
                 String lastId = request.getParameter("noteId");
                 if (selectClientmo == null || !selectClientmo.matches("\\d{1,9}")) {
-                    log.warn("Invalid selectId for PEAttach: {}", LogSanitizer.sanitize(selectClientmo));
+                    log.warn("Invalid selectId for PEAttach: {}", LogSanitizer.sanitize(selectClientmo)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     return "failure";
                 }
                 if (lastId == null || !lastId.matches("\\d{1,9}")) {
-                    log.warn("Invalid noteId for PEAttach: {}", LogSanitizer.sanitize(lastId));
+                    log.warn("Invalid noteId for PEAttach: {}", LogSanitizer.sanitize(lastId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     return "failure";
                 }
                 CaseManagementNote note = caseManagementNoteDao.getNote(Long.parseLong(lastId));
