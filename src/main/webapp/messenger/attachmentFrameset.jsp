@@ -49,13 +49,14 @@
   @since 2003
 --%>
 
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-
-
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+
 <!DOCTYPE html>
-<html>
+<html lang="${pageContext.request.locale.language}">
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <%
