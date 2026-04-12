@@ -281,12 +281,12 @@
 
                 <input type="checkbox" id="${id}" name="issueCheckList[${status.index}].checked" ${disabled ? 'disabled="disabled"' : ''}/>
 
-                <a href="#" onclick="return displayIssue('${winame}');">
+                <a href="#" onclick="return displayIssue('${e:forJavaScript(winame)}');">
                     <c:out value="${issueCheckList.issueDisplay.description}" />
                 </a>
 
                 <c:if test="${issueCheckList.used == false}">
-                    <c:set var="submitDelete" value="removeIssue('${winame}');document.forms['caseManagementEntryForm'].deleteId.value='${status.index}';return ajaxUpdateIssues('issueDelete', $('noteIssues').up().id);" />
+                    <c:set var="submitDelete" value="removeIssue('${e:forJavaScript(winame)}');document.forms['caseManagementEntryForm'].deleteId.value='${status.index}';return ajaxUpdateIssues('issueDelete', $('noteIssues').up().id);" />
                     &nbsp;
                     <a href="#" onclick="${submitDelete}">Delete</a>&nbsp;
                 </c:if>
@@ -296,7 +296,7 @@
                 &nbsp;
                 <a href="#" onclick="${submitChange}">Change</a>
 
-                <div id="${winame}" style="margin-left: 20px; display: none;">
+                <div id="${e:forHtmlAttribute(winame)}" style="margin-left: 20px; display: none;">
                     <div>
                         <div style="width: 50%; float: left; display: inline;">
                             <input type="radio" name="issueCheckList[${status.index}].issue.acute" value="true" onchange="${submitString}"> acute
@@ -351,7 +351,6 @@
         <c:set var="winame" value="${fn:replace(winame, '/', '_')}" />
         <c:set var="winame" value="${fn:replace(winame, '*', '_')}" />
         <c:set var="winame" value="${fn:replace(winame, \"'\", '')}" />
-        <c:set var="winame" value="${e:forHtml(winame)}" />
         <c:set var="countUnresolvedIssue" value="${status.index + 1}" />
 
         <c:if test="${countUnresolvedIssue % 2 == 0}">
@@ -367,12 +366,12 @@
 
             <input type="checkbox" id="${id}" name="issueCheckList[${status.index}].checked" ${disabled ? 'disabled="disabled"' : ''} />
 
-            <a href="#" onclick="return displayIssue('${winame}');">
+            <a href="#" onclick="return displayIssue('${e:forJavaScript(winame)}');">
                 ${issueCheckList.issueDisplay.description}
             </a>
 
             <c:if test="${issueCheckList.used == false}">
-                <c:set var="submitDelete" value="removeIssue('${winame}');document.forms['caseManagementEntryForm'].deleteId.value='${status.index}';return ajaxUpdateIssues('issueDelete', $('noteIssues').up().id);" />
+                <c:set var="submitDelete" value="removeIssue('${e:forJavaScript(winame)}');document.forms['caseManagementEntryForm'].deleteId.value='${status.index}';return ajaxUpdateIssues('issueDelete', $('noteIssues').up().id);" />
                 &nbsp;
                 <a href="#" onclick="${submitDelete}">Delete</a>
                 &nbsp;
@@ -381,7 +380,7 @@
             &nbsp;
             <a href="#" onclick="return changeDiagnosisUnresolved('${status.index}');">Change</a>
 
-            <div id="${winame}" style="margin-left: 20px; display: none;">
+            <div id="${e:forHtmlAttribute(winame)}" style="margin-left: 20px; display: none;">
                 <div>
                     <div style="width: 50%; float: left; display: inline;">
                         <input type="radio" name="issueCheckList[${status.index}].issue.acute" value="true" onchange="${submitString}"> Acute
