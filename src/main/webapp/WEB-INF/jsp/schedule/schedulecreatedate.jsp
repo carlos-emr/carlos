@@ -80,7 +80,7 @@
     ScheduleHolidayDao scheduleHolidayDao = SpringUtils.getBean(ScheduleHolidayDao.class);
 %>
 <%
-    String provider_name = URLDecoder.decode(StringUtils.noNull(request.getParameter("provider_name")), StandardCharsets.UTF_8);
+    String provider_name = StringUtils.noNull(request.getParameter("provider_name"));
     String provider_no = request.getParameter("provider_no");
     if (provider_no == null || provider_no.isEmpty()) {
         response.sendRedirect(request.getContextPath() + "/logout.jsp");

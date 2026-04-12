@@ -288,7 +288,11 @@
             } else {
                 var selected = document.forms[0].selectedProvider.options[document.forms[0].selectedProvider.selectedIndex].value;
             }
-            var page = varpage + '&provider_no=' + selected + '&startDate=' + startDate + '&demographic_no=' + demographicNo + '&demographic_name=' + patientName;
+            var page = varpage
+                + '&provider_no=' + encodeURIComponent(selected)
+                + '&startDate=' + encodeURIComponent(startDate)
+                + '&demographic_no=' + encodeURIComponent(demographicNo)
+                + '&demographic_name=' + encodeURIComponent(patientName);
             var windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
             var popup = window.open(page, "<fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>", windowprops);
             if (popup != null) {
