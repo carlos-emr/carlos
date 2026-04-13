@@ -36,7 +36,9 @@ package io.github.carlos_emr.carlos.report.data;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Properties;
 import java.util.Vector;
 
@@ -146,6 +148,54 @@ public final class RptReportCreator {
             }
         }
         return ret;
+    }
+
+    /**
+     * Parameterized version of {@link #getWhereValueClause(String, Vector)}.
+     * Replaces {@code ${var}} placeholders with {@code ?} bind markers and
+     * collects the corresponding values into a parameter list. For quoted
+     * contexts ({@code '${var}'}), the surrounding single quotes are removed
+     * so the value is bound via {@code PreparedStatement.setString()}.
+     *
+     * @param value the WHERE clause template containing {@code ${var}} placeholders
+     * @param vec   the replacement values, in placeholder order
+     * @return a {@link ParameterizedSql} with the template and bind values
+     */
+    public static ParameterizedSql getWhereValueClauseParameterized(String value, Vector vec) {
+        List<Object> params = new ArrayList<>();
+        int paramIdx = 0;
+
+        for (int i = 0; i < 100; i++) {
+            int startIdx = value.indexOf("${");
+            if (startIdx >= 0) {
+                int endIdx = value.indexOf("}", startIdx);
+                if (endIdx > startIdx + 2) {
+                    String paramValue = (paramIdx < vec.size() && vec.get(paramIdx) != null)
+                            ? (String) vec.get(paramIdx) : "";
+                    paramIdx++;
+
+                    boolean inQuotedContext = startIdx > 0 && value.charAt(startIdx - 1) == '\'';
+                    if (inQuotedContext) {
+                        // Remove preceding quote, replace ${...} with ?, remove following quote if present
+                        String before = value.substring(0, startIdx - 1);
+                        int afterStart = endIdx + 1;
+                        if (afterStart < value.length() && value.charAt(afterStart) == '\'') {
+                            afterStart++; // skip closing quote
+                        }
+                        value = before + "?" + value.substring(afterStart);
+                    } else {
+                        // Unquoted context: replace ${...} with ?
+                        value = value.substring(0, startIdx) + "?" + value.substring(endIdx + 1);
+                    }
+                    params.add(paramValue);
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+        return new ParameterizedSql(value, params);
     }
 
     public static boolean isIncludeDemo(String value) {

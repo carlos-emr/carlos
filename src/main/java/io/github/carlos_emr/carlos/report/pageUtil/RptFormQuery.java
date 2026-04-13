@@ -33,12 +33,15 @@
  */
 package io.github.carlos_emr.carlos.report.pageUtil;
 
+import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.Vector;
 import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.report.data.RptReportCreator;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -85,8 +88,7 @@ public class RptFormQuery {
         }
     }
 
-    public String getQueryStr(String reportId, HttpServletRequest request) throws Exception {
-        String ret = "";
+    public ParameterizedSql getQueryStr(String reportId, HttpServletRequest request) throws Exception {
         RptReportCreator reportCreator = new RptReportCreator();
 
         // sql:select
@@ -102,12 +104,15 @@ public class RptFormQuery {
         // get value param string
         Vector vecValue = getValueParam(request)[0];
         Vector vecDateFormat = getValueParam(request)[1];
-        Vector vecVarValue = getQueryValue(vecValue, vecDateFormat, request);
+        List<ParameterizedSql> vecVarValue = getQueryValueParameterized(vecValue, vecDateFormat, request);
 
         for (int i = 0; i < vecVarValue.size(); i++) {
-            String tempVal = (String) vecVarValue.get(i);
+            String tempVal = vecVarValue.get(i).getSql();
             bDemo = RptReportCreator.isIncludeDemo(tempVal) ? true : bDemo;
         }
+
+        // Combine WHERE fragments into a single parameterized WHERE clause
+        ParameterizedSql whereClause = getQueryWhereParameterized(vecVarValue);
 
         // sql:subquery
         String subQuery = "select max(ID) from " + tableName;
@@ -115,9 +120,14 @@ public class RptFormQuery {
         if (tableName.indexOf(",demographic") < 0 && bDemo) {
             subQuery += ",demographic ";
         }
+
+        // Collect all parameters for the sub-query
+        List<Object> subQueryParams = new ArrayList<>();
+
         // test for vecVarValue
-        if ((getQueryWhere(vecVarValue).length() > 0) || (reportCreator.getWhereJoinClause(tableName, bDemo).length() > 0)) {
-            subQuery += " where " + getQueryWhere(vecVarValue) + reportCreator.getWhereJoinClause(tableName, bDemo);
+        if ((whereClause.getSql().length() > 0) || (reportCreator.getWhereJoinClause(tableName, bDemo).length() > 0)) {
+            subQuery += " where " + whereClause.getSql() + reportCreator.getWhereJoinClause(tableName, bDemo);
+            subQueryParams.addAll(whereClause.getParams());
         }
         subQuery += " group by " + tableName + ".demographic_no," + tableName + ".formCreated ";
 
@@ -126,15 +136,17 @@ public class RptFormQuery {
             reportSql += ",demographic ";
         }
 
-        // get subQuery result
-        // deepcode ignore SqlInjection: admin-configured report template SQL; template IDs validated against database
-        String rltSubQuery = reportCreator.getRltSubQuery(subQuery);
+        // get subQuery result — sub-query params are now bound
+        String rltSubQuery = reportCreator.getRltSubQuery(subQuery, subQueryParams.toArray());
 
         reportSql += " where " + tableName + ".ID in (" + rltSubQuery + ")";
         if (reportCreator.getWhereJoinClause(tableName, bDemo).length() > 0) {
             reportSql += " and " + reportCreator.getWhereJoinClause(tableName, bDemo);
         }
-        return reportSql;
+
+        // The final query has no remaining bind parameters because the sub-query
+        // was executed separately and its integer results are inlined.
+        return new ParameterizedSql(reportSql, new ArrayList<>());
     }
 
     private Vector[] getValueParam(HttpServletRequest request) {
@@ -179,6 +191,49 @@ public class RptFormQuery {
             ret.add(RptReportCreator.getWhereValueClause(tempVal, vecVarValue));
         }
         return ret;
+    }
+
+    /**
+     * Parameterized version of {@link #getQueryValue}. Returns a list of
+     * {@link ParameterizedSql} fragments, each containing a WHERE clause
+     * template with {@code ?} placeholders and the corresponding bind values.
+     */
+    private List<ParameterizedSql> getQueryValueParameterized(Vector vecValue, Vector vecDateFormat, HttpServletRequest request) throws Exception {
+        List<ParameterizedSql> ret = new ArrayList<>();
+        for (int i = 0; i < vecValue.size(); i++) {
+            String tempVal = (String) vecValue.get(i);
+            Vector vecVar = RptReportCreator.getVarVec(tempVal);
+            Vector vecVarValue = new Vector();
+            for (int j = 0; j < vecVar.size(); j++) {
+                if (((String) vecVar.get(j)).matches(VARNAME_FORMAT) && ((String) vecDateFormat.get(i)).length() > 1) {
+                    vecVarValue.add(RptReportCreator.getDiffDateFormat(request.getParameter((String) vecVar.get(j)),
+                            (String) vecDateFormat.get(i), "yyyy-MM-dd"));
+                } else {
+                    vecVarValue.add(request.getParameter((String) vecVar.get(j)));
+                }
+            }
+            ret.add(RptReportCreator.getWhereValueClauseParameterized(tempVal, vecVarValue));
+        }
+        return ret;
+    }
+
+    /**
+     * Combines a list of {@link ParameterizedSql} WHERE clause fragments into
+     * a single parameterized WHERE clause joined by {@code AND}.
+     */
+    private static ParameterizedSql getQueryWhereParameterized(List<ParameterizedSql> fragments) {
+        StringBuilder sql = new StringBuilder();
+        List<Object> params = new ArrayList<>();
+        for (int i = 0; i < fragments.size(); i++) {
+            ParameterizedSql frag = fragments.get(i);
+            if (i == 0) {
+                sql.append(frag.getSql());
+            } else {
+                sql.append(" and ").append(frag.getSql());
+            }
+            params.addAll(frag.getParams());
+        }
+        return new ParameterizedSql(sql.toString(), params);
     }
 
     public String getQueryWhere(Vector vecVarValue) {
