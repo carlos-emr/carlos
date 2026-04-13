@@ -57,7 +57,7 @@
         <action name="PMmodule/ProgramManager" class="io.github.carlos_emr.carlos.PMmodule.web.admin.ProgramManager2Action" method="execute">
             <result name="list">page.pmm.admin.list</result>
             <result name="edit">page.pmm.admin.edit</result>
-            <result name="programSignatures">/PMmodule/Admin/ProgramSignatures.jsp</result>
+            <result name="programSignatures">/WEB-INF/jsp/PMmodule/Admin/ProgramSignatures.jsp</result>
         </action>
 
         <action name="PMmodule/ProgramManagerView" class="io.github.carlos_emr.carlos.PMmodule.web.admin.ProgramManagerView2Action" method="execute">
@@ -94,5 +94,25 @@
 
 
 
+
+        <!-- ===== PMmodule JSP gating actions (migration slice) ===== -->
+        <action name="PMmodule/Admin/Facility/ViewEdit" class="io.github.carlos_emr.carlos.PMmodule.web.ViewFacilityEdit2Action">
+            <result name="success">/WEB-INF/jsp/PMmodule/Admin/Facility/EditFacility.jsp</result>
+        </action>
+        <action name="PMmodule/Admin/Facility/ViewList" class="io.github.carlos_emr.carlos.PMmodule.web.ViewFacilityList2Action">
+            <result name="success">/WEB-INF/jsp/PMmodule/Admin/Facility/ListFacilities.jsp</result>
+        </action>
+        <action name="PMmodule/Admin/ProgramEdit/ViewClients" class="io.github.carlos_emr.carlos.PMmodule.web.ViewProgramEditClients2Action">
+            <result name="success">/WEB-INF/jsp/PMmodule/Admin/ProgramEdit/clients.jsp</result>
+        </action>
+        <action name="PMmodule/Admin/ViewProgramSignatures" class="io.github.carlos_emr.carlos.PMmodule.web.ViewProgramSignatures2Action">
+            <result name="success">/WEB-INF/jsp/PMmodule/Admin/ProgramSignatures.jsp</result>
+        </action>
+        <action name="PMmodule/Admin/ProgramView/ViewClients" class="io.github.carlos_emr.carlos.PMmodule.web.ViewProgramViewClients2Action">
+            <result name="success">/WEB-INF/jsp/PMmodule/Admin/ProgramView/clients.jsp</result>
+        </action>
+        <action name="PMmodule/Admin/ProgramView/ViewVacancies" class="io.github.carlos_emr.carlos.PMmodule.web.ViewProgramViewVacancies2Action">
+            <result name="success">/WEB-INF/jsp/PMmodule/Admin/ProgramView/vacancies.jsp</result>
+        </action>
     </package>
 </struts>
