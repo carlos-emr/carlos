@@ -114,10 +114,13 @@
         <%
             // Bound regex input length to prevent ReDoS attacks (Fix 6)
             String regexp = request.getParameter("regexp");
-            if (regexp == null) {
-                regexp = "";
-            } else if (regexp.length() > 100) {
-                regexp = regexp.substring(0, 100);
+            if (regexp != null) {
+                regexp = regexp.trim();
+                if (regexp.isEmpty()) {
+                    regexp = null;
+                } else if (regexp.length() > 100) {
+                    regexp = regexp.substring(0, 100);
+                }
             }
 
             if (request.getParameter("update") != null
