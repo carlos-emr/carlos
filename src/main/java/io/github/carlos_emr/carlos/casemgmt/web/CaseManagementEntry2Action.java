@@ -2025,8 +2025,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String chain = request.getParameter("chain");
 
         if (chain != null && !chain.equals("")) {
-            // Validate the redirect URL to prevent open redirect vulnerability
-            if (RedirectValidationUtils.isValidRelativeRedirect(chain)) {
+            // Only context-relative paths (starting with "/") are safe for sendRedirect.
+            // Bare names like "list" are Struts result names and must not be redirected.
+            if (chain.startsWith("/") && RedirectValidationUtils.isValidRelativeRedirect(chain)) {
                 response.sendRedirect(chain);
             } else {
                 logger.warn("Attempted redirect to invalid URL: {}", LogSanitizer.sanitize(chain));
