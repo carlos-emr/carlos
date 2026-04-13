@@ -56,7 +56,7 @@
 
 <br/>
 
-<input type="button" value="Create New Key" onclick="document.location='createKey.jsp'"/>
+<input type="button" value="Create New Key" onclick="document.location='/admin/ViewKeygenCreateKey.do'"/>
 
 <br/>
 <hr/>
@@ -108,7 +108,7 @@
     function updateMatchingProcessionalSpecialist() {
         var selectKeyList = document.getElementById("selectKeyList");
         var selectProfessionalSpecialistList = document.getElementById("selectProfessionalSpecialistList");
-        jQuery.post("updateMatchingProfessionalSpecialist.jsp", {
+        jQuery.post("/admin/ViewKeygenUpdateMatchingProfessionalSpecialist.do", {
                 serviceName: getSelectListValue(selectKeyList),
                 professionalSpecialistId: getSelectListValue(selectProfessionalSpecialistList)
             },
