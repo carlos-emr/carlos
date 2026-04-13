@@ -579,6 +579,12 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return filteredFileList;
     }
 
+    private void flushAndClearPersistenceContext() {
+        // Flush and clear L1 cache to prevent heap exhaustion during large imports
+        contactDao.flush();
+        contactDao.clear();
+    }
+
 //    private void saveParts(String tmpDir, String ifile) throws Exception {
 //    	int len = 0;
 //    	byte[] buf = new byte[1024];
@@ -1703,9 +1709,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                 }
             }
 
-            // Flush and clear L1 cache to prevent heap exhaustion during large imports
-            contactDao.flush();
-            contactDao.clear();
+            flushAndClearPersistenceContext();
 
             //PAST HEALTH
             PastHealth[] pHealth = patientRec.getPastHealthArray();
