@@ -63,7 +63,7 @@ import io.github.carlos_emr.CarlosProperties;
  * <ol>
  *   <li>File path specified in the {@code odb_formulary_file} CarlosProperties key</li>
  *   <li>Active {@link ResourceStorage} record of type {@link ResourceStorage#LU_CODES}</li>
- *   <li>Bundled classpath resource {@code oscar/oscarRx/data_extract_20250730.xml}</li>
+ *   <li>Bundled classpath resource {@code oscar/rx/data_extract_20250730.xml}</li>
  * </ol>
  * The map is populated lazily on first use via double-checked locking and stored in a
  * thread-safe {@link ConcurrentHashMap}.
@@ -123,7 +123,7 @@ public class DrugPriceLookup {
 	 * <ol>
 	 *   <li>{@code odb_formulary_file} property → file system path</li>
 	 *   <li>Active {@link ResourceStorage#LU_CODES} record → byte array</li>
-	 *   <li>Classpath resource {@code oscar/oscarRx/data_extract_20250730.xml}</li>
+	 *   <li>Classpath resource {@code oscar/rx/data_extract_20250730.xml}</li>
 	 * </ol>
 	 *
 	 * @param resourceStorageDao ResourceStorageDao the DAO used to look up database-stored formulary data
@@ -156,7 +156,7 @@ public class DrugPriceLookup {
 					resourceStorage.getId());
 		}
 
-		String dosing = "oscar/oscarRx/data_extract_20250730.xml";
+		String dosing = "oscar/rx/data_extract_20250730.xml";
 		log.info("loading odb file from internal resource {}", dosing);
 		return DrugPriceLookup.class.getClassLoader().getResourceAsStream(dosing);
 	}

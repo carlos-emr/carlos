@@ -113,7 +113,7 @@ function popupOscarRx(vheight,vwidth,varpage) { //open a new popup window
 var page = varpage;
 if (openEncounterInTab) { return popupTab(page); }
 windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-var popup=window.open(varpage, "oscarRx", windowprops);
+var popup=window.open(varpage, "rx", windowprops);
 if (popup != null) {
 if (popup.opener == null) {
 popup.opener = self;

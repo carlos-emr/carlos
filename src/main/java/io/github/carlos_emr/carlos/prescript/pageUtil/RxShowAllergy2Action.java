@@ -105,7 +105,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
                 // demoNoParam validated as numeric at method entry
                 request.getSession().setAttribute("Patient", patient); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
             }
-            response.sendRedirect(request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + Encode.forUriComponent(demoNoParam));
+            response.sendRedirect(request.getContextPath() + "/rx/ShowAllergies2.jsp?demographicNo=" + Encode.forUriComponent(demoNoParam));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -194,7 +194,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
 
         RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, bean.getDemographicNo());
 
-        String forward = request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + Encode.forUriComponent(demo_no);
+        String forward = request.getContextPath() + "/rx/ShowAllergies2.jsp?demographicNo=" + Encode.forUriComponent(demo_no);
         if (patient != null) {
             request.getSession().setAttribute("Patient", patient); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
             response.sendRedirect(forward);
