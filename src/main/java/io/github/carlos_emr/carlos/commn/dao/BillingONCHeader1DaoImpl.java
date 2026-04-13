@@ -124,6 +124,10 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
                 entityManager.clear();
             }
         }
+        if (i > 0 && i % 25 != 0) {
+            entityManager.flush();
+            entityManager.clear();
+        }
     }
 
     @Override
