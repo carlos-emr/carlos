@@ -84,7 +84,7 @@
         reportType = "general";
     }
 %>
-<form id="logForm" action="${ctx}/admin/oscarLogging.jsp" class="card card-body bg-body-tertiary">
+<form id="logForm" action="${ctx}/admin/ViewOscarLogging.do" class="card card-body bg-body-tertiary">
 
     <fieldset>
         <h4>

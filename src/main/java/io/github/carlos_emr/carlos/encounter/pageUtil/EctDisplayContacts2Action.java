@@ -171,7 +171,7 @@ public class EctDisplayContacts2Action extends EctDisplayAction {
                     } else if (contact.getType() == DemographicContact.TYPE_CONTACT) {
                         String roles = (String) request.getSession().getAttribute("userrole");
                         if (roles.indexOf("admin") != -1)
-                            url = "popupPage(500,900,'" + hash + "','" + request.getContextPath() + "/admin/providerupdateprovider.jsp?keyword=" + contact.getContactId() + "'); return false;";
+                            url = "popupPage(500,900,'" + hash + "','" + request.getContextPath() + "/admin/ViewProviderUpdateProvider.do?keyword=" + contact.getContactId() + "'); return false;";
                         else
                             url = "alert('Cannot Edit');return false;";
                     } else if (contact.getType() == DemographicContact.TYPE_PROFESSIONALSPECIALIST) {

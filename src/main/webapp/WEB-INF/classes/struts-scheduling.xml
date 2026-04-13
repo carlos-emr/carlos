@@ -76,11 +76,11 @@
             <result name="success">/WEB-INF/jsp/admin/clinicAdmin.jsp</result>
         </action>
         <action name="admin/ManageSites" class="io.github.carlos_emr.carlos.commn.web.SitesManage2Action" method="execute">
-            <result name="list">/admin/sitesAdmin.jsp</result>
-            <result name="details">/admin/sitesAdminDetail.jsp</result>
+            <result name="list">/WEB-INF/jsp/admin/sitesAdmin.jsp</result>
+            <result name="details">/WEB-INF/jsp/admin/sitesAdminDetail.jsp</result>
         </action>
         <action name="admin/ManageBillingReferral" class="io.github.carlos_emr.carlos.commn.web.BillingreferralEdit2Action">
-            <result name="list">/admin/billingreferralAdmin.jsp</result>
+            <result name="list">/WEB-INF/jsp/admin/billingreferralAdmin.jsp</result>
         </action>
         <action name="report/DxresearchReport" class="io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action" method="execute">
             <result name="success">/oscarReport/oscarReportDxReg.jsp</result>
@@ -140,8 +140,8 @@
         </action>
         <action name="BillingONReview" class="io.github.carlos_emr.carlos.commn.web.BillingONReview2Action"/>
         <action name="admin/GroupPreference" class="io.github.carlos_emr.carlos.commn.web.GroupPreference2Action">
-            <result name="saved">/admin/groupPreferences.jsp</result>
-            <result name="changedForm">/admin/groupPreferences.jsp</result>
+            <result name="saved">/WEB-INF/jsp/admin/groupPreferences.jsp</result>
+            <result name="changedForm">/WEB-INF/jsp/admin/groupPreferences.jsp</result>
         </action>
         <action name="billing/CA/ON/ApplyPractitionerPremium" class="io.github.carlos_emr.carlos.commn.web.ApplyPractitionerPremium2Action">
             <result name="success">/billing/CA/ON/genRADesc.jsp</result>
