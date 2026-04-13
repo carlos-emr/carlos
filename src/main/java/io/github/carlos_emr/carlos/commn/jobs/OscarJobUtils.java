@@ -165,6 +165,7 @@ public class OscarJobUtils {
         //cancel,isCancelled, isDone
 
         OscarJobExecutingManager.getFutures().put(job.getId(), schedulefuture);
+        OscarJobExecutingManager.purgeCompletedFutures();
 
         return true;
     }

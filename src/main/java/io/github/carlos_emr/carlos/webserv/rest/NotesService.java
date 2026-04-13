@@ -131,6 +131,7 @@ public class NotesService extends AbstractServiceImpl {
      * from different providers do not corrupt the structure.</p>
      */
     private static ConcurrentHashMap<String, ConcurrentHashMap<String, Long>> editList = new ConcurrentHashMap<String, ConcurrentHashMap<String, Long>>();
+    private static final int MAX_EDIT_LIST_SIZE = 10000;
 
     @Autowired
     private NoteService noteService;
@@ -1886,6 +1887,9 @@ public class NotesService extends AbstractServiceImpl {
             noteList = new ConcurrentHashMap<String, Long>();
             editList.put(noteUUID, noteList);
         }
+        if (editList.size() > MAX_EDIT_LIST_SIZE) {
+            clearDanglingFlags();
+        }
         clearDanglingFlags();
 
         boolean success = true;
@@ -1923,7 +1927,6 @@ public class NotesService extends AbstractServiceImpl {
                     noteList.remove(providerNo);
             }
             if (noteList.isEmpty()) editList.remove(uuid);
-            else editList.put(uuid, noteList);
         }
     }
 
@@ -1946,6 +1949,8 @@ public class NotesService extends AbstractServiceImpl {
     public RestResponse<String> checkEditNoteNew(@QueryParam("noteUUID") String noteUUID, @QueryParam("userId") String providerNo) {
         if (noteUUID == null || noteUUID.trim().isEmpty() || providerNo == null || providerNo.trim().isEmpty())
             return RestResponse.successResponse(null);
+
+        clearDanglingFlags();
 
         ConcurrentHashMap<String, Long> noteList = editList.get(noteUUID);
         if (noteList == null) return RestResponse.successResponse(null);
@@ -1981,8 +1986,11 @@ public class NotesService extends AbstractServiceImpl {
         if (noteUUID == null || noteUUID.trim().isEmpty() || providerNo == null || providerNo.trim().isEmpty()) return;
 
         ConcurrentHashMap<String, Long> noteList = editList.get(noteUUID);
-        if (noteList != null && noteList.containsKey(providerNo)) noteList.remove(providerNo);
-        if (noteList.isEmpty()) editList.remove(noteUUID);
-        else editList.put(noteUUID, noteList);
+        if (noteList != null) {
+            noteList.remove(providerNo);
+            if (noteList.isEmpty()) {
+                editList.remove(noteUUID);
+            }
+        }
     }
 }
