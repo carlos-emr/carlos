@@ -29,7 +29,7 @@
 <%@ taglib prefix="s" uri="/struts-tags" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ include file="/admin/dbconnection.jsp" %>
+<%@ include file="/admin/ViewDbConnection.do" %>
 <%--RJ 07/07/2006 --%>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

@@ -42,7 +42,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
-<%@ include file="/admin/dbconnection.jsp" %>
+<%@ include file="/admin/ViewDbConnection.do" %>
 
 
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderBillCenter" %>

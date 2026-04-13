@@ -124,7 +124,7 @@
     <h4>
         <i class="fa-solid fa-magnifying-glass" title="Patient Search"></i>&nbsp;<fmt:message key="admin.providersearchresults.description"/></h4>
 
-    <form method="post" action="providersearchresults.jsp" name="searchprovider" onsubmit="return onsub()">
+    <form method="post" action="/admin/ViewProviderSearchResults.do" name="searchprovider" onsubmit="return onsub()">
         <div class="card card-body bg-body-tertiary">
             <table style="width:100%">
                 <tr>
@@ -234,7 +234,7 @@
         <!-- getPractionerNo() getPractitionerNoType() getFormattedName() getComments() getBillingNo() getTitle() getEmail() getOhipNo() getAddress() -->
         <tr>
             <td style="text-align:center"><a
-                    href='providerupdateprovider.jsp?keyword=<%=Encode.forUriComponent(provider.getId())%>'><%= Encode.forHtml(provider.getId()) %>
+                    href='/admin/ViewProviderUpdateProvider.do?keyword=<%=Encode.forUriComponent(provider.getId())%>'><%= Encode.forHtml(provider.getId()) %>
             </a></td>
             <td><%= Encode.forHtmlContent((provider.getLastName() == null ? "" : provider.getLastName()) + ", " + (provider.getFirstName() == null ? "" : provider.getFirstName())) %>
             </td>
@@ -267,11 +267,11 @@
         String searchStatusQ = (searchStatus != null) ? "&search_status=" + Encode.forUriComponent(searchStatus) : "";
         if (nLastPage >= 0) {
     %> <a
-            href="providersearchresults.jsp?keyword=<%= Encode.forUriComponent(keyword) %>&search_mode=<%= Encode.forUriComponent(searchMode) %><%= searchStatusQ %>&orderby=<%= Encode.forUriComponent(orderBy) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnLastPage"/></a> | <%
+            href="/admin/ViewProviderSearchResults.do?keyword=<%= Encode.forUriComponent(keyword) %>&search_mode=<%= Encode.forUriComponent(searchMode) %><%= searchStatusQ %>&orderby=<%= Encode.forUriComponent(orderBy) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnLastPage"/></a> | <%
         }
         if (nItems == Integer.parseInt(strLimit)) {
     %> <a
-            href="providersearchresults.jsp?keyword=<%= Encode.forUriComponent(keyword) %>&search_mode=<%= Encode.forUriComponent(searchMode) %><%= searchStatusQ %>&orderby=<%= Encode.forUriComponent(orderBy) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnNextPage"/></a> <%
+            href="/admin/ViewProviderSearchResults.do?keyword=<%= Encode.forUriComponent(keyword) %>&search_mode=<%= Encode.forUriComponent(searchMode) %><%= searchStatusQ %>&orderby=<%= Encode.forUriComponent(orderBy) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnNextPage"/></a> <%
         }
     %>
     <p><fmt:message key="admin.providersearchresults.msgClickForEditing"/></p>

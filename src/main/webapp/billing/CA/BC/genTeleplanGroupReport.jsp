@@ -46,7 +46,7 @@
 %>
 
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.carlos.billing.ca.bc.MSP.*,io.github.carlos_emr.*" %>
-<%@ include file="/admin/dbconnection.jsp" %>
+<%@ include file="/admin/ViewDbConnection.do" %>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.CA.model.BillActivity" %>

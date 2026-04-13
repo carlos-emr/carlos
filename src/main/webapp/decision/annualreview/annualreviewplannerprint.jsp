@@ -44,7 +44,7 @@
              class="io.github.carlos_emr.carlos.decision.DesAntenatalPlannerRisks_99_12" scope="page"/>
 <jsp:useBean id="checklist"
              class="io.github.carlos_emr.carlos.decision.DesAnnualReviewPlannerChecklist" scope="page"/>
-<%@ include file="/admin/dbconnection.jsp" %>
+<%@ include file="/admin/ViewDbConnection.do" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DesAnnualReviewPlan" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DesAnnualReviewPlanDao" %>

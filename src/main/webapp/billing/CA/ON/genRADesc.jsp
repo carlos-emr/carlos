@@ -33,7 +33,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingONPremium, io.github.carlos_emr.carlos.commn.dao.BillingONPremiumDao" %>
 
 <%@ page import="java.io.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/errorpage.jsp" %>
-<%@ include file="/admin/dbconnection.jsp" %>
+<%@ include file="/admin/ViewDbConnection.do" %>
 
 <%@page import="io.github.carlos_emr.carlos.commn.model.RaHeader" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.RaHeaderDao" %>
