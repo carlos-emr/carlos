@@ -257,13 +257,13 @@ public class AddEditDocument2Action extends ActionSupport {
                 String contextPath = request.getContextPath();
                 StringBuffer redirect = new StringBuffer(contextPath + "/documentManager/documentReport.jsp");
                 redirect.append("?docerrors=docerrors"); // Allows the JSP to check if the document was just submitted
-                redirect.append("&function=").append(Encode.forUriComponent(request.getParameter("function")));
-                redirect.append("&functionid=").append(Encode.forUriComponent(request.getParameter("functionid")));
-                redirect.append("&curUser=").append(Encode.forUriComponent(request.getParameter("curUser")));
-                redirect.append("&appointmentNo=").append(Encode.forUriComponent(request.getParameter("appointmentNo")));
+                redirect.append("&function=").append(encodeParam(request.getParameter("function")));
+                redirect.append("&functionid=").append(encodeParam(request.getParameter("functionid")));
+                redirect.append("&curUser=").append(encodeParam(request.getParameter("curUser")));
+                redirect.append("&appointmentNo=").append(encodeParam(request.getParameter("appointmentNo")));
                 String parentAjaxId = request.getParameter("parentAjaxId");
                 // if we're called with parent ajax id inform jsp that parent needs to be updated
-                if (!parentAjaxId.equals("")) {
+                if (parentAjaxId != null && !parentAjaxId.isEmpty()) {
                     redirect.append("&parentAjaxId=").append(Encode.forUriComponent(parentAjaxId));
                     redirect.append("&updateParent=").append("true");
                 }
@@ -890,5 +890,15 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     @StrutsParameter
     public void setDocFileContentType(String docFileContentType) {
         this.docFileContentType = docFileContentType;
+    }
+
+    /**
+     * Null-safe URI component encoding for redirect parameters.
+     *
+     * @param value the parameter value, may be null
+     * @return the URI-encoded value, or empty string if null
+     */
+    private static String encodeParam(String value) {
+        return value == null ? "" : Encode.forUriComponent(value);
     }
 }
