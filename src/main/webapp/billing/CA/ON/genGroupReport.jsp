@@ -24,7 +24,7 @@
 --%>
 <%@ page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.billing.ca.on.OHIP.*, java.net.*"
          errorPage="/errorpage.jsp" %>
-<%@ include file="/admin/ViewDbConnection.do" %>
+<%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>

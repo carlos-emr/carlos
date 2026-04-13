@@ -22,9 +22,8 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * View gate for {@code admin/eformReportTool/eformReportTool.jsp}. Enforces {@code _admin}
- * {@code w} privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/admin/} location. Part of the admin module
+ * View gate for {@code admin/eformReportTool/eformReportTool.jsp}. Requires {@code w} on {@code _admin} or {@code _admin.reporting} (matches the source JSP's {@code <security:oscarSec>} OR-list) before forwarding
+ * to the JSP at its {@code /WEB-INF/jsp/admin/} location. Part of the admin module
  * security-hardening migration (defense in depth; matches the 2Action
  * gate pattern from #1109, #1629, #1632, #1644, #1662, #1663).
  *
@@ -39,8 +38,11 @@ public final class ViewEformReportTool2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+        boolean authorized = securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.reporting", "w", null);
+
+        if (!authorized) {
+            throw new SecurityException("missing required sec object (_admin or _admin.reporting)");
         }
 
         return SUCCESS;

@@ -44,7 +44,7 @@
     }
 %>
 
-<%@ include file="/admin/ViewDbConnection.do" %>
+<%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 

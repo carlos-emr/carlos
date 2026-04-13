@@ -47,7 +47,7 @@
         </action>
         <action name="admin/ForwardingRules" class="io.github.carlos_emr.carlos.lab.pageUtil.ForwardingRules2Action">
             <result name="failure">/errorpage.jsp</result>
-            <result name="success">/admin/labForwardingRules.do</result>
+            <result name="success">/WEB-INF/jsp/admin/labforwardingrules.jsp</result>
         </action>
         <action name="lab/labUpload" class="io.github.carlos_emr.carlos.lab.ca.bc.PathNet.pageUtil.LabUpload2Action">
             <result name="success">/lab/CA/BC/LabUpload.jsp</result>

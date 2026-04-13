@@ -61,7 +61,7 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}"
        scope="request"/>
 
-<%@ include file="/admin/ViewDbConnection.do" %>
+<%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao" %>

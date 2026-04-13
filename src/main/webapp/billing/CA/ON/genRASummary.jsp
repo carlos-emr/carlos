@@ -27,7 +27,7 @@
         import="java.math.*, java.util.*, java.io.*, java.sql.*, java.net.*,io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.MyDateFormat,io.github.carlos_emr.carlos.db.*"
         errorPage="/errorpage.jsp" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ include file="/admin/ViewDbConnection.do" %>
+<%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 
 <jsp:useBean id="billingLocalInvNoBean" class="java.util.Properties" scope="page"/>
 

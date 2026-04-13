@@ -22,9 +22,10 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * View gate for {@code admin/admindisplaymygroup.jsp}. Enforces {@code _admin}
- * {@code r} privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/admin/} location. Part of the admin module
+ * View gate for {@code admin/admindisplaymygroup.jsp}. Requires {@code r} on
+ * {@code _site_access_privacy} (the privilege the page already branches on
+ * via its {@code <security:oscarSec>} taglib) before forwarding to the JSP at
+ * its {@code /WEB-INF/jsp/admin/} location. Part of the admin module
  * security-hardening migration (defense in depth; matches the 2Action
  * gate pattern from #1109, #1629, #1632, #1644, #1662, #1663).
  *
@@ -39,8 +40,8 @@ public final class ViewAdminDisplayMyGroup2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null)) {
+            throw new SecurityException("missing required sec object (_site_access_privacy)");
         }
 
         return SUCCESS;
