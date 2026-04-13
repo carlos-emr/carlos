@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -104,7 +105,7 @@ public class XforwardHeaderFilter implements Filter {
 
             if (isLoopbackOrUnspecified(ip)) {
                 logger.warn("Rejected loopback/unspecified address '{}' from X-Forwarded-For header; "
-                        + "using raw peer address instead", ip);
+                        + "using raw peer address instead", LogSanitizer.sanitize(ip));
                 return super.getRemoteAddr();
             }
 
