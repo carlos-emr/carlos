@@ -40,6 +40,18 @@ public final class ViewAddTickler2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Executes the privilege check and forwards to the gated JSP.
+     *
+     * @return {@code SUCCESS} when the caller holds {@code _tickler w};
+     *         the package-level {@code global-exception-mappings} in
+     *         {@code struts-scheduling.xml} routes the {@link SecurityException}
+     *         thrown on denial to {@code /securityError.jsp}.
+     * @throws SecurityException when the caller lacks {@code _tickler w}
+     * @throws Exception if the underlying {@code ActionSupport.execute} contract
+     *         declares one (not thrown by this implementation)
+     * @since 2026-04-13
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

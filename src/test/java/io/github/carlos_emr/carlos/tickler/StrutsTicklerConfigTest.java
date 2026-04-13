@@ -110,7 +110,51 @@ class StrutsTicklerConfigTest {
         }
     }
 
-    private List<String> collectResultPaths() throws Exception {
+    /**
+     * Guards against accidental deletion of a gate action mapping: if any of
+     * the 6 new {@code tickler/View*} actions vanished from the Struts config
+     * the JSP it protects would serve a 404 even though the file is still on
+     * disk — breaking every caller that now routes through the gate.
+     */
+    @Test
+    @DisplayName("should declare every tickler view-gate action in struts-scheduling.xml")
+    void shouldDeclareEveryTicklerGateAction() throws Exception {
+        List<String> actionNames = collectActionNames(SCHEDULING_CONFIG);
+        String[] required = {
+                "tickler/ViewIndex",
+                "tickler/ViewTicklerMain",
+                "tickler/ViewTicklerDemoMain",
+                "tickler/ViewTicklerEdit",
+                "tickler/ViewTicklerSuggestedText",
+                "tickler/ViewAddTickler"
+        };
+        for (String name : required) {
+            assertThat(actionNames)
+                    .as("struts-scheduling.xml must declare <action name=\"%s\">", name)
+                    .contains(name);
+        }
+    }
+
+    private List<String> collectActionNames(String configPath) throws Exception {
+        DocumentBuilder db = newHardenedDocumentBuilder();
+        Document doc;
+        try (InputStream in = new FileInputStream(configPath)) {
+            doc = db.parse(in);
+        }
+        NodeList actions = doc.getElementsByTagName("action");
+        List<String> out = new ArrayList<>();
+        for (int i = 0; i < actions.getLength(); i++) {
+            if (actions.item(i) instanceof Element e) {
+                String name = e.getAttribute("name");
+                if (name != null && !name.isEmpty()) {
+                    out.add(name);
+                }
+            }
+        }
+        return out;
+    }
+
+    private DocumentBuilder newHardenedDocumentBuilder() throws Exception {
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         dbf.setValidating(false);
         dbf.setNamespaceAware(false);
@@ -127,6 +171,11 @@ class StrutsTicklerConfigTest {
         DocumentBuilder db = dbf.newDocumentBuilder();
         db.setEntityResolver((publicId, systemId) ->
                 new InputSource(new java.io.StringReader("")));
+        return db;
+    }
+
+    private List<String> collectResultPaths() throws Exception {
+        DocumentBuilder db = newHardenedDocumentBuilder();
 
         List<String> out = new ArrayList<>();
         for (String configPath : CONFIG_PATHS) {

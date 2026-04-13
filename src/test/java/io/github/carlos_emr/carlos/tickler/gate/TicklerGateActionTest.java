@@ -59,7 +59,7 @@ class TicklerGateActionTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("ViewIndex should deny when _tickler r missing")
-    void viewIndex_deniesWhenReadMissing() {
+    void shouldDenyViewIndex_whenReadMissing() {
         assertThatThrownBy(() -> executeAction(new ViewIndex2Action()))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_tickler");
@@ -67,7 +67,7 @@ class TicklerGateActionTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("ViewIndex should return success when _tickler r granted")
-    void viewIndex_successWhenReadGranted() throws Exception {
+    void shouldAllowViewIndex_whenReadGranted() throws Exception {
         allowPrivilege("_tickler", "r");
         assertThat(executeAction(new ViewIndex2Action())).isEqualTo(ActionSupport.SUCCESS);
         verifySecurityCheck("_tickler", "r");
@@ -75,7 +75,7 @@ class TicklerGateActionTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("ViewTicklerMain should deny when _tickler r missing")
-    void viewTicklerMain_deniesWhenReadMissing() {
+    void shouldDenyViewTicklerMain_whenReadMissing() {
         assertThatThrownBy(() -> executeAction(new ViewTicklerMain2Action()))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_tickler");
@@ -83,7 +83,7 @@ class TicklerGateActionTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("ViewTicklerMain should return success when _tickler r granted")
-    void viewTicklerMain_successWhenReadGranted() throws Exception {
+    void shouldAllowViewTicklerMain_whenReadGranted() throws Exception {
         allowPrivilege("_tickler", "r");
         assertThat(executeAction(new ViewTicklerMain2Action())).isEqualTo(ActionSupport.SUCCESS);
         verifySecurityCheck("_tickler", "r");
@@ -91,7 +91,7 @@ class TicklerGateActionTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("ViewTicklerDemoMain should deny when _tickler w missing")
-    void viewTicklerDemoMain_deniesWhenWriteMissing() {
+    void shouldDenyViewTicklerDemoMain_whenWriteMissing() {
         assertThatThrownBy(() -> executeAction(new ViewTicklerDemoMain2Action()))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_tickler");
@@ -99,7 +99,7 @@ class TicklerGateActionTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("ViewTicklerDemoMain should return success when _tickler w granted")
-    void viewTicklerDemoMain_successWhenWriteGranted() throws Exception {
+    void shouldAllowViewTicklerDemoMain_whenWriteGranted() throws Exception {
         allowPrivilege("_tickler", "w");
         assertThat(executeAction(new ViewTicklerDemoMain2Action())).isEqualTo(ActionSupport.SUCCESS);
         verifySecurityCheck("_tickler", "w");
@@ -107,7 +107,7 @@ class TicklerGateActionTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("ViewTicklerEdit should deny when _tickler w missing")
-    void viewTicklerEdit_deniesWhenWriteMissing() {
+    void shouldDenyViewTicklerEdit_whenWriteMissing() {
         assertThatThrownBy(() -> executeAction(new ViewTicklerEdit2Action()))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_tickler");
@@ -115,7 +115,7 @@ class TicklerGateActionTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("ViewTicklerEdit should return success when _tickler w granted")
-    void viewTicklerEdit_successWhenWriteGranted() throws Exception {
+    void shouldAllowViewTicklerEdit_whenWriteGranted() throws Exception {
         allowPrivilege("_tickler", "w");
         assertThat(executeAction(new ViewTicklerEdit2Action())).isEqualTo(ActionSupport.SUCCESS);
         verifySecurityCheck("_tickler", "w");
@@ -123,7 +123,7 @@ class TicklerGateActionTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("ViewTicklerSuggestedText should deny when _tickler w missing")
-    void viewTicklerSuggestedText_deniesWhenWriteMissing() {
+    void shouldDenyViewTicklerSuggestedText_whenWriteMissing() {
         assertThatThrownBy(() -> executeAction(new ViewTicklerSuggestedText2Action()))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_tickler");
@@ -131,7 +131,7 @@ class TicklerGateActionTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("ViewTicklerSuggestedText should return success when _tickler w granted")
-    void viewTicklerSuggestedText_successWhenWriteGranted() throws Exception {
+    void shouldAllowViewTicklerSuggestedText_whenWriteGranted() throws Exception {
         allowPrivilege("_tickler", "w");
         assertThat(executeAction(new ViewTicklerSuggestedText2Action())).isEqualTo(ActionSupport.SUCCESS);
         verifySecurityCheck("_tickler", "w");
@@ -139,7 +139,7 @@ class TicklerGateActionTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("ViewAddTickler should deny when _tickler w missing")
-    void viewAddTickler_deniesWhenWriteMissing() {
+    void shouldDenyViewAddTickler_whenWriteMissing() {
         assertThatThrownBy(() -> executeAction(new ViewAddTickler2Action()))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_tickler");
@@ -147,9 +147,38 @@ class TicklerGateActionTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("ViewAddTickler should return success when _tickler w granted")
-    void viewAddTickler_successWhenWriteGranted() throws Exception {
+    void shouldAllowViewAddTickler_whenWriteGranted() throws Exception {
         allowPrivilege("_tickler", "w");
         assertThat(executeAction(new ViewAddTickler2Action())).isEqualTo(ActionSupport.SUCCESS);
         verifySecurityCheck("_tickler", "w");
+    }
+
+    /**
+     * With the deny-all default stub, a cleared {@code LoggedInInfo} session
+     * attribute causes {@code hasPrivilege(null, ...)} to return false, so the
+     * gate still throws {@link SecurityException} rather than a raw
+     * {@link NullPointerException}. One read-family and one write-family gate
+     * cover the shared code path; the other 4 gates are identical at this seam.
+     */
+    @Test
+    @DisplayName("ViewTicklerMain should throw SecurityException when session is empty")
+    void shouldDenyViewTicklerMain_whenSessionEmpty() {
+        String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
+        setSessionAttribute(key, null);
+
+        assertThatThrownBy(() -> executeAction(new ViewTicklerMain2Action()))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_tickler");
+    }
+
+    @Test
+    @DisplayName("ViewAddTickler should throw SecurityException when session is empty")
+    void shouldDenyViewAddTickler_whenSessionEmpty() {
+        String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
+        setSessionAttribute(key, null);
+
+        assertThatThrownBy(() -> executeAction(new ViewAddTickler2Action()))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_tickler");
     }
 }

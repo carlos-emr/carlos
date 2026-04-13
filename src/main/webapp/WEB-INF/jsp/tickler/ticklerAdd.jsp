@@ -669,7 +669,7 @@
         <form name="ADDAPPT" method="post" action="<%= request.getContextPath() %>/appointment/appointmentcontrol.jsp">
             <input type="hidden" name="orderby" value="last_name">
             <input type="hidden" name="search_mode" value="<%=Encode.forHtmlAttribute(searchMode)%>">
-            <input type="hidden" name="originalpage" value="<%= request.getContextPath() %>/tickler/AddTickler.do">
+            <input type="hidden" name="originalpage" value="<%=Encode.forHtmlAttribute(request.getContextPath() + "/tickler/ViewAddTickler.do")%>">
             <input type="hidden" name="limit1" value="0">
             <input type="hidden" name="limit2" value="5">
             <input type="hidden" name="displaymode" value="Search ">
