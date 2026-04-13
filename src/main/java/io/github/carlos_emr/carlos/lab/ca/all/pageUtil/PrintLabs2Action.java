@@ -107,7 +107,10 @@ public class PrintLabs2Action extends ActionSupport {
                     }
                     pdf.addEmbeddedDocuments(f, response.getOutputStream());
                 } finally {
-                    f.delete();
+                    if (f.exists() && !f.delete()) {
+                        f.deleteOnExit();
+                        logger.warn("Failed to delete temporary lab report PDF; scheduled deletion on JVM exit");
+                    }
                 }
             }
         } catch (IOException ioe) {
