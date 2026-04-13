@@ -112,8 +112,7 @@ public class AuditLogManager {
             String formattedDate = formatter2.format(endDateToPurge);
             String whereClause = "dateTime < '" + formattedDate + "'";
 
-            // nosemgrep
-            ProcessBuilder pb = new ProcessBuilder(
+            String[] cmdArray = {
                     mysqldump,
                     "--user=" + user,
                     "-w",
@@ -122,7 +121,9 @@ public class AuditLogManager {
                     "--result-file=" + filename,
                     dbName,
                     "log"
-            );
+            };
+
+            ProcessBuilder pb = new ProcessBuilder(cmdArray); // nosemgrep
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
             }
