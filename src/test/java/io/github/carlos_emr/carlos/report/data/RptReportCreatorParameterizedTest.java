@@ -239,4 +239,77 @@ class RptReportCreatorParameterizedTest {
         assertThat(result.getSql()).isEqualTo("demographic.last_name=?");
         assertThat(result.getParams()).containsExactly("");
     }
+
+    // --- Quote-context detection for LIKE patterns ---
+
+    @Test
+    @DisplayName("should detect quoted context for like '%${name}%' pattern and fold wildcards into bound value")
+    void shouldBindLikeWildcardPattern_withPercentPrefixAndSuffix() {
+        Vector<String> vec = new Vector<>();
+        vec.add("Smith");
+
+        ParameterizedSql result = RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.last_name like '%${lastName}%'", vec);
+
+        assertThat(result.getSql()).isEqualTo("demographic.last_name like ?");
+        assertThat(result.getParams()).containsExactly("%Smith%");
+    }
+
+    @Test
+    @DisplayName("should detect quoted context for like '%${name}' pattern (trailing wildcard only)")
+    void shouldBindLikeWildcardPattern_withPercentPrefixOnly() {
+        Vector<String> vec = new Vector<>();
+        vec.add("Smith");
+
+        ParameterizedSql result = RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.last_name like '%${lastName}'", vec);
+
+        assertThat(result.getSql()).isEqualTo("demographic.last_name like ?");
+        assertThat(result.getParams()).containsExactly("%Smith");
+    }
+
+    @Test
+    @DisplayName("should detect quoted context for ='abc${x}def' pattern (prefix and suffix inside quotes)")
+    void shouldFoldPrefixAndSuffix_insideQuotedLiteral() {
+        Vector<String> vec = new Vector<>();
+        vec.add("mid");
+
+        ParameterizedSql result = RptReportCreator.getWhereValueClauseParameterized(
+                "t.code='abc${x}def'", vec);
+
+        assertThat(result.getSql()).isEqualTo("t.code=?");
+        assertThat(result.getParams()).containsExactly("abcmiddef");
+    }
+
+    // --- isInsideQuotedLiteral helper ---
+
+    @Test
+    @DisplayName("isInsideQuotedLiteral should return true when index is inside single-quoted string")
+    void shouldReturnTrue_whenInsideQuotedLiteral() {
+        // "t.name='hello world'" — index of 'h' (8) is inside quotes
+        assertThat(RptReportCreator.isInsideQuotedLiteral("t.name='hello world'", 8)).isTrue();
+    }
+
+    @Test
+    @DisplayName("isInsideQuotedLiteral should return false when index is outside any quoted string")
+    void shouldReturnFalse_whenOutsideQuotedLiteral() {
+        // "t.name='hello' and t.age" — index of 'a' in 'and' (16) is outside quotes
+        assertThat(RptReportCreator.isInsideQuotedLiteral("t.name='hello' and t.age", 16)).isFalse();
+    }
+
+    @Test
+    @DisplayName("isInsideQuotedLiteral should handle escaped '' pairs correctly")
+    void shouldHandleEscapedQuotePairs() {
+        // "t.name='O''Brien'" — the '' is an escape, so index of 'B' (11) is still inside quotes
+        assertThat(RptReportCreator.isInsideQuotedLiteral("t.name='O''Brien'", 11)).isTrue();
+    }
+
+    @Test
+    @DisplayName("isInsideQuotedLiteral should return true for LIKE wildcard pattern")
+    void shouldReturnTrue_forLikeWildcardPattern() {
+        // "t.name like '%${x}%'" — the '%' before '$' is at index 14, which is inside quotes
+        String template = "t.name like '%${x}%'";
+        int dollarIdx = template.indexOf("${");
+        assertThat(RptReportCreator.isInsideQuotedLiteral(template, dollarIdx)).isTrue();
+    }
 }

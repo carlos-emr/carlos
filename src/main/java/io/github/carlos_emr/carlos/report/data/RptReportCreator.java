@@ -181,11 +181,14 @@ public final class RptReportCreator {
      * Replaces {@code ${var}} placeholders with {@code ?} bind markers and
      * collects the corresponding values into a parameter list.
      *
-     * <p><strong>Context detection:</strong> Placeholders immediately preceded
-     * by a single quote (e.g. {@code '${name}'}) are treated as string/date
-     * context — the surrounding quotes are stripped so the value is bound via
-     * {@code PreparedStatement.setString()}. All other placeholders are treated
-     * as numeric context.
+     * <p><strong>Context detection:</strong> Uses quote-parity analysis
+     * ({@link #isInsideQuotedLiteral}) to determine whether each placeholder
+     * falls inside a single-quoted SQL literal. This correctly handles patterns
+     * like {@code like '%${name}%'} where the placeholder is not immediately
+     * preceded by a quote character. For quoted contexts, any literal prefix/suffix
+     * inside the enclosing quotes is folded into the bound value (e.g.,
+     * {@code '%${name}%'} binds {@code "%Smith%"} and emits {@code ?}).
+     * All other placeholders are treated as numeric context.
      *
      * @implNote <strong>Numeric allowlist (fail-closed):</strong> values bound
      *           into a numeric context MUST match {@code -?\d+(\.\d+)?}. Any
@@ -200,8 +203,8 @@ public final class RptReportCreator {
      *           throws {@link IllegalStateException} rather than silently emitting
      *           a broken SQL string. Templates are admin-configured; a broken
      *           template is a configuration bug that should surface immediately.
-     * @implNote Escaped single quotes within a template segment (e.g.
-     *           {@code O''Reilly}) are not specifically handled. Placeholders do
+     * @implNote SQL-escaped single quotes ({@code ''}) within a template are
+     *           correctly handled by the quote-parity scanner. Placeholders do
      *           not nest; nested {@code ${...${...}...}} forms are undefined.
      *
      * @param value the WHERE clause template containing {@code ${var}} placeholders
@@ -231,16 +234,27 @@ public final class RptReportCreator {
             int thisIdx = paramIdx;
             paramIdx++;
 
-            boolean inQuotedContext = startIdx > 0 && value.charAt(startIdx - 1) == '\'';
+            boolean inQuotedContext = isInsideQuotedLiteral(value, startIdx);
             Object boundValue;
             if (inQuotedContext) {
                 boundValue = rawValue != null ? rawValue : "";
-                String before = value.substring(0, startIdx - 1);
-                int afterStart = endIdx + 1;
-                if (afterStart < value.length() && value.charAt(afterStart) == '\'') {
-                    afterStart++;
+                // Find the enclosing single quotes around this placeholder
+                int openQuote = value.lastIndexOf('\'', startIdx);
+                int closeQuote = value.indexOf('\'', endIdx + 1);
+                if (openQuote < 0 || closeQuote < 0) {
+                    // Fallback: malformed template; treat as simple replacement
+                    value = value.substring(0, startIdx) + "?" + value.substring(endIdx + 1);
+                } else {
+                    // Extract prefix and suffix inside quotes around the placeholder
+                    String prefix = value.substring(openQuote + 1, startIdx);
+                    String suffix = value.substring(endIdx + 1, closeQuote);
+                    // Prepend/append any literal text inside quotes to the bound value
+                    if (!prefix.isEmpty() || !suffix.isEmpty()) {
+                        boundValue = prefix + (rawValue != null ? rawValue.toString() : "") + suffix;
+                    }
+                    // Replace entire 'prefix${var}suffix' (including enclosing quotes) with ?
+                    value = value.substring(0, openQuote) + "?" + value.substring(closeQuote + 1);
                 }
-                value = before + "?" + value.substring(afterStart);
             } else {
                 String strValue = rawValue != null ? rawValue.toString() : "";
                 if (!strValue.matches("-?\\d+(\\.\\d+)?")) {
@@ -260,6 +274,32 @@ public final class RptReportCreator {
                     "Report template exceeds " + MAX_PLACEHOLDER_REPLACEMENTS + " placeholders");
         }
         return new ParameterizedSql(value, params);
+    }
+
+    /**
+     * Determines whether the character position {@code idx} in the given SQL
+     * template string lies inside a single-quoted SQL string literal.
+     *
+     * <p>Counts unescaped single quotes (skipping SQL-escaped {@code ''} pairs)
+     * before the index. An odd count means we are inside a quoted literal.
+     *
+     * @param sql the SQL template string
+     * @param idx the character index to test
+     * @return {@code true} if the index is inside a single-quoted literal
+     */
+    static boolean isInsideQuotedLiteral(String sql, int idx) {
+        boolean insideQuote = false;
+        for (int pos = 0; pos < idx; pos++) {
+            if (sql.charAt(pos) == '\'') {
+                // Skip escaped '' pairs
+                if (pos + 1 < sql.length() && sql.charAt(pos + 1) == '\'') {
+                    pos++; // skip the second quote
+                } else {
+                    insideQuote = !insideQuote;
+                }
+            }
+        }
+        return insideQuote;
     }
 
     public static boolean isIncludeDemo(String value) {

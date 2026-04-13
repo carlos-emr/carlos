@@ -101,4 +101,32 @@ class RptFormQueryTest {
         assertThat(params.get(0)).isEqualTo("Smith"); // parent placeholder first
         assertThat(params.get(1)).isEqualTo("42");    // child placeholder second
     }
+
+    @Test
+    @DisplayName("should skip blank fragments to avoid stray conjunctions")
+    void shouldSkipBlankFragments_toAvoidStrayConjunctions() {
+        ParameterizedSql blank = new ParameterizedSql("", Collections.emptyList());
+        ParameterizedSql f1 = new ParameterizedSql("a=?", Arrays.asList("alpha"));
+        ParameterizedSql f2 = new ParameterizedSql("b=?", Arrays.asList("bravo"));
+
+        // Blank fragment in between non-empty ones — should be skipped
+        ParameterizedSql result = RptFormQuery.getQueryWhereParameterized(
+                Arrays.asList(blank, f1, blank, f2, blank));
+
+        assertThat(result.getSql()).isEqualTo("a=? and b=?");
+        assertThat(result.getParams()).containsExactly("alpha", "bravo");
+    }
+
+    @Test
+    @DisplayName("should return empty when all fragments are blank")
+    void shouldReturnEmpty_whenAllFragmentsBlank() {
+        ParameterizedSql blank1 = new ParameterizedSql("", Collections.emptyList());
+        ParameterizedSql blank2 = new ParameterizedSql("  ", Collections.emptyList());
+
+        ParameterizedSql result = RptFormQuery.getQueryWhereParameterized(
+                Arrays.asList(blank1, blank2));
+
+        assertThat(result.getSql()).isEmpty();
+        assertThat(result.getParams()).isEmpty();
+    }
 }

@@ -125,9 +125,11 @@ public class RptFormQuery {
         // Collect all parameters for the sub-query
         List<Object> subQueryParams = new ArrayList<>();
 
-        // test for vecVarValue
-        if ((whereClause.getSql().length() > 0) || (reportCreator.getWhereJoinClause(tableName, bDemo).length() > 0)) {
-            subQuery += " where " + whereClause.getSql() + reportCreator.getWhereJoinClause(tableName, bDemo);
+        // Build WHERE clause safely by joining non-empty predicates
+        String joinClause = reportCreator.getWhereJoinClause(tableName, bDemo);
+        String combinedWhere = RptReportCreator.joinPredicates(whereClause.getSql(), joinClause);
+        if (!combinedWhere.isEmpty()) {
+            subQuery += " where " + combinedWhere;
             subQueryParams.addAll(whereClause.getParams());
         }
         subQuery += " group by " + tableName + ".demographic_no," + tableName + ".formCreated ";
@@ -141,8 +143,8 @@ public class RptFormQuery {
         String rltSubQuery = reportCreator.getRltSubQuery(subQuery, subQueryParams.toArray());
 
         reportSql += " where " + tableName + ".ID in (" + rltSubQuery + ")";
-        if (reportCreator.getWhereJoinClause(tableName, bDemo).length() > 0) {
-            reportSql += " and " + reportCreator.getWhereJoinClause(tableName, bDemo);
+        if (!joinClause.isEmpty()) {
+            reportSql += " and " + joinClause;
         }
 
         // The final reportSql contains no '?' placeholders: the sub-query was
@@ -223,17 +225,19 @@ public class RptFormQuery {
     /**
      * Combines a list of {@link ParameterizedSql} WHERE clause fragments into
      * a single parameterized WHERE clause joined by {@code AND}.
+     * Blank/empty fragments are skipped to avoid stray conjunctions.
      */
     static ParameterizedSql getQueryWhereParameterized(List<ParameterizedSql> fragments) {
         StringBuilder sql = new StringBuilder();
         List<Object> params = new ArrayList<>();
-        for (int i = 0; i < fragments.size(); i++) {
-            ParameterizedSql frag = fragments.get(i);
-            if (i == 0) {
-                sql.append(frag.getSql());
-            } else {
-                sql.append(" and ").append(frag.getSql());
+        for (ParameterizedSql frag : fragments) {
+            if (frag.getSql() == null || frag.getSql().isBlank()) {
+                continue;
             }
+            if (sql.length() > 0) {
+                sql.append(" and ");
+            }
+            sql.append(frag.getSql());
             params.addAll(frag.getParams());
         }
         return new ParameterizedSql(sql.toString(), params);
