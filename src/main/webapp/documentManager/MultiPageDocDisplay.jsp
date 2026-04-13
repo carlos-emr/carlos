@@ -805,7 +805,7 @@
                 <fieldset>
                     <legend><fmt:message key="inboxmanager.document.Comment"/></legend>
                     <form name="acknowledgeForm_<%=Encode.forHtmlAttribute(docId)%>" id="acknowledgeForm_<%=Encode.forHtmlAttribute(docId)%>"
-                          onsubmit="updateStatus('acknowledgeForm_<%=Encode.forHtmlAttribute(docId)%>');" method="post"
+                          onsubmit="updateStatus('acknowledgeForm_<%=Encode.forJavaScriptAttribute(docId)%>');" method="post"
                           action="javascript:void(0);">
 
                         <table width="100%" height="100%" border="0" cellspacing="0" cellpadding="0">
