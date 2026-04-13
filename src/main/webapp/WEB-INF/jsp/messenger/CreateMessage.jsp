@@ -457,7 +457,7 @@ function validateFields() {
 			<tr>
 
 						<td><div style="display:flex; padding-left:10px;">
-						    <a class="btn btn-primary" href="<%=request.getContextPath()%>/messenger/DisplayMessages.jsp">
+						    <a class="btn btn-primary" href="<%=request.getContextPath()%>/messenger/DisplayMessages.do">
 								<fmt:message key="messenger.ViewMessage.btnInbox" />
 							</a>
                             <a class="btn btn-outline-secondary" href="<%=request.getContextPath()%>/messenger/ClearMessage.do">

@@ -326,23 +326,23 @@
                         <td>
                             <ul class="nav nav-tabs">
                                 <li class="nav-item">
-                                         <a class="nav-link" href="${pageContext.request.contextPath}/messenger/CreateMessage.jsp">
+                                         <a class="nav-link" href="${pageContext.request.contextPath}/messenger/ViewCreateMessage.do">
                                          <fmt:message key="messenger.DisplayMessages.btnCompose"/></a>
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link <% if (pageType == 0) { %>active<% } %>"
-                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp">
+                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages.do">
                                          <fmt:message key="messenger.DisplayMessages.btnRefresh"/></a>
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link <% if (pageType == 1) { %>active<% } %>"
-                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?boxType=1">
+                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages.do?boxType=1">
                                          <fmt:message key="messenger.DisplayMessages.btnSent"/></a><!-- sentMessage link-->
 
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link <% if (pageType == 2) { %>active<% } %>"
-                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?boxType=2">
+                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages.do?boxType=2">
                                          <fmt:message key="messenger.DisplayMessages.btnDeletedMessage"/></a><!--deletedMessage link-->
 
                                     </li>
@@ -389,7 +389,7 @@
 
 		                    String previous = "";
 		                    String next = "";
-		                    String path = request.getContextPath()+"/messenger/DisplayMessages.jsp?boxType=" + pageType + "&page=";
+		                    String path = request.getContextPath()+"/messenger/DisplayMessages.do?boxType=" + pageType + "&page=";
 		                    if (pageType != 3){
 
 		                    int totalMsgs = DisplayMessagesBeanId.getTotalMessages(pageType);
@@ -433,7 +433,7 @@
                                     <%} %>
                                     </th>
                                     <th style="text-align: left; width:120px;">
-                                        <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=status"
+                                        <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.do?orderby=status"
                                                    >
                                             <fmt:message key="messenger.DisplayMessages.msgStatus"/>
                                             <i class="fa-solid fa-caret-down"></i>
@@ -441,13 +441,13 @@
                                     </th>
                                     <th style="text-align: left;">
                                       <%if( pageType == 1 ) {%>
-                                                 <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=sentto"
+                                                 <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.do?orderby=sentto"
                                                     >
                                                     <fmt:message key="messenger.DisplayMessages.msgTo"/>
                                                     <i class="fa-solid fa-caret-down"></i>
                                                 </a>
                                        <%} else {%>
-                                                <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=from"
+                                                <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.do?orderby=from"
                                                    >
                                                     <fmt:message key="messenger.DisplayMessages.msgFrom"/>
                                                     <i class="fa-solid fa-caret-down"></i>
@@ -455,21 +455,21 @@
                                        <% } %>
                                     </th>
                                     <th style="text-align: left;">
-                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=subject"
+                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.do?orderby=subject"
                                                    >
                                                 <fmt:message key="messenger.DisplayMessages.msgSubject"/>
                                                 <i class="fa-solid fa-caret-down"></i>
                                             </a>
                                     </th>
                                     <th style="text-align: left;">
-                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=date"
+                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.do?orderby=date"
                                                    >
                                                 <fmt:message key="messenger.DisplayMessages.msgDate"/>
                                                 <i class="fa-solid fa-caret-down"></i>
                                             </a>
                                     </th>
                                     <th style="text-align: left;" >
-                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=linked"
+                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.do?orderby=linked"
                                                    >
                                                 <fmt:message key="messenger.DisplayMessages.msgLinked"/>
                                                 <i class="fa-solid fa-caret-down"></i>

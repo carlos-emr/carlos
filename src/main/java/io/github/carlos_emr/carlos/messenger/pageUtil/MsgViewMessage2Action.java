@@ -204,7 +204,7 @@ public class MsgViewMessage2Action extends ActionSupport {
         Integer parsedMessageNo = ConversionUtils.fromIntString(messageNo);
         if (parsedMessageNo <= 0) {
             MiscUtils.getLogger().warn("Invalid or missing messageID parameter");
-            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.jsp");
+            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.do");
             return NONE;
         }
 
@@ -214,7 +214,7 @@ public class MsgViewMessage2Action extends ActionSupport {
         // Early return if message not found
         if (msgDisplayMessage == null) {
             MiscUtils.getLogger().warn("Message not found: ID=" + parsedMessageNo);
-            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.jsp");
+            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.do");
             return NONE;
         }
 
@@ -277,7 +277,7 @@ public class MsgViewMessage2Action extends ActionSupport {
         }
 
         // Redirect to the message viewing page with encoded parameters
-        String actionforward = request.getContextPath() + "/messenger/ViewMessage.jsp?boxType="
+        String actionforward = request.getContextPath() + "/messenger/ViewMessage.do?boxType="
                 + Encode.forUriComponent(boxType) + "&linkMsgDemo=" + Encode.forUriComponent(linkMsgDemo != null ? linkMsgDemo : "");
         response.sendRedirect(actionforward);
 

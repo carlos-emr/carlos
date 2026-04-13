@@ -387,7 +387,7 @@
             Items without a check box will be sent by default.
             <div style="height: 6px;"></div>
 
-            <form method="POST" action="<%= request.getContextPath() %>/messenger/Transfer/PostItems.jsp"><input type=hidden
+            <form method="POST" action="<%= request.getContextPath() %>/messenger/Transfer/PostItems.do"><input type=hidden
                                                               name="xmlDoc"
                                                               value="<%= MsgCommxml.encode64(MsgCommxml.toXML(root)) %>"/> <% DrawDoc(root, out); %>
                 <br>

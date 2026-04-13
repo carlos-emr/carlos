@@ -328,7 +328,7 @@
                                         %>
                                         <td width="60%"></td>
                                         <td align="left"><a
-                                                href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?moreMessages=true">
+                                                href="${pageContext.request.contextPath}/messenger/DisplayMessages.do?moreMessages=true">
                                             <fmt:message key="messenger.DisplayMessages.msgAllMessage"/>
                                         </a></td>
                                         <%}%>

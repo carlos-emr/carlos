@@ -120,7 +120,7 @@
 
         <action name="demographic/DemographicLinkMsg"
                 class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicLinkMsg2Action">
-            <result name="success">/messenger/msgSearchDemo.jsp</result>
+            <result name="success">/WEB-INF/jsp/messenger/msgSearchDemo.jsp</result>
         </action>
 
     </package>
