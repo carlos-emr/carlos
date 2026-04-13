@@ -103,24 +103,26 @@ public class AuditLogManager {
 
         String filename = outputDirectory + "/OSCAR_AUDIR_LOG_PURGE_FILE_" + formatter3.format(endDateToPurge) + ".sql";
 
-        String vars[] = new String[9];
-        vars[0] = mysqldump;
-        vars[1] = "--user=" + user;
-        vars[2] = "--password=" + password;
-        vars[3] = "-w";
-        vars[4] = "dateTime < '" + formatter2.format(endDateToPurge) + "'";
-        vars[5] = "-t";
-        vars[6] = "--result-file=" + filename;
-        vars[7] = dbName;
-        vars[8] = "log";
-
         Integer exitValue = null;
 
 
         try {
             String s = null;
 
-            Process p = Runtime.getRuntime().exec(vars);
+            ProcessBuilder pb = new ProcessBuilder(
+                    mysqldump,
+                    "--user=" + user,
+                    "-w",
+                    "dateTime < '" + formatter2.format(endDateToPurge) + "'",
+                    "-t",
+                    "--result-file=" + filename,
+                    dbName,
+                    "log"
+            );
+            if (password != null) {
+                pb.environment().put("MYSQL_PWD", password);
+            }
+            Process p = pb.start();
 
             BufferedReader stdInput = new BufferedReader(new InputStreamReader(p.getInputStream()));
 
