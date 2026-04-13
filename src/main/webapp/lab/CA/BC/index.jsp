@@ -54,6 +54,7 @@
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7LinkDao" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Link" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
 
@@ -175,18 +176,18 @@
                     <%=Misc.check(pid.getSex(), "")%>
                 </td>
                 <td class="Text">
-                    <%=Misc.check(obr.getOrderingProvider(), "").replaceAll("~", ",<br/>")%>
+                    <%= Encode.forHtml(Misc.check(obr.getOrderingProvider(), "").replaceAll("~", ", ")) %>
                 </td>
                 <td class="Text" style="border-right: #464646 1px solid;">
-                    <%=Misc.check(obr.getResultCopiesTo(), "").replaceAll("~", ",<br/>")%>
+                    <%= Encode.forHtml(Misc.check(obr.getResultCopiesTo(), "").replaceAll("~", ", ")) %>
                 </td>
                 <td class="Text" style="border-left: #464646 1px solid;">
                     <a href="#" onclick="return PopupDemo('<%=link.getId()%>');">
-                        <%=Misc.check("" + demo.getDemographicNo(), "select")%>
+                        <%= Encode.forHtml(Misc.check("" + demo.getDemographicNo(), "select")) %>
                     </a>
                 </td>
                 <td class="Text">
-                    <%= demo.getFullName()%>
+                    <%= Encode.forHtml(demo.getFullName()) %>
                 </td>
                 <td class="Text">
                     <%=    demo.getBirthDayAsString() %>

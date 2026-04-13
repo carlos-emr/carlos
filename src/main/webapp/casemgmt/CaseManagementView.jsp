@@ -379,7 +379,7 @@
                                             var="noteURL"/>
                                     &nbsp;|&nbsp;
                                     <span style="text-decoration: underline; cursor: pointer; color: blue"
-                                        onclick="popupNotePage('<c:out value="${noteURL}" escapeXml="false"/>')">New
+                                        onclick="popupNotePage('<c:out value="${noteURL}" />')">New
                         Note</span>
                                 </c:if>
                             </security:oscarSec>
@@ -391,7 +391,7 @@
                                         var="noteURL"/>
                                 &nbsp;|&nbsp;
                                 <span style="text-decoration: underline; cursor: pointer; color: blue"
-                                    onclick="popupNotePage('<c:out value="${noteURL}" escapeXml="false"/>')">Restore
+                                    onclick="popupNotePage('<c:out value="${noteURL}" />')">Restore
                         Lost Note</span>
                             </c:if></td>
                         <td align="right">Provider: <select
@@ -448,7 +448,7 @@
                                                 <img src="<c:out value="${ctx}"/>/images/edit_white.png"
                                                     title="Edit/Sign Note" style="cursor: pointer"
                                                     onclick="popupNotePage('<c:out value="${notesURL}"
-                                                                                    escapeXml="false"/>')"/>
+                                                                                    />')"/>
                                             </c:when>
                                             <c:otherwise>
                                                 <img src="<c:out value="${ctx}"/>/images/transparent_icon.gif" title=""/>
@@ -462,7 +462,7 @@
                                             <img src="<c:out value="${ctx}"/>/images/history.gif" title="Note History"
                                                 style="cursor: pointer"
                                                 onclick="popupHistoryPage('<c:out value="${historyURL}"
-                                                                                escapeXml="false"/>')">
+                                                                                />')">
                                         </c:when>
                                         <c:otherwise>
                                             <img src="<c:out value="${ctx}"/>/images/transparent_icon.gif" title=""/>
@@ -477,7 +477,7 @@
                                                 <img src="<c:out value="${ctx}"/>/images/ulock.gif"
                                                     title="Unlock" style="cursor: pointer"
                                                     onclick="popupPage('<c:out value="${lockedURL}"
-                                                                                escapeXml="false"/>')"/>
+                                                                                />')"/>
                                             </c:when>
                                             <c:otherwise>
                                                 <img src="<c:out value="${ctx}"/>/images/transparent_icon.gif"
@@ -553,7 +553,7 @@
                                                             var="notesURL"/>
                                                         <input type="button" value="Edit and Sign"
                                                             onclick="popupNotePage('<c:out value="${notesURL}"
-                                                                                            escapeXml="false"/>')">
+                                                                                            />')">
                                                     </c:if>
                                                 </security:oscarSec>
                                                 <c:if test="${note.hasHistory == true}">
@@ -561,7 +561,7 @@
                                                         var="historyURL"/>
                                                     <input type="button" value="Note History"
                                                         onclick="popupHistoryPage('<c:out value="${historyURL}"
-                                                                                            escapeXml="false"/>')">
+                                                                                            />')">
                                                 </c:if>
                                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes"
                                                                 rights="u">
@@ -570,7 +570,7 @@
                                                             var="lockedURL"/>
                                                         <input type="button" value="Unlock"
                                                             onclick="popupPage('<c:out value="${lockedURL}"
-                                                                                        escapeXml="false"/>')">
+                                                                                        />')">
                                                     </c:if>
                                                 </security:oscarSec>
                                             </td>
@@ -621,7 +621,7 @@
                         &nbsp;|&nbsp;
 
                         <span style="text-decoration: underline; cursor: pointer; color: blue"
-                            onclick="popupNotePage('<c:out value="${noteURL}" escapeXml="false"/>')">New
+                            onclick="popupNotePage('<c:out value="${noteURL}" />')">New
                 Note</span>
                     </c:if>
                 </security:oscarSec>
@@ -633,7 +633,7 @@
                         var="noteURL"/>
                 &nbsp;|&nbsp;
                 <span style="text-decoration: underline; cursor: pointer; color: blue"
-                    onclick="popupNotePage('<c:out value="${noteURL}" escapeXml="false"/>')">Restore
+                    onclick="popupNotePage('<c:out value="${noteURL}" />')">Restore
                         Lost Note</span>
             </c:if>
 
@@ -647,7 +647,7 @@
                         value="/CaseManagementEntry.do?method=edit&note_edit=new&from=casemgmt&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                         var="noteURL"/>
                 <span style="text-decoration: underline; cursor: pointer; color: blue"
-                    onclick="popupNotePage('<c:out value="${noteURL}" escapeXml="false"/>')">New
+                    onclick="popupNotePage('<c:out value="${noteURL}" />')">New
             Note</span>
             </c:if>
         </security:oscarSec>

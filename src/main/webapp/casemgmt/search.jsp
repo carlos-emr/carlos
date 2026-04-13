@@ -161,7 +161,7 @@
                                         var="notesURL"/>
                                 <img src="<c:out value="${ctx}"/>/images/edit_white.png"
                                      title="Edit/Sign Note" style="cursor: pointer"
-                                     onclick="popupNotePage('<c:out value="${notesURL}" escapeXml="false"/>')"/>
+                                     onclick="popupNotePage('<c:out value="${notesURL}" />')"/>
                             </c:when>
                             <c:when
                                     test="${note.signed and param.providerNo eq note.providerNo}">
@@ -170,7 +170,7 @@
                                         var="notesURL"/>
                                 <img src="<c:out value="${ctx}"/>/images/edit_white.png"
                                      title="Edit Note" style="cursor: pointer"
-                                     onclick="popupNotePage('<c:out value="${notesURL}" escapeXml="false"/>')"/>
+                                     onclick="popupNotePage('<c:out value="${notesURL}" />')"/>
                             </c:when>
                             <c:otherwise>
                                 <img src="<c:out value="${ctx}"/>/images/transparent_icon.gif"
@@ -183,7 +183,7 @@
                                         var="historyURL"/>
                                 <img src="<c:out value="${ctx}"/>/images/history.gif"
                                      title="Note History" style="cursor: pointer"
-                                     onclick="popupHistoryPage('<c:out value="${historyURL}" escapeXml="false"/>')">
+                                     onclick="popupHistoryPage('<c:out value="${historyURL}" />')">
                             </c:when>
                             <c:otherwise>
                                 <img src="<c:out value="${ctx}"/>/images/transparent_icon.gif"
@@ -196,7 +196,7 @@
                                         var="lockedURL"/>
                                 <img src="<c:out value="${ctx}"/>/images/ulock.gif"
                                      title="Unlock" style="cursor: pointer"
-                                     onclick="popupPage('<c:out value="${lockedURL}" escapeXml="false"/>')"/>
+                                     onclick="popupPage('<c:out value="${lockedURL}" />')"/>
                             </c:when>
                             <c:otherwise>
                                 <img src="<c:out value="${ctx}"/>/images/transparent_icon.gif"
@@ -258,7 +258,7 @@
                                                 var="notesURL"/>
                                         <input type="button" value="Edit and Sign"
                                                onclick="popupNotePage('<c:out value="${notesURL}"
-                                                                              escapeXml="false"/>')">
+                                                                              />')">
                                     </c:if> <c:if
                                             test="${note.signed and param.providerNo eq note.providerNo}">
                                         <c:url
@@ -266,20 +266,20 @@
                                                 var="notesURL"/>
                                         <input type="button" value="Edit This Note"
                                                onclick="popupNotePage('<c:out value="${notesURL}"
-                                                                              escapeXml="false"/>')">
+                                                                              />')">
                                     </c:if> <c:if test="${note.hasHistory == true}">
                                         <c:url
                                                 value="/CaseManagementEntry.do?method=history&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                                 var="historyURL"/>
                                         <input type="button" value="Note History"
                                                onclick="popupHistoryPage('<c:out value="${historyURL}"
-                                                                                 escapeXml="false"/>')">
+                                                                                 />')">
                                     </c:if> <c:if test="${note.locked}">
                                         <c:url
                                                 value="/CaseManagementView.do?method=unlock&noteId=${note.id}"
                                                 var="lockedURL"/>
                                         <input type="button" value="Unlock"
-                                               onclick="popupPage('<c:out value="${lockedURL}" escapeXml="false"/>')">
+                                               onclick="popupPage('<c:out value="${lockedURL}" />')">
                                     </c:if></td>
                                 </tr>
                                 <tr bgcolor="<%=bgcolor1 %>">

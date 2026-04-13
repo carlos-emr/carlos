@@ -53,6 +53,7 @@
 <%@page import="java.text.SimpleDateFormat" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="org.owasp.encoder.Encode" %>
 
 <html>
 <head>
@@ -123,11 +124,11 @@
                 }
                 Provider provider = providerDao.getProvider(defaultIssue.getProviderNo());
                 out.print("<tr style=" + style + " bgcolor=" + bgcolor + ">");
-                out.print("<td>" + sdf.format(defaultIssue.getAssignedtime()) + "</td>");
-                out.print("<td>" + provider.getLastName() + "</td>");
-                out.print("<td>" + provider.getFirstName() + "</td>");
-                out.print("<td>" + sdf.format(defaultIssue.getUpdatetime()) + "</td>");
-                out.print("<td>" + sb.toString() + "</td>");
+                out.print("<td>" + Encode.forHtml(sdf.format(defaultIssue.getAssignedtime())) + "</td>");
+                out.print("<td>" + Encode.forHtml(provider.getLastName()) + "</td>");
+                out.print("<td>" + Encode.forHtml(provider.getFirstName()) + "</td>");
+                out.print("<td>" + Encode.forHtml(sdf.format(defaultIssue.getUpdatetime())) + "</td>");
+                out.print("<td>" + Encode.forHtml(sb.toString()) + "</td>");
                 out.print("</tr>");
 
             }

@@ -433,16 +433,16 @@
                                 <!--img src="img/prescript.gif" border="0"-->
                             </th>
                             <th valign=top height="100px" id="clinicAddress">
-                                <b><%=doctorName%>
+                                <b><%= Encode.forHtml(doctorName) %>
                                 </b><br>
                                 <c:choose>
                                     <c:when test="${empty infirmaryView_programAddress}">
-                                        <%= provider.getClinicName().replaceAll("\\(\\d{6}\\)", "") %><br>
-                                        <%= provider.getClinicAddress() %><br>
-                                        <%= provider.getClinicCity() %>&nbsp;&nbsp;<%=provider.getClinicProvince()%>&nbsp;&nbsp;
-                                        <%= provider.getClinicPostal() %>
+                                        <%= Encode.forHtml(provider.getClinicName().replaceAll("\\(\\d{6}\\)", "")) %><br>
+                                        <%= Encode.forHtml(provider.getClinicAddress()) %><br>
+                                        <%= Encode.forHtml(provider.getClinicCity()) %>&nbsp;&nbsp;<%= Encode.forHtml(provider.getClinicProvince()) %>&nbsp;&nbsp;
+                                        <%= Encode.forHtml(provider.getClinicPostal()) %>
                                         <% if (provider.getPractitionerNo() != null && !provider.getPractitionerNo().equals("")) { %>
-                                        <br><fmt:message key="RxPreview.PractNo"/>:<%= provider.getPractitionerNo() %>
+                                        <br><fmt:message key="RxPreview.PractNo"/>:<%= Encode.forHtml(provider.getPractitionerNo()) %>
                                         <% } %>
                                         <br>
                                         <%
@@ -465,9 +465,9 @@
                                             request.setAttribute("phone", finalPhone);
 
                                         %>
-                                        <fmt:message key="RxPreview.msgTel"/>: <%= finalPhone %><br>
+                                        <fmt:message key="RxPreview.msgTel"/>: <%= Encode.forHtml(finalPhone) %><br>
                                         <oscar:oscarPropertiesCheck property="RXFAX" value="yes">
-                                            <fmt:message key="RxPreview.msgFax"/>: <%= finalFax %><br>
+                                            <fmt:message key="RxPreview.msgFax"/>: <%= Encode.forHtml(finalFax) %><br>
                                         </oscar:oscarPropertiesCheck>
                                     </c:when>
                                     <c:otherwise>
@@ -492,10 +492,10 @@
                                             request.setAttribute("phone", finalPhone);
 
                                         %>
-                                        <c:out value="${infirmaryView_programAddress}" escapeXml="false"/><br>
-                                        <fmt:message key="RxPreview.msgTel"/>: <%=finalPhone %><br>
+                                        <c:out value="${infirmaryView_programAddress}"/><br>
+                                        <fmt:message key="RxPreview.msgTel"/>: <%= Encode.forHtml(finalPhone) %><br>
                                         <oscar:oscarPropertiesCheck property="RXFAX" value="yes">
-                                            <fmt:message key="RxPreview.msgFax"/>: <%=finalFax %>
+                                            <fmt:message key="RxPreview.msgFax"/>: <%= Encode.forHtml(finalFax) %>
                                         </oscar:oscarPropertiesCheck>
                                     </c:otherwise>
                                 </c:choose>
@@ -663,7 +663,7 @@
 
                             for (i = 0; i < bean.getStashSize(); i++) {
                                 rx = bean.getStashItem(i);
-                                String fullOutLine = rx.getFullOutLine().replaceAll(";", "<br />");
+                                String fullOutLine = Encode.forHtml(rx.getFullOutLine()).replaceAll(";", "<br />");
 
                                 if (fullOutLine == null || fullOutLine.length() <= 6) {
                                     io.github.carlos_emr.carlos.utility.MiscUtils.getLogger();

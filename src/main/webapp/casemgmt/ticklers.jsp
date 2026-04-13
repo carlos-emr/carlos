@@ -54,6 +54,7 @@
                 org.springframework.web.context.support.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <table width="100%" border="0" cellpadding="0" cellspacing="1"
        bgcolor="#C0C0C0">
@@ -120,16 +121,16 @@
                 style = "color:red;";
             }
         %>
-        <td style="<%=style%>"><%=provider_name %>
+        <td style="<%=style%>"><%= Encode.forHtml(provider_name) %>
         </td>
         <td style="<%=style%>"><fmt:formatDate
                 pattern="MM/dd/yy : hh:mm a" value="${tickler.serviceDate}"/></td>
         <td style="<%=style%>"><c:out value="${tickler.priority}"/></td>
-        <td style="<%=style%>"><%=assignee_name %>
+        <td style="<%=style%>"><%= Encode.forHtml(assignee_name) %>
         </td>
-        <td style="<%=style%>"><%=status %>
+        <td style="<%=style%>"><%= Encode.forHtml(status) %>
         </td>
-        <td style="<%=style%>" align="left"><c:out escapeXml="false"
+        <td style="<%=style%>" align="left"><c:out
                                                    value="${tickler.message}"/></td>
     </tr>
     </c:forEach>

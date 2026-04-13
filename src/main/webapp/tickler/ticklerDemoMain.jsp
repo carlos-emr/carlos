@@ -898,10 +898,10 @@
                             </TD>
                             <TD ROWSPAN="1" class="<%=cellColour%>"><a
                                     href=#
-                                    onClick="popupPage(600,800,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=t.getDemographicNo()%>')"><%=d.getLastName()%>
-                                ,<%=d.getFirstName()%>
+                                    onClick="popupPage(600,800,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=t.getDemographicNo()%>')"><%= Encode.forHtml(d.getLastName()) %>
+                                ,<%= Encode.forHtml(d.getFirstName()) %>
                             </a></TD>
-                            <TD ROWSPAN="1" class="<%=cellColour%>"><%=provider%>
+                            <TD ROWSPAN="1" class="<%=cellColour%>"><%= Encode.forHtml(provider) %>
                             </TD>
                             <TD ROWSPAN="1" class="<%=cellColour%>">
                                 <%
@@ -921,12 +921,12 @@
                             </TD>
                             <TD ROWSPAN="1" class="<%=cellColour%>"><%=t.getPriority()%>
                             </TD>
-                            <TD ROWSPAN="1" class="<%=cellColour%>"><%=taskAssignedTo%>
+                            <TD ROWSPAN="1" class="<%=cellColour%>"><%= Encode.forHtml(taskAssignedTo) %>
                             </TD>
                             <TD ROWSPAN="1"
-                                class="<%=cellColour%>"><%=String.valueOf(t.getStatus()).equals("A") ? "Active" : String.valueOf(t.getStatus()).equals("C") ? "Completed" : String.valueOf(t.getStatus()).equals("D") ? "Deleted" : String.valueOf(t.getStatus())%>
+                                class="<%=cellColour%>"><%= Encode.forHtml(String.valueOf(t.getStatus()).equals("A") ? "Active" : String.valueOf(t.getStatus()).equals("C") ? "Completed" : String.valueOf(t.getStatus()).equals("D") ? "Deleted" : String.valueOf(t.getStatus())) %>
                             </TD>
-                            <TD ROWSPAN="1" class="<%=cellColour%>"><%=t.getMessage()%>
+                            <TD ROWSPAN="1" class="<%=cellColour%>"><%= Encode.forHtml(t.getMessage()) %>
 
                                 <%
                                     List<TicklerLink> linkList = ticklerLinkDao.getLinkByTickler(t.getId().intValue());
@@ -985,8 +985,8 @@
                         <tr>
                             <td width="3%" ROWSPAN="1" class="<%=cellColour%>"></td>
                             <td width="12%" ROWSPAN="1" class="<%=cellColour%>"></td>
-                            <td ROWSPAN="1" class="<%=cellColour%>"><%=tc.getProvider().getLastName()%>
-                                ,<%=tc.getProvider().getFirstName()%>
+                            <td ROWSPAN="1" class="<%=cellColour%>"><%= Encode.forHtml(tc.getProvider().getLastName()) %>
+                                ,<%= Encode.forHtml(tc.getProvider().getFirstName()) %>
                             </td>
                             <td ROWSPAN="1" class="<%=cellColour%>"></td>
                             <% if (tc.isUpdateDateToday()) { %>
@@ -999,7 +999,7 @@
                             <td ROWSPAN="1" class="<%=cellColour%>"></td>
                             <td ROWSPAN="1" class="<%=cellColour%>"></td>
                             <td ROWSPAN="1" class="<%=cellColour%>"></td>
-                            <td ROWSPAN="1" class="<%=cellColour%>" colspan="3"><%=tc.getMessage()%>
+                            <td ROWSPAN="1" class="<%=cellColour%>" colspan="3"><%= Encode.forHtml(tc.getMessage()) %>
                             </td>
 
                         </tr>
