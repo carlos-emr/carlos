@@ -43,6 +43,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     String wlid = (String) request.getAttribute("WLId");
     if (wlid == null) {
@@ -172,11 +173,11 @@
                                             <c:out value="${waitingListBean.position}"/>
                                         </td>
                                         <td class="${styleClass}">
-                                            <a href="#" onclick="popupDemographicPage('<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=${waitingListBean.demographicNo}'); return false;">
-                                                <c:out value="${waitingListBean.patientName}"/>
+                                            <a href="#" onclick="popupDemographicPage('<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=${e:forJavaScript(e:forUriComponent(waitingListBean.demographicNo))}'); return false;">
+                                                ${e:forHtml(waitingListBean.patientName)}
                                             </a>
                                             <input type="button" value="Update" name="update_${ctr.index}" style="font-size: 7pt;"
-                                                   onClick="updateWaitingList('${waitingListBean.waitingListID}', ${ctr.index});"/>
+                                                   onClick="updateWaitingList('${e:forJavaScript(waitingListBean.waitingListID)}', ${ctr.index});"/>
                                         </td>
                                         <td class="${styleClass}">
                                             <textarea cols="45" name="note" indexed="true" class="data3" onblur="setParameters(this);"></textarea>
@@ -203,12 +204,12 @@
                                                     </option>
                                                 </c:forEach>
                                             </select>
-                                            <a href="#" onClick="popupPage(${ctr.index}, '${waitingListBean.patientName}', '${waitingListBean.demographicNo}', '${today}', 400, 780, '<%= request.getContextPath() %>/schedule/scheduleflipview.jsp?originalpage=<%= request.getContextPath() %>/waitinglist/DisplayWaitingList.jsp'); return false;">
+                                            <a href="#" onClick="popupPage(${ctr.index}, '${e:forJavaScript(waitingListBean.patientName)}', '${e:forJavaScript(waitingListBean.demographicNo)}', '${e:forJavaScript(today)}', 400, 780, '<%= request.getContextPath() %>/schedule/FlipView.do?originalpage=<%= request.getContextPath() %>/waitinglist/DisplayWaitingList.jsp'); return false;">
                                                 make_appt
                                             </a>
                                         </td>
                                         <td class="${styleClass}">
-                                            <a href="#" onClick="removePatient('${waitingListBean.demographicNo}', '${WLId}');">remove</a>
+                                            <a href="#" onClick="removePatient('${e:forJavaScript(waitingListBean.demographicNo)}', '${e:forJavaScript(WLId)}');">remove</a>
                                         </td>
                                     </tr>
                                     </c:forEach>
@@ -287,7 +288,11 @@
             } else {
                 var selected = document.forms[0].selectedProvider.options[document.forms[0].selectedProvider.selectedIndex].value;
             }
-            var page = varpage + '&provider_no=' + selected + '&startDate=' + startDate + '&demographic_no=' + demographicNo + '&demographic_name=' + patientName;
+            var page = varpage
+                + '&provider_no=' + encodeURIComponent(selected)
+                + '&startDate=' + encodeURIComponent(startDate)
+                + '&demographic_no=' + encodeURIComponent(demographicNo)
+                + '&demographic_name=' + encodeURIComponent(patientName);
             var windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
             var popup = window.open(page, "<fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>", windowprops);
             if (popup != null) {

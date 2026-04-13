@@ -47,10 +47,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleDate" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao" %>
 <%
-    if (!"POST".equalsIgnoreCase(request.getMethod())) {
-        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
-        return;
-    }
     ScheduleDateDao scheduleDateDao = SpringUtils.getBean(ScheduleDateDao.class);
 %>
 <html>
@@ -63,45 +59,58 @@
         String priority = "c";
         String reason = request.getParameter("reason");
         String hour = request.getParameter("hour");
+        String dateParam = dateParam;
+
+        if (provider_no == null || provider_no.isEmpty()) {
+            throw new IllegalArgumentException("missing required parameter: provider_no");
+        }
+        if (dateParam == null || dateParam.isEmpty()) {
+            throw new IllegalArgumentException("missing required parameter: date");
+        }
+
         //save the record first, change holidaybean next
         int rowsAffected = 0;
 
-        ScheduleDate sd = scheduleDateDao.findByProviderNoAndDate(provider_no, MyDateFormat.getSysDate(request.getParameter("date")));
+        ScheduleDate sd = scheduleDateDao.findByProviderNoAndDate(provider_no, MyDateFormat.getSysDate(dateParam));
         if (sd != null) {
             sd.setStatus('D');
             scheduleDateDao.merge(sd);
         }
         //add R schedule date if it is available
         if (request.getParameter("Submit") != null && request.getParameter("Submit").equals(" Delete ")) {
-            if (scheduleRscheduleBean.getDateAvail(request.getParameter("date"))) {
+            if (scheduleRscheduleBean.getDateAvail(dateParam)) {
                 sd = new ScheduleDate();
-                sd.setDate(MyDateFormat.getSysDate(request.getParameter("date")));
+                sd.setDate(MyDateFormat.getSysDate(dateParam));
                 sd.setProviderNo(provider_no);
                 sd.setAvailable('1');
                 sd.setPriority('b');
                 sd.setReason("");
-                sd.setHour(scheduleRscheduleBean.getDateAvailHour(request.getParameter("date")));
+                sd.setHour(scheduleRscheduleBean.getDateAvailHour(dateParam));
                 sd.setCreator(user_name);
-                sd.setStatus(scheduleRscheduleBean.active.toCharArray()[0]);
+                sd.setStatus(scheduleRscheduleBean.active.charAt(0));
                 scheduleDateDao.persist(sd);
             }
         }
-        scheduleDateBean.remove(request.getParameter("date"));
+        scheduleDateBean.remove(dateParam);
 
         if (request.getParameter("Submit") != null && request.getParameter("Submit").equals(" Save ")) {
 
+            if (available == null || available.isEmpty()) {
+                throw new IllegalArgumentException("missing required parameter: available");
+            }
+
             sd = new ScheduleDate();
-            sd.setDate(MyDateFormat.getSysDate(request.getParameter("date")));
+            sd.setDate(MyDateFormat.getSysDate(dateParam));
             sd.setProviderNo(provider_no);
-            sd.setAvailable(available.toCharArray()[0]);
-            sd.setPriority(priority.toCharArray()[0]);
+            sd.setAvailable(available.charAt(0));
+            sd.setPriority(priority.charAt(0));
             sd.setReason(reason);
             sd.setHour(hour);
             sd.setCreator(user_name);
-            sd.setStatus(scheduleRscheduleBean.active.toCharArray()[0]);
+            sd.setStatus(scheduleRscheduleBean.active.charAt(0));
             scheduleDateDao.persist(sd);
 
-            scheduleDateBean.put(request.getParameter("date"), new HScheduleDate(available, priority, reason, hour, user_name));
+            scheduleDateBean.put(dateParam, new HScheduleDate(available, priority, reason, hour, user_name));
         }
     %>
 

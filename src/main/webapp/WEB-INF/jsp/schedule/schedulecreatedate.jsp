@@ -56,6 +56,7 @@
     boolean scheduleOverlaps = false;
 %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page
         import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
         errorPage="/errorpage.jsp" %>
@@ -79,9 +80,12 @@
     ScheduleHolidayDao scheduleHolidayDao = SpringUtils.getBean(ScheduleHolidayDao.class);
 %>
 <%
-    String provider_name = URLDecoder.decode(request.getParameter("provider_name"));
+    String provider_name = StringUtils.noNull(request.getParameter("provider_name"));
     String provider_no = request.getParameter("provider_no");
-    if (provider_no == null || provider_no == "") response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (provider_no == null || provider_no.isEmpty()) {
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        return;
+    }
 
     //to prepare calendar display
     GregorianCalendar now = new GregorianCalendar();
@@ -262,7 +266,7 @@
     </head>
     <body bgcolor="ivory" bgproperties="fixed" onLoad="setfocus()"
           topmargin="0" leftmargin="0" rightmargin="0">
-    <form method="post" name="schedule" action="scheduledatefinal.jsp">
+    <form method="post" name="schedule" action="${pageContext.request.contextPath}/schedule/DateFinal.do">
 
         <table border="0" width="100%">
             <tr>
@@ -314,13 +318,13 @@
                             %>
                             <tr>
                                 <td BGCOLOR="#CCFFCC" width="50%" align="center"><a
-                                        href="schedulecreatedate.jsp?provider_no=<%= Encode.forUriComponent(provider_no) %>&provider_name=<%=URLEncoder.encode(provider_name, StandardCharsets.UTF_8)%>&year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=-1&bFirstDisp=0">
+                                        href="${pageContext.request.contextPath}/schedule/CreateDate.do?provider_no=<%= Encode.forUriComponent(provider_no) %>&provider_name=<%=URLEncoder.encode(provider_name, StandardCharsets.UTF_8)%>&year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=-1&bFirstDisp=0">
                                     &nbsp;&nbsp;<img src="<%= request.getContextPath() %>/images/previous.gif" WIDTH="10" HEIGHT="9"
                                                      BORDER="0"
                                                      ALT='<fmt:message key="schedule.schedulecreatedate.btnLastMonthTip"/>'
                                                      vspace="2"> <fmt:message key="schedule.schedulecreatedate.btnLastMonth"/>&nbsp;&nbsp; </a> <b><span
                                         CLASS=title><%=year%>-<%=month%></span></b> <a
-                                        href="schedulecreatedate.jsp?provider_no=<%= Encode.forUriComponent(provider_no) %>&provider_name=<%=URLEncoder.encode(provider_name, StandardCharsets.UTF_8)%>&year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=1&bFirstDisp=0">
+                                        href="${pageContext.request.contextPath}/schedule/CreateDate.do?provider_no=<%= Encode.forUriComponent(provider_no) %>&provider_name=<%=URLEncoder.encode(provider_name, StandardCharsets.UTF_8)%>&year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=1&bFirstDisp=0">
                                     &nbsp;&nbsp;<fmt:message key="schedule.schedulecreatedate.btnNextMonth"/><img
                                         src="<%= request.getContextPath() %>/images/next.gif" WIDTH="10" HEIGHT="9" BORDER="0"
                                         ALT='<fmt:message key="schedule.schedulecreatedate.btnNextMonthTip"/>'
@@ -381,7 +385,7 @@
 
                             %>
                             <td bgcolor='<%=bgcolor.toString()%>'><a href="#"
-                                                                     onclick="popupPage(260,720,'scheduledatepopup.jsp?provider_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(provider_no))%>&year=<%=year%>&month=<%=month%>&day=<%=dateGrid[i][j]%>&bFistDisp=1')">
+                                                                     onclick="popupPage(260,720,'${pageContext.request.contextPath}/schedule/DatePopup.do?provider_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(provider_no))%>&year=<%=year%>&month=<%=month%>&day=<%=dateGrid[i][j]%>&bFirstDisp=1')">
                                 <font color="red"><%= dateGrid[i][j] %>
                                 </font> <font size="-3"
                                               color="blue"><%=strHolidayName.toString()%>
