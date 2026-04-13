@@ -114,10 +114,17 @@ public final class RptReportCreator {
         return ret;
     }
 
+    /**
+     * Maximum number of {@code ${var}} placeholder replacements per template.
+     * Mirrors the legacy limit in {@link #getWhereValueClause}; a typical
+     * report template has fewer than 10 placeholders.
+     */
+    private static final int MAX_PLACEHOLDER_REPLACEMENTS = 100;
+
     // Replace the result one by one if not null
     public static String getWhereValueClause(String value, Vector vec) {
         String ret = "";
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < MAX_PLACEHOLDER_REPLACEMENTS; i++) {
             // Use indexOf to check for template variables to avoid potential ReDoS
             int startIdx = value.indexOf("${");
             if (startIdx >= 0) {
@@ -157,6 +164,12 @@ public final class RptReportCreator {
      * contexts ({@code '${var}'}), the surrounding single quotes are removed
      * so the value is bound via {@code PreparedStatement.setString()}.
      *
+     * <p><strong>Known limitation:</strong> Quote detection is based on the
+     * character immediately preceding {@code ${} being a single quote. Escaped
+     * quotes within the same template segment (e.g. {@code O''Reilly}) are not
+     * specifically handled, but this mirrors the existing template format used
+     * by the admin-configured report system.
+     *
      * @param value the WHERE clause template containing {@code ${var}} placeholders
      * @param vec   the replacement values, in placeholder order
      * @return a {@link ParameterizedSql} with the template and bind values
@@ -165,7 +178,7 @@ public final class RptReportCreator {
         List<Object> params = new ArrayList<>();
         int paramIdx = 0;
 
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < MAX_PLACEHOLDER_REPLACEMENTS; i++) {
             int startIdx = value.indexOf("${");
             if (startIdx >= 0) {
                 int endIdx = value.indexOf("}", startIdx);
