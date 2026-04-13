@@ -115,8 +115,14 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
 
     @Override
     public void createBills(List<BillingONCHeader1> lBills) {
+        int i = 0;
         for (BillingONCHeader1 b : lBills) {
             this.persist(b);
+            i++;
+            if (i % 25 == 0) {
+                entityManager.flush();
+                entityManager.clear();
+            }
         }
     }
 
@@ -172,6 +178,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         CarlosProperties properties = CarlosProperties.getInstance();
 
         String total = calcTotal(codes, serviceDate);
+        int i = 0;
         for (String demographic : demographic_nos) {
             header1 = this.assembleHeader1(prov, Integer.parseInt(demographic), clinicRefCode, serviceDate, total,
                     curUser, properties);
@@ -179,6 +186,11 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
                 continue;
             this.addItems(header1, codes, dxcodes, serviceDate);
             this.persist(header1);
+            i++;
+            if (i % 25 == 0) {
+                entityManager.flush();
+                entityManager.clear();
+            }
         }
 
         return total;
