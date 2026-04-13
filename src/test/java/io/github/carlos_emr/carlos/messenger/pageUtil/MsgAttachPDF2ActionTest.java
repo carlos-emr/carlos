@@ -72,6 +72,9 @@ class MsgAttachPDF2ActionTest extends CarlosWebTestBase {
     private MsgAttachPDF2Action action;
     private CapturingAppender appender;
     private LoggerConfig addedLoggerConfig;
+    /** True when setUp created a fresh LoggerConfig we own and must remove on teardown. */
+    private boolean createdLogger;
+    private String addedLoggerName;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -95,6 +98,11 @@ class MsgAttachPDF2ActionTest extends CarlosWebTestBase {
         LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
         if (addedLoggerConfig != null) {
             addedLoggerConfig.removeAppender(appender.getName());
+        }
+        // If setUp registered a brand-new LoggerConfig for this test, remove it
+        // so subsequent tests don't inherit an orphaned empty config.
+        if (createdLogger && addedLoggerName != null) {
+            ctx.getConfiguration().removeLogger(addedLoggerName);
         }
         appender.stop();
         ctx.updateLoggers();
@@ -163,6 +171,8 @@ class MsgAttachPDF2ActionTest extends CarlosWebTestBase {
             LoggerConfig scoped = new LoggerConfig(loggerName, Level.ALL, true);
             config.addLogger(loggerName, scoped);
             existing = scoped;
+            createdLogger = true;
+            addedLoggerName = loggerName;
         }
         addedLoggerConfig = existing;
         addedLoggerConfig.addAppender(appender, Level.ALL, null);
