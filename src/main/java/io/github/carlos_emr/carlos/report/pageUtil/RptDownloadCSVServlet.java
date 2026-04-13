@@ -298,6 +298,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
         List<Object> demoFilterParams = new ArrayList<>();
         List<Object> specFilterParams = new ArrayList<>();
         List<Object> arFilterParams = new ArrayList<>();
+        String sTempEle = "";
         for (int i = 0; i < vecValue.size(); i++) {
             String tempVal = (String) vecValue.get(i);
             Vector vecVar = RptReportCreator.getVarVec(tempVal);
@@ -416,9 +417,11 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 // get demoNo
                 String sql = null;
                 ResultSet rs = null;
-                String sTempEle = sSpecFilter.length() > 0 ? (" and " + sSpecFilter) : "";
                 String subQuery = "select distinct(demographic.demographic_no) from demographicExt, demographic where demographic.demographic_no=demographicExt.demographic_no ";
-                subQuery += " and " + sDemoFilter + sTempEle + "  ";
+                List<String> predicates = new ArrayList<>();
+                if (sDemoFilter.length() > 0) predicates.add(sDemoFilter);
+                if (sSpecFilter.length() > 0) predicates.add(sSpecFilter);
+                if (!predicates.isEmpty()) subQuery += " and " + String.join(" and ", predicates) + "  ";
                 MiscUtils.getLogger().debug(" demographic and demographicExt subQuery: " + subQuery);
                 java.util.List<String> subDemoNoList = new java.util.ArrayList<>();
                 List<Object> subQueryParams = new ArrayList<>();
@@ -484,9 +487,12 @@ public class RptDownloadCSVServlet extends HttpServlet {
 
 
         if ((bDemoSelect && bARSelect && !bSpecSelect && !bSpecFilter) || (!bSpecSelect && bARFilter && !bSpecFilter)) {
-            String sTempEle = sARFilter.length() > 0 ? (" and " + sARFilter) : "";
+            List<String> arPredicates = new ArrayList<>();
+            if (sDemoFilter.length() > 0) arPredicates.add(sDemoFilter);
+            if (sARFilter.length() > 0) arPredicates.add(sARFilter);
             String subQuery = "select max(ID) from " + ARTYPE + ", demographic where demographic.demographic_no=" + ARTYPE + ".demographic_no ";
-            subQuery += " and " + sDemoFilter + sTempEle + " group by " + ARTYPE + ".demographic_no," + ARTYPE + ".formCreated ";
+            if (!arPredicates.isEmpty()) subQuery += " and " + String.join(" and ", arPredicates);
+            subQuery += " group by " + ARTYPE + ".demographic_no," + ARTYPE + ".formCreated ";
             MiscUtils.getLogger().debug(" demographic and " + ARTYPE + " subQuery: " + subQuery);
             String subFormId = "";
             List<Object> subQueryParams = new ArrayList<>();
@@ -526,9 +532,12 @@ public class RptDownloadCSVServlet extends HttpServlet {
         if ((bDemoSelect && bARSelect && bSpecSelect) || (bARFilter && bSpecFilter)) {
             if (bDemoSelect && bARSelect && bSpecSelect && !bSpecFilter) {
                 vecFieldName.add("demographic_no");
-                String sTempEle = sARFilter.length() > 0 ? (" and " + sARFilter) : "";
+                List<String> allArPredicates = new ArrayList<>();
+                if (sDemoFilter.length() > 0) allArPredicates.add(sDemoFilter);
+                if (sARFilter.length() > 0) allArPredicates.add(sARFilter);
                 String subQuery = "select max(ID) from " + ARTYPE + ", demographic where demographic.demographic_no=" + ARTYPE + ".demographic_no ";
-                subQuery += " and " + sDemoFilter + sTempEle + " group by " + ARTYPE + ".demographic_no," + ARTYPE + ".formCreated ";
+                if (!allArPredicates.isEmpty()) subQuery += " and " + String.join(" and ", allArPredicates);
+                subQuery += " group by " + ARTYPE + ".demographic_no," + ARTYPE + ".formCreated ";
                 MiscUtils.getLogger().debug(" demographic and " + ARTYPE + " subQuery: " + subQuery);
                 String subFormId = "";
                 List<Object> subQueryParams = new ArrayList<>();
@@ -598,9 +607,11 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 // get demoNo
                 String sql = null;
                 ResultSet rs = null;
-                String sTempEle = sSpecFilter.length() > 0 ? (" and " + sSpecFilter) : "";
+                List<String> specPredicates1 = new ArrayList<>();
+                if (sDemoFilter.length() > 0) specPredicates1.add(sDemoFilter);
+                if (sSpecFilter.length() > 0) specPredicates1.add(sSpecFilter);
                 String subQuery = "select distinct(demographic.demographic_no) from demographicExt, demographic where demographic.demographic_no=demographicExt.demographic_no ";
-                subQuery += " and " + sDemoFilter + sTempEle + "  ";
+                if (!specPredicates1.isEmpty()) subQuery += " and " + String.join(" and ", specPredicates1) + "  ";
                 MiscUtils.getLogger().debug(" demographic and demographicExt subQuery: " + subQuery);
                 java.util.List<String> subDemoNoList = new java.util.ArrayList<>();
                 List<Object> subQueryParams1 = new ArrayList<>();
@@ -634,9 +645,12 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 }
 
                 // formAR second
-                sTempEle = sARFilter.length() > 0 ? (" and " + sARFilter) : "";
+                List<String> arPredicates2 = new ArrayList<>();
+                if (sDemoFilter.length() > 0) arPredicates2.add(sDemoFilter);
+                if (sARFilter.length() > 0) arPredicates2.add(sARFilter);
                 subQuery = "select max(ID) from " + ARTYPE + ", demographic where demographic.demographic_no=" + ARTYPE + ".demographic_no ";
-                subQuery += " and " + sDemoFilter + sTempEle + " group by " + ARTYPE + ".demographic_no," + ARTYPE + ".formCreated ";
+                if (!arPredicates2.isEmpty()) subQuery += " and " + String.join(" and ", arPredicates2);
+                subQuery += " group by " + ARTYPE + ".demographic_no," + ARTYPE + ".formCreated ";
                 MiscUtils.getLogger().debug(" demographic and " + ARTYPE + " subQuery: " + subQuery);
                 String subFormId = "";
                 List<Object> subQueryParams2 = new ArrayList<>();

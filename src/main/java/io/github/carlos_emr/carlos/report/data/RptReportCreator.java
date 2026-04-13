@@ -183,8 +183,8 @@ public final class RptReportCreator {
             if (startIdx >= 0) {
                 int endIdx = value.indexOf("}", startIdx);
                 if (endIdx > startIdx + 2) {
-                    String paramValue = (paramIdx < vec.size() && vec.get(paramIdx) != null)
-                            ? (String) vec.get(paramIdx) : "";
+                    Object paramValue = (paramIdx < vec.size() && vec.get(paramIdx) != null)
+                            ? vec.get(paramIdx) : "";
                     paramIdx++;
 
                     boolean inQuotedContext = startIdx > 0 && value.charAt(startIdx - 1) == '\'';
@@ -197,7 +197,12 @@ public final class RptReportCreator {
                         }
                         value = before + "?" + value.substring(afterStart);
                     } else {
-                        // Unquoted context: replace ${...} with ?
+                        // Unquoted numeric context: validate and bind as numeric to match legacy semantics
+                        String strValue = String.valueOf(paramValue);
+                        if (!strValue.isEmpty() && !strValue.matches("-?\\d+(\\.\\d+)?")) {
+                            MiscUtils.getLogger().warn("Non-numeric value rejected for unquoted SQL placeholder in report template");
+                            paramValue = "";
+                        }
                         value = value.substring(0, startIdx) + "?" + value.substring(endIdx + 1);
                     }
                     params.add(paramValue);

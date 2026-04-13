@@ -102,8 +102,9 @@ public class RptFormQuery {
         reportSql += tableName;
 
         // get value param string
-        Vector vecValue = getValueParam(request)[0];
-        Vector vecDateFormat = getValueParam(request)[1];
+        Vector[] valueParams = getValueParam(request);
+        Vector vecValue = valueParams[0];
+        Vector vecDateFormat = valueParams[1];
         List<ParameterizedSql> vecVarValue = getQueryValueParameterized(vecValue, vecDateFormat, request);
 
         for (int i = 0; i < vecVarValue.size(); i++) {
