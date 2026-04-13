@@ -25,6 +25,7 @@ package io.github.carlos_emr.carlos.report.data;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Holds a parameterized SQL template alongside its bind-parameter values.
@@ -32,7 +33,14 @@ import java.util.List;
  * SQL injection by ensuring values are bound via {@code PreparedStatement}
  * placeholders ({@code ?}) rather than string concatenation.
  *
- * @since 2026-04-13
+ * <p>Invariants enforced at construction:
+ * <ul>
+ *   <li>{@code sql} is non-null</li>
+ *   <li>the count of {@code ?} characters in {@code sql} equals {@code params.size()}</li>
+ * </ul>
+ * The placeholder count is derived by a simple character scan of {@code ?},
+ * which is correct for this codebase's SQL and intentionally stricter than
+ * dialects that allow {@code ?} in string literals or operators.
  */
 public final class ParameterizedSql {
 
@@ -42,12 +50,29 @@ public final class ParameterizedSql {
     /**
      * Creates a new parameterized SQL holder.
      *
-     * @param sql    the SQL template with {@code ?} placeholders
-     * @param params the parameter values to bind, in order
+     * @param sql    the SQL template with {@code ?} placeholders; must be non-null
+     * @param params the parameter values to bind, in order; a null list is treated as empty
+     * @throws NullPointerException     if {@code sql} is null
+     * @throws IllegalArgumentException if the number of {@code ?} characters in {@code sql}
+     *                                  does not match {@code params.size()}
      */
     public ParameterizedSql(String sql, List<Object> params) {
-        this.sql = sql;
+        this.sql = Objects.requireNonNull(sql, "sql");
         this.params = params != null ? new ArrayList<>(params) : new ArrayList<>();
+        int placeholderCount = countPlaceholders(sql);
+        if (placeholderCount != this.params.size()) {
+            throw new IllegalArgumentException(
+                    "Placeholder/param count mismatch: sql has " + placeholderCount
+                            + " ? marker(s) but " + this.params.size() + " param(s) supplied");
+        }
+    }
+
+    private static int countPlaceholders(String s) {
+        int count = 0;
+        for (int i = 0; i < s.length(); i++) {
+            if (s.charAt(i) == '?') count++;
+        }
+        return count;
     }
 
     /**

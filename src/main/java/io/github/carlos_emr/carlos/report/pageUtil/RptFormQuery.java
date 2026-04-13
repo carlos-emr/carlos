@@ -145,8 +145,10 @@ public class RptFormQuery {
             reportSql += " and " + reportCreator.getWhereJoinClause(tableName, bDemo);
         }
 
-        // The final query has no remaining bind parameters because the sub-query
-        // was executed separately and its integer results are inlined.
+        // The final reportSql contains no '?' placeholders: the sub-query was
+        // executed separately and its integer results inlined, and
+        // getWhereJoinClause returns a static join fragment with no bind values.
+        // The ParameterizedSql constructor enforces this invariant.
         return new ParameterizedSql(reportSql, new ArrayList<>());
     }
 
@@ -222,7 +224,7 @@ public class RptFormQuery {
      * Combines a list of {@link ParameterizedSql} WHERE clause fragments into
      * a single parameterized WHERE clause joined by {@code AND}.
      */
-    private static ParameterizedSql getQueryWhereParameterized(List<ParameterizedSql> fragments) {
+    static ParameterizedSql getQueryWhereParameterized(List<ParameterizedSql> fragments) {
         StringBuilder sql = new StringBuilder();
         List<Object> params = new ArrayList<>();
         for (int i = 0; i < fragments.size(); i++) {

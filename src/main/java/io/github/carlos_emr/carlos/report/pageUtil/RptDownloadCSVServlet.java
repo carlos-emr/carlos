@@ -418,10 +418,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 String sql = null;
                 ResultSet rs = null;
                 String subQuery = "select distinct(demographic.demographic_no) from demographicExt, demographic where demographic.demographic_no=demographicExt.demographic_no ";
-                List<String> predicates = new ArrayList<>();
-                if (sDemoFilter.length() > 0) predicates.add(sDemoFilter);
-                if (sSpecFilter.length() > 0) predicates.add(sSpecFilter);
-                if (!predicates.isEmpty()) subQuery += " and " + String.join(" and ", predicates) + "  ";
+                String joined = RptReportCreator.joinPredicates(sDemoFilter, sSpecFilter);
+                if (!joined.isEmpty()) subQuery += " and " + joined + "  ";
                 MiscUtils.getLogger().debug(" demographic and demographicExt subQuery: " + subQuery);
                 java.util.List<String> subDemoNoList = new java.util.ArrayList<>();
                 List<Object> subQueryParams = new ArrayList<>();
@@ -487,11 +485,9 @@ public class RptDownloadCSVServlet extends HttpServlet {
 
 
         if ((bDemoSelect && bARSelect && !bSpecSelect && !bSpecFilter) || (!bSpecSelect && bARFilter && !bSpecFilter)) {
-            List<String> arPredicates = new ArrayList<>();
-            if (sDemoFilter.length() > 0) arPredicates.add(sDemoFilter);
-            if (sARFilter.length() > 0) arPredicates.add(sARFilter);
+            String joinedAr = RptReportCreator.joinPredicates(sDemoFilter, sARFilter);
             String subQuery = "select max(ID) from " + ARTYPE + ", demographic where demographic.demographic_no=" + ARTYPE + ".demographic_no ";
-            if (!arPredicates.isEmpty()) subQuery += " and " + String.join(" and ", arPredicates);
+            if (!joinedAr.isEmpty()) subQuery += " and " + joinedAr;
             subQuery += " group by " + ARTYPE + ".demographic_no," + ARTYPE + ".formCreated ";
             MiscUtils.getLogger().debug(" demographic and " + ARTYPE + " subQuery: " + subQuery);
             String subFormId = "";
@@ -532,11 +528,9 @@ public class RptDownloadCSVServlet extends HttpServlet {
         if ((bDemoSelect && bARSelect && bSpecSelect) || (bARFilter && bSpecFilter)) {
             if (bDemoSelect && bARSelect && bSpecSelect && !bSpecFilter) {
                 vecFieldName.add("demographic_no");
-                List<String> allArPredicates = new ArrayList<>();
-                if (sDemoFilter.length() > 0) allArPredicates.add(sDemoFilter);
-                if (sARFilter.length() > 0) allArPredicates.add(sARFilter);
+                String joinedAllAr = RptReportCreator.joinPredicates(sDemoFilter, sARFilter);
                 String subQuery = "select max(ID) from " + ARTYPE + ", demographic where demographic.demographic_no=" + ARTYPE + ".demographic_no ";
-                if (!allArPredicates.isEmpty()) subQuery += " and " + String.join(" and ", allArPredicates);
+                if (!joinedAllAr.isEmpty()) subQuery += " and " + joinedAllAr;
                 subQuery += " group by " + ARTYPE + ".demographic_no," + ARTYPE + ".formCreated ";
                 MiscUtils.getLogger().debug(" demographic and " + ARTYPE + " subQuery: " + subQuery);
                 String subFormId = "";
@@ -607,11 +601,9 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 // get demoNo
                 String sql = null;
                 ResultSet rs = null;
-                List<String> specPredicates1 = new ArrayList<>();
-                if (sDemoFilter.length() > 0) specPredicates1.add(sDemoFilter);
-                if (sSpecFilter.length() > 0) specPredicates1.add(sSpecFilter);
+                String joinedSpec1 = RptReportCreator.joinPredicates(sDemoFilter, sSpecFilter);
                 String subQuery = "select distinct(demographic.demographic_no) from demographicExt, demographic where demographic.demographic_no=demographicExt.demographic_no ";
-                if (!specPredicates1.isEmpty()) subQuery += " and " + String.join(" and ", specPredicates1) + "  ";
+                if (!joinedSpec1.isEmpty()) subQuery += " and " + joinedSpec1 + "  ";
                 MiscUtils.getLogger().debug(" demographic and demographicExt subQuery: " + subQuery);
                 java.util.List<String> subDemoNoList = new java.util.ArrayList<>();
                 List<Object> subQueryParams1 = new ArrayList<>();
@@ -645,11 +637,9 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 }
 
                 // formAR second
-                List<String> arPredicates2 = new ArrayList<>();
-                if (sDemoFilter.length() > 0) arPredicates2.add(sDemoFilter);
-                if (sARFilter.length() > 0) arPredicates2.add(sARFilter);
+                String joinedAr2 = RptReportCreator.joinPredicates(sDemoFilter, sARFilter);
                 subQuery = "select max(ID) from " + ARTYPE + ", demographic where demographic.demographic_no=" + ARTYPE + ".demographic_no ";
-                if (!arPredicates2.isEmpty()) subQuery += " and " + String.join(" and ", arPredicates2);
+                if (!joinedAr2.isEmpty()) subQuery += " and " + joinedAr2;
                 subQuery += " group by " + ARTYPE + ".demographic_no," + ARTYPE + ".formCreated ";
                 MiscUtils.getLogger().debug(" demographic and " + ARTYPE + " subQuery: " + subQuery);
                 String subFormId = "";

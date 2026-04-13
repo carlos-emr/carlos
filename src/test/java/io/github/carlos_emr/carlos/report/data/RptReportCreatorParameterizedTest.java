@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.report.data;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Vector;
 
@@ -80,30 +81,36 @@ class RptReportCreatorParameterizedTest {
     }
 
     @Test
-    @DisplayName("should bind NULL when non-numeric value supplied in unquoted context (legacy allowlist)")
-    void shouldBindNull_whenNonNumericSuppliedInUnquotedContext() {
+    @DisplayName("should throw IllegalArgumentException when non-numeric value supplied in unquoted context")
+    void shouldThrow_whenNonNumericSuppliedInUnquotedContext() {
         Vector<String> vec = new Vector<>();
         vec.add("1 OR 1=1");
 
-        ParameterizedSql result = RptReportCreator.getWhereValueClauseParameterized(
-                "demographic.age>${age}", vec);
-
-        assertThat(result.getSql()).isEqualTo("demographic.age>?");
-        assertThat(result.getParams()).hasSize(1);
-        assertThat(result.getParams().get(0)).isNull();
+        assertThatThrownBy(() -> RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.age>${age}", vec))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("placeholder index 0");
     }
 
     @Test
-    @DisplayName("should bind NULL when unquoted parameter value is missing from vector")
-    void shouldBindNull_whenUnquotedParamMissingFromVector() {
+    @DisplayName("should throw IllegalArgumentException when unquoted parameter value is missing from vector")
+    void shouldThrow_whenUnquotedParamMissingFromVector() {
         Vector<String> vec = new Vector<>();
 
-        ParameterizedSql result = RptReportCreator.getWhereValueClauseParameterized(
-                "demographic.age>${age}", vec);
+        assertThatThrownBy(() -> RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.age>${age}", vec))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 
-        assertThat(result.getSql()).isEqualTo("demographic.age>?");
-        assertThat(result.getParams()).hasSize(1);
-        assertThat(result.getParams().get(0)).isNull();
+    @Test
+    @DisplayName("should throw IllegalArgumentException for empty-string numeric value")
+    void shouldThrow_whenEmptyStringForNumericContext() {
+        Vector<String> vec = new Vector<>();
+        vec.add("");
+
+        assertThatThrownBy(() -> RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.age>${age}", vec))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -162,17 +169,47 @@ class RptReportCreatorParameterizedTest {
     }
 
     @Test
-    @DisplayName("should stop processing on malformed placeholder without closing brace")
-    void shouldStop_onMalformedPlaceholder() {
+    @DisplayName("should throw IllegalStateException on malformed placeholder without closing brace")
+    void shouldThrow_onMalformedPlaceholder() {
         Vector<String> vec = new Vector<>();
         vec.add("Smith");
 
-        ParameterizedSql result = RptReportCreator.getWhereValueClauseParameterized(
-                "demographic.last_name='${lastName", vec);
+        assertThatThrownBy(() -> RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.last_name='${lastName", vec))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Malformed report template");
+    }
 
-        // Malformed — no "}" found; loop breaks without mutation
-        assertThat(result.getSql()).isEqualTo("demographic.last_name='${lastName");
-        assertThat(result.getParams()).isEmpty();
+    @Test
+    @DisplayName("should throw IllegalStateException on empty ${} placeholder")
+    void shouldThrow_onEmptyPlaceholder() {
+        Vector<String> vec = new Vector<>();
+
+        assertThatThrownBy(() -> RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.age>${}", vec))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("should reject UNION injection attempt in unquoted context")
+    void shouldReject_unionInjectionInUnquotedContext() {
+        Vector<String> vec = new Vector<>();
+        vec.add("1 UNION SELECT password FROM provider");
+
+        assertThatThrownBy(() -> RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.age>${age}", vec))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("should reject comment-injection attempt in unquoted context")
+    void shouldReject_commentInjectionInUnquotedContext() {
+        Vector<String> vec = new Vector<>();
+        vec.add("1-- ");
+
+        assertThatThrownBy(() -> RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.age>${age}", vec))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

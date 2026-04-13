@@ -121,6 +121,25 @@ public final class RptReportCreator {
      */
     private static final int MAX_PLACEHOLDER_REPLACEMENTS = 100;
 
+    /**
+     * Joins non-empty predicate fragments with {@code " and "}, producing a
+     * conjunction suitable for appending after {@code WHERE} or {@code AND}.
+     * Empty or null fragments are skipped so absent filters never produce
+     * stray {@code and  and} tokens.
+     *
+     * @param fragments predicate fragments in desired order
+     * @return the joined conjunction, or the empty string if no fragment was non-empty
+     */
+    public static String joinPredicates(String... fragments) {
+        StringBuilder sb = new StringBuilder();
+        for (String f : fragments) {
+            if (f == null || f.isEmpty()) continue;
+            if (sb.length() > 0) sb.append(" and ");
+            sb.append(f);
+        }
+        return sb.toString();
+    }
+
     // Replace the result one by one if not null
     public static String getWhereValueClause(String value, Vector vec) {
         String ret = "";
@@ -160,19 +179,38 @@ public final class RptReportCreator {
     /**
      * Parameterized version of {@link #getWhereValueClause(String, Vector)}.
      * Replaces {@code ${var}} placeholders with {@code ?} bind markers and
-     * collects the corresponding values into a parameter list. For quoted
-     * contexts ({@code '${var}'}), the surrounding single quotes are removed
-     * so the value is bound via {@code PreparedStatement.setString()}.
+     * collects the corresponding values into a parameter list.
      *
-     * <p><strong>Known limitation:</strong> Quote detection is based on the
-     * character immediately preceding {@code ${} being a single quote. Escaped
-     * quotes within the same template segment (e.g. {@code O''Reilly}) are not
-     * specifically handled, but this mirrors the existing template format used
-     * by the admin-configured report system.
+     * <p><strong>Context detection:</strong> Placeholders immediately preceded
+     * by a single quote (e.g. {@code '${name}'}) are treated as string/date
+     * context — the surrounding quotes are stripped so the value is bound via
+     * {@code PreparedStatement.setString()}. All other placeholders are treated
+     * as numeric context.
+     *
+     * @implNote <strong>Numeric allowlist (fail-closed):</strong> values bound
+     *           into a numeric context MUST match {@code -?\d+(\.\d+)?}. Any
+     *           other value — including empty, missing, or injection attempts —
+     *           causes {@link IllegalArgumentException}. This matches the legacy
+     *           helper's fail-closed behavior (which produced a SQL syntax error
+     *           via empty-string substitution) and prevents the database's
+     *           implicit string-to-numeric cast from silently coercing
+     *           non-numeric input to {@code 0} and bypassing the filter.
+     * @implNote <strong>Malformed templates fail loudly:</strong> a {@code ${}
+     *           without a matching closing brace, or an empty {@code ${}} placeholder,
+     *           throws {@link IllegalStateException} rather than silently emitting
+     *           a broken SQL string. Templates are admin-configured; a broken
+     *           template is a configuration bug that should surface immediately.
+     * @implNote Escaped single quotes within a template segment (e.g.
+     *           {@code O''Reilly}) are not specifically handled. Placeholders do
+     *           not nest; nested {@code ${...${...}...}} forms are undefined.
      *
      * @param value the WHERE clause template containing {@code ${var}} placeholders
      * @param vec   the replacement values, in placeholder order
      * @return a {@link ParameterizedSql} with the template and bind values
+     * @throws IllegalArgumentException if a numeric-context placeholder receives
+     *                                  an empty, missing, or non-numeric value
+     * @throws IllegalStateException    if the template is malformed or exceeds
+     *                                  {@code MAX_PLACEHOLDER_REPLACEMENTS}
      */
     public static ParameterizedSql getWhereValueClauseParameterized(String value, Vector vec) {
         List<Object> params = new ArrayList<>();
@@ -181,20 +219,21 @@ public final class RptReportCreator {
         for (int i = 0; i < MAX_PLACEHOLDER_REPLACEMENTS; i++) {
             int startIdx = value.indexOf("${");
             if (startIdx < 0) {
-                break;
+                return new ParameterizedSql(value, params);
             }
             int endIdx = value.indexOf("}", startIdx);
             if (endIdx <= startIdx + 2) {
-                break;
+                throw new IllegalStateException(
+                        "Malformed report template: unclosed or empty placeholder at index " + startIdx);
             }
 
             Object rawValue = (paramIdx < vec.size()) ? vec.get(paramIdx) : null;
+            int thisIdx = paramIdx;
             paramIdx++;
 
             boolean inQuotedContext = startIdx > 0 && value.charAt(startIdx - 1) == '\'';
             Object boundValue;
             if (inQuotedContext) {
-                // String/date context: bind as-is (null becomes empty string for legacy parity).
                 boundValue = rawValue != null ? rawValue : "";
                 String before = value.substring(0, startIdx - 1);
                 int afterStart = endIdx + 1;
@@ -203,22 +242,22 @@ public final class RptReportCreator {
                 }
                 value = before + "?" + value.substring(afterStart);
             } else {
-                // Unquoted numeric context: preserve legacy allowlist — only accept digits
-                // with optional leading minus and optional decimal. Non-numeric input is
-                // bound as NULL so MySQL's implicit string→numeric cast can't silently
-                // coerce it to 0 and bypass the intended filter.
                 String strValue = rawValue != null ? rawValue.toString() : "";
-                if (strValue.isEmpty() || !strValue.matches("-?\\d+(\\.\\d+)?")) {
-                    if (!strValue.isEmpty()) {
-                        MiscUtils.getLogger().warn("Non-numeric value rejected for unquoted SQL placeholder in report template");
-                    }
-                    boundValue = null;
-                } else {
-                    boundValue = strValue;
+                if (!strValue.matches("-?\\d+(\\.\\d+)?")) {
+                    MiscUtils.getLogger().warn(
+                            "Non-numeric value rejected for unquoted report placeholder at index "
+                                    + thisIdx + " (length " + strValue.length() + ")");
+                    throw new IllegalArgumentException(
+                            "Invalid non-numeric value for numeric filter at placeholder index " + thisIdx);
                 }
+                boundValue = strValue;
                 value = value.substring(0, startIdx) + "?" + value.substring(endIdx + 1);
             }
             params.add(boundValue);
+        }
+        if (value.contains("${")) {
+            throw new IllegalStateException(
+                    "Report template exceeds " + MAX_PLACEHOLDER_REPLACEMENTS + " placeholders");
         }
         return new ParameterizedSql(value, params);
     }
