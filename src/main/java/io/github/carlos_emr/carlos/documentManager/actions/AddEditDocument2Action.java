@@ -263,7 +263,7 @@ public class AddEditDocument2Action extends ActionSupport {
                 redirect.append("&appointmentNo=").append(Encode.forUriComponent(request.getParameter("appointmentNo")));
                 String parentAjaxId = request.getParameter("parentAjaxId");
                 // if we're called with parent ajax id inform jsp that parent needs to be updated
-                if (!parentAjaxId.equals("")) {
+                if (parentAjaxId != null && !parentAjaxId.isEmpty()) {
                     redirect.append("&parentAjaxId=").append(Encode.forUriComponent(parentAjaxId));
                     redirect.append("&updateParent=").append("true");
                 }
