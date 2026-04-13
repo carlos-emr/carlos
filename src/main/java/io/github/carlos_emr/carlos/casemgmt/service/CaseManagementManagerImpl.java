@@ -1817,7 +1817,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     @Override
     public boolean unlockNote(int noteId, String password) {
         CaseManagementNote note = this.caseManagementNoteDAO.getNote(Long.valueOf(noteId));
-        if (note != null) {
+        if (note != null && password != null && note.getPassword() != null) {
             if (note.isLocked() && MessageDigest.isEqual(
                     note.getPassword().getBytes(StandardCharsets.UTF_8),
                     password.getBytes(StandardCharsets.UTF_8))) {

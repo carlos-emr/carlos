@@ -328,17 +328,17 @@ public class OscarJobService extends AbstractServiceImpl {
 
         if (job.getId() > 0) {
             //edit
-            OscarJobType savedJob = oscarJobManager.getJobType(getLoggedInInfo(), job.getId());
+            OscarJobType savedJob = oscarJobManager.getJobType(loggedInInfo, job.getId());
             savedJob.setName(job.getName());
             savedJob.setDescription(job.getDescription());
             savedJob.setClassName(job.getClassName());
             savedJob.setEnabled(job.isEnabled());
 
-            oscarJobManager.updateJobType(getLoggedInInfo(), savedJob);
+            oscarJobManager.updateJobType(loggedInInfo, savedJob);
             result = savedJob;
         } else {
             job.setId(null);
-            oscarJobManager.saveJobType(getLoggedInInfo(), job);
+            oscarJobManager.saveJobType(loggedInInfo, job);
             result = job;
         }
 
