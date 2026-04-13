@@ -130,7 +130,6 @@
 
 <%-- New case management redirect check --%>
 <%
-    session.setAttribute("newCaseManagement", "true");
     String userNo = (String) request.getSession().getAttribute("user");
     if (userNo != null) {
 %>
