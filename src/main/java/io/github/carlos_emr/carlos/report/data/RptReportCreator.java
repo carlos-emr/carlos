@@ -180,38 +180,45 @@ public final class RptReportCreator {
 
         for (int i = 0; i < MAX_PLACEHOLDER_REPLACEMENTS; i++) {
             int startIdx = value.indexOf("${");
-            if (startIdx >= 0) {
-                int endIdx = value.indexOf("}", startIdx);
-                if (endIdx > startIdx + 2) {
-                    Object paramValue = (paramIdx < vec.size() && vec.get(paramIdx) != null)
-                            ? vec.get(paramIdx) : "";
-                    paramIdx++;
-
-                    boolean inQuotedContext = startIdx > 0 && value.charAt(startIdx - 1) == '\'';
-                    if (inQuotedContext) {
-                        // Remove preceding quote, replace ${...} with ?, remove following quote if present
-                        String before = value.substring(0, startIdx - 1);
-                        int afterStart = endIdx + 1;
-                        if (afterStart < value.length() && value.charAt(afterStart) == '\'') {
-                            afterStart++; // skip closing quote
-                        }
-                        value = before + "?" + value.substring(afterStart);
-                    } else {
-                        // Unquoted numeric context: validate and bind as numeric to match legacy semantics
-                        String strValue = String.valueOf(paramValue);
-                        if (!strValue.isEmpty() && !strValue.matches("-?\\d+(\\.\\d+)?")) {
-                            MiscUtils.getLogger().warn("Non-numeric value rejected for unquoted SQL placeholder in report template");
-                            paramValue = "";
-                        }
-                        value = value.substring(0, startIdx) + "?" + value.substring(endIdx + 1);
-                    }
-                    params.add(paramValue);
-                } else {
-                    break;
-                }
-            } else {
+            if (startIdx < 0) {
                 break;
             }
+            int endIdx = value.indexOf("}", startIdx);
+            if (endIdx <= startIdx + 2) {
+                break;
+            }
+
+            Object rawValue = (paramIdx < vec.size()) ? vec.get(paramIdx) : null;
+            paramIdx++;
+
+            boolean inQuotedContext = startIdx > 0 && value.charAt(startIdx - 1) == '\'';
+            Object boundValue;
+            if (inQuotedContext) {
+                // String/date context: bind as-is (null becomes empty string for legacy parity).
+                boundValue = rawValue != null ? rawValue : "";
+                String before = value.substring(0, startIdx - 1);
+                int afterStart = endIdx + 1;
+                if (afterStart < value.length() && value.charAt(afterStart) == '\'') {
+                    afterStart++;
+                }
+                value = before + "?" + value.substring(afterStart);
+            } else {
+                // Unquoted numeric context: preserve legacy allowlist — only accept digits
+                // with optional leading minus and optional decimal. Non-numeric input is
+                // bound as NULL so MySQL's implicit string→numeric cast can't silently
+                // coerce it to 0 and bypass the intended filter.
+                String strValue = rawValue != null ? rawValue.toString() : "";
+                if (strValue.isEmpty() || !strValue.matches("-?\\d+(\\.\\d+)?")) {
+                    if (!strValue.isEmpty()) {
+                        MiscUtils.getLogger().warn("Non-numeric value rejected for unquoted SQL placeholder in report template");
+                    }
+                    boundValue = null;
+                } else {
+                    boundValue = strValue;
+                }
+                value = value.substring(0, startIdx) + "?" + value.substring(endIdx + 1);
+            }
+            params.add(boundValue);
         }
         return new ParameterizedSql(value, params);
     }

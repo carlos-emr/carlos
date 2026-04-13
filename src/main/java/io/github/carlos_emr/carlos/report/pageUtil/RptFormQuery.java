@@ -101,7 +101,7 @@ public class RptFormQuery {
         boolean bDemo = tableName.indexOf("demographic") >= 0 ? true : false;
         reportSql += tableName;
 
-        // get value param string
+        // get value param string — single call ensures vecValue and vecDateFormat stay index-aligned
         Vector[] valueParams = getValueParam(request);
         Vector vecValue = valueParams[0];
         Vector vecDateFormat = valueParams[1];
