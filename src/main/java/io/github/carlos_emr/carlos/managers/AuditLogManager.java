@@ -111,14 +111,16 @@ public class AuditLogManager {
 
             String formattedDate = formatter2.format(endDateToPurge);
 
-            // nosemgrep
-            String userArg = "--user=".concat(user);
-            // nosemgrep
-            String whereArg = "dateTime < '".concat(formattedDate).concat("'");
-            // nosemgrep
-            String fileArg = "--result-file=".concat(filename);
+            ProcessBuilder pb = new ProcessBuilder();
+            pb.command().add(mysqldump);
+            pb.command().add("--user=" + user);
+            pb.command().add("-w");
+            pb.command().add("dateTime < '" + formattedDate + "'");
+            pb.command().add("-t");
+            pb.command().add("--result-file=" + filename);
+            pb.command().add(dbName);
+            pb.command().add("log");
 
-            ProcessBuilder pb = new ProcessBuilder(mysqldump, userArg, "-w", whereArg, "-t", fileArg, dbName, "log"); // nosemgrep
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
             }
