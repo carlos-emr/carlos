@@ -83,6 +83,11 @@ public class XforwardHeaderFilter implements Filter {
          * address literals. Does NOT match hostnames, preventing unintended DNS lookups
          * when passed to {@link InetAddress#getByName(String)}.
          *
+         * <p>This pattern is intentionally loose (e.g., allows {@code 999.999.999.999}
+         * for IPv4 or malformed colon sequences for IPv6) because {@code InetAddress.getByName()}
+         * provides authoritative validation — malformed literals throw
+         * {@link UnknownHostException} without triggering DNS, which is the safe default.</p>
+         *
          * <ul>
          *   <li>IPv4: four dotted-decimal octets ({@code \d{1,3}(\.\d{1,3}){3}})</li>
          *   <li>IPv6: hex digits and colons, with optional IPv4-mapped suffix
