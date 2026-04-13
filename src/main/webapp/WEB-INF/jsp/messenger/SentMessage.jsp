@@ -137,9 +137,9 @@
 					key="messenger.SentMessage.msgMessageSentTo" /> <%= Encode.forHtml(request.getAttribute("SentMessageProvs") != null ? request.getAttribute("SentMessageProvs").toString() : "") %>
 </div>
 <div style="width:100%; margin-left:10px; margin-top: 50px;">
-<a class="btn btn-outline-secondary" href="${pageContext.request.contextPath}/messenger/CreateMessage.jsp">
+<a class="btn btn-outline-secondary" href="${pageContext.request.contextPath}/messenger/ViewCreateMessage.do">
     <i class="fa-solid fa-pencil"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.btnCompose"/></a>
-<a class="btn btn-primary" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp">
+<a class="btn btn-primary" href="${pageContext.request.contextPath}/messenger/DisplayMessages.do">
     <i class="fa-solid fa-inbox"></i>&nbsp;<fmt:message key="messenger.SentMessagebtnBack" /></a>
 <a class="btn btn-outline-secondary" href="javascript:BackToCarlos()">
     <i class="fa-solid fa-right-from-bracket"></i>&nbsp;<fmt:message key="messenger.SentMessage.btnExit" /></a>

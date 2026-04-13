@@ -342,7 +342,7 @@ function fmtOscarMsg() {
 								<table class=messButtonsA >
 									<tr>
 										<td class="messengerButtonsA">
-									        <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp"
+									        <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.do"
 									            class="btn btn-primary">
 									            <fmt:message key="messenger.ViewMessage.btnInbox"/>
 									        </a>
@@ -358,7 +358,7 @@ function fmtOscarMsg() {
 							<table class=messButtonsA >
 								<tr>
 									<td class="messengerButtonsA">
-									    <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?boxType=1"
+									    <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.do?boxType=1"
 									        class="btn btn-primary">
 									        <fmt:message key="messenger.ViewMessage.btnSent"/>
 									    </a>
@@ -374,7 +374,7 @@ function fmtOscarMsg() {
 								<table class=messButtonsA>
 									<tr>
 										<td class="messengerButtonsA">
-                                            <a href="${pageContext.request.contextPath}/messenger/CreateMessage.jsp"
+                                            <a href="${pageContext.request.contextPath}/messenger/ViewCreateMessage.do"
                                                 class="btn btn-outline-secondary">
                                                 <fmt:message key="messenger.ViewMessage.btnCompose"/>
                                             </a>
@@ -562,7 +562,7 @@ function fmtOscarMsg() {
                             <input type="button"
 								class="btn btn-outline-secondary" name="searchDemo"
 								value="<fmt:message key="messenger.ViewMessage.searchDemo" />"
-								onclick="popupSearchDemo(document.forms[0].keyword.value)" >
+								onclick="popupSearchDemo('${pageContext.request.contextPath}', document.forms[0].keyword.value)" >
 							</td>
 
 						</tr>

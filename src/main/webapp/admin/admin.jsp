@@ -710,7 +710,7 @@
                         <li><a href="#"
                                onclick='popupOscarRx(600,1024, "${pageContext.request.contextPath}/messenger/DisplayMessages.do?providerNo=<%=curProvider_no%>");return false;'><fmt:message key="admin.admin.messages"/></a></li>
                         <li><a href="#"
-                               onclick='popupOscarRx(600,900, "${pageContext.request.contextPath}/messenger/config/MessengerAdmin.jsp");return false;'><fmt:message key="admin.admin.btnMessengerAdmin"/></a></li>
+                               onclick='popupOscarRx(600,900, "${pageContext.request.contextPath}/messenger.do");return false;'><fmt:message key="admin.admin.btnMessengerAdmin"/></a></li>
 
                     </security:oscarSec>
 

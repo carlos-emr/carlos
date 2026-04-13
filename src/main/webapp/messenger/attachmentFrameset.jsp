@@ -37,7 +37,7 @@
   into two frames for preview and source management.
   
   Frame structure:
-  - Top frame (300px): Displays PDF preview via generatePreviewPDF.jsp
+  - Top frame (300px): Displays PDF preview via messenger/PreviewPDF.do (generatePreviewPDF.jsp)
   - Bottom frame (0px): Hidden frame for source/processing operations
   
   Request parameters:
@@ -70,7 +70,7 @@ String demographic_no = request.getParameter("demographic_no");
     <frameset rows="300,0">
         <%-- Main frame: Shows the PDF preview for the selected demographic --%>
         <frame name="main"
-               src="generatePreviewPDF.jsp?demographic_no=<%= Encode.forUriComponent(demographic_no) %>"
+               src="<%= request.getContextPath() %>/messenger/PreviewPDF.do?demographic_no=<%= Encode.forUriComponent(demographic_no) %>"
                noresize scrolling=auto marginheight=5 marginwidth=5>
         <%-- Hidden source frame: Used for background processing --%>
         <frame name="srcFrame" src="">

@@ -367,7 +367,7 @@
             <hr style="color: #A9A9A9;">
             <div style="height: 6px;"></div>
 
-            <form method="POST" action="<%= request.getContextPath() %>/messenger/AdjustAttachments.jsp"><input
+            <form method="POST" action="<%= request.getContextPath() %>/messenger/AdjustAttachments.do"><input
                     type=hidden name="xmlDoc"
                     value="<%= MsgCommxml.encode64(MsgCommxml.toXML(root)) %>"/> <input
                     type=hidden name="id" value="<%= request.getAttribute("attId")%>"/>
