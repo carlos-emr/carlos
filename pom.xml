@@ -1605,6 +1605,22 @@
                 <configuration>
                     <!-- Can be overridden with -Ddependency.lock.filename=xxx -->
                     <filename>${dependency.lock.filename}</filename>
+                    <!-- Skip integrity/version checks for JitPack-served artifacts.
+                         JitPack builds from source on demand and can serve different
+                         bytes (and thus different SHA512 hashes) between environments,
+                         causing spurious lock-file failures. Tracked for long-term
+                         fix (publish to a stable repo). See issue: JitPack exclusion. -->
+                    <dependencySets>
+                        <dependencySet>
+                            <includes>
+                                <include>com.github.openosp:ultrabuk-htmltopdf-java</include>
+                            </includes>
+                            <version>ignore</version>
+                            <integrity>ignore</integrity>
+                            <allowMissing>true</allowMissing>
+                            <allowExtraneous>true</allowExtraneous>
+                        </dependencySet>
+                    </dependencySets>
                 </configuration>
                 <executions>
                     <execution>
@@ -1745,7 +1761,7 @@
                                 <plugin>
                                     <groupId>com.h3xstream.findsecbugs</groupId>
                                     <artifactId>findsecbugs-plugin</artifactId>
-                                    <version>1.13.0</version>
+                                    <version>1.14.0</version>
                                 </plugin>
                             </plugins>
                         </configuration>

@@ -77,7 +77,18 @@ jobs:
           echo "Checking commits ${BASE_SHA:0:7}..${HEAD_SHA:0:7} for DCO sign-off..."
           echo ""
 
+          # Trusted bot authors whose commits are exempt from explicit DCO
+          # sign-off. These bots act on behalf of authorized humans (Jules,
+          # Copilot, Claude Code, coderabbit) and their PRs still go through
+          # normal human code review before merge.
+          #
+          # If you add a new bot here, confirm it (a) only acts on behalf of
+          # authenticated repo members/collaborators, and (b) produces commits
+          # whose PRs require human review before merge.
+          bot_authors_regex='^(google-labs-jules\[bot\]|copilot-swe-agent\[bot\]|claude\[bot\]|coderabbitai\[bot\]|github-actions\[bot\]|dependabot\[bot\]) <'
+
           missing=()
+          bot_exempt=()
           total=0
           passed=0
 
@@ -85,14 +96,27 @@ jobs:
             total=$((total + 1))
             subject=$(git log -1 --format="%s" "$sha")
             short=$(git log -1 --format="%h" "$sha")
+            author=$(git log -1 --format="%an <%ae>" "$sha")
 
             # Check for Signed-off-by in the commit body
             if git log -1 --format="%B" "$sha" | grep -qE "^Signed-off-by: .+ <.+>"; then
               passed=$((passed + 1))
+            elif printf '%s' "$author" | grep -qE "$bot_authors_regex"; then
+              # Trusted bot author — exempt from DCO sign-off requirement
+              passed=$((passed + 1))
+              bot_exempt+=("$short — $subject")
             else
               missing+=("$short $subject")
             fi
           done
+
+          if [ ${#bot_exempt[@]} -gt 0 ]; then
+            echo "DCO-exempt bot commits (${#bot_exempt[@]}):"
+            for entry in "${bot_exempt[@]}"; do
+              printf '  - %s\n' "$entry"
+            done
+            echo ""
+          fi
 
           echo "Checked $total commit(s): $passed passed, ${#missing[@]} missing sign-off"
           echo ""

@@ -280,14 +280,6 @@
     "optional" : false,
     "integrity" : "sha512:YbtgqmcRqHPES4trwwZCF9O2h5VuYbTfhGEMG9gruFIqwQXabrzm8HH29vhrtOQMoX/oGN1/anSwlJ/scSNzZw=="
   }, {
-    "groupId" : "com.github.openosp",
-    "artifactId" : "ultrabuk-htmltopdf-java",
-    "version" : "1.0.11",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:fiXBLMWhIZZiGGp6MBg3zZU1wOAYiM/TU/gU17e9YdHePhNIPM0F0dimSeMUTM8CMN4khJyM809pvRJAaUuY/Q=="
-  }, {
     "groupId" : "com.github.virtuald",
     "artifactId" : "curvesapi",
     "version" : "1.08",
