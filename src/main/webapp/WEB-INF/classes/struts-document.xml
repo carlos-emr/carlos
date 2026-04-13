@@ -47,15 +47,15 @@
         </action>
         <action name="lab/CA/ALL/Forward" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
             <result name="failure">/errorpage.jsp</result>
-            <result name="success">/lab/CA/ALL/labDisplay.jsp</result>
+            <result name="success">/lab/CA/ALL/createLabLabel.do</result>
         </action>
         <action name="lab/CA/BC/Forward" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
             <result name="failure">/errorpage.jsp</result>
-            <result name="success">/lab/CA/BC/labDisplay.jsp</result>
+            <result name="success">/lab/CA/BC/ViewLabDisplay.do</result>
         </action>
         <action name="lab/CA/ON/Forward" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
             <result name="failure">/errorpage.jsp</result>
-            <result name="success">/lab/CA/ON/CMLDisplay.jsp</result>
+            <result name="success">/lab/CA/ON/ViewCMLDisplay.do</result>
         </action>
         <action name="oscarMDS/Forward" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
             <result name="failure">/errorpage.jsp</result>

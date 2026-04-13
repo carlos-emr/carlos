@@ -565,8 +565,8 @@
                                 <c:forEach var="labrst" items="${casemgmtLabsbeans}">
                                     <c:set var="lablable" value="${labrst.dateTime}${labrst.discipline}" />
                                     <c:set var="mdvalue" value="${bsurl}/oscarMDS/SegmentDisplay.jsp?providerNo=${bean.providerNo}&segmentID=${labrst.segmentID}&status=${labrst.reportStatus}" />
-                                    <c:set var="cmvalue" value="${bsurl}/lab/CA/ON/CMLDisplay.jsp?providerNo=${bean.providerNo}&segmentID=${labrst.segmentID}" />
-                                    <c:set var="otvalue" value="${bsurl}/lab/CA/BC/labDisplay.jsp?segmentID=${labrst.segmentID}&providerNo=${bean.providerNo}" />
+                                    <c:set var="cmvalue" value="${bsurl}/lab/CA/ON/ViewCMLDisplay.do?providerNo=${bean.providerNo}&segmentID=${labrst.segmentID}" />
+                                    <c:set var="otvalue" value="${bsurl}/lab/CA/BC/ViewLabDisplay.do?segmentID=${labrst.segmentID}&providerNo=${bean.providerNo}" />
 
                                     <c:choose>
                                         <c:when test="${labrst.mds}">

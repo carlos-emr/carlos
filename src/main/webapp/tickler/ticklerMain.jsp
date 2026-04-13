@@ -502,15 +502,15 @@
                 if (tableName === 'MDS') {
                     url = 'javascript:reportWindow(\'SegmentDisplay.jsp?segmentID=' + encodedId + '\')';
                 } else if (tableName === 'CML') {
-                    url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/ON/CMLDisplay.jsp?segmentID=' + encodedId + '\')';
+                    url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/ON/ViewCMLDisplay.do?segmentID=' + encodedId + '\')';
                 } else if (tableName === 'HL7') {
-                    url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/ALL/labDisplay.jsp?segmentID=' + encodedId + '\')';
+                    url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/ALL/createLabLabel.do?segmentID=' + encodedId + '\')';
                 } else if (tableName === 'DOC' || tableName === 'document') {
                     url = 'javascript:reportWindow(\'' + ctx + '/documentManager/ManageDocument.do?method=display&doc_no=' + encodedId + '\')';
                 } else if (tableName === 'HRM') {
                     url = 'javascript:reportWindow(\'' + ctx + '/hospitalReportManager/Display.do?id=' + encodedId + '&segmentID=' + encodedId + '\')';
                 } else {
-                    url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/BC/labDisplay.jsp?segmentID=' + encodedId + '\')';
+                    url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/BC/ViewLabDisplay.do?segmentID=' + encodedId + '\')';
                 }
                 return ' <a title="' + i18nViewAttachment + '" href="' + url + '"><i class="fas fa-paperclip"></i></a>';
             }

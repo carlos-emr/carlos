@@ -163,7 +163,7 @@
                             <td align="right" valign="top">
                                 <a href="javascript:parent.reportWindow('${pageContext.servletContext.contextPath}/oscarMDS/ForwardingRules.jsp?providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(providerNo))) %>');"
                                    style="color: #FFFFFF;">Forwarding Rules</a>
-                                <a href="javascript:popupStart(800,1000,'${pageContext.servletContext.contextPath}/lab/CA/ALL/testUploader.jsp')"
+                                <a href="javascript:popupStart(800,1000,'${pageContext.servletContext.contextPath}/lab/CA/ALL/insideLabUpload.do')"
                                    style="color: #FFFFFF; "><fmt:message key="admin.admin.hl7LabUpload"/></a>
                                 <% if (CarlosProperties.getInstance().getBooleanProperty("legacy_document_upload_enabled", "true")) { %>
                                 <a href="javascript:popupStart(600,500,'${pageContext.servletContext.contextPath}/documentManager/html5AddDocuments.jsp')"

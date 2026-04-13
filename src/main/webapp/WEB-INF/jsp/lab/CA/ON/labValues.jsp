@@ -278,7 +278,7 @@
                                                                                      value=" <fmt:message key="global.btnPrint"/> "
                                                                                      onClick="window.print()">
                                 <input type="button" value="Plot" class="btn btn-primary DoNotPrint"
-                                       onclick="window.location = '<%= Encode.forJavaScript(request.getContextPath()) %>/lab/CA/ON/labValuesGraph.jsp?demographic_no=<%= Encode.forUriComponent(String.valueOf(demographicNo)) %>&labType=<%= Encode.forUriComponent(labType) %>&identifier=<%= Encode.forUriComponent(identifier) %>&testName=<%= Encode.forUriComponent(testName) %>';"/>
+                                       onclick="window.location = '<%= Encode.forJavaScript(request.getContextPath()) %>/lab/CA/ON/ViewLabValuesGraph.do?demographic_no=<%= Encode.forUriComponent(String.valueOf(demographicNo)) %>&labType=<%= Encode.forUriComponent(labType) %>&identifier=<%= Encode.forUriComponent(identifier) %>&testName=<%= Encode.forUriComponent(testName) %>';"/>
 
                             </td>
                         </tr>

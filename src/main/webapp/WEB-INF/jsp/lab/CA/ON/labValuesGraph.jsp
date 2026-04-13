@@ -221,7 +221,7 @@
                     </td>
                 </tr>
             </table>
-            <form action="<%= request.getContextPath() %>/lab/CA/ON/labValuesGraph.jsp">
+            <form action="<%= request.getContextPath() %>/lab/CA/ON/ViewLabValuesGraph.do">
                 <input type="hidden" name="labType" value="<%= Encode.forHtmlAttribute(labType) %>"/>
                 <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
                 <input type="hidden" name="testName" value="<%= Encode.forHtmlAttribute(testName) %>"/>

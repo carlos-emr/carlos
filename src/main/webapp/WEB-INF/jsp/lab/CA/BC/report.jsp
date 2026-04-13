@@ -123,7 +123,7 @@
     </script>
 </head>
 <body>
-<form name="signForm" action="report.jsp" method="post">
+<form name="signForm" action="/lab/CA/BC/ViewReport.do" method="post">
     <table width="100%" class="DarkBG">
         <tr>
             <td height="40" width="25"></td>
