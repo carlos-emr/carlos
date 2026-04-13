@@ -68,7 +68,6 @@ public class MEDITECHHandler implements MessageHandler {
     @Override
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
 
-        FileInputStream is = null;
         List<String> hl7BodyList = null;
         String success = "success";
 
@@ -76,8 +75,9 @@ public class MEDITECHHandler implements MessageHandler {
             // Validate the file path to prevent path traversal attacks
             File file = validateAndGetFile(fileName);
             
-            is = new FileInputStream(file);
-            hl7BodyList = parse(is);
+            try (FileInputStream is = new FileInputStream(file)) {
+                hl7BodyList = parse(is);
+            }
             int index = 0;
             while ("success".equals(success) && index < hl7BodyList.size()) {
                 success = MessageUploader.routeReport(loggedInInfo, serviceName, "MEDITECH", hl7BodyList.get(index), fileId);
@@ -92,14 +92,6 @@ public class MEDITECHHandler implements MessageHandler {
             success = null;
             logger.error("Could not upload MEDITECH message " + fileName, e);
         } finally {
-            if (is != null) {
-                try {
-                    is.close();
-                    is = null;
-                } catch (IOException e) {
-                    logger.error("Failed to close MEDITECH InputStream ", e);
-                }
-            }
             if (success == null) {
                 logger.error("Cleaning up MessageUploader file.");
                 MessageUploader.clean(fileId);

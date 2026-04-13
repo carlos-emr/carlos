@@ -73,7 +73,6 @@ public class IHAPOIHandler implements MessageHandler {
     @Override
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
 
-        FileInputStream is = null;
         Map<String, String> hl7BodyMap = null;
         String messageId = "0";
         StringBuilder result = new StringBuilder(FAILED + messageId + ",");
@@ -82,8 +81,9 @@ public class IHAPOIHandler implements MessageHandler {
             // Validate the file path to prevent path traversal attacks
             File file = validateAndGetFile(fileName);
             
-            is = new FileInputStream(file);
-            hl7BodyMap = parse(is);
+            try (FileInputStream is = new FileInputStream(file)) {
+                hl7BodyMap = parse(is);
+            }
             Iterator<String> keySetIterator = null;
 
             if (hl7BodyMap != null && hl7BodyMap.size() > 0) {
@@ -109,14 +109,6 @@ public class IHAPOIHandler implements MessageHandler {
             result = new StringBuilder(FAILED + messageId + ",");
             logger.error("Could not upload IHAPOI message " + fileName + " due to an error with message id " + messageId, e);
         } finally {
-            if (is != null) {
-                try {
-                    is.close();
-                    is = null;
-                } catch (IOException e) {
-                    logger.error("Failed to close IHAPOI InputStream ", e);
-                }
-            }
             if (FAILED.equals(result.toString().split(":")[0] + ":")) {
                 logger.error("Cleaning up MessageUploader file.");
                 MessageUploader.clean(fileId);

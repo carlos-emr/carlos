@@ -137,10 +137,7 @@ public class PDFHandler implements MessageHandler {
 
         newDoc.setDocPublic("0");
 
-        InputStream fis = null;
-
-        try {
-            fis = new FileInputStream(filePath);
+        try (InputStream fis = new FileInputStream(filePath)) {
             newDoc.setContentType("application/pdf");
 
             //Find the number of pages
@@ -174,20 +171,11 @@ public class PDFHandler implements MessageHandler {
                 }
             }
         } catch (FileNotFoundException e) {
-            logger.info("An unexpected error has occurred:" + e.toString(), e);
+            logger.error("File not found: {}", filePath, e);
             return null;
         } catch (Exception e) {
-            logger.info("An unexpected error has occurred:" + e.toString(), e);
+            logger.error("Error uploading PDF: {}", filePath, e);
             return null;
-        } finally {
-            try {
-                if (fis != null) {
-                    fis.close();
-                }
-            } catch (IOException e1) {
-                logger.info("An unexpected error has occurred:" + e1.toString(), e1);
-                return null;
-            }
         }
 
         return "success";

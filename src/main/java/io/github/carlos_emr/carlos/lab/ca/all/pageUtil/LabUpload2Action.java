@@ -242,18 +242,18 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
 
         try {
 
-            InputStream msgIs = new FileInputStream(input);
-            Signature sig = Signature.getInstance("MD5WithRSA");
-            sig.initVerify(key);
+            try (InputStream msgIs = new FileInputStream(input)) {
+                Signature sig = Signature.getInstance("MD5WithRSA");
+                sig.initVerify(key);
 
-            // Read in the message bytes and update the signature
-            int numRead = 0;
-            while ((numRead = msgIs.read(buf)) >= 0) {
-                sig.update(buf, 0, numRead);
+                // Read in the message bytes and update the signature
+                int numRead = 0;
+                while ((numRead = msgIs.read(buf)) >= 0) {
+                    sig.update(buf, 0, numRead);
+                }
+
+                return (sig.verify(Base64.decodeBase64(sigString)));
             }
-            msgIs.close();
-
-            return (sig.verify(Base64.decodeBase64(sigString)));
 
         } catch (Exception e) {
             logger.debug("Could not validate signature: " + e);

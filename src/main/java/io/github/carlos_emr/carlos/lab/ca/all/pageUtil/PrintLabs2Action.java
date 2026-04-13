@@ -99,12 +99,16 @@ public class PrintLabs2Action extends ActionSupport {
 
                 //first write to a file
                 File f = File.createTempFile("labReport", ".pdf");
-                FileOutputStream fos = new FileOutputStream(f);
-                LabPDFCreator pdf = new LabPDFCreator(request, fos);
-                pdf.printPdf();
-                pdf.addEmbeddedDocuments(f, response.getOutputStream());
-
-                f.delete();
+                try {
+                    LabPDFCreator pdf;
+                    try (FileOutputStream fos = new FileOutputStream(f)) {
+                        pdf = new LabPDFCreator(request, fos);
+                        pdf.printPdf();
+                    }
+                    pdf.addEmbeddedDocuments(f, response.getOutputStream());
+                } finally {
+                    f.delete();
+                }
             }
         } catch (IOException ioe) {
             logger.error("IOException occurred inside PrintLabs2Action", ioe);

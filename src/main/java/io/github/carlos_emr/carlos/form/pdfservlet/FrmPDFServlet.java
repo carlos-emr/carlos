@@ -148,7 +148,9 @@ public class FrmPDFServlet extends HttpServlet {
                     baosPDF = new ByteArrayOutputStream();
                     baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), baosPDF, x);
                     tmpFile = File.createTempFile("formpdf", String.valueOf((int) Math.random() * 10000));
-                    baosPDF.writeTo(new FileOutputStream(tmpFile));
+                    try (FileOutputStream fos = new FileOutputStream(tmpFile)) {
+                        baosPDF.writeTo(fos);
+                    }
                     files.add(tmpFile.getAbsolutePath());
                 }
                 tmpFile = File.createTempFile("formpdf", String.valueOf((int) Math.random() * 10000));
@@ -157,7 +159,9 @@ public class FrmPDFServlet extends HttpServlet {
                 baosPDF = new ByteArrayOutputStream();
                 baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), baosPDF, 0);
                 tmpFile = File.createTempFile("formpdf", String.valueOf((int) Math.random() * 10000));
-                baosPDF.writeTo(new FileOutputStream(tmpFile));
+                try (FileOutputStream fos = new FileOutputStream(tmpFile)) {
+                    baosPDF.writeTo(fos);
+                }
             }
             StringBuilder sbFilename = new StringBuilder();
             sbFilename.append("filename_");
