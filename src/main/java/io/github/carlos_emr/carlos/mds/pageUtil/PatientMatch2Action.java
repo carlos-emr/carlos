@@ -72,7 +72,7 @@ public class PatientMatch2Action extends ActionSupport {
 
         try {
             CommonLabResultData.updatePatientLabRouting(labNo, demographicNo, labType);
-            newURL = request.getContextPath() + "/oscarMDS/OpenEChart.jsp";
+            newURL = request.getContextPath() + "/oscarMDS/PatientMatch.do";
             newURL = newURL + "?demographicNo=" + demographicNo;
         } catch (Exception e) {
             MiscUtils.getLogger().debug("exception in ReportReassign2Action:" + e);

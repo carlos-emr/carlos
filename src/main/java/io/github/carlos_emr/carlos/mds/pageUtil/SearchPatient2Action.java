@@ -65,7 +65,7 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
  * @since 2004-02-04
  */
 public class SearchPatient2Action extends ActionSupport {
-    private static final String PATIENT_SEARCH_URL = "/oscarMDS/PatientSearch.jsp?search_mode=search_name&limit1=0&limit2=10";
+    private static final String PATIENT_SEARCH_URL = "/oscarMDS/SearchPatient.do?search_mode=search_name&limit1=0&limit2=10";
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -129,7 +129,7 @@ public class SearchPatient2Action extends ActionSupport {
             String demographicNo = CommonLabResultData.searchPatient(labNo, labType);
             if (demographicNo != null && !demographicNo.equals("0")) {
                 // Lab is linked to a patient - open e-chart directly
-                newURL = contextPath + "/oscarMDS/OpenEChart.jsp";
+                newURL = contextPath + "/oscarMDS/PatientMatch.do";
                 newURL = newURL + "?demographicNo=" + Encode.forUriComponent(demographicNo);
             } else {
                 // Lab is not linked or demographicNo is null - show patient search

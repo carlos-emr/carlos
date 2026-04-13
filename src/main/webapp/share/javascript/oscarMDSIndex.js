@@ -655,7 +655,7 @@ function removeFirstPage(id) {
 }
 
 function split(id) {
-    const loc = contextpath + "/oscarMDS/Split.jsp?document=" + id;
+    const loc = contextpath + "/oscarMDS/ViewSplit.do?document=" + id;
     popupStart(1400, 1400, loc, "Splitter");
 }
 
@@ -1467,7 +1467,7 @@ function checkType(docNo) {
 
 function ForwardSelectedRows(files, searchProviderNo, status) {
     const isListView = jQuery("input[name=isListView]").val();
-    const url = ctx + "/oscarMDS/SelectProvider.jsp";
+    const url = ctx + "/oscarMDS/ViewSelectProvider.do";
 
     // not sure why this is a parameter, but, just in case...
     const data = {

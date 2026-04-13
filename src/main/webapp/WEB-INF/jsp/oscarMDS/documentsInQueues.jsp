@@ -325,7 +325,7 @@
         }
 
         function split(id, demoName) {
-            var loc = "<%= request.getContextPath()%>/oscarMDS/Split.jsp?document=" + encodeURIComponent(id) + "&queueID=" + encodeURIComponent(queueID) + "&demoName=" + encodeURIComponent(demoName);
+            var loc = "<%= request.getContextPath()%>/oscarMDS/ViewSplit.do?document=" + encodeURIComponent(id) + "&queueID=" + encodeURIComponent(queueID) + "&demoName=" + encodeURIComponent(demoName);
             popupStart(1400, 1400, loc, "Splitter");
         }
 
@@ -1723,7 +1723,7 @@
                 }
             }
             if (aBoxIsChecked) {
-                popupStart(397, 700, '<%= request.getContextPath() %>/oscarMDS/SelectProvider.jsp', 'providerselect');
+                popupStart(397, 700, '<%= request.getContextPath() %>/oscarMDS/ViewSelectProvider.do', 'providerselect');
             } else {
                 alert(msgSelectOneLab);
             }

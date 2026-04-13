@@ -151,7 +151,7 @@
                                 <% if (demographicNo == null) { %>
                                 <input type="button" class="smallButton"
                                        value="<fmt:message key="oscarMDS.index.btnSearch"/>"
-                                       onClick="window.location='${pageContext.servletContext.contextPath}/oscarMDS/Search.jsp?providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(providerNo))) %>'"/>
+                                       onClick="window.location='${pageContext.servletContext.contextPath}/oscarMDS/ViewSearch.do?providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(providerNo))) %>'"/>
                                 <% } %>
                                 <input type="button" class="smallButton"
                                        value="<fmt:message key="oscarMDS.index.btnLoadAll"/>"
@@ -161,7 +161,7 @@
                             </td>
 
                             <td align="right" valign="top">
-                                <a href="javascript:parent.reportWindow('${pageContext.servletContext.contextPath}/oscarMDS/ForwardingRules.jsp?providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(providerNo))) %>');"
+                                <a href="javascript:parent.reportWindow('${pageContext.servletContext.contextPath}/oscarMDS/ForwardingRules.do?providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(providerNo))) %>');"
                                    style="color: #FFFFFF;">Forwarding Rules</a>
                                 <a href="javascript:popupStart(800,1000,'${pageContext.servletContext.contextPath}/lab/CA/ALL/testUploader.jsp')"
                                    style="color: #FFFFFF; "><fmt:message key="admin.admin.hl7LabUpload"/></a>
@@ -184,7 +184,7 @@
                                    style="color: #FFFFFF;"><fmt:message key="inboxmanager.document.incomingDocs"/></a>
 
                                 <% if (!CarlosProperties.getInstance().isBritishColumbiaBillingRegion()) { %>
-                                <a href="javascript:popupStart(800,1000, '${pageContext.servletContext.contextPath}/oscarMDS/CreateLab.jsp')"
+                                <a href="javascript:popupStart(800,1000, '${pageContext.servletContext.contextPath}/oscarMDS/SubmitLab.do')"
                                    style="color: #FFFFFF;"><fmt:message key="global.createLab"/></a>
                                 <a href="javascript:popupPage(400, 1050,'${pageContext.servletContext.contextPath}/hospitalReportManager/hospitalReportManager.jsp')"
                                    style="color: #FFFFFF;">HRM Status/Upload</a>
@@ -418,7 +418,7 @@
         }
 
         function split(id) {
-            var loc = ctx + "/oscarMDS/Split.jsp?document=" + id;
+            var loc = ctx + "/oscarMDS/ViewSplit.do?document=" + id;
             popupStart(1100, 1100, loc, "Splitter");
         }
 

@@ -41,7 +41,7 @@
         String labType = request.getParameter("labType");
         String keyword = request.getParameter("keyword");
 
-        String redirectURL = request.getContextPath() + "/oscarMDS/PatientSearch.jsp?search_mode=search_name&limit1=0&limit2=10";
+        String redirectURL = request.getContextPath() + "/oscarMDS/SearchPatient.do?search_mode=search_name&limit1=0&limit2=10";
         if (labNo != null) {
             redirectURL += "&labNo=" + URLEncoder.encode(labNo, "UTF-8");
         }

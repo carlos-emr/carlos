@@ -116,7 +116,7 @@
 
 <table border="0" cellpadding="1" cellspacing="0" width="100%"
        bgcolor="#C4D9E7">
-    <form method="post" name="titlesearch" action="PatientSearch.jsp"
+    <form method="post" name="titlesearch" action="/oscarMDS/SearchPatient.do"
           onSubmit="return checkTypeIn();">
         <input type="hidden"
                name="from" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("from"))) %>"/>
@@ -406,12 +406,12 @@
     <script language="JavaScript">
         <!--
         function last() {
-            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/PatientSearch.jsp?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%= Encode.forJavaScript(Encode.forUriComponent(strLimit2)) %>&from=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("from")))) %>";
+            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/SearchPatient.do?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%= Encode.forJavaScript(Encode.forUriComponent(strLimit2)) %>&from=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("from")))) %>";
             //document.nextform.submit();
         }
 
         function next() {
-            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/PatientSearch.jsp?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%= Encode.forJavaScript(Encode.forUriComponent(strLimit2)) %>&from=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("from")))) %>";
+            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/SearchPatient.do?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%= Encode.forJavaScript(Encode.forUriComponent(strLimit2)) %>&from=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("from")))) %>";
             //document.nextform.submit();
         }
 

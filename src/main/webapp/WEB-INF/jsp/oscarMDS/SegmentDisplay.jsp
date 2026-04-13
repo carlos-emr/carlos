@@ -171,7 +171,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                    onclick="return getComment();"> <% } %> <input type="button"
                                                                                   class="smallButton"
                                                                                   value="<fmt:message key="oscarMDS.index.btnForward"/>"
-                                                                                  onClick="popupStart(397, 700, 'SelectProvider.jsp', 'providerselect')">
+                                                                                  onClick="popupStart(397, 700, '/oscarMDS/ViewSelectProvider.do', 'providerselect')">
                             <input type="button" value=" <fmt:message key="global.btnClose"/> "
                                    onClick="window.close()"> <input type="button"
                                                                     value=" <fmt:message key="global.btnPrint"/> "
@@ -212,11 +212,11 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                             } else {
                                 if (request.getParameter("searchProviderNo") != null) { // null if we were called from e-chart
                             %><a
-                                    href="SegmentDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))) %>&searchProviderNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("searchProviderNo"))) %>&status=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("status"))) %>">v<%= i + 1 %>
+                                    href="/oscarMDS/SearchPatient.do?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))) %>&searchProviderNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("searchProviderNo"))) %>&status=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("status"))) %>">v<%= i + 1 %>
                             </a>&#160;<%
                             } else {
                             %><a
-                                    href="SegmentDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))) %>&status=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("status"))) %>">v<%= i + 1 %>
+                                    href="/oscarMDS/SearchPatient.do?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))) %>&status=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("status"))) %>">v<%= i + 1 %>
                             </a>&#160;<%
                                         }
                                     }
@@ -821,7 +821,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                    onclick="getComment()"> <% } %> <input type="button"
                                                                           class="smallButton"
                                                                           value="<fmt:message key="oscarMDS.index.btnForward"/>"
-                                                                          onClick="popupStart(397, 700, 'SelectProvider.jsp', 'providerselect')">
+                                                                          onClick="popupStart(397, 700, '/oscarMDS/ViewSelectProvider.do', 'providerselect')">
                             <input type="button" value=" <fmt:message key="global.btnClose"/> "
                                    onClick="window.close()"> <input type="button"
                                                                     value=" <fmt:message key="global.btnPrint"/> "

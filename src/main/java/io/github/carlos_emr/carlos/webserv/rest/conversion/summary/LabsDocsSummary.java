@@ -99,7 +99,7 @@ public class LabsDocsSummary implements Summary {
             if (result.isMDS()) {
                 if (label == null || label.equals("")) labDisplayName = result.getDiscipline();
                 else labDisplayName = label;
-                url = "../oscarMDS/SegmentDisplay.jsp?providerNo=" + loggedInInfo.getLoggedInProvider().getProviderNo() + "&segmentID=" + result.segmentID + "&status=" + result.getReportStatus();
+                url = "../oscarMDS/SearchPatient.do?providerNo=" + loggedInInfo.getLoggedInProvider().getProviderNo() + "&segmentID=" + result.segmentID + "&status=" + result.getReportStatus();
             } else if (result.isCML()) {
                 if (label == null || label.equals("")) labDisplayName = result.getDiscipline();
                 else labDisplayName = label;
