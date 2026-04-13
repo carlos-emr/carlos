@@ -137,8 +137,10 @@ public class MsgAttachPDF2Action extends ActionSupport {
         // Enforce _msg privilege on every invocation. The action both generates
         // PHI-bearing PDF previews and mutates the messenger session bean, so
         // both preview and attachment modes require the messaging privilege.
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request),
-                "_msg", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
+            logger.warn("MsgAttachPDF2Action denied: provider={} lacks _msg write",
+                    loggedInInfo == null ? "anon" : loggedInInfo.getLoggedInProviderNo());
             throw new SecurityException("missing required sec object (_msg)");
         }
 

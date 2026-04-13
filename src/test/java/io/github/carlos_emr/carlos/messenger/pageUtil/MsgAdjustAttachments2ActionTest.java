@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -118,4 +119,49 @@ class MsgAdjustAttachments2ActionTest extends CarlosWebTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
     }
+
+    @Test
+    @DisplayName("should mutate session bean and redirect to DemographicLinkMsg on valid POST")
+    void shouldMutateBean_andRedirectToDemographicLinkMsg_whenPostIsValid() throws Exception {
+        allowPrivilege("_msg", "w");
+        getMockRequest().setMethod("POST");
+        MsgSessionBean bean = new MsgSessionBean();
+        bean.setProviderNo(TEST_PROVIDER);
+        getMockSession().setAttribute("msgSessionBean", bean);
+
+        String encodedDoc = MsgCommxml.encode64(SAMPLE_XML);
+        addRequestParameter("xmlDoc", encodedDoc);
+        addRequestParameter("id", "42");
+        addRequestParameter("item1", "on");
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getRedirectedUrl())
+                .endsWith("/demographic/DemographicLinkMsg.do");
+        assertThat(bean.getAttachment()).isNotNull();
+        assertThat(bean.getMessageId()).isEqualTo("42");
+    }
+
+    @Test
+    @DisplayName("should set bean messageId to null when id param is not digits")
+    void shouldNullifyMessageId_whenIdIsNonNumeric() throws Exception {
+        allowPrivilege("_msg", "w");
+        getMockRequest().setMethod("POST");
+        MsgSessionBean bean = new MsgSessionBean();
+        bean.setProviderNo(TEST_PROVIDER);
+        getMockSession().setAttribute("msgSessionBean", bean);
+
+        addRequestParameter("xmlDoc", MsgCommxml.encode64(SAMPLE_XML));
+        addRequestParameter("id", "42; DROP TABLE demographic");
+
+        executeAction(action);
+
+        // MsgSessionBean.getMessageId() normalizes null to an empty string; assert
+        // the non-numeric input did not survive intact onto the bean.
+        assertThat(bean.getMessageId()).isEmpty();
+    }
+
+    private static final String SAMPLE_XML =
+            "<root><table><item itemId=\"1\" removable=\"true\">a</item></table></root>";
 }

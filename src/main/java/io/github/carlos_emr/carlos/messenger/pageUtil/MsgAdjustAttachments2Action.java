@@ -31,8 +31,10 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.messenger.docxfer.send.MsgSendDocument;
 import io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -51,6 +53,8 @@ import org.apache.struts2.ServletActionContext;
  * @since 2026-04-13
  */
 public final class MsgAdjustAttachments2Action extends ActionSupport {
+
+    private static final Logger logger = MiscUtils.getLogger();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -73,10 +77,14 @@ public final class MsgAdjustAttachments2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
+            logger.warn("MsgAdjustAttachments2Action denied: provider={} lacks _msg write",
+                    providerNoOf(loggedInInfo));
             throw new SecurityException("missing required sec object (_msg)");
         }
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            logger.warn("MsgAdjustAttachments2Action method not allowed: provider={} method={}",
+                    providerNoOf(loggedInInfo), request.getMethod());
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
@@ -86,12 +94,16 @@ public final class MsgAdjustAttachments2Action extends ActionSupport {
                 ? null
                 : (MsgSessionBean) session.getAttribute("msgSessionBean");
         if (bean == null || !bean.isValid()) {
+            logger.warn("MsgAdjustAttachments2Action: missing/invalid msgSessionBean for provider={}; redirecting to DisplayMessages",
+                    providerNoOf(loggedInInfo));
             response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.do");
             return NONE;
         }
 
         String xmlDocRaw = request.getParameter("xmlDoc");
         if (xmlDocRaw == null || xmlDocRaw.isEmpty()) {
+            logger.warn("MsgAdjustAttachments2Action: missing xmlDoc param for provider={}",
+                    providerNoOf(loggedInInfo));
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing xmlDoc");
             return NONE;
         }
@@ -121,6 +133,10 @@ public final class MsgAdjustAttachments2Action extends ActionSupport {
         // that JSP does not exist in the webapp.
         response.sendRedirect(request.getContextPath() + "/demographic/DemographicLinkMsg.do");
         return NONE;
+    }
+
+    private static String providerNoOf(LoggedInInfo info) {
+        return info == null ? "anon" : info.getLoggedInProviderNo();
     }
 
     private static boolean isDigits(String s) {
