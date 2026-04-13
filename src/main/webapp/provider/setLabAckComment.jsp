@@ -33,6 +33,7 @@
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="global.javascript.calendar" var="calendarJsLangFile"/>
 <%@ page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
 
@@ -75,7 +76,7 @@
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="${e:forHtmlAttribute(ctx)}/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="${e:forHtmlAttribute(ctx)}/share/calendar/lang/${e:forUri(calendarJsLangFile)}"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
                        adding a calendar a matter of 1 or 2 lines of code. -->
