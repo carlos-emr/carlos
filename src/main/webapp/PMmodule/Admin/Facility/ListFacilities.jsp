@@ -69,7 +69,7 @@
         </display:column>
         <display:column sortable="false" title="">
             <a href="javascript:void(0)"
-                    onclick="if(ConfirmDelete('${e:forJavaScriptAttribute(facility.name)}')){document.getElementById('deleteForm_${e:forJavaScriptAttribute(facility.id)}').submit()}">
+                    onclick="if(ConfirmDelete('${e:forJavaScriptAttribute(facility.name)}')){document.getElementById('deleteForm_${e:forHtmlAttribute(facility.id)}').submit()}">
                 Disable </a>
             <form id="deleteForm_${e:forHtmlAttribute(facility.id)}" method="post"
                   action="<%=request.getContextPath() %>/PMmodule/FacilityManager.do" style="display:none">
