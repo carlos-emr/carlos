@@ -54,10 +54,10 @@ function submitStatus(ctrl) {// only place other than infirmaction.java to set i
 		<%}else{ %>
 		<c:forEach var="pb" items="${infirmaryView_programBeans}">
 			<c:if test="${infirmaryView_programId == pb.value}">
-				<option value="<%=pb.getValue()%>" selected><%= pb.getLabel() %></option>
+				<option value="${pb.value}" selected><c:out value="${pb.label}"/></option>
 			</c:if>
 			<c:if test="${infirmaryView_programId != pb.value}">
-				<option value="<%=pb.getValue()%>"><%= pb.getLabel() %></option>
+				<option value="${pb.value}"><c:out value="${pb.label}"/></option>
 			</c:if>
 		</c:forEach>
 		<%} %>
@@ -75,10 +75,10 @@ function submitStatus(ctrl) {// only place other than infirmaction.java to set i
 			<%}else{ %>
 			<c:forEach var="pb" items="${infirmaryView_programBeans}">
 				<c:if test="${infirmaryView_programId == pb.value}">
-					<option value="<%=pb.getValue()%>" selected><%= pb.getLabel() %></option>
+					<option value="${pb.value}" selected><c:out value="${pb.label}"/></option>
 				</c:if>
 				<c:if test="${infirmaryView_programId != pb.value}">
-					<option value="<%=pb.getValue()%>"><%= pb.getLabel() %></option>
+					<option value="${pb.value}"><c:out value="${pb.label}"/></option>
 				</c:if>
 			</c:forEach>
 			<%} %>

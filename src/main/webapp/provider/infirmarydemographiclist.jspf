@@ -61,11 +61,14 @@
 			<tr>
 				<td width="1" title="null"><font color="white"></font></td>
 
+					<c:set var="demographic_no_str" value="${de.value}"/>
+					<c:set var="demographic_name_str" value="${de.label}"/>
 				<%
 					k++;
 					java.util.Date apptime = new java.util.Date();
-					int demographic_no = Integer.parseInt(de.value);
-					String demographic_name = de.label;
+						String demoNoStr = (String) pageContext.getAttribute("demographic_no_str");
+						int demographic_no = Integer.parseInt(demoNoStr != null ? demoNoStr : "0");
+						String demographic_name = (String) pageContext.getAttribute("demographic_name_str");
 					String tickler_no = "";
 					String tickler_note = "";
 					// Using your ticklerManager logic in JSP to retrieve ticklers.
@@ -73,6 +76,9 @@
 						tickler_no = t.getId().toString();
 						tickler_note = t.getMessage() == null ? tickler_note : tickler_note + "\n" + t.getMessage();
 					}
+
+						pageContext.setAttribute("demographic_no", demographic_no);
+						pageContext.setAttribute("apptime", apptime);
 				%>
 
 				<c:set var="bgColor" value="${k % 2 == 0 ? '#FDFEC7' : '#FFBBFF'}"/>
@@ -100,9 +106,7 @@
 
 					<!-- Conditionally add encounter link based on bShowEncounterLink -->
 					<c:if test="${bShowEncounterLink}">
-						<%
-							String eURL = base_eURL + "&appointmentNo=" + rsAppointNO + "&demographicNo=" + demographic_no + "&reason=" + URLEncoder.encode(reason) + "&startTime=" + apptime.getHours() + ":" + apptime.getMinutes() + "&status=" + status;
-						%>
+						<c:set var="eURL" value="${base_eURL}&appointmentNo=${rsAppointNO}&demographicNo=${demographic_no}&startTime=${apptime.hours}:${apptime.minutes}"/>
 						<a href="#" onClick="popupWithApptNo(710, 1024, '${eURL}', 'encounter'); return false;" title="<fmt:setBundle basename='oscarResources'/><fmt:message key='global.encounter'/>">
 							|<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.btnE"/>
 						</a>
