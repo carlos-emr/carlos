@@ -202,7 +202,7 @@ public class ReportReassign2Action extends ActionSupport {
 
             }
 
-            newURL = request.getRequestURI();
+            newURL = request.getContextPath() + request.getServletPath();
 
             // Encode all query parameters — defense-in-depth for session-derived values,
             // required for user-controlled searchProviderNo and status

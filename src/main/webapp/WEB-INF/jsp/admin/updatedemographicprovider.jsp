@@ -112,11 +112,19 @@
     <div class="container-fluid">
         <h3><fmt:message key="admin.admin.btnUpdatePatientProvider"/></h3>
         <%
+            // Bound regex input length to prevent ReDoS attacks (Fix 6)
+            String regexp = request.getParameter("regexp");
+            if (regexp == null) {
+                regexp = "";
+            } else if (regexp.length() > 100) {
+                regexp = regexp.substring(0, 100);
+            }
+
             if (request.getParameter("update") != null
                     && request.getParameter("update").equals("UpdateResident")) {
                 // find demographicNos for records with last name starting with and have a resident assigned
                 List<Integer> noList = demographicManager.getDemographicNumbersByResidentNumberAndDemographicLastNameRegex(
-                        loggedInInfo, request.getParameter("oldcust2"), request.getParameter("regexp")
+                        loggedInInfo, request.getParameter("oldcust2"), regexp
                 );
                 int rowsAffected = 0;
                 if (noList != null) {
@@ -158,7 +166,7 @@
                 List<Integer> noList = demographicManager.getDemographicNumbersByNurseNumberAndDemographicLastNameRegex(
                         loggedInInfo,
                         request.getParameter("oldcust1"),
-                        request.getParameter("regexp")
+                        regexp
                 );
                 int rowsAffected = 0;
                 if (noList != null) {
@@ -199,7 +207,7 @@
                 List<Integer> noList = demographicManager.getDemographicNumbersByMidwifeNumberAndDemographicLastNameRegex(
                         loggedInInfo,
                         request.getParameter("oldcust4"),
-                        request.getParameter("regexp")
+                        regexp
                 );
                 int rowsAffected = 0;
                 if (noList != null) {
@@ -241,7 +249,7 @@
             if (request.getParameter("update") != null
                     && request.getParameter("update").equals("UpdateMrp")) {
                 Provider provider = providerManager.getProvider(loggedInInfo, request.getParameter("oldcust5"));
-                List<Demographic> noList = demographicManager.getDemographicsNameRangeByProvider(loggedInInfo, provider, request.getParameter("regexp"));
+                List<Demographic> noList = demographicManager.getDemographicsNameRangeByProvider(loggedInInfo, provider, regexp);
 
                 int rowsAffected = 0;
                 if (noList != null) {

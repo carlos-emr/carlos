@@ -35,7 +35,16 @@
 %>
 <%@ page import="java.util.*, java.sql.*, java.io.*, io.github.carlos_emr.*" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="javax.xml.parsers.SAXParser" %>
+<%@ page import="javax.xml.parsers.ParserConfigurationException" %>
+<%@ page import="org.xml.sax.InputSource" %>
+<%@ page import="org.xml.sax.SAXException" %>
+<%@ page import="org.xml.sax.helpers.DefaultHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.XmlUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <html>
@@ -59,17 +68,30 @@
 <form name="checklistedit" action="obarriskedit_99_12.jsp" method="POST">
     <%
         char sep = oscarVariables.getProperty("file_separator").toCharArray()[0];
-        String str = null;
+        String saveError = null;
         if (request.getParameter("submit") != null && request.getParameter("submit").compareTo(" Save ") == 0) {
-            //FileWriter inf = new FileWriter(".."+sep+"webapps"+sep+oscarVariables.getProperty("project_home")+sep+"decision"+sep+"antenatal"+sep+"desantenatalplannerrisks_99_12.xml");
-            FileWriter inf = new FileWriter(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerrisks_99_12.xml");
-            str = request.getParameter("checklist");
-            if (str == null) str = "";
-            str = SxmlMisc.replaceString(str, " & ", " &amp; ");
-            str = SxmlMisc.replaceString(str, " > ", " &gt; ");
-            str = SxmlMisc.replaceString(str, " < ", " &lt; ");
-            inf.write(str);
-            inf.close();
+            // Security check — only admins may overwrite the shared risk template
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
+                throw new SecurityException("missing required sec object: _admin (write access required)");
+            }
+
+            String checklist = request.getParameter("checklist");
+            if (checklist != null) {
+                // Validate submitted XML with a hardened SAX parser.
+                try {
+                    SAXParser saxParser = XmlUtils.createSecureSAXParserFactory().newSAXParser();
+                    saxParser.parse(new InputSource(new StringReader(checklist)), new DefaultHandler());
+
+                    // XML is well-formed and safe — write to disk
+                    try (FileWriter inf = new FileWriter(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerrisks_99_12.xml")) {
+                        inf.write(checklist);
+                    }
+                } catch (SAXException | ParserConfigurationException e) {
+                    saveError = "Save failed: submitted content is not valid XML or contains unsafe constructs. Please correct the XML and try again.";
+                }
+            }
         }
     %>
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
@@ -88,6 +110,11 @@
                 </div>
             </th>
         </tr>
+        <% if (saveError != null) { %>
+        <tr>
+            <td colspan="2" style="color: red; padding: 4px;"><%= Encode.forHtml(saveError) %></td>
+        </tr>
+        <% } %>
         <tr>
             <td align=CENTER colspan="2"><font
                     face="Times New Roman, Times, serif"> <textarea
