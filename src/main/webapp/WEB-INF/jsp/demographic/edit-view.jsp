@@ -135,20 +135,20 @@
     String demoPath = rootContextPath + "/demographic/";
     String printEnvelope, printLbl, printAddressLbl, printChartLbl, printSexHealthLbl, printHtmlLbl, printLabLbl;
     if (oscarProps != null && "true".equals(oscarProps.getProperty("new_label_print"))) {
-        printEnvelope = demoPath + "printEnvelope.jsp?demos=";
-        printLbl = demoPath + "printDemoLabel.jsp?demographic_no=";
-        printAddressLbl = demoPath + "printAddressLabel.jsp?demographic_no=";
-        printChartLbl = demoPath + "printDemoChartLabel.jsp?demographic_no=";
-        printSexHealthLbl = demoPath + "printDemoChartLabel.jsp?labelName=SexualHealthClinicLabel&demographic_no=";
-        printHtmlLbl = demoPath + "demographiclabelprintsetting.jsp?demographic_no=";
-        printLabLbl = demoPath + "printClientLabLabel.jsp?demographic_no=";
+        printEnvelope = demoPath + "/demographic/ViewPrintEnvelope.do?demos=";
+        printLbl = demoPath + "/demographic/ViewPrintDemoLabel.do?demographic_no=";
+        printAddressLbl = demoPath + "/demographic/ViewPrintAddressLabel.do?demographic_no=";
+        printChartLbl = demoPath + "/demographic/ViewPrintDemoChartLabel.do?demographic_no=";
+        printSexHealthLbl = demoPath + "/demographic/ViewPrintDemoChartLabel.do?labelName=SexualHealthClinicLabel&demographic_no=";
+        printHtmlLbl = demoPath + "/demographic/ViewDemographicLabelPrintSetting.do?demographic_no=";
+        printLabLbl = demoPath + "/demographic/ViewPrintClientLabLabel.do?demographic_no=";
     } else {
         printEnvelope = rootContextPath + "/report/GenerateEnvelopes.do?demos=";
         printLbl = demoPath + "printDemoLabelAction.do?demographic_no=";
         printAddressLbl = demoPath + "printDemoAddressLabelAction.do?demographic_no=";
         printChartLbl = demoPath + "printDemoChartLabelAction.do?demographic_no=";
         printSexHealthLbl = demoPath + "printDemoChartLabelAction.do?labelName=SexualHealthClinicLabel&demographic_no=";
-        printHtmlLbl = demoPath + "demographiclabelprintsetting.jsp?demographic_no=";
+        printHtmlLbl = demoPath + "/demographic/ViewDemographicLabelPrintSetting.do?demographic_no=";
         printLabLbl = demoPath + "printClientLabLabelAction.do?demographic_no=";
     }
 
@@ -363,7 +363,7 @@
                                                             <div class="demographicSection" id="otherContacts">
                                                                 <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.msgOtherContacts"/>
                                                                     <a class="h3-pill" href="javascript: function myFunction() {return false; }"
-                                                                            onClick="popup(700,960,'<%= request.getContextPath() %>/demographic/AddAlternateContact.jsp?demo=<%=demographic.getDemographicNo()%>','AddRelation')">
+                                                                            onClick="popup(700,960,'<%= request.getContextPath() %>/demographic/AddRelation.do?demo=<%=demographic.getDemographicNo()%>','AddRelation')">
                                                                         <fmt:message key="demographic.demographiceditdemographic.msgAddRelation"/></a>
                                                                 </h3>
                                                                 <ul>
@@ -433,7 +433,7 @@
                                                             <div class="demographicSection" id="clinicStatus">
                                                                 <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.msgClinicStatus"/>
                                                                     <a class="h3-pill" href="#"
-                                                                        onclick="popup(1000, 650, '<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/demographic/EnrollmentHistory.jsp?demographicNo=" + Encode.forUriComponent(demographic_no)) %>', 'enrollmentHistory'); return false;"><fmt:message key="demographic.demographiceditdemographic.msgEnrollmentHistory"/></a>
+                                                                        onclick="popup(1000, 650, '<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/demographic/ViewEnrollmentHistory.do?demographicNo=" + Encode.forUriComponent(demographic_no)) %>', 'enrollmentHistory'); return false;"><fmt:message key="demographic.demographiceditdemographic.msgEnrollmentHistory"/></a>
                                                                 </h3>
                                                                 <ul>
                                                                     <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formRosterStatus"/>:</span>

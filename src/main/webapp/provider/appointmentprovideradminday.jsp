@@ -942,12 +942,12 @@
                                         <%
                                         } else {
                                         %>
-                                        <a HREF="#" ONCLICK="popupPage2('<%= request.getContextPath() %>/demographic/search.jsp');return false;"
+                                        <a HREF="#" ONCLICK="popupPage2('<%= request.getContextPath() %>/demographic/ViewSearch.do');return false;"
                                            TITLE='<fmt:message key="global.searchPatientRecords"/>'><fmt:message key="provider.appointmentProviderAdminDay.search"/></a>
                                         <% } %>
                                     </caisi:isModuleLoad>
                                     <caisi:isModuleLoad moduleName="caisi" reverse="true">
-                                        <a HREF="#" ONCLICK="popupPage2('<%= request.getContextPath() %>/demographic/search.jsp');return false;"
+                                        <a HREF="#" ONCLICK="popupPage2('<%= request.getContextPath() %>/demographic/ViewSearch.do');return false;"
                                            TITLE='<fmt:message key="global.searchPatientRecords"/>'><fmt:message key="provider.appointmentProviderAdminDay.search"/></a>
                                     </caisi:isModuleLoad>
                                 </li>
@@ -2457,7 +2457,7 @@
                         return false;
                     }
                     case <fmt:message key="global.searchShortcut"/> :
-                        popupOscarRx(550, 687, '<%= request.getContextPath() %>/demographic/search.jsp');
+                        popupOscarRx(550, 687, '<%= request.getContextPath() %>/demographic/ViewSearch.do');
                         return false;  //run code for 'S'earch
                     case <fmt:message key="global.dayShortcut"/> :
                         window.open("providercontrol.jsp?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%><%=viewString%>&displaymode=day&dboperation=searchappointmentday", "_self");
@@ -2672,7 +2672,7 @@
             addA.textContent = msgs.addNewPatient;
             addA.addEventListener('click', function(e) {
                 e.stopPropagation();
-                popupPage2(ctx + '/demographic/demographicaddarecordhtm.jsp');
+                popupPage2(ctx + '/demographic/ViewDemographicAddARecordHtm.do');
                 hideDropdown();
             });
             addDiv.appendChild(addA);

@@ -67,15 +67,15 @@ public class EctDisplayContacts2Action extends EctDisplayAction {
 
             if ("true".equalsIgnoreCase(healthCareTeamEnabled)) {
                 pathview = request.getContextPath() +
-                        "/demographic/displayHealthCareTeam.jsp?view=detached&demographicNo=" +
+                        "/demographic/ViewDisplayHealthCareTeam.do?view=detached&demographicNo=" +
                         bean.demographicNo;
                 pathedit = request.getContextPath() +
-                        "/demographic/manageHealthCareTeam.jsp?view=detached&demographicNo=" +
+                        "/demographic/ViewManageHealthCareTeam.do?view=detached&demographicNo=" +
                         bean.demographicNo;
                 width = 650;
                 height = 400;
             } else {
-                pathview = request.getContextPath() + "/demographic/professionalSpecialistSearch.jsp?keyword=&submit=Search";
+                pathview = request.getContextPath() + "/demographic/ViewProfessionalSpecialistSearch.do?keyword=&submit=Search";
                 pathedit = request.getContextPath() + "/demographic/Contact.do?method=manage&demographic_no=" + bean.demographicNo;
                 width = 650;
                 height = 900;

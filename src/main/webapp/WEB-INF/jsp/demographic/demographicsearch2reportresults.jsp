@@ -304,26 +304,26 @@
         if (nItems == 0 && nLastPage <= 0) {
     %> <caisi:isModuleLoad moduleName="caisi" reverse="true">
     <fmt:message key="demographic.search.noResultsWereFound"/>
-    <a href="<%= request.getContextPath() %>/demographic/demographicaddarecordhtm.jsp?search_mode=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode"))) %>&keyword=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword"))) %>"><fmt:message key="demographic.search.btnCreateNew"/></a>
+    <a href="<%= request.getContextPath() %>/demographic/ViewDemographicAddARecordHtm.do?search_mode=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode"))) %>&keyword=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword"))) %>"><fmt:message key="demographic.search.btnCreateNew"/></a>
 </caisi:isModuleLoad> <%
     }
 %>
     <script language="JavaScript">
         <!--
         function last() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp?originalpage=<%= Encode.forJavaScript(Encode.forUriComponent(originalpage)) %>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewDemographicSearch2ReportResults.do?originalpage=<%= Encode.forJavaScript(Encode.forUriComponent(originalpage)) %>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>";
             //document.nextform.submit();
         }
 
         function next() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp?originalpage=<%= Encode.forJavaScript(Encode.forUriComponent(originalpage)) %>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewDemographicSearch2ReportResults.do?originalpage=<%= Encode.forJavaScript(Encode.forUriComponent(originalpage)) %>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>";
             //document.nextform.submit();
         }
 
         //-->
     </SCRIPT>
 
-    <form method="post" name="nextform" action="demographicsearch2reportresults.jsp">
+    <form method="post" name="nextform" action="/demographic/ViewDemographicSearch2ReportResults.do">
         <%
             if (nLastPage >= 0) {
         %> <input type="submit" class="mbttn" name="submit"

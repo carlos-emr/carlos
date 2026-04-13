@@ -340,7 +340,7 @@
                 type="text/javascript"></script>
 
         <script type="text/javascript"
-                src="<%=request.getContextPath() %>/demographic/demographiceditdemographic.js.jsp"></script>
+                src="<%=request.getContextPath() %>/demographic/ViewDemographicEditDemographicJs.do"></script>
 
         <!-- Pre-computed i18n strings, safely encoded for JavaScript embedding -->
         <script>
@@ -811,7 +811,7 @@
                 if (patientSet == "-") return;
                 var form = document.createElement('form');
                 form.method = 'post';
-                form.action = 'addDemoToPatientSet.jsp';
+                form.action = '/demographic/ViewAddDemoToPatientSet.do';
                 form.target = 'addpsetwin';
                 var fields = {demoNo: demoNo, patientSet: patientSet};
                 for (var key in fields) {
@@ -1372,20 +1372,20 @@
                                             String demoPath = rootContextPath + "/demographic/";
 
                                             if (oscarProps.getProperty("new_label_print") != null && oscarProps.getProperty("new_label_print").equals("true")) {
-                                                printEnvelope = demoPath + "printEnvelope.jsp?demos=";
-                                                printLbl = demoPath + "printDemoLabel.jsp?demographic_no=";
-                                                printAddressLbl = demoPath + "printAddressLabel.jsp?demographic_no=";
-                                                printChartLbl = demoPath + "printDemoChartLabel.jsp?demographic_no=";
-                                                printSexHealthLbl = demoPath + "printDemoChartLabel.jsp?labelName=SexualHealthClinicLabel&demographic_no=";
-                                                printHtmlLbl = demoPath + "demographiclabelprintsetting.jsp?demographic_no=";
-                                                printLabLbl = demoPath + "printClientLabLabel.jsp?demographic_no=";
+                                                printEnvelope = demoPath + "/demographic/ViewPrintEnvelope.do?demos=";
+                                                printLbl = demoPath + "/demographic/ViewPrintDemoLabel.do?demographic_no=";
+                                                printAddressLbl = demoPath + "/demographic/ViewPrintAddressLabel.do?demographic_no=";
+                                                printChartLbl = demoPath + "/demographic/ViewPrintDemoChartLabel.do?demographic_no=";
+                                                printSexHealthLbl = demoPath + "/demographic/ViewPrintDemoChartLabel.do?labelName=SexualHealthClinicLabel&demographic_no=";
+                                                printHtmlLbl = demoPath + "/demographic/ViewDemographicLabelPrintSetting.do?demographic_no=";
+                                                printLabLbl = demoPath + "/demographic/ViewPrintClientLabLabel.do?demographic_no=";
                                             } else {
                                                 printEnvelope = rootContextPath + "/report/GenerateEnvelopes.do?demos=";
                                                 printLbl = demoPath + "printDemoLabelAction.do?demographic_no=";
                                                 printAddressLbl = demoPath + "printDemoAddressLabelAction.do?demographic_no=";
                                                 printChartLbl = demoPath + "printDemoChartLabelAction.do?demographic_no=";
                                                 printSexHealthLbl = demoPath + "printDemoChartLabelAction.do?labelName=SexualHealthClinicLabel&demographic_no=";
-                                                printHtmlLbl = demoPath + "demographiclabelprintsetting.jsp?demographic_no=";
+                                                printHtmlLbl = demoPath + "/demographic/ViewDemographicLabelPrintSetting.do?demographic_no=";
                                                 printLabLbl = demoPath + "printClientLabLabelAction.do?demographic_no=";
                                             }
 
@@ -1409,7 +1409,7 @@
                                                                                rights="r" reverse="<%=false%>">
                                                                 <input type="button"
                                                                        value="<fmt:message key="demographic.demographiceditdemographic.msgExport"/>"
-                                                                       onclick="window.open('<%= request.getContextPath() %>/demographic/demographicExport.jsp?demographicNo=<%=demographic.getDemographicNo()%>');">
+                                                                       onclick="window.open('<%= request.getContextPath() %>/demographic/DemographicExport.do?demographicNo=<%=demographic.getDemographicNo()%>');">
                                                             </security:oscarSec>
                                                         </td>
                                                         <td width="30%" align='center' valign="top">
@@ -1638,7 +1638,7 @@
                                                             <div class="demographicSection" id="otherContacts">
                                                                 <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.msgOtherContacts"/>
                                                                     <a class="h3-pill" href="javascript: function myFunction() {return false; }"
-                                                                            onClick="popup(700,960,'<%= request.getContextPath() %>/demographic/AddAlternateContact.jsp?demo=<%=demographic.getDemographicNo()%>','AddRelation')">
+                                                                            onClick="popup(700,960,'<%= request.getContextPath() %>/demographic/AddRelation.do?demo=<%=demographic.getDemographicNo()%>','AddRelation')">
                                                                         <fmt:message key="demographic.demographiceditdemographic.msgAddRelation"/></a>
                                                                 </h3>
                                                                 <ul>
@@ -1708,7 +1708,7 @@
                                                             <div class="demographicSection" id="clinicStatus">
                                                                 <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.msgClinicStatus"/>
                                                                     <a class="h3-pill" href="#"
-                                                                        onclick="popup(1000, 650, '<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/demographic/EnrollmentHistory.jsp?demographicNo=" + Encode.forUriComponent(demographic_no)) %>', 'enrollmentHistory'); return false;"><fmt:message key="demographic.demographiceditdemographic.msgEnrollmentHistory"/></a>
+                                                                        onclick="popup(1000, 650, '<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/demographic/ViewEnrollmentHistory.do?demographicNo=" + Encode.forUriComponent(demographic_no)) %>', 'enrollmentHistory'); return false;"><fmt:message key="demographic.demographiceditdemographic.msgEnrollmentHistory"/></a>
                                                                 </h3>
                                                                 <ul>
                                                                     <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formRosterStatus"/>:</span>
@@ -4964,11 +4964,11 @@
                                                         <security:oscarSec roleName="<%=roleName$%>" objectName="_demographicExport" rights="r" reverse="<%=false%>">
                                                             <input type="button" class="btn-toolbar-secondary"
                                                                    value="<fmt:message key="demographic.demographiceditdemographic.msgExport"/>"
-                                                                   onclick="window.open('<%= request.getContextPath() %>/demographic/demographicExport.jsp?demographicNo=<%=demographic.getDemographicNo()%>');"/>
+                                                                   onclick="window.open('<%= request.getContextPath() %>/demographic/DemographicExport.do?demographicNo=<%=demographic.getDemographicNo()%>');"/>
                                                         </security:oscarSec>
                                                         <input type="button" class="btn-toolbar-secondary"
                                                                value="<fmt:message key="demographic.demographiceditdemographic.btnAuditInfo"/>"
-                                                               onclick="window.open('<%= Encode.forJavaScriptAttribute(request.getContextPath()) %>/demographic/demographicAudit.jsp?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic.getDemographicNo().toString())) %>');"/>
+                                                               onclick="window.open('<%= Encode.forJavaScriptAttribute(request.getContextPath()) %>/demographic/ViewDemographicAudit.do?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic.getDemographicNo().toString())) %>');"/>
                                                     </div>
                                                     <div class="toolbar-right">
                                                         <span id="swipeButtonBottom" style="display: none;">

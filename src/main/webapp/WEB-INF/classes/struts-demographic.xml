@@ -51,54 +51,54 @@
         <action name="demographic/printDemoChartLabelAction" class="io.github.carlos_emr.carlos.demographic.PrintDemoChartLabel2Action"/>
         <action name="demographic/printClientLabLabelAction" class="io.github.carlos_emr.carlos.demographic.PrintClientLabLabel2Action"/>
         <action name="demographic/AddRelation" class="io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action">
-            <result name="success">/demographic/AddAlternateContact.jsp</result>
+            <result name="success">/WEB-INF/jsp/demographic/AddRelation.do</result>
             <result name="pmmClient">/PMmodule/ClientManager.do</result>
         </action>
         <action name="demographic/DeleteRelation" class="io.github.carlos_emr.carlos.demographic.pageUtil.DeleteDemographicRelationship2Action">
-            <result name="success">/demographic/AddAlternateContact.jsp</result>
+            <result name="success">/WEB-INF/jsp/demographic/AddRelation.do</result>
         </action>
         <action name="form/importUpload" class="io.github.carlos_emr.carlos.demographic.pageUtil.ImportDemographicDataAction42Action">
             <interceptor-ref name="defaultStack"/>
-            <result name="success">/demographic/demographicImport.jsp</result>
+            <result name="success">/WEB-INF/jsp/form/importUpload.do</result>
         </action>
         <action name="form/importLogDownload" class="io.github.carlos_emr.carlos.demographic.pageUtil.ImportLogDownload2Action">
-            <result name="success">/demographic/demographicImport.jsp</result>
+            <result name="success">/WEB-INF/jsp/form/importUpload.do</result>
             <result name="error">/errorpage.jsp</result>
         </action>
         <action name="demographic/DemographicExport" class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action">
-            <result name="success">/demographic/demographicExport.jsp</result>
-            <result name="fail">/demographic/demographicExport.jsp</result>
+            <result name="success">/WEB-INF/jsp/demographic/DemographicExport.do</result>
+            <result name="fail">/WEB-INF/jsp/demographic/DemographicExport.do</result>
         </action>
 
         <action name="demographic/eRourkeExport" class="io.github.carlos_emr.carlos.demographic.pageUtil.RourkeExport2Action" method="execute">
-            <result name="display">/WEB-INF/jsp/demographic/rourkeExport.jsp</result>
+            <result name="display">/WEB-INF/jsp/demographic/eRourkeExport.do</result>
         </action>
 
         <action name="demographic/DemographicEdit"
                 class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicEdit2Action">
-            <result name="success">/WEB-INF/jsp/demographic/edit.jsp</result>
+            <result name="success">/WEB-INF/jsp/demographic/DemographicEdit.do</result>
         </action>
 
         <action name="demographic/DemographicAdd"
                 class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicAdd2Action">
-            <result name="success">/WEB-INF/jsp/demographic/add.jsp</result>
+            <result name="success">/WEB-INF/jsp/demographic/DemographicAdd.do</result>
         </action>
 
         <action name="demographic/DemographicSearch"
                 class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicSearch2Action">
-            <result name="success">/demographic/demographicsearchresults.jsp</result>
-            <result name="apptResults">/demographic/demographicsearch2apptresults.jsp</result>
+            <result name="success">/WEB-INF/jsp/demographic/DemographicSearch.do</result>
+            <result name="apptResults">/WEB-INF/jsp/demographic/DemographicSearch.do</result>
         </action>
 
         <action name="demographic/DemographicApptHistory"
                 class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicApptHistory2Action">
-            <result name="success">/demographic/demographicappthistory.jsp</result>
+            <result name="success">/WEB-INF/jsp/demographic/DemographicApptHistory.do</result>
         </action>
 
         <action name="demographic/DemographicUpdate"
                 class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicUpdate2Action">
-            <result name="success">/WEB-INF/jsp/demographic/demographicupdatearecord.jsp</result>
-            <result name="duplicate">/WEB-INF/jsp/demographic/demographicupdatearecord.jsp</result>
+            <result name="success">/WEB-INF/jsp/demographic/DemographicUpdate.do</result>
+            <result name="duplicate">/WEB-INF/jsp/demographic/DemographicUpdate.do</result>
             <result name="methodNotAllowed" type="httpheader">
                 <param name="status">405</param>
             </result>
@@ -106,8 +106,8 @@
 
         <action name="demographic/DemographicAddRecord"
                 class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicAddRecord2Action">
-            <result name="success">/WEB-INF/jsp/demographic/demographicaddarecord.jsp</result>
-            <result name="duplicate">/WEB-INF/jsp/demographic/demographicaddarecord.jsp</result>
+            <result name="success">/WEB-INF/jsp/demographic/DemographicAdd.do</result>
+            <result name="duplicate">/WEB-INF/jsp/demographic/DemographicAdd.do</result>
             <result name="methodNotAllowed" type="httpheader">
                 <param name="status">405</param>
             </result>
@@ -115,7 +115,7 @@
 
         <action name="demographic/DemographicPdfLabel"
                 class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicPdfLabel2Action">
-            <result name="success">/demographic/demographicpdflabel.jsp</result>
+            <result name="success">/WEB-INF/jsp/demographic/DemographicPdfLabel.do</result>
         </action>
 
         <action name="demographic/DemographicLinkMsg"
@@ -123,5 +123,88 @@
             <result name="success">/WEB-INF/jsp/messenger/msgSearchDemo.jsp</result>
         </action>
 
+
+        <!-- ===== demographic JSP gating actions (migration slice) ===== -->
+        <action name="demographic/ViewEnrollmentHistory" class="io.github.carlos_emr.carlos.demographic.gate.ViewEnrollmentHistory2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewEnrollmentHistory.do</result>
+        </action>
+        <action name="demographic/ViewAddDemoToPatientSet" class="io.github.carlos_emr.carlos.demographic.gate.ViewAddDemoToPatientSet2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewAddDemoToPatientSet.do</result>
+        </action>
+        <action name="demographic/ViewAddNewDemographicSwipe" class="io.github.carlos_emr.carlos.demographic.gate.ViewAddNewDemographicSwipe2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewAddNewDemographicSwipe.do</result>
+        </action>
+        <action name="demographic/ViewContact" class="io.github.carlos_emr.carlos.demographic.gate.ViewContact2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewContact.do</result>
+        </action>
+        <action name="demographic/ViewContactSearch" class="io.github.carlos_emr.carlos.demographic.gate.ViewContactSearch2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewContactSearch.do</result>
+        </action>
+        <action name="demographic/ViewDemographicAudit" class="io.github.carlos_emr.carlos.demographic.gate.ViewDemographicAudit2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewDemographicAudit.do</result>
+        </action>
+        <action name="demographic/ViewDemographicCohort" class="io.github.carlos_emr.carlos.demographic.gate.ViewDemographicCohort2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewDemographicCohort.do</result>
+        </action>
+        <action name="demographic/ViewDemographicAddARecordHtm" class="io.github.carlos_emr.carlos.demographic.gate.ViewDemographicAddARecordHtm2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewDemographicAddARecordHtm.do</result>
+        </action>
+        <action name="demographic/ViewDemographicEditDemographicJs" class="io.github.carlos_emr.carlos.demographic.gate.ViewDemographicEditDemographicJs2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewDemographicEditDemographicJs.do</result>
+        </action>
+        <action name="demographic/ViewDemographicLabelPrintSetting" class="io.github.carlos_emr.carlos.demographic.gate.ViewDemographicLabelPrintSetting2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewDemographicLabelPrintSetting.do</result>
+        </action>
+        <action name="demographic/ViewDemographicPrintDemographic" class="io.github.carlos_emr.carlos.demographic.gate.ViewDemographicPrintDemographic2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewDemographicPrintDemographic.do</result>
+        </action>
+        <action name="demographic/ViewDemographicSearch2ReportResults" class="io.github.carlos_emr.carlos.demographic.gate.ViewDemographicSearch2ReportResults2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewDemographicSearch2ReportResults.do</result>
+        </action>
+        <action name="demographic/ViewPrintAddressLabel" class="io.github.carlos_emr.carlos.demographic.gate.ViewPrintAddressLabel2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewPrintAddressLabel.do</result>
+        </action>
+        <action name="demographic/ViewPrintClientLabLabel" class="io.github.carlos_emr.carlos.demographic.gate.ViewPrintClientLabLabel2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewPrintClientLabLabel.do</result>
+        </action>
+        <action name="demographic/ViewPrintDemoChartLabel" class="io.github.carlos_emr.carlos.demographic.gate.ViewPrintDemoChartLabel2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewPrintDemoChartLabel.do</result>
+        </action>
+        <action name="demographic/ViewPrintDemoLabel" class="io.github.carlos_emr.carlos.demographic.gate.ViewPrintDemoLabel2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewPrintDemoLabel.do</result>
+        </action>
+        <action name="demographic/ViewPrintEnvelope" class="io.github.carlos_emr.carlos.demographic.gate.ViewPrintEnvelope2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewPrintEnvelope.do</result>
+        </action>
+        <action name="demographic/ViewProContact" class="io.github.carlos_emr.carlos.demographic.gate.ViewProContact2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewProContact.do</result>
+        </action>
+        <action name="demographic/ViewProContactSearch" class="io.github.carlos_emr.carlos.demographic.gate.ViewProContactSearch2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewProContactSearch.do</result>
+        </action>
+        <action name="demographic/ViewProfessionalSpecialistSearch" class="io.github.carlos_emr.carlos.demographic.gate.ViewProfessionalSpecialistSearch2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewProfessionalSpecialistSearch.do</result>
+        </action>
+        <action name="demographic/ViewSearch" class="io.github.carlos_emr.carlos.demographic.gate.ViewSearch2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewSearch.do</result>
+        </action>
+        <action name="demographic/ViewZdemographicFullTitleSearch" class="io.github.carlos_emr.carlos.demographic.gate.ViewZdemographicFullTitleSearch2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewZdemographicFullTitleSearch.do</result>
+        </action>
+        <action name="demographic/ViewZdemographicSwipe" class="io.github.carlos_emr.carlos.demographic.gate.ViewZdemographicSwipe2Action">
+            <result name="success">/WEB-INF/jsp/demographic/ViewZdemographicSwipe.do</result>
+        </action>
+        <action name="demographic/ViewDisplayHealthCareTeam" class="io.github.carlos_emr.carlos.demographic.gate.ViewDisplayHealthCareTeam2Action">
+            <result name="success">/WEB-INF/jsp/demographic/displayHealthCareTeam.jsp</result>
+        </action>
+        <action name="demographic/ViewManageHealthCareTeam" class="io.github.carlos_emr.carlos.demographic.gate.ViewManageHealthCareTeam2Action">
+            <result name="success">/WEB-INF/jsp/demographic/manageHealthCareTeam.jsp</result>
+        </action>
+        <action name="demographic/ViewDisplayFirstNationsModule" class="io.github.carlos_emr.carlos.demographic.gate.ViewDisplayFirstNationsModule2Action">
+            <result name="success">/WEB-INF/jsp/demographic/displayFirstNationsModule.jsp</result>
+        </action>
+        <action name="demographic/ViewManageFirstNationsModule" class="io.github.carlos_emr.carlos.demographic.gate.ViewManageFirstNationsModule2Action">
+            <result name="success">/WEB-INF/jsp/demographic/manageFirstNationsModule.jsp</result>
+        </action>
     </package>
 </struts>

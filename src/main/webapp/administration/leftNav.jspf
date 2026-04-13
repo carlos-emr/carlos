@@ -855,9 +855,9 @@ String curProvider_no = (String)session.getAttribute("user");
 <%--						key="admin.admin.btnAdminBackupDownload" /></a></li>--%>
 						
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/demographic/demographicExport.jsp"><fmt:message key="admin.admin.DemoExport"/></a></li>
+						class="xlink" rel="${ctx}/demographic/DemographicExport.do"><fmt:message key="admin.admin.DemoExport"/></a></li>
 		                        <li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/demographic/demographicImport.jsp"><fmt:message key="admin.admin.DemoImport"/></a></li>
+						class="xlink" rel="${ctx}/form/importUpload.do"><fmt:message key="admin.admin.DemoImport"/></a></li>
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/admin/DemographicMergeRecord.do"><fmt:message key="admin.admin.mergeRec"/></a></li>
 					<li><a href='javascript:void(0);'

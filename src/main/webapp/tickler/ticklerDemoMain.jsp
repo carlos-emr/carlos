@@ -1086,7 +1086,7 @@
 
     <p><font face="Arial, Helvetica, sans-serif" size="2"> </font></p>
     <p class="noprint">
-        <%@ include file="/demographic/zfooterbackclose.jsp" %>
+        <%@ include file="/WEB-INF/jsp/demographic/zfooterbackclose.jsp" %>
     </p>
 
 

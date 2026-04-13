@@ -124,7 +124,7 @@
     </head>
     <body onload="setfocus()">
 
-    <form method="post" name="titlesearch" action="contactSearch.jsp" onSubmit="return check();">
+    <form method="post" name="titlesearch" action="/demographic/ViewContactSearch.do" onSubmit="return check();">
         <table bgcolor="#CCCCFF" width="100%">
             <tr>
                 <td class="searchTitle" colspan="4">Search Contacts</td>
@@ -197,18 +197,18 @@
     <script type="text/javascript">
 
         function last() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/contactSearch.jsp?form=<%=Encode.forJavaScript(Encode.forUriComponent(form))%>&elementName=<%=Encode.forJavaScript(Encode.forUriComponent(elementName))%>&elementId=<%=Encode.forJavaScript(Encode.forUriComponent(elementId))%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=Encode.forJavaScript(strLimit2)%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewContactSearch.do?form=<%=Encode.forJavaScript(Encode.forUriComponent(form))%>&elementName=<%=Encode.forJavaScript(Encode.forUriComponent(elementName))%>&elementId=<%=Encode.forJavaScript(Encode.forUriComponent(elementId))%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=Encode.forJavaScript(strLimit2)%>";
             document.nextform.submit();
         }
 
         function next() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/contactSearch.jsp?form=<%=Encode.forJavaScript(Encode.forUriComponent(form))%>&elementName=<%=Encode.forJavaScript(Encode.forUriComponent(elementName))%>&elementId=<%=Encode.forJavaScript(Encode.forUriComponent(elementId))%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=Encode.forJavaScript(strLimit2)%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewContactSearch.do?form=<%=Encode.forJavaScript(Encode.forUriComponent(form))%>&elementName=<%=Encode.forJavaScript(Encode.forUriComponent(elementName))%>&elementId=<%=Encode.forJavaScript(Encode.forUriComponent(elementId))%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=Encode.forJavaScript(strLimit2)%>";
             document.nextform.submit();
         }
 
     </script>
 
-    <form method="post" name="nextform" action="contactSearch.jsp">
+    <form method="post" name="nextform" action="/demographic/ViewContactSearch.do">
         <%
             if (nLastPage >= 0) {
         %> <input type="submit" class="mbttn" name="submit"

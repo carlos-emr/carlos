@@ -73,13 +73,13 @@
 
         <!-- <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic.addnew" rights="r">  -->
         <div class="createNew">
-            <a class="action-link" href="demographicaddarecordhtm.jsp"><fmt:message key="demographic.search.btnCreateNew"/></a>
+            <a class="action-link" href="/demographic/ViewDemographicAddARecordHtm.do"><fmt:message key="demographic.search.btnCreateNew"/></a>
         </div>
         <!-- </security:oscarSec> -->
 
         <oscar:oscarPropertiesCheck
                 property="SHOW_FILE_IMPORT_SEARCH" value="yes">
-            &nbsp;&nbsp;&nbsp;<a class="action-link" href="demographicImport.jsp"><fmt:message key="demographic.search.importNewDemographic"/></a>
+            &nbsp;&nbsp;&nbsp;<a class="action-link" href="/form/importUpload.do"><fmt:message key="demographic.search.importNewDemographic"/></a>
         </oscar:oscarPropertiesCheck>
     </div>
     </body>
