@@ -605,7 +605,7 @@ function validateFields() {
                       <input type="text" name="keyword" id="keyword" class="form-control"> <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no)%>" >
                     </td>
 	                <td>
-                      <input type="button" class="btn btn-outline-secondary" name="searchDemo" value="<fmt:message key="messenger.CreateMessage.msgSearchDemographic" />" onclick="popupSearchDemo(document.forms[0].keyword.value)" >
+                      <input type="button" class="btn btn-outline-secondary" name="searchDemo" value="<fmt:message key="messenger.CreateMessage.msgSearchDemographic" />" onclick="popupSearchDemo('${pageContext.request.contextPath}', document.forms[0].keyword.value)" >
                   	</td>
 				</tr>
 				<tr>

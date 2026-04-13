@@ -46,13 +46,17 @@ function BackToCarlos() {
 /**
  * Opens the demographic search popup for linking a patient to a message.
  *
- * @param {string} keyword - Search keyword entered by the user
+ * Routes through the privilege-checked {@code demographic/DemographicLinkMsg.do}
+ * Struts action, which forwards to {@code /WEB-INF/jsp/messenger/msgSearchDemo.jsp}.
+ *
+ * @param {string} contextPath - Application context path (e.g. "/carlos")
+ * @param {string} keyword     - Search keyword entered by the user
  */
-function popupSearchDemo(keyword) {
+function popupSearchDemo(contextPath, keyword) {
     var vheight = 700;
     var vwidth = 980;
     var windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-    var page = 'msgSearchDemo.jsp?keyword=' + encodeURIComponent(keyword) + '&firstSearch=' + true;
+    var page = contextPath + '/demographic/DemographicLinkMsg.do?keyword=' + encodeURIComponent(keyword) + '&firstSearch=true';
     var popUp = window.open(page, "msgSearchDemo", windowprops);
     if (popUp != null) {
         if (popUp.opener == null) {

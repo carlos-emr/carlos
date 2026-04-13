@@ -98,8 +98,30 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      *         - SUCCESS for successful operations
      *         - "failure" if operation fails (e.g., attempting to delete a group with children)
      */
-    public String execute() {
+    public String execute() throws java.io.IOException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String method = request.getParameter("method");
+
+        // Mutating endpoints: require _admin write + POST. Read endpoints
+        // (fetchGroups / view): require _admin read. Without these checks an
+        // authenticated non-admin could enumerate or alter messenger groups.
+        boolean isMutation = "add".equals(method) || "remove".equals(method)
+                || "create".equals(method) || "delete".equals(method) || "update".equals(method);
+
+        if (isMutation) {
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
+                throw new SecurityException("missing required sec object (_admin)");
+            }
+            if (!"POST".equalsIgnoreCase(request.getMethod())) {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
+        } else {
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
+                throw new SecurityException("missing required sec object (_admin)");
+            }
+        }
+
         if ("add".equals(method)) {
             return add();
         } else if ("remove".equals(method)) {

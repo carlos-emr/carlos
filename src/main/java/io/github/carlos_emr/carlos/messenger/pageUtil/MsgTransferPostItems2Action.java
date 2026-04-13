@@ -53,6 +53,17 @@ public final class MsgTransferPostItems2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Parses checkbox selections and the Base64-encoded {@code xmlDoc},
+     * builds the attachment XML, writes it onto the messenger session bean,
+     * and redirects to the compose-message view gate.
+     *
+     * @return {@link #NONE} — the action always redirects or sends an HTTP status code
+     * @throws Exception if {@code MsgCommxml} / {@code MsgSendDocument} parsing
+     *         fails after the request has passed validation
+     * @throws SecurityException if the current user lacks {@code _msg} write privilege
+     * @since 2026-04-13
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -72,8 +83,14 @@ public final class MsgTransferPostItems2Action extends ActionSupport {
         MsgSessionBean bean = session == null
                 ? null
                 : (MsgSessionBean) session.getAttribute("msgSessionBean");
-        if (bean == null) {
-            response.sendRedirect(request.getContextPath() + "/messenger/index.jsp");
+        if (bean == null || !bean.isValid()) {
+            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.do");
+            return NONE;
+        }
+
+        String xmlDocRaw = request.getParameter("xmlDoc");
+        if (xmlDocRaw == null || xmlDocRaw.isEmpty()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing xmlDoc");
             return NONE;
         }
 
@@ -86,7 +103,7 @@ public final class MsgTransferPostItems2Action extends ActionSupport {
             }
         }
 
-        String xmlDoc = MsgCommxml.decode64(request.getParameter("xmlDoc"));
+        String xmlDoc = MsgCommxml.decode64(xmlDocRaw);
         @SuppressWarnings("rawtypes")
         ArrayList aList = new ArrayList();
         String sXML = MsgCommxml.toXML(

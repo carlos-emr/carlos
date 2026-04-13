@@ -44,6 +44,15 @@ public final class MsgTransferSelectItems2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Validates {@code _msg} read privilege before forwarding to the item
+     * selection JSP via the Struts {@code success} result.
+     *
+     * @return {@link #SUCCESS} when access is authorized
+     * @throws Exception never thrown here; declared to satisfy the overridden signature
+     * @throws SecurityException if the current user lacks {@code _msg} read privilege
+     * @since 2026-04-13
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

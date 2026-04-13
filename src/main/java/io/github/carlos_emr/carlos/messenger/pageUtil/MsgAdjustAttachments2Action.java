@@ -54,6 +54,18 @@ public final class MsgAdjustAttachments2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Parses checkbox selections and the Base64-encoded {@code xmlDoc},
+     * writes the resulting attachment XML onto the messenger session bean,
+     * and redirects to the demographic-search gate so the user picks
+     * recipients.
+     *
+     * @return {@link #NONE} — the action always redirects or sends an HTTP status code
+     * @throws Exception if {@code MsgCommxml} / {@code MsgSendDocument} parsing
+     *         fails after the request has passed validation
+     * @throws SecurityException if the current user lacks {@code _msg} write privilege
+     * @since 2026-04-13
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -74,7 +86,13 @@ public final class MsgAdjustAttachments2Action extends ActionSupport {
                 ? null
                 : (MsgSessionBean) session.getAttribute("msgSessionBean");
         if (bean == null || !bean.isValid()) {
-            response.sendRedirect(request.getContextPath() + "/messenger/index.jsp");
+            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.do");
+            return NONE;
+        }
+
+        String xmlDocRaw = request.getParameter("xmlDoc");
+        if (xmlDocRaw == null || xmlDocRaw.isEmpty()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing xmlDoc");
             return NONE;
         }
 
@@ -88,14 +106,32 @@ public final class MsgAdjustAttachments2Action extends ActionSupport {
             }
         }
 
-        String xmlDoc = MsgCommxml.decode64(request.getParameter("xmlDoc"));
-        String idEnc = request.getParameter("id");
+        String xmlDoc = MsgCommxml.decode64(xmlDocRaw);
+        // Normalize the id parameter to digits-only or null; rejects any
+        // non-numeric input before it is persisted on the session bean.
+        String idRaw = request.getParameter("id");
+        String messageId = isDigits(idRaw) ? idRaw : null;
         String sXML = MsgCommxml.toXML(new MsgSendDocument().parseChecks(xmlDoc, checks.toString()));
 
         bean.setAttachment(sXML);
-        bean.setMessageId(idEnc);
+        bean.setMessageId(messageId);
 
-        response.sendRedirect(request.getContextPath() + "/messenger/Transfer/DemographicSearch.jsp");
+        // DemographicLinkMsg.do forwards to the relocated msgSearchDemo view;
+        // the previous redirect to Transfer/DemographicSearch.jsp 404s because
+        // that JSP does not exist in the webapp.
+        response.sendRedirect(request.getContextPath() + "/demographic/DemographicLinkMsg.do");
         return NONE;
+    }
+
+    private static boolean isDigits(String s) {
+        if (s == null || s.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < s.length(); i++) {
+            if (!Character.isDigit(s.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 }

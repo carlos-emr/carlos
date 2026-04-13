@@ -65,6 +65,9 @@
             <result name="success">/messenger/selfCloseAndRefreshOpener.jsp</result>
             <result name="attaching">/WEB-INF/jsp/messenger/generatePreviewPDF.jsp</result>
         </action>
+        <action name="messenger/PreviewPDF" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgPreviewPDF2Action">
+            <result name="success">/WEB-INF/jsp/messenger/generatePreviewPDF.jsp</result>
+        </action>
 
         <action name="messenger/AdjustAttachments" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAdjustAttachments2Action"/>
         <action name="messenger/Transfer/SelectItems" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgTransferSelectItems2Action">

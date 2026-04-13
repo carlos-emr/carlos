@@ -31,22 +31,21 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * GET view gate for the message composition form (CreateMessage.jsp).
+ * View gate for the messenger PDF preview page (generatePreviewPDF.jsp).
  * <p>
- * Separate from {@link MsgCreateMessage2Action}, which is the POST submit
- * handler. This action exists so the compose form can be reached via a single
- * privilege-checked URL from other pages (inbox "Compose" button, reply
- * shortcuts, admin popup) without making the JSP publicly reachable.
+ * The preview JSP was moved under {@code /WEB-INF/jsp/messenger/} and is no
+ * longer publicly reachable. The public {@code attachmentFrameset.jsp}
+ * frame-srcs this action so the preview page renders under a privilege-checked
+ * URL.
  *
  * @since 2026-04-13
  */
-public final class MsgViewCreateMessage2Action extends ActionSupport {
+public final class MsgPreviewPDF2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     /**
-     * Validates the current user's {@code _msg} read privilege before forwarding
-     * to the compose-form JSP via the Struts {@code success} result.
+     * Validates {@code _msg} read privilege before rendering the preview JSP.
      *
      * @return {@link #SUCCESS} when access is authorized
      * @throws Exception never thrown here; declared to satisfy the overridden signature

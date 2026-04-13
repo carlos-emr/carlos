@@ -40,7 +40,6 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.messenger.data.MsgDisplayMessage;
-import org.owasp.encoder.Encode;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -271,17 +270,10 @@ public class MsgViewMessage2Action extends ActionSupport {
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd-MMM-yyyy");
         request.getSession().setAttribute("today", simpleDateFormat.format(new Date(System.currentTimeMillis()))); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- server-generated formatted date from system clock
 
-        // Validate boxType against allowlist before using in redirect URL
-        if (!boxType.matches("[0-3]?")) {
-            boxType = "";
-        }
-
-        // Redirect to the message viewing page with encoded parameters
-        String actionforward = request.getContextPath() + "/messenger/ViewMessage.do?boxType="
-                + Encode.forUriComponent(boxType) + "&linkMsgDemo=" + Encode.forUriComponent(linkMsgDemo != null ? linkMsgDemo : "");
-        response.sendRedirect(actionforward);
-
-        // Return NONE since we're redirecting rather than forwarding
-        return NONE;
+        // Forward to the secured JSP via the Struts "success" result mapping;
+        // a self-redirect to ViewMessage.do would drop messageID and bounce the
+        // user back to DisplayMessages.do. Request params (messageID, boxType,
+        // linkMsgDemo) remain available to the JSP on the forwarded request.
+        return SUCCESS;
     }
 }

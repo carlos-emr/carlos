@@ -562,7 +562,7 @@ function fmtOscarMsg() {
                             <input type="button"
 								class="btn btn-outline-secondary" name="searchDemo"
 								value="<fmt:message key="messenger.ViewMessage.searchDemo" />"
-								onclick="popupSearchDemo(document.forms[0].keyword.value)" >
+								onclick="popupSearchDemo('${pageContext.request.contextPath}', document.forms[0].keyword.value)" >
 							</td>
 
 						</tr>
