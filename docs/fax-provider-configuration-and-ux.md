@@ -13,7 +13,7 @@ introduced in CARLOS, with emphasis on SRFax behavior and admin configuration UX
 
 ## Admin UX Entry Points
 - Navigation: **Administration > Faxes > Configure Fax**
-- Page: `src/main/webapp/admin/configureFax.jsp`
+- Page: `src/main/webapp/WEB-INF/jsp/admin/configureFax.jsp` (reached via `/admin/ViewConfigureFax.do` gate action)
 - Action endpoint: `/admin/ManageFax.do?method=configure`
 
 ## Required Permissions
@@ -42,4 +42,4 @@ When provider type is `MIDDLEWARE`:
 - SRFax implementation: `src/main/java/io/github/carlos_emr/carlos/fax/provider/SRFaxProviderClient.java`
 - Middleware implementation: `src/main/java/io/github/carlos_emr/carlos/fax/provider/MiddlewareFaxProviderClient.java`
 - Admin action: `src/main/java/io/github/carlos_emr/carlos/fax/admin/ConfigureFax2Action.java`
-- Admin UI: `src/main/webapp/admin/configureFax.jsp`
+- Admin UI: `src/main/webapp/WEB-INF/jsp/admin/configureFax.jsp` (gate action `ViewConfigureFax2Action`)
