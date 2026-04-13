@@ -133,7 +133,7 @@
         <action name="casemgmt/ExtPrintRegistry" class="io.github.carlos_emr.carlos.casemgmt.web.ExtPrintRegistry2Action"/>
 
         <action name="ArchiveView" class="io.github.carlos_emr.carlos.casemgmt.web.ArchiveView2Action" method="execute">
-            <result name="view">/provider/providercontrol.jsp</result>
+            <result name="view">/WEB-INF/jsp/provider/providercontrol.do</result>
         </action>
 
     </package>

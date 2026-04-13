@@ -33,25 +33,25 @@
             <result name="success">/WEB-INF/jsp/provider/providerSignature.jsp</result>
         </action>
         <action name="EditPhoneNum" class="io.github.carlos_emr.carlos.providers.pageUtil.ProEditPhoneNum2Action">
-            <result name="success">/provider/providerPhone.jsp</result>
+            <result name="success">/WEB-INF/jsp/provider/EditPhoneNum.do</result>
             <result name="eject">/index.jsp</result>
         </action>
         <action name="EditAddress" class="io.github.carlos_emr.carlos.providers.pageUtil.ProEditAddress2Action">
-            <result name="success">/provider/providerAddress.jsp</result>
+            <result name="success">/WEB-INF/jsp/provider/EditAddress.do</result>
             <result name="eject">/index.jsp</result>
         </action>
         <action name="EditPrinter" class="io.github.carlos_emr.carlos.providers.pageUtil.ProEditPrinter2Action">
-            <result name="success">/provider/providerPrinter.jsp</result>
+            <result name="success">/WEB-INF/jsp/provider/EditPrinter.do</result>
             <result name="eject">/index.jsp</result>
         </action>
         <action name="EditFaxNum" class="io.github.carlos_emr.carlos.providers.pageUtil.ProEditFaxNum2Action">
-            <result name="success">/provider/providerFax.jsp</result>
-            <result name="error">/provider/providerFaxErr.jsp</result>
+            <result name="success">/WEB-INF/jsp/provider/EditFaxNum.do</result>
+            <result name="error">/WEB-INF/jsp/provider/EditFaxNum.do</result>
             <result name="eject">/index.jsp</result>
         </action>
         <action name="setProviderColour" class="io.github.carlos_emr.carlos.providers.pageUtil.ProEditColour2Action">
-            <result name="success">/provider/providerColourPicker.jsp</result>
-            <result name="error">/provider/providerColourErr.jsp</result>
+            <result name="success">/WEB-INF/jsp/provider/EditColour.do</result>
+            <result name="error">/WEB-INF/jsp/provider/EditColour.do</result>
             <result name="eject">/index.jsp</result>
         </action>
         <action name="PMmodule/ProgramManager" class="io.github.carlos_emr.carlos.PMmodule.web.admin.ProgramManager2Action" method="execute">

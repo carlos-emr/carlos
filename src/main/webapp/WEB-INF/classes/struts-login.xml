@@ -32,7 +32,7 @@
             <result name="success">/index.jsp</result>
         </action>
         <action name="login" class="io.github.carlos_emr.carlos.login.Login2Action">
-            <result name="provider" type="redirect">/provider/providercontrol.jsp</result>
+            <result name="provider" type="redirect">/WEB-INF/jsp/provider/providercontrol.do</result>
             <result name="failure">/logout.jsp</result>
             <result name="error">/loginfailed.jsp</result>
             <result name="caisiPMM">/PMmodule/ProviderInfo.do</result>

@@ -84,8 +84,8 @@
                 %> <fmt:message key="provider.providerSignature.msgCurrentSignature"/> <u><%=sig.getSignature(curUser_no)%>
             </u>
                 <br>
-                <a href="<%= request.getContextPath() %>/provider/editSignature.jsp"><fmt:message key="provider.providerSignature.btnClickHere"/></a> <fmt:message key="provider.providerSignature.msgChangeIt"/> <% } else {%> <fmt:message key="provider.providerSignature.msgSigNotSet"/><br>
-                <a href="<%= request.getContextPath() %>/provider/editSignature.jsp"><fmt:message key="provider.providerSignature.btnClickHere"/></a> <fmt:message key="provider.providerSignature.msgCreate"/> <%}%>
+                <a href="<%= request.getContextPath() %>/provider/EnterSignature.do"><fmt:message key="provider.providerSignature.btnClickHere"/></a> <fmt:message key="provider.providerSignature.msgChangeIt"/> <% } else {%> <fmt:message key="provider.providerSignature.msgSigNotSet"/><br>
+                <a href="<%= request.getContextPath() %>/provider/EnterSignature.do"><fmt:message key="provider.providerSignature.btnClickHere"/></a> <fmt:message key="provider.providerSignature.msgCreate"/> <%}%>
             </td>
         </tr>
         <tr>
