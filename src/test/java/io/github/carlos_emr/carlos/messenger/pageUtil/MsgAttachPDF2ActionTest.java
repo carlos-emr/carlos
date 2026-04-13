@@ -25,6 +25,8 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+import jakarta.servlet.http.HttpServletResponse;
+
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LogEvent;
@@ -102,6 +104,7 @@ class MsgAttachPDF2ActionTest extends CarlosWebTestBase {
     @DisplayName("should throw SecurityException when _msg write privilege is denied")
     void shouldThrowSecurityException_whenWritePrivilegeDenied() {
         denyPrivilege("_msg", "w");
+        getMockRequest().setMethod("POST");
 
         assertThatThrownBy(() -> executeAction(action))
                 .isInstanceOf(SecurityException.class)
@@ -109,9 +112,23 @@ class MsgAttachPDF2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
+    @DisplayName("should reject non-POST with 405 to block CSRF-style mutation")
+    void shouldReturn405_whenMethodIsNotPost() throws Exception {
+        allowPrivilege("_msg", "w");
+        getMockRequest().setMethod("GET");
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(getMockResponse().getHeader("Allow")).isEqualTo("POST");
+    }
+
+    @Test
     @DisplayName("should NOT log rendered srcText content when in preview mode")
     void shouldNotLogPhiSrcText_whenPreviewing() {
         allowPrivilege("_msg", "w");
+        getMockRequest().setMethod("POST");
         action.setSrcText("<p>" + PHI_SENTINEL + "</p>");
         action.setIsPreview(true);
 

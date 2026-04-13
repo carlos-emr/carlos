@@ -144,6 +144,7 @@ public class MsgViewMessage2Action extends ActionSupport {
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if user lacks read permissions
      */
+    @Override
     public String execute() throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {

@@ -133,6 +133,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
      * @throws IOException if there's an error writing to the response stream
      * @throws ServletException if there's a servlet processing error
      */
+    @Override
     public String execute() throws IOException, ServletException {
         // Enforce _msg privilege on every invocation. The action both generates
         // PHI-bearing PDF previews and mutates the messenger session bean, so
@@ -142,6 +143,18 @@ public class MsgAttachPDF2Action extends ActionSupport {
             logger.warn("MsgAttachPDF2Action denied: provider={} lacks _msg write",
                     loggedInInfo == null ? "anon" : loggedInInfo.getLoggedInProviderNo());
             throw new SecurityException("missing required sec object (_msg)");
+        }
+
+        // Reject non-POST: the action processes request-supplied HTML (srcText)
+        // and mutates MsgSessionBean in attachment mode, so permitting GET would
+        // reintroduce the CSRF class of bug this PR is closing elsewhere.
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            logger.warn("MsgAttachPDF2Action method not allowed: provider={} method={}",
+                    loggedInInfo == null ? "anon" : loggedInInfo.getLoggedInProviderNo(),
+                    request.getMethod());
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
 
         // Retrieve the message session bean containing attachment state
