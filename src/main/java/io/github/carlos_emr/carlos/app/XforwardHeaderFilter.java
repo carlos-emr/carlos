@@ -32,8 +32,28 @@ import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+/**
+ * Servlet filter that resolves the real client IP from the {@code X-Forwarded-For} header
+ * when the application is deployed behind a reverse proxy.
+ *
+ * <p><strong>Security:</strong> To prevent localhost-gate bypass attacks, this filter rejects
+ * loopback ({@code 127.0.0.0/8}, {@code ::1}) and unspecified ({@code 0.0.0.0}, {@code ::})
+ * addresses from the {@code X-Forwarded-For} header. An external client should never claim
+ * to be a loopback address; if one does, the raw peer IP from the socket is used instead.
+ * This prevents spoofed {@code X-Forwarded-For: 127.0.0.1} headers from bypassing
+ * security gates that restrict access to localhost-only processes (e.g., wkhtmltopdf).</p>
+ *
+ * @since 2012 (OSCAR McMaster heritage; loopback rejection added 2026-04-13)
+ */
 public class XforwardHeaderFilter implements Filter {
+
+    private static final Logger logger = LogManager.getLogger(XforwardHeaderFilter.class);
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
@@ -61,11 +81,16 @@ public class XforwardHeaderFilter implements Filter {
         }
 
         /**
-         * Override get remote address in case the remote
-         * IP address is stored in the X-FORWARDED-FOR header attribute.
+         * Override get remote address in case the remote IP address is stored
+         * in the {@code X-Forwarded-For} header attribute.
+         *
+         * <p>If the header value is a loopback or unspecified address, the header
+         * is ignored and the raw socket peer address is returned instead. This
+         * prevents {@code X-Forwarded-For} spoofing from bypassing localhost gates.</p>
          *
          * @return Remote IP address
          */
+        @Override
         public String getRemoteAddr() {
             String ip = super.getHeader("X-FORWARDED-FOR");
 
@@ -77,7 +102,37 @@ public class XforwardHeaderFilter implements Filter {
                 ip = ip.split(",")[0].trim();
             }
 
+            if (isLoopbackOrUnspecified(ip)) {
+                logger.warn("Rejected loopback/unspecified address '{}' from X-Forwarded-For header; "
+                        + "using raw peer address instead", ip);
+                return super.getRemoteAddr();
+            }
+
             return ip;
+        }
+
+        /**
+         * Checks whether the given IP string represents a loopback address
+         * ({@code 127.0.0.0/8}, {@code ::1}) or the unspecified address
+         * ({@code 0.0.0.0}, {@code ::}).
+         *
+         * <p>These addresses should never appear as a legitimate client IP in
+         * the {@code X-Forwarded-For} header. If parsing fails, the address is
+         * treated as reserved (safe default).</p>
+         *
+         * @param ip the IP address string to check
+         * @return {@code true} if the address is loopback, unspecified, or unparseable
+         */
+        static boolean isLoopbackOrUnspecified(String ip) {
+            if (ip == null || ip.isBlank()) {
+                return true;
+            }
+            try {
+                InetAddress addr = InetAddress.getByName(ip.trim());
+                return addr.isLoopbackAddress() || addr.isAnyLocalAddress();
+            } catch (UnknownHostException e) {
+                return true;
+            }
         }
     }
 }
