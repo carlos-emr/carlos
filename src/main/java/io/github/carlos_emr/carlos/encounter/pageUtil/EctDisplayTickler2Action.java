@@ -34,14 +34,11 @@ package io.github.carlos_emr.carlos.encounter.pageUtil;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.util.Date;
 import java.util.List;
 
@@ -60,7 +57,7 @@ public class EctDisplayTickler2Action extends EctDisplayAction {
             String winName = "ViewTickler" + bean.demographicNo;
             String pathview, pathedit;
             pathview = request.getContextPath() + "/tickler/ViewTicklerMain.do?demoview=" + bean.demographicNo + "&parentAjaxId=" + cmd;
-            pathedit = request.getContextPath() + "/tickler/AddTickler.do?bFirstDisp=false&demographic_no=" + bean.demographicNo + "&parentAjaxId=" + cmd;
+            pathedit = request.getContextPath() + "/tickler/ViewAddTickler.do?bFirstDisp=false&demographic_no=" + bean.demographicNo + "&parentAjaxId=" + cmd;
 
             Dao.setLeftHeading(getText("global.viewTickler"));
             Dao.setLeftPopup(500, 900, winName, pathview);
@@ -117,15 +114,6 @@ public class EctDisplayTickler2Action extends EctDisplayAction {
         return true;
     }
 
-
-    private String encode(String str) {
-        try {
-            return URLEncoder.encode(str, "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            MiscUtils.getLogger().error("Unable to encode string using UTF-8", e);
-            throw new RuntimeException(e);
-        }
-    }
 
     public String getCmd() {
         return cmd;

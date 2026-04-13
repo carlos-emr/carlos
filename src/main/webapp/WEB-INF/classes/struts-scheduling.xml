@@ -48,7 +48,7 @@
         <action name="demographic/FindNextAvailableSlot" class="io.github.carlos_emr.carlos.commn.web.FindNextAvailableSlot2Action"/>
         <action name="provider/SearchProvider" class="io.github.carlos_emr.carlos.commn.web.SearchProviderAutoComplete2Action"/>
         <action name="tickler/ForwardDemographicTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.ForwardDemographicTickler2Action">
-            <result name="success">/WEB-INF/jsp/tickler/AddTickler.do</result>
+            <result name="success">/WEB-INF/jsp/tickler/ticklerAdd.jsp</result>
         </action>
         <action name="tickler/AddTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.AddTickler2Action">
             <result name="close">/close.html</result>
@@ -119,7 +119,7 @@
         </result>
         </action>
         <action name="tickler/EditTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action">
-            <result name="close">/WEB-INF/jsp/tickler/EditTickler.do</result>
+            <result name="close">/WEB-INF/jsp/tickler/ticklerEditSuccess.jsp</result>
             <result name="failure">/failure.jsp</result>
             <result name="error">/errorpage.jsp</result>
         </action>
@@ -200,19 +200,28 @@
 
         <!-- ===== tickler JSP gating actions (migration slice) ===== -->
         <action name="tickler/ViewIndex" class="io.github.carlos_emr.carlos.tickler.gate.ViewIndex2Action">
-            <result name="success">/WEB-INF/jsp/tickler/ViewIndex.do</result>
+            <result name="success">/WEB-INF/jsp/tickler/index.jsp</result>
+            <result name="error">/errorpage.jsp</result>
         </action>
         <action name="tickler/ViewTicklerDemoMain" class="io.github.carlos_emr.carlos.tickler.gate.ViewTicklerDemoMain2Action">
-            <result name="success">/WEB-INF/jsp/tickler/ViewTicklerDemoMain.do</result>
+            <result name="success">/WEB-INF/jsp/tickler/ticklerDemoMain.jsp</result>
+            <result name="error">/errorpage.jsp</result>
         </action>
         <action name="tickler/ViewTicklerEdit" class="io.github.carlos_emr.carlos.tickler.gate.ViewTicklerEdit2Action">
-            <result name="success">/WEB-INF/jsp/tickler/ViewTicklerEdit.do</result>
+            <result name="success">/WEB-INF/jsp/tickler/ticklerEdit.jsp</result>
+            <result name="error">/errorpage.jsp</result>
         </action>
         <action name="tickler/ViewTicklerMain" class="io.github.carlos_emr.carlos.tickler.gate.ViewTicklerMain2Action">
-            <result name="success">/WEB-INF/jsp/tickler/ViewTicklerMain.do</result>
+            <result name="success">/WEB-INF/jsp/tickler/ticklerMain.jsp</result>
+            <result name="error">/errorpage.jsp</result>
         </action>
         <action name="tickler/ViewTicklerSuggestedText" class="io.github.carlos_emr.carlos.tickler.gate.ViewTicklerSuggestedText2Action">
-            <result name="success">/WEB-INF/jsp/tickler/ViewTicklerSuggestedText.do</result>
+            <result name="success">/WEB-INF/jsp/tickler/ticklerSuggestedText.jsp</result>
+            <result name="error">/errorpage.jsp</result>
+        </action>
+        <action name="tickler/ViewAddTickler" class="io.github.carlos_emr.carlos.tickler.gate.ViewAddTickler2Action">
+            <result name="success">/WEB-INF/jsp/tickler/ticklerAdd.jsp</result>
+            <result name="error">/errorpage.jsp</result>
         </action>
     </package>
 </struts>

@@ -497,7 +497,7 @@
                onclick="popupPatient(700,960,'${pageContext.servletContext.contextPath}/messenger/SendDemoMessage.do?demographic_no=','msg', '<%=Encode.forJavaScriptAttribute(docId)%>')" <%=btnDisabled %>>
 
         <!--input type="button" class="btn btn-outline-secondary btn-sm" id="ticklerBtn_<%=Encode.forHtmlAttribute(docId)%>" value="Tickler" onclick="handleDocSave('<%=Encode.forJavaScriptAttribute(docId)%>','addTickler')"/-->
-        <input type="button" class="btn btn-outline-secondary btn-sm" id="mainTickler_<%=Encode.forHtmlAttribute(docId)%>" value="<fmt:message key="showDocument.btnTickler"/>" onClick="popupPatientTickler(710, 1024,'${pageContext.servletContext.contextPath}/tickler/AddTickler.do?', 'Tickler','<%=Encode.forJavaScriptAttribute(docId)%>')" <%=btnDisabled %>>
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="mainTickler_<%=Encode.forHtmlAttribute(docId)%>" value="<fmt:message key="showDocument.btnTickler"/>" onClick="popupPatientTickler(710, 1024,'${pageContext.servletContext.contextPath}/tickler/ViewAddTickler.do?', 'Tickler','<%=Encode.forJavaScriptAttribute(docId)%>')" <%=btnDisabled %>>
         <%
                                                             String refileBtnVisibility = "";
                                                             for (Hashtable ht : queues) {

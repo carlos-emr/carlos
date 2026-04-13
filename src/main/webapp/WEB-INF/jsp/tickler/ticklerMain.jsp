@@ -685,7 +685,7 @@
                 </h4>
             </div>
 
-        <form name="serviceform" method="get" action="/tickler/ViewTicklerMain.do">
+        <form name="serviceform" method="get" action="<%= request.getContextPath() %>/tickler/ViewTicklerMain.do">
             <input type="hidden" name="Submit" value="">
             <input type="hidden" name="demoview" value="<%=org.owasp.encoder.Encode.forHtmlAttribute(isDemoView ? demographic_no : "")%>">
 
@@ -900,7 +900,7 @@
                         %>
                         <input type="button" class="btn btn-primary"
                                value="<fmt:message key='tickler.ticklerMain.btnAddTickler'/>"
-                               onClick="popupPage('500','800', '/tickler/AddTickler.do?updateParent=true&parentAjaxId=<%= Encode.forUriComponent(parentAjaxId != null ? parentAjaxId : "") %>&bFirstDisp=false&messageID=null&demographic_no=<%= Encode.forUriComponent(demoviewParam != null ? demoviewParam : "") %>')">
+                               onClick="popupPage('500','800', '<%= request.getContextPath() %>/tickler/ViewAddTickler.do?updateParent=true&parentAjaxId=<%= Encode.forUriComponent(parentAjaxId != null ? parentAjaxId : "") %>&bFirstDisp=false&messageID=null&demographic_no=<%= Encode.forUriComponent(demoviewParam != null ? demoviewParam : "") %>')">
                         <%-- Back: tries opener reload (if opened as popup), then history back,
                              then window close as last resort. Matches search.jsp pattern. --%>
                         <input type="button" name="button" class="btn btn-secondary"

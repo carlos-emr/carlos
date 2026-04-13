@@ -900,7 +900,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="tickler-label"><a href="#" onclick="openBrWindow('./ticklerSuggestedText.jsp','','width=680,height=400')" style="font-weight:bold"><fmt:message key="tickler.ticklerEdit.suggestedText"/></a>:</td>
+                    <td class="tickler-label"><a href="#" onclick="openBrWindow('<%= request.getContextPath() %>/tickler/ViewTicklerSuggestedText.do','','width=680,height=400')" style="font-weight:bold"><fmt:message key="tickler.ticklerEdit.suggestedText"/></a>:</td>
                     <td>
                         <select name="suggestedText" class="form-select" onchange="pasteMessageText()">
                             <option value="">---</option>

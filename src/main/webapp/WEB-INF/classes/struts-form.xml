@@ -62,7 +62,7 @@
         </action>
         <action name="formeCARES" class="io.github.carlos_emr.carlos.form.ecares.EcaresForm2Action">
             <result name="success">/form/eCARES/formeCARES.jsp</result>
-            <result name="tickler">/WEB-INF/jsp/tickler/AddTickler.do</result>
+            <result name="tickler">/WEB-INF/jsp/tickler/ticklerAddWidget.jsp</result>
         </action>
         <action name="form/setupSelect" class="io.github.carlos_emr.carlos.form.pageUtil.FrmSetupSelect2Action">
             <result name="continue">/form/formselect.jsp</result>

@@ -320,7 +320,7 @@
                                       demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
                 <tr>
                     <td><a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/tickler/AddTickler.do?demographic_no=<%=bean.demographicNo%>&name=<%=Encode.forJavaScript(bean.getPatientLastName() +"," + bean.getPatientFirstName())%>');return false;">Add
+                           onClick="popupPage('<%=bsurl%>/tickler/ViewAddTickler.do?demographic_no=<%=bean.demographicNo%>&name=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(bean.getPatientLastName() +"," + bean.getPatientFirstName()))%>');return false;">Add
                         Tickler</a></td>
                 </tr>
             </caisirole:SecurityAccess>
