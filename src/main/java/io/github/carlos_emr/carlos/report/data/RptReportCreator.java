@@ -266,7 +266,7 @@ public final class RptReportCreator {
     public String getRltSubQuery(String sql, Object... params) throws SQLException {
         String ret = "0";
 
-        ResultSet rs = DBHelp.searchDBRecord(sql, params); // nosemgrep: formatted-sql-string — admin report template SQL; table names validated by RptFormQuery.validateTableName; filter values escaped by getWhereValueClause
+        ResultSet rs = DBHelp.searchDBRecord(sql, params); // nosemgrep: formatted-sql-string -- admin report template SQL; table names validated by RptFormQuery.validateTableName; user values bound via params
         MiscUtils.getLogger().debug(" tempVal: " + sql);
         if (rs == null) {
             MiscUtils.getLogger().error("Database query failed for sub-query");
@@ -290,7 +290,7 @@ public final class RptReportCreator {
         Vector ret = new Vector();
         Properties prop = null;
 
-        ResultSet rs = DBHelp.searchDBRecord(sql, params); // nosemgrep: formatted-sql-string — admin report template SQL; table names validated by RptFormQuery.validateTableName; filter values escaped by getWhereValueClause
+        ResultSet rs = DBHelp.searchDBRecord(sql, params); // nosemgrep: formatted-sql-string -- admin report template SQL; table names validated by RptFormQuery.validateTableName; user values bound via params
         if (rs == null) {
             MiscUtils.getLogger().error("Database query failed for report query");
             return ret;
