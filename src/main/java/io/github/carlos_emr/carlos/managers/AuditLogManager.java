@@ -115,7 +115,8 @@ public class AuditLogManager {
             String whereArg = "dateTime < '" + formattedDate + "'"; // nosemgrep
             String fileArg = "--result-file=" + filename; // nosemgrep
 
-            ProcessBuilder pb = new ProcessBuilder(mysqldump, userArg, "-w", whereArg, "-t", fileArg, dbName, "log"); // nosemgrep
+            // nosemgrep
+            ProcessBuilder pb = new ProcessBuilder(mysqldump, userArg, "-w", whereArg, "-t", fileArg, dbName, "log");
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
             }
