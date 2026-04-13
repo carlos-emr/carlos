@@ -480,9 +480,9 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> findByParameter(String parameter, String value) {
-        String sql = "select special,special_instruction from drugs where " + parameter + " = '" + value
-                + "' order by drugid desc";
+        String sql = "select special,special_instruction from drugs where " + parameter + " = :value order by drugid desc";
         Query query = entityManager.createNativeQuery(sql);
+        query.setParameter("value", value);
         return query.getResultList();
     }
 
