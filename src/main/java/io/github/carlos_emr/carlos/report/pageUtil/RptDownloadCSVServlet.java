@@ -335,7 +335,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                     }
                     sBirthSumNo = sBirthSumNo.length() > 0 ? sBirthSumNo : "0";
                     strFilter = " " + ARTYPE + ".demographic_no in (" + sBirthSumNo + ")";
-                    filterParams = new ArrayList<>(); // no bind params - sBirthSumNo from rs.getInt()
+                    filterParams = new ArrayList<>(); // sBirthSumNo is a comma-separated list of integer IDs from rs.getInt(); no bind params needed
                 }
 
                 sARFilter += (sARFilter.length() < 1 ? "" : " and ") + strFilter;

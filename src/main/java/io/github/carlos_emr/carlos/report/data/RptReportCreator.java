@@ -167,6 +167,8 @@ public final class RptReportCreator {
         public List<Object> getParams() { return params; }
     }
 
+    private static final int MAX_TEMPLATE_PLACEHOLDERS = 100;
+
     /**
      * Replaces {@code ${...}} template variables with {@code ?} placeholders for
      * parameterized SQL, collecting the corresponding bind values.
@@ -177,7 +179,7 @@ public final class RptReportCreator {
      */
     public static ParameterizedClause getParameterizedWhereClause(String value, Vector vec) {
         List<Object> params = new ArrayList<>();
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < MAX_TEMPLATE_PLACEHOLDERS; i++) {
             int startIdx = value.indexOf("${");
             if (startIdx >= 0) {
                 int endIdx = value.indexOf("}", startIdx);
@@ -193,7 +195,7 @@ public final class RptReportCreator {
                     } else {
                         // Unquoted (numeric) context: validate for data integrity, then parameterize
                         if (!paramValue.isEmpty() && !paramValue.matches("-?\\d+(\\.\\d+)?")) {
-                            MiscUtils.getLogger().warn("Non-numeric value rejected for unquoted SQL placeholder in report template");
+                            MiscUtils.getLogger().warn("Non-numeric value rejected for unquoted SQL placeholder at position " + i + " in report template");
                             paramValue = "";
                         }
                         value = value.substring(0, startIdx) + "?" + value.substring(endIdx + 1);
