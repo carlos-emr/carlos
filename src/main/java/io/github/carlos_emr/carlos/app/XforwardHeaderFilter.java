@@ -34,6 +34,7 @@ import jakarta.servlet.http.HttpServletRequestWrapper;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.regex.Pattern;
 
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import org.apache.logging.log4j.LogManager;
@@ -77,6 +78,22 @@ public class XforwardHeaderFilter implements Filter {
 
     static class ModifyRemoteAddress extends HttpServletRequestWrapper {
 
+        /**
+         * Matches numeric IPv4 ({@code 192.168.1.1}) or IPv6 ({@code ::1}, {@code fe80::1})
+         * address literals. Does NOT match hostnames, preventing unintended DNS lookups
+         * when passed to {@link InetAddress#getByName(String)}.
+         *
+         * <ul>
+         *   <li>IPv4: four dotted-decimal octets ({@code \d{1,3}(\.\d{1,3}){3}})</li>
+         *   <li>IPv6: hex digits and colons, with optional IPv4-mapped suffix
+         *       (requires at least one colon, which distinguishes from hostnames)</li>
+         * </ul>
+         */
+        private static final Pattern IP_LITERAL_PATTERN = Pattern.compile(
+                "\\d{1,3}(\\.\\d{1,3}){3}"
+                + "|"
+                + "[0-9a-fA-F:.]*:[0-9a-fA-F:.]*");
+
         public ModifyRemoteAddress(HttpServletRequest request) {
             super(request);
         }
@@ -100,8 +117,9 @@ public class XforwardHeaderFilter implements Filter {
             }
 
             if (ip.contains(",")) {
-                ip = ip.split(",")[0].trim();
+                ip = ip.split(",")[0];
             }
+            ip = ip.trim();
 
             if (isLoopbackOrUnspecified(ip)) {
                 logger.warn("Rejected loopback/unspecified address '{}' from X-Forwarded-For header; "
@@ -118,18 +136,24 @@ public class XforwardHeaderFilter implements Filter {
          * ({@code 0.0.0.0}, {@code ::}).
          *
          * <p>These addresses should never appear as a legitimate client IP in
-         * the {@code X-Forwarded-For} header. If parsing fails, the address is
+         * the {@code X-Forwarded-For} header. Non-numeric-literal inputs (e.g.,
+         * hostnames) are rejected without DNS lookup to avoid blocking on
+         * attacker-controlled name resolution. If parsing fails, the address is
          * treated as reserved (safe default).</p>
          *
          * @param ip the IP address string to check
-         * @return {@code true} if the address is loopback, unspecified, or unparseable
+         * @return {@code true} if the address is loopback, unspecified, non-IP-literal, or unparseable
          */
         static boolean isLoopbackOrUnspecified(String ip) {
             if (ip == null || ip.isBlank()) {
                 return true;
             }
+            String trimmed = ip.trim();
+            if (!IP_LITERAL_PATTERN.matcher(trimmed).matches()) {
+                return true;
+            }
             try {
-                InetAddress addr = InetAddress.getByName(ip.trim());
+                InetAddress addr = InetAddress.getByName(trimmed);
                 return addr.isLoopbackAddress() || addr.isAnyLocalAddress();
             } catch (UnknownHostException e) {
                 return true;

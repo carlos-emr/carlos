@@ -184,6 +184,24 @@ class XforwardHeaderFilterTest extends CarlosUnitTestBase {
             ServletRequest wrapped = captureWrappedRequest();
             assertThat(wrapped.getRemoteAddr()).isEqualTo("192.168.1.50");
         }
+
+        @Test
+        @DisplayName("should trim whitespace from single-value XFF")
+        void shouldTrimWhitespace_fromSingleValueXff() throws Exception {
+            when(request.getHeader("X-FORWARDED-FOR")).thenReturn("  203.0.113.50  ");
+
+            ServletRequest wrapped = captureWrappedRequest();
+            assertThat(wrapped.getRemoteAddr()).isEqualTo("203.0.113.50");
+        }
+
+        @Test
+        @DisplayName("should reject hostname in XFF without DNS lookup")
+        void shouldRejectHostname_withoutDnsLookup() throws Exception {
+            when(request.getHeader("X-FORWARDED-FOR")).thenReturn("evil.attacker.com");
+
+            ServletRequest wrapped = captureWrappedRequest();
+            assertThat(wrapped.getRemoteAddr()).isEqualTo("192.168.1.100");
+        }
     }
 
     @Nested
@@ -279,6 +297,18 @@ class XforwardHeaderFilterTest extends CarlosUnitTestBase {
         @DisplayName("should return true for malformed IP literal (safe default)")
         void shouldReturnTrue_forMalformedIpLiteral() {
             assertThat(XforwardHeaderFilter.ModifyRemoteAddress.isLoopbackOrUnspecified(":::1")).isTrue();
+        }
+
+        @Test
+        @DisplayName("should return true for hostname without DNS lookup")
+        void shouldReturnTrue_forHostname() {
+            assertThat(XforwardHeaderFilter.ModifyRemoteAddress.isLoopbackOrUnspecified("evil.attacker.com")).isTrue();
+        }
+
+        @Test
+        @DisplayName("should return true for localhost hostname without DNS lookup")
+        void shouldReturnTrue_forLocalhostHostname() {
+            assertThat(XforwardHeaderFilter.ModifyRemoteAddress.isLoopbackOrUnspecified("localhost")).isTrue();
         }
     }
 }
