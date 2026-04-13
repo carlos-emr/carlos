@@ -43,6 +43,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -171,10 +172,10 @@ public class PDFHandler implements MessageHandler {
                 }
             }
         } catch (FileNotFoundException e) {
-            logger.error("File not found: {}", filePath, e);
+            logger.error("File not found: {}", LogSanitizer.sanitize(filePath), e);
             return null;
         } catch (Exception e) {
-            logger.error("Error uploading PDF: {}", filePath, e);
+            logger.error("Error uploading PDF: {}", LogSanitizer.sanitize(filePath), e);
             return null;
         }
 
