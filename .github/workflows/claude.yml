@@ -28,9 +28,6 @@ jobs:
        (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')) &&
        contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association))
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     permissions:
       contents: write       # Enables pushing code changes
       pull-requests: write  # Enables creating/updating PRs
