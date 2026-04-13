@@ -50,6 +50,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -399,7 +400,7 @@
 
             <%}%>
 
-Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.displayName ? requestScope.displayName : param.displayName}" />(<%=Encode.forHtml(flowsheet)%>)</span>
+Flowsheet: <span style="font-weight:normal">${e:forHtml(requestScope.displayName ? requestScope.displayName : param.displayName)}(<%=Encode.forHtml(flowsheet)%>)</span>
         </h4>
         <span class="mode-toggle">
 		  	<% if (scope == null) {
