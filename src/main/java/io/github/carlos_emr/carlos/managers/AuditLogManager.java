@@ -110,22 +110,9 @@ public class AuditLogManager {
             String s = null;
 
             String formattedDate = formatter2.format(endDateToPurge);
-            String whereClause = "dateTime < '" + formattedDate + "'";
 
-            // nosemgrep
-            String[] cmdArray = {
-                    mysqldump,
-                    "--user=" + user,
-                    "-w",
-                    whereClause,
-                    "-t",
-                    "--result-file=" + filename,
-                    dbName,
-                    "log"
-            };
-
-            // nosemgrep
-            ProcessBuilder pb = new ProcessBuilder(cmdArray);
+            // nosemgrep: java.lang.security.audit.command-injection.command-injection
+            ProcessBuilder pb = new ProcessBuilder(mysqldump, "--user=" + user, "-w", "dateTime < '" + formattedDate + "'", "-t", "--result-file=" + filename, dbName, "log"); // nosemgrep
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
             }
