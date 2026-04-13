@@ -95,15 +95,20 @@ public final class PathValidationUtils {
      *
      * @param file the file to validate
      * @param allowedDir the directory the file must be within
-     * @return the validated File (same as input if valid)
-     * @throws SecurityException if the file is outside the allowed directory
+     * @return the canonicalized validated File
+     * @throws SecurityException if the file is outside the allowed directory or path cannot be resolved
      */
     public static File validateExistingPath(File file, File allowedDir) {
         if (file == null) {
             throw new SecurityException("File is null");
         }
         validateWithinDirectory(file, allowedDir);
-        return file;
+        try {
+            return file.getCanonicalFile();
+        } catch (IOException e) {
+            logger.error("Cannot resolve canonical path for validated file", e);
+            throw new SecurityException("Cannot resolve validated file path");
+        }
     }
 
     // ========================================================================

@@ -3946,7 +3946,9 @@ public class DemographicExportAction42Action extends ActionSupport {
         Cookie cookie = new Cookie("exportStatus", status);
         cookie.setPath("/");
         cookie.setMaxAge(60);
+        cookie.setHttpOnly(true);
         cookie.setSecure(request.isSecure());
+        cookie.setAttribute("SameSite", "Lax");
         response.addCookie(cookie);
     }
 }

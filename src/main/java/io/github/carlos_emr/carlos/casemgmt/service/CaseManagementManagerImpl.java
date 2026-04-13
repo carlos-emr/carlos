@@ -65,7 +65,9 @@ import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.ProviderNotFoundException;
+import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -1816,7 +1818,9 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     public boolean unlockNote(int noteId, String password) {
         CaseManagementNote note = this.caseManagementNoteDAO.getNote(Long.valueOf(noteId));
         if (note != null) {
-            if (note.isLocked() && note.getPassword().equals(password)) {
+            if (note.isLocked() && MessageDigest.isEqual(
+                    note.getPassword().getBytes(StandardCharsets.UTF_8),
+                    password.getBytes(StandardCharsets.UTF_8))) {
                 return true;
             }
         }

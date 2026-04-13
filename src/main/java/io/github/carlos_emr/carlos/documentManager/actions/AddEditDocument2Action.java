@@ -48,6 +48,7 @@ import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.CarlosProperties;
 import org.apache.commons.io.IOUtils;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
@@ -256,15 +257,15 @@ public class AddEditDocument2Action extends ActionSupport {
                 String contextPath = request.getContextPath();
                 StringBuffer redirect = new StringBuffer(contextPath + "/documentManager/documentReport.jsp");
                 redirect.append("?docerrors=docerrors"); // Allows the JSP to check if the document was just submitted
-                redirect.append("&function=").append(request.getParameter("function"));
-                redirect.append("&functionid=").append(request.getParameter("functionid"));
-                redirect.append("&curUser").append(request.getParameter("curUser"));
-                redirect.append("&appointmentNo").append(request.getParameter("appointmentNo"));
+                redirect.append("&function=").append(Encode.forUriComponent(request.getParameter("function")));
+                redirect.append("&functionid=").append(Encode.forUriComponent(request.getParameter("functionid")));
+                redirect.append("&curUser=").append(Encode.forUriComponent(request.getParameter("curUser")));
+                redirect.append("&appointmentNo=").append(Encode.forUriComponent(request.getParameter("appointmentNo")));
                 String parentAjaxId = request.getParameter("parentAjaxId");
                 // if we're called with parent ajax id inform jsp that parent needs to be updated
                 if (!parentAjaxId.equals("")) {
-                    redirect.append("&parentAjaxId").append(parentAjaxId);
-                    redirect.append("&updateParent").append("true");
+                    redirect.append("&parentAjaxId=").append(Encode.forUriComponent(parentAjaxId));
+                    redirect.append("&updateParent=").append("true");
                 }
                 try {
                     response.sendRedirect(redirect.toString());

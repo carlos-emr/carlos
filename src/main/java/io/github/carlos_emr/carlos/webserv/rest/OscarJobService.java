@@ -48,6 +48,8 @@ import io.github.carlos_emr.carlos.commn.jobs.OscarJobUtils;
 import io.github.carlos_emr.carlos.commn.model.OscarJob;
 import io.github.carlos_emr.carlos.commn.model.OscarJobType;
 import io.github.carlos_emr.carlos.managers.OscarJobManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.OscarJobResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.OscarJobTypeResponse;
@@ -68,6 +70,9 @@ public class OscarJobService extends AbstractServiceImpl {
 
     @Autowired
     OscarJobManager oscarJobManager;
+
+    @Autowired
+    SecurityInfoManager securityInfoManager;
 
 
     @GET
@@ -306,6 +311,11 @@ public class OscarJobService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/x-www-form-urlencoded")
     public OscarJobTypeResponse saveJobType(MultivaluedMap<String, String> params) {
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+
         OscarJobType job = new OscarJobType();
         job.setId(Integer.parseInt(params.getFirst("jobType.id")));
         job.setName(params.getFirst("jobType.name"));
