@@ -109,16 +109,20 @@ public class AuditLogManager {
         try {
             String s = null;
 
-            ProcessBuilder pb = new ProcessBuilder(
-                    mysqldump,
-                    "--user=" + user,
-                    "-w",
-                    "dateTime < '" + formatter2.format(endDateToPurge) + "'",
-                    "-t",
-                    "--result-file=" + filename,
-                    dbName,
-                    "log"
-            );
+            String formattedDate = formatter2.format(endDateToPurge);
+            String whereClause = "dateTime < '".concat(formattedDate).concat("'");
+
+            java.util.List<String> cmd = new java.util.ArrayList<>();
+            cmd.add(mysqldump);
+            cmd.add("--user=".concat(user));
+            cmd.add("-w");
+            cmd.add(whereClause);
+            cmd.add("-t");
+            cmd.add("--result-file=".concat(filename));
+            cmd.add(dbName);
+            cmd.add("log");
+
+            ProcessBuilder pb = new ProcessBuilder(cmd);
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
             }
