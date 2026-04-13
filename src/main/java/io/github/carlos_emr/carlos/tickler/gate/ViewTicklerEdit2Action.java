@@ -24,9 +24,7 @@ import org.apache.struts2.ServletActionContext;
 /**
  * View gate for {@code tickler/ticklerEdit.jsp}. Enforces {@code _tickler}
  * {@code w} privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/tickler/} location. Part of the tickler module
- * security-hardening migration (2Action gate pattern from #1109, #1629,
- * #1632, #1644, #1662, #1663, #1665, #1666, #1667, #1668, #1669).
+ * {@code /WEB-INF/jsp/tickler/} location. Part of the tickler-module JSP-gating migration (PR #1670).
  *
  * @since 2026-04-13
  */

@@ -73,7 +73,7 @@
         - Requires "_tickler" READ privilege (SecurityInfoManager check)
         - Queries ticklers for linked patient within a 6-week window
         - Displays dismissible Bootstrap 5 alert-info banner with count and links
-        - Each tickler message links to ticklerEdit.jsp for quick review
+        - Each tickler message links via /tickler/ViewTicklerEdit.do for quick review
 
     Parameters:
         @param segmentID   String the document ID to display

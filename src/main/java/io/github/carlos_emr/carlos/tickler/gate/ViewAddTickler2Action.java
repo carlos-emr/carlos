@@ -27,10 +27,12 @@ import org.apache.struts2.ServletActionContext;
  * {@code /WEB-INF/jsp/tickler/} location. Distinct from {@code AddTickler2Action}
  * which is the mutating submit handler; this action only renders the form.
  *
- * <p>The form rendered by {@code ticklerAdd.jsp} still POSTs to
+ * <p>The {@code w} privilege here deliberately matches the mutating handler:
+ * there's no value in letting a read-only user render a form they can't submit.
+ * The form rendered by {@code ticklerAdd.jsp} still POSTs to
  * {@code /tickler/AddTickler.do} (the existing mutating handler) — that endpoint
  * remains in place and is unchanged. This gate exists solely to serve GET
- * requests that open the add-tickler popup/form.
+ * requests that open the add-tickler popup/form. See PR #1670.
  *
  * @since 2026-04-13
  */
