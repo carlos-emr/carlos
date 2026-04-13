@@ -62,6 +62,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  */
 public final class Misc {
 
+    private static final java.util.regex.Pattern NON_DIGIT_PATTERN = java.util.regex.Pattern.compile("\\D");
+
     private Misc() {
         // prevent instantiation
     }
@@ -159,8 +161,7 @@ public final class Misc {
      */
     public static String cleanNumber(String Num) {
         Num = safeString(Num);
-        java.util.regex.Pattern p = java.util.regex.Pattern.compile("\\D");
-        java.util.regex.Matcher m = p.matcher(Num);
+        java.util.regex.Matcher m = NON_DIGIT_PATTERN.matcher(Num);
         StringBuffer sb = new StringBuffer();
         while (m.find()) {
             m.appendReplacement(sb, "");
