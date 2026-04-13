@@ -75,7 +75,7 @@ public final class BillingView2Action
         Properties oscarVars = CarlosProperties.getInstance();
 
         if (oscarVars.getProperty("billregion").equals("ON")) {
-            String newURL = "/billing/CA/ON/billingOB2.jsp";
+            String newURL = "/billing/CA/BC/billingView.do";
             newURL = newURL + "?" + request.getQueryString();
             response.sendRedirect(newURL);
             return NONE;

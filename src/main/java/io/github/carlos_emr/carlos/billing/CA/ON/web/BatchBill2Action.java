@@ -161,7 +161,7 @@ public class BatchBill2Action extends ActionSupport {
         }
 
         try {
-            response.sendRedirect(request.getContextPath() + "/billing/CA/ON/batchBilling.jsp?provider_no=" + request.getParameter("providers") + "&service_code=" + request.getParameter("service_code"));
+            response.sendRedirect(request.getContextPath() + "/billing/CA/ON/BatchBill.do?provider_no=" + request.getParameter("providers") + "&service_code=" + request.getParameter("service_code"));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -195,7 +195,7 @@ public class BatchBill2Action extends ActionSupport {
         }
 
         try {
-            response.sendRedirect(request.getContextPath() + "/billing/CA/ON/batchBilling.jsp?provider_no=" + request.getParameter("providers") + "&service_code=" + request.getParameter("service_code"));
+            response.sendRedirect(request.getContextPath() + "/billing/CA/ON/BatchBill.do?provider_no=" + request.getParameter("providers") + "&service_code=" + request.getParameter("service_code"));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

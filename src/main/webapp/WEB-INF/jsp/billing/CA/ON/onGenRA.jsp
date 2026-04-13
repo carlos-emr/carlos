@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<%--
+
+    Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    boolean isTeamBillingOnly = false;
+    boolean isSiteAccessPrivacy = false;
+    boolean isTeamAccessPrivacy = false;
+%>
+<security:oscarSec objectName="_team_billing_only" roleName="<%=roleName$ %>" rights="r" reverse="false">
+    <% isTeamBillingOnly = true; %>
+</security:oscarSec>
+<security:oscarSec objectName="_site_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false">
+    <%isSiteAccessPrivacy = true; %>
+</security:oscarSec>
+<security:oscarSec objectName="_team_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false">
+    <%isTeamAccessPrivacy = true; %>
+</security:oscarSec>
+
+<%@ page import="java.io.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.util.*" errorPage="/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingRAImpl" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<jsp:useBean id="documentBean" class="io.github.carlos_emr.DocumentBean" scope="request"/>
+
+<%
+    JdbcBillingRAImpl dbObj = new JdbcBillingRAImpl();
+    Properties propRt = new Properties();
+
+    String nowDate = "";
+
+    String filepath = "", filename = "", header = "", headerCount = "", total = "", paymentdate = "", payable = "", totalStatus = "", deposit = ""; //request.getParameter("filename");
+    String transactiontype = "", providerno = "", specialty = "", account = "", patient_last = "", patient_first = "", provincecode = "", newhin = "", hin = "", ver = "", billtype = "", location = "";
+    String servicedate = "", serviceno = "", servicecode = "", amountsubmit = "", amountpay = "", amountpaysign = "", explain = "", error = "";
+    String proFirst = "", proLast = "", demoFirst = "", demoLast = "", apptDate = "", apptTime = "", checkAccount = "", strcount = "", strtCount = "";
+    String balancefwd = "", abf_ca = "", abf_ad = "", abf_re = "", abf_de = "";
+    String transaction = "", trans_code = "", cheque_indicator = "", trans_date = "", trans_amount = "", trans_message = "";
+    String message = "", message_txt = "";
+    String xml_ra = "";
+
+    int accountno = 0, totalsum = 0, txFlag = 0, recFlag = 0, flag = 0, payFlag = 0, count = 0, tCount = 0, amountPaySum = 0, amountSubmitSum = 0;
+    String raNo = "";
+
+    ResultSet rslocal;
+    filename = documentBean.getFilename();
+
+    if (!filename.equals("")) {
+
+        CarlosProperties props = CarlosProperties.getInstance();
+        filepath = props.getProperty("DOCUMENT_DIR", "").trim(); //"/usr/local/OscarDocument/" + url +"/document/";
+        dbObj.importRAFile(filepath + filename);
+    }
+%>
+
+
+<html>
+<head>
+    <title><fmt:message key="admin.admin.btnBillingReconciliation"/></title>
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+
+    <script language="JavaScript">
+        <!--
+        var remote = null;
+
+
+        function rs(n, u, w, h, x) {
+            args = "width=" + w + ",height=" + h + ",resizable=yes,scrollbars=yes,status=0,top=60,left=30";
+            remote = window.open(u, n, args);
+            if (remote != null) {
+                if (remote.opener == null)
+                    remote.opener = self;
+            }
+            if (x == 1) {
+                return remote;
+            }
+        }
+
+        var awnd = null;
+
+        function popPage(url) {
+            awnd = rs('', url, 400, 200, 1);
+            awnd.focus();
+        }
+
+        function checkReconcile(action, rano) {
+            if (confirm("You are about to reconcile the file, are you sure?")) {
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = action;
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'rano';
+                input.value = rano;
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
+            } else {
+                alert("You have cancel the action!");
+            }
+        }
+
+        //-->
+    </SCRIPT>
+</head>
+
+<body>
+<h3><fmt:message key="admin.admin.btnBillingReconciliation"/></h3>
+
+<div class="container-fluid card card-body bg-body-tertiary">
+    <button class="btn btn-primary float-end" type='button' name='print' value='Print'
+            onClick='window.print(); return false;'><i class="fa-solid fa-print"></i> Print
+    </button>
+    <br/><br/>
+
+    <table class="table table-striped table-hover table-sm">
+        <thead>
+        <tr>
+            <th>Read Date</th>
+            <th>Payment Date</th>
+            <th>Payable</th>
+            <th>Records/Claims</th>
+            <th>Total</th>
+            <th>Action</th>
+            <th>Status</th>
+        </tr>
+        </thead>
+        <tbody>
+        <%
+
+            List aL;
+
+            if (isTeamBillingOnly || isTeamAccessPrivacy) {
+                aL = dbObj.getTeamRahd("D", (String) session.getAttribute("user"));
+            } else if (isSiteAccessPrivacy) {
+                aL = dbObj.getSiteRahd("D", (String) session.getAttribute("user"));
+            } else {
+                aL = dbObj.getAllRahd("D");
+            }
+
+            for (int i = 0; i < aL.size(); i++) {
+                Properties pro = (Properties) aL.get(i);
+                raNo = pro.getProperty("raheader_no");
+                nowDate = pro.getProperty("readdate");
+                paymentdate = pro.getProperty("paymentdate");
+                payable = pro.getProperty("payable");
+                strcount = pro.getProperty("claims");
+                strtCount = pro.getProperty("records");
+                total = pro.getProperty("totalamount");
+                String status = pro.getProperty("status");
+        %>
+
+        <tr <%=i % 2 == 0 ? "class='myGreen'" : "class='myIvory'"%>>
+            <td><%=nowDate%>
+            </td>
+            <td align="center"><%=paymentdate%>
+            </td>
+            <td><%=payable%>
+            </td>
+            <td align="center"><%=strcount%>/<%=strtCount%>
+            </td>
+            <td align="right"><%=total%>
+            </td>
+            <td align="center"><a
+                    href="<%= request.getContextPath() %>/billing/CA/ON/ViewOnGenRAError.do?rano=<%=raNo%>&proNo="
+                    target="_blank">Error</a> | <a
+                    href="<%= request.getContextPath() %>/billing/CA/ON/ViewOnGenRASummary.do?rano=<%=raNo%>&proNo="
+                    target="_blank">Summary</a>| <a
+                    href="<%= request.getContextPath() %>/billing/CA/ON/ViewGenRADesc.do?rano=<%=raNo%>" target="_blank">Report
+            </a></td>
+            <td><%=status.compareTo("N") == 0 ? "<a href=# onClick=\"checkReconcile('../billing/CA/ON/ViewOnGenRAsettle.do','" + raNo + "')\">Settle</a> <a href=# onClick=\"checkReconcile('../billing/CA/ON/ViewOnGenRAsettle35.do','" + raNo + "')\">S35</a>" : status.compareTo("S") == 0 ? " <a href=# onClick=\"checkReconcile('../billing/CA/ON/ViewOnGenRAsettle35.do','" + raNo + "')\">S35</a>" : "Processed"%>
+            </td>
+        </tr>
+        <%
+            }
+        %>
+        </tbody>
+    </table>
+</div>
+</body>
+</html>

@@ -234,7 +234,7 @@ function referralScriptAttach2(elementName, name2) {
 var d = elementName;
 t0 = escape("document.forms[1].elements[\'"+d+"\'].value");
 t1 = escape("document.forms[1].elements[\'"+name2+"\'].value");
-rs('att',('<%=request.getContextPath()%>/billing/CA/ON/searchRefDoc.jsp?param='+t0+'&param2='+t1),600,600,1);
+rs('att',('<%=request.getContextPath()%>/billing/CA/ON/ViewSearchRefDoc.do?param='+t0+'&param2='+t1),600,600,1);
 }
 function removeAccents(s){
 var r=s.toLowerCase();

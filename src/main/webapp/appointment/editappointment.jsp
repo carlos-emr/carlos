@@ -1478,7 +1478,7 @@
                         if (balance.compareTo(BigDecimal.ZERO) != 0) { %>
             <tr>
                 <td style="text-align: center; color:red;"><a href="javascript:void(0)"
-                                                              onclick="popupPage(600,800, '<%=request.getContextPath() %>/billing/CA/ON/billingONCorrection.jsp?billing_no=<%=cheader1s.get(i).getId()%>')">Inv
+                                                              onclick="popupPage(600,800, '<%=request.getContextPath() %>/billing/CA/ON/BillingONCorrection.do?billing_no=<%=cheader1s.get(i).getId()%>')">Inv
                     #<%=cheader1s.get(i).getId() %>
                 </a></td>
                 <td style="text-align: center; color:red;"><%=fm.format(cheader1s.get(i).getTimestamp()) %>
