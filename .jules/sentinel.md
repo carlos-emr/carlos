@@ -1,4 +1,0 @@
-## 2026-04-13 - [Command Line Credential Exposure via Runtime.exec()]
-**Vulnerability:** The password for mysqldump was being passed securely as a command-line argument (`--password=...`) to `Runtime.getRuntime().exec()`. Process monitoring tools like `ps` make command-line arguments visible system-wide, potentially exposing the database password.
-**Learning:** `Runtime.getRuntime().exec()` can be dangerous, not only for command injection but also for credential exposure when passing secrets to subprocesses via command-line flags.
-**Prevention:** Instead of passing secrets via command-line arguments, use `ProcessBuilder` and inject secrets securely into the process via environment variables (e.g., using `pb.environment().put("MYSQL_PWD", password)` for tools like mysql/mysqldump). Additionally, prefer passing arguments directly to the ProcessBuilder varargs constructor to avoid command injection alerts and bypasses.

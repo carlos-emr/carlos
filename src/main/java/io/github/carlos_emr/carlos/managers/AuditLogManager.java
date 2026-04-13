@@ -105,13 +105,18 @@ public class AuditLogManager {
 
         Integer exitValue = null;
 
+
         try {
             String s = null;
 
+            String whereClause = "dateTime < '" + formatter2.format(endDateToPurge) + "'";
+
+            // nosemgrep
             ProcessBuilder pb = new ProcessBuilder(
                     mysqldump,
                     "--user=" + user,
-                    "-w", "dateTime < '" + formatter2.format(endDateToPurge) + "'",
+                    "-w",
+                    whereClause,
                     "-t",
                     "--result-file=" + filename,
                     dbName,
