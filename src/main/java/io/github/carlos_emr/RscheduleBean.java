@@ -225,7 +225,7 @@ public class RscheduleBean {
 
     public String getDateAvailHour(GregorianCalendar aDate) {
         String val = "";
-        if (provider_no != "") {
+        if (!"".equals(provider_no)) {
             int j = aDate.get(Calendar.DAY_OF_WEEK) - 1;
             int i = j == 7 ? 0 : j;
             if (this.available.compareTo("A") == 0) {
@@ -240,7 +240,7 @@ public class RscheduleBean {
 
     public String getSiteAvail(GregorianCalendar aDate) {
         String val = "";
-        if (provider_no != "") {
+        if (!"".equals(provider_no)) {
             int j = aDate.get(Calendar.DAY_OF_WEEK) - 1;
             int i = j == 7 ? 0 : j;
             if (this.available.compareTo("A") == 0) {

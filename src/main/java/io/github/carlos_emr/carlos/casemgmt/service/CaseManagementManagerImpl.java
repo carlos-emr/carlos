@@ -2309,7 +2309,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             role = "0";
         }
         /*
-         * if (session.getAttribute("archiveView")!="true")
+         * if (!"true".equals(session.getAttribute("archiveView")))
          * note.setReporter_caisi_role(role); else note.setReporter_caisi_role("1");
          */
         note.setReporter_caisi_role(role);

@@ -1302,22 +1302,22 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         String hourOfEncounterTime = request.getParameter("hourOfEncounterTime");
-        if (hourOfEncounterTime != null && hourOfEncounterTime != "") {
+        if (hourOfEncounterTime != null && !"".equals(hourOfEncounterTime)) {
             note.setHourOfEncounterTime(Integer.valueOf(hourOfEncounterTime));
         }
 
         String minuteOfEncounterTime = request.getParameter("minuteOfEncounterTime");
-        if (minuteOfEncounterTime != null && minuteOfEncounterTime != "") {
+        if (minuteOfEncounterTime != null && !"".equals(minuteOfEncounterTime)) {
             note.setMinuteOfEncounterTime(Integer.valueOf(minuteOfEncounterTime));
         }
 
         String hourOfEncTransportationTime = request.getParameter("hourOfEncTransportationTime");
-        if (hourOfEncTransportationTime != null && hourOfEncTransportationTime != "") {
+        if (hourOfEncTransportationTime != null && !"".equals(hourOfEncTransportationTime)) {
             note.setHourOfEncTransportationTime(Integer.valueOf(hourOfEncTransportationTime));
         }
 
         String minuteOfEncTransportationTime = request.getParameter("minuteOfEncTransportationTime");
-        if (minuteOfEncTransportationTime != null && minuteOfEncTransportationTime != "") {
+        if (minuteOfEncTransportationTime != null && !"".equals(minuteOfEncTransportationTime)) {
             note.setMinuteOfEncTransportationTime(Integer.valueOf(minuteOfEncTransportationTime));
         }
 

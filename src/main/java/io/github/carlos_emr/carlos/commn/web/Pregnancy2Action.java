@@ -75,7 +75,7 @@ public class Pregnancy2Action extends ActionSupport {
 
     static {
         labReqVersion = CarlosProperties.getInstance().getProperty("onare_labreqver", "07");
-        if (labReqVersion == "") {
+        if ("".equals(labReqVersion)) {
             labReqVersion = "10";
         }
     }
