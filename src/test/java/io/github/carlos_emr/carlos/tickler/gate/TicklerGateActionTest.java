@@ -21,8 +21,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockitoAnnotations;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -47,7 +45,6 @@ class TicklerGateActionTest extends CarlosWebTestBase {
 
     @BeforeEach
     void setUpGate() {
-        MockitoAnnotations.openMocks(this);
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         // Flip base-class default (allow-all) to deny-all so allow-tests must
         // explicitly stub the privilege they rely on.
