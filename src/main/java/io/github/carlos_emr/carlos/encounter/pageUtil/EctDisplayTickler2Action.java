@@ -59,8 +59,8 @@ public class EctDisplayTickler2Action extends EctDisplayAction {
             //Set lefthand module heading and link
             String winName = "ViewTickler" + bean.demographicNo;
             String pathview, pathedit;
-            pathview = request.getContextPath() + "/tickler/ticklerMain.jsp?demoview=" + bean.demographicNo + "&parentAjaxId=" + cmd;
-            pathedit = request.getContextPath() + "/tickler/ticklerAdd.jsp?bFirstDisp=false&demographic_no=" + bean.demographicNo + "&parentAjaxId=" + cmd;
+            pathview = request.getContextPath() + "/tickler/ViewTicklerMain.do?demoview=" + bean.demographicNo + "&parentAjaxId=" + cmd;
+            pathedit = request.getContextPath() + "/tickler/AddTickler.do?bFirstDisp=false&demographic_no=" + bean.demographicNo + "&parentAjaxId=" + cmd;
 
             Dao.setLeftHeading(getText("global.viewTickler"));
             Dao.setLeftPopup(500, 900, winName, pathview);
@@ -105,7 +105,7 @@ public class EctDisplayTickler2Action extends EctDisplayAction {
                 // item.setValue(String.valueOf(t.getTickler_no()));
                 winName = StringUtils.maxLenString(t.getMessage(), MAX_LEN_TITLE, MAX_LEN_TITLE, "");
                 hash = Math.abs(winName.hashCode());
-                url = "popupPage(500,900,'" + hash + "','" + request.getContextPath() + "/tickler/ticklerEdit.jsp?tickler_no=" + t.getId() + "&parentAjaxId=" + cmd + "'); return false;";
+                url = "popupPage(500,900,'" + hash + "','" + request.getContextPath() + "/tickler/ViewTicklerEdit.do?tickler_no=" + t.getId() + "&parentAjaxId=" + cmd + "'); return false;";
                 item.setURL(url);
                 Dao.addItem(item);
 

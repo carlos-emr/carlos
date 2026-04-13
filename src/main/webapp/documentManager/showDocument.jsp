@@ -272,7 +272,7 @@
 
     if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && isLinkedToDemographic) {
         // Note: tickler_note is intentionally raw HTML. All dynamic values MUST remain encoded using OWASP Encoder methods.
-        String tlinkf = "\n <a class=\"alert-link\" href='" + request.getContextPath() + "/tickler/ticklerEdit.jsp?tickler_no=";
+        String tlinkf = "\n <a class=\"alert-link\" href='" + request.getContextPath() + "/tickler/ViewTicklerEdit.do?tickler_no=";
         List<String> notes = new java.util.ArrayList<>();
         List<Tickler> ticklers = ticklerManager.search_tickler(loggedInInfo, demoI, MyDateFormat.getSysDate(strDate));
         for (Tickler t : ticklers) {
@@ -497,7 +497,7 @@
                onclick="popupPatient(700,960,'${pageContext.servletContext.contextPath}/messenger/SendDemoMessage.do?demographic_no=','msg', '<%=Encode.forJavaScriptAttribute(docId)%>')" <%=btnDisabled %>>
 
         <!--input type="button" class="btn btn-outline-secondary btn-sm" id="ticklerBtn_<%=Encode.forHtmlAttribute(docId)%>" value="Tickler" onclick="handleDocSave('<%=Encode.forJavaScriptAttribute(docId)%>','addTickler')"/-->
-        <input type="button" class="btn btn-outline-secondary btn-sm" id="mainTickler_<%=Encode.forHtmlAttribute(docId)%>" value="<fmt:message key="showDocument.btnTickler"/>" onClick="popupPatientTickler(710, 1024,'${pageContext.servletContext.contextPath}/tickler/ticklerAdd.jsp?', 'Tickler','<%=Encode.forJavaScriptAttribute(docId)%>')" <%=btnDisabled %>>
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="mainTickler_<%=Encode.forHtmlAttribute(docId)%>" value="<fmt:message key="showDocument.btnTickler"/>" onClick="popupPatientTickler(710, 1024,'${pageContext.servletContext.contextPath}/tickler/AddTickler.do?', 'Tickler','<%=Encode.forJavaScriptAttribute(docId)%>')" <%=btnDisabled %>>
         <%
                                                             String refileBtnVisibility = "";
                                                             for (Hashtable ht : queues) {
@@ -545,7 +545,7 @@
                 <td class="alert alert-info alert-dismissible fade show">
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     <strong><fmt:message key="showDocument.ticklerAlertLabel"/></strong> <fmt:message key="showDocument.ticklerAlertFollowing"/> <%=numTickler%>
-                    <a class="alert-link" href="javascript:void(0);" onclick="popup(450, 1200, '<%=Encode.forJavaScript(request.getContextPath())%>/tickler/ticklerDemoMain.jsp?demoview=<%=Encode.forUriComponent(demographicID)%>', 'openTicklers')"><fmt:message key="showDocument.ticklerAlertLink"/></a>
+                    <a class="alert-link" href="javascript:void(0);" onclick="popup(450, 1200, '<%=Encode.forJavaScript(request.getContextPath())%>/tickler/ViewTicklerDemoMain.do?demoview=<%=Encode.forUriComponent(demographicID)%>', 'openTicklers')"><fmt:message key="showDocument.ticklerAlertLink"/></a>
                     <fmt:message key="showDocument.ticklerAlertPending"/>: <%=tickler_note%>
                 </td>
             </tr>
