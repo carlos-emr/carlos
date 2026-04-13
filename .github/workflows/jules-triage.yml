@@ -1,0 +1,68 @@
+name: Jules Triage
+
+# Translates @jules mentions into the `jules` label so the Jules GitHub App
+# picks the issue up. The App does the actual work - this workflow only
+# handles label management and confirmation comments.
+#
+# Setup (one-time, manual):
+#   1. Install the Jules GitHub App on carlos-emr/carlos via https://jules.google/
+#   2. Create the `jules` label:
+#        gh label create jules --color "4285F4" \
+#          --description "Assigned to Jules coding agent"
+#   3. Repo variable GEMINI_ALLOWED_USERS (shared with gemini.yml) must be set.
+#
+# Usage:
+#   @jules <task description>         -> workflow labels the issue `jules`;
+#                                        Jules App takes over and opens a PR.
+#   Also works by directly adding the `jules` label, or by assigning the
+#   issue to the Jules App bot account.
+#
+# Security notes:
+# - All untrusted inputs (comment bodies, issue titles, sender logins) are
+#   consumed via env: blocks only, never interpolated into shell with
+#   ${{ ... }}. See
+#   https://github.blog/security/vulnerability-research/how-to-catch-github-actions-workflow-injections-before-attackers-do/
+
+on:
+  issue_comment:
+    types: [created]
+  issues:
+    types: [opened]
+
+concurrency:
+  group: jules-triage-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  triage:
+    if: |
+      (
+        (github.event_name == 'issue_comment' &&
+         contains(github.event.comment.body, '@jules') &&
+         contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)) ||
+        (github.event_name == 'issues' &&
+         (contains(github.event.issue.body, '@jules') || contains(github.event.issue.title, '@jules')) &&
+         contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association))
+      ) &&
+      vars.GEMINI_ALLOWED_USERS != '' &&
+      contains(fromJson(vars.GEMINI_ALLOWED_USERS), github.event.sender.login)
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Apply `jules` label and confirm
+        # SAFE: sender login is the only value embedded in comment text and
+        # it is quoted as a @-mention, which github markdown will render but
+        # gh CLI treats as an opaque string argument.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          SENDER: ${{ github.event.sender.login }}
+        run: |
+          set -euo pipefail
+          gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label jules
+          gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body \
+            "Handed off to Jules (requested by @${SENDER}). The Jules GitHub App should pick this up shortly."

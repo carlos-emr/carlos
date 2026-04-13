@@ -1,0 +1,128 @@
+name: Gemini
+
+# Free Gemini models via google-github-actions/run-gemini-cli, gated by
+# BOTH author_association AND an explicit username allowlist.
+#
+# Setup (one-time, manual):
+#   1. Repo secret   GEMINI_API_KEY          from https://aistudio.google.com/apikey
+#   2. Repo variable GEMINI_ALLOWED_USERS    JSON array of logins, e.g. ["yingbull","alice"]
+#      Seed via:
+#        gh api repos/carlos-emr/carlos/collaborators --jq '[.[].login]' | jq -c .
+#
+# Usage from any issue / PR comment:
+#   @gemini ...                        -> gemini-2.5-flash (default)
+#   @gemini-flash ...                  -> gemini-2.5-flash
+#   @gemini-flash-lite ...             -> gemini-2.5-flash-lite
+#   @gemini-pro ...                    -> gemini-2.5-pro      (tight free-tier quota)
+#   @gemini model=gemini-2.5-pro ...   -> explicit override
+#
+# Security notes:
+# - All user-controlled inputs (comment bodies, issue titles, review bodies)
+#   are passed through env: blocks and consumed as $VARS in run scripts,
+#   NEVER interpolated directly into shell with ${{ ... }} syntax. This
+#   prevents GitHub Actions workflow command injection.
+#   See https://github.blog/security/vulnerability-research/how-to-catch-github-actions-workflow-injections-before-attackers-do/
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+  issues:
+    # Deliberately no 'assigned' - on that event, author_association would be
+    # the issue opener's, not the assigner's, which breaks the role gate.
+    types: [opened]
+
+concurrency:
+  # Serialize per issue/PR so back-to-back @gemini comments do not race.
+  group: gemini-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  gemini:
+    # Two independent gates, both must pass:
+    #   1. author_association in {OWNER, MEMBER, COLLABORATOR}
+    #   2. github.event.sender.login in vars.GEMINI_ALLOWED_USERS (JSON array)
+    # sender.login is the actor who triggered the webhook in all event types.
+    if: |
+      (
+        (github.event_name == 'issue_comment' &&
+         contains(github.event.comment.body, '@gemini') &&
+         contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)) ||
+        (github.event_name == 'pull_request_review_comment' &&
+         contains(github.event.comment.body, '@gemini') &&
+         contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)) ||
+        (github.event_name == 'pull_request_review' &&
+         contains(github.event.review.body, '@gemini') &&
+         contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association)) ||
+        (github.event_name == 'issues' &&
+         (contains(github.event.issue.body, '@gemini') || contains(github.event.issue.title, '@gemini')) &&
+         contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association))
+      ) &&
+      vars.GEMINI_ALLOWED_USERS != '' &&
+      contains(fromJson(vars.GEMINI_ALLOWED_USERS), github.event.sender.login)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Extract comment body and select model
+        id: parse
+        # SAFE: untrusted inputs passed via env:, consumed as $VARS below.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ISSUE_COMMENT_BODY: ${{ github.event.comment.body }}
+          REVIEW_BODY: ${{ github.event.review.body }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          set -euo pipefail
+          case "$EVENT_NAME" in
+            issue_comment|pull_request_review_comment) BODY="$ISSUE_COMMENT_BODY" ;;
+            pull_request_review)                      BODY="$REVIEW_BODY" ;;
+            issues)                                   BODY="${ISSUE_TITLE}"$'\n'"${ISSUE_BODY}" ;;
+            *)                                        BODY="" ;;
+          esac
+
+          # Longest match first - order matters.
+          if   echo "$BODY" | grep -qiE '(^|[[:space:]])@gemini-flash-lite\b|model=gemini-2\.5-flash-lite'; then
+            MODEL="gemini-2.5-flash-lite"
+          elif echo "$BODY" | grep -qiE '(^|[[:space:]])@gemini-pro\b|model=gemini-2\.5-pro'; then
+            MODEL="gemini-2.5-pro"
+          else
+            MODEL="gemini-2.5-flash"
+          fi
+          echo "model=$MODEL" >> "$GITHUB_OUTPUT"
+
+          # Hand the body to the next step via a heredoc-style output to avoid
+          # arg-escaping issues. Generate a unique delimiter to prevent an
+          # attacker-controlled body from closing the heredoc early.
+          DELIM="EOF_$(openssl rand -hex 16)"
+          {
+            echo "prompt<<${DELIM}"
+            printf '%s\n' "$BODY"
+            echo "${DELIM}"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "::notice::Gemini model selected: $MODEL"
+
+      - name: Run Gemini CLI
+        # Pin to the latest stable release at merge time - check
+        # https://github.com/google-github-actions/run-gemini-cli/releases
+        uses: google-github-actions/run-gemini-cli@v0
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ steps.parse.outputs.model }}
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          prompt: ${{ steps.parse.outputs.prompt }}
