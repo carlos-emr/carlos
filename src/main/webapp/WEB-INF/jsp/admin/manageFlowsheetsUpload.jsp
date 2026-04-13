@@ -37,7 +37,7 @@
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>"
-                   objectName="_admin,_admin.misc,_admin.flowsheet" rights="r" reverse="<%=true%>">
+                   objectName="_admin,_admin.misc,_admin.flowsheet" rights="w" reverse="<%=true%>">
     <%authed = false; %>
     <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.misc&type=_admin.flowsheet");%>
 </security:oscarSec>

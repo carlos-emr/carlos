@@ -103,7 +103,12 @@ public final class PathValidationUtils {
             throw new SecurityException("File is null");
         }
         validateWithinDirectory(file, allowedDir);
-        return file;
+        try {
+            return file.getCanonicalFile();
+        } catch (IOException e) {
+            logger.error("Cannot resolve canonical path for validated file", e);
+            throw new SecurityException("Cannot resolve file path");
+        }
     }
 
     // ========================================================================
