@@ -111,14 +111,15 @@ public class AuditLogManager {
 
             String whereClause = "dateTime < '" + formatter2.format(endDateToPurge) + "'";
 
-            // nosemgrep
             ProcessBuilder pb = new ProcessBuilder(
                     mysqldump,
-                    "--user=" + user,
+                    "--user",
+                    user,
                     "-w",
                     whereClause,
                     "-t",
-                    "--result-file=" + filename,
+                    "--result-file",
+                    filename,
                     dbName,
                     "log"
             );
