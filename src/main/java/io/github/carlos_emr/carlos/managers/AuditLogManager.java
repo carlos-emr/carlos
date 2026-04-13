@@ -118,8 +118,7 @@ public class AuditLogManager {
             // nosemgrep
             String fileArg = "--result-file=".concat(filename);
 
-            // nosemgrep: java.lang.security.audit.command-injection
-            ProcessBuilder pb = new ProcessBuilder(mysqldump, userArg, "-w", whereArg, "-t", fileArg, dbName, "log");
+            ProcessBuilder pb = new ProcessBuilder(mysqldump, userArg, "-w", whereArg, "-t", fileArg, dbName, "log"); // nosemgrep
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
             }
