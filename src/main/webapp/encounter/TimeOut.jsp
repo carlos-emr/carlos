@@ -41,40 +41,36 @@
         return;
     }
 %>
-<link rel="stylesheet" type="text/css" href="encounterStyles.css">
-<html>
-    <script type="text/javascript" language=javascript>
-        function loadUp() {
-            window.resizeTo(900, 50);
-            setTimeout("window.close()", 1000);
-            <%
-                if (sessionbean.status != null && !sessionbean.status.equals("")) {
-                    out.print("opener.refresh();");
-                }
-            %>
-        }
-    </script>
+<!DOCTYPE html>
+<html lang="en">
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <meta charset="UTF-8">
+        <%@ include file="/includes/global-head.jspf" %>
         <title><fmt:message key="encounter.timeOut.title"/></title>
+        <script type="text/javascript">
+            function loadUp() {
+                window.resizeTo(900, 50);
+                setTimeout(function() { window.close(); }, 1000);
+                <%
+                    if (sessionbean.status != null && !sessionbean.status.equals("")) {
+                        out.print("opener.refresh();");
+                    }
+                %>
+            }
+        </script>
     </head>
-    <body onload="javascript:loadUp()">
+    <body onload="loadUp()">
 
-    <!--  -->
-    <table class="MainTable" id="scrollNumber1"
-           name="<fmt:message key="encounter.timeOut.msgEncounter"/>">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"></td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
-                    <tr>
-                        <td style="color: white"><fmt:message key="encounter.timeOut.msgSaveExit"/></td>
-                        <td></td>
-                        <td></td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
+    <div class="container">
+
+        <div class="page-header-bar d-flex align-items-center justify-content-between
+                    py-2 mb-3 border-bottom" id="header">
+            <div class="d-flex align-items-center gap-2">
+                <span class="fw-semibold"><fmt:message key="encounter.timeOut.title"/></span>
+            </div>
+            <div class="text-muted small"><fmt:message key="encounter.timeOut.msgSaveExit"/></div>
+        </div>
+
+    </div>
     </body>
 </html>
