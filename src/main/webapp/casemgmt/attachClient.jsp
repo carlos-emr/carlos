@@ -227,7 +227,7 @@
 
             <display:column sortable="true" title="Client No" sortProperty="demographicNo" defaultorder="ascending">
                 <a
-                        href="<%=request.getContextPath() %><%=request.getContextPath() %>/encounter/IncomingEncounter.do?selectId=${e:forHtmlAttribute(client.demographicNo)}&demographicNo=${e:forHtmlAttribute(client.demographicNo)}&PEAttach=yes&appointmentNo=0&noteId=<%=noteId$%>">${e:forHtml(client.demographicNo)}</a>
+                        href="<%=request.getContextPath() %>/encounter/IncomingEncounter.do?selectId=${e:forHtmlAttribute(client.demographicNo)}&demographicNo=${e:forHtmlAttribute(client.demographicNo)}&PEAttach=yes&appointmentNo=0&noteId=<%=noteId$%>">${e:forHtml(client.demographicNo)}</a>
             </display:column>
             <display:column sortable="true" title="Name" sortProperty="formattedName">
                 <a
