@@ -276,9 +276,9 @@ class XforwardHeaderFilterTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should return true for unparseable input (safe default)")
-        void shouldReturnTrue_forUnparseableInput() {
-            assertThat(XforwardHeaderFilter.ModifyRemoteAddress.isLoopbackOrUnspecified("not-an-ip")).isTrue();
+        @DisplayName("should return true for malformed IP literal (safe default)")
+        void shouldReturnTrue_forMalformedIpLiteral() {
+            assertThat(XforwardHeaderFilter.ModifyRemoteAddress.isLoopbackOrUnspecified(":::1")).isTrue();
         }
     }
 }
