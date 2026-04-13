@@ -56,8 +56,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("messenger")
 class StrutsMessengerConfigTest {
 
-    private static final String CONFIG_PATH =
+    private static final String MESSENGER_CONFIG =
             "src/main/webapp/WEB-INF/classes/struts-messenger.xml";
+
+    /**
+     * Also parse struts-demographic.xml because {@code msgSearchDemo.jsp} is a
+     * gated messenger JSP but its only Struts reference lives in the
+     * demographic config (via the {@code demographic/DemographicLinkMsg} action
+     * the messenger compose/view popup now routes through).
+     */
+    private static final String DEMOGRAPHIC_CONFIG =
+            "src/main/webapp/WEB-INF/classes/struts-demographic.xml";
+
+    private static final String[] CONFIG_PATHS = {MESSENGER_CONFIG, DEMOGRAPHIC_CONFIG};
 
     /**
      * Utility JSPs intentionally left public in PR #1629: pure presentational
@@ -92,19 +103,24 @@ class StrutsMessengerConfigTest {
     @Test
     @DisplayName("should keep every gated messenger JSP under /WEB-INF/jsp/")
     void shouldKeepMessengerJspsBehindWebInf() throws Exception {
-        // Subset of the 11 JSPs the PR relocated — the results that reference
-        // these files must all sit under /WEB-INF/jsp/messenger/.
+        // All privilege-sensitive JSPs the PR relocated — their Struts result
+        // targets (across messenger + demographic configs, since msgSearchDemo
+        // is referenced from DemographicLinkMsg) must all sit under /WEB-INF/jsp/.
         String[] gated = {
                 "CreateMessage.jsp", "DisplayMessages.jsp", "ViewMessage.jsp",
                 "SentMessage.jsp", "ViewAttachment.jsp", "generatePreviewPDF.jsp",
-                "DisplayDemographicMessages.jsp"
+                "DisplayDemographicMessages.jsp",
+                "msgSearchDemo.jsp",
+                "MessengerAdmin.jsp",
+                "SelectItems.jsp"
         };
 
         List<String> paths = collectResultPaths();
         for (String jsp : gated) {
             List<String> refs = paths.stream().filter(p -> p.endsWith("/" + jsp)).toList();
             assertThat(refs)
-                    .as("every struts-messenger.xml reference to %s must be under /WEB-INF/jsp/", jsp)
+                    .as("every struts reference to %s must live under /WEB-INF/jsp/", jsp)
+                    .isNotEmpty()
                     .allMatch(p -> p.startsWith("/WEB-INF/jsp/"));
         }
     }
@@ -118,26 +134,28 @@ class StrutsMessengerConfigTest {
         db.setEntityResolver((publicId, systemId) ->
                 new InputSource(new java.io.StringReader("")));
 
-        Document doc;
-        try (InputStream in = new FileInputStream(CONFIG_PATH)) {
-            doc = db.parse(in);
-        }
-
-        NodeList results = doc.getElementsByTagName("result");
-        List<String> out = new ArrayList<>(results.getLength());
-        for (int i = 0; i < results.getLength(); i++) {
-            Node n = results.item(i);
-            String text = n.getTextContent();
-            if (text != null) {
-                out.add(text.trim());
+        List<String> out = new ArrayList<>();
+        for (String configPath : CONFIG_PATHS) {
+            Document doc;
+            try (InputStream in = new FileInputStream(configPath)) {
+                doc = db.parse(in);
             }
-            // Some results use a path attribute via <param name="location">.
-            if (n instanceof Element e) {
-                NodeList params = e.getElementsByTagName("param");
-                for (int j = 0; j < params.getLength(); j++) {
-                    Element p = (Element) params.item(j);
-                    if ("location".equals(p.getAttribute("name"))) {
-                        out.add(p.getTextContent().trim());
+
+            NodeList results = doc.getElementsByTagName("result");
+            for (int i = 0; i < results.getLength(); i++) {
+                Node n = results.item(i);
+                String text = n.getTextContent();
+                if (text != null) {
+                    out.add(text.trim());
+                }
+                // Some results use a path attribute via <param name="location">.
+                if (n instanceof Element e) {
+                    NodeList params = e.getElementsByTagName("param");
+                    for (int j = 0; j < params.getLength(); j++) {
+                        Element p = (Element) params.item(j);
+                        if ("location".equals(p.getAttribute("name"))) {
+                            out.add(p.getTextContent().trim());
+                        }
                     }
                 }
             }
