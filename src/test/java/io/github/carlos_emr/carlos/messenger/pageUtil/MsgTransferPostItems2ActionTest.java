@@ -82,7 +82,7 @@ class MsgTransferPostItems2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should reject non-POST with 405")
+    @DisplayName("should reject non-POST with 405 and Allow: POST header")
     void shouldReturn405_whenMethodIsNotPost() throws Exception {
         allowPrivilege("_msg", "w");
         getMockRequest().setMethod("GET");
@@ -91,6 +91,7 @@ class MsgTransferPostItems2ActionTest extends CarlosWebTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(getMockResponse().getHeader("Allow")).isEqualTo("POST");
     }
 
     @Test

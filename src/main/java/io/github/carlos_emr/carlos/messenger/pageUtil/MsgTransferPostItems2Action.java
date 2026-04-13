@@ -83,6 +83,7 @@ public final class MsgTransferPostItems2Action extends ActionSupport {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             logger.warn("MsgTransferPostItems2Action method not allowed: provider={} method={}",
                     providerNoOf(loggedInInfo), request.getMethod());
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }

@@ -40,8 +40,18 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import io.github.carlos_emr.carlos.commn.model.Groups;
+import io.github.carlos_emr.carlos.messenger.data.MsgProviderData;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -121,6 +131,7 @@ class MsgMessengerAdmin2ActionTest extends CarlosWebTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(getMockResponse().getHeader("Allow")).isEqualTo("POST");
     }
 
     @Test
@@ -131,5 +142,64 @@ class MsgMessengerAdmin2ActionTest extends CarlosWebTestBase {
         assertThatThrownBy(() -> executeAction(action))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_admin");
+    }
+
+    @Test
+    @DisplayName("should populate groups + localContacts request attrs on fetch happy path")
+    void shouldPopulateFetchAttributes_onAdminReadHappyPath() throws Exception {
+        allowPrivilege("_admin", "r");
+        Map<Groups, List<MsgProviderData>> groups = new HashMap<>();
+        List<MsgProviderData> contacts = List.of();
+        when(mockGroupManager.getAllGroupsWithMembers(any())).thenReturn(groups);
+        when(mockGroupManager.getAllLocalMessengerContactList(any())).thenReturn(contacts);
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(getMockRequest().getAttribute("groups")).isSameAs(groups);
+        assertThat(getMockRequest().getAttribute("localContacts")).isSameAs(contacts);
+    }
+
+    @Test
+    @DisplayName("should invoke addMember on valid add-method POST")
+    void shouldInvokeAddMember_onValidAddPost() throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod("POST");
+        addRequestParameter("method", "add");
+        addRequestParameter("member", "1:" + TEST_PROVIDER);
+        addRequestParameter("group", "7");
+
+        executeAction(action);
+
+        verify(mockGroupManager).addMember(any(), any(), eq(7));
+    }
+
+    @Test
+    @DisplayName("should invoke addGroup on valid create-method POST")
+    void shouldInvokeAddGroup_onValidCreatePost() throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod("POST");
+        addRequestParameter("method", "create");
+        addRequestParameter("groupName", "Clinicians");
+        addRequestParameter("parentId", "0");
+        when(mockGroupManager.getAllGroupsWithMembers(any())).thenReturn(new HashMap<>());
+        when(mockGroupManager.getAllLocalMessengerContactList(any())).thenReturn(List.of());
+
+        executeAction(action);
+
+        verify(mockGroupManager).addGroup(any(), eq("Clinicians"), eq(0));
+    }
+
+    @Test
+    @DisplayName("should invoke removeGroup on valid remove-method POST with group but no member")
+    void shouldInvokeRemoveGroup_onValidRemoveGroupPost() throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod("POST");
+        addRequestParameter("method", "remove");
+        addRequestParameter("group", "7");
+
+        executeAction(action);
+
+        verify(mockGroupManager).removeGroup(any(), eq(7));
     }
 }

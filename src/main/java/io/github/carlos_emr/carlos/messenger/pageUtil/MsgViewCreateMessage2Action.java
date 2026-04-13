@@ -25,8 +25,10 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -41,6 +43,8 @@ import org.apache.struts2.ServletActionContext;
  * @since 2026-04-13
  */
 public final class MsgViewCreateMessage2Action extends ActionSupport {
+
+    private static final Logger logger = MiscUtils.getLogger();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -59,6 +63,8 @@ public final class MsgViewCreateMessage2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "r", null)) {
+            logger.warn("MsgViewCreateMessage2Action denied: provider={} lacks _msg read",
+                    loggedInInfo == null ? "anon" : loggedInInfo.getLoggedInProviderNo());
             throw new SecurityException("missing required sec object (_msg)");
         }
 

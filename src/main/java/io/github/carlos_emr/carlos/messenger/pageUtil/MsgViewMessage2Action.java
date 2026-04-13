@@ -139,10 +139,14 @@ public class MsgViewMessage2Action extends ActionSupport {
      *   <li>boxType - Type of message box (inbox/sent/deleted)</li>
      * </ul>
      * 
-     * @return NONE as the method performs a redirect instead of forwarding
-     * @throws IOException if there's an error with the redirect
+     * @return {@link #SUCCESS} on the happy path (forwards to the ViewMessage JSP
+     *         via the Struts result mapping); {@link #NONE} when an invalid
+     *         {@code messageID} or a not-found message triggers an early redirect
+     *         to {@code DisplayMessages.do}
+     * @throws IOException if the early-return redirect cannot be written
      * @throws ServletException if there's a servlet processing error
-     * @throws SecurityException if user lacks read permissions
+     * @throws SecurityException if the session is missing or the user lacks
+     *         {@code _msg} read privilege
      */
     @Override
     public String execute() throws IOException, ServletException {

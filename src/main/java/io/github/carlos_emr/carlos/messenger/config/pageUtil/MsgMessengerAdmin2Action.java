@@ -97,9 +97,14 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * <p>This method implements a method-based routing pattern common in Struts2 actions,
      * allowing multiple related operations to be handled by a single action class.</p>
      * 
-     * @return Result string for Struts navigation:
-     *         - SUCCESS for successful operations
-     *         - "failure" if operation fails (e.g., attempting to delete a group with children)
+     * @return Struts navigation result:
+     *         {@link #SUCCESS} for successful operations;
+     *         {@code "failure"} if an operation fails (e.g. deleting a group with children);
+     *         {@link #NONE} when the request is rejected with HTTP 405 (non-POST mutation)
+     *         or when a mutating branch writes its response directly
+     * @throws java.io.IOException if the 405 error response cannot be written
+     * @throws SecurityException if the current user lacks the required
+     *         {@code _admin} read (view/fetch) or write (mutating method) privilege
      */
     @Override
     public String execute() throws java.io.IOException {
@@ -122,6 +127,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
             if (!"POST".equalsIgnoreCase(request.getMethod())) {
                 logger.warn("MsgMessengerAdmin method not allowed: provider={} method={} httpMethod={}",
                         providerNo, method, request.getMethod());
+                response.setHeader("Allow", "POST");
                 response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
                 return NONE;
             }
