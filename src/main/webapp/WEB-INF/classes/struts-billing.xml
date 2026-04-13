@@ -272,6 +272,8 @@
             <result name="success">/WEB-INF/jsp/billing/CA/BC/billingCorrectionSubmit.jsp</result>
             <result name="error">/WEB-INF/jsp/billing/CA/BC/billingCorrectionSubmit.jsp</result>
         </action>
+        <action name="billing/CA/BC/DeletePrivateCode"
+                class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.DeletePrivateCode2Action"/>
 
         <!-- ===== Billing Save — Ontario (migrated from JSP controllers) ===== -->
         <action name="billing/CA/ON/BillingONSave"

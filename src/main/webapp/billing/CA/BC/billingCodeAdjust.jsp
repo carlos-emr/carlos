@@ -67,7 +67,7 @@
             function deletePrivateCode(code) {
                 var form = document.createElement('form');
                 form.method = 'post';
-                form.action = 'deletePrivateCode.jsp';
+                form.action = '<%= request.getContextPath() %>/billing/CA/BC/DeletePrivateCode.do';
                 var input = document.createElement('input');
                 input.type = 'hidden';
                 input.name = 'code';
