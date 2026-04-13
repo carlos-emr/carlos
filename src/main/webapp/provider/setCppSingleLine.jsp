@@ -72,8 +72,9 @@
                 src="${e:forHtmlAttribute(ctx)}/share/calendar/calendar.js"></script>
 
         <!-- language for the calendar -->
+        <fmt:message key="global.javascript.calendar" var="calendarLanguageFile"/>
         <script type="text/javascript"
-                src="${e:forHtmlAttribute(ctx)}/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="${e:forHtmlAttribute(ctx)}/share/calendar/lang/${e:forUri(calendarLanguageFile)}"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
                        adding a calendar a matter of 1 or 2 lines of code. -->
