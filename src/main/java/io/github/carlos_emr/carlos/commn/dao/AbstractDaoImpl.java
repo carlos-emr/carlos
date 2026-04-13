@@ -83,6 +83,7 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
 	 * Clears the persistence context, detaching all managed entities.
 	 * Releases the first-level cache, reducing memory usage during batch operations.
 	 */
+	@Override
 	public void clear() {
 		entityManager.clear();
 	}
