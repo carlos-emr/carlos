@@ -133,6 +133,6 @@ Conditions:
     </c:forEach>
 </table>
 <input type="button" value="<fmt:message key="encounter.guidelinedetail.btnlistguideline"/>"
-       onclick="document.location='guidelineAction.do?method=list&demographic_no=${e:forJavaScript(demographic_no)}&provider_no=${e:forJavaScript(provider_no)}'">
+       onclick="document.location='guidelineAction.do?method=list&demographic_no=${e:forJavaScriptAttribute(demographic_no)}&provider_no=${e:forJavaScriptAttribute(provider_no)}'">
 </body>
 </html>
