@@ -42,8 +42,11 @@ public final class ViewGenTeleplanGroupReport2Action extends ActionSupport {
         HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.billing)");
+        // JSP taglib allows _report OR _admin.reporting OR _admin (read). The JSP also performs
+        // billActivityDao.persist(); we keep POST-only for CSRF protection but match the JSP's
+        // documented read-privilege requirement rather than escalating to _admin.billing w.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
+            throw new SecurityException("missing required sec object (_report)");
         }
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {

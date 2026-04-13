@@ -42,8 +42,9 @@ public final class ViewBillingDigUpdate2Action extends ActionSupport {
         HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+        // JSP taglib allows _admin.billing OR _admin; mirror the more specific object here.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.billing)");
         }
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
