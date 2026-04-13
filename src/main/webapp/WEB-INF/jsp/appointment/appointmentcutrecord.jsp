@@ -59,11 +59,8 @@
                 <p>
                 <h1><fmt:message key="appointment.appointmentdeletearecord.msgDeleteSuccess"/></h1>
                 <script language="JavaScript">
-                    self.opener.refresh();
+                    try { self.opener.refresh(); } catch (e) { /* opener may be closed or cross-origin */ }
                     self.close();
-                </script>
-            </c:when>
-            <c:otherwise>
                 <p>
                 <h1><fmt:message key="appointment.appointmentdeletearecord.msgDeleteFailure"/></h1>
             </c:otherwise>
