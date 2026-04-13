@@ -110,21 +110,44 @@ public final class MsgAdjustAttachments2Action extends ActionSupport {
         }
 
         // Collect selected item indices from checkbox parameters ("item0", "item1", …).
+        // Only accept numeric suffixes; anything else is silently dropped so a
+        // crafted "itemfoo=on" cannot reach the XML parser.
         StringBuilder checks = new StringBuilder();
         Enumeration<String> names = request.getParameterNames();
         while (names.hasMoreElements()) {
             String name = names.nextElement();
             if (name.startsWith("item") && "on".equalsIgnoreCase(request.getParameter(name))) {
-                checks.append(name.substring(4)).append(',');
+                String itemId = name.substring(4);
+                if (isDigits(itemId)) {
+                    checks.append(itemId).append(',');
+                }
             }
         }
 
-        String xmlDoc = MsgCommxml.decode64(xmlDocRaw);
         // Normalize the id parameter to digits-only or null; rejects any
         // non-numeric input before it is persisted on the session bean.
         String idRaw = request.getParameter("id");
         String messageId = isDigits(idRaw) ? idRaw : null;
-        String sXML = MsgCommxml.toXML(new MsgSendDocument().parseChecks(xmlDoc, checks.toString()));
+
+        // Decode + parse inside a single try so malformed Base64 or malformed
+        // XML returns a clean 400 instead of falling through to a 500 via
+        // parseXML()-returns-null -> getDocumentElement() NPE.
+        String sXML;
+        try {
+            String xmlDoc = MsgCommxml.decode64(xmlDocRaw);
+            sXML = MsgCommxml.toXML(new MsgSendDocument().parseChecks(xmlDoc, checks.toString()));
+        } catch (RuntimeException e) {
+            logger.warn("MsgAdjustAttachments2Action: malformed xmlDoc for provider={}; rejecting as 400",
+                    providerNoOf(loggedInInfo));
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Malformed xmlDoc");
+            return NONE;
+        }
+        if (sXML == null) {
+            logger.warn("MsgAdjustAttachments2Action: xmlDoc parsed to null for provider={}; rejecting as 400",
+                    providerNoOf(loggedInInfo));
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Malformed xmlDoc");
+            return NONE;
+        }
 
         bean.setAttachment(sXML);
         bean.setMessageId(messageId);

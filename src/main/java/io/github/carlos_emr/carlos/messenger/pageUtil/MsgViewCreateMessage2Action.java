@@ -33,12 +33,15 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * GET view gate for the message composition form (CreateMessage.jsp).
+ * View gate for the message composition form (CreateMessage.jsp).
  * <p>
  * Separate from {@link MsgCreateMessage2Action}, which is the POST submit
  * handler. This action exists so the compose form can be reached via a single
  * privilege-checked URL from other pages (inbox "Compose" button, reply
  * shortcuts, admin popup) without making the JSP publicly reachable.
+ * <p>
+ * The HTTP method is not enforced here because the gate performs no state
+ * mutation; only {@code _msg} read is required.
  *
  * @since 2026-04-13
  */

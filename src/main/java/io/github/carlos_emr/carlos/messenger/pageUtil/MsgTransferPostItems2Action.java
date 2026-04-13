@@ -107,20 +107,41 @@ public final class MsgTransferPostItems2Action extends ActionSupport {
             return NONE;
         }
 
+        // Only accept numeric suffixes on item* parameters; anything else is
+        // silently dropped so a crafted "itemfoo=on" cannot reach the parser.
         StringBuilder checks = new StringBuilder();
         Enumeration<String> names = request.getParameterNames();
         while (names.hasMoreElements()) {
             String name = names.nextElement();
             if (name.startsWith("item") && "on".equalsIgnoreCase(request.getParameter(name))) {
-                checks.append(name.substring(4)).append(',');
+                String itemId = name.substring(4);
+                if (isDigits(itemId)) {
+                    checks.append(itemId).append(',');
+                }
             }
         }
 
-        String xmlDoc = MsgCommxml.decode64(xmlDocRaw);
-        @SuppressWarnings("rawtypes")
-        ArrayList aList = new ArrayList();
-        String sXML = MsgCommxml.toXML(
-                new MsgSendDocument().parseChecks2(xmlDoc, checks.toString(), aList));
+        // Decode + parse inside a single try so malformed Base64 or malformed
+        // XML returns a clean 400 instead of falling through to a 500.
+        String sXML;
+        try {
+            String xmlDoc = MsgCommxml.decode64(xmlDocRaw);
+            @SuppressWarnings("rawtypes")
+            ArrayList aList = new ArrayList();
+            sXML = MsgCommxml.toXML(
+                    new MsgSendDocument().parseChecks2(xmlDoc, checks.toString(), aList));
+        } catch (RuntimeException e) {
+            logger.warn("MsgTransferPostItems2Action: malformed xmlDoc for provider={}; rejecting as 400",
+                    providerNoOf(loggedInInfo));
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Malformed xmlDoc");
+            return NONE;
+        }
+        if (sXML == null) {
+            logger.warn("MsgTransferPostItems2Action: xmlDoc parsed to null for provider={}; rejecting as 400",
+                    providerNoOf(loggedInInfo));
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Malformed xmlDoc");
+            return NONE;
+        }
 
         bean.setAttachment(sXML);
 
@@ -130,5 +151,17 @@ public final class MsgTransferPostItems2Action extends ActionSupport {
 
     private static String providerNoOf(LoggedInInfo info) {
         return info == null ? "anon" : info.getLoggedInProviderNo();
+    }
+
+    private static boolean isDigits(String s) {
+        if (s == null || s.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < s.length(); i++) {
+            if (!Character.isDigit(s.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 }

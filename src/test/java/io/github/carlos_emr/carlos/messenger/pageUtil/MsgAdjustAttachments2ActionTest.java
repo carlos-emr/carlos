@@ -163,6 +163,50 @@ class MsgAdjustAttachments2ActionTest extends CarlosWebTestBase {
         assertThat(bean.getMessageId()).isEmpty();
     }
 
+    @Test
+    @DisplayName("should return 400 when xmlDoc decodes to malformed XML")
+    void shouldReturn400_whenXmlDocIsMalformed() throws Exception {
+        allowPrivilege("_msg", "w");
+        getMockRequest().setMethod("POST");
+        MsgSessionBean bean = new MsgSessionBean();
+        bean.setProviderNo(TEST_PROVIDER);
+        getMockSession().setAttribute("msgSessionBean", bean);
+
+        // "this is not xml" encoded — decodes to non-empty garbage that XML
+        // parsing rejects (parseXML returns null, previously NPE -> 500).
+        addRequestParameter("xmlDoc", MsgCommxml.encode64("not xml"));
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(bean.getAttachment()).isNull();
+    }
+
+    @Test
+    @DisplayName("should silently ignore non-digit item* parameter suffix")
+    void shouldIgnoreNonNumericItemSuffix() throws Exception {
+        allowPrivilege("_msg", "w");
+        getMockRequest().setMethod("POST");
+        MsgSessionBean bean = new MsgSessionBean();
+        bean.setProviderNo(TEST_PROVIDER);
+        getMockSession().setAttribute("msgSessionBean", bean);
+
+        addRequestParameter("xmlDoc", MsgCommxml.encode64(SAMPLE_XML));
+        // itemfoo is ignored; item1 is kept.
+        addRequestParameter("itemfoo", "on");
+        addRequestParameter("item1", "on");
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getRedirectedUrl())
+                .endsWith("/demographic/DemographicLinkMsg.do");
+        // The item remained because its itemId matches "1"; the parser never
+        // saw "foo" as a valid selection.
+        assertThat(bean.getAttachment()).contains("itemId=\"1\"");
+    }
+
     private static final String SAMPLE_XML =
             "<root><table><item itemId=\"1\" removable=\"true\">a</item></table></root>";
 }

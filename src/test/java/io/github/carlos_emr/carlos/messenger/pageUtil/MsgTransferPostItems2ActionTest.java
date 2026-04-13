@@ -157,6 +157,24 @@ class MsgTransferPostItems2ActionTest extends CarlosWebTestBase {
         assertThat(bean.getAttachment()).isNotNull();
     }
 
+    @Test
+    @DisplayName("should return 400 when xmlDoc decodes to malformed XML")
+    void shouldReturn400_whenXmlDocIsMalformed() throws Exception {
+        allowPrivilege("_msg", "w");
+        getMockRequest().setMethod("POST");
+        MsgSessionBean bean = new MsgSessionBean();
+        bean.setProviderNo(TEST_PROVIDER);
+        getMockSession().setAttribute("msgSessionBean", bean);
+
+        addRequestParameter("xmlDoc", MsgCommxml.encode64("not xml"));
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(bean.getAttachment()).isNull();
+    }
+
     private static final String SAMPLE_XML =
             "<root><table><item itemId=\"1\" removable=\"true\">a</item></table></root>";
 }
