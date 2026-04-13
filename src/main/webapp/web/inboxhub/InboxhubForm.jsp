@@ -255,11 +255,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     <div class="accordion mt-1" id="inbox-hub-unmatched-list">
         <div class="accordion-item">
             <h2 class="accordion-header" id="headingUnmatchedList">
-                <a class="text-decoration-none accordion-button <c:out value="${param.providerNo eq 0 ? '' : 'collapsed'}"/>" type="button" data-bs-toggle="collapse" data-bs-target="#collapseUnmatched" aria-expanded="false" aria-controls="collapseUnmatched">
+                <a class="text-decoration-none accordion-button ${e:forHtmlAttribute(param.providerNo eq 0 ? '' : 'collapsed')}" type="button" data-bs-toggle="collapse" data-bs-target="#collapseUnmatched" aria-expanded="false" aria-controls="collapseUnmatched">
                     <fmt:message key="inbox.inboxmanager.msgUnmatched"/>
                 </a>
             </h2>
-            <div id="collapseUnmatched" class="accordion-collapse collapse <c:out value="${param.providerNo eq 0 ? 'show' : ''}"/>" aria-labelledby="headingUnmatchedList" data-bs-parent="#inbox-hub-unmatched-list">
+            <div id="collapseUnmatched" class="accordion-collapse collapse ${e:forHtmlAttribute(param.providerNo eq 0 ? 'show' : '')}" aria-labelledby="headingUnmatchedList" data-bs-parent="#inbox-hub-unmatched-list">
                 <div class="accordion-body my-2 ms-3">
                     <div class="accordion-item border-0">
                         <div class="accordion-header category-list-header d-flex" id="headingUnmatchedAll">
