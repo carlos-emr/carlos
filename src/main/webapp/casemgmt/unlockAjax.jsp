@@ -52,10 +52,13 @@
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <% CaseManagementNote note = (CaseManagementNote) request.getAttribute("Note");
     pageContext.setAttribute("provName", note.getProviderName());
-    pageContext.setAttribute("fmtTxt", note.getNote().replaceAll("\n", "<br>"));
+    String encodedNote = Encode.forHtml(note.getNote());
+    String formattedNote = encodedNote.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "<br />");
+    pageContext.setAttribute("fmtTxt", formattedNote);
     String dateFormat = "dd-MMM-yyyy H:mm";
 %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"
@@ -90,11 +93,12 @@
                         int MAXLINE = 2;
                         while (it.hasNext()) {
                             Provider p = it.next();
+                            String formattedName = Encode.forHtml(p.getFormattedName());
 
                             if (count % MAXLINE == 0) {
-                                out.print("<li>" + p.getFormattedName() + "; ");
+                                out.print("<li>" + formattedName + "; ");
                             } else {
-                                out.print(p.getFormattedName() + "</li>");
+                                out.print(formattedName + "</li>");
                             }
                             ++count;
                         }
