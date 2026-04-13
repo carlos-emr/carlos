@@ -136,8 +136,9 @@ public final class MsgTransferPostItems2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Malformed xmlDoc");
             return NONE;
         }
-        if (sXML == null) {
-            logger.warn("MsgTransferPostItems2Action: xmlDoc parsed to null for provider={}; rejecting as 400",
+        // MsgCommxml.toXML() returns empty (never null) on serialization failure.
+        if (sXML == null || sXML.isEmpty()) {
+            logger.warn("MsgTransferPostItems2Action: xmlDoc serialized empty for provider={}; rejecting as 400",
                     providerNoOf(loggedInInfo));
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Malformed xmlDoc");
             return NONE;

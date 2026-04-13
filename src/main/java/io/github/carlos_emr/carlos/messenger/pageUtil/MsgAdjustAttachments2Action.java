@@ -142,8 +142,11 @@ public final class MsgAdjustAttachments2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Malformed xmlDoc");
             return NONE;
         }
-        if (sXML == null) {
-            logger.warn("MsgAdjustAttachments2Action: xmlDoc parsed to null for provider={}; rejecting as 400",
+        // MsgCommxml.toXML() returns empty (never null) if serialization fails,
+        // which also covers the case where parseChecks returns a Document that
+        // transforms to nothing.
+        if (sXML == null || sXML.isEmpty()) {
+            logger.warn("MsgAdjustAttachments2Action: xmlDoc serialized empty for provider={}; rejecting as 400",
                     providerNoOf(loggedInInfo));
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Malformed xmlDoc");
             return NONE;
