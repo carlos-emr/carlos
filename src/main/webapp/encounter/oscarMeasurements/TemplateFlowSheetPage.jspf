@@ -852,7 +852,7 @@ div.recommendations ul{
 <div class="preventionSection" style="<%=hidden%>" >
     <div class="headPrevention">
         <p title="fade=[on] header=[<%= Encode.forHtmlAttribute((String) h2.get("display_name")) %>] body=[<%=wrapWithSpanIfNotNull(mi.getWarning(measure),"red")%><%=wrapWithSpanIfNotNull(mi.getRecommendation(measure),"red")%><%= Encode.forHtmlAttribute((String) h2.get("guideline")) %>]">
-            <a href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(465,635,'${ pageContext.request.contextPath }/oscarPrevention/AddPreventionData.jsp?prevention=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(prevType))) %>&amp;demographic_no=<%= safeDemoNoJsUri %>','addPreventionData<%=Math.abs( prevType.hashCode() ) %>')">
+            <a href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(465,635,'${ pageContext.request.contextPath }/oscarPrevention/AddPrevention.do?prevention=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(prevType))) %>&amp;demographic_no=<%= safeDemoNoJsUri %>','addPreventionData<%=Math.abs( prevType.hashCode() ) %>')">
                 <span title="<%= Encode.forHtmlAttribute((String) h2.get("guideline")) %>" style="font-weight:bold;"><%= Encode.forHtml((String) h2.get("display_name")) %></span>
             </a>
             &nbsp;
@@ -899,7 +899,7 @@ div.recommendations ul{
                 }
             }
     %>
-    <div class="preventionProcedure" <%=hider%> onclick="javascript:fsPopup(465,635,'${ pageContext.request.contextPath }/oscarPrevention/AddPreventionData.jsp?id=<%= Encode.forJavaScriptAttribute(String.valueOf(hdata.get("id"))) %>&amp;demographic_no=<%= safeDemoNoJsUri %>','addPreventionData')" >
+    <div class="preventionProcedure" <%=hider%> onclick="javascript:fsPopup(465,635,'${ pageContext.request.contextPath }/oscarPrevention/AddPrevention.do?id=<%= Encode.forJavaScriptAttribute(String.valueOf(hdata.get("id"))) %>&amp;demographic_no=<%= safeDemoNoJsUri %>','addPreventionData')" >
         <p <%=r(hdata.get("refused"))%> title="fade=[on] header=[<%= Encode.forHtmlAttribute(String.valueOf(hdata.get("age"))) %> -- Date:<%= Encode.forHtmlAttribute(String.valueOf(hdata.get("prevention_date"))) %>] body=[<%= Encode.forHtmlAttribute(com) %>]" >Age: <%= Encode.forHtml(String.valueOf(hdata.get("age"))) %> <br/>
             <!--<%=refused(hdata.get("refused"))%>-->Date: <%= Encode.forHtml(String.valueOf(hdata.get("prevention_date"))) %>
             <%if (comb) {%>

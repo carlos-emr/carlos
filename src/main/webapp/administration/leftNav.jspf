@@ -472,7 +472,7 @@ String curProvider_no = (String)session.getAttribute("user");
 						
 					</oscar:oscarPropertiesCheck>
 					
-					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarPrevention/PreventionManager.jsp" title="Customize prevention notifications."><fmt:message key="admin.admin.preventionNotification.title"/></a></li>
+					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarPrevention/ViewPreventionManager.do" title="Customize prevention notifications."><fmt:message key="admin.admin.preventionNotification.title"/></a></li>
 				</security:oscarSec>
 				</ul>
 				</div>
@@ -622,7 +622,7 @@ String curProvider_no = (String)session.getAttribute("user");
 					</security:oscarSec>
 
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">	
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/oscarPrevention/PreventionListManager.jsp">
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/oscarPrevention/ViewPreventionListManager.do">
 						<fmt:message key="oscarprevention.preventionlistmanager.title"/></a></li>
 					</security:oscarSec>
 										

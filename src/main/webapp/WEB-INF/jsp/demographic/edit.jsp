@@ -1113,7 +1113,7 @@
                                 <td><a
                                         href="javascript: function myFunction() {return false; }"
                                         onClick="popupPage(700,960,'<c:out
-                                                value="${ctx}"/>/oscarPrevention/index.jsp?demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>');return false;">
+                                                value="${ctx}"/>/encounter/displayPrevention.do?demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>');return false;">
                                     <fmt:message key="encounter.LeftNavBar.Prevent"/></a></td>
                             </tr>
                         </security:oscarSec>

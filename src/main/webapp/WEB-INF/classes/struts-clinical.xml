@@ -81,15 +81,15 @@
             <result name="success">/oscarResearch/oscarDxResearch/dxResearchSelectAssociations.jsp</result>
         </action>
         <action name="oscarPrevention/AddPrevention" class="io.github.carlos_emr.carlos.prevention.pageUtil.AddPrevention2Action">
-            <result name="success">/oscarPrevention/close.jsp</result>
-            <result name="review">/oscarPrevention/review.jsp</result>
-            <result name="form">/oscarPrevention/AddPreventionData.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarPrevention/close.jsp</result>
+            <result name="review">/WEB-INF/jsp/oscarPrevention/review.jsp</result>
+            <result name="form">/WEB-INF/jsp/oscarPrevention/AddPreventionData.jsp</result>
         </action>
         <action name="oscarPrevention/PreventionReport" class="io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReport2Action">
             <result name="success">/WEB-INF/jsp/oscarPrevention/PreventionReporting.jsp</result>
         </action>
         <action name="oscarPrevention/printPrevention" class="io.github.carlos_emr.carlos.prevention.pageUtil.PreventionPrint2Action">
-            <result name="error">/oscarPrevention/index.jsp</result>
+            <result name="error">/WEB-INF/jsp/oscarPrevention/index.jsp</result>
         </action>
         <action name="CaseManagementView" class="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementView2Action" method="execute">
             <result name="view">/casemgmt/CaseManagementView.jsp</result>
@@ -136,5 +136,16 @@
             <result name="view">/provider/providercontrol.jsp</result>
         </action>
 
+
+        <!-- ===== oscarPrevention JSP gating actions (migration slice) ===== -->
+        <action name="oscarPrevention/ViewAddPreventionDataDisambiguate" class="io.github.carlos_emr.carlos.prevention.gate.ViewAddPreventionDataDisambiguate2Action">
+            <result name="success">/WEB-INF/jsp/oscarPrevention/AddPreventionDataDisambiguate.jsp</result>
+        </action>
+        <action name="oscarPrevention/ViewPreventionManager" class="io.github.carlos_emr.carlos.prevention.gate.ViewPreventionManager2Action">
+            <result name="success">/WEB-INF/jsp/oscarPrevention/PreventionManager.jsp</result>
+        </action>
+        <action name="oscarPrevention/ViewPreventionListManager" class="io.github.carlos_emr.carlos.prevention.gate.ViewPreventionListManager2Action">
+            <result name="success">/WEB-INF/jsp/oscarPrevention/PreventionListManager.jsp</result>
+        </action>
     </package>
 </struts>

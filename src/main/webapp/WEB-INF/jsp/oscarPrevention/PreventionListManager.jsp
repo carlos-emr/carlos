@@ -141,7 +141,7 @@
 </div><!-- container -->
 
 
-<form action="PreventionListManager.jsp?formAction=update" method="post">
+<form action="/oscarPrevention/ViewPreventionListManager.do?formAction=update" method="post">
     <!-- Modal -->
     <div id="modalConfirm" class="modal fade" tabindex="-1" aria-labelledby="modalConfirmLabel"
          aria-hidden="true">

@@ -93,8 +93,8 @@
             <result name="success">/mcedt/mailbox/index.jsp?tab=sent</result>
         </action>
         <action name="dhir/submit" class="io.github.carlos_emr.carlos.integration.dhir.SubmitImmunization2Action">
-            <result name="success">/oscarPrevention/dhirSubmission.jsp</result>
-            <result name="testresult">/oscarPrevention/test_case.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarPrevention/dhirSubmission.jsp</result>
+            <result name="testresult">/WEB-INF/jsp/oscarPrevention/test_case.jsp</result>
         </action>
 
     </package>
