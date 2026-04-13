@@ -36,7 +36,10 @@ package io.github.carlos_emr.carlos.report.data;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Properties;
 import java.util.Vector;
 
@@ -146,6 +149,64 @@ public final class RptReportCreator {
             }
         }
         return ret;
+    }
+
+    /**
+     * Holds a SQL fragment with {@code ?} placeholders and the corresponding bind values.
+     */
+    public static class ParameterizedClause {
+        private final String clause;
+        private final List<Object> params;
+
+        public ParameterizedClause(String clause, List<Object> params) {
+            this.clause = clause;
+            this.params = Collections.unmodifiableList(new ArrayList<>(params));
+        }
+
+        public String getClause() { return clause; }
+        public List<Object> getParams() { return params; }
+    }
+
+    /**
+     * Replaces {@code ${...}} template variables with {@code ?} placeholders for
+     * parameterized SQL, collecting the corresponding bind values.
+     *
+     * @param value the SQL template with {@code ${...}} placeholders
+     * @param vec   the values to bind (one per placeholder)
+     * @return a {@link ParameterizedClause} containing the SQL fragment and bind values
+     */
+    public static ParameterizedClause getParameterizedWhereClause(String value, Vector vec) {
+        List<Object> params = new ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            int startIdx = value.indexOf("${");
+            if (startIdx >= 0) {
+                int endIdx = value.indexOf("}", startIdx);
+                if (endIdx > startIdx + 2) {
+                    String paramValue = (i < vec.size() && vec.get(i) != null) ? (String) vec.get(i) : "";
+                    boolean inQuotedContext = startIdx > 0 && value.charAt(startIdx - 1) == '\'';
+                    if (inQuotedContext) {
+                        // Remove surrounding single quotes and use ? placeholder
+                        int quoteStart = startIdx - 1;
+                        boolean hasClosingQuote = endIdx + 1 < value.length() && value.charAt(endIdx + 1) == '\'';
+                        int afterEnd = hasClosingQuote ? endIdx + 2 : endIdx + 1;
+                        value = value.substring(0, quoteStart) + "?" + value.substring(afterEnd);
+                    } else {
+                        // Unquoted (numeric) context: validate for data integrity, then parameterize
+                        if (!paramValue.isEmpty() && !paramValue.matches("-?\\d+(\\.\\d+)?")) {
+                            MiscUtils.getLogger().warn("Non-numeric value rejected for unquoted SQL placeholder in report template");
+                            paramValue = "";
+                        }
+                        value = value.substring(0, startIdx) + "?" + value.substring(endIdx + 1);
+                    }
+                    params.add(paramValue);
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+        return new ParameterizedClause(value, params);
     }
 
     public static boolean isIncludeDemo(String value) {
