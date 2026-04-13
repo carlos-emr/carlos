@@ -46,8 +46,8 @@ function BackToCarlos() {
 /**
  * Opens the demographic search popup for linking a patient to a message.
  *
- * Routes through the privilege-checked {@code demographic/DemographicLinkMsg.do}
- * Struts action, which forwards to {@code /WEB-INF/jsp/messenger/msgSearchDemo.jsp}.
+ * Routes through the privilege-checked `demographic/DemographicLinkMsg.do`
+ * Struts action, which forwards to `/WEB-INF/jsp/messenger/msgSearchDemo.jsp`.
  *
  * @param {string} contextPath - Application context path (e.g. "/carlos")
  * @param {string} keyword     - Search keyword entered by the user

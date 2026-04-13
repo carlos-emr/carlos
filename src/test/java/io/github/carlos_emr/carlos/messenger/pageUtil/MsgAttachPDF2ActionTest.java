@@ -153,9 +153,18 @@ class MsgAttachPDF2ActionTest extends CarlosWebTestBase {
         appender.start();
         config.addAppender(appender);
 
-        // Attach to the logger used by the action under test (MiscUtils pulls
-        // the root or a CARLOS-scoped logger; attaching to the root catches both).
-        addedLoggerConfig = config.getRootLogger();
+        // Attach to the action's own logger (MiscUtils.getLogger() uses the
+        // caller class name). Scoping to this specific logger avoids capturing
+        // unrelated messages if the suite runs in parallel.
+        String loggerName =
+                "io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachPDF2Action";
+        LoggerConfig existing = config.getLoggerConfig(loggerName);
+        if (!loggerName.equals(existing.getName())) {
+            LoggerConfig scoped = new LoggerConfig(loggerName, Level.ALL, true);
+            config.addLogger(loggerName, scoped);
+            existing = scoped;
+        }
+        addedLoggerConfig = existing;
         addedLoggerConfig.addAppender(appender, Level.ALL, null);
         ctx.updateLoggers();
     }
