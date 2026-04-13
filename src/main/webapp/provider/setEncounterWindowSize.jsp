@@ -30,6 +30,7 @@
 --%>
 
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%@ page import="java.util.ResourceBundle"%>
 <%@page import="java.util.*" %>
@@ -77,11 +78,11 @@
                 <%=bundle.getString(providermsgEdit)%>
 
                 <form action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
-                    <input type="hidden" name="method" value="<c:out value="${method}"/>">
+                    <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
                     <br/>
-                    Width: <input type="text" name="encounterWindowWidth.value" value="<c:out value='${width.value}'/>" size="5" />
+                    Width: <input type="text" name="encounterWindowWidth.value" value="${e:forHtmlAttribute(width.value)}" size="5" />
                     <br/>
-                    Height: <input type="text" name="encounterWindowHeight.value" value="<c:out value='${height.value}'/>" size="5" />
+                    Height: <input type="text" name="encounterWindowHeight.value" value="${e:forHtmlAttribute(height.value)}" size="5" />
                     <br/>
                     Maximize: <input type="checkbox" name="encounterWindowMaximize.checked" <c:if test="${encounterWindowMaximize.checked}">checked</c:if> />
                     <br/>

@@ -84,6 +84,7 @@
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     // Retrieve user information from session
     String providerNo = (String) session.getAttribute("providerNo");
@@ -416,23 +417,23 @@ function fmtOscarMsg() {
 					<table valign="top" class="card card-body bg-body-tertiary"  style="width:100%"><!-- the messageblock -->
 						<tr>
 							<td class="Printable emphasis" ><fmt:message key="messenger.ViewMessage.msgFrom" />:</td>
-							<td colspan="2" id="sentBy" class="Printable" ><c:out value="${ viewMessageSentby }" />
+							<td colspan="2" id="sentBy" class="Printable" >${e:forHtml( viewMessageSentby )}
 							</td>
 						</tr>
 						<tr>
 							<td class="Printable emphasis" ><fmt:message key="messenger.ViewMessage.msgTo" />:</td>
-							<td colspan="2" id="sentTo" class="Printable" ><c:out value="${ viewMessageSentto }" />
+							<td colspan="2" id="sentTo" class="Printable" >${e:forHtml( viewMessageSentto )}
 							</td>
 						</tr>
 						<tr>
 							<td class="Printable emphasis" ><fmt:message key="messenger.ViewMessage.msgSubject" />:</td>
-							<td colspan="2" id="msgSubject" class="Printable" ><c:out value="${ viewMessageSubject }" />
+							<td colspan="2" id="msgSubject" class="Printable" >${e:forHtml( viewMessageSubject )}
 							</td>
 						</tr>
 						<tr>
 							<td class="Printable emphasis" ><fmt:message key="messenger.ViewMessage.msgDate" />:</td>
 							<td colspan="2" id="sentDate" class="Printable" >
-								<c:out value="${ viewMessageDate }" /> <c:out value="${ viewMessageTime }" />
+								${e:forHtml( viewMessageDate )} ${e:forHtml( viewMessageTime )}
 							</td>
 						</tr>
 						<%-- Display file and PDF attachments if present in session --%>
@@ -502,7 +503,7 @@ function fmtOscarMsg() {
 										<td></td>
 										<td  colspan="2">
 
-											<c:out value="${ demoattached.value }" /> <br />
+											${e:forHtml( demoattached.value )} <br />
 
 											<c:if test="${ demoattached.key eq demographic_no }">
 												<input

@@ -21,6 +21,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils,org.owasp.encoder.Encode" %>
 <%@page import="org.apache.logging.log4j.Logger,io.github.carlos_emr.carlos.commn.dao.OscarLogDao,io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao" %>
@@ -379,7 +380,7 @@
                             <%= (result.isAbnormal() ? "Abnormal" : "") %>
                         </td>
                         <td class="lab-label">
-                            <c:out value="<%= result.getLabel() %>"/>
+                            <%= Encode.forHtml(result.getLabel()) %>
                         </td>
                         <td>
                             <%=result.getDateTime() + (result.isDocument() ? " / " + result.lastUpdateDate : "")%>
@@ -388,13 +389,13 @@
                         <%--                                    <%=result.getPriority()%>--%>
                         <%--                                </td>--%>
                         <td>
-                            <c:out value="<%=result.getRequestingClient()%>"/>
+                            <%= Encode.forHtml(result.getRequestingClient()) %>
                         </td>
                         <td>
-                            <c:out value='<%=result.isDocument() ? result.description == null ? "" : result.description : result.getDisciplineDisplayString()%>'/>
+                            <%= Encode.forHtml(result.isDocument() ? result.description == null ? "" : result.description : result.getDisciplineDisplayString()) %>
                         </td>
                         <td>
-                            <c:out value="<%= result.getReportStatus() %>"/>
+                            <%= Encode.forHtml(result.getReportStatus()) %>
                         </td>
                         <td>
                             <% int multiLabCount = result.getMultipleAckCount(); %>

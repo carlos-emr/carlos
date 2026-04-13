@@ -52,6 +52,7 @@
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <link rel="stylesheet" type="text/css"
       href='${request.contextPath}/css/tigris.css'/>
 <link rel="stylesheet" type="text/css"
@@ -197,7 +198,7 @@
                         <option value="">Any</option>
                         <c:forEach var="gen" items="${genders}">
                             <option value="${gen.code}">
-                                <c:out value="${gen.description}"/>
+                                ${e:forHtml(gen.description)}
                             </option>
                         </c:forEach>
                     </select></td>
@@ -226,24 +227,20 @@
 
             <display:column sortable="true" title="Client No" sortProperty="demographicNo" defaultorder="ascending">
                 <a
-                        href="<%=request.getContextPath() %><%=request.getContextPath() %>/encounter/IncomingEncounter.do?selectId=<c:out value="${client.demographicNo}"/>&demographicNo=<c:out value="${client.demographicNo}"/>&PEAttach=yes&appointmentNo=0&noteId=<%=noteId$%>"><c:out
-                        value="${client.demographicNo}"/></a>
+                        href="<%=request.getContextPath() %><%=request.getContextPath() %>/encounter/IncomingEncounter.do?selectId=${e:forHtmlAttribute(client.demographicNo)}&demographicNo=${e:forHtmlAttribute(client.demographicNo)}&PEAttach=yes&appointmentNo=0&noteId=<%=noteId$%>">${e:forHtml(client.demographicNo)}</a>
             </display:column>
             <display:column sortable="true" title="Name" sortProperty="formattedName">
                 <a
-                        href="javascript:popupPage(600,800,'client','<%=request.getContextPath() %>/PMmodule/ClientManager.do?id=<c:out value="${client.currentRecord}"/>&consent=<c:out value="${consent}"/>')"><c:out
-                        value="${client.formattedName}"/></a>
+                        href="javascript:popupPage(600,800,'client','<%=request.getContextPath() %>/PMmodule/ClientManager.do?id=${e:forHtmlAttribute(client.currentRecord)}&consent=${e:forHtmlAttribute(consent)}')">${e:forHtml(client.formattedName)}</a>
             </display:column>
             <display:column sortable="true" title="Date of Birth">
-                <c:out value="${client.yearOfBirth}"/>/<c:out
-                    value="${client.monthOfBirth}"/>/<c:out
-                    value="${client.dateOfBirth}"/>
+                ${e:forHtml(client.yearOfBirth)}/${e:forHtml(client.monthOfBirth)}/${e:forHtml(client.dateOfBirth)}
             </display:column>
             <display:column sortable="true" title="Gender" sortProperty="sexDesc">
-                <c:out value="${client.sexDesc}"/>
+                ${e:forHtml(client.sexDesc)}
             </display:column>
             <display:column sortable="true" title="Chart No" sortProperty="chartNo">
-                <c:out value="${client.chartNo}"/>
+                ${e:forHtml(client.chartNo)}
             </display:column>
             <display:column sortable="true" title="Admitted to Program">
                 <c:choose>
@@ -266,7 +263,7 @@
 
                         <c:when test="${client.headRecord == null}">
                             <input type="radio" name="head"
-                                   value="<c:out value="${client.demographicNo}" />">
+                                   value="${e:forHtmlAttribute(client.demographicNo)}">
                         </c:when>
                         <c:otherwise>
                             &nbsp;
@@ -278,7 +275,7 @@
                     <c:choose>
                         <c:when test="${client.headRecord == null}">
                             <input type="checkbox" name="records"
-                                   value="<c:out value="${client.demographicNo}" />">
+                                   value="${e:forHtmlAttribute(client.demographicNo)}">
                         </c:when>
                         <c:otherwise>
                             &nbsp;

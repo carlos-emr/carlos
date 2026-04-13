@@ -33,6 +33,7 @@
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.ProviderData, java.util.ArrayList" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
@@ -43,9 +44,9 @@
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
-    <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/screen.js"/>"></script>
-    <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/rx.js"/>"></script>
-    <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/Oscar.js"/>"></script>
+    <script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/share/javascript/screen.js"></script>
+    <script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/share/javascript/rx.js"></script>
+    <script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/share/javascript/Oscar.js"></script>
     <title><fmt:message key="oscarMDS.selectProvider.title"/></title>
 </head>
 <%String docId = request.getParameter("doc_no");%>

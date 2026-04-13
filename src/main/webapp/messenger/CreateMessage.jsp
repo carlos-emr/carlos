@@ -507,7 +507,7 @@ function validateFields() {
 												<summary>
 													<input type="checkbox" name="tableDFR" id="member_group_${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }"
 															value="${ fn:escapeXml(group.key.id) }" onclick="checkGroup(this)" >
-													<label for="member_group_${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }" ><c:out value="${ group.key.groupDesc }" /></label>
+													<label for="member_group_${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }" >${e:forHtml( group.key.groupDesc )}</label>
 												</summary>
 
 												<c:forEach items="${ group.value }" var="member">
@@ -516,7 +516,7 @@ function validateFields() {
 															id="${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" value="${ fn:escapeXml(member.id.compositeId) }" >
 
 														<label for="${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" >
-															<c:out value="${ member.lastName }" />, <c:out value="${ member.firstName }" />
+															${e:forHtml( member.lastName )}, ${e:forHtml( member.firstName )}
 														</label>
 													</div>
 												</c:forEach>
@@ -548,7 +548,7 @@ function validateFields() {
 													<input type="checkbox" name="provider" id="0-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }"
 														value="${ fn:escapeXml(member.id.compositeId) }"  ${ providerChecked ? 'checked' : '' }/>
 													<label for="0-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" >
-														<c:out value="${ member.lastName }" />, <c:out value="${ member.firstName }" />
+														${e:forHtml( member.lastName )}, ${e:forHtml( member.firstName )}
 													</label>
 												</div>
 
@@ -565,9 +565,9 @@ function validateFields() {
                     <div class="row"><div class="col-auto">
 					<label for="subject" class="form-label"><fmt:message key="messenger.CreateMessage.formSubject" /> :</label>
                     </div><div class="col">
-					<input type="text" name="subject" id="subject" class="form-control w-75" value="<c:out value="${messageSubject}"/>"> </div>
+					<input type="text" name="subject" id="subject" class="form-control w-75" value="${e:forHtmlAttribute(messageSubject)}"> </div>
                     <div id="messagediv"></div></div>
-					<textarea name="message" rows="15" style="min-width: 100%"><c:out value="${messageBody}"/></textarea>
+					<textarea name="message" rows="15" style="min-width: 100%">${e:forHtml(messageBody)}</textarea>
 							<table>
 								<tr>
 									<td><button type="submit" class="btn btn-primary" onclick="writeToMessage();"

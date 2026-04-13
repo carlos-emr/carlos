@@ -28,6 +28,7 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -73,7 +74,7 @@
     <thead>
     <tr>
         <td>Health of the Homeless: CAISI Population Health Report</td>
-        <td><c:out value="${date}"></c:out></td>
+        <td>${e:forHtml(date)}</td>
     </tr>
     </thead>
     <tbody>
@@ -82,7 +83,7 @@
             Conditions who currently reside in Toronto Shelters which are part
             of the CAISI Project
         </td>
-        <td><c:out value="${time}"></c:out></td>
+        <td>${e:forHtml(time)}</td>
     </tr>
     </tbody>
 </table>
@@ -98,11 +99,11 @@
     <tbody>
     <tr>
         <th>Clients who used a CAISI shelter in the past year</th>
-        <td><c:out value="${shelterPopulation.pastYear}"></c:out></td>
+        <td>${e:forHtml(shelterPopulation.pastYear)}</td>
     </tr>
     <tr class="odd">
         <th>Current number of individuals in CAISI shelters</th>
-        <td><c:out value="${shelterPopulation.current}"></c:out></td>
+        <td>${e:forHtml(shelterPopulation.current)}</td>
     </tr>
     </tbody>
 </table>
@@ -118,15 +119,15 @@
     <tbody>
     <tr>
         <th>Low Use: (1 - 10 days / 4 yr)</th>
-        <td><c:out value="${shelterUsage.low}"></c:out></td>
+        <td>${e:forHtml(shelterUsage.low)}</td>
     </tr>
     <tr class="odd">
         <th>Moderate Use: (11 - 179 days / 4 yr)</th>
-        <td><c:out value="${shelterUsage.medium}"></c:out></td>
+        <td>${e:forHtml(shelterUsage.medium)}</td>
     </tr>
     <tr>
         <th>High Use: (180 - 730 days / 4 yr)</th>
-        <td><c:out value="${shelterUsage.high}"></c:out></td>
+        <td>${e:forHtml(shelterUsage.high)}</td>
     </tr>
     </tbody>
 </table>
@@ -143,11 +144,11 @@
         <tbody>
         <tr>
             <th>Death Count (# of deaths in past year)</th>
-            <td><c:out value="${mortalities.count}"></c:out></td>
+            <td>${e:forHtml(mortalities.count)}</td>
         </tr>
         <tr class="odd">
             <th>Death Rate (# of deaths in past year / population)</th>
-            <td><c:out value="${mortalities.percent}"></c:out></td>
+            <td>${e:forHtml(mortalities.percent)}</td>
         </tr>
         </tbody>
     </table>
@@ -173,15 +174,15 @@
     <c:forEach varStatus="status" var="condition"
                items="${majorMedicalConditions}">
         <tr>
-            <th><c:out value="${condition.key}"></c:out></th>
+            <th>${e:forHtml(condition.key)}</th>
             <td><c:choose>
                 <c:when
                         test="${condition.value.count > 0 && condition.value.count < 5}">1 - 5</c:when>
                 <c:otherwise>
-                    <c:out value="${condition.value.count}"></c:out>
+                    ${e:forHtml(condition.value.count)}
                 </c:otherwise>
             </c:choose></td>
-            <td><c:out value="${condition.value.percent}"></c:out></td>
+            <td>${e:forHtml(condition.value.percent)}</td>
         </tr>
     </c:forEach>
     </tbody>
@@ -207,15 +208,15 @@
     <c:forEach varStatus="status" var="condition"
                items="${majorMentalIllnesses}">
         <tr>
-            <th><c:out value="${condition.key}"></c:out></th>
+            <th>${e:forHtml(condition.key)}</th>
             <td><c:choose>
                 <c:when
                         test="${condition.value.count > 0 && condition.value.count < 5}">1 - 5</c:when>
                 <c:otherwise>
-                    <c:out value="${condition.value.count}"></c:out>
+                    ${e:forHtml(condition.value.count)}
                 </c:otherwise>
             </c:choose></td>
-            <td><c:out value="${condition.value.percent}"></c:out></td>
+            <td>${e:forHtml(condition.value.percent)}</td>
         </tr>
     </c:forEach>
     </tbody>
@@ -243,15 +244,15 @@
     <c:forEach varStatus="status" var="condition"
                items="${seriousMedicalConditions}">
         <tr>
-            <th><c:out value="${condition.key}"></c:out></th>
+            <th>${e:forHtml(condition.key)}</th>
             <td><c:choose>
                 <c:when
                         test="${condition.value.count > 0 && condition.value.count < 5}">1 - 5</c:when>
                 <c:otherwise>
-                    <c:out value="${condition.value.count}"></c:out>
+                    ${e:forHtml(condition.value.count)}
                 </c:otherwise>
             </c:choose></td>
-            <td><c:out value="${condition.value.percent}"></c:out></td>
+            <td>${e:forHtml(condition.value.percent)}</td>
         </tr>
     </c:forEach>
     </tbody>
@@ -304,7 +305,7 @@
     <table
             class="table table-bordered table-striped table-sm table-hover">
         <caption>
-            <c:out value="${categoryCodeDescription.key}"></c:out>
+            ${e:forHtml(categoryCodeDescription.key)}
         </caption>
         <colgroup>
             <col style="width:16.667%">
@@ -320,8 +321,8 @@
         <c:forEach var="codeDescription"
                    items="${categoryCodeDescription.value}">
             <tr>
-                <th><c:out value="${codeDescription.key}"></c:out></th>
-                <td><c:out value="${codeDescription.value}"></c:out></td>
+                <th>${e:forHtml(codeDescription.key)}</th>
+                <td>${e:forHtml(codeDescription.value)}</td>
             </tr>
         </c:forEach>
         </tbody>

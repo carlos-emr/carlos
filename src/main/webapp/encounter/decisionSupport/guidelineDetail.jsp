@@ -45,6 +45,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -75,27 +76,27 @@
     <link rel="stylesheet" href="decisionSupport.css" type="text/css"></link>
 </head>
 <body>
-<div style="font-size: 16px; font-weight: bold;"><fmt:message key="encounter.guidelinedetail.guidelineassessment"/> <c:out value="${patientName}"/></div>
+<div style="font-size: 16px; font-weight: bold;"><fmt:message key="encounter.guidelinedetail.guidelineassessment"/> ${e:forHtml(patientName)}</div>
 <br>
 <c:if test="${not empty consequences}">
     <c:forEach items="${consequences}" var="consequence">
                     <span class="good" style="font-size: 12px; font-weight: bold;">
-                    GUIDELINE PASSED: <c:out value="${consequence.text}"/><br/>
+                    GUIDELINE PASSED: ${e:forHtml(consequence.text)}<br/>
                     </span>
     </c:forEach>
 </c:if>
 <table style="font-size: 10px;  border-top: 1px solid black; border-collapse: collapse; margin-top: 15px;">
     <tr>
         <th><fmt:message key="encounter.guidelinelist.title"/></th>
-        <td><c:out value="${guideline.title}"/></td>
+        <td>${e:forHtml(guideline.title)}</td>
     </tr>
     <tr>
         <th><fmt:message key="encounter.guidelinelist.author"/></th>
-        <td><c:out value="${guideline.author}"/></td>
+        <td>${e:forHtml(guideline.author)}</td>
     </tr>
     <tr>
         <th><fmt:message key="oscarrx.showallergies.startdate"/></th>
-        <td><c:out value="${guideline.dateStart}"/></td>
+        <td>${e:forHtml(guideline.dateStart)}</td>
     </tr>
 </table>
 Conditions:
@@ -109,13 +110,13 @@ Conditions:
     </tr>
     <c:forEach var="conditionResult" items="${conditionResults}" varStatus="status">
         <tr class="${status.index % 2 == 1 ? 'odd' : 'even'}">
-            <td><c:out value="${conditionResult.condition.conditionType}"/></td>
-            <td><c:out value="${conditionResult.condition.listOperator}"/></td>
-            <td><c:out value="${conditionResult.condition.values}"/></td>
+            <td>${e:forHtml(conditionResult.condition.conditionType)}</td>
+            <td>${e:forHtml(conditionResult.condition.listOperator)}</td>
+            <td>${e:forHtml(conditionResult.condition.values)}</td>
             <td>
                 <c:choose>
                     <c:when test="${empty conditionResult.actualValues}"><span class="bad"><fmt:message key="encounter.guidelinedetail.error"/></span></c:when>
-                    <c:otherwise><c:out value="${conditionResult.actualValues}"/></c:otherwise>
+                    <c:otherwise>${e:forHtml(conditionResult.actualValues)}</c:otherwise>
                 </c:choose>
             </td>
             <td style="text-align: center;">
@@ -132,7 +133,6 @@ Conditions:
     </c:forEach>
 </table>
 <input type="button" value="<fmt:message key="encounter.guidelinedetail.btnlistguideline"/>"
-       onclick="document.location='guidelineAction.do?method=list&demographic_no=<c:out
-               value="${demographic_no}"/>&provider_no=<c:out value="${provider_no}"/>'">
+       onclick="document.location='guidelineAction.do?method=list&demographic_no=${e:forJavaScript(demographic_no)}&provider_no=${e:forJavaScript(provider_no)}'">
 </body>
 </html>

@@ -672,7 +672,7 @@ function renderRxStage() {
 
 
     function moveDrugDown(drugId,swapDrugId,demographicNo) {
-    	CarlosAjax.request('<c:out value="${ctx}"/>/oscarRx/reorderDrug.do', {
+    	CarlosAjax.request('${e:forJavaScript(ctx)}/oscarRx/reorderDrug.do', {
   		  method: 'post',
   		  parameters: {method: 'update', direction: 'down', drugId: drugId, swapDrugId: swapDrugId, demographicNo: demographicNo},
   		  onSuccess: function(transport) {
@@ -684,7 +684,7 @@ function renderRxStage() {
     }
 
     function moveDrugUp(drugId,swapDrugId,demographicNo) {
-    	CarlosAjax.request('<c:out value="${ctx}"/>/oscarRx/reorderDrug.do', {
+    	CarlosAjax.request('${e:forJavaScript(ctx)}/oscarRx/reorderDrug.do', {
     		  method: 'post',
     		  parameters: {method: 'update', direction: 'up', drugId: drugId, swapDrugId: swapDrugId, demographicNo: demographicNo},
     		  onSuccess: function(transport) {
@@ -1198,7 +1198,7 @@ function renderRxStage() {
     <table class="hiddenLayer">
         <tr>
             <td>&nbsp;</td>
-            <td align="right"><a href="javascript: function myFunction() {return false; }" onclick="hidepic('Layer1');" style="text-decoration: none;"><img src='<c:out value="${ctx}/images/close.png"/>' border="0"></a></td>
+            <td align="right"><a href="javascript: function myFunction() {return false; }" onclick="hidepic('Layer1');" style="text-decoration: none;"><img src='${e:forHtmlAttribute(ctx)}/images/close.png' border="0"></a></td>
         </tr>
 
         <tr>
@@ -1852,7 +1852,7 @@ function popForm2(scriptId){
      }
 
      function callAdditionWebService(url,id){
-         var contextPath = '<c:out value="${ctx}"/>';
+         var contextPath = '${e:forJavaScript(ctx)}';
          if (url.indexOf(contextPath) !== 0) {
              url = contextPath + "/oscarRx/" + url;
          }
@@ -1862,7 +1862,7 @@ function popForm2(scriptId){
      }
 
 			function callReplacementWebService(url, id) {
-            var contextPath = '<c:out value="${ctx}"/>';
+            var contextPath = '${e:forJavaScript(ctx)}';
             if (url.indexOf(contextPath) !== 0) {
                 url = contextPath + "/oscarRx/" + url;
             }

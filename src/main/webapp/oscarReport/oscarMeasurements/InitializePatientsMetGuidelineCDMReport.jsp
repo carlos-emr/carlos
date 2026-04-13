@@ -32,6 +32,7 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil.*" %>
@@ -109,7 +110,7 @@
                 <td class="MainTableTopRowRightColumn">
                     <table class="TopStatusBar">
                         <tr>
-                            <td><fmt:message key="oscarReport.CDMReport.msgTitle"/>: <c:out value="${CDMGroup}"/></td>
+                            <td><fmt:message key="oscarReport.CDMReport.msgTitle"/>: ${e:forHtml(CDMGroup)}</td>
                             <td></td>
                             <td style="text-align: right"><a
                                     href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
@@ -140,12 +141,12 @@
                                                 value="ctr"/></td>
                                         <td width="120" class="fieldBox" bgcolor="#ddddff"><input
                                                 type="text" name='startDateA'
-                                                value='<c:out value="${lastYear}"/>' size="10"> <img
+                                                value='${e:forHtmlAttribute(lastYear)}' size="10"> <img
                                                 src="<%= request.getContextPath() %>/img/calendar.gif" border="0"
                                                 onClick="window.open('<%= request.getContextPath() %>/oscarReport/oscarReportCalendarPopup.jsp?type=startDateA&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=<%="RptInitializePatientsMetGuidelineCDMReportForm"%>','','width=300,height=300')"/>
                                         </td>
                                         <td width="120" class="fieldBox" bgcolor="#ddddff"><input
-                                                type="text" name='endDateA' value='<c:out value="${today}"/>'
+                                                type="text" name='endDateA' value='${e:forHtmlAttribute(today)}'
                                                 size="10"> <img src="<%= request.getContextPath() %>/img/calendar.gif" border="0"
                                                                 onClick="window.open('<%= request.getContextPath() %>/oscarReport/oscarReportCalendarPopup.jsp?type=endDateA&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=<%="RptInitializePatientsMetGuidelineCDMReportForm"%>','','width=300,height=300')"/>
                                         </td>
@@ -160,7 +161,7 @@
                                     <tr>
                                         <c:if test="${not empty messages}">
                                             <c:forEach var="msg" items="${messages}">
-                                                <c:out value="${msg}"/>
+                                                ${e:forHtml(msg)}
                                                 <br>
                                             </c:forEach>
                                         </c:if>
@@ -187,10 +188,10 @@
                                             <input type="checkbox" name="guidelineCheckbox" value="${ctr.index}" />
                                         </td>
                                         <td width="4" class="fieldBox" bgcolor="#ddddff">
-                                            <c:out value="${measurementType.typeDisplayName}" />
+                                            ${e:forHtml(measurementType.typeDisplayName)}
                                         </td>
                                         <td width="200" class="fieldBox" bgcolor="#ddddff">
-                                            <c:out value="${measurementType.typeDesc}" />
+                                            ${e:forHtml(measurementType.typeDesc)}
                                         </td>
                                         <td width="200" class="fieldBox" bgcolor="#ddddff"></td>
                                         <td width="10" class="fieldBox" bgcolor="#ddddff">
@@ -228,7 +229,7 @@
                                                         <td>
                                                             <input type="checkbox" name="value(mInstrcsCheckbox${ctr.index}${index.index})" checked="checked"
                                                                    value="${mInstrc.measuringInstrc}" />
-                                                            <c:out value="${mInstrc.measuringInstrc}" />
+                                                            ${e:forHtml(mInstrc.measuringInstrc)}
                                                         </td>
                                                     </tr>
                                                     <% i++; %>

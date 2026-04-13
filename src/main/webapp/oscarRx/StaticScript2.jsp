@@ -50,6 +50,7 @@
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -129,7 +130,7 @@
             RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, currentDemographicNo);
         %>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/Oscar.js"/>"></script>
+        <script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/share/javascript/Oscar.js"></script>
 
         <script language="javascript">
             var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
@@ -149,7 +150,7 @@
                         credentials: 'same-origin',
                         body: data
                     }).then(function() {
-                        window.location.href = "<c:out value="${ctx}"/>" + "/oscarRx/StaticScript2.jsp?regionalIdentifier=" + '<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(regionalIdentifier))) %>' + "&cn=" + '<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(cn))) %>';
+                        window.location.href = "${e:forJavaScript(ctx)}" + "/oscarRx/StaticScript2.jsp?regionalIdentifier=" + '<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(regionalIdentifier))) %>' + "&cn=" + '<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(cn))) %>';
                     });
                 }
             }
@@ -157,7 +158,7 @@
             //represcribe a drug
             async function reRxDrugSearch3(reRxDrugId) {
                 var dataUpdateId = "reRxDrugId=" + encodeURIComponent(reRxDrugId) + "&action=addToReRxDrugIdList&rand=" + Math.floor(Math.random() * 10001);
-                var urlUpdateId = "<c:out value="${ctx}"/>" + "/oscarRx/WriteScript.do";
+                var urlUpdateId = "${e:forJavaScript(ctx)}" + "/oscarRx/WriteScript.do";
                 fetch(urlUpdateId, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
@@ -166,14 +167,14 @@
                 });
 
                 var data = "drugId=" + encodeURIComponent(reRxDrugId);
-                var url = "<c:out value="${ctx}"/>" + "/oscarRx/rePrescribe2.do?method=saveReRxDrugIdToStash";
+                var url = "${e:forJavaScript(ctx)}" + "/oscarRx/rePrescribe2.do?method=saveReRxDrugIdToStash";
                 await fetch(url, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
                     credentials: 'same-origin',
                     body: data
                 });
-                location.href = "<c:out value="${ctx}"/>" + "/oscarRx/SearchDrug3.jsp?";
+                location.href = "${e:forJavaScript(ctx)}" + "/oscarRx/SearchDrug3.jsp?";
             }
 
         </script>

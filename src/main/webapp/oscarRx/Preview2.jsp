@@ -72,6 +72,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -388,7 +389,7 @@
                                             request.setAttribute("phone", finalPhone);
                                         %>
                                         <input type="hidden" name="clinicName"
-                                               value="<c:out value="${infirmaryView_programAddress}"/>"/>
+                                               value="${e:forHtmlAttribute(infirmaryView_programAddress)}"/>
                                         <input type="hidden" name="clinicPhone" value="<%=finalPhone%>"/>
                                         <input type="hidden" id="finalFax" name="clinicFax" value=""/>
                                     </c:otherwise>
@@ -492,7 +493,7 @@
                                             request.setAttribute("phone", finalPhone);
 
                                         %>
-                                        <c:out value="${infirmaryView_programAddress}" escapeXml="false"/><br>
+                                        ${infirmaryView_programAddress}<br>
                                         <fmt:message key="RxPreview.msgTel"/>: <%=finalPhone %><br>
                                         <oscar:oscarPropertiesCheck property="RXFAX" value="yes">
                                             <fmt:message key="RxPreview.msgFax"/>: <%=finalFax %>
@@ -512,7 +513,7 @@
                                             <c:if test="${ not empty bandNumber }">
                                                 <br/>
                                                 <b><fmt:message key="io.github.carlos_emr.carlos.rx.bandNumber"/></b>
-                                                <c:out value="${ bandNumber }"/>
+                                                ${e:forHtml( bandNumber )}
                                             </c:if>
                                         </oscar:oscarPropertiesCheck>
 										<b>
