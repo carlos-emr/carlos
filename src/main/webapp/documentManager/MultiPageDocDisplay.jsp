@@ -830,10 +830,10 @@
                                                        value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>">
                                                 <input type="button" tabindex="<%=tabindex++%>" class="smallButton"
                                                        value="Comment"
-                                                       onclick="addDocComment('<%=Encode.forHtmlAttribute(docId)%>','<%=curAckStatus%>')"/>
+                                                       onclick="addDocComment('<%=Encode.forJavaScriptAttribute(docId)%>','<%=curAckStatus%>')"/>
                                                 <input type="button" tabindex="<%=tabindex++%>" class="smallButton"
                                                        value="<fmt:message key="oscarMDS.index.btnForward"/>"
-                                                       onClick="ForwardSelectedRows(<%=Encode.forHtmlAttribute(docId)%> + ':DOC', null, null);">
+                                                       onClick="ForwardSelectedRows(<%=Encode.forJavaScriptAttribute(docId)%> + ':DOC', null, null);">
                                                 <input type="button" tabindex="<%=tabindex++%>" class="smallButton"
                                                        value="<fmt:message key="oscarMDS.index.btnFile"/>"
                                                        onclick="fileDoc('<%=documentNo%>');">
