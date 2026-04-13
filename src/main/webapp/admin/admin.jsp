@@ -274,46 +274,46 @@
                     <li><a href="#"
                            onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/manageBillingform.jsp");return false;'><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/billing/CA/BC/billingPrivateCodeAdjust.jsp");return false;'><fmt:message key="admin.admin.ManagePrivFrm"/></a></li>
+                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/billing/CA/BC/billingAddCode.do");return false;'><fmt:message key="admin.admin.ManagePrivFrm"/></a></li>
                     <oscar:oscarPropertiesCheck property="BC_BILLING_CODE_MANAGEMENT"
                                                 value="yes">
                         <li><a href="#"
-                               onclick='popupPage(600,900,"${pageContext.request.contextPath}/billing/CA/BC/billingCodeAdjust.jsp");return false;'><fmt:message key="admin.admin.ManageBillCodes"/></a></li>
+                               onclick='popupPage(600,900,"${pageContext.request.contextPath}/billing/CA/BC/billingAddCode.do");return false;'><fmt:message key="admin.admin.ManageBillCodes"/></a></li>
                     </oscar:oscarPropertiesCheck>
                     <li><a href="#"
                            onclick='popupPage(600,600,"${pageContext.request.contextPath}/billing/CA/BC/showServiceCodeAssocs.do");return false;'><fmt:message key="admin.admin.ManageServiceDiagnosticCodeAssoc"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(600,500,"${pageContext.request.contextPath}/billing/CA/BC/supServiceCodeAssocAction.do");return false;'><fmt:message key="admin.admin.ManageProcedureFeeCodeAssoc"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/billingManageReferralDoc.jsp");return false;'><fmt:message key="admin.admin.ManageReferralDoc"/></a></li>
+                           onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/AddReferralDoc.do");return false;'><fmt:message key="admin.admin.ManageReferralDoc"/></a></li>
                     <oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="no"
                                                 defaultVal="true">
                         <li><a href="#"
-                               onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/billingSim.jsp");return false;'><fmt:message key="admin.admin.SimulateSubFile"/></a></li>
+                               onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/ViewBillingSim.do");return false;'><fmt:message key="admin.admin.SimulateSubFile"/></a></li>
                         <li><a href="#"
-                               onclick='popupPage(800,720,"${pageContext.request.contextPath}/billing/CA/BC/billingTeleplanGroupReport.jsp");return false;'><fmt:message key="admin.admin.genTeleplanFile"/></a></li>
+                               onclick='popupPage(800,720,"${pageContext.request.contextPath}/billing/CA/BC/ViewBillingTeleplanGroupReport.do");return false;'><fmt:message key="admin.admin.genTeleplanFile"/></a></li>
                     </oscar:oscarPropertiesCheck>
                     <oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="yes">
                         <li><a href="#"
-                               onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/TeleplanSimulation.jsp");return false;'><fmt:message key="admin.admin.simulateSubFile2"/></a></li>
+                               onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/GenerateTeleplanFile.do");return false;'><fmt:message key="admin.admin.simulateSubFile2"/></a></li>
                         <li><a href="#"
-                               onclick='popupPage(800,720,"${pageContext.request.contextPath}/billing/CA/BC/TeleplanSubmission.jsp");return false;'><fmt:message key="admin.admin.genTeleplanFile2"/></a></li>
+                               onclick='popupPage(800,720,"${pageContext.request.contextPath}/billing/CA/BC/SimulateTeleplanFile.do");return false;'><fmt:message key="admin.admin.genTeleplanFile2"/></a></li>
                         <li><a href="#"
-                               onclick='popupPage(800,1000,"${pageContext.request.contextPath}/billing/CA/BC/teleplan/ManageTeleplan.jsp");return false;'><fmt:message key="admin.admin.manageTeleplan"/></a></li>
+                               onclick='popupPage(800,1000,"${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan.do");return false;'><fmt:message key="admin.admin.manageTeleplan"/></a></li>
                     </oscar:oscarPropertiesCheck>
                     <oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="no"
                                                 defaultVal="true">
                         <li><a href="#"
-                               onclick='popupPage(600,800,"${pageContext.request.contextPath}/billing/CA/BC/billingTA.jsp");return false;'><fmt:message key="admin.admin.uploadRemittance"/></a></li>
+                               onclick='popupPage(600,800,"${pageContext.request.contextPath}/billing/CA/BC/ViewBillingTA.do");return false;'><fmt:message key="admin.admin.uploadRemittance"/></a></li>
                     </oscar:oscarPropertiesCheck>
                     <li><a href="#"
-                           onclick='popupPage(600,800,"${pageContext.request.contextPath}/billing/CA/BC/viewReconcileReports.jsp");return false;'><fmt:message key="admin.admin.reconciliationReports"/></a></li>
+                           onclick='popupPage(600,800,"${pageContext.request.contextPath}/billing/CA/BC/ProcessRemittance.do");return false;'><fmt:message key="admin.admin.reconciliationReports"/></a></li>
                     <li><a href="#"
-                           onclick='popUpBillStatus(375,425,"${pageContext.request.contextPath}/billing/CA/BC/billingAccountReports.jsp");return false;'><fmt:message key="admin.admin.AccountingRpts"/></a></li>
+                           onclick='popUpBillStatus(375,425,"${pageContext.request.contextPath}/billing/CA/BC/ViewBillingAccountReports.do");return false;'><fmt:message key="admin.admin.AccountingRpts"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(800,1000,"${pageContext.request.contextPath}/billing/CA/BC/billStatus.jsp");return false;'><fmt:message key="admin.admin.editInvoices"/></a></li>
+                           onclick='popupPage(800,1000,"${pageContext.request.contextPath}/billing/CA/BC/reprocessBill.do");return false;'><fmt:message key="admin.admin.editInvoices"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(200,300,"${pageContext.request.contextPath}/billing/CA/BC/settleBG.jsp");return false;'><fmt:message key="admin.admin.settlePaidClaims"/></a></li>
+                           onclick='popupPage(200,300,"${pageContext.request.contextPath}/billing/CA/BC/ViewSettleBG.do");return false;'><fmt:message key="admin.admin.settlePaidClaims"/></a></li>
 
                     <%-- Addition of BC MSP Quick Billing by Dennis Warren - December 2011 --%>
                     <li>

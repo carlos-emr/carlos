@@ -63,7 +63,7 @@ public class AssociateCodes2Action extends ActionSupport {
          */
         if (!svc.hasDXCodes()) {
             try {
-                response.sendRedirect(request.getContextPath() + "/billing/CA/BC/dxcode_svccode_assoc.jsp");
+                response.sendRedirect(request.getContextPath() + "/billing/CA/BC/showServiceCodeAssocs.do");
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

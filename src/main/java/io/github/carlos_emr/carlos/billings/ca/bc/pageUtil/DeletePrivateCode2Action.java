@@ -69,7 +69,7 @@ public final class DeletePrivateCode2Action extends ActionSupport {
 
         new BillingCodeData().deleteBillingCode(serviceCode);
 
-        response.sendRedirect(request.getContextPath() + "/billing/CA/BC/billingPrivateCodeAdjust.jsp");
+        response.sendRedirect(request.getContextPath() + "/billing/CA/BC/billingAddCode.do");
         return NONE;
     }
 }

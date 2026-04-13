@@ -112,18 +112,18 @@ String curProvider_no = (String)session.getAttribute("user");
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/billing/manageBillingform.jsp"><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/billingPrivateCodeAdjust.jsp"><fmt:message key="admin.admin.ManagePrivFrm"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/BC/billingAddCode.do"><fmt:message key="admin.admin.ManagePrivFrm"/></a></li>
 					<oscar:oscarPropertiesCheck property="BC_BILLING_CODE_MANAGEMENT"
 						value="yes">
 						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/billingCodeAdjust.jsp"><fmt:message key="admin.admin.ManageBillCodes"/></a></li>
+							class="xlink" rel="${ctx}/billing/CA/BC/billingAddCode.do"><fmt:message key="admin.admin.ManageBillCodes"/></a></li>
 					</oscar:oscarPropertiesCheck>
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/billing/CA/BC/showServiceCodeAssocs.do"><fmt:message key="admin.admin.ManageServiceDiagnosticCodeAssoc"/></a></li>
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/billing/CA/BC/supServiceCodeAssocAction.do"><fmt:message key="admin.admin.ManageProcedureFeeCodeAssoc"/></a></li>
 
-					<li><a href="${ctx}/billing/CA/BC/billingManageReferralDoc.jsp" class="contentLink defaultManageReferralDoc"><fmt:message key="admin.admin.ManageReferralDoc"/></a></li>
+					<li><a href="${ctx}/billing/CA/BC/AddReferralDoc.do" class="contentLink defaultManageReferralDoc"><fmt:message key="admin.admin.ManageReferralDoc"/></a></li>
 
 					<li>
 						<a href="javascript:void(0);" class="xlink" rel="${ ctx }/quickBillingBC.do" >
@@ -133,31 +133,31 @@ String curProvider_no = (String)session.getAttribute("user");
 
 					<oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="no" defaultVal="true">
 						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/billingSim.jsp"><fmt:message key="admin.admin.SimulateSubFile"/></a></li>
+							class="xlink" rel="${ctx}/billing/CA/BC/ViewBillingSim.do"><fmt:message key="admin.admin.SimulateSubFile"/></a></li>
 						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/billingTeleplanGroupReport.jsp"><fmt:message key="admin.admin.genTeleplanFile"/></a></li>
+							class="xlink" rel="${ctx}/billing/CA/BC/ViewBillingTeleplanGroupReport.do"><fmt:message key="admin.admin.genTeleplanFile"/></a></li>
 					</oscar:oscarPropertiesCheck>
 					<oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="yes">
 						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/TeleplanSimulation.jsp"><fmt:message key="admin.admin.simulateSubFile2"/></a></li>
+							class="xlink" rel="${ctx}/billing/CA/BC/GenerateTeleplanFile.do"><fmt:message key="admin.admin.simulateSubFile2"/></a></li>
 						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/TeleplanSubmission.jsp"><fmt:message key="admin.admin.genTeleplanFile2"/></a></li>
+							class="xlink" rel="${ctx}/billing/CA/BC/SimulateTeleplanFile.do"><fmt:message key="admin.admin.genTeleplanFile2"/></a></li>
 						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/teleplan/ManageTeleplan.jsp"><fmt:message key="admin.admin.manageTeleplan"/></a></li>
+							class="xlink" rel="${ctx}/billing/CA/BC/ManageTeleplan.do"><fmt:message key="admin.admin.manageTeleplan"/></a></li>
 					</oscar:oscarPropertiesCheck>
 					<oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="no"
 						defaultVal="true">
 						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/billingTA.jsp"><fmt:message key="admin.admin.uploadRemittance"/></a></li>
+							class="xlink" rel="${ctx}/billing/CA/BC/ViewBillingTA.do"><fmt:message key="admin.admin.uploadRemittance"/></a></li>
 					</oscar:oscarPropertiesCheck>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/viewReconcileReports.jsp"><fmt:message key="admin.admin.reconciliationReports"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/BC/ProcessRemittance.do"><fmt:message key="admin.admin.reconciliationReports"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/billingAccountReports.jsp"><fmt:message key="admin.admin.AccountingRpts"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/BC/ViewBillingAccountReports.do"><fmt:message key="admin.admin.AccountingRpts"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/billStatus.jsp"><fmt:message key="admin.admin.editInvoices"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/BC/reprocessBill.do"><fmt:message key="admin.admin.editInvoices"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/settleBG.jsp"><fmt:message key="admin.admin.settlePaidClaims"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/BC/ViewSettleBG.do"><fmt:message key="admin.admin.settlePaidClaims"/></a></li>
 					</oscar:oscarPropertiesCheck>
 			
 					<oscar:oscarPropertiesCheck property="billregion" value="ON">
