@@ -178,8 +178,8 @@
                     </div>
                 </c:if>
                 <div id="support_text">
-                    <%-- Intentionally unescaped: supportText contains trusted HTML from server-side login .env / deployment configuration on disk, not user input or UI admin content. Using raw EL instead of <c:out escapeXml="false"> for consistency. --%>
-                    ${ LoginResourceBean.supportText }
+                    <%-- supportText is deployment-configured text and must be HTML-encoded before rendering in the page body. --%>
+                    ${e:forHtml(LoginResourceBean.supportText)}
                 </div>
             </div>
         </div>
