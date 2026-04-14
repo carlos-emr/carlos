@@ -13,7 +13,6 @@
 package io.github.carlos_emr.carlos.prescript.gate;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -23,8 +22,9 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Mutation gate for {@code rx/ViewPharmacy.jsp}. Enforces {@code _rx} w
- * privilege AND POST-only before forwarding to the JSP. GET returns 405.
+ * View gate for {@code ViewPharmacy.jsp}. The JSP is opened in an iframe (GET)
+ * to render a read-only pharmacy detail view. This gate enforces {@code _rx}
+ * read privilege before forwarding to the JSP.
  *
  * @since 2026-04-13
  */
@@ -35,16 +35,10 @@ public final class ViewViewPharmacy2Action extends ActionSupport {
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
-        HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
             throw new SecurityException("missing required sec object (_rx)");
-        }
-
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
         }
 
         return SUCCESS;

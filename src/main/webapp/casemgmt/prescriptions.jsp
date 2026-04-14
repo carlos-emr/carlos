@@ -81,7 +81,7 @@ Prescriptions
                                           demoNo='<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("demographicNo"))) %>'
                                           programId='<%= Encode.forHtmlAttribute(StringUtils.noNull((String)session.getAttribute("case_program_id"))) %>'>
                     <a <%= styleColor%> target="_blank"
-                                        href="<%= request.getContextPath() %>/rx/StaticScript2.jsp?regionalIdentifier=<c:out value="${prescription.regionalIdentifier}"/>&cn=<c:out value="${prescription.customName}"/>">
+                                        href="<%= request.getContextPath() %>/rx/addFavoriteStaticScript.do?regionalIdentifier=<c:out value="${prescription.regionalIdentifier}"/>&cn=<c:out value="${prescription.customName}"/>">
                         <c:out value="${prescription.special}"/>
                     </a>
                 </caisirole:SecurityAccess>

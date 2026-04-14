@@ -1092,7 +1092,7 @@ function renderRxStage() {
                                                                 <a href="javascript:void(0);" class="external"><fmt:message key="SearchDrug.legend.external"/></a>
                                                             </div>
 
-                                                            <form action="/rx/rePrescribe">
+                                                            <form action="${pageContext.request.contextPath}/rx/rePrescribe.do">
                                                                 <input type="hidden" property="drugList" />
                                                                 <input type="hidden" name="method">
                                                         </form> <br>
@@ -1371,7 +1371,7 @@ function renderRxStage() {
            var data="randomId="+randomId;
            CarlosAjax.request(ctx + "/rx/WriteScript.do?parameterValue=listPreviousInstructions",
            {method: 'post',parameters:data,synchronous:true,onSuccess:function(transport){
-                 mb.show(randomId, ctx + '/rx/displayMedHistory', '200px');
+                 mb.show(randomId, ctx + '/rx/ViewDisplayMedHistory.do', '200px');
                 }});
     }
 

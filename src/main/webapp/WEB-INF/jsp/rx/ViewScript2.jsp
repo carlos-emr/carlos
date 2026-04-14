@@ -684,7 +684,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
                                         <iframe id='preview' name='preview' width=420px height=890px
-							src="rx/Preview2.jsp?scriptId=<%=bean.getStashItem(0).getScript_no()%>&rePrint=<%=reprint%>&pharmacyId=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("pharmacyId"))) %>"
+							src="<%= request.getContextPath() %>/rx/ViewPreview2.do?scriptId=<%=bean.getStashItem(0).getScript_no()%>&rePrint=<%=reprint%>&pharmacyId=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("pharmacyId"))) %>"
 							align=center border=0 frameborder=0></iframe></div>
 					<% } %>
                                 </td>

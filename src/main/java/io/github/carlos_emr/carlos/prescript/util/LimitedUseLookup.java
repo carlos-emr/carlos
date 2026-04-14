@@ -119,7 +119,7 @@ public class LimitedUseLookup {
                         is = new ByteArrayInputStream(resourceStorage.getFileContents());
                         log.info("loading odb file from resource storage id" + resourceStorage.getId());
                     } else {
-                        String dosing = "oscar/rx/data_extract_20250730.xml";
+                        String dosing = "oscar/oscarRx/data_extract_20250730.xml";
                         log.info("loading odb file from internal resource " + dosing);
                         is = rdf.getClass().getClassLoader().getResourceAsStream(dosing);
                     }

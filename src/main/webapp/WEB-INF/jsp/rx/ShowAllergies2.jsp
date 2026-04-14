@@ -435,7 +435,7 @@
                 <table>
                     <tr class="DivCCBreadCrumbs">
                         <td>
-                            <a href="/rx/searchDrug.do"><fmt:message key="SearchDrug.title"/></a>
+                            <a href="${pageContext.request.contextPath}/rx/searchDrug.do"><fmt:message key="SearchDrug.title"/></a>
                             &nbsp;&gt;&nbsp;
                             <b><fmt:message key="EditAllergies.title"/></b>
                         </td>
@@ -491,7 +491,7 @@
         if (strView.equals(navArray[i])) {
             out.print(" <span class='view_selected'>" + navArray[i] + "</span>");
         } else {
-            out.print("<span class='view_menu'><a href='/rx/showAllergy.do?demographicNo=" + Encode.forUriComponent(demoNo) + "&view=" + Encode.forUriComponent(navArray[i]) + "'>");
+            out.print("<span class='view_menu'><a href='" + request.getContextPath() + "/rx/showAllergy.do?demographicNo=" + Encode.forUriComponent(demoNo) + "&view=" + Encode.forUriComponent(navArray[i]) + "'>");
             out.print(navArray[i]);
             out.print("</a></span>");
          }

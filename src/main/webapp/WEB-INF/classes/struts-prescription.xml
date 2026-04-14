@@ -114,10 +114,10 @@
             <result name="success">/WEB-INF/jsp/rx/ChooseAllergy2.jsp</result>
         </action>
         <action name="rx/addAllergy" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddAllergy2Action">
-            <result name="success" type="redirect">/WEB-INF/jsp/rx/ShowAllergies2.jsp</result>
+            <result name="success" type="redirect">/rx/showAllergy.do?demographicNo=${#session.Patient.demographicNo}</result>
         </action>
         <action name="rx/addAllergy2" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddAllergy2Action">
-            <result name="success" type="redirect">/WEB-INF/jsp/rx/ShowAllergies2.jsp</result>
+            <result name="success" type="redirect">/rx/showAllergy.do?demographicNo=${#session.Patient.demographicNo}</result>
         </action>
         <action name="rx/addReaction" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddReaction2Action">
             <result name="success">/WEB-INF/jsp/rx/AddReaction2.jsp</result>

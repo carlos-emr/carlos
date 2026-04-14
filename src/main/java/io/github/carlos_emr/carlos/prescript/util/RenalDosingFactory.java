@@ -68,7 +68,7 @@ public class RenalDosingFactory {
     static private void loadDosingInformation() {
         MiscUtils.getLogger().debug("current dosing size " + currentDosingInformation.size());
         if (!loaded) {
-            String dosing = "oscar/rx/RenalDosing.xml";
+            String dosing = "oscar/oscarRx/RenalDosing.xml";
             RenalDosingFactory rdf = new RenalDosingFactory();
             InputStream is = rdf.getClass().getClassLoader().getResourceAsStream(dosing);
 

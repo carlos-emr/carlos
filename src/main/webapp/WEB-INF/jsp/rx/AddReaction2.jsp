@@ -321,7 +321,7 @@
                     <tr>
                         <td>
                             <%
-                                String sBack = "/rx/showAllergy.do";
+                                String sBack = request.getContextPath() + "/rx/showAllergy.do";
                             %> <input type=button class="ControlPushButton"
                                       onclick="window.location.href='<%=sBack%>';"
                                       value="Back to View Allergies"/></td>
