@@ -164,6 +164,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
         if (request.getParameter("bcartype") != null && request.getParameter("bcartype").equals("BCAR2007")) {
             ARTYPE = "formBCAR2007";
         }
+        // Defense-in-depth: validate ARTYPE even though it's hardcoded above
+        RptReportCreator.validateSqlIdentifier(ARTYPE);
 
         MiscUtils.getLogger().debug("AR TYPE " + ARTYPE);
 
@@ -201,8 +203,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
         if (oscarProps.getProperty("demographicExt") != null) {
             String[] propDemoExt = oscarProps.getProperty("demographicExt", "").split("\\|");
             for (int i = 0; i < propDemoExt.length; i++) {
-                propSpecSelect.setProperty(propDemoExt[i].replace(' ', '_'), propDemoExt[i]);
-                vecSeqSpecSelect.add(propDemoExt[i].replace(' ', '_'));
+                String key = propDemoExt[i].replace(' ', '_');
+                RptReportCreator.validateSqlIdentifier(key);
+                propSpecSelect.setProperty(key, propDemoExt[i]);
+                vecSeqSpecSelect.add(key);
             }
         }
 
@@ -247,12 +251,14 @@ public class RptDownloadCSVServlet extends HttpServlet {
             if (propARSelect.containsKey(name)) {
                 bARSelect = true;
 
-
-                if (!name.equals("ga") && !name.equals("b_primiparous"))
+                if (!name.equals("ga") && !name.equals("b_primiparous")) {
+                    RptReportCreator.validateSqlIdentifier(name);
                     sARSelect += (sARSelect.length() < 1 ? "" : ",") + ARTYPE + "." + name;
+                }
             }
             if (propSpecSelect.containsKey(name)) {
                 bSpecSelect = true;
+                RptReportCreator.validateSqlIdentifier(name);
                 sSpecSelect += (sSpecSelect.length() < 1 ? "" : ",") + "demographicExt." + name;
             }
 

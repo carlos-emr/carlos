@@ -41,6 +41,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 import java.util.Vector;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -53,6 +54,28 @@ import io.github.carlos_emr.carlos.login.DBHelp;
 public final class RptReportCreator {
     DBHelp dbObj = new DBHelp();
 
+    /**
+     * Pattern for a valid SQL identifier: starts with a letter or underscore,
+     * followed by letters, digits, or underscores.
+     */
+    private static final Pattern VALID_SQL_IDENTIFIER = Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_]*$");
+
+    /**
+     * Validates that a string is a safe SQL identifier (table or column name).
+     * Only allows alphanumeric characters and underscores, starting with a
+     * letter or underscore. Prevents SQL injection via identifier manipulation
+     * in report configurations.
+     *
+     * @param identifier the identifier to validate
+     * @throws SecurityException if the identifier is null or contains invalid characters
+     */
+    public static void validateSqlIdentifier(String identifier) {
+        if (identifier == null || !VALID_SQL_IDENTIFIER.matcher(identifier).matches()) {
+            MiscUtils.getLogger().error("Invalid SQL identifier in report configuration");
+            throw new SecurityException("Invalid SQL identifier in report configuration");
+        }
+    }
+
     // select formBCAR.pg1_ethOrig as Ethnic Origin, ...
     public String getSelectField(String recordId) throws SQLException {
         StringBuilder ret = new StringBuilder();
@@ -62,10 +85,14 @@ public final class RptReportCreator {
             return ret.toString();
         }
         while (rs.next()) {
+            String tableName = DBHelp.getString(rs, "table_name");
+            String colName = DBHelp.getString(rs, "name");
             String caption = DBHelp.getString(rs, "caption");
-            ret.append((ret.length() < 8 ? " " : ", ") + DBHelp.getString(rs, "table_name") + "." + DBHelp.getString(rs, "name"));
+            validateSqlIdentifier(tableName);
+            validateSqlIdentifier(colName);
+            ret.append((ret.length() < 8 ? " " : ", ") + tableName + "." + colName);
             if (caption != null && caption.length() > 0) {
-                ret.append(" as '" + DBHelp.getString(rs, "caption") + "'");
+                ret.append(" as '" + caption.replace("'", "''") + "'");
             }
         }
         rs.close();
@@ -82,6 +109,7 @@ public final class RptReportCreator {
         }
         if (rs.next()) {
             ret = DBHelp.getString(rs, "table_name");
+            validateSqlIdentifier(ret);
         }
         rs.close();
         return ret;
@@ -97,7 +125,9 @@ public final class RptReportCreator {
             return ret;
         }
         while (rs.next()) {
-            vec.add(DBHelp.getString(rs, "table_name"));
+            String tableName = DBHelp.getString(rs, "table_name");
+            validateSqlIdentifier(tableName);
+            vec.add(tableName);
         }
         rs.close();
         for (int i = 0; i < vec.size(); i++) {
