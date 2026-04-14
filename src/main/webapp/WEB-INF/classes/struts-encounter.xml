@@ -592,6 +592,7 @@
         </action>
         <action name="encounter/oscarMeasurements/DefineNewMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDefineNewMeasurementGroup2Action">
             <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/ProcessAddMeasurementGroupAction.jsp</result>
+            <result name="error">/encounter/oscarMeasurements/SetupStyleSheetList.do</result>
         </action>
         <action name="encounter/oscarMeasurements/SetupAddMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasurementGroup2Action">
             <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementGroup.jsp</result>
@@ -604,6 +605,7 @@
         </action>
         <action name="encounter/oscarMeasurements/DeleteMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteMeasurementStyleSheet2Action">
             <result name="success">/encounter/oscarMeasurements/SetupDisplayMeasurementStyleSheet.do</result>
+            <result name="error">/encounter/oscarMeasurements/SetupDisplayMeasurementStyleSheet.do</result>
         </action>
         <action name="encounter/oscarMeasurements/SetupDisplayMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupDisplayMeasurementStyleSheet2Action">
             <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/DisplayMeasurementStyleSheet.jsp</result>

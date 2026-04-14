@@ -30,6 +30,7 @@
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import jakarta.servlet.ServletException;
@@ -71,9 +72,10 @@ public class EctDeleteMeasurementStyleSheet2Action extends ActionSupport {
                     for (MeasurementGroupStyle style : styles) {
                         MeasurementCSSLocation location = lDao.find(ConversionUtils.fromIntString(deleteCheckbox[i]));
                         if (location != null) {
-                            addActionError(getText("error.encounter.Measurements.cannotDeleteStyleSheet", new String[]{location.getLocation()}));
-                            response.sendRedirect(request.getContextPath() + "/encounter/oscarMeasurements/SetupDisplayMeasurementStyleSheet.do");
-                            return NONE;
+                            List<String> errors = new ArrayList<>();
+                            errors.add(getText("error.encounter.Measurements.cannotDeleteStyleSheet", new String[]{location.getLocation()}));
+                            request.setAttribute("actionErrors", errors);
+                            return "error";
                         }
 
                         dao.remove(style);

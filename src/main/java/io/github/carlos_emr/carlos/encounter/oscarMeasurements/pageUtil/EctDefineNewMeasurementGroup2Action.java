@@ -31,6 +31,8 @@
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -62,19 +64,20 @@ public class EctDefineNewMeasurementGroup2Action extends ActionSupport {
         if (securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null) || securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
             EctValidation validate = new EctValidation();
             String regExp = validate.getRegCharacterExp();
-            String contextPath = request.getContextPath();
 
             if (!validate.matchRegExp(regExp, groupName)) {
-                addActionError(getText("errors.invalid", new String[]{groupName}));
-                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/SetupStyleSheetList.do");
-                return NONE;
+                List<String> errors = new ArrayList<>();
+                errors.add(getText("errors.invalid", new String[]{groupName}));
+                request.setAttribute("actionErrors", errors);
+                return "error";
             }
 
             //Write the new groupName to the database if there's no duplication
             if (!write2Database(groupName, styleSheet)) {
-                addActionError(getText("error.encounter.addNewMeasurementGroup.duplicateGroupName", new String[]{groupName}));
-                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/SetupStyleSheetList.do");
-                return NONE;
+                List<String> errors = new ArrayList<>();
+                errors.add(getText("error.encounter.addNewMeasurementGroup.duplicateGroupName", new String[]{groupName}));
+                request.setAttribute("actionErrors", errors);
+                return "error";
             }
 
             HttpSession session = request.getSession();
