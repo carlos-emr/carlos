@@ -45,12 +45,17 @@ public final class ViewLinkReq2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_lab)");
         }
 
-        // Require POST when mutation-trigger params are present.
+        // Require POST when mutation-trigger params are present. LinkReq.jsp runs
+        // LabRequestReportLink.save/update/delete whenever linkReqId is non-empty,
+        // so linkReqId is the true mutation trigger — gate it alongside the
+        // conventional submit/action names.
+        String linkReqId = request.getParameter("linkReqId");
         boolean hasMutationTrigger = request.getParameter("submit") != null
                 || request.getParameter("action") != null
                 || request.getParameter("method") != null
                 || request.getParameter("linkChoice") != null
-                || request.getParameter("buttonAction") != null;
+                || request.getParameter("buttonAction") != null
+                || (linkReqId != null && !linkReqId.isEmpty());
         if (hasMutationTrigger && !"POST".equalsIgnoreCase(request.getMethod())) {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;

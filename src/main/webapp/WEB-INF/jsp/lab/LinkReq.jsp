@@ -220,7 +220,7 @@
 </head>
 <body <%=(close) ? "onLoad=\"closeItUp()\" " : "" %>>
 
-<form action="/lab/ViewLinkReq.do" method="post">
+<form action="<%=request.getContextPath()%>/lab/ViewLinkReq.do" method="post">
     <input type="hidden" name="table" value="<%=Encode.forHtmlAttribute(table != null ? table : "")%>"/>
     <input type="hidden" name="rptid" value="<%=Encode.forHtmlAttribute(rptId != null ? rptId : "")%>"/>
     <input type="hidden" name="reqid" value="<%=Encode.forHtmlAttribute(reqId != null ? reqId : "")%>"/>

@@ -84,7 +84,7 @@
             } else if (labType.equals(LabResultData.CML)) {
                 labDisplayLink = request.getContextPath() + "/lab/CA/ON/ViewCMLDisplay.do?segmentID=" + java.net.URLEncoder.encode(labNo, java.nio.charset.StandardCharsets.UTF_8) + "&providerNo=" + java.net.URLEncoder.encode(providerNo, java.nio.charset.StandardCharsets.UTF_8);
             } else if (labType.equals(LabResultData.HL7TEXT)) {
-                labDisplayLink = request.getContextPath() + "/lab/CA/ALL/createLabLabel.do?segmentID=" + java.net.URLEncoder.encode(labNo, java.nio.charset.StandardCharsets.UTF_8) + "&providerNo=" + java.net.URLEncoder.encode(providerNo, java.nio.charset.StandardCharsets.UTF_8);
+                labDisplayLink = request.getContextPath() + "/lab/CA/ALL/ViewLabDisplay.do?segmentID=" + java.net.URLEncoder.encode(labNo, java.nio.charset.StandardCharsets.UTF_8) + "&providerNo=" + java.net.URLEncoder.encode(providerNo, java.nio.charset.StandardCharsets.UTF_8);
             } else if (labType.equals(LabResultData.EXCELLERIS)) {
                 labDisplayLink = request.getContextPath() + "/lab/CA/BC/ViewLabDisplay.do?segmentID=" + java.net.URLEncoder.encode(labNo, java.nio.charset.StandardCharsets.UTF_8) + "&providerNo=" + java.net.URLEncoder.encode(providerNo, java.nio.charset.StandardCharsets.UTF_8);
             }

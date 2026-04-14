@@ -946,7 +946,7 @@
                                 <%
                                 } else if (LabResultData.isHL7TEXT(type)) {
                                 %>
-                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/createLabLabel.do?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
+                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/ViewLabDisplay.do?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
                                 <%
                                 } else if (LabResultData.isDocument(type)) {
                                 %>

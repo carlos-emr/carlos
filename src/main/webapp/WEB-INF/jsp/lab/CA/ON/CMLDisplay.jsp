@@ -224,11 +224,11 @@
                             } else {
                                 if (request.getParameter("searchProviderNo") != null) { // null if we were called from e-chart
                             %><a
-                                    href="/lab/CA/ON/ViewCMLDisplay.do?segmentID=<%=multiID[i]%>&multiID=<%=lab.multiLabId%>&providerNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))) %>&searchProviderNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("searchProviderNo"))) %>">v<%= i + 1 %>
+                                    href="<%= request.getContextPath() %>/lab/CA/ON/ViewCMLDisplay.do?segmentID=<%=multiID[i]%>&multiID=<%=lab.multiLabId%>&providerNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))) %>&searchProviderNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("searchProviderNo"))) %>">v<%= i + 1 %>
                             </a>&#160;<%
                             } else {
                             %><a
-                                    href="/lab/CA/ON/ViewCMLDisplay.do?segmentID=<%=multiID[i]%>&multiID=<%=lab.multiLabId%>&providerNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))) %>">v<%= i + 1 %>
+                                    href="<%= request.getContextPath() %>/lab/CA/ON/ViewCMLDisplay.do?segmentID=<%=multiID[i]%>&multiID=<%=lab.multiLabId%>&providerNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))) %>">v<%= i + 1 %>
                             </a>&#160;<%
                                         }
                                     }
@@ -566,7 +566,7 @@
                     <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>"
                         class="<%=lineClass%>">
                         <td valign="top" align="left"><a
-                                href="/lab/CA/ON/ViewLabValues.do?testName=<%=thisResult.testName%>&demo=<%=lab.getDemographicNo()%>&labType=CML"><%=thisResult.testName %>
+                                href="<%= request.getContextPath() %>/lab/CA/ON/ViewLabValues.do?testName=<%=thisResult.testName%>&demo=<%=lab.getDemographicNo()%>&labType=CML"><%=thisResult.testName %>
                         </a></td>
                         <td align="center"><%=thisResult.result %>
                         </td>

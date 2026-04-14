@@ -45,12 +45,17 @@ public final class ViewLabBcIndex2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_lab)");
         }
 
-        // Require POST when mutation-trigger params are present.
+        // Require POST when mutation-trigger params are present. index.jsp
+        // writes Hl7Link rows when chk[] is submitted or when the demo_id/pid
+        // pair is supplied (post-back from demo_select popup), so those are
+        // the real CSRF-relevant triggers in addition to conventional names.
         boolean hasMutationTrigger = request.getParameter("submit") != null
                 || request.getParameter("action") != null
                 || request.getParameter("method") != null
                 || request.getParameter("linkChoice") != null
-                || request.getParameter("buttonAction") != null;
+                || request.getParameter("buttonAction") != null
+                || request.getParameterValues("chk") != null
+                || (request.getParameter("demo_id") != null && request.getParameter("pid") != null);
         if (hasMutationTrigger && !"POST".equalsIgnoreCase(request.getMethod())) {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;

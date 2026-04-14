@@ -497,11 +497,11 @@
                                 } else {
                                     if (searchProviderNo != null) { // null if we were called from e-chart
                                 %><a href="javascript:void(0);"
-                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/createLabLabel.do?segmentID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(multiID[i].trim()))%>&multiID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(multiLabId))%>&providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(providerNo)) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(searchProviderNo)) %>', 'labVersion');">v<%= i + 1 %>
+                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay.do?segmentID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(multiID[i].trim()))%>&multiID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(multiLabId))%>&providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(providerNo)) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(searchProviderNo)) %>', 'labVersion');">v<%= i + 1 %>
                                 </a>&#160;<%
                                 } else {
                                 %><a href="javascript:void(0);"
-                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/createLabLabel.do?segmentID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(multiID[i].trim()))%>&multiID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(multiLabId))%>&providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(providerNo)) %>', 'labVersion');">v<%= i + 1 %>
+                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay.do?segmentID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(multiID[i].trim()))%>&multiID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(multiLabId))%>&providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(providerNo)) %>', 'labVersion');">v<%= i + 1 %>
                                 </a>&#160;<%
                                             }
                                         }
@@ -509,10 +509,10 @@
                                     if (multiID.length > 1) {
                                         if (searchProviderNo != null) { // null if we were called from e-chart
                                 %><a href="javascript:void(0);"
-                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/createLabLabel.do?segmentID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(segmentID))%>&multiID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(multiLabId))%>&providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(providerNo)) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(searchProviderNo)) %>&all=true', 'labVersion');">All</a>&#160;<%
+                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay.do?segmentID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(segmentID))%>&multiID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(multiLabId))%>&providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(providerNo)) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(searchProviderNo)) %>&all=true', 'labVersion');">All</a>&#160;<%
                                 } else {
                                 %><a href="javascript:void(0);"
-                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/createLabLabel.do?segmentID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(segmentID))%>&multiID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(multiLabId))%>&providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(providerNo)) %>&all=true', 'labVersion');">All</a>&#160;<%
+                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay.do?segmentID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(segmentID))%>&multiID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(multiLabId))%>&providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(providerNo)) %>&all=true', 'labVersion');">All</a>&#160;<%
                                         }
                                     }
                                 %>

@@ -1131,19 +1131,19 @@ input[id^='acklabel_']{
                                     %>v<%= i + 1 %>&#160;<%
                                 } else {
                                     if (searchProviderNo != null) { // null if we were called from e-chart
-                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/createLabLabel.do?segmentID=<%=Encode.forUriComponent(multiID[i])%>&multiID=<%=Encode.forUriComponent(multiLabId)%>&providerNo=<%= Encode.forUriComponent(providerNo) %>&searchProviderNo=<%= Encode.forUriComponent(searchProviderNo) %>">v<%= i + 1 %>
+                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay.do?segmentID=<%=Encode.forUriComponent(multiID[i])%>&multiID=<%=Encode.forUriComponent(multiLabId)%>&providerNo=<%= Encode.forUriComponent(providerNo) %>&searchProviderNo=<%= Encode.forUriComponent(searchProviderNo) %>">v<%= i + 1 %>
                                 </a>&#160;<%
                                 } else {
-                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/createLabLabel.do?segmentID=<%=Encode.forUriComponent(multiID[i])%>&multiID=<%=Encode.forUriComponent(multiLabId)%>&providerNo=<%= Encode.forUriComponent(providerNo) %>">v<%= i + 1 %>
+                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay.do?segmentID=<%=Encode.forUriComponent(multiID[i])%>&multiID=<%=Encode.forUriComponent(multiLabId)%>&providerNo=<%= Encode.forUriComponent(providerNo) %>">v<%= i + 1 %>
                                 </a>&#160;<%
                                             }
                                         }
                                     }
 //                                                if( multiID.length > 1 ) {
                                     if (searchProviderNo != null) { // null if we were called from e-chart
-                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/createLabLabel.do?segmentID=<%= Encode.forUriComponent(segmentID) %>&multiID=<%=Encode.forUriComponent(multiLabId)%>&providerNo=<%= Encode.forUriComponent(providerNo) %>&searchProviderNo=<%= Encode.forUriComponent(searchProviderNo) %>&all=true">All</a>&#160;<%
+                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay.do?segmentID=<%= Encode.forUriComponent(segmentID) %>&multiID=<%=Encode.forUriComponent(multiLabId)%>&providerNo=<%= Encode.forUriComponent(providerNo) %>&searchProviderNo=<%= Encode.forUriComponent(searchProviderNo) %>&all=true">All</a>&#160;<%
                                 } else {
-                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/createLabLabel.do?segmentID=<%= Encode.forUriComponent(segmentID) %>&multiID=<%=Encode.forUriComponent(multiLabId)%>&providerNo=<%= Encode.forUriComponent(providerNo) %>&all=true">All</a>&#160;<%
+                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay.do?segmentID=<%= Encode.forUriComponent(segmentID) %>&multiID=<%=Encode.forUriComponent(multiLabId)%>&providerNo=<%= Encode.forUriComponent(providerNo) %>&all=true">All</a>&#160;<%
                                     }
 //                                                }
                                 %>

@@ -504,7 +504,7 @@
                 } else if (tableName === 'CML') {
                     url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/ON/ViewCMLDisplay.do?segmentID=' + encodedId + '\')';
                 } else if (tableName === 'HL7') {
-                    url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/ALL/createLabLabel.do?segmentID=' + encodedId + '\')';
+                    url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/ALL/ViewLabDisplay.do?segmentID=' + encodedId + '\')';
                 } else if (tableName === 'DOC' || tableName === 'document') {
                     url = 'javascript:reportWindow(\'' + ctx + '/documentManager/ManageDocument.do?method=display&doc_no=' + encodedId + '\')';
                 } else if (tableName === 'HRM') {

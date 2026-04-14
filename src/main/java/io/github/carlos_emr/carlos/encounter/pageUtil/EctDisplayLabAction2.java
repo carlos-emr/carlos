@@ -147,7 +147,7 @@ public class EctDisplayLabAction2 extends EctDisplayAction {
                     } else {
                         labDisplayName = label;
                     }
-                    url = request.getContextPath() + "/lab/CA/ALL/createLabLabel.do?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId;
+                    url = request.getContextPath() + "/lab/CA/ALL/ViewLabDisplay.do?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId;
                 } else {
                     if (label == null || label.equals("")) {
                         labDisplayName = result.getDiscipline();

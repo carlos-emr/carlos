@@ -303,7 +303,7 @@
                         %>
 
                         <th><a
-                                href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/createLabLabel.do?segmentID=<%=lab_no%>&providerNo=<%= session.getAttribute("user") %>')"><%=UtilDateUtilities.DateToString(labDate, "dd MMM yy")%>
+                                href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/ViewLabDisplay.do?segmentID=<%=lab_no%>&providerNo=<%= session.getAttribute("user") %>')"><%=UtilDateUtilities.DateToString(labDate, "dd MMM yy")%>
                         </a>
                         </th>
                         <%}%>

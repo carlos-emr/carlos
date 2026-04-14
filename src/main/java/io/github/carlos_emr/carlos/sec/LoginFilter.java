@@ -152,7 +152,6 @@ public class LoginFilter implements Filter {
             "/signature_pad/",
             "/lab/CMLlabUpload.do",
             "/lab/newLabUpload.do",
-            "/lab/CMLlabUpload.do",
             "/login.do",
             "/logout.jsp",
             "/index.jsp",

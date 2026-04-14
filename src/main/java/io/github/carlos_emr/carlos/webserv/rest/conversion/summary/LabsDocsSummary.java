@@ -107,7 +107,7 @@ public class LabsDocsSummary implements Summary {
             } else if (result.isHL7TEXT()) {
                 if (label == null || label.equals("")) labDisplayName = result.getDiscipline();
                 else labDisplayName = label;
-                url = "../lab/CA/ALL/createLabLabel.do?providerNo=" + loggedInInfo.getLoggedInProvider().getProviderNo() + "&segmentID=" + result.segmentID;
+                url = "../lab/CA/ALL/ViewLabDisplay.do?providerNo=" + loggedInInfo.getLoggedInProvider().getProviderNo() + "&segmentID=" + result.segmentID;
             } else {
                 if (label == null || label.equals("")) labDisplayName = result.getDiscipline();
                 else labDisplayName = label;

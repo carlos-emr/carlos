@@ -47,7 +47,7 @@
         </action>
         <action name="lab/CA/ALL/Forward" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
             <result name="failure">/errorpage.jsp</result>
-            <result name="success">/lab/CA/ALL/createLabLabel.do</result>
+            <result name="success">/lab/CA/ALL/ViewLabDisplay.do</result>
         </action>
         <action name="lab/CA/BC/Forward" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
             <result name="failure">/errorpage.jsp</result>

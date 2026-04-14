@@ -156,7 +156,7 @@ public class LabDataController {
      *     <ul>
      *       <li>REF_I12: Consultation/referral display via /encounter/ViewRequest.do</li>
      *       <li>ORU_R01: Observation results via generic HL7 display</li>
-     *       <li>Other: Generic HL7 display via /lab/CA/ALL/createLabLabel.do</li>
+     *       <li>Other: Generic HL7 display via /lab/CA/ALL/ViewLabDisplay.do</li>
      *     </ul>
      *   </li>
      *   <li><b>Document</b>: Routed to /documentManager/showDocument.jsp for medical documents</li>
@@ -192,7 +192,7 @@ public class LabDataController {
                     url.append("/encounter/ViewRequest.do?");
                 }
                 else {
-                    url.append("/lab/CA/ALL/createLabLabel.do?inWindow=true");
+                    url.append("/lab/CA/ALL/ViewLabDisplay.do?inWindow=true");
                     url.append("&showLatest=true");
                 }
             }

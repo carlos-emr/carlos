@@ -104,20 +104,21 @@
             window.name = 'LabIndex';
 
             function PopupDemo(pid) {
-                demo = window.open('/lab/CA/BC/ViewDemoSelect.do?postTo=index.jsp?pid=' + pid + '-demo_id=', 'Patients', 'height=500,width=750,scrollbars=1,toolbar=0,status=1,menubar=0,location=0,directories=0,resizable=1');
+                var ctx = '<%= request.getContextPath() %>';
+                demo = window.open(ctx + '/lab/CA/BC/ViewDemoSelect.do?postTo=' + encodeURIComponent(ctx + '/lab/CA/BC/ViewIndex.do') + '?pid=' + pid + '-demo_id=', 'Patients', 'height=500,width=750,scrollbars=1,toolbar=0,status=1,menubar=0,location=0,directories=0,resizable=1');
                 demo.focus();
                 return false;
             }
 
             function PopupLab(pid) {
-                lab = window.open('/lab/CA/BC/ViewReport.do?pid=' + pid, 'Lab', 'height=500,width=900,scrollbars=1,toolbar=0,status=1,menubar=0,location=0,directories=0,resizable=1');
+                lab = window.open('<%= request.getContextPath() %>/lab/CA/BC/ViewReport.do?pid=' + pid, 'Lab', 'height=500,width=900,scrollbars=1,toolbar=0,status=1,menubar=0,location=0,directories=0,resizable=1');
                 lab.focus();
                 return false;
             }
         </script>
     </head>
     <body>
-    <form action="/lab/CA/BC/ViewIndex.do" method="post">
+    <form action="<%= request.getContextPath() %>/lab/CA/BC/ViewIndex.do" method="post">
         <table width="100%" border="0" cellspacing="0" cellpadding="0"
                bgcolor="#D3D3D3">
             <tr>
@@ -125,7 +126,7 @@
                 <td width="50%" align="left"><font color="#4D4D4D"><b><font
                         size="4">oscar<font size="3">PathNET - Patient Linking</font></font></b></font>
                 </td>
-                <td class="Text" align="right"><a href="/lab/CA/BC/ViewSearchReports.do">Search
+                <td class="Text" align="right"><a href="<%= request.getContextPath() %>/lab/CA/BC/ViewSearchReports.do">Search
                     Lab Reports</a>&nbsp;
                 </td>
             </tr>

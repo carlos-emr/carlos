@@ -322,7 +322,7 @@
                     href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ON/ViewCMLDisplay.do?demographicId=<%= Encode.forJavaScriptAttribute(demographicNo) %>&segmentID=<%= Encode.forJavaScriptAttribute(segmentID) %>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&status=<%= Encode.forJavaScriptAttribute(status) %>')"><%=(String) result.getDiscipline()%>
             </a>
                 <% } else if (result.isHL7TEXT()) {%>
-                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/createLabLabel.do?demographicId=<%= Encode.forJavaScriptAttribute(demographicNo) %>&segmentID=<%= Encode.forJavaScriptAttribute(segmentID) %>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&status=<%= Encode.forJavaScriptAttribute(status) %>')">
+                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/ViewLabDisplay.do?demographicId=<%= Encode.forJavaScriptAttribute(demographicNo) %>&segmentID=<%= Encode.forJavaScriptAttribute(segmentID) %>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&status=<%= Encode.forJavaScriptAttribute(status) %>')">
                     <%=Encode.forHtml(StringUtils.trimToEmpty(result.getLabel()))%>
                 </a>
                 <% } else {%>
