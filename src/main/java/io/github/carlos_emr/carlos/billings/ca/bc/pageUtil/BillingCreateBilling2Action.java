@@ -63,6 +63,10 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class BillingCreateBilling2Action extends ActionSupport {
+
+    /** Validation-failure redirect target — the Struts entry for the billing form. */
+    private static final String BILLING_REDIRECT = "/billing.do";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -175,20 +179,20 @@ public class BillingCreateBilling2Action extends ActionSupport {
 
             if (!errors.isEmpty()) {
                 validateCodeLastBilled(request, errors, demo.getDemographicNo().toString());
-                response.sendRedirect(request.getContextPath() + "/billing.do");
+                response.sendRedirect(request.getContextPath() + BILLING_REDIRECT);
                 return NONE;
             }
             validate00120(errors, demo, billItem, bean.getServiceDate());
             if (!errors.isEmpty()) {
                 validateCodeLastBilled(request, errors, demo.getDemographicNo().toString());
-                response.sendRedirect(request.getContextPath() + "/billing.do");
+                response.sendRedirect(request.getContextPath() + BILLING_REDIRECT);
                 return NONE;
             }
             this.validatePatientManagementCodes(errors, demo, billItem,
                     bean.getServiceDate());
             if (!errors.isEmpty()) {
                 validateCodeLastBilled(request, errors, demo.getDemographicNo().toString());
-                response.sendRedirect(request.getContextPath() + "/billing.do");
+                response.sendRedirect(request.getContextPath() + BILLING_REDIRECT);
                 return NONE;
             }
         }
@@ -211,7 +215,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
                     if (errs != null && errs.size() > 0) {
                         request.setAttribute("WCBcode", sc);
                         request.setAttribute("WCBFormNeeds", errs);
-                        response.sendRedirect(request.getContextPath() + "/billing.do");
+                        response.sendRedirect(request.getContextPath() + BILLING_REDIRECT);
                         return NONE;
                     }
                 } else {
@@ -221,7 +225,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
             if (errs != null && errs.size() > 0) {
                 MiscUtils.getLogger().debug("Setting form needed 2");
                 request.setAttribute("WCBFormNeeds", errs);
-                response.sendRedirect(request.getContextPath() + "/billing.do");
+                response.sendRedirect(request.getContextPath() + BILLING_REDIRECT);
                 return NONE;
             }
         }

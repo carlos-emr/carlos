@@ -50,9 +50,11 @@ public final class ViewBillingTA2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        // JSP taglib allows _report OR _admin.reporting OR _admin; mirror the report privilege.
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
-            throw new SecurityException("missing required sec object (_report)");
+        boolean hasReport = securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null);
+        boolean hasAdminReporting = securityInfoManager.hasPrivilege(loggedInInfo, "_admin.reporting", "r", null);
+        boolean hasAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null);
+        if (!hasReport && !hasAdminReporting && !hasAdmin) {
+            throw new SecurityException("missing required sec object (_report, _admin.reporting, or _admin)");
         }
 
         return SUCCESS;

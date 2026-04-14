@@ -62,9 +62,12 @@ public final class ViewGenTeleplanGroupReport2Action extends ActionSupport {
 
         // JSP taglib allows _report OR _admin.reporting OR _admin (read). The JSP also performs
         // billActivityDao.persist(); we keep POST-only for CSRF protection but match the JSP's
-        // documented read-privilege requirement rather than escalating to _admin.billing w.
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
-            throw new SecurityException("missing required sec object (_report)");
+        // documented read-privilege OR chain rather than escalating to _admin.billing w.
+        boolean hasReport = securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null);
+        boolean hasAdminReporting = securityInfoManager.hasPrivilege(loggedInInfo, "_admin.reporting", "r", null);
+        boolean hasAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null);
+        if (!hasReport && !hasAdminReporting && !hasAdmin) {
+            throw new SecurityException("missing required sec object (_report, _admin.reporting, or _admin)");
         }
 
         return SUCCESS;
