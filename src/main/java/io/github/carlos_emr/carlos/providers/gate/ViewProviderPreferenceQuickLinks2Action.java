@@ -13,8 +13,10 @@
 package io.github.carlos_emr.carlos.providers.gate;
 
 /**
- * View gate for {@code provider/providerPreferenceQuickLinksAction.jsp}. Enforces
- * {@code _appointment} {@code r} privilege before forwarding to the JSP.
+ * Mutation gate for {@code provider/providerPreferenceQuickLinksAction.jsp}.
+ * The JSP scriptlet calls {@code ProviderPreferencesUIBean.addQuickLink} /
+ * {@code removeQuickLink}, so the gate enforces {@code _pref} {@code w}
+ * privilege and POST-only (GET returns 405).
  *
  * @since 2026-04-13
  */
@@ -22,11 +24,16 @@ public final class ViewProviderPreferenceQuickLinks2Action extends BaseProviderV
 
     @Override
     protected String getSecurityObject() {
-        return "_appointment";
+        return "_pref";
     }
 
     @Override
     protected String getAccessRight() {
-        return "r";
+        return "w";
+    }
+
+    @Override
+    protected boolean requirePost() {
+        return true;
     }
 }

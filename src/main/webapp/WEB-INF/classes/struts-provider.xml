@@ -119,8 +119,10 @@
         <!-- ===== provider JSP gating actions (migration slice) =====
              Each gate forwards to the moved JSP under /WEB-INF/jsp/provider/.
              Mutation gates (AddStatus, SaveDemographicAccessory, SaveMyGroup,
-             ViewProviderUpdatePassword, ViewObarChecklistEdit, ViewObarRiskEdit,
-             ViewStoreApptInSession) enforce POST-only in the Action class. -->
+             ViewProviderUpdatePassword, ViewProviderUpdatePreference,
+             ViewPreferenceAction, ViewProviderPreferenceQuickLinks,
+             ViewObarChecklistEdit, ViewObarRiskEdit, ViewStoreApptInSession)
+             enforce POST-only in the Action class. -->
         <action name="provider/AddStatus" class="io.github.carlos_emr.carlos.providers.gate.AddStatus2Action">
             <result name="success">/WEB-INF/jsp/provider/provideraddstatus.jsp</result>
         </action>

@@ -141,25 +141,26 @@
     }
 
     //associate each operation with an output JSP file - displaymode
-    String ctx = request.getContextPath();
+    // RequestDispatcher.include() below takes paths relative to the servlet
+    // context root — do NOT prepend request.getContextPath() here.
     String[][] opToFile = new String[][]{
-            {"day", ctx + "/provider/ViewAppointmentAdminDay.do"},
-            {"month", ctx + "/provider/ViewAppointmentAdminMonth.do"},
-            {"addstatus", ctx + "/provider/AddStatus.do"},
-            {"updatepreference", ctx + "/provider/ViewProviderUpdatePreference.do"},
-            {"displaymygroup", ctx + "/provider/ViewProviderDisplayMyGroup.do"},
+            {"day", "/provider/ViewAppointmentAdminDay.do"},
+            {"month", "/provider/ViewAppointmentAdminMonth.do"},
+            {"addstatus", "/provider/AddStatus.do"},
+            {"updatepreference", "/provider/ViewProviderUpdatePreference.do"},
+            {"displaymygroup", "/provider/ViewProviderDisplayMyGroup.do"},
             {"encounter", "providerencounter.jsp"},
-            {"encountersingle", ctx + "/provider/ViewProviderEncounterSingle.do"},
+            {"encountersingle", "/provider/ViewProviderEncounterSingle.do"},
             {"vary", request.getParameter("displaymodevariable") == null ? "" : URLDecoder.decode(request.getParameter("displaymodevariable"))},
             {"saveencounter", "providersaveencounter.jsp"},
             {"savebill", "providersavebill.jsp"},
-            {"savedemographicaccessory", ctx + "/provider/SaveDemographicAccessory.do"},
-            {"encounterhistory", ctx + "/provider/ViewProviderEncounterHistory.do"},
+            {"savedemographicaccessory", "/provider/SaveDemographicAccessory.do"},
+            {"encounterhistory", "/provider/ViewProviderEncounterHistory.do"},
             {"savedeletetemplate", "providertemplate.jsp"},
             {"ar1", "formar1_99_12.jsp"},
             {"ar2", "formar2_99_08.jsp"},
-            {"newgroup", ctx + "/provider/ViewProviderNewGroup.do"},
-            {"savemygroup", ctx + "/provider/SaveMyGroup.do"}
+            {"newgroup", "/provider/ViewProviderNewGroup.do"},
+            {"savemygroup", "/provider/SaveMyGroup.do"}
 
     };
 

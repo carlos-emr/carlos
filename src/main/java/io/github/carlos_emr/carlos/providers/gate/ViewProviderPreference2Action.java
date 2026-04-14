@@ -14,7 +14,9 @@ package io.github.carlos_emr.carlos.providers.gate;
 
 /**
  * View gate for {@code provider/providerpreference.jsp}. Enforces
- * {@code _appointment} {@code r} privilege before forwarding to the JSP.
+ * {@code _pref} {@code r} privilege before forwarding to the JSP — matches
+ * the upstream {@code mainMenu.jsp} {@code <security:oscarSec objectName="_pref" rights="r">}
+ * taglib that wraps the entry link.
  *
  * @since 2026-04-13
  */
@@ -22,7 +24,7 @@ public final class ViewProviderPreference2Action extends BaseProviderViewGate2Ac
 
     @Override
     protected String getSecurityObject() {
-        return "_appointment";
+        return "_pref";
     }
 
     @Override

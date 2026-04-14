@@ -13,8 +13,10 @@
 package io.github.carlos_emr.carlos.providers.gate;
 
 /**
- * View gate for {@code provider/providerupdatepreference.jsp}. Enforces
- * {@code _appointment} {@code w} privilege before forwarding to the JSP.
+ * Mutation gate for {@code provider/providerupdatepreference.jsp}. The JSP
+ * persists provider preferences via {@code ProviderPreferencesUIBean} and
+ * {@code UserProperty} — its own header documents the {@code _pref w}
+ * requirement. Gate enforces that privilege and POST-only (GET returns 405).
  *
  * @since 2026-04-13
  */
@@ -22,11 +24,16 @@ public final class ViewProviderUpdatePreference2Action extends BaseProviderViewG
 
     @Override
     protected String getSecurityObject() {
-        return "_appointment";
+        return "_pref";
     }
 
     @Override
     protected String getAccessRight() {
         return "w";
+    }
+
+    @Override
+    protected boolean requirePost() {
+        return true;
     }
 }
