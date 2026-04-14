@@ -128,7 +128,7 @@
 
     StringBuilder ectFormNames = new StringBuilder();
     for (String formName : formNamesList) {
-        ectFormNames = ectFormNames.append("&encounterFormName=" + formName);
+        ectFormNames = ectFormNames.append("&encounterFormName=" + Encode.forUriComponent(formName));
     }
 
     boolean isMygroupnoNumber = true;
