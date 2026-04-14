@@ -75,7 +75,7 @@
         <action name="PMmodule/ClientSearch2" class="io.github.carlos_emr.carlos.PMmodule.web.ClientSearchAction22Action" method="execute">
             <result name="form">page.pmm.client.searchform</result>
             <result name="search">page.pmm.client.searchresults</result>
-            <result name="attachSearch">/casemgmt/attachClient.jsp</result>
+            <result name="attachSearch">/WEB-INF/jsp/casemgmt/attachClient.jsp</result>
         </action>
         <action name="PMmodule/ClientManager" class="io.github.carlos_emr.carlos.PMmodule.web.ClientManager2Action" method="execute">
             <result name="edit">page.pmm.client</result>

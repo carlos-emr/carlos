@@ -29,7 +29,7 @@
 
 --%>
 
-<%@ include file="/casemgmt/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@page import="java.util.*" %>

@@ -50,7 +50,7 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.DemographicSets, io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="java.util.ArrayList" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ include file="/casemgmt/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%
