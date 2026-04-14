@@ -388,7 +388,7 @@
 
             function split(id, demoName) {
                 var loc = "${pageContext.servletContext.contextPath}";
-                loc = loc + "/oscarMDS/Split.jsp?document=";
+                loc = loc + "/oscarMDS/ViewSplit.do?document=";
                 loc = loc + id;
                 loc = loc + "&queueID=";
                 loc = loc + "<%=Encode.forJavaScript(Encode.forUriComponent(StringUtils.defaultString(inQueue)))%>";
@@ -720,7 +720,7 @@
 
                                     <%}%>
                                     <input type="button" class=" btn btn-light btn-sm" id="createNewDemo" value="<fmt:message key="dms.incomingDocs.createNewDemographic"/>"
-                                           onclick="popup(700,960,'${pageContext.servletContext.contextPath}/demographic/demographicaddarecordhtm.jsp','demographic')">
+                                           onclick="popup(700,960,'${pageContext.servletContext.contextPath}/demographic/ViewDemographicAddARecordHtm.do','demographic')">
 
                                     <input id="saved_<%=docId%>" type="hidden" value="false">
                                     <br><input id="mrp_<%=docId%>" style="display: none;" type="checkbox"

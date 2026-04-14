@@ -322,7 +322,7 @@
         <span class="d-flex align-items-center gap-1">
             <i class="fa-solid fa-circle-info"></i>
             <a href="javascript:void(0)"
-               onClick="window.open('<%=request.getContextPath()%>/encounter/About.jsp','About CARLOS EMR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')"><fmt:message key="global.about"/></a>
+               onClick="window.open('<%=request.getContextPath()%>/encounter/ViewAbout.do','About CARLOS EMR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')"><fmt:message key="global.about"/></a>
         </span>
     </div>
 

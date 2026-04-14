@@ -140,7 +140,7 @@
     %>
     <tr bgcolor="<%=bgcolor%>">
         <td align="center"><a
-                href="<%= request.getContextPath() %>/encounter/echarthistoryprint.jsp?echartid=<%=eChart.getId()%>&demographic_no=<%= Encode.forUriComponent(demographic_no) %>"><%=Encode.forHtml(datetime)%>
+                href="<%= request.getContextPath() %>/encounter/ViewEcharthistoryprint.do?echartid=<%=eChart.getId()%>&demographic_no=<%= Encode.forUriComponent(demographic_no) %>"><%=Encode.forHtml(datetime)%>
         </a></td>
         <td><%=Encode.forHtml(eChart.getSubject() != null ? eChart.getSubject() : "")%>
         </td>

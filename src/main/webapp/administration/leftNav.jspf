@@ -253,9 +253,9 @@ String curProvider_no = (String)session.getAttribute("user");
 			<div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#adminNav">
 			<div class="accordion-body">
 			<ul>
-				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/lab/CA/ALL/testUploader.jsp" ><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/lab/CA/ALL/insideLabUpload.do" ><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
 				<oscar:oscarPropertiesCheck property="OLD_LAB_UPLOAD" value="yes" defaultVal="false">
-					<li><a href="${ctx}/lab/CA/BC/LabUpload.jsp" class="contentLink"><fmt:message key="admin.admin.oldLabUpload"/></a></li>
+					<li><a href="${ctx}/lab/labUpload.do" class="contentLink"><fmt:message key="admin.admin.oldLabUpload"/></a></li>
 				</oscar:oscarPropertiesCheck>
 				<li><a href="${ctx}/admin/labForwardingRules.do" class="contentLink"><fmt:message key="admin.admin.labFwdRules"/></a></li>
 
@@ -607,10 +607,10 @@ String curProvider_no = (String)session.getAttribute("user");
 						}
 					%>
 		            <li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/encounter/oscarConsultationRequest/config/EditSpecialists.jsp"><fmt:message key="admin.admin.consultationSettings"/></a></li>
+						class="xlink" rel="${ctx}/encounter/oscarConsultationRequest/config/ViewEditSpecialists.do"><fmt:message key="admin.admin.consultationSettings"/></a></li>
 <!--
 		            <li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/encounter/oscarConsultationRequest/config/EditSpecialists.jsp"><fmt:message key="admin.admin.professionalSpecialistAdmin"/></a></li>
+						class="xlink" rel="${ctx}/encounter/oscarConsultationRequest/config/ViewEditSpecialists.do"><fmt:message key="admin.admin.professionalSpecialistAdmin"/></a></li>
  -->
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/oscarResearch/oscarDxResearch/dxResearchCustomization.jsp"><fmt:message key="encounter.Index.btnCustomize"/> <fmt:message key="oscar.admin.diseaseRegistryQuickList"/></a></li>
@@ -618,7 +618,7 @@ String curProvider_no = (String)session.getAttribute("user");
 					
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.measurements" rights="r" reverse="<%=false%>">	
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/encounter/oscarMeasurements/Customization.jsp"><fmt:message key="encounter.Index.btnCustomize"/> <fmt:message key="admin.admin.oscarMeasurements"/></a></li>
+						class="xlink" rel="${ctx}/encounter/oscarMeasurements/ViewCustomization.do"><fmt:message key="encounter.Index.btnCustomize"/> <fmt:message key="admin.admin.oscarMeasurements"/></a></li>
 					</security:oscarSec>
 
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">	
@@ -647,7 +647,7 @@ String curProvider_no = (String)session.getAttribute("user");
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
 					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewKeygenKeyManager.do"><fmt:message key="admin.admin.keyPairGen"/></a></li>
 <%--					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/FacilityManager.do"><fmt:message key="admin.admin.manageFacilities"/></a></li>--%>
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/encounter/oscarMeasurements/adminFlowsheet/NewFlowsheet.jsp"><fmt:message key="admin.admin.newFlowsheet"/></a></li>
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/encounter/oscarMeasurements/adminFlowsheet/ViewNewFlowsheet.do"><fmt:message key="admin.admin.newFlowsheet"/></a></li>
 					</security:oscarSec>
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.flowsheet" rights="r" reverse="<%=false%>">
 					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ManageFlowsheets.do"><fmt:message key="admin.admin.flowsheetManager"/></a></li>
@@ -855,9 +855,9 @@ String curProvider_no = (String)session.getAttribute("user");
 <%--						key="admin.admin.btnAdminBackupDownload" /></a></li>--%>
 						
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/demographic/demographicExport.jsp"><fmt:message key="admin.admin.DemoExport"/></a></li>
+						class="xlink" rel="${ctx}/demographic/DemographicExport.do"><fmt:message key="admin.admin.DemoExport"/></a></li>
 		                        <li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/demographic/demographicImport.jsp"><fmt:message key="admin.admin.DemoImport"/></a></li>
+						class="xlink" rel="${ctx}/form/importUpload.do"><fmt:message key="admin.admin.DemoImport"/></a></li>
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/admin/DemographicMergeRecord.do"><fmt:message key="admin.admin.mergeRec"/></a></li>
 					<li><a href='javascript:void(0);'

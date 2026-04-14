@@ -147,20 +147,20 @@
     String demoPath = rootContextPath + "/demographic/";
     String printEnvelope, printLbl, printAddressLbl, printChartLbl, printSexHealthLbl, printHtmlLbl, printLabLbl;
     if (oscarProps != null && "true".equals(oscarProps.getProperty("new_label_print"))) {
-        printEnvelope = demoPath + "printEnvelope.jsp?demos=";
-        printLbl = demoPath + "printDemoLabel.jsp?demographic_no=";
-        printAddressLbl = demoPath + "printAddressLabel.jsp?demographic_no=";
-        printChartLbl = demoPath + "printDemoChartLabel.jsp?demographic_no=";
-        printSexHealthLbl = demoPath + "printDemoChartLabel.jsp?labelName=SexualHealthClinicLabel&demographic_no=";
-        printHtmlLbl = demoPath + "demographiclabelprintsetting.jsp?demographic_no=";
-        printLabLbl = demoPath + "printClientLabLabel.jsp?demographic_no=";
+        printEnvelope = demoPath + "ViewPrintEnvelope.do?demos=";
+        printLbl = demoPath + "ViewPrintDemoLabel.do?demographic_no=";
+        printAddressLbl = demoPath + "ViewPrintAddressLabel.do?demographic_no=";
+        printChartLbl = demoPath + "ViewPrintDemoChartLabel.do?demographic_no=";
+        printSexHealthLbl = demoPath + "ViewPrintDemoChartLabel.do?labelName=SexualHealthClinicLabel&demographic_no=";
+        printHtmlLbl = demoPath + "ViewDemographicLabelPrintSetting.do?demographic_no=";
+        printLabLbl = demoPath + "ViewPrintClientLabLabel.do?demographic_no=";
     } else {
         printEnvelope = rootContextPath + "/report/GenerateEnvelopes.do?demos=";
         printLbl = demoPath + "printDemoLabelAction.do?demographic_no=";
         printAddressLbl = demoPath + "printDemoAddressLabelAction.do?demographic_no=";
         printChartLbl = demoPath + "printDemoChartLabelAction.do?demographic_no=";
         printSexHealthLbl = demoPath + "printDemoChartLabelAction.do?labelName=SexualHealthClinicLabel&demographic_no=";
-        printHtmlLbl = demoPath + "demographiclabelprintsetting.jsp?demographic_no=";
+        printHtmlLbl = demoPath + "ViewDemographicLabelPrintSetting.do?demographic_no=";
         printLabLbl = demoPath + "printClientLabLabelAction.do?demographic_no=";
     }
 
@@ -290,7 +290,7 @@
                 type="text/javascript"></script>
 
         <script type="text/javascript"
-                src="<%=request.getContextPath() %>/demographic/demographiceditdemographic.js.jsp"></script>
+                src="<%=request.getContextPath() %>/demographic/ViewDemographicEditDemographicJs.do"></script>
 
         <!-- Pre-computed i18n strings, safely encoded for JavaScript embedding -->
         <script>
@@ -761,7 +761,7 @@
                 if (patientSet == "-") return;
                 var form = document.createElement('form');
                 form.method = 'post';
-                form.action = 'addDemoToPatientSet.jsp';
+                form.action = '<%= request.getContextPath() %>/demographic/ViewAddDemoToPatientSet.do';
                 form.target = 'addpsetwin';
                 var fields = {demoNo: demoNo, patientSet: patientSet};
                 for (var key in fields) {
@@ -1089,7 +1089,7 @@
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(700,960,'<%= request.getContextPath() %>/encounter/oscarConsultationRequest/DisplayDemographicConsultationRequests.jsp?de=<%=demographic.getDemographicNo()%>&proNo=<%=demographic.getProviderNo()%>')"><fmt:message key="demographic.demographiceditdemographic.btnConsultation"/></a></td>
+                                    onClick="popupPage(700,960,'<%= request.getContextPath() %>/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests.do?de=<%=demographic.getDemographicNo()%>&proNo=<%=demographic.getProviderNo()%>')"><fmt:message key="demographic.demographiceditdemographic.btnConsultation"/></a></td>
                         </tr>
 
                         <tr>
@@ -1208,7 +1208,7 @@
                         </tr>
                         <tr id="searchTable">
                             <td>
-                                <jsp:include page="/demographic/zdemographicfulltitlesearch.jsp"/>
+                                <jsp:include page="/demographic/ViewZdemographicFullTitleSearch.do"/>
                             </td>
                         </tr>
                         <tr>
@@ -1275,7 +1275,7 @@
                                                                                rights="r" reverse="<%=false%>">
                                                                 <input type="button"
                                                                        value="<fmt:message key="demographic.demographiceditdemographic.msgExport"/>"
-                                                                       onclick="window.open('<%= request.getContextPath() %>/demographic/demographicExport.jsp?demographicNo=<%=demographic.getDemographicNo()%>');">
+                                                                       onclick="window.open('<%= request.getContextPath() %>/demographic/DemographicExport.do?demographicNo=<%=demographic.getDemographicNo()%>');">
                                                             </security:oscarSec>
                                                         </td>
                                                         <td width="30%" align='center' valign="top">

@@ -222,7 +222,7 @@ public class PersonaService extends AbstractServiceImpl {
         int idCounter = 0;
 
         MenuTo1 menu = new MenuTo1()
-                .add(idCounter++, bundle.getString("navbar.menu.schedule"), null, "../provider/providercontrol.jsp")
+                .add(idCounter++, bundle.getString("navbar.menu.schedule"), null, "../provider/providercontrol.do")
                 .add(idCounter++, bundle.getString("navbar.menu.inbox"), null, "../web/inboxhub/Inboxhub.do?method=displayInboxForm", "inbox");
 
         if (!consultationManager.isConsultResponseEnabled()) {

@@ -28,8 +28,9 @@
  */
 package io.github.carlos_emr.carlos.event;
 
-import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.logging.log4j.Logger;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 
@@ -47,11 +48,16 @@ public class EventService implements ApplicationEventPublisherAware {
     /*
      * Event is fired:
          src/main/webapp/appointment/appointmentupdatearecord.jsp -- edit appt screen
-         src/main/webapp/provider/provideraddstatus.jsp  -- in appt screen when user clicks on the icon to change the appt status
+         src/main/webapp/provider/AddStatus.do  -- in appt screen when user clicks on the icon to change the appt status
      *
      */
     public void appointmentStatusChanged(Object source, String appointment_no, String provider_no, String status) {
-        logger.debug("appointmentStatusChanged thrown by " + source.getClass().getName() + " appt# " + appointment_no + " status " + status);
+        if (logger.isDebugEnabled()) {
+            logger.debug("appointmentStatusChanged thrown by {} appt# {} status {}",
+                    source.getClass().getName(),
+                    LogSanitizer.sanitize(appointment_no),
+                    LogSanitizer.sanitize(status));
+        }
 
         applicationEventPublisher.publishEvent(new AppointmentStatusChangeEvent(source, appointment_no, provider_no, status));
     }
