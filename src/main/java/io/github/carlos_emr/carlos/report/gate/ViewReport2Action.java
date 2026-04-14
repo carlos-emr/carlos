@@ -60,7 +60,8 @@ public final class ViewReport2Action extends ActionSupport {
                 && !"HEAD".equalsIgnoreCase(method)
                 && !"POST".equalsIgnoreCase(method)) {
             response.setHeader("Allow", "GET, HEAD, POST");
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED,
+                    "GET, HEAD, or POST required");
             return NONE;
         }
 
