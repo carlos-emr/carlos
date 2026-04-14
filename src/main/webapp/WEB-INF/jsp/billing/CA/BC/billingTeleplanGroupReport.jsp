@@ -171,7 +171,7 @@
         <tr>
             <td align='CENTER'><font size="2"
                                      face="Tahoma, Geneva, Arial, Helvetica, san-serif"><a
-                    href="/billing/CA/BC/ViewBillingTeleplanGroupReport.do?year=<%=yearArray[i]%>">YEAR
+                    href="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingTeleplanGroupReport.do?year=<%=yearArray[i]%>">YEAR
                 <%=yearArray[i]%>
             </a></font></td>
         </tr>
@@ -193,7 +193,7 @@
 
 
 <table width="100%" border="0" bgcolor="#E6F0F7">
-    <form name="form1" method="post" action="/billing/CA/BC/ViewGenTeleplanGroupReport.do"
+    <form name="form1" method="post" action="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTeleplanGroupReport.do"
           onsubmit="return checkSubmit();">
         <tr>
             <td width="220"><b><font face="Arial, Helvetica, sans-serif"

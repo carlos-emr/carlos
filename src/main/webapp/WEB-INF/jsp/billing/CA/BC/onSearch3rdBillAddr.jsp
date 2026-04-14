@@ -194,7 +194,7 @@
           topmargin="0" leftmargin="0" rightmargin="0">
     <table border="0" cellpadding="1" cellspacing="0" width="100%"
            class="myDarkGreen">
-        <form method="post" name="titlesearch" action="/billing/CA/BC/ViewOnSearch3rdBillAddr.do"
+        <form method="post" name="titlesearch" action="<%= request.getContextPath() %>/billing/CA/BC/ViewOnSearch3rdBillAddr.do"
               onSubmit="return check();">
             <tr>
                 <td class="searchTitle" colspan="4"><font color="white">Search
@@ -312,7 +312,7 @@
             //-->
         </SCRIPT>
 
-        <form method="post" name="nextform" action="/billing/CA/BC/ViewOnSearch3rdBillAddr.do">
+        <form method="post" name="nextform" action="<%= request.getContextPath() %>/billing/CA/BC/ViewOnSearch3rdBillAddr.do">
             <%
                 if (nLastPage >= 0) {
 
@@ -329,7 +329,7 @@
         %>
         </form>
         <br>
-        <a href="/billing/CA/BC/OnAddEdit3rdAddr.do">Add/Edit Address</a></center>
+        <a href="<%= request.getContextPath() %>/billing/CA/BC/OnAddEdit3rdAddr.do">Add/Edit Address</a></center>
     </body>
 </html>
 <%!

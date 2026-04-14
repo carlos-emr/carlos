@@ -144,7 +144,7 @@
             f1 = document.serviceform.xml_dig_search1.value;
             // f2 = escape(document.serviceform.elements["File2Data"].value);
             // fname = escape(document.Compose.elements["FName"].value);
-            awnd = rs('att', '/billing/CA/BC/ViewBillingDigSearch.do?name=' + f0 + '&search=' + f1, 600, 600, 1);
+            awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/BC/ViewBillingDigSearch.do?name=' + f0 + '&search=' + f1, 600, 600, 1);
             awnd.focus();
         }
 
@@ -200,7 +200,7 @@
 <%@ include file="billingDataRetrieve.jspf" %>
 <% } %>
 <table width="100%" border="0" bgcolor="#FFFFFF">
-    <form name="form1" method="post" action="/billing/CA/BC/ViewBillingCorrection.do">
+    <form name="form1" method="post" action="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCorrection.do">
         <tr>
             <td width="20%" align="left"><b><font
                     face="Arial, Helvetica, sans-serif" size="2" color="#000000">Enter
@@ -231,7 +231,7 @@
 
 <br>
 <form name="serviceform" method="post"
-      action="/billing/CA/BC/ViewBillingCorrectionValid.do"><input type="hidden"
+      action="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCorrectionValid.do"><input type="hidden"
                                                  name="xml_billing_no" value="<%=Encode.forHtmlAttribute(billNo)%>"><input type="hidden"
                                                                                                   name="update_date"
                                                                                                   value="<%=Encode.forHtmlAttribute(UpdateDate)%>">
@@ -381,7 +381,7 @@
             </select> </font></b></td>
             <td width="46%"><b><font face="Arial, Helvetica, sans-serif"
                                      size="2"><a href="#"
-                                                 onClick='rs("billingcalendar","/billing/CA/BC/ViewBillingCalendarPopup.do?year=<%=Encode.forJavaScriptAttribute(String.valueOf(curYear))%>&month=<%=Encode.forJavaScriptAttribute(String.valueOf(curMonth))%>&type=service","380","300","0")'>Billing
+                                                 onClick='rs("billingcalendar","<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup.do?year=<%=Encode.forJavaScriptAttribute(String.valueOf(curYear))%>&month=<%=Encode.forJavaScriptAttribute(String.valueOf(curMonth))%>&type=service","380","300","0")'>Billing
                 Date: </a><input type="text" style="font-size: 80%;"
                                  name="xml_appointment_date" value="<%=Encode.forHtmlAttribute(BillDate)%>"> </font></b></td>
         </tr>
@@ -457,7 +457,7 @@ String proFirst="", proLast="", proOHIP="", proNo="";
             <td width="46%"><b><font face="Arial, Helvetica, sans-serif"
                                      size="2"><input type="hidden" name="xml_visitdate"
                                                      value="<%=Encode.forHtmlAttribute(visitdate)%>"><a href="#"
-                                                                               onClick='rs("billingcalendar","/billing/CA/BC/ViewBillingCalendarPopup.do?year=<%=Encode.forJavaScriptAttribute(String.valueOf(curYear))%>&month=<%=Encode.forJavaScriptAttribute(String.valueOf(curMonth))%>&type=admission","380","300","0")'>
+                                                                               onClick='rs("billingcalendar","<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup.do?year=<%=Encode.forJavaScriptAttribute(String.valueOf(curYear))%>&month=<%=Encode.forJavaScriptAttribute(String.valueOf(curMonth))%>&type=admission","380","300","0")'>
                 Admission Date:</a> <input type="text" style="font-size: 80%;"
                                            name="xml_vdate" value="<%=Encode.forHtmlAttribute(visitdate)%>"></font></b></td>
         </tr>

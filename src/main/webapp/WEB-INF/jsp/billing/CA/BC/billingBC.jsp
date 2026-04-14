@@ -729,7 +729,7 @@
 
         function replaceWCB(id) {
             oscarLog("In replaceWCB");
-            var ur = "/billing/CA/BC/ViewWcbForms.do?wcbid=" + id;
+            var ur = "<%= request.getContextPath() %>/billing/CA/BC/ViewWcbForms.do?wcbid=" + id;
             callReplacementWebService(ur, 'wcbForms');
             oscarLog("replaceWCB out == " + ur);
         }
@@ -1311,7 +1311,7 @@
     </security:oscarSec>
 
     <button type="button" class="btn btn-link" title="View previous invoices for this patient"
-            onclick="popup(800, 1000, '/billing/CA/BC/reprocessBill.do?lastName=<%=demo.getLastName()%>&firstName=<%=demo.getFirstName()%>&filterPatient=true&demographicNo=<%=demo.getDemographicNo()%>','InvoiceList');return false;">
+            onclick="popup(800, 1000, '<%= request.getContextPath() %>/billing/CA/BC/reprocessBill.do?lastName=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.defaultString(demo.getLastName()))) %>&firstName=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.defaultString(demo.getFirstName()))) %>&filterPatient=true&demographicNo=<%= Encode.forJavaScriptAttribute(String.valueOf(demo.getDemographicNo())) %>','InvoiceList');return false;">
         <fmt:message key="demographic.demographiceditdemographic.msgInvoiceList"/>
     </button>
 
@@ -2344,7 +2344,7 @@
 <oscar:oscarPropertiesCheck property="BILLING_DX_REFERENCE" value="yes">
     <script type="text/javascript">
         function getDxInformation(origRequest) {
-            let url = "/billing/CA/BC/ViewDxReference.do";
+            let url = "<%= request.getContextPath() %>/billing/CA/BC/ViewDxReference.do";
             let ran_number = Math.round(Math.random() * 1000000);
             let params = "demographicNo=<%=bean.getPatientNo()%>&rand=" + ran_number;  //hack to get around ie caching the page
             CarlosAjax.updater('DX_REFERENCE', url, {method: 'get', parameters: params});

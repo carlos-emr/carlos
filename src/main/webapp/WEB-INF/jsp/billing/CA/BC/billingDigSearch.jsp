@@ -92,7 +92,7 @@
 %>
 </pre>
 <h3><font face="Arial, Helvetica, sans-serif"> </font></h3>
-<form name="codesearch" method=POST action="/billing/CA/BC/ViewBillingDigSearch.do">
+<form name="codesearch" method=POST action="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingDigSearch.do">
     <p><font face="Arial, Helvetica, sans-serif" size="2"> <b>Refine
         Search</b> <br>
         Code Range: <select name="coderange">
@@ -111,7 +111,7 @@
     </font> <input type=submit name=search value="Search"></p>
 </form>
 <form name="diagcode" id="diagcode" method="post"
-      action="/billing/CA/BC/ViewBillingDigUpdate.do">
+      action="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingDigUpdate.do">
     <table width="600" border="1">
         <tr bgcolor="#CCCCFF">
             <td width="12%"><b> <font face="Arial, Helvetica, sans-serif"

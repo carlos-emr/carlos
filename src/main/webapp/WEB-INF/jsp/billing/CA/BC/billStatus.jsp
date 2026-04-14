@@ -273,7 +273,7 @@
         <%}%>
 
 
-        <form name="serviceform" method="get" action="/billing/CA/BC/reprocessBill.do" class="d-flex flex-wrap align-items-center gap-2">
+        <form name="serviceform" method="get" action="<%= request.getContextPath() %>/billing/CA/BC/reprocessBill.do" class="d-flex flex-wrap align-items-center gap-2">
             <input type="hidden" name="filterPatient" value="<%= Encode.forHtmlAttribute(readonly) %>"/>
             <input type="hidden" name="lastName" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("lastName"))) %>"/>
             <input type="hidden" name="firstName" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("firstName"))) %>"/>
@@ -538,8 +538,8 @@
 
                     bodd = currentBillingNo.equals(b.billing_no) ? !bodd : bodd; //for the color of rows
                     nItems++; //to calculate if it is the end of records
-                    String rejected = isRejected(b.billMasterNo, p, b.isWCB());
-                    String rejected2 = isRejected(b.billMasterNo, p2, b.isWCB());
+                    String rejected = isRejected(b.billMasterNo, p, b.isWCB(), request.getContextPath());
+                    String rejected2 = isRejected(b.billMasterNo, p2, b.isWCB(), request.getContextPath());
                     BigDecimal valueToAdd = new BigDecimal("0.00");
                     try {
                         valueToAdd = new BigDecimal(b.amount).setScale(2, BigDecimal.ROUND_HALF_UP);
@@ -579,7 +579,7 @@
 
 
                 <td><a href="javascript: function myFunction() {return false; }"
-                       onClick="popupPage2(500,1020,'/billing/CA/BC/ViewGenTAS00ByOfficeNo.do?officeNo=<%=b.billMasterNo%>','RecValues');"><%=b.seqNum%>
+                       onClick="popupPage2(500,1020,'<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS00ByOfficeNo.do?officeNo=<%=b.billMasterNo%>','RecValues');"><%=b.seqNum%>
                 </a></td>
                 <td><%=b.apptDate%>
                 </td>
@@ -618,7 +618,7 @@
 
                 <td>
                     <% if (adminAccess) { %>
-                    <a href="javascript: popupPage(700,1000,'/billing/CA/BC/reprocessBill.do?billingmaster_no=<%=b.billMasterNo%>&invoiceNo=<%=b.billing_no%>')">Edit </a>
+                    <a href="javascript: popupPage(700,1000,'<%= request.getContextPath() %>/billing/CA/BC/reprocessBill.do?billingmaster_no=<%=b.billMasterNo%>&invoiceNo=<%=b.billing_no%>')">Edit </a>
                     <% } %>
 
 
@@ -700,10 +700,10 @@
         return reason;
     }
 
-    String isRejected(String billingNo, Properties p, boolean wcb) {
+    String isRejected(String billingNo, Properties p, boolean wcb, String contextPath) {
         String s = "";
         if (p.containsKey(billingNo)) {
-            s = "<a href=\"javascript: popupPage(700,1000,'/billing/CA/BC/reprocessBill.do?billingmaster_no=" + billingNo + "')\" > " + p.getProperty(billingNo) + "</a>";
+            s = "<a href=\"javascript: popupPage(700,1000,'" + contextPath + "/billing/CA/BC/reprocessBill.do?billingmaster_no=" + billingNo + "')\" > " + p.getProperty(billingNo) + "</a>";
         }
         return s;
     }

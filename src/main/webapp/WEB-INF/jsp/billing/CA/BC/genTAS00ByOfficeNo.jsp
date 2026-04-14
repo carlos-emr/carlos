@@ -155,7 +155,7 @@
           %>
         <tr>
             <td width="5%" height="16"><a
-                    href="javascript: popupPage(700,750,'/billing/CA/BC/reprocessBill.do?billingmaster_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(result.getOfficeNo())))%>')"><%=Encode.forHtml(StringUtils.noNull(result.getOfficeNo()))%>
+                    href="javascript: popupPage(700,750,'<%= request.getContextPath() %>/billing/CA/BC/reprocessBill.do?billingmaster_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(result.getOfficeNo())))%>')"><%=Encode.forHtml(StringUtils.noNull(result.getOfficeNo()))%>
             </a>&nbsp;
             </td>
             <td width="5%" height="16"><%=result.getPractitionerNo()%>&nbsp;

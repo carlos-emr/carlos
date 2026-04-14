@@ -230,6 +230,6 @@
 %>
 
 
-<jsp:forward page='/billing/CA/BC/ViewBillingTeleplanGroupReport.do'>
+<jsp:forward page='<%= request.getContextPath() %>/billing/CA/BC/ViewBillingTeleplanGroupReport.do'>
     <jsp:param name="year" value=''/>
 </jsp:forward>

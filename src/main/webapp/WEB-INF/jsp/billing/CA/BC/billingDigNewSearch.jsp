@@ -119,7 +119,7 @@
     </tr>
 </table>
 <form name="servicecode" id="servicecode" method="post"
-      action="/billing/CA/BC/BillingDigNewUpdate.do"><input type="hidden"
+      action="<%= request.getContextPath() %>/billing/CA/BC/BillingDigNewUpdate.do"><input type="hidden"
                                               name="formName" value="<%=Encode.forHtmlAttribute(formName)%>"/> <input type="hidden"
                                                                                              name="formElement"
                                                                                              value="<%=Encode.forHtmlAttribute(formElement)%>"/>

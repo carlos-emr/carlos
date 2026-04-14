@@ -699,7 +699,7 @@
             <td width="46%" class="bCellData">
                 <input type="hidden" name="xml_visitdate" value="<%=Encode.forHtmlAttribute(visitdate)%>">
                 <a href="#"
-                   onClick='rs("billingcalendar","/billing/CA/BC/ViewBillingCalendarPopup.do?year=<%=Encode.forJavaScriptAttribute(String.valueOf(curYear))%>&month=<%=Encode.forJavaScriptAttribute(String.valueOf(curMonth))%>&type=&returnForm=serviceform&returnItem=xml_vdate","380","300","0")'>
+                   onClick='rs("billingcalendar","<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup.do?year=<%=Encode.forJavaScriptAttribute(String.valueOf(curYear))%>&month=<%=Encode.forJavaScriptAttribute(String.valueOf(curMonth))%>&type=&returnForm=serviceform&returnItem=xml_vdate","380","300","0")'>
                     Admission Date:
                 </a>
                 <input type="text" style="font-size:80%;" name="xml_vdate" value="<%=Encode.forHtmlAttribute(visitdate)%>">
@@ -1103,7 +1103,7 @@
 
         function replaceWCB(id) {
             oscarLog("In replaceWCB");
-            var ur = "/billing/CA/BC/ViewWcbForms.do?wcbid=" + id;
+            var ur = "<%= request.getContextPath() %>/billing/CA/BC/ViewWcbForms.do?wcbid=" + id;
             callReplacementWebService(ur, 'wcbForms');
             oscarLog("replaceWCB out == " + ur);
         }

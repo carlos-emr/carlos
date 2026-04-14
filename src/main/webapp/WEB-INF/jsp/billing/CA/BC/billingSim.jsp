@@ -147,7 +147,7 @@
 %>
 
 <table width="100%" border="0" bgcolor="#E6F0F7">
-    <form name="serviceform" method="post" action="/billing/CA/BC/ViewGenSimulation.do"
+    <form name="serviceform" method="post" action="<%= request.getContextPath() %>/billing/CA/BC/ViewGenSimulation.do"
           onSubmit="return checkData();">
         <tr>
             <td width="220"><b><font face="Arial, Helvetica, sans-serif"

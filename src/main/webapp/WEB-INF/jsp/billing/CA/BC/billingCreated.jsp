@@ -574,7 +574,7 @@
                     <%}%>
                     <% if (request.getAttribute("GOBACKWCB") != null && request.getAttribute("GOBACKWCB").equals("true")) {%>
                     <input class="btn btn-warning" type="button" name="Submit3" value="Go Back"
-                           onClick="location.href='/billing/CA/BC/viewformwcb.do'"/>
+                           onClick="location.href='<%= request.getContextPath() %>/billing/CA/BC/viewformwcb.do'"/>
                     <%} else {%>
                     <input class="btn btn-warning" type="button" name="Submit3" value="Go Back"
                            onClick="location.href='/billing.do?loadFromSession=yes'"/>

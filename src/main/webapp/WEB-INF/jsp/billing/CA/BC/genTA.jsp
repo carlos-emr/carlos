@@ -789,9 +789,9 @@
             </td>
             <td><%=Encode.forHtml(StringUtils.noNull(newbalance))%>
             </td>
-            <td><a href="/billing/CA/BC/ViewGenTAS01.do?rano=<%=Encode.forUriComponent(raNo)%>&proNo=" target="_blank">Billed</a>
-                | <a href="/billing/CA/BC/ViewGenTAS00.do?rano=<%=Encode.forUriComponent(raNo)%>&proNo=" target="_blank">Detail</a>|
-                <a href="/billing/CA/BC/ViewGenTAS22.do?rano=<%=Encode.forUriComponent(raNo)%>&proNo=" target="_blank">Summary</a></td>
+            <td><a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS01.do?rano=<%=Encode.forUriComponent(raNo)%>&proNo=" target="_blank">Billed</a>
+                | <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS00.do?rano=<%=Encode.forUriComponent(raNo)%>&proNo=" target="_blank">Detail</a>|
+                <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS22.do?rano=<%=Encode.forUriComponent(raNo)%>&proNo=" target="_blank">Summary</a></td>
             <td><%=Encode.forHtml(String.valueOf(result.getStatus()))%>
             </td>
         </tr>

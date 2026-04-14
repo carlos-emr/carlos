@@ -133,7 +133,7 @@
 </table>
 
 <table width="100%" border="0" bgcolor="#EEEEFF">
-    <form name="serviceform" method="get" action="/billing/CA/BC/ViewBillingReportControl.do">
+    <form name="serviceform" method="get" action="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingReportControl.do">
         <tr>
             <td width="30%" align="right"><font size="2" color="#333333"
                                                 face="Verdana, Arial, Helvetica, sans-serif"> <input
@@ -189,14 +189,14 @@
                 <div align="center"><input type="text" name="xml_vdate"
                                            value="<%=Encode.forHtmlAttribute(xml_vdate)%>"> <font size="1"
                                                                          face="Arial, Helvetica, sans-serif"><a href="#"
-                                                                                                                onClick="openBrWindow('/billing/CA/BC/ViewBillingCalendarPopup.do?type=&returnItem=xml_vdate&returnForm=serviceform&year=<%=curYear%>&month=<%=curMonth%>','','width=300,height=300')">Begin:</a></font>
+                                                                                                                onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup.do?type=&returnItem=xml_vdate&returnForm=serviceform&year=<%=curYear%>&month=<%=curMonth%>','','width=300,height=300')">Begin:</a></font>
                 </div>
             </td>
             <td width="40%"><input type="text" name="xml_appointment_date"
                                    value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>"> <font size="1"
                                                                             face="Arial, Helvetica, sans-serif"><a
                     href="#"
-                    onClick="openBrWindow('/billing/CA/BC/ViewBillingCalendarPopup.do?type=&returnItem=xml_appointment_date&returnForm=serviceform&year=<%=curYear%>&month=<%=curMonth%>','','width=300,height=300')">End:</a></font>
+                    onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup.do?type=&returnItem=xml_appointment_date&returnForm=serviceform&year=<%=curYear%>&month=<%=curMonth%>','','width=300,height=300')">End:</a></font>
             </td>
         </tr>
     </form>

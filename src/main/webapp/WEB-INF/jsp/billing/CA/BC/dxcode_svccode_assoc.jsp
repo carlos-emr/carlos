@@ -34,7 +34,7 @@
                 t0 = escape(document.forms[0].xml_diagnostic_detail1.value);
                 t1 = escape(document.forms[0].xml_diagnostic_detail2.value);
                 t2 = escape(document.forms[0].xml_diagnostic_detail3.value);
-                awnd = rs('att', '/billing/CA/BC/ViewBillingDigNewSearch.do?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=', 600, 600, 1);
+                awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/BC/ViewBillingDigNewSearch.do?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=', 600, 600, 1);
                 awnd.focus();
 
 

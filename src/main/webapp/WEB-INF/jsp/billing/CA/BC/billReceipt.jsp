@@ -149,7 +149,7 @@
         <script language="JavaScript">
 
             function editInvoice(billNo) {
-                popupPage(700, 750, '/billing/CA/BC/reprocessBill.do?billingmaster_no=' + billNo);
+                popupPage(700, 750, '<%= request.getContextPath() %>/billing/CA/BC/reprocessBill.do?billingmaster_no=' + billNo);
             }
 
             function printInvoiceWithoutNotes() {
@@ -255,7 +255,7 @@
 
             function scriptAttach(elementName) {
                 var d = elementName;
-                popupPage('600', '700', '/billing/CA/BC/ViewOnSearch3rdBillAddr.do');
+                popupPage('600', '700', '<%= request.getContextPath() %>/billing/CA/BC/ViewOnSearch3rdBillAddr.do');
             }
 
         </script>

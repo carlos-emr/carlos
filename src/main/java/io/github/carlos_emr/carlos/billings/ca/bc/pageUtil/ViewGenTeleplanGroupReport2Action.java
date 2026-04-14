@@ -23,9 +23,12 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Mutation gate for {@code billing/CA/BC/genTeleplanGroupReport.jsp}. The JSP performs
- * billActivityDao.persist() calls when generating group report in a scriptlet. Enforces {@code _admin.billing} w privilege AND
- * POST-only before forwarding to the JSP. GET requests return 405.
+ * Mutation gate for {@code billing/CA/BC/genTeleplanGroupReport.jsp}. The JSP
+ * performs {@code billActivityDao.persist()} calls when generating the group
+ * report in a scriptlet. Enforces POST-only AND {@code _report} {@code r}
+ * privilege (matching the JSP's original {@code security:oscarSec} taglib,
+ * which accepts {@code _report}, {@code _admin.reporting}, or {@code _admin}
+ * at read level) before forwarding to the JSP. GET requests return 405.
  * <p>
  * Class name retains the {@code View...} prefix for consistency with
  * sibling gate actions in this migration; behavior is mutation-gate.
@@ -36,22 +39,32 @@ public final class ViewGenTeleplanGroupReport2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Enforces the gate contract (privilege and POST-only where applicable) and
+     * forwards to the JSP configured as the Struts {@code success} result. See the
+     * class-level Javadoc for the exact privilege requirement.
+     *
+     * @return the Struts result string
+     * @throws Exception if the underlying Struts framework signals an error
+     * @since 2026-04-13
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         // JSP taglib allows _report OR _admin.reporting OR _admin (read). The JSP also performs
         // billActivityDao.persist(); we keep POST-only for CSRF protection but match the JSP's
         // documented read-privilege requirement rather than escalating to _admin.billing w.
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
             throw new SecurityException("missing required sec object (_report)");
-        }
-
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
         }
 
         return SUCCESS;

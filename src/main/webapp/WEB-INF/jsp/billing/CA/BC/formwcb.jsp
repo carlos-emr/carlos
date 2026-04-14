@@ -296,7 +296,10 @@
                 var width = 575;
                 var height = 400;
                 var str = document.forms[form].elements[field].value;
-                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/BillingFeeItem.do"/>' + '?form=' + form + '&field=' + field + '&searchStr=' + str;
+                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/BillingFeeItem.do"/>'
+                    + '?form=' + encodeURIComponent(form)
+                    + '&field=' + encodeURIComponent(field)
+                    + '&searchStr=' + encodeURIComponent(str);
                 var windowName = field;
                 popup(height, width, url, windowName);
             }
@@ -305,7 +308,10 @@
                 var width = 575;
                 var height = 400;
                 var str = document.forms[form].elements[field].value;
-                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/Icd9.do"/>' + '?form=' + form + '&field=' + field + '&searchStr=' + str;
+                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/Icd9.do"/>'
+                    + '?form=' + encodeURIComponent(form)
+                    + '&field=' + encodeURIComponent(field)
+                    + '&searchStr=' + encodeURIComponent(str);
                 var windowName = field;
                 popup(height, width, url, windowName);
             }

@@ -190,8 +190,8 @@
         <td align="right"><%=Encode.forHtml(moneyFormat(newbalance))%></td>
         <td >&nbsp;&nbsp;
            Billed( <a href="createBillingReportAction.do?docFormat=pdf&repType=REP_MSPREM&rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&selPayee=<%=Encode.forUriComponent(StringUtils.noNull(payeeNo))%>" target="_blank">PDF</a>|<a href="createBillingReportAction.do?docFormat=csv&repType=REP_MSPREM&rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&selPayee=<%=Encode.forUriComponent(StringUtils.noNull(payeeNo))%>" target="_blank">CSV</a>) |
-           <a href="/billing/CA/BC/ViewGenTAS00.do?rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&proNo=" target="_blank">Detail</a> |
-           <a href="/billing/CA/BC/ViewGenTAS22.do?rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&proNo=" target="_blank">Summary</a>
+           <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS00.do?rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&proNo=" target="_blank">Detail</a> |
+           <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS22.do?rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&proNo=" target="_blank">Summary</a>
            ( <a href="createBillingReportAction.do?docFormat=pdf&repType=REP_MSPREMSUM&rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&proNo=" target="_blank">PDF</a>|<a href="createBillingReportAction.do?docFormat=csv&repType=REP_MSPREMSUM&rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&proNo=" target="_blank">CSV</a>)
         </td>
         <td ><%=Encode.forHtml(String.valueOf(result.getStatus()))%></td>

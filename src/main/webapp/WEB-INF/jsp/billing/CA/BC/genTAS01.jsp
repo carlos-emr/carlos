@@ -116,7 +116,7 @@
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#333333">
         <th align='CENTRE'>
-            <form action="/billing/CA/BC/ViewGenTAS01.do"><input type="hidden" name="rano"
+            <form action="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS01.do"><input type="hidden" name="rano"
                                                value="<%=Encode.forHtmlAttribute(StringUtils.noNull(raNo))%>"><select name="proNo">
                 <option value="all" <%=proNo.equals("all") ? "selected" : ""%>>All
                     Providers
@@ -184,7 +184,7 @@
       %>
         <tr>
             <td width="10%" height="16"><a
-                    href="javascript: popupPage(700,750,'/billing/CA/BC/reprocessBill.do?billingmaster_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(result.getOfficeNo())))%>')"><%=Encode.forHtml(StringUtils.noNull(result.getOfficeNo()))%>
+                    href="javascript: popupPage(700,750,'<%= request.getContextPath() %>/billing/CA/BC/reprocessBill.do?billingmaster_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(result.getOfficeNo())))%>')"><%=Encode.forHtml(StringUtils.noNull(result.getOfficeNo()))%>
             </a>&nbsp;
             </td>
             <td width="10%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getPractitionerNo()))%>&nbsp;

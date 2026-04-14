@@ -333,7 +333,7 @@
 %>
 
 <%
-        response.sendRedirect("/billing/CA/BC/ViewBillingCorrectionReview.do");
+        response.sendRedirect(request.getContextPath() + "/billing/CA/BC/ViewBillingCorrectionReview.do");
     } catch (java.lang.ArrayIndexOutOfBoundsException _e0) {
     }%>
 

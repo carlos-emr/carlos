@@ -37,9 +37,11 @@ import org.apache.struts2.ServletActionContext;
  * scriptlet previously in {@code billing/CA/BC/deletePrivateCode.jsp}.
  * <p>
  * The JSP was reachable at the public path with only a taglib privilege check.
- * This action enforces {@code _admin.billing} write privilege AND POST-only
- * before invoking {@link BillingCodeData#deleteBillingCode(String)}, then
- * redirects to the private code admin page.
+ * This action enforces POST-only AND {@code _admin.billing} or {@code _admin}
+ * write privilege (OR, matching the legacy taglib {@code
+ * objectName="_admin.billing,_admin"}) before invoking
+ * {@link BillingCodeData#deleteBillingCode(String)}, then redirects to the
+ * private code admin page via the Struts {@code success} result.
  *
  * @since 2026-04-13
  */
@@ -47,29 +49,40 @@ public final class DeletePrivateCode2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Enforces the gate contract (privilege and POST-only where applicable) and
+     * forwards to the JSP configured as the Struts {@code success} result. See the
+     * class-level Javadoc for the exact privilege requirement.
+     *
+     * @return the Struts result string
+     * @throws Exception if the underlying Struts framework signals an error
+     * @since 2026-04-13
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.billing)");
-        }
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
 
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        boolean hasBillingAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null);
+        boolean hasAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null);
+        if (!hasBillingAdmin && !hasAdmin) {
+            throw new SecurityException("missing required sec object (_admin.billing or _admin)");
+        }
+
         String serviceCode = request.getParameter("code");
-        if (serviceCode == null || serviceCode.isEmpty()) {
+        if (serviceCode == null || serviceCode.isBlank()) {
             serviceCode = "-1";
         }
 
         new BillingCodeData().deleteBillingCode(serviceCode);
 
-        response.sendRedirect(request.getContextPath() + "/billing/CA/BC/billingAddCode.do");
-        return NONE;
+        return SUCCESS;
     }
 }

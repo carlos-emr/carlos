@@ -24,7 +24,7 @@ import org.apache.struts2.ServletActionContext;
 
 /**
  * Mutation gate for {@code billing/CA/BC/genTA.jsp}. The JSP performs
- * bulk teleplanS*Dao.persist() calls when parsing Teleplan response records in a scriptlet. Enforces {@code _admin.billing} w privilege AND
+ * bulk teleplanS*Dao.persist() calls when parsing Teleplan response records in a scriptlet. Enforces {@code _admin.billing} or {@code _admin} or {@code _admin} w privilege AND
  * POST-only before forwarding to the JSP. GET requests return 405.
  * <p>
  * Class name retains the {@code View...} prefix for consistency with
@@ -36,19 +36,31 @@ public final class ViewGenTA2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Enforces the gate contract (privilege and POST-only where applicable) and
+     * forwards to the JSP configured as the Struts {@code success} result. See the
+     * class-level Javadoc for the exact privilege requirement.
+     *
+     * @return the Struts result string
+     * @throws Exception if the underlying Struts framework signals an error
+     * @since 2026-04-13
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.billing)");
-        }
-
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
+        }
+
+        boolean hasBillingAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null);
+        boolean hasAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null);
+        if (!hasBillingAdmin && !hasAdmin) {
+            throw new SecurityException("missing required sec object (_admin.billing or _admin)");
         }
 
         return SUCCESS;

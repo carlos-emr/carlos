@@ -273,7 +273,9 @@
             <result name="error">/WEB-INF/jsp/billing/CA/BC/billingCorrectionSubmit.jsp</result>
         </action>
         <action name="billing/CA/BC/DeletePrivateCode"
-                class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.DeletePrivateCode2Action"/>
+                class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.DeletePrivateCode2Action">
+            <result name="success" type="redirect">/billing/CA/BC/billingAddCode.do?whereTo=private</result>
+        </action>
 
         <!-- ===== Billing Save — Ontario (migrated from JSP controllers) ===== -->
         <action name="billing/CA/ON/BillingONSave"

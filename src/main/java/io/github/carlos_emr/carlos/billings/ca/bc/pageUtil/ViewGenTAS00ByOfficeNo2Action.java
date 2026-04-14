@@ -23,7 +23,7 @@ import org.apache.struts2.ServletActionContext;
 
 /**
  * View gate for {@code billing/CA/BC/genTAS00ByOfficeNo.jsp}. Enforces
- * {@code _admin.billing} {@code w} privilege before forwarding to the
+ * {@code _admin.billing} or {@code _admin} {@code w} privilege before forwarding to the
  * JSP at its {@code /WEB-INF/jsp/} location. Created as part of the BC
  * billing migration to gate direct-access paths behind Struts2 actions.
  *
@@ -33,13 +33,24 @@ public final class ViewGenTAS00ByOfficeNo2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Enforces the gate contract (privilege and POST-only where applicable) and
+     * forwards to the JSP configured as the Struts {@code success} result. See the
+     * class-level Javadoc for the exact privilege requirement.
+     *
+     * @return the Struts result string
+     * @throws Exception if the underlying Struts framework signals an error
+     * @since 2026-04-13
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.billing)");
+        boolean hasBillingAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null);
+        boolean hasAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null);
+        if (!hasBillingAdmin && !hasAdmin) {
+            throw new SecurityException("missing required sec object (_admin.billing or _admin)");
         }
 
         return SUCCESS;

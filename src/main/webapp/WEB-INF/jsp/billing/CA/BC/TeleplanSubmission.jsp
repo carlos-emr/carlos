@@ -170,7 +170,7 @@
             <% for (String year : yearArray) { %>
             <tr>
                 <td align='CENTER'><a
-                        href="/billing/CA/BC/SimulateTeleplanFile.do?year=<%=Encode.forUriComponent(year)%>">YEAR <%=Encode.forHtml(year)%>
+                        href="<%= request.getContextPath() %>/billing/CA/BC/SimulateTeleplanFile.do?year=<%=Encode.forUriComponent(year)%>">YEAR <%=Encode.forHtml(year)%>
                 </a></td>
             </tr>
             <% } %>
@@ -178,7 +178,7 @@
             <c:forEach var="year" items="${yearArray}">
                 <tr>
                     <td align='CENTER'><a
-                            href="/billing/CA/BC/SimulateTeleplanFile.do?year=<c:out value="${year}"/>">YEAR
+                            href="<%= request.getContextPath() %>/billing/CA/BC/SimulateTeleplanFile.do?year=<c:out value="${year}"/>">YEAR
                         <c:out value="${year}"/></a></td>
                 </tr>
             </c:forEach>

@@ -109,7 +109,7 @@
     request.setAttribute("html", htmlValue);
 %>
 
-<jsp:forward page='/billing/CA/BC/ViewBillingSim.do'>
+<jsp:forward page='<%= request.getContextPath() %>/billing/CA/BC/ViewBillingSim.do'>
     <jsp:param name="xml_appointment_date" value='<%= dateEnd %>'/>
     <jsp:param name="xml_v_date" value='<%= dateBegin %>'/>
     <jsp:param name="provider" value='<%= provider %>'/>

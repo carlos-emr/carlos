@@ -24,7 +24,7 @@
         MSPReconcile rec = new MSPReconcile();
         rec.settleBGBills();
 %>
-<jsp:forward page="/billing/CA/BC/ViewSettleBG.do">
+<jsp:forward page="<%= request.getContextPath() %>/billing/CA/BC/ViewSettleBG.do">
     <jsp:param name="settled" value="true"/>
 </jsp:forward>
 <%}%>
@@ -43,7 +43,7 @@
     <h4>All claims with an explanation of type 'BG' have been adjusted and settled</h4>
     <%} else {%>
     <h4>Automatically settle claims that have been over/under paid(BG)</h4>
-    <form method="post" action="/billing/CA/BC/ViewSettleBG.do">
+    <form method="post" action="<%= request.getContextPath() %>/billing/CA/BC/ViewSettleBG.do">
         <input type="hidden" name="settled" value="false"/> <br>
         <input class="btn btn-primary" type="submit" name="Continue" value="Submit">
     </form>

@@ -34,19 +34,29 @@ public final class BillingDigNewUpdate2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Enforces the gate contract (privilege and POST-only where applicable) and
+     * forwards to the JSP configured as the Struts {@code success} result. See the
+     * class-level Javadoc for the exact privilege requirement.
+     *
+     * @return the Struts result string
+     * @throws Exception if the underlying Struts framework signals an error
+     * @since 2026-04-13
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
-        }
-
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
+        }
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
         }
 
         return SUCCESS;

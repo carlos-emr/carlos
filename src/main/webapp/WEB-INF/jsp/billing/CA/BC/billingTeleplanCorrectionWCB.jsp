@@ -714,7 +714,7 @@
         <table width="100%">
             <tr>
                 <td colspan="2" align="center" class="SectionHead"><a
-                        href="/billing/CA/BC/billingTeleplanCorrectionWCB.do?billing_no=<%=Encode.forUriComponent(StringUtils.noNull(form.getId()))%>">Refresh</a>
+                        href="<%= request.getContextPath() %>/billing/CA/BC/billingTeleplanCorrectionWCB.do?billing_no=<%=Encode.forUriComponent(StringUtils.noNull(form.getId()))%>">Refresh</a>
                     | <input type="button" name="Button" value="Close"
                              onClick="window.close();"> | <input type="button"
                                                                  name="Button" value="Print" onClick="window.print();">
