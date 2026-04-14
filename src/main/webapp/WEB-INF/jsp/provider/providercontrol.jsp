@@ -142,23 +142,23 @@
 
     //associate each operation with an output JSP file - displaymode
     String[][] opToFile = new String[][]{
-            {"day", "/provider/ViewAppointmentAdminDay.do"},
-            {"month", "/provider/ViewAppointmentAdminMonth.do"},
-            {"addstatus", "/provider/AddStatus.do"},
-            {"updatepreference", "/provider/ViewProviderUpdatePreference.do"},
-            {"displaymygroup", "/provider/ViewProviderDisplayMyGroup.do"},
+            {"day", "<%= request.getContextPath() %>/provider/ViewAppointmentAdminDay.do"},
+            {"month", "<%= request.getContextPath() %>/provider/ViewAppointmentAdminMonth.do"},
+            {"addstatus", "<%= request.getContextPath() %>/provider/AddStatus.do"},
+            {"updatepreference", "<%= request.getContextPath() %>/provider/ViewProviderUpdatePreference.do"},
+            {"displaymygroup", "<%= request.getContextPath() %>/provider/ViewProviderDisplayMyGroup.do"},
             {"encounter", "providerencounter.jsp"},
-            {"encountersingle", "/provider/ViewProviderEncounterSingle.do"},
+            {"encountersingle", "<%= request.getContextPath() %>/provider/ViewProviderEncounterSingle.do"},
             {"vary", request.getParameter("displaymodevariable") == null ? "" : URLDecoder.decode(request.getParameter("displaymodevariable"))},
             {"saveencounter", "providersaveencounter.jsp"},
             {"savebill", "providersavebill.jsp"},
-            {"savedemographicaccessory", "/provider/SaveDemographicAccessory.do"},
-            {"encounterhistory", "/provider/ViewProviderEncounterHistory.do"},
+            {"savedemographicaccessory", "<%= request.getContextPath() %>/provider/SaveDemographicAccessory.do"},
+            {"encounterhistory", "<%= request.getContextPath() %>/provider/ViewProviderEncounterHistory.do"},
             {"savedeletetemplate", "providertemplate.jsp"},
             {"ar1", "formar1_99_12.jsp"},
             {"ar2", "formar2_99_08.jsp"},
-            {"newgroup", "/provider/ViewProviderNewGroup.do"},
-            {"savemygroup", "/provider/SaveMyGroup.do"}
+            {"newgroup", "<%= request.getContextPath() %>/provider/ViewProviderNewGroup.do"},
+            {"savemygroup", "<%= request.getContextPath() %>/provider/SaveMyGroup.do"}
 
     };
 

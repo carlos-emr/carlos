@@ -12,42 +12,28 @@
  */
 package io.github.carlos_emr.carlos.providers.gate;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-
-import org.apache.struts2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
-
 /**
- * Mutation gate for {@code provider/providersavedemographicaccessory.jsp}. The JSP scriptlet performs
- * demographicAccessoryDao.persist/merge scriptlet. Enforces {@code _demographic} w privilege AND POST-only. GET
- * returns 405.
+ * Mutation gate for {@code provider/providersavedemographicaccessory.jsp}. The
+ * JSP scriptlet performs {@code demographicAccessoryDao.persist/merge}.
+ * Enforces POST-only (GET returns 405) and {@code _demographic} {@code w}
+ * privilege.
  *
  * @since 2026-04-13
  */
-public final class SaveDemographicAccessory2Action extends ActionSupport {
-
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+public final class SaveDemographicAccessory2Action extends BaseProviderViewGate2Action {
 
     @Override
-    public String execute() throws Exception {
-        HttpServletRequest request = ServletActionContext.getRequest();
-        HttpServletResponse response = ServletActionContext.getResponse();
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    protected String getSecurityObject() {
+        return "_demographic";
+    }
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
-        }
+    @Override
+    protected String getAccessRight() {
+        return "w";
+    }
 
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
-        }
-
-        return SUCCESS;
+    @Override
+    protected boolean requirePost() {
+        return true;
     }
 }

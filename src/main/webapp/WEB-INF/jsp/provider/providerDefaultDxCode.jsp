@@ -87,7 +87,7 @@
 %>
 
 
-<form id="preference_form" name="preference_form" action="/provider/ViewPreferenceAction.do" method="post">
+<form id="preference_form" name="preference_form" action="<%= request.getContextPath() %>/provider/ViewPreferenceAction.do" method="post">
     <input type="hidden" name="provider_no" id="provider_no" value="<%=Encode.forHtmlAttribute(provider_no)%>"/>
     <input type="hidden" name="new_tickler_warning_window" id="new_tickler_warning_window"
            value="<%=Encode.forHtmlAttribute(request.getParameter("new_tickler_warning_window") != null ? request.getParameter("new_tickler_warning_window") : "")%>"/>

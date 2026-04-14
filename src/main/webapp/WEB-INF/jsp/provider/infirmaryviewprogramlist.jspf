@@ -1,4 +1,4 @@
-<%-- This page is included by "/provider/ViewAppointmentAdminDay.do".
+<%-- This page is included by "<%= request.getContextPath() %>/provider/ViewAppointmentAdminDay.do".
      User defined JavaScript functions here can be found in the above file. --%>
 
 
@@ -18,7 +18,7 @@ questr= CaisiUtil.removeAttr(questr,"infirmaryView_clientStatusId=");
 questr= CaisiUtil.removeAttr(questr,"viewall");
 questr += "&viewall=1";
 
-String providerurlString="/provider/providercontrol.do?"+questr;
+String providerurlString="<%= request.getContextPath() %>/provider/providercontrol.do?"+questr;
 
 //remove "infirmaryView_isOscar" from querystring
 questr= CaisiUtil.removeAttr(questr,"infirmaryView_isOscar=");
@@ -115,7 +115,7 @@ function submitStatus(ctrl) {// only place other than infirmaction.java to set i
 	</select>
 	<caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
 		<caisi:ProgramExclusiveView providerNo="<%=((LoggedInInfo)LoggedInInfo.getLoggedInInfoFromSession(request)).getLoggedInProviderNo()%>" value="no">
-			<a href='/provider/providercontrol.do?infirmaryView_isOscar=true&GoToCaisiViewFromOscarView=false&<%=session.getAttribute("infirmaryView_OscarQue") %>'>|
+			<a href='<%= request.getContextPath() %>/provider/providercontrol.do?infirmaryView_isOscar=true&GoToCaisiViewFromOscarView=false&<%=session.getAttribute("infirmaryView_OscarQue") %>'>|
 			Oscar View</a>
 		</caisi:ProgramExclusiveView>
 	</caisi:isModuleLoad>
@@ -124,7 +124,7 @@ function submitStatus(ctrl) {// only place other than infirmaction.java to set i
 <c:if test="${infirmaryView_isOscar == 'true'}">
 	<caisi:ProgramExclusiveView providerNo="<%=((LoggedInInfo)LoggedInInfo.getLoggedInInfoFromSession(request)).getLoggedInProviderNo()%>" value="no">
 		<div align="right"><a
-			href='/provider/providercontrol.do?infirmaryView_isOscar=false&GoToCaisiViewFromOscarView=true&<%=session.getAttribute("infirmaryView_OscarQue") %>'>|
+			href='<%= request.getContextPath() %>/provider/providercontrol.do?infirmaryView_isOscar=false&GoToCaisiViewFromOscarView=true&<%=session.getAttribute("infirmaryView_OscarQue") %>'>|
 		Case Management View</a></div>
 	</caisi:ProgramExclusiveView>
 </c:if>

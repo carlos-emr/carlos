@@ -147,7 +147,7 @@
 
     <body onLoad="setfocus('oldpassword')" topmargin="0" leftmargin="0" rightmargin="0">
     <FORM NAME="updatepassword" METHOD="post"
-          ACTION="/provider/ViewProviderUpdatePassword.do" onSubmit="return(checkPwdPolicy())">
+          ACTION="<%= request.getContextPath() %>/provider/ViewProviderUpdatePassword.do" onSubmit="return(checkPwdPolicy())">
         <table border=0 cellspacing=0 cellpadding=0 width="100%">
             <tr bgcolor="#486ebd">
                 <th align=CENTER NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:message key="provider.providerchangepassword.description"/></font></th>

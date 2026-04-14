@@ -94,7 +94,7 @@
                     },
                     function (xml) {
                         if (xml.success)
-                            window.location = '/provider/ViewClients.do';
+                            window.location = '<%= request.getContextPath() %>/provider/ViewClients.do';
                         else
                             alert(xml.error);
                     }, "json");
@@ -108,7 +108,7 @@
                     },
                     function (xml) {
                         if (xml.success)
-                            window.location = '/provider/ViewClients.do';
+                            window.location = '<%= request.getContextPath() %>/provider/ViewClients.do';
                         else
                             alert(xml.error);
                     }, "json");

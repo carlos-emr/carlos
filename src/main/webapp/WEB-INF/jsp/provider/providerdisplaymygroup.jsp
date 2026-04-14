@@ -69,7 +69,7 @@
             </h4>
         </div>
 
-    <form name="UPDATEPRE" method="post" action="/provider/providercontrol.do">
+    <form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/providercontrol.do">
         <input type="hidden" name="submit_form" value="">
         <input type="hidden" name="displaymode" value="newgroup">
         <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">

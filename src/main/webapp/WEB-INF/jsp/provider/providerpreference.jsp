@@ -506,7 +506,7 @@
     </style>
 </head>
 <body>
-<form name="UPDATEPRE" method="post" action="/provider/ViewProviderUpdatePreference.do" onsubmit="return checkTypeInAll()">
+<form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/ViewProviderUpdatePreference.do" onsubmit="return checkTypeInAll()">
 <input type="hidden" name="color_template" value="deepblue">
 <input type="hidden" name="ticklerforproviderno" value="<%=Encode.forHtmlAttribute(props.getOrDefault(UserProperty.PROVIDER_FOR_TICKLER_WARNING, ""))%>">
 
@@ -564,7 +564,7 @@
                 <div class="pref-value" style="display:flex; align-items:center; gap:8px;">
                     <input type="text" name="mygroup_no" value="<%=Encode.forHtmlAttribute(myGroupNo != null ? myGroupNo : "")%>"
                            class="pref-input form-select-sm" maxlength="10">
-                    <a href="/provider/ViewProviderDisplayMyGroup.do" class="pref-link" target="_blank" rel="noopener noreferrer">
+                    <a href="<%= request.getContextPath() %>/provider/ViewProviderDisplayMyGroup.do" class="pref-link" target="_blank" rel="noopener noreferrer">
                         <i class="fas fa-users"></i> <fmt:message key="provider.providerpreference.link.viewGroups"/>
                     </a>
                 </div>
@@ -1322,19 +1322,19 @@
                 <fmt:message key="provider.providerpreference.account.sectionNote"/>
             </div>
             <div class="pref-links">
-                <a href="/provider/ViewProviderChangePassword.do" class="pref-link" target="_blank" rel="noopener noreferrer">
+                <a href="<%= request.getContextPath() %>/provider/ViewProviderChangePassword.do" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-key"></i> <fmt:message key="provider.providerpreference.link.changePassword"/>
                 </a>
                 <a href="${pageContext.request.contextPath}/EnterSignature.do" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-pen-nib"></i> <fmt:message key="provider.providerpreference.linkEditTextSig"/>
                 </a>
-                <a href="/provider/EditPrinter.do" class="pref-link" target="_blank" rel="noopener noreferrer">
+                <a href="<%= request.getContextPath() %>/provider/EditPrinter.do" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-print"></i> <fmt:message key="provider.providerpreference.link.setDefaultPrinter"/>
                 </a>
                 <a href="<%=request.getContextPath()%>/provider/CppPreferences.do" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-columns"></i> <fmt:message key="provider.providerpreference.link.configureEChartCpp"/>
                 </a>
-                <a href="/provider/ViewClients.do" class="pref-link" target="_blank" rel="noopener noreferrer">
+                <a href="<%= request.getContextPath() %>/provider/ViewClients.do" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-plug"></i> <fmt:message key="provider.providerpreference.link.manageApiClients"/>
                 </a>
                 <a href="<%= request.getContextPath() %>/admin/DisplayDocumentDescriptionTemplate.do"
@@ -1476,7 +1476,7 @@ function checkTypeInAll() {
 function submitQuickLinkAction(action, name, url) {
     var form = document.createElement('form');
     form.method = 'post';
-    form.action = '/provider/ViewProviderPreferenceQuickLinks.do';
+    form.action = '<%= request.getContextPath() %>/provider/ViewProviderPreferenceQuickLinks.do';
     var fields = {action: action, name: name};
     if (url) { fields.url = url; }
     for (var key in fields) {

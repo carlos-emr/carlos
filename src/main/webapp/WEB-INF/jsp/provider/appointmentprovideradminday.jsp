@@ -542,15 +542,15 @@
             }
 
             function goWeekView(s) {
-                self.location.href = "/provider/providercontrol.do?year=<%=year%>&month=<%=month%>&day=<%=day%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1&provider_no=" + s;
+                self.location.href = "<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=year%>&month=<%=month%>&day=<%=day%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1&provider_no=" + s;
             }
 
             function goZoomView(s, n) {
-                self.location.href = "/provider/providercontrol.do?year=<%=strYear%>&month=<%=strMonth%>&day=<%=strDay%>&view=1&curProvider=" + s + "&curProviderName=" + encodeURIComponent(n) + "&displaymode=day&dboperation=searchappointmentday";
+                self.location.href = "<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=strYear%>&month=<%=strMonth%>&day=<%=strDay%>&view=1&curProvider=" + s + "&curProviderName=" + encodeURIComponent(n) + "&displaymode=day&dboperation=searchappointmentday";
             }
 
             function findProvider(p, m, d) {
-                popupPage(300, 400, "/provider/ViewReceptionistFindProvider.do?pyear=" + p + "&pmonth=" + m + "&pday=" + d + "&providername=" + document.findprovider.providername.value);
+                popupPage(300, 400, "<%= request.getContextPath() %>/provider/ViewReceptionistFindProvider.do?pyear=" + p + "&pmonth=" + m + "&pday=" + d + "&providername=" + document.findprovider.providername.value);
             }
 
             function goSearchView(s) {
@@ -562,7 +562,7 @@
                     if (self.location.href.lastIndexOf("&viewall=") > 0) a = self.location.href.substring(0, self.location.href.lastIndexOf("&viewall="));
                     else a = self.location.href;
                 } else {
-                    a = "/provider/providercontrol.do?year=" + document.jumptodate.year.value + "&month=" + document.jumptodate.month.value + "&day=" + document.jumptodate.day.value + "&view=0&displaymode=day&dboperation=searchappointmentday&site=" + "<%=(selectedSite==null? "none" : Encode.forJavaScriptBlock(selectedSite) )%>";
+                    a = "<%= request.getContextPath() %>/provider/providercontrol.do?year=" + document.jumptodate.year.value + "&month=" + document.jumptodate.month.value + "&day=" + document.jumptodate.day.value + "&view=0&displaymode=day&dboperation=searchappointmentday&site=" + "<%=(selectedSite==null? "none" : Encode.forJavaScriptBlock(selectedSite) )%>";
                 }
                 self.location.href = a + "&viewall=" + key;
             }
@@ -913,7 +913,7 @@
                         </li>
                         <% } else { %>
                         <li>
-                            <a href='/provider/providercontrol.do?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1'>
+                            <a href='<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1'>
                                 <fmt:message key="provider.appointmentProviderAdminDay.schedView"/>
                             </a>
                         </li>
@@ -1132,7 +1132,7 @@
                     </li>
                     <li>
                         <a href="javascript:void(0)" style="display: flex; align-items: flex-end;"
-                           onClick="popupPage(800,1000,'/provider/ViewProviderPreference.do?provider_no=<%= Encode.forUriComponent(loggedInInfo1.getLoggedInProviderNo()) %>')"
+                           onClick="popupPage(800,1000,'<%= request.getContextPath() %>/provider/ViewProviderPreference.do?provider_no=<%= Encode.forUriComponent(loggedInInfo1.getLoggedInProviderNo()) %>')"
                            title='<fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>'>
                             <span>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
@@ -1176,7 +1176,7 @@
                     <div id="quickSearchDropdown" class="quick-search-dropdown" role="listbox" aria-live="polite" aria-hidden="true" style="display:none;"></div>
                 </span>
                 <a class="redArrow"
-                   href="/provider/providercontrol.do?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day-7):(day-1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&provider_no=" + Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall)) %>">
+                   href="<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day-7):(day-1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&provider_no=" + Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall)) %>">
                     <span class="fa-solid fa-backward-step"
                           title="<fmt:message key="provider.appointmentProviderAdminDay.viewPrevDay"/>"></span>
                 </a>
@@ -1197,7 +1197,7 @@
                     }
                 %></span></a></b>
                 <a class="redArrow"
-                   href="/provider/providercontrol.do?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day+7):(day+1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&provider_no=" + Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall)) %>">
+                   href="<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day+7):(day+1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&provider_no=" + Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall)) %>">
                     <span class="fa-solid fa-forward-step"
                           title="<fmt:message key="provider.appointmentProviderAdminDay.viewNextDay"/>"></span>
                 </a>
@@ -1287,13 +1287,13 @@
                 <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_day" rights="r">
                         <a class="rightButton top"
-                           href="/provider/providercontrol.do?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%><%=viewString%>&displaymode=day&dboperation=searchappointmentday"
+                           href="<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%><%=viewString%>&displaymode=day&dboperation=searchappointmentday"
                            TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewDaySched"/>'><fmt:message key="global.today"/></a>
                     </security:oscarSec>
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_month" rights="r">
 
                         <a
-                                href="/provider/providercontrol.do?year=<%=year%>&month=<%=month%>&day=1<%=viewString%>&displaymode=month&dboperation=searchappointmentmonth"
+                                href="<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=year%>&month=<%=month%>&day=1<%=viewString%>&displaymode=month&dboperation=searchappointmentmonth"
                                 TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewMonthSched"/>'><fmt:message key="global.month"/></a>
 
                     </security:oscarSec>
@@ -1344,7 +1344,7 @@
                     <%--                    else {--%>
                     <%--                    if (view == 1) {--%>
                     <%--                %>--%>
-                    <%--                <a href='/provider/providercontrol.do?year=<%=strYear%>&month=<%=strMonth%>&day=<%=strDay%>&view=0&displaymode=day&dboperation=searchappointmentday'><fmt:message--%>
+                    <%--                <a href='<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=strYear%>&month=<%=strMonth%>&day=<%=strDay%>&view=0&displaymode=day&dboperation=searchappointmentday'><fmt:message--%>
                     <%--                        key="providers.appointmentProviderAdminDay.grpView"/></a>--%>
                     <%--                <% } %>--%>
                     <%--&lt;%&ndash;                <% if (!isMobileOptimized) { %> <fmt:message key="global.hello"/> <% } %>&ndash;%&gt;--%>
@@ -1360,7 +1360,7 @@
                         <form method="post" name="findprovider"
                               onSubmit="findProvider(<%=year%>,<%=month%>,<%=day%>);return false;"
                               target="apptReception"
-                              action="/provider/ViewReceptionistFindProvider.do">
+                              action="<%= request.getContextPath() %>/provider/ViewReceptionistFindProvider.do">
                             <INPUT TYPE="text" NAME="providername" VALUE=""
                                    maxlength="10" class="noprint" title="${e:forHtmlAttribute(findProviderTitle)}" placeholder="${e:forHtmlAttribute(enterLastnameLabel)}">
                             <INPUT TYPE="SUBMIT" NAME="Go"
@@ -1428,7 +1428,7 @@
                                                 sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
                                                 var siteName = sel.options[sel.selectedIndex].value;
                                                 var newGroupNo = "<%=(mygroupno == null ? ".default" : mygroupno)%>";
-                                                postViaForm("/provider/providercontrol.do?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&mygroup_no=" + newGroupNo + "&site=" + siteName, "attachment");
+                                                postViaForm("<%= request.getContextPath() %>/provider/providercontrol.do?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&mygroup_no=" + newGroupNo + "&site=" + siteName, "attachment");
                                             }
                                         </script>
 
@@ -1693,7 +1693,7 @@
                                             <%
                                                 if (isWeekView) {
                                             %>
-                                            <b><a href="/provider/providercontrol.do?year=<%=year%>&month=<%=month%>&day=<%=day%>&view=0&displaymode=day&dboperation=searchappointmentday"><%=formatDate%>
+                                            <b><a href="<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=year%>&month=<%=month%>&day=<%=day%>&view=0&displaymode=day&dboperation=searchappointmentday"><%=formatDate%>
                                             </a></b>
                                             <%
                                             } else {
@@ -1993,7 +1993,7 @@
                                                         %>
                                                         <!-- Short letters -->
                                                         <a class="apptStatus" href="javascript:void(0)"
-                                                           onclick="postViaForm('/provider/providercontrol.do?appointment_no=<%=appointment.getId()%>&amp;provider_no=<%=curProvider_no[nProvider]%>&amp;status=&amp;statusch=<%=nextStatus%>&amp;year=<%=year%>&amp;month=<%=month%>&amp;day=<%=day%>&amp;<%=viewString%>&amp;displaymode=addstatus&amp;dboperation=updateapptstatus&amp;viewall=${e:forUriComponent(not empty param.viewall ? param.viewall : '0')}<%= isWeekView ? "&amp;viewWeek=1" : "" %>');"
+                                                           onclick="postViaForm('<%= request.getContextPath() %>/provider/providercontrol.do?appointment_no=<%=appointment.getId()%>&amp;provider_no=<%=curProvider_no[nProvider]%>&amp;status=&amp;statusch=<%=nextStatus%>&amp;year=<%=year%>&amp;month=<%=month%>&amp;day=<%=day%>&amp;<%=viewString%>&amp;displaymode=addstatus&amp;dboperation=updateapptstatus&amp;viewall=${e:forUriComponent(not empty param.viewall ? param.viewall : '0')}<%= isWeekView ? "&amp;viewWeek=1" : "" %>');"
                                                            title='<%= Encode.forHtmlAttribute(as.getTitleString(request.getLocale())) %>'>
                                                             <%
                                                                 }
@@ -2444,7 +2444,7 @@
                         popupOscarRx(600, 1024, '<%=request.getContextPath()%>/messenger/DisplayMessages.do?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname, StandardCharsets.UTF_8)%>');
                         return false;  //run code for 'M'essage
                     case <fmt:message key="global.monthShortcut"/> :
-                        window.open("/provider/providercontrol.do?year=<%=year%>&month=<%=month%>&day=1<%=viewString%>&displaymode=month&dboperation=searchappointmentmonth", "_self");
+                        window.open("<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=year%>&month=<%=month%>&day=1<%=viewString%>&displaymode=month&dboperation=searchappointmentmonth", "_self");
                         return false;  //run code for Mo'n'th
                     case <fmt:message key="global.conShortcut"/> :
                         popupOscarRx(625, 1024, '<%=request.getContextPath()%>/encounter/IncomingConsultation.do?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname, StandardCharsets.UTF_8)%>');
@@ -2453,14 +2453,14 @@
                         popupOscarRx(650, 1024, '<%= request.getContextPath() %>/report/reportindex.jsp', 'reportPage');
                         return false;  //run code for 'R'eports
                     case <fmt:message key="global.prefShortcut"/> : {
-                        popupOscarRx(715, 680, '/provider/ViewProviderPreference.do?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&mygroup_no=<%=mygroupno%>'); //run code for 'P'references
+                        popupOscarRx(715, 680, '<%= request.getContextPath() %>/provider/ViewProviderPreference.do?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&mygroup_no=<%=mygroupno%>'); //run code for 'P'references
                         return false;
                     }
                     case <fmt:message key="global.searchShortcut"/> :
                         popupOscarRx(550, 687, '<%= request.getContextPath() %>/demographic/search.jsp');
                         return false;  //run code for 'S'earch
                     case <fmt:message key="global.dayShortcut"/> :
-                        window.open("/provider/providercontrol.do?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%><%=viewString%>&displaymode=day&dboperation=searchappointmentday", "_self");
+                        window.open("<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%><%=viewString%>&displaymode=day&dboperation=searchappointmentday", "_self");
                         return false;  //run code for 'T'oday
                     case <fmt:message key="global.viewShortcut"/> : {
                         <% if(request.getParameter("viewall")!=null && request.getParameter("viewall").equals("1") ) { %>
@@ -2879,7 +2879,7 @@
                     }
 
                     // Navigate the schedule to the next available day (include provider_no to preserve schedule context)
-                    var navUrl = '/provider/providercontrol.do'
+                    var navUrl = '<%= request.getContextPath() %>/provider/providercontrol.do'
                         + '?year='          + encodeURIComponent(String(slot.year))
                         + '&month='         + encodeURIComponent(String(slot.month))
                         + '&day='           + encodeURIComponent(String(slot.day))

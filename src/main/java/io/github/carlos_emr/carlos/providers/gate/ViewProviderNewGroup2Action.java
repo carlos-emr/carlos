@@ -12,37 +12,21 @@
  */
 package io.github.carlos_emr.carlos.providers.gate;
 
-import jakarta.servlet.http.HttpServletRequest;
-
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-
-import org.apache.struts2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
-
 /**
- * View gate for {@code provider/providernewgroup.jsp}. Enforces {@code _admin}
- * {@code w} privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/provider/} location. Part of the provider module
- * security-hardening migration (2Action gate pattern from #1109, #1629,
- * #1632, #1644, #1662, #1663, #1665, #1666, #1667, #1668, #1669, #1670).
+ * View gate for {@code provider/providernewgroup.jsp}. Enforces
+ * {@code _admin} {@code w} privilege before forwarding to the JSP.
  *
  * @since 2026-04-13
  */
-public final class ViewProviderNewGroup2Action extends ActionSupport {
-
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+public final class ViewProviderNewGroup2Action extends BaseProviderViewGate2Action {
 
     @Override
-    public String execute() throws Exception {
-        HttpServletRequest request = ServletActionContext.getRequest();
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    protected String getSecurityObject() {
+        return "_admin";
+    }
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
-        }
-
-        return SUCCESS;
+    @Override
+    protected String getAccessRight() {
+        return "w";
     }
 }

@@ -13,12 +13,15 @@
 package io.github.carlos_emr.carlos.providers.gate;
 
 /**
- * View gate for {@code provider/obarchecklistedit_99_12.jsp}. Enforces
- * {@code _appointment} {@code w} privilege before forwarding to the JSP. POST-only (GET returns 405).
+ * View gate for {@code provider/providercontrol.jsp} (the provider dashboard /
+ * schedule landing page). Enforces {@code _appointment} {@code r} privilege
+ * before forwarding to the JSP. Entry point referenced from the login redirect
+ * ({@code struts-login.xml}), {@code LoginFilter} refresh list,
+ * {@code PersonaService} navbar, and numerous intra-module links.
  *
  * @since 2026-04-13
  */
-public final class ViewObarChecklistEdit2Action extends BaseProviderViewGate2Action {
+public final class ViewProviderControl2Action extends BaseProviderViewGate2Action {
 
     @Override
     protected String getSecurityObject() {
@@ -27,11 +30,6 @@ public final class ViewObarChecklistEdit2Action extends BaseProviderViewGate2Act
 
     @Override
     protected String getAccessRight() {
-        return "w";
-    }
-
-    @Override
-    protected boolean requirePost() {
-        return true;
+        return "r";
     }
 }

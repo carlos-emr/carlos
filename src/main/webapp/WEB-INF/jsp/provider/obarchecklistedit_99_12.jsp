@@ -52,7 +52,7 @@
 </head>
 <body onLoad="setfocus()" bgcolor="#c4e9f6" bgproperties="fixed"
       topmargin="0" leftmargin="1" rightmargin="1">
-<form name="checklistedit" action="/provider/ViewObarChecklistEdit.do"
+<form name="checklistedit" action="<%= request.getContextPath() %>/provider/ViewObarChecklistEdit.do"
       method="POST">
     <%
         char sep = oscarVariables.getProperty("file_separator").toCharArray()[0];

@@ -377,7 +377,7 @@
                 var parts = url.split('?');
                 var form = document.createElement('form');
                 form.method = 'post';
-                form.action = "/provider/providercontrol.do?provider_no=<%=curUser_no%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference<%=eformIds.toString()%><%=ectFormNames.toString()%>";
+                form.action = "<%= request.getContextPath() %>/provider/providercontrol.do?provider_no=<%=curUser_no%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference<%=eformIds.toString()%><%=ectFormNames.toString()%>";
                 form.target = 'oscar_appt';
                 if (parts.length > 1) {
                     var pairs = parts[1].split('&');
@@ -414,7 +414,7 @@
             function selectprovider(s) {
                 if (s.options[s.selectedIndex].value.indexOf("_grp_") != -1) {
                     var newGroupNo = s.options[s.selectedIndex].value.substring(5);
-                    postViaFormPopup("/provider/providercontrol.do?provider_no=<%=curUser_no%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&mygroup_no=" + newGroupNo + "<%=eformIds.toString()%><%=ectFormNames.toString()%>");
+                    postViaFormPopup("<%= request.getContextPath() %>/provider/providercontrol.do?provider_no=<%=curUser_no%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&mygroup_no=" + newGroupNo + "<%=eformIds.toString()%><%=ectFormNames.toString()%>");
                 } else {
                     if (self.location.href.lastIndexOf("&providerview=") > 0)
                         a = self.location.href.substring(0, self.location.href.lastIndexOf("&providerview="));
@@ -493,19 +493,19 @@
     <table id="monthScheduleNavigation">
         <tr BGCOLOR="whitesmoke">
             <td width="33%">
-                <a href="/provider/providercontrol.do?year=<%=year%>&month=<%=(month-1)%>&day=<%=(day)%>&displaymode=month&dboperation=searchappointmentmonth&providerview=<%= Encode.forUriComponent(providerview) %>">
+                <a href="<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=year%>&month=<%=(month-1)%>&day=<%=(day)%>&displaymode=month&dboperation=searchappointmentmonth&providerview=<%= Encode.forUriComponent(providerview) %>">
                     <span class="fa-solid fa-backward-step"
                           title="<%=arrayMonthOfYear[((month+10)%12)]%>"></span>&nbsp;&nbsp;
                 </a>
                 <b><span CLASS=title><%=strYear%>-<%=strMonth%></span></b>
-                <a href="/provider/providercontrol.do?year=<%=year%>&month=<%=(month+1)%>&day=<%=day%>&displaymode=month&dboperation=searchappointmentmonth&providerview=<%= Encode.forUriComponent(providerview) %>">
+                <a href="<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=year%>&month=<%=(month+1)%>&day=<%=day%>&displaymode=month&dboperation=searchappointmentmonth&providerview=<%= Encode.forUriComponent(providerview) %>">
                     <span class="fa-solid fa-forward-step" title="<%=arrayMonthOfYear[month%12]%>"></span></a>
                 |
-                <u><a href="/provider/providercontrol.do?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1"
+                <u><a href="<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1"
                       title="<fmt:message key="provider.appointmentProviderAdminDay.viewAllProv"/>"><fmt:message key="provider.appointmentProviderAdminDay.viewAll"/></a></u>
 
                 | <a
-                    href="/provider/providercontrol.do?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=day&dboperation=searchappointmentday"
+                    href="<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=day&dboperation=searchappointmentday"
                     TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewDaySched"/>'
                     OnMouseOver="window.status='<fmt:message key="provider.appointmentProviderAdminDay.viewDaySched"/>' ; return true"><fmt:message key="global.today"/></a>
 
@@ -515,7 +515,7 @@
             <TD ALIGN="center" width="33%"><B><%= arrayMonthOfYear[(month + 11) % 12] %>
             </b></TD>
             <td ALIGN="RIGHT">
-                <form method="post" name="jumptodate" action="/provider/providercontrol.do"
+                <form method="post" name="jumptodate" action="<%= request.getContextPath() %>/provider/providercontrol.do"
                       style="display:inline;margin:0px;padding:0px;padding-right:10px;">
                     <INPUT TYPE="text" NAME="year"
                            VALUE="<%=strYear%>" WIDTH="4" HEIGHT="10" border="0" size="4"
@@ -552,9 +552,9 @@
                         var providerview = "<%= Encode.forJavaScript(providerview) %>";
                         if (providerview.indexOf("_grp_") != -1) {
 
-                            window.open("/provider/providercontrol.do?year=<%=year%>&month=<%=month%>&day=1&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=month&dboperation=searchappointmentmonth" + "&site=" + siteName + "&mygroup_no=" + newGroupNo, "_self");
+                            window.open("<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=year%>&month=<%=month%>&day=1&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=month&dboperation=searchappointmentmonth" + "&site=" + siteName + "&mygroup_no=" + newGroupNo, "_self");
                         } else {
-                            window.open("/provider/providercontrol.do?year=<%=year%>&month=<%=month%>&day=1&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=month&dboperation=searchappointmentmonth" + "&site=" + siteName + "&providerview=" + providerview, "_self");
+                            window.open("<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=year%>&month=<%=month%>&day=1&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=month&dboperation=searchappointmentmonth" + "&site=" + siteName + "&providerview=" + providerview, "_self");
                         }
                     }
                 </script>
@@ -707,7 +707,7 @@
 
                                 %>
                                 <td nowrap bgcolor="<%=bgcolor.toString()%>" valign="top">
-                                    <a href='/provider/providercontrol.do?<%=caisi%>year=<%=year%>&month=<%=MyDateFormat.getDigitalXX(month)%>&day=<%=MyDateFormat.getDigitalXX(dateGrid[i][j])%>&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))))%>&displaymode=day&dboperation=searchappointmentday'>
+                                    <a href='<%= request.getContextPath() %>/provider/providercontrol.do?<%=caisi%>year=<%=year%>&month=<%=MyDateFormat.getDigitalXX(month)%>&day=<%=MyDateFormat.getDigitalXX(dateGrid[i][j])%>&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))))%>&displaymode=day&dboperation=searchappointmentday'>
                                         <span class='date'>&nbsp;<%=dateGrid[i][j] %> </span>
                                         <span size="-2" color="blue"><%=strHolidayName.toString()%>
                                 <%
@@ -764,7 +764,7 @@
                                     %>
                                     <td>
                                         <b>
-                                            <a href="/provider/providercontrol.do?year=<%=year%>&month=<%=(month)%>&day=<%=(day)%>&displaymode=month&dboperation=searchappointmentmonth"
+                                            <a href="<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=year%>&month=<%=(month)%>&day=<%=(day)%>&displaymode=month&dboperation=searchappointmentmonth"
                                                title="Last Month: <%=arrayMonthOfYear[((month+10)%12)]%>">
                                                 &nbsp;&nbsp;<span class="fa-solid fa-backward-step"
                                                                   title="Last Month: <%=arrayMonthOfYear[((month+10)%12)]%>"></span>
@@ -827,7 +827,7 @@
                                             %>
                                             <td align='center' bgcolor='#FOFOFO'><font
                                                     FACE='VERDANA,ARIAL,HELVETICA' SIZE='2'> <a
-                                                    href='/provider/providercontrol.do?<%=caisi%>year=<%=year%>&month=<%=MyDateFormat.getDigitalXX(month)%>&day=<%=dateGrid[i][j+1]==0?1:dateGrid[i][j+1]%>&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=week&dboperation=searchapptweek'>
+                                                    href='<%= request.getContextPath() %>/provider/providercontrol.do?<%=caisi%>year=<%=year%>&month=<%=MyDateFormat.getDigitalXX(month)%>&day=<%=dateGrid[i][j+1]==0?1:dateGrid[i][j+1]%>&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=week&dboperation=searchapptweek'>
                                                         <%=(i + 1)%>
                                             </font></td>
                                             <%
@@ -838,7 +838,7 @@
                                                     if (dateGrid[i][j] == day) {
                                             %>
                                             <td align='center'><a
-                                                    href='/provider/providercontrol.do?<%=caisi%>year=<%=year%>&month=<%=MyDateFormat.getDigitalXX(month)%>&day=<%=MyDateFormat.getDigitalXX(day)%>&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=day&dboperation=searchappointmentday'>
+                                                    href='<%= request.getContextPath() %>/provider/providercontrol.do?<%=caisi%>year=<%=year%>&month=<%=MyDateFormat.getDigitalXX(month)%>&day=<%=MyDateFormat.getDigitalXX(day)%>&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=day&dboperation=searchappointmentday'>
                                                 <font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2" color="red">
                                                     <div class='specialtxt'><%= dateGrid[i][j] %>
                                                     </div>
@@ -847,7 +847,7 @@
                                             %>
                                             <td align='center'><font FACE='VERDANA,ARIAL,HELVETICA'
                                                                      SIZE='2' color='white'><a
-                                                    href='/provider/providercontrol.do?<%=caisi%>year=<%=year%>&month=<%=MyDateFormat.getDigitalXX(month)%>&day=<%=MyDateFormat.getDigitalXX(dateGrid[i][j])%>&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))))%>&displaymode=day&dboperation=searchappointmentday'>
+                                                    href='<%= request.getContextPath() %>/provider/providercontrol.do?<%=caisi%>year=<%=year%>&month=<%=MyDateFormat.getDigitalXX(month)%>&day=<%=MyDateFormat.getDigitalXX(dateGrid[i][j])%>&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))))%>&displaymode=day&dboperation=searchappointmentday'>
                                                 <%=dateGrid[i][j] %>
                                             </a></font></td>
                                             <%
@@ -870,7 +870,7 @@
                                     <td align='right'><b><%= arrayMonthOfYear[(month + 11) % 12]%>&nbsp;
                                         &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <%=year%>-<%=month%>
                                     </b><a
-                                            href="/provider/providercontrol.do?year=<%=year%>&month=<%=(month)%>&day=<%=day%>&displaymode=month&dboperation=searchappointmentmonth"
+                                            href="<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=year%>&month=<%=(month)%>&day=<%=day%>&displaymode=month&dboperation=searchappointmentmonth"
                                             title="Next Month: <%=arrayMonthOfYear[month%12]%>"> &nbsp;
                                         &nbsp; &nbsp; <fmt:message key="provider.appointmentprovideradminmonth.btnNextMonth"/>
                                         <span class="fa-solid fa-forward-step"
@@ -931,7 +931,7 @@
                                             %>
                                             <td align='center' bgcolor='#FOFOFO'><font
                                                     FACE='VERDANA,ARIAL,HELVETICA' SIZE='2'> <a
-                                                    href='/provider/providercontrol.do?<%=caisi%>year=<%=year%>&month=<%=MyDateFormat.getDigitalXX(month)%>&day=<%=dateGrid[i][j+1]==0?1:dateGrid[i][j+1]%>&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=week&dboperation=searchapptweek'>
+                                                    href='<%= request.getContextPath() %>/provider/providercontrol.do?<%=caisi%>year=<%=year%>&month=<%=MyDateFormat.getDigitalXX(month)%>&day=<%=dateGrid[i][j+1]==0?1:dateGrid[i][j+1]%>&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=week&dboperation=searchapptweek'>
                                                         <%=(i + 1)%>
                                             </font></td>
                                             <%
@@ -942,7 +942,7 @@
                                                     if (dateGrid[i][j] == day) {
                                             %>
                                             <td align='center'><a
-                                                    href='/provider/providercontrol.do?<%=caisi%>year=<%=year%>&month=<%=MyDateFormat.getDigitalXX(month)%>&day=<%=MyDateFormat.getDigitalXX(day)%>&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=day&dboperation=searchappointmentday'>
+                                                    href='<%= request.getContextPath() %>/provider/providercontrol.do?<%=caisi%>year=<%=year%>&month=<%=MyDateFormat.getDigitalXX(month)%>&day=<%=MyDateFormat.getDigitalXX(day)%>&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=day&dboperation=searchappointmentday'>
                                                 <font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2" color="red">
                                                     <div class='specialtxt'><%= dateGrid[i][j] %>
                                                     </div>
@@ -951,7 +951,7 @@
                                             %>
                                             <td align='center'><font FACE='VERDANA,ARIAL,HELVETICA'
                                                                      SIZE='2' color='white'><a
-                                                    href='/provider/providercontrol.do?<%=caisi%>year=<%=year%>&month=<%=MyDateFormat.getDigitalXX(month)%>&day=<%=MyDateFormat.getDigitalXX(dateGrid[i][j])%>&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))))%>&displaymode=day&dboperation=searchappointmentday'>
+                                                    href='<%= request.getContextPath() %>/provider/providercontrol.do?<%=caisi%>year=<%=year%>&month=<%=MyDateFormat.getDigitalXX(month)%>&day=<%=MyDateFormat.getDigitalXX(dateGrid[i][j])%>&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))))%>&displaymode=day&dboperation=searchappointmentday'>
                                                 <%=dateGrid[i][j] %>
                                             </a></font></td>
                                             <%
@@ -1015,7 +1015,7 @@
                         popupOscarRx(600, 1024, '<%=request.getContextPath()%>/messenger/DisplayMessages.do?providerNo=<%=curUser_no%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname, StandardCharsets.UTF_8)%>');
                         return false;  //run code for 'M'essage
                     case <fmt:message key="global.monthShortcut"/> :
-                        window.open("/provider/providercontrol.do?year=<%=year%>&month=<%=month%>&day=1&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=month&dboperation=searchappointmentmonth", "_self");
+                        window.open("<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=year%>&month=<%=month%>&day=1&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=month&dboperation=searchappointmentmonth", "_self");
                         return false;  //run code for Mo'n'th
                     case <fmt:message key="global.conShortcut"/> :
                         popupOscarRx(625, 1024, '<%=request.getContextPath()%>/encounter/IncomingConsultation.do?providerNo=<%=curUser_no%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname, StandardCharsets.UTF_8)%>');
@@ -1024,14 +1024,14 @@
                         popupOscarRx(650, 1024, '<%= request.getContextPath() %>/report/reportindex.jsp', 'reportPage');
                         return false;  //run code for 'R'eports
                     case <fmt:message key="global.prefShortcut"/> : {
-                        popupOscarRx(715, 680, '/provider/ViewProviderPreference.do?provider_no=<%=Encode.forUriComponent(curUser_no)%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&mygroup_no=<%=Encode.forUriComponent(mygroupno)%>'); //run code for 'P'references
+                        popupOscarRx(715, 680, '<%= request.getContextPath() %>/provider/ViewProviderPreference.do?provider_no=<%=Encode.forUriComponent(curUser_no)%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&mygroup_no=<%=Encode.forUriComponent(mygroupno)%>'); //run code for 'P'references
                         return false;
                     }
                     case <fmt:message key="global.searchShortcut"/> :
                         popupOscarRx(550, 687, '<%= request.getContextPath() %>/demographic/search.jsp');
                         return false;  //run code for 'S'earch
                     case <fmt:message key="global.dayShortcut"/> :
-                        window.open("/provider/providercontrol.do?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=day&dboperation=searchappointmentday", "_self");
+                        window.open("<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=day&dboperation=searchappointmentday", "_self");
                         return false;  //run code for 'T'oday
                     case <fmt:message key="global.viewShortcut"/> : {
                         <% if(request.getParameter("viewall")!=null && request.getParameter("viewall").equals("1") ) { %>

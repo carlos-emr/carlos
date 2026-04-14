@@ -105,7 +105,7 @@
             </h4>
         </div>
 
-    <form name="UPDATEPRE" method="post" action="/provider/providercontrol.do"
+    <form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/providercontrol.do"
           onSubmit="return checkForm();">
         <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
         <input type="hidden" name="displaymode" value="savemygroup">

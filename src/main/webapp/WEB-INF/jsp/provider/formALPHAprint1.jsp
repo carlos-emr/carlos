@@ -56,7 +56,7 @@
                 <tr>
                     <td ALIGN="CENTER"><FONT FACE="Arial, Helvetica"><B>ANTENATAL
                         PSYCHOSOCIAL HEALTH ASSESSMENT (ALPHA)</B></FONT></TD>
-                    <td align="right"><a href="/provider/ViewFormALPHAprint.do"> prev page </a>
+                    <td align="right"><a href="<%= request.getContextPath() %>/provider/ViewFormALPHAprint.do"> prev page </a>
                         | <a href=# onClick="window.print();">PRINT</a></td>
                 </tr>
             </table>

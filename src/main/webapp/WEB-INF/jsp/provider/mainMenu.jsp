@@ -98,7 +98,7 @@
                     </li>
                     <% } else { %>
                     <li>
-                        <a href='/provider/providercontrol.do?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1'>
+                        <a href='<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1'>
                             <fmt:message key="provider.appointmentProviderAdminDay.schedView"/>
                         </a>
                     </li>
@@ -343,7 +343,7 @@
                 <li>
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_pref" rights="r">
                     <a href="javascript:void(0)"
-                       onClick="popupPage(800,1000,'/provider/ViewProviderPreference.do?provider_no=<%= Encode.forUriComponent(curUser_no) %>')"
+                       onClick="popupPage(800,1000,'<%= request.getContextPath() %>/provider/ViewProviderPreference.do?provider_no=<%= Encode.forUriComponent(curUser_no) %>')"
                        title='<fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>'>
 
                         </security:oscarSec>
@@ -392,7 +392,7 @@
         const data = {
             "provider_no": providerNumber
         };
-        const url = "/provider/ViewProviderPreference.do";
+        const url = "<%= request.getContextPath() %>/provider/ViewProviderPreference.do";
         const dialog = dialogContainer.load(url, data).dialog({
             modal: true,
             width: 685,
