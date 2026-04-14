@@ -28,6 +28,16 @@
 <struts>
     <package name="scheduling" namespace="/" extends="struts-default">
 
+        <global-results>
+            <result name="securityError">/securityError.jsp</result>
+            <result name="error">/errorpage.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+            <exception-mapping exception="java.lang.Exception" result="error"/>
+        </global-exception-mappings>
+
         <action name="notification/create" class="io.github.carlos_emr.carlos.commn.web.ProviderNotification2Action"/>
         <action name="waitinglist/SetupDisplayPatientWaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2Action">
             <result name="continue">/waitinglist/DisplayPatientWaitingList.jsp</result>
@@ -43,12 +53,12 @@
             <result name="failure">/waitinglist/EditWaitingListName.jsp</result>
         </action>
         <action name="demographic/SearchDemographic" class="io.github.carlos_emr.carlos.commn.web.SearchDemographicAutoComplete2Action">
-            <result name="success">/demographic/autocomplete.jsp</result>
+            <result name="success">/WEB-INF/jsp/demographic/autocomplete.jsp</result>
         </action>
         <action name="demographic/FindNextAvailableSlot" class="io.github.carlos_emr.carlos.commn.web.FindNextAvailableSlot2Action"/>
         <action name="provider/SearchProvider" class="io.github.carlos_emr.carlos.commn.web.SearchProviderAutoComplete2Action"/>
         <action name="tickler/ForwardDemographicTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.ForwardDemographicTickler2Action">
-            <result name="success">/tickler/ticklerAdd.jsp</result>
+            <result name="success">/WEB-INF/jsp/tickler/ticklerAdd.jsp</result>
         </action>
         <action name="tickler/AddTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.AddTickler2Action">
             <result name="close">/close.html</result>
@@ -62,12 +72,12 @@
         <action name="searchProfessionalSpecialist" class="io.github.carlos_emr.carlos.contactRegistry.ProfessionalSpecialist2Action" method="search"/>
         <action name="getProfessionalSpecialist" class="io.github.carlos_emr.carlos.contactRegistry.ProfessionalSpecialist2Action" method="get"/>
         <action name="demographic/Contact" class="io.github.carlos_emr.carlos.commn.web.Contact2Action">
-            <result name="pForm">/demographic/addEditProfessionalContact.jsp</result>
-            <result name="cForm">/demographic/addEditContact.jsp</result>
-            <result name="view">/demographic/viewContact.jsp</result>
-            <result name="manage">/demographic/ManageContacts.jsp</result>
-            <result name="windowClose">/demographic/close.jsp</result>
-            <result name="ajax">/demographic/demographiceditdemographic.jsp</result>
+            <result name="pForm">/WEB-INF/jsp/demographic/addEditProfessionalContact.jsp</result>
+            <result name="cForm">/WEB-INF/jsp/demographic/addEditContact.jsp</result>
+            <result name="view">/WEB-INF/jsp/demographic/viewContact.jsp</result>
+            <result name="manage">/WEB-INF/jsp/demographic/ManageContacts.jsp</result>
+            <result name="windowClose">/WEB-INF/jsp/demographic/close.jsp</result>
+            <result name="ajax">/WEB-INF/jsp/demographic/demographiceditdemographic.jsp</result>
         </action>
         <action name="PopulationReport" class="io.github.carlos_emr.carlos.commn.web.PopulationReport2Action" method="execute">
             <result name="report">/WEB-INF/jsp/report/PopulationReport.jsp</result>
@@ -76,11 +86,11 @@
             <result name="success">/WEB-INF/jsp/admin/clinicAdmin.jsp</result>
         </action>
         <action name="admin/ManageSites" class="io.github.carlos_emr.carlos.commn.web.SitesManage2Action" method="execute">
-            <result name="list">/admin/sitesAdmin.jsp</result>
-            <result name="details">/admin/sitesAdminDetail.jsp</result>
+            <result name="list">/WEB-INF/jsp/admin/sitesAdmin.jsp</result>
+            <result name="details">/WEB-INF/jsp/admin/sitesAdminDetail.jsp</result>
         </action>
         <action name="admin/ManageBillingReferral" class="io.github.carlos_emr.carlos.commn.web.BillingreferralEdit2Action">
-            <result name="list">/admin/billingreferralAdmin.jsp</result>
+            <result name="list">/WEB-INF/jsp/admin/billingreferralAdmin.jsp</result>
         </action>
         <action name="report/DxresearchReport" class="io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action" method="execute">
             <result name="success">/oscarReport/oscarReportDxReg.jsp</result>
@@ -119,7 +129,7 @@
         </result>
         </action>
         <action name="tickler/EditTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action">
-            <result name="close">/tickler/ticklerEditSuccess.jsp</result>
+            <result name="close">/WEB-INF/jsp/tickler/ticklerEditSuccess.jsp</result>
             <result name="failure">/failure.jsp</result>
             <result name="error">/errorpage.jsp</result>
         </action>
@@ -140,8 +150,8 @@
         </action>
         <action name="BillingONReview" class="io.github.carlos_emr.carlos.commn.web.BillingONReview2Action"/>
         <action name="admin/GroupPreference" class="io.github.carlos_emr.carlos.commn.web.GroupPreference2Action">
-            <result name="saved">/admin/groupPreferences.jsp</result>
-            <result name="changedForm">/admin/groupPreferences.jsp</result>
+            <result name="saved">/WEB-INF/jsp/admin/groupPreferences.jsp</result>
+            <result name="changedForm">/WEB-INF/jsp/admin/groupPreferences.jsp</result>
         </action>
         <action name="billing/CA/ON/ApplyPractitionerPremium" class="io.github.carlos_emr.carlos.commn.web.ApplyPractitionerPremium2Action">
             <result name="success">/billing/CA/ON/genRADesc.jsp</result>
@@ -197,5 +207,28 @@
             <result name="success">/WEB-INF/jsp/schedule/scheduledatefinal.jsp</result>
         </action>
 
+
+        <!-- ===== tickler JSP gating actions (migration slice) =====
+             SecurityException from any gate is routed by the package-level
+             global-exception-mapping to /securityError.jsp; no per-action
+             error result needed. -->
+        <action name="tickler/ViewIndex" class="io.github.carlos_emr.carlos.tickler.gate.ViewIndex2Action">
+            <result name="success">/WEB-INF/jsp/tickler/index.jsp</result>
+        </action>
+        <action name="tickler/ViewTicklerDemoMain" class="io.github.carlos_emr.carlos.tickler.gate.ViewTicklerDemoMain2Action">
+            <result name="success">/WEB-INF/jsp/tickler/ticklerDemoMain.jsp</result>
+        </action>
+        <action name="tickler/ViewTicklerEdit" class="io.github.carlos_emr.carlos.tickler.gate.ViewTicklerEdit2Action">
+            <result name="success">/WEB-INF/jsp/tickler/ticklerEdit.jsp</result>
+        </action>
+        <action name="tickler/ViewTicklerMain" class="io.github.carlos_emr.carlos.tickler.gate.ViewTicklerMain2Action">
+            <result name="success">/WEB-INF/jsp/tickler/ticklerMain.jsp</result>
+        </action>
+        <action name="tickler/ViewTicklerSuggestedText" class="io.github.carlos_emr.carlos.tickler.gate.ViewTicklerSuggestedText2Action">
+            <result name="success">/WEB-INF/jsp/tickler/ticklerSuggestedText.jsp</result>
+        </action>
+        <action name="tickler/ViewAddTickler" class="io.github.carlos_emr.carlos.tickler.gate.ViewAddTickler2Action">
+            <result name="success">/WEB-INF/jsp/tickler/ticklerAdd.jsp</result>
+        </action>
     </package>
 </struts>

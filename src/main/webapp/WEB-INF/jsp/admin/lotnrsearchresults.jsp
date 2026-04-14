@@ -159,7 +159,7 @@
                     <td><%=Encode.forHtml(pRec.getPreventionType())%>
                     </td>
                     <td><a
-                     href="${pageContext.request.contextPath}/admin/lotnrdeleterecordhtm.jsp?prevention=<%=Encode.forUriComponent(pRec.getPreventionType())%>&lotnr=<%=URLEncoder.encode(pRec.getLotNr(), StandardCharsets.UTF_8)%>"><%=Encode.forHtml(pRec.getLotNr())%>
+                     href="${pageContext.request.contextPath}/admin/ViewLotNrDeleteRecordHtm.do?prevention=<%=Encode.forUriComponent(pRec.getPreventionType())%>&lotnr=<%=URLEncoder.encode(pRec.getLotNr(), StandardCharsets.UTF_8)%>"><%=Encode.forHtml(pRec.getLotNr())%>
                     </a></td>
                 </tr>
                 <% }
@@ -187,7 +187,7 @@
         %>
             <p><fmt:message key="admin.lotnrsearchresults.msgClickForEditing"/></p>
             <br/>
-            <a href="${pageContext.request.contextPath}/admin/lotnraddrecordhtm.jsp">Add new Lot #</a>
+            <a href="${pageContext.request.contextPath}/admin/ViewLotNrAddRecordHtm.do">Add new Lot #</a>
         </center>
     </body>
 </html>

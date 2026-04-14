@@ -53,7 +53,7 @@
 
         function demographicSearch() {
             var search_param = document.getElementById('nameForlooksOnly').value;
-            var url = '<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp';
+            var url = '<%= request.getContextPath() %>/demographic/ViewDemographicSearch2ReportResults.do';
             url += '?originalpage=' + encodeURIComponent('<%=request.getContextPath()%>/billing/CA/ON/endYearStatement.do?demosearch=true');
             url += '&search_mode=search_name';
             url += '&orderby=last_name, first_name';

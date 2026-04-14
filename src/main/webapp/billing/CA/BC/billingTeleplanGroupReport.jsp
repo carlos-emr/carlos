@@ -50,7 +50,7 @@
 %>
 
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
-<%@ include file="/admin/dbconnection.jsp" %>
+<%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.model.BillActivity" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>

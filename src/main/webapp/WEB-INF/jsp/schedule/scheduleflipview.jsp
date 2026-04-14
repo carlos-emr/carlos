@@ -94,7 +94,7 @@
     String[] param = new String[3];
 
     String originalPage = request.getParameter("originalpage") != null ? request.getParameter("originalpage") : "schedule";
-    String originalPagePath = request.getContextPath() + "/provider/providercontrol.jsp";
+    String originalPagePath = request.getContextPath() + "/provider/providercontrol.do";
 
     if (originalPage.equals("waitingList")) {
         originalPagePath = request.getContextPath() + "/waitinglist/DisplayWaitingList.jsp";
@@ -197,7 +197,7 @@
     <div style="colur: #FF0000; text-decoration: none"><a
             href="javascript:history.go(-1)"
             style="text-decoration: none; color: #000000">Go Back</a> <a
-            href="<%= request.getContextPath() %>/provider/providercontrol.jsp"
+            href="<%= request.getContextPath() %>/provider/providercontrol.do"
             style="text-decoration: none; color: #000000">Day Page</a></div>
     <table width="100%" border="1" cellspacing="0" cellpadding="0">
         <tr align="center" bgcolor="#CCCCFF">

@@ -416,7 +416,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block GET to PreventionManager.jsp with formAction=update")
         void shouldBlock_forGetToPreventionManagerWithUpdate() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/oscarPrevention/PreventionManager.jsp");
+            when(request.getRequestURI()).thenReturn("/carlos/prevention/PreventionManager.jsp");
             when(request.getParameter("formAction")).thenReturn("update");
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(Collections.singletonList("formAction")));
@@ -431,7 +431,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should pass through GET to PreventionManager.jsp without formAction")
         void shouldPassThrough_forGetToPreventionManagerWithoutFormAction() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/oscarPrevention/PreventionManager.jsp");
+            when(request.getRequestURI()).thenReturn("/carlos/prevention/PreventionManager.jsp");
             when(request.getParameter("formAction")).thenReturn(null);
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(Collections.emptyList()));

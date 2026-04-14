@@ -674,7 +674,7 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
         </tr>
     </table>
 
-    <%@ include file="/demographic/zdemographicfulltitlesearch.jsp" %>
+    <jsp:include page="/demographic/ViewZdemographicFullTitleSearch.do" />
     <table width="100%" bgcolor="#CCCCFF">
         <tr>
             <td class="RowTop" colspan="4">
