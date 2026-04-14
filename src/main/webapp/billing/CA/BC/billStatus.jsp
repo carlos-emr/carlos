@@ -251,7 +251,7 @@
     <div class="row card card-body bg-body-tertiary d-print-none">
 
         <div style="text-align: right;"><a href="javascript: function myFunction() {return false; }"
-                                           onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport')">
+                                           onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider.do?action=billingreport')">
             Manage Provider List</a></div>
 
         <div style="text-align: right;"><%=DateUtils.sumDate("yyyy-M-d", "0")%>

@@ -340,18 +340,18 @@ String curProvider_no = (String)session.getAttribute("user");
 					</li>
 
 					<li>
-					<a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/reportByTemplate/homePage.jsp"><fmt:message key="admin.admin.rptbyTemplate"/></a>
+					<a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/reportByTemplate/ViewHomePage.do"><fmt:message key="admin.admin.rptbyTemplate"/></a>
 					</li>
 
 					<li>
 					<a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/dbReportAgeSex.jsp"><fmt:message key="admin.admin.btnAgeSexReport"/></a>
 					</li>
 					
-					<li><a href="${ctx}/oscarReport/oscarReportVisitControl.jsp" class="contentLink defaultvisitreport">
+					<li><a href="${ctx}/oscarReport/ViewOscarReportVisitControl.do" class="contentLink defaultvisitreport">
 						<fmt:message key="admin.admin.btnVisitReport"/>
 						</a>
 					</li>
-					<li><a href="${ctx}/oscarReport/oscarReportCatchment.jsp"
+					<li><a href="${ctx}/oscarReport/ViewOscarReportCatchment.do"
 						class="contentLink"><fmt:message key="admin.admin.pcnReport"/></a></li>
 					<li><a href="${ctx}/oscarReport/FluBilling.do?orderby="
 						class="contentLink"><fmt:message key="admin.admin.btnFluBillingReport"/></a></li>
@@ -362,16 +362,16 @@ String curProvider_no = (String)session.getAttribute("user");
 						class="xlink contentLink" rel="${ctx}/PMmodule/Reports/ProgramActivityReport"><fmt:message key="admin.admin.activityRpt"/></a></li>
 					</caisi:isModuleLoad>			
 								
-					<li><a href="${ctx}/oscarReport/patientlist.jsp"
+					<li><a href="${ctx}/oscarReport/ViewPatientlist.do"
 						class="contentLink"><fmt:message key="admin.admin.exportPatientbyAppt"/></a></li>
 					<li><a
-						href="${ctx}/oscarReport/provider_service_report_form.jsp"
+						href="${ctx}/oscarReport/ViewProviderServiceReportForm.do"
 						class="contentLink"><fmt:message key="admin.admin.providerServiceRpt"/></a></li>
 								
 					<caisi:isModuleLoad moduleName="caisi">
 						<li><a page="${pageContext.request.contextPath}/PopulationReport.do" class="contentLink"> <fmt:message key="admin.admin.popRpt"/></a></li>
-						<li><a href="${ctx}/oscarReport/cds_4_report_form.jsp"	class="contentLink"><fmt:message key="admin.admin.cdsRpt"/></a></li>
-						<li><a href="${ctx}/oscarReport/mis_report_form.jsp" class="contentLink"><fmt:message key="admin.admin.misRpt"/></a></li>
+						<li><a href="${ctx}/oscarReport/ViewCds4ReportForm.do"	class="contentLink"><fmt:message key="admin.admin.cdsRpt"/></a></li>
+						<li><a href="${ctx}/oscarReport/ViewMisReportForm.do" class="contentLink"><fmt:message key="admin.admin.misRpt"/></a></li>
 						<li><a href="${ctx}/oscarReport/ocan_report_form.jsp" class="contentLink"><fmt:message key="admin.admin.ocanRpt"/></a></li>
 						<li><a href="${ctx}/oscarReport/ocan_iar.jsp" class="contentLink"><fmt:message key="admin.admin.ocanIarRpt"/></a></li>
 						<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/ocan_reporting.jsp"><fmt:message key="admin.admin.ocanReporting"/></a></li>
@@ -387,8 +387,8 @@ String curProvider_no = (String)session.getAttribute("user");
 				if (oscarVariables.getProperty("billregion", "").equals("ON"))
 								{
 			%>
-			<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/report/reportonbilledphcp.jsp"><fmt:message key="admin.admin.PHCP"/></a>
-			<span style="font-size: x-small;"> (Setting: <a href="javascript:void(0);" class="xlink" rel="${ctx}/report/reportonbilledvisitprovider.jsp"><fmt:message key="admin.admin.provider"/></a>,
+			<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/report/ViewReportonbilledphcp.do"><fmt:message key="admin.admin.PHCP"/></a>
+			<span style="font-size: x-small;"> (Setting: <a href="javascript:void(0);" class="xlink" rel="${ctx}/report/ViewReportonbilledvisitprovider.do"><fmt:message key="admin.admin.provider"/></a>,
 			) </span></li>
 			<%}%>
 
