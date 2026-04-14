@@ -81,9 +81,18 @@ public class DocumentRefile2Action extends ActionSupport {
             }
             try {
                 refileDocument(refileDocumentNo, queueId);
+            } catch (SecurityException | Error e) {
+                // Never swallow auth failures or JVM errors.
+                throw e;
             } catch (Exception e) {
-                MiscUtils.getLogger().error("refileDocument failed", e);
-                errorMessage = e.getMessage() != null ? e.getMessage() : "refile failed";
+                // Log with IDs + provider (non-PHI) for ops triage. Show the user
+                // a generic message — e.getMessage() from EDocUtil.refileDocument
+                // can contain the document description, which is PHI-adjacent.
+                MiscUtils.getLogger().error(
+                    "refileDocument failed docNo=" + refileDocumentNo
+                    + " queueId=" + queueId
+                    + " provider=" + loggedInInfo.getLoggedInProviderNo(), e);
+                errorMessage = "Refile failed. Please contact support if the issue persists.";
             }
         }
 

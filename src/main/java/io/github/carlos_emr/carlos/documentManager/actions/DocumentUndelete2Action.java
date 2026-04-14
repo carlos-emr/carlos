@@ -40,10 +40,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * GET-triggerable scriptlet in {@code documentReport.jsp} and
  * {@code documentBrowser.jsp}.
  *
- * Authorization model: admins with {@code _admin.edocdelete w} may undelete
- * any document; the document's original creator may undelete their own
- * document if they hold {@code _edoc w}. This preserves the creator-undelete
- * path the legacy UI exposes while closing the GET-triggerable vector.
+ * Authorization model: the caller must satisfy one of two disjoint branches
+ * — admins with {@code _admin.edocdelete w} may undelete any document;
+ * otherwise the caller must hold {@code _edoc w} AND their provider number
+ * must match the document's {@code creatorId}. This preserves the legacy
+ * creator-undelete path while closing the GET-triggerable vector.
  *
  * Redirects back to the caller's view: {@code source=browser} returns to
  * {@code ViewDocumentBrowser.do}, otherwise to {@code ViewDocumentReport.do}.

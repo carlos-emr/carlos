@@ -137,4 +137,37 @@ class DocumentDelete2ActionTest extends CarlosUnitTestBase {
             .contains("/documentManager/ViewDocumentBrowser.do")
             .contains("categorykey=");
     }
+
+    @Test
+    @DisplayName("should preserve all seven redirect params")
+    void shouldPreserveAllParams_onRedirect() throws Exception {
+        action.setDelDocumentNo("42");
+        action.setFunction("demographic");
+        action.setFunctionid("1001");
+        action.setDoctype("lab");
+        action.setCurUser("provA");
+        action.setView("all");
+        action.setViewstatus("active");
+        action.setCategorykey("Private");
+        action.execute();
+        String url = mockResponse.getRedirectedUrl();
+        assertThat(url)
+            .contains("function=demographic")
+            .contains("functionid=1001")
+            .contains("doctype=lab")
+            .contains("curUser=provA")
+            .contains("view=all")
+            .contains("viewstatus=active")
+            .contains("categorykey=Private");
+    }
+
+    @Test
+    @DisplayName("should redirect without deleting when delDocumentNo is empty")
+    void shouldRedirectWithoutDeleting_whenEmpty() throws Exception {
+        action.setDelDocumentNo("");
+        action.execute();
+        assertThat(deletedDocNos).isEmpty();
+        assertThat(mockResponse.getStatus()).isNotEqualTo(400);
+        assertThat(mockResponse.getRedirectedUrl()).contains("ViewDocumentReport.do");
+    }
 }

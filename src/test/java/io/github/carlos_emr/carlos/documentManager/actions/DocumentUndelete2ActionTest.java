@@ -162,4 +162,45 @@ class DocumentUndelete2ActionTest extends CarlosUnitTestBase {
         action.execute();
         assertThat(mockResponse.getStatus()).isEqualTo(400);
     }
+
+    @Test
+    @DisplayName("should throw when loggedInInfo is null")
+    void shouldThrow_whenNotLoggedIn() {
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(
+                any(jakarta.servlet.http.HttpServletRequest.class))).thenReturn(null);
+        action.setUndelDocumentNo("42");
+        assertThatThrownBy(() -> action.execute())
+            .isInstanceOf(SecurityException.class)
+            .hasMessageContaining("not logged in");
+    }
+
+    @Test
+    @DisplayName("should reject creator path when doc lookup returns null")
+    void shouldReject_whenDocLookupNull() {
+        grantAdmin(false);
+        grantEdocWrite(true);
+        // action.docsByNo has no mapping for "42" -> loadDoc returns null
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("provA");
+        action.setUndelDocumentNo("42");
+        assertThatThrownBy(() -> action.execute())
+            .isInstanceOf(SecurityException.class)
+            .hasMessageContaining("creator");
+        assertThat(action.undeleted).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should reject creator path when doc creatorId is null")
+    void shouldReject_whenDocCreatorIdNull() {
+        grantAdmin(false);
+        grantEdocWrite(true);
+        EDoc doc = mock(EDoc.class);
+        when(doc.getCreatorId()).thenReturn(null);
+        action.docsByNo.put("42", doc);
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("provA");
+        action.setUndelDocumentNo("42");
+        assertThatThrownBy(() -> action.execute())
+            .isInstanceOf(SecurityException.class)
+            .hasMessageContaining("creator");
+        assertThat(action.undeleted).isEmpty();
+    }
 }

@@ -111,15 +111,40 @@ class DocumentRefile2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should surface errorMessage when refile throws")
-    void shouldSurfaceError_whenRefileThrows() throws Exception {
-        action.throwOnRefile = new RuntimeException("queue full");
+    @DisplayName("should surface generic errorMessage when refile throws (not raw exception text)")
+    void shouldSurfaceGenericError_whenRefileThrows() throws Exception {
+        // Simulate an IOException whose message contains PHI-adjacent data.
+        action.throwOnRefile = new RuntimeException("Cannot refile document #42 Patient X-ray results ...");
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("provA");
         action.setRefileDocumentNo("42");
         action.setQueueId("1");
         action.execute();
-        assertThat(mockResponse.getRedirectedUrl())
+        String url = mockResponse.getRedirectedUrl();
+        assertThat(url)
             .contains("/documentManager/ViewDocumentBrowser.do")
-            .contains("errorMessage=queue");
+            .contains("errorMessage=Refile%20failed")
+            .doesNotContain("X-ray")
+            .doesNotContain("Patient");
+    }
+
+    @Test
+    @DisplayName("should propagate SecurityException (never swallow auth failures)")
+    void shouldPropagate_whenRefileThrowsSecurityException() {
+        action.throwOnRefile = new SecurityException("nope");
+        action.setRefileDocumentNo("42");
+        action.setQueueId("1");
+        assertThatThrownBy(() -> action.execute())
+            .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
+    @DisplayName("should reject when queueId is missing")
+    void shouldReject_whenQueueIdMissing() throws Exception {
+        action.setRefileDocumentNo("42");
+        action.setQueueId(null);
+        action.execute();
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(action.refileCalls).isEmpty();
     }
 
     @Test

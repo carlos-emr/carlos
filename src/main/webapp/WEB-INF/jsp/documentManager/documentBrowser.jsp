@@ -73,7 +73,10 @@
 
     String demographicID = request.getParameter("demographicID");
     String categoryKey = request.getParameter("categorykey");
-    String errorMessage = "";
+    // errorMessage is populated by DocumentRefile2Action via a redirect query
+    // param when a refile throws. Read it here so the alert block below renders.
+    String errorMessage = request.getParameter("errorMessage");
+    if (errorMessage == null) errorMessage = "";
 
 // NOTE: Historic GET-triggered delete / undelete / refile scriptlets
 // were removed in favor of POST-only Struts2 mutation actions:
