@@ -34,7 +34,10 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) {
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        return;
+    }
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment"
@@ -90,7 +93,7 @@
     if (target.endsWith(".do")) {
         if (response.isCommitted()) {
             MiscUtils.getLogger().error("appointmentcontrol.jsp: cannot forward to {} — response already committed", target);
-            return;
+            throw new IllegalStateException("response already committed; cannot forward appointment dispatch");
         }
         request.getRequestDispatcher(target).forward(request, response);
     } else {

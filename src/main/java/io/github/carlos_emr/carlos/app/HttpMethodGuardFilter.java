@@ -166,8 +166,6 @@ public class HttpMethodGuardFilter implements Filter {
             "manageflowsheetsupload.jsp",
             "dbmanageprovider.jsp",
             "adminsavemygroup.jsp",
-            // Appointment mutators
-            "appointmentdeletearecord.jsp",
             // Demographic mutators
             "demographicaddarecord.jsp",
             // Billing mutators (POST-only)
