@@ -89,8 +89,7 @@ public abstract class AbstractPreventionGate2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", privilegeType(), null)) {
-            throw new SecurityException("missing required sec object (_prevention "
-                    + privilegeType() + ") in " + getClass().getSimpleName());
+            throw new SecurityException("missing required sec object (_prevention)");
         }
 
         if (requireConditionalPost()) {
