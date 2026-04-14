@@ -265,7 +265,7 @@
                         }
                     %>
 
-                    <jsp:include page="/hospitalReportManager/displayHRMReport.jsp" flush="true">
+                    <jsp:include page="/WEB-INF/jsp/hospitalReportManager/displayHRMReport.jsp" flush="true">
                         <jsp:param name="id" value="<%=segmentID %>"/>
                         <jsp:param name="segmentID" value="<%=segmentID %>"/>
                         <jsp:param name="providerNo" value="<%=providerNo %>"/>

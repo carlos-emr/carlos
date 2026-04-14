@@ -803,7 +803,7 @@ String curProvider_no = (String)session.getAttribute("user");
 					</li>
 					
 					<caisi:isModuleLoad moduleName="HRM">
-						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/hospitalReportManager/hospitalReportManager.jsp"><fmt:message key="admin.admin.hrmStatus"/></a></li>
+						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/hospitalReportManager/Statement.do"><fmt:message key="admin.admin.hrmStatus"/></a></li>
 					</caisi:isModuleLoad>
 
 					<%
