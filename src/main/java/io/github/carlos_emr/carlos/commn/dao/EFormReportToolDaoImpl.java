@@ -124,14 +124,10 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         sb.deleteCharAt(sb.length() - 1);
 
         sb.append(" ) VALUES (");
-        sb.append(fdid + ",");
-        sb.append(demographicNo + ",");
-        sb.append("\'" + DateFormatUtils.format(dateFormCreated, "yyyy-MM-dd HH:mm:ss") + "\',");
-        sb.append("\'" + providerNo + "\',");
-        sb.append("0,");
-        sb.append("now(),");
-        for (EFormValue v : values) {
-            sb.append("\'" + v.getVarValue() + "\'");
+        sb.append("?1, ?2, ?3, ?4, 0, now(),");
+        for (int i = 0; i < values.size(); i++) {
+            sb.append("?");
+            sb.append(i + 5); // Start at index 5 for dynamic values
             sb.append(",");
         }
         sb.deleteCharAt(sb.length() - 1);
@@ -141,6 +137,16 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         //logger.debug("sql=" + sb.toString());
 
         Query q = entityManager.createNativeQuery(sb.toString());
+        q.setParameter(1, fdid);
+        q.setParameter(2, demographicNo);
+        q.setParameter(3, DateFormatUtils.format(dateFormCreated, "yyyy-MM-dd HH:mm:ss"));
+        q.setParameter(4, providerNo);
+
+        int index = 5;
+        for (EFormValue v : values) {
+            q.setParameter(index++, v.getVarValue());
+        }
+
         q.executeUpdate();
     }
 

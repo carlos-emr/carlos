@@ -1,0 +1,4 @@
+## 2026-04-14 - Fix SQL Injection in EFormReportToolDaoImpl
+**Vulnerability:** Dynamic EForm values were concatenated directly into a native INSERT statement without parameterization in `EFormReportToolDaoImpl.populateReportTableItem`. This allowed arbitrary SQL commands to be injected via eForm submissions.
+**Learning:** Native query column names and structural properties must often be constructed via StringBuilder, but dynamic user-provided values must always be mapped to `?` placeholders and bound sequentially (e.g., using a tracked `index` starting after the static parameters).
+**Prevention:** Always use parameterized placeholders (`?1`, `?2`, etc.) in native queries for data values, especially when looping over dynamically created values. Never concatenate data values directly into the SQL string.
