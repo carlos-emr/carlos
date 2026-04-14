@@ -247,7 +247,7 @@ class DrlCompilationIntegrationTest {
     @Test
     @DisplayName("should compile prevention DRL")
     void shouldCompile_preventionDrl() throws DroolsCompilationException {
-        KieBase kieBase = loadDrl("/oscar/oscarPrevention/prevention.drl");
+        KieBase kieBase = loadDrl("/oscar/prevention/prevention.drl");
         assertThat(kieBase).isNotNull();
         assertThat(kieBase.getKiePackages()).isNotEmpty();
         int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();

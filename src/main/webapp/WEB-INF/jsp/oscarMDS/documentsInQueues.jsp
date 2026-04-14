@@ -915,7 +915,7 @@
             else if (type == 'MDS')
                 url = "";
             else if (type == 'HL7')
-                url = "<%= request.getContextPath() %>/lab/CA/ALL/labDisplayAjax.jsp";
+                url = "<%= request.getContextPath() %>/lab/CA/ALL/ViewLabDisplayAjax.do";
             else if (type == 'CML')
                 url = "";
             else

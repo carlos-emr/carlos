@@ -1,0 +1,131 @@
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    boolean authed = true;
+%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
+    <%authed = false; %>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
+</security:oscarSec>
+<%
+    if (!authed) {
+        return;
+    }
+%>
+
+<%@page import="java.io.Serializable" %>
+<%@page import="java.util.*,io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%
+
+
+    String ran = "" + Math.random();
+
+    String demoNo = request.getParameter("demographicNo");
+    String labType = request.getParameter("labType");
+    String testName = request.getParameter("testName");
+    String identCode = request.getParameter("identCode");
+
+    ArrayList<Map<String, Serializable>> list = CommonLabTestValues.findValuesForTest(labType, Integer.valueOf(demoNo), testName, identCode);
+
+%>
+<div class="preventionSection" id="preventionSection<%=ran%>">
+    <div class="headPrevention" id="headPrevention<%=ran%>">
+        <p><a id="ahead<%=ran%>"
+              title="fade=[on] header=[<%=Encode.forHtmlAttribute(testName)%>] body=[]"
+              href="javascript: function myFunction() {return false; }"> <span
+                title="<%=""%>" style="font-weight: bold;"> <%=Encode.forHtml(StringUtils.maxLenString(testName, 10, 8, "..."))%>
+<%=""/*testName*/%> </span> </a> <!--&nbsp;
+               <a href="">#</a--> <br/>
+        </p>
+    </div>
+    <%
+        for (int k = 0; k < list.size(); k++) {
+            HashMap hMap = (HashMap) list.get(k);
+            String labNo = String.valueOf(hMap.get("lab_no"));
+            String providerNo = String.valueOf(session.getAttribute("user"));
+            String labDisplayLink = "";
+            if (labType.equals(LabResultData.MDS)) {
+                labDisplayLink = request.getContextPath() + "/oscarMDS/ViewSegmentDisplay.do?segmentID=" + java.net.URLEncoder.encode(labNo, java.nio.charset.StandardCharsets.UTF_8) + "&providerNo=" + java.net.URLEncoder.encode(providerNo, java.nio.charset.StandardCharsets.UTF_8);
+            } else if (labType.equals(LabResultData.CML)) {
+                labDisplayLink = request.getContextPath() + "/lab/CA/ON/ViewCMLDisplay.do?segmentID=" + java.net.URLEncoder.encode(labNo, java.nio.charset.StandardCharsets.UTF_8) + "&providerNo=" + java.net.URLEncoder.encode(providerNo, java.nio.charset.StandardCharsets.UTF_8);
+            } else if (labType.equals(LabResultData.HL7TEXT)) {
+                labDisplayLink = request.getContextPath() + "/lab/CA/ALL/ViewLabDisplay.do?segmentID=" + java.net.URLEncoder.encode(labNo, java.nio.charset.StandardCharsets.UTF_8) + "&providerNo=" + java.net.URLEncoder.encode(providerNo, java.nio.charset.StandardCharsets.UTF_8);
+            } else if (labType.equals(LabResultData.EXCELLERIS)) {
+                labDisplayLink = request.getContextPath() + "/lab/CA/BC/ViewLabDisplay.do?segmentID=" + java.net.URLEncoder.encode(labNo, java.nio.charset.StandardCharsets.UTF_8) + "&providerNo=" + java.net.URLEncoder.encode(providerNo, java.nio.charset.StandardCharsets.UTF_8);
+            }
+
+    %>
+    <div style="text-align: justify;"
+         title="fade=[on] header=[<%=Encode.forHtmlAttribute(String.valueOf(hMap.get("result")))%>] body=[<%=Encode.forHtmlAttribute(String.valueOf(hMap.get("units")))%> <%=Encode.forHtmlAttribute(String.valueOf(hMap.get("range")))%>]"
+         class="preventionProcedure" id="preventionProcedure<%=""+k+""+ran%>"
+         onclick="javascript:popup(660,960,'<%= Encode.forJavaScriptAttribute(labDisplayLink) %>','labReport')">
+        <p <%=r(hMap.get("abn"))%>><%=Encode.forHtml(String.valueOf(hMap.get("result")))%>
+            &nbsp;&nbsp;&nbsp; <%=Encode.forHtml(String.valueOf(hMap.get("collDate")))%>
+        </p>
+    </div>
+    <%}%>
+</div>
+
+
+<script type="text/javascript">
+    ///alert("HI");
+    //var ele = document.getElementById("preventionSection<%=ran%>");
+    //alert(ele);
+    <%for (int k =0; k < list.size(); k++){ %>
+    Rounded("div#preventionProcedure<%=""+k+""+ran%>", "all", "#CCF", "#efeadc", "small border blue");
+    scanDOM(document.getElementById("preventionProcedure<%=""+k+""+ran%>"));
+    <%}%>
+    Rounded("div#headPrevention<%=ran%>", "all", "transparent", "#F0F0E7", "small border #999");
+
+    scanDOM(document.getElementById("ahead<%=ran%>"));
+</script>
+
+
+<%!
+    String r(Object re) {
+        String ret = "";
+        if (re instanceof java.lang.String) {
+            if (re != null && re.equals("A")) {
+                ret = "style=\"background: #FFDDDD;\"";
+            } else if (re != null && re.equals("2")) {
+                ret = "style=\"background: #FFCC24;\"";
+            }
+        }
+        return ret;
+    }
+%>

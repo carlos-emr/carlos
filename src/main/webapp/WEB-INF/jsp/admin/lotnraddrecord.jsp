@@ -74,7 +74,7 @@
         %>
         <%= resultMsg != null ? Encode.forHtml(resultMsg) : "" %>
         <br/>
-        <a href="${pageContext.request.contextPath}/admin/lotnraddrecordhtm.jsp?prevention=<%=URLEncoder.encode(prevention,"UTF-8")%>">Add Another Lot #
+        <a href="${pageContext.request.contextPath}/admin/ViewLotNrAddRecordHtm.do?prevention=<%=URLEncoder.encode(prevention,"UTF-8")%>">Add Another Lot #
             to <%=Encode.forHtml(prevention)%>
         </a> <br/>
         <a href="${pageContext.request.contextPath}/admin/LotNrSearchResults.do?search_mode=search_prev&keyword=<%=URLEncoder.encode(prevention,"UTF-8")%>&orderby=prevention_type&dboperation=lotnr_search_prevention&limit1=0&limit2=10&button=submit">View
