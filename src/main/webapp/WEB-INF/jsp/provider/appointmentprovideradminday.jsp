@@ -276,7 +276,7 @@
 
     StringBuilder ectFormNames = new StringBuilder();
     for (String formName : formNamesList) {
-        ectFormNames = ectFormNames.append("&encounterFormName=" + formName);
+        ectFormNames = ectFormNames.append("&encounterFormName=" + Encode.forUriComponent(formName));
     }
     // end get eform form links
 
@@ -526,7 +526,7 @@
                     newGroupNo = s.options[s.selectedIndex].value;
                 }
                 var programId = 0;
-                postViaForm("${pageContext.request.contextPath}/provider/providercontrol.do?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&default_servicetype=<%=defaultServiceType%>&prescriptionQrCodes=<%=prescriptionQrCodes%>&mygroup_no=" + newGroupNo + "&programId_oscarView=" + programId + "<%=eformIds.toString()%><%=ectFormNames.toString()%>", "attachment");
+                postViaForm("${pageContext.request.contextPath}/provider/providercontrol.do?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&default_servicetype=<%=defaultServiceType%>&prescriptionQrCodes=<%=prescriptionQrCodes%>&mygroup_no=" + encodeURIComponent(newGroupNo) + "&programId_oscarView=" + encodeURIComponent(programId) + "<%=eformIds.toString()%><%=ectFormNames.toString()%>", "attachment");
             }
 
             function ts1(s) {
@@ -550,7 +550,7 @@
             }
 
             function findProvider(p, m, d) {
-                popupPage(300, 400, "<%= request.getContextPath() %>/provider/ViewReceptionistFindProvider.do?pyear=" + p + "&pmonth=" + m + "&pday=" + d + "&providername=" + document.findprovider.providername.value);
+                popupPage(300, 400, "<%= request.getContextPath() %>/provider/ViewReceptionistFindProvider.do?pyear=" + p + "&pmonth=" + m + "&pday=" + d + "&providername=" + encodeURIComponent(document.findprovider.providername.value));
             }
 
             function goSearchView(s) {
@@ -1427,8 +1427,8 @@
                                             function changeSite(sel) {
                                                 sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
                                                 var siteName = sel.options[sel.selectedIndex].value;
-                                                var newGroupNo = "<%=(mygroupno == null ? ".default" : mygroupno)%>";
-                                                postViaForm("<%= request.getContextPath() %>/provider/providercontrol.do?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&mygroup_no=" + newGroupNo + "&site=" + siteName, "attachment");
+                                                var newGroupNo = "<%= Encode.forJavaScript(mygroupno == null ? ".default" : mygroupno) %>";
+                                                postViaForm("<%= request.getContextPath() %>/provider/providercontrol.do?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&mygroup_no=" + encodeURIComponent(newGroupNo) + "&site=" + encodeURIComponent(siteName), "attachment");
                                             }
                                         </script>
 
@@ -2453,7 +2453,7 @@
                         popupOscarRx(650, 1024, '<%= request.getContextPath() %>/report/reportindex.jsp', 'reportPage');
                         return false;  //run code for 'R'eports
                     case <fmt:message key="global.prefShortcut"/> : {
-                        popupOscarRx(715, 680, '<%= request.getContextPath() %>/provider/ViewProviderPreference.do?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&mygroup_no=<%=mygroupno%>'); //run code for 'P'references
+                        popupOscarRx(715, 680, '<%= request.getContextPath() %>/provider/ViewProviderPreference.do?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&mygroup_no=<%= Encode.forJavaScript(Encode.forUriComponent(mygroupno)) %>'); //run code for 'P'references
                         return false;
                     }
                     case <fmt:message key="global.searchShortcut"/> :
