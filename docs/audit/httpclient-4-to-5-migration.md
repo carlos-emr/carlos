@@ -41,7 +41,7 @@ Migrate from Apache HttpClient 4.5.14 (`org.apache.httpcomponents:httpclient`) t
 - `src/main/java/.../integration/dashboard/OutcomesDashboardUtils.java` — Form POST (uses deprecated `DefaultHttpClient`)
 
 ### DHIR Immunization (1 file, Medium complexity)
-- `src/main/webapp/prevention/dhirSubmission.jsp` — SSL client in JSP scriptlet (should be extracted to Java class)
+- `src/main/webapp/WEB-INF/jsp/prevention/dhirSubmission.jsp` — SSL client in JSP scriptlet (should be extracted to Java class)
 
 ### Utility-only imports (4 files, Trivial)
 - `InboxResultsDaoImpl.java` — `DateUtils.parseDate()` only
