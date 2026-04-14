@@ -240,8 +240,9 @@ public class DemographicExportAction42Action extends ActionSupport {
      * Allowlist of coding system names to their {@link AbstractCodeSystemDao} classes.
      *
      * <p>Replaces the previous {@code Class.forName()} reflection lookup (CWE-470) with
-     * a static, compile-time-safe map. Keys are lowercase coding system identifiers
-     * matching values stored in {@code dxresearch.coding_system}.</p>
+     * a static, compile-time-safe map. Keys are lowercase coding system identifiers.
+     * Values read from {@code dxresearch.coding_system} are normalized to lowercase
+     * before lookup, so database casing differences do not break the mapping.</p>
      *
      * @since 2026-04-14
      */
