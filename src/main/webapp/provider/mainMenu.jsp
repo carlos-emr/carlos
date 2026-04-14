@@ -229,7 +229,7 @@
                         <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
                             <li>
                                 <a HREF="#"
-                                   ONCLICK="popupPage2('<%= request.getContextPath() %>/tickler/ticklerMain.jsp','<fmt:message key="global.tickler"/>');return false;"
+                                   ONCLICK="popupPage2('<%= request.getContextPath() %>/tickler/ViewTicklerMain.do','<fmt:message key="global.tickler"/>');return false;"
                                    TITLE='<fmt:message key="global.tickler"/>'>
                                     <span id="oscar_new_tickler"><fmt:message key="global.btntickler"/></span></a>
                             </li>

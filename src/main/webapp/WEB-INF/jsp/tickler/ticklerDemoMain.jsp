@@ -744,7 +744,7 @@
             </td>
         </tr>
     </table>
-    <form name="serviceform" method="get" action="ticklerDemoMain.jsp">
+    <form name="serviceform" method="get" action="<%= request.getContextPath() %>/tickler/ViewTicklerDemoMain.do">
         <table width="100%" border="0" bgcolor="#EEEEFF">
             <tr class="noprint">
                 <td width="20%">
@@ -893,7 +893,7 @@
                             <TD ROWSPAN="1" class="<%=cellColour%>">
                                 <%if (Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("tickler_edit_enabled"))) {%>
                                 <a href=#
-                                   onClick="popupPage(600,800, '<%= request.getContextPath() %>/tickler/ticklerEdit.jsp?tickler_no=<%=t.getId()%>')"><fmt:message key="tickler.ticklerMain.editTickler"/></a>
+                                   onClick="popupPage(600,800, '<%= request.getContextPath() %>/tickler/ViewTicklerEdit.do?tickler_no=<%=t.getId()%>')"><fmt:message key="tickler.ticklerMain.editTickler"/></a>
                                 <% } %>
                             </TD>
                             <TD ROWSPAN="1" class="<%=cellColour%>"><a
@@ -1022,7 +1022,7 @@
                                     href="javascript:ClearAll();"><fmt:message key="tickler.ticklerDemoMain.btnClearAll"/></a> &nbsp; &nbsp; &nbsp;
                                 &nbsp; &nbsp; <input type="button" name="button"
                                                      value="<fmt:message key="tickler.ticklerDemoMain.btnAddTickler"/>"
-                                                     onClick="popupPage('400','600', 'ticklerAdd.jsp?updateParent=true&parentAjaxId=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(parentAjaxId))%>&bFirstDisp=false&messageID=null&demographic_no=<%=Encode.forJavaScriptAttribute(String.valueOf(d.getDemographicNo()))%>&chart_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(d.getChartNo()))%>&name=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(d.getDisplayName()))%>')"
+                                                     onClick="popupPage('400','600', '<%= request.getContextPath() %>/tickler/ViewAddTickler.do?updateParent=true&parentAjaxId=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(parentAjaxId))%>&bFirstDisp=false&messageID=null&demographic_no=<%=Encode.forJavaScriptAttribute(String.valueOf(d.getDemographicNo()))%>&chart_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(d.getChartNo()))%>&name=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(d.getDisplayName()))%>')"
                                                      class="sbttn"> <input type="hidden" name="submit_form"
                                                                            value=""> <% if (ticklerview.compareTo("D") == 0) {%>
                                 <input

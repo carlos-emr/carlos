@@ -28,6 +28,16 @@
 <struts>
     <package name="scheduling" namespace="/" extends="struts-default">
 
+        <global-results>
+            <result name="securityError">/securityError.jsp</result>
+            <result name="error">/errorpage.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+            <exception-mapping exception="java.lang.Exception" result="error"/>
+        </global-exception-mappings>
+
         <action name="notification/create" class="io.github.carlos_emr.carlos.commn.web.ProviderNotification2Action"/>
         <action name="waitinglist/SetupDisplayPatientWaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2Action">
             <result name="continue">/waitinglist/DisplayPatientWaitingList.jsp</result>
@@ -48,7 +58,7 @@
         <action name="demographic/FindNextAvailableSlot" class="io.github.carlos_emr.carlos.commn.web.FindNextAvailableSlot2Action"/>
         <action name="provider/SearchProvider" class="io.github.carlos_emr.carlos.commn.web.SearchProviderAutoComplete2Action"/>
         <action name="tickler/ForwardDemographicTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.ForwardDemographicTickler2Action">
-            <result name="success">/tickler/ticklerAdd.jsp</result>
+            <result name="success">/WEB-INF/jsp/tickler/ticklerAdd.jsp</result>
         </action>
         <action name="tickler/AddTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.AddTickler2Action">
             <result name="close">/close.html</result>
@@ -119,7 +129,7 @@
         </result>
         </action>
         <action name="tickler/EditTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action">
-            <result name="close">/tickler/ticklerEditSuccess.jsp</result>
+            <result name="close">/WEB-INF/jsp/tickler/ticklerEditSuccess.jsp</result>
             <result name="failure">/failure.jsp</result>
             <result name="error">/errorpage.jsp</result>
         </action>
@@ -197,5 +207,28 @@
             <result name="success">/WEB-INF/jsp/schedule/scheduledatefinal.jsp</result>
         </action>
 
+
+        <!-- ===== tickler JSP gating actions (migration slice) =====
+             SecurityException from any gate is routed by the package-level
+             global-exception-mapping to /securityError.jsp; no per-action
+             error result needed. -->
+        <action name="tickler/ViewIndex" class="io.github.carlos_emr.carlos.tickler.gate.ViewIndex2Action">
+            <result name="success">/WEB-INF/jsp/tickler/index.jsp</result>
+        </action>
+        <action name="tickler/ViewTicklerDemoMain" class="io.github.carlos_emr.carlos.tickler.gate.ViewTicklerDemoMain2Action">
+            <result name="success">/WEB-INF/jsp/tickler/ticklerDemoMain.jsp</result>
+        </action>
+        <action name="tickler/ViewTicklerEdit" class="io.github.carlos_emr.carlos.tickler.gate.ViewTicklerEdit2Action">
+            <result name="success">/WEB-INF/jsp/tickler/ticklerEdit.jsp</result>
+        </action>
+        <action name="tickler/ViewTicklerMain" class="io.github.carlos_emr.carlos.tickler.gate.ViewTicklerMain2Action">
+            <result name="success">/WEB-INF/jsp/tickler/ticklerMain.jsp</result>
+        </action>
+        <action name="tickler/ViewTicklerSuggestedText" class="io.github.carlos_emr.carlos.tickler.gate.ViewTicklerSuggestedText2Action">
+            <result name="success">/WEB-INF/jsp/tickler/ticklerSuggestedText.jsp</result>
+        </action>
+        <action name="tickler/ViewAddTickler" class="io.github.carlos_emr.carlos.tickler.gate.ViewAddTickler2Action">
+            <result name="success">/WEB-INF/jsp/tickler/ticklerAdd.jsp</result>
+        </action>
     </package>
 </struts>
