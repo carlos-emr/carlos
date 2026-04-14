@@ -1308,6 +1308,8 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             assertThat(manager.getDemographicsNameRangeByProvider(mockLoggedInInfo, provider, "^(a+)+$")).isEmpty();
             assertThat(manager.getDemographicsNameRangeByProvider(mockLoggedInInfo, provider, ".*")).isEmpty();
             assertThat(manager.getDemographicsNameRangeByProvider(mockLoggedInInfo, provider, "^[A-Z")).isEmpty();
+            // Reversed range passes the allowlist pattern but must be rejected to avoid PatternSyntaxException
+            assertThat(manager.getDemographicsNameRangeByProvider(mockLoggedInInfo, provider, "^[Z-A]")).isEmpty();
         }
 
         @Test

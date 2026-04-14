@@ -389,6 +389,15 @@ public class DemographicManagerImpl implements DemographicManager {
             return new ArrayList<>();
         }
 
+        // Validate that the character range is not reversed (e.g. "^[Z-A]" would pass the
+        // allowlist but throw PatternSyntaxException in Pattern.compile).
+        char rangeStart = Character.toUpperCase(regex.charAt(2));
+        char rangeEnd = Character.toUpperCase(regex.charAt(4));
+        if (rangeStart > rangeEnd) {
+            logger.warn("getDemographicsNameRangeByProvider: rejected reversed character range");
+            return new ArrayList<>();
+        }
+
         List<Demographic> demographicList = demographicDao.getDemographicByProvider(provider.getProviderNo());
         /*
          * A reluctant method to sort the results due to the lack of REGEX functions
