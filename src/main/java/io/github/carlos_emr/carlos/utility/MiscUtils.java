@@ -28,6 +28,7 @@ package io.github.carlos_emr.carlos.utility;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputFilter;
 import java.io.ObjectInputStream;
@@ -51,9 +52,9 @@ import org.apache.commons.codec.EncoderException;
 import org.apache.commons.codec.language.RefinedSoundex;
 import org.apache.commons.lang3.StringUtils;
 
-import org.apache.log4j.xml.DOMConfigurator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.LoggerContext;
 import io.github.carlos_emr.carlos.utility.CxfClientUtils.TrustAllManager;
 
 /**
@@ -159,8 +160,18 @@ public final class MiscUtils {
             }
 
             String resolvedLocation = configLocation.replace("${contextName}", contextPath);
+
+            File configFile = new File(resolvedLocation);
+            if (!configFile.isFile() || !configFile.canRead()) {
+                getLogger().warn("log4j.override.configuration points to a missing or unreadable file: " + resolvedLocation);
+                return;
+            }
+
             getLogger().info("loading additional override logging configuration from : " + resolvedLocation);
-            DOMConfigurator.configureAndWatch(resolvedLocation);
+            // Auto-reload on file change requires monitorInterval="N" on the
+            // <Configuration> root element of the override XML.
+            LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
+            ctx.setConfigLocation(configFile.toURI());
         }
 
     }

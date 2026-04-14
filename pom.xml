@@ -338,13 +338,6 @@
             <artifactId>log4j-api</artifactId>
             <version>${log4j2.version}</version>
         </dependency>
-        <!--Enables log4j-2 binding from libraries that still use older Log4j-1 -->
-        <dependency>
-            <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-1.2-api</artifactId>
-            <version>${log4j2.version}</version>
-        </dependency>
-
         <!-- SLF4J -->
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -448,7 +441,7 @@
                     <groupId>commons-lang</groupId>
                     <artifactId>commons-lang</artifactId>
                 </exclusion>
-                <!-- Exclude vulnerable log4j v1.2.x - default to using log4j 2.x instead (see version of log4j-1.2-api) -->
+                <!-- Exclude vulnerable log4j v1.2.x - default to using log4j 2.x instead -->
                 <exclusion>
                     <groupId>log4j</groupId>
                     <artifactId>log4j</artifactId>
