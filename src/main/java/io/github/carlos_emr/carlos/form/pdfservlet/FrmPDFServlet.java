@@ -138,6 +138,7 @@ public class FrmPDFServlet extends HttpServlet {
 
         ByteArrayOutputStream baosPDF = null;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
+        List<File> tempFiles = new ArrayList<>();
 
         try {
             File tmpFile = null;
@@ -147,18 +148,21 @@ public class FrmPDFServlet extends HttpServlet {
                 for (int x = 0; x < Integer.parseInt(req.getParameter("multiple")); x++) {
                     baosPDF = new ByteArrayOutputStream();
                     baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), baosPDF, x);
-                    tmpFile = File.createTempFile("formpdf", String.valueOf((int) Math.random() * 10000));
-                    try (FileOutputStream fos = new FileOutputStream(tmpFile)) {
+                    File pageTmp = File.createTempFile("formpdf", ".pdf");
+                    tempFiles.add(pageTmp);
+                    try (FileOutputStream fos = new FileOutputStream(pageTmp)) {
                         baosPDF.writeTo(fos);
                     }
-                    files.add(tmpFile.getAbsolutePath());
+                    files.add(pageTmp.getAbsolutePath());
                 }
-                tmpFile = File.createTempFile("formpdf", String.valueOf((int) Math.random() * 10000));
+                tmpFile = File.createTempFile("formpdf", ".pdf");
+                tempFiles.add(tmpFile);
                 ConcatPDF.concat(files, tmpFile.getAbsolutePath());
             } else {
                 baosPDF = new ByteArrayOutputStream();
                 baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), baosPDF, 0);
-                tmpFile = File.createTempFile("formpdf", String.valueOf((int) Math.random() * 10000));
+                tmpFile = File.createTempFile("formpdf", ".pdf");
+                tempFiles.add(tmpFile);
                 try (FileOutputStream fos = new FileOutputStream(tmpFile)) {
                     baosPDF.writeTo(fos);
                 }
@@ -192,8 +196,7 @@ public class FrmPDFServlet extends HttpServlet {
 
 
             ServletOutputStream sout = res.getOutputStream();
-            FileInputStream fis = new FileInputStream(tmpFile);
-            try {
+            try (FileInputStream fis = new FileInputStream(tmpFile)) {
                 byte[] buffer = new byte[64000];
                 int bytesRead = 0;
 
@@ -204,8 +207,6 @@ public class FrmPDFServlet extends HttpServlet {
 
                     sout.write(buffer, 0, bytesRead);
                 }
-            } finally {
-                fis.close();
             }
 
             LogAction.addLogSynchronous(loggedInInfo, "FrmPDFServlet", "formID=" + req.getParameter("formId") + ",form_class=" + req.getParameter("form_class"));
@@ -228,6 +229,11 @@ public class FrmPDFServlet extends HttpServlet {
             if (baosPDF != null) {
                 baosPDF.reset();
                 //baosPDF.close();
+            }
+            for (File tempFile : tempFiles) {
+                if (tempFile.exists() && !tempFile.delete()) {
+                    tempFile.deleteOnExit();
+                }
             }
         }
 

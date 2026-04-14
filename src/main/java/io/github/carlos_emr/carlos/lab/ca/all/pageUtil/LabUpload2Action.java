@@ -243,7 +243,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         try {
 
             try (InputStream msgIs = new FileInputStream(input)) {
-                Signature sig = Signature.getInstance("MD5WithRSA");
+                // MD5WithRSA is required by the external lab upload protocol for signature
+                // verification. Do not change without coordinating with all lab data senders.
+                Signature sig = Signature.getInstance("MD5WithRSA"); // nosemgrep: java.lang.security.audit.crypto.weak-hash -- external lab protocol requirement
                 sig.initVerify(key);
 
                 // Read in the message bytes and update the signature
