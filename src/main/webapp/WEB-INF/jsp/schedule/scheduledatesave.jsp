@@ -59,7 +59,7 @@
         String priority = "c";
         String reason = request.getParameter("reason");
         String hour = request.getParameter("hour");
-        String dateParam = dateParam;
+        String dateParam = request.getParameter("dateParam");
 
         if (provider_no == null || provider_no.isEmpty()) {
             throw new IllegalArgumentException("missing required parameter: provider_no");
