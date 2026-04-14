@@ -239,8 +239,23 @@
     java.text.SimpleDateFormat simpleDateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd");
     String dateString = simpleDateFormat.format(now.getTime());
 
+    public String getOrDefault(ResourceBundle bundle, String key) {
+        try {
+            if (bundle != null && bundle.containsKey(key)) {
+                return bundle.getString(key);
+            }
+        } catch (MissingResourceException ignored) {
+            // ignore and fallback
+        }
+    
+        int lastDot = key.lastIndexOf('.');
+        return (lastDot != -1 && lastDot < key.length() - 1)
+                ? "?" + key.substring(lastDot + 1) + "?"
+                : "?" + key + "?";
+    }
+
     java.util.ResourceBundle oscarResources = ResourceBundle.getBundle("oscarResources", request.getLocale());
-    String noteReason = oscarResources.getString("encounter.noteReason.TelProgress");
+    String noteReason = getOrDefault(oscarResources, "encounter.noteReason.TelProgress");
 
     if (oscarProps.getProperty("disableTelProgressNoteTitleInEncouterNotes") != null
             && oscarProps.getProperty("disableTelProgressNoteTitleInEncouterNotes").equals("yes")) {
@@ -303,70 +318,71 @@
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
         <oscar:oscarPropertiesCheck property="DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM" value="true">
-            <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/css/healthCareTeam.css"/>
+            <link rel="stylesheet" type="text/css" href=<%=ctx%>/css/healthCareTeam.css"/>
         </oscar:oscarPropertiesCheck>
 
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
-              href="<%=request.getContextPath()%>/share/calendar/calendar.css" title="win2k-cold-1"/>
+              href="<%=ctx%>/share/calendar/calendar.css" title="win2k-cold-1"/>
 
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/demographic/demographiceditdemographic.css"
+        <link rel="stylesheet" href="<%=ctx%>/demographic/demographiceditdemographic.css"
               type="text/css"/>
 
         <!-- main calendar program -->
-        <script type="text/javascript" src="<%=request.getContextPath()%>/share/calendar/calendar.js"></script>
+        <script type="text/javascript" src="<%=ctx%>/share/calendar/calendar.js"></script>
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%=ctx%>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
        adding a calendar a matter of 1 or 2 lines of code. -->
-        <script type="text/javascript" src="<%=request.getContextPath()%>/share/calendar/calendar-setup.js"></script>
+        <script type="text/javascript" src="<%=ctx%>/share/calendar/calendar-setup.js"></script>
 
-        <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath() %>/js/check_hin.js"></script>
+        <script type="text/javascript" src="<%=ctx%>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <script type="text/javascript" src="<%=ctx%>/js/check_hin.js"></script>
 
-        <script type="text/javascript" src="<%=request.getContextPath() %>/js/popup.js"></script>
+        <script type="text/javascript" src="<%=ctx%>/js/popup.js"></script>
 
         <% if (isMobileOptimized) { %>
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/mobile/editdemographicstyle.css">
+        <link rel="stylesheet" type="text/css" href="<%=ctx%>/mobile/editdemographicstyle.css">
         <% } %>
 
         <!--popup menu for encounter type -->
-        <script src="<c:out value="${ctx}"/>/share/javascript/popupmenu.js"
+        <script src="<%=ctx%>/share/javascript/popupmenu.js"
                 type="text/javascript"></script>
-        <script src="<c:out value="${ctx}"/>/share/javascript/menutility.js"
+        <script src="<%=ctx%>/share/javascript/menutility.js"
                 type="text/javascript"></script>
 
         <script type="text/javascript"
-                src="<%=request.getContextPath() %>/demographic/ViewDemographicEditDemographicJs.do"></script>
+                src="<%=ctx%>/demographic/ViewDemographicEditDemographicJs.do"></script>
+
 
         <!-- Pre-computed i18n strings, safely encoded for JavaScript embedding -->
         <script>
             var i18n = {
-                msgWrongDOB:                  '<%= Encode.forJavaScript(oscarResources.getString("demographic.search.msgWrongDOB")) %>',
-                msgNameRequired:              '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgNameRequired")) %>',
-                msgWrongDate:                 '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgWrongDate")) %>',
-                msgWrongHIN:                  '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgWrongHIN")) %>',
-                msgBlankRoster:               '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgBlankRoster")) %>',
-                msgForbiddenRosterDate:       '<%= Encode.forJavaScript(oscarResources.getString("demographic.search.msgForbiddenRosterDate")) %>',
-                msgLeaveBlank:                '<%= Encode.forJavaScript(oscarResources.getString("demographic.search.msgLeaveBlank")) %>',
-                msgWrongRosterDate:           '<%= Encode.forJavaScript(oscarResources.getString("demographic.search.msgWrongRosterDate")) %>',
-                msgWrongRosterEnrolledTo:     '<%= Encode.forJavaScript(oscarResources.getString("demographic.search.msgWrongRosterEnrolledTo")) %>',
-                msgWrongRosterTerminationDate:'<%= Encode.forJavaScript(oscarResources.getString("demographic.search.msgWrongRosterTerminationDate")) %>',
-                msgNoTerminationReason:       '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgNoTerminationReason")) %>',
-                msgWrongPatientStatusDate:    '<%= Encode.forJavaScript(oscarResources.getString("demographic.search.msgWrongPatientStatusDate")) %>',
-                msgWrongReferral:             '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgWrongReferral")) %>',
-                msgPromptStatus:              '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgPromptStatus")) %>',
-                msgInvalidEntry:              '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgInvalidEntry")) %>',
-                updateCBIReminder:            '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.updateCBIReminder")) %>',
-                btnCancel:                    '<%= Encode.forJavaScript(oscarResources.getString("global.btnCancel")) %>',
-                btnBack:                      '<%= Encode.forJavaScript(oscarResources.getString("global.btnBack")) %>',
-                msgConfirmClearConsent:       '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgConfirmClearConsent")) %>',
-                msgConfirmEnrolledToMRP:      '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgConfirmEnrolledToMRP")) %>',
-                msgConfirmClearEnrolledTo:    '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgConfirmClearEnrolledTo")) %>',
-                msgAjaxError:                 '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgAjaxError")) %>'
+                msgWrongDOB:                  '<%= Encode.forJavaScript(getOrDefault(oscarResources, "demographic.search.msgWrongDOB")) %>',
+                msgNameRequired:              '<%= Encode.forJavaScript(getOrDefault(oscarResources, "demographic.demographiceditdemographic.msgNameRequired")) %>',
+                msgWrongDate:                 '<%= Encode.forJavaScript(getOrDefault(oscarResources, "demographic.demographiceditdemographic.msgWrongDate")) %>',
+                msgWrongHIN:                  '<%= Encode.forJavaScript(getOrDefault(oscarResources, "demographic.demographiceditdemographic.msgWrongHIN")) %>',
+                msgBlankRoster:               '<%= Encode.forJavaScript(getOrDefault(oscarResources, "demographic.demographiceditdemographic.msgBlankRoster")) %>',
+                msgForbiddenRosterDate:       '<%= Encode.forJavaScript(getOrDefault(oscarResources, "demographic.search.msgForbiddenRosterDate")) %>',
+                msgLeaveBlank:                '<%= Encode.forJavaScript(getOrDefault(oscarResources, "demographic.search.msgLeaveBlank")) %>',
+                msgWrongRosterDate:           '<%= Encode.forJavaScript(getOrDefault(oscarResources, "demographic.search.msgWrongRosterDate")) %>',
+                msgWrongRosterEnrolledTo:     '<%= Encode.forJavaScript(getOrDefault(oscarResources, "demographic.search.msgWrongRosterEnrolledTo")) %>',
+                msgWrongRosterTerminationDate:'<%= Encode.forJavaScript(getOrDefault(oscarResources, "demographic.search.msgWrongRosterTerminationDate")) %>',
+                msgNoTerminationReason:       '<%= Encode.forJavaScript(getOrDefault(oscarResources, "demographic.demographiceditdemographic.msgNoTerminationReason")) %>',
+                msgWrongPatientStatusDate:    '<%= Encode.forJavaScript(getOrDefault(oscarResources, "demographic.search.msgWrongPatientStatusDate")) %>',
+                msgWrongReferral:             '<%= Encode.forJavaScript(getOrDefault(oscarResources, "demographic.demographiceditdemographic.msgWrongReferral")) %>',
+                msgPromptStatus:              '<%= Encode.forJavaScript(getOrDefault(oscarResources, "demographic.demographiceditdemographic.msgPromptStatus")) %>',
+                msgInvalidEntry:              '<%= Encode.forJavaScript(getOrDefault(oscarResources, "demographic.demographiceditdemographic.msgInvalidEntry")) %>',
+                updateCBIReminder:            '<%= Encode.forJavaScript(getOrDefault(oscarResources, "demographic.demographiceditdemographic.updateCBIReminder")) %>',
+                btnCancel:                    '<%= Encode.forJavaScript(getOrDefault(oscarResources, "global.btnCancel")) %>',
+                btnBack:                      '<%= Encode.forJavaScript(getOrDefault(oscarResources, "global.btnBack")) %>',
+                msgConfirmClearConsent:       '<%= Encode.forJavaScript(getOrDefault(oscarResources, "demographic.demographiceditdemographic.msgConfirmClearConsent")) %>',
+                msgConfirmEnrolledToMRP:      '<%= Encode.forJavaScript(getOrDefault(oscarResources, "demographic.demographiceditdemographic.msgConfirmEnrolledToMRP")) %>',
+                msgConfirmClearEnrolledTo:    '<%= Encode.forJavaScript(getOrDefault(oscarResources, "demographic.demographiceditdemographic.msgConfirmClearEnrolledTo")) %>',
+                msgAjaxError:                 '<%= Encode.forJavaScript(getOrDefault(oscarResources, "demographic.demographiceditdemographic.msgAjaxError")) %>'
             };
 
             function showAlert(message) {
@@ -1157,19 +1173,19 @@
                                         if ("ON".equals(prov)) {
                                     %>
                                     <a href="javascript: function myFunction() {return false; }"
-                                       onClick="popupPage(500,800,'<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/billing/CA/ON/billingONHistory.jsp?demographic_no=" + Encode.forUriComponent(String.valueOf(demographic.getDemographicNo()))) %>')">
+                                       onClick="popupPage(500,800,'<%= Encode.forJavaScriptAttribute(ctx + "/billing/CA/ON/billingONHistory.jsp?demographic_no=" + Encode.forUriComponent(String.valueOf(demographic.getDemographicNo()))) %>')">
                                         <fmt:message key="demographic.demographiceditdemographic.msgBillHistory"/></a>
                                     <%
                                     } else {
                                     %>
                                     <a href="#"
-                                       onclick="popupPage(800,1000,'<%= request.getContextPath() %>/billing/CA/BC/billStatus.jsp?lastName=<%=URLEncoder.encode(demographic.getLastName(), StandardCharsets.UTF_8)%>&firstName=<%=URLEncoder.encode(demographic.getFirstName(), StandardCharsets.UTF_8)%>&filterPatient=true&demographicNo=<%=demographic.getDemographicNo()%>');return false;">
+                                       onclick="popupPage(800,1000,'<%=ctx%>/billing/CA/BC/billStatus.jsp?lastName=<%=URLEncoder.encode(demographic.getLastName(), StandardCharsets.UTF_8)%>&firstName=<%=URLEncoder.encode(demographic.getFirstName(), StandardCharsets.UTF_8)%>&filterPatient=true&demographicNo=<%=demographic.getDemographicNo()%>');return false;">
                                         <fmt:message key="demographic.demographiceditdemographic.msgInvoiceList"/></a>
 
 
                                     <br/>
                                     <a href="javascript:void(0);" onclick="return !showMenu('2', event);"
-                                       onmouseover="callEligibilityWebService('<%=request.getContextPath()%>/billing/CA/BC/ManageTeleplan.do','returnTeleplanMsg');"><fmt:message key="demographic.demographiceditdemographic.btnCheckElig"/></a>
+                                       onmouseover="callEligibilityWebService('<%=ctx%>/billing/CA/BC/ManageTeleplan.do','returnTeleplanMsg');"><fmt:message key="demographic.demographiceditdemographic.btnCheckElig"/></a>
                                     <div id='menu2' class='menu' onclick='event.cancelBubble = true;'
                                          style="width:350px;">
                                         <span id="search_spinner"><fmt:message key="demographic.demographiceditdemographic.msgLoading"/></span>
@@ -1198,13 +1214,13 @@
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(700,960,'<%= request.getContextPath() %>/encounter/oscarConsultationRequest/DisplayDemographicConsultationRequests.jsp?de=<%=demographic.getDemographicNo()%>&proNo=<%=demographic.getProviderNo()%>')"><fmt:message key="demographic.demographiceditdemographic.btnConsultation"/></a></td>
+                                    onClick="popupPage(700,960,'<%=ctx%>/encounter/oscarConsultationRequest/DisplayDemographicConsultationRequests.jsp?de=<%=demographic.getDemographicNo()%>&proNo=<%=demographic.getProviderNo()%>')"><fmt:message key="demographic.demographiceditdemographic.btnConsultation"/></a></td>
                         </tr>
 
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupOscarRx(700,1027,'<%= request.getContextPath() %>/rx/choosePatient.do?providerNo=<%= Encode.forJavaScriptAttribute(curProvider_no) %>&demographicNo=<%= Encode.forJavaScriptAttribute(demographic_no) %>')"><fmt:message key="global.prescriptions"/></a>
+                                    onClick="popupOscarRx(700,1027,'<%=ctx%>/rx/choosePatient.do?providerNo=<%= Encode.forJavaScriptAttribute(curProvider_no) %>&demographicNo=<%= Encode.forJavaScriptAttribute(demographic_no) %>')"><fmt:message key="global.prescriptions"/></a>
                             </td>
                         </tr>
 
@@ -1221,8 +1237,7 @@
                             <tr>
                                 <td><a
                                         href="javascript: function myFunction() {return false; }"
-                                        onClick="popupPage(700,960,'<c:out
-                                                value="${ctx}"/>/prevention/ViewPreventionIndex.do?demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>');return false;">
+                                        onClick="popupPage(700,960,<%=ctx%>/prevention/ViewPreventionIndex.do?demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>');return false;">
                                     <fmt:message key="encounter.LeftNavBar.Prevent"/></a></td>
                             </tr>
                         </security:oscarSec>
@@ -1230,7 +1245,7 @@
                             <td>
                                 <a
                                         href="javascript: function myFunction() {return false; }"
-                                        onClick="popupPage(700,1000,'<%= request.getContextPath() %>/tickler/ViewTicklerMain.do?demoview=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>');return false;">
+                                        onClick="popupPage(700,1000,'<%=ctx%>/tickler/ViewTicklerMain.do?demoview=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>');return false;">
                                     <fmt:message key="global.tickler"/></a>
                             </td>
                         </tr>
@@ -1241,13 +1256,13 @@
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(700,1000,'<%=request.getContextPath()%>/form/forwardshortcutname.do?formname=AR1&demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>');">AR1</a>
+                                    onClick="popupPage(700,1000,'<%=ctx%>/form/forwardshortcutname.do?formname=AR1&demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>');">AR1</a>
                             </td>
                         </tr>
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(700,1000,'<%=request.getContextPath()%>/form/forwardshortcutname.do?formname=AR2&demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>');">AR2</a>
+                                    onClick="popupPage(700,1000,'<%=ctx%>/form/forwardshortcutname.do?formname=AR2&demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>');">AR2</a>
                             </td>
                         </tr>
                         <% } %>
@@ -1259,7 +1274,7 @@
                                 <td>
 
                                     <a href="#"
-                                       onClick="window.open('<%=request.getContextPath()%>/mod/docmgmtComp/DocList.do?method=list&&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>','_blank','resizable=yes,status=yes,scrollbars=yes');return false;">Inbox
+                                       onClick="window.open('<%=ctx%>/mod/docmgmtComp/DocList.do?method=list&&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>','_blank','resizable=yes,status=yes,scrollbars=yes');return false;">Inbox
                                         Manager</a><br>
                                 </td>
                             </tr>
@@ -1268,7 +1283,7 @@
                             <tr>
                                 <td>
                                     <a href="javascript: function myFunction() {return false; }"
-                                       onClick="popupPage(710,970,'<%= request.getContextPath() %>/documentManager/documentReport.jsp?function=demographic&doctype=lab&functionid=<%=demographic.getDemographicNo()%>&curUser=<%=curProvider_no%>')"><fmt:message key="demographic.demographiceditdemographic.msgDocuments"/></a></td>
+                                       onClick="popupPage(710,970,'<%=ctx%>/documentManager/documentReport.jsp?function=demographic&doctype=lab&functionid=<%=demographic.getDemographicNo()%>&curUser=<%=curProvider_no%>')"><fmt:message key="demographic.demographiceditdemographic.msgDocuments"/></a></td>
                             </tr>
                             <%
                                 UserProperty upDocumentBrowserLink = pref.getProp(curProvider_no, UserProperty.EDOC_BROWSER_IN_MASTER_FILE);
@@ -1276,13 +1291,13 @@
                             <tr>
                                 <td>
                                     <a href="javascript: function myFunction() {return false; }"
-                                       onClick="popupPage(710,970,'<%= request.getContextPath() %>/documentManager/documentBrowser.jsp?function=demographic&doctype=lab&functionid=<%=demographic.getDemographicNo()%>&categorykey=Private Documents')"><fmt:message key="demographic.demographiceditdemographic.msgDocumentBrowser"/></a></td>
+                                       onClick="popupPage(710,970,'<%=ctx%>/documentManager/documentBrowser.jsp?function=demographic&doctype=lab&functionid=<%=demographic.getDemographicNo()%>&categorykey=Private Documents')"><fmt:message key="demographic.demographiceditdemographic.msgDocumentBrowser"/></a></td>
                             </tr>
                             <%}%>
                         </special:SpecialPlugin>
                         <tr>
                             <td><a
-                                    href="<%= request.getContextPath() %>/eform/efmpatientformlist.jsp?demographic_no=<%= Encode.forUriComponent(demographic_no) %>&apptProvider=<%= Encode.forUriComponent(apptProvider != null ? apptProvider : "") %>&appointment=<%= Encode.forUriComponent(appointment != null ? appointment : "") %>"><fmt:message key="demographic.demographiceditdemographic.btnEForm"/></a></td>
+                                    href="<%=ctx%>/eform/efmpatientformlist.jsp?demographic_no=<%= Encode.forUriComponent(demographic_no) %>&apptProvider=<%= Encode.forUriComponent(apptProvider != null ? apptProvider : "") %>&appointment=<%= Encode.forUriComponent(appointment != null ? appointment : "") %>"><fmt:message key="demographic.demographiceditdemographic.btnEForm"/></a></td>
                         </tr>
 
                     </table>
@@ -1708,7 +1723,7 @@
                                                             <div class="demographicSection" id="clinicStatus">
                                                                 <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.msgClinicStatus"/>
                                                                     <a class="h3-pill" href="#"
-                                                                        onclick="popup(1000, 650, '<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/demographic/ViewEnrollmentHistory.do?demographicNo=" + Encode.forUriComponent(demographic_no)) %>', 'enrollmentHistory'); return false;"><fmt:message key="demographic.demographiceditdemographic.msgEnrollmentHistory"/></a>
+                                                                        onclick="popup(1000, 650, '<%= Encode.forJavaScriptAttribute(ctx + "/demographic/ViewEnrollmentHistory.do?demographicNo=" + Encode.forUriComponent(demographic_no)) %>', 'enrollmentHistory'); return false;"><fmt:message key="demographic.demographiceditdemographic.msgEnrollmentHistory"/></a>
                                                                 </h3>
                                                                 <ul>
                                                                     <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formRosterStatus"/>:</span>
@@ -4968,13 +4983,13 @@
                                                         </security:oscarSec>
                                                         <input type="button" class="btn-toolbar-secondary"
                                                                value="<fmt:message key="demographic.demographiceditdemographic.btnAuditInfo"/>"
-                                                               onclick="window.open('<%= Encode.forJavaScriptAttribute(request.getContextPath()) %>/demographic/ViewDemographicAudit.do?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic.getDemographicNo().toString())) %>');"/>
+                                                               onclick="window.open('<%=ctx%>/demographic/ViewDemographicAudit.do?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic.getDemographicNo().toString())) %>');"/>
                                                     </div>
                                                     <div class="toolbar-right">
                                                         <span id="swipeButtonBottom" style="display: none;">
                                                             <input type="button" name="Button" class="btn-toolbar-secondary"
                                                                    value="<fmt:message key="demographic.demographiceditdemographic.btnSwipeCard"/>"
-                                                                   onclick="window.open('demographic/zdemographicswipe.jsp','', 'scrollbars=yes,resizable=yes,width=600,height=300, top=360, left=0')">
+                                                                   onclick="window.open('<%=ctx%>/demographic/zdemographicswipe.jsp','', 'scrollbars=yes,resizable=yes,width=600,height=300, top=360, left=0')">
                                                         </span>
                                                         <div class="dropdown">
                                                             <button class="btn-toolbar-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
