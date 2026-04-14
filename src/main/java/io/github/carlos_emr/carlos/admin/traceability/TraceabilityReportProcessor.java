@@ -146,8 +146,12 @@ public class TraceabilityReportProcessor implements Callable<String> {
 
             ios.setObjectInputFilter(TRACE_DESERIALIZATION_FILTER);
 
+            // FP for deserialization scanners (CodeQL java/UnsafeDeserialization, Semgrep
+            // object-deserialization): TRACE_DESERIALIZATION_FILTER is an exceptionally tight
+            // allowlist of HashMap/String/Map.Entry[] only, and the stream is wrapped in a
+            // BoundedInputStream above to prevent decompression-bomb DoS.
             @SuppressWarnings("unchecked")
-            Map<String, String> sourceMap = (Map<String, String>) ios.readObject();
+            Map<String, String> sourceMap = (Map<String, String>) ios.readObject(); // nosemgrep: java.lang.security.audit.object-deserialization.object-deserialization -- filter+bounded // lgtm[java/unsafe-deserialization]
 
             originDate = sourceMap.getOrDefault("origin_date", "n/a");
             gitSHA = sourceMap.getOrDefault("git_sha", "n/a");
