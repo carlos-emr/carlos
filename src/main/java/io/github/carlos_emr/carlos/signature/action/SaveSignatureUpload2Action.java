@@ -25,9 +25,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.struts2.ActionSupport;
@@ -59,6 +61,19 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * <p>Enforces POST + {@code _con w}. Path-traversal is defended via
  * {@link PathValidationUtils#validateExistingPath}, matching the original.
+ *
+ * <p><b>Response contract:</b>
+ * <ul>
+ *   <li>405 — non-POST method</li>
+ *   <li>400 — missing/non-alphanumeric {@code signatureKey}, or malformed
+ *       {@code demographicNo} when {@code saveToDB=true}</li>
+ *   <li>400 — malformed {@code data:} URI or non-Base64 {@code signatureImage}
+ *       on the IPAD branch</li>
+ *   <li>413 — raw-stream upload exceeds {@value #MAX_UPLOAD_BYTES} bytes</li>
+ *   <li>500 — generic "Upload failed" (full exception logged server-side)</li>
+ *   <li>200 — HTML fragment with hidden {@code signatureId} input</li>
+ * </ul>
+ * Partial temp files from rejected uploads are deleted before returning.
  */
 public final class SaveSignatureUpload2Action extends ActionSupport {
 
@@ -106,8 +121,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
         String filename = DigitalSignatureUtils.getTempFilePath(signatureKey);
 
         // Defence-in-depth: confirm the resolved path is within the temp directory,
-        // then reuse the validated File for downstream sinks so static analysers
-        // (CodeQL) can see the sanitiser on the dataflow.
+        // and reuse the validated File as the sink for the FileOutputStreams below.
         File safeTarget;
         try {
             File tmpDir = new File(System.getProperty("java.io.tmpdir"));
@@ -119,21 +133,31 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
         }
 
         if ("IPAD".equalsIgnoreCase(uploadSource) && imageString != null && !imageString.isEmpty()) {
+            int comma = imageString.indexOf(",");
+            String encoded = comma >= 0 ? imageString.substring(comma + 1) : imageString;
+            byte[] imageData;
+            try {
+                imageData = new Base64().decode(encoded.getBytes(StandardCharsets.US_ASCII));
+            } catch (IllegalArgumentException e) {
+                MiscUtils.getLogger().warn("Invalid Base64 signatureImage for key {}", LogSanitizer.sanitize(signatureKey));
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid image data");
+                return NONE;
+            }
+            if (imageData == null || imageData.length == 0) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid image data");
+                return NONE;
+            }
             try (FileOutputStream fos = new FileOutputStream(safeTarget)) {
-                imageString = imageString.substring(imageString.indexOf(",") + 1);
-                Base64 b64 = new Base64();
-                byte[] imageByteData = imageString.getBytes(StandardCharsets.US_ASCII);
-                byte[] imageData = b64.decode(imageByteData);
-                if (imageData != null) {
-                    fos.write(imageData);
-                    MiscUtils.getLogger().debug("Signature uploaded: {}, size={}", LogSanitizer.sanitize(filename), imageData.length);
-                }
-            } catch (Exception e) {
+                fos.write(imageData);
+                MiscUtils.getLogger().debug("Signature uploaded: {}, size={}", LogSanitizer.sanitize(filename), imageData.length);
+            } catch (IOException e) {
                 MiscUtils.getLogger().error("Error uploading signature from IPAD: {}", LogSanitizer.sanitize(filename), e);
+                deleteQuietly(safeTarget);
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Upload failed");
                 return NONE;
             }
         } else if (uploadSource == null) {
+            boolean writeOk = false;
             try (FileOutputStream fos = new FileOutputStream(safeTarget);
                  InputStream is = request.getInputStream()) {
                 byte[] buffer = new byte[8192];
@@ -148,11 +172,16 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
                     }
                     fos.write(buffer, 0, bytesRead);
                 }
+                writeOk = true;
                 MiscUtils.getLogger().debug("Signature uploaded: {}, size={}", LogSanitizer.sanitize(filename), counter);
-            } catch (Exception e) {
+            } catch (IOException e) {
                 MiscUtils.getLogger().error("Error uploading signature: {}", LogSanitizer.sanitize(filename), e);
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Upload failed");
                 return NONE;
+            } finally {
+                if (!writeOk) {
+                    deleteQuietly(safeTarget);
+                }
             }
         }
 
@@ -182,8 +211,8 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
 
         // Preserve the JSP's HTML-fragment response contract so existing
         // iframe-scraping JS callers continue to work unchanged. signatureId
-        // is a numeric DB id, but encode defensively for the HTML attribute
-        // context to satisfy static analysers and harden against future drift.
+        // is a numeric DB id; encode for the HTML attribute context as
+        // defence-in-depth if that type ever widens.
         response.setContentType("text/html;charset=UTF-8");
         try (PrintWriter out = response.getWriter()) {
             out.write("<input type=\"hidden\" name=\"signatureId\" value=\"");
@@ -191,6 +220,14 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             out.write("\"/>");
         }
         return NONE;
+    }
+
+    private static void deleteQuietly(File f) {
+        try {
+            Files.deleteIfExists(f.toPath());
+        } catch (IOException ignored) {
+            MiscUtils.getLogger().warn("Failed to clean up partial upload: {}", LogSanitizer.sanitize(f.getName()));
+        }
     }
 
     private static final int MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
