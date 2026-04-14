@@ -32,11 +32,11 @@ import static org.mockito.Mockito.when;
 /**
  * Privilege and HTTP-method contract tests for the shared
  * {@link ViewClinical2Action}. This single class is the authorization gate for
- * 129 action mappings in {@code struts-clinical.xml} (+ a few in
- * {@code struts-encounter.xml}) covering 137 relocated encounter/casemgmt
- * JSPs. A regression here would either (a) expose every gated JSP to
- * authenticated users without {@code _eChart r}, or (b) accept POST mutations
- * against a JSP that was moved behind a read-only gate.
+ * the 129 action mappings in {@code struts-clinical.xml} covering the
+ * relocated encounter/casemgmt JSPs. A regression here would either
+ * (a) expose every gated JSP to authenticated users without
+ * {@code _eChart r}, or (b) accept POST mutations against a JSP that was
+ * moved behind a read-only gate.
  *
  * <p>Mirrors the structure of {@code TicklerGateActionTest} (PR #1670) and
  * flips the base-class permissive {@code hasPrivilege} stub to deny-all so

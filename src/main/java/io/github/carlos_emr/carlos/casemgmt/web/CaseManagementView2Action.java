@@ -1162,8 +1162,11 @@ public class CaseManagementView2Action extends ActionSupport {
         // stream at the 8KB buffer boundary when Struts performs a forward() dispatch.
         // Includes the underlying JSP directly rather than the .do gate because web.xml
         // only maps the Struts filter for REQUEST+FORWARD (not INCLUDE), so a .do target
-        // on RequestDispatcher.include() would not route through Struts. The _eChart
-        // privilege check already ran at the top of execute() in this same request.
+        // on RequestDispatcher.include() would not route through Struts.
+        // The viewNotes.jsp render just outputs the notes this method already filtered —
+        // listNotes() applies the per-issue-code hasReadAccess("_" + codes[0], ...)
+        // check above before populating the request attributes the JSP reads, so the
+        // include does not widen authorization.
         if ("XMLHttpRequest".equalsIgnoreCase(request.getHeader("X-Requested-With"))) {
             request.getRequestDispatcher("/WEB-INF/jsp/casemgmt/viewNotes.jsp").include(request, response);
             return NONE;
