@@ -81,7 +81,7 @@
 <script type="text/javascript">
     function setLocation() {
         var programIdForLocation = jQuery("#programIdForLocation").val();
-        window.location.href = "provider/providercontrol.jsp?<%=io.github.carlos_emr.carlos.utility.SessionConstants.CURRENT_PROGRAM_ID%>=" + encodeURIComponent(programIdForLocation);
+        window.location.href = "<%= request.getContextPath() %>/provider/providercontrol.do?<%=io.github.carlos_emr.carlos.utility.SessionConstants.CURRENT_PROGRAM_ID%>=" + encodeURIComponent(programIdForLocation);
     }
 </script>
 </html>

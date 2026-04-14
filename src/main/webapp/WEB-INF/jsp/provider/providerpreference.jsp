@@ -1328,7 +1328,7 @@
                 <a href="${pageContext.request.contextPath}/EnterSignature.do" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-pen-nib"></i> <fmt:message key="provider.providerpreference.linkEditTextSig"/>
                 </a>
-                <a href="<%= request.getContextPath() %>/provider/EditPrinter.do" class="pref-link" target="_blank" rel="noopener noreferrer">
+                <a href="<%= request.getContextPath() %>/EditPrinter.do" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-print"></i> <fmt:message key="provider.providerpreference.link.setDefaultPrinter"/>
                 </a>
                 <a href="<%=request.getContextPath()%>/provider/CppPreferences.do" class="pref-link" target="_blank" rel="noopener noreferrer">
