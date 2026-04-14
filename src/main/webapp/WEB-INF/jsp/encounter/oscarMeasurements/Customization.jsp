@@ -122,7 +122,7 @@
         </tr>
         <tr>
             <td class=Title colspan="2">Mappings --
-                <a href=# onClick="popupOscarConS(300,1000,'encounter/oscarMeasurements/viewMeasurementMap.jsp', event)" class="messengerButtons">View
+                <a href=# onClick="popupOscarConS(300,1000,'encounter/oscarMeasurements/ViewViewMeasurementMap.do', event)" class="messengerButtons">View
                     Mapping</a></td>
         </tr>
         <tr>

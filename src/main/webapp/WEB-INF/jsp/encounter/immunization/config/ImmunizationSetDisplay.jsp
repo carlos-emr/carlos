@@ -60,7 +60,7 @@
 
         <script language="javascript">
             function edit(nodeName) {
-                window.open('<%= request.getContextPath() %>/encounter/immunization/ViewScheduleEdit.do/ScheduleEdit.jsp?node=' + nodeName);
+                window.open('<%= request.getContextPath() %>/encounter/immunization/ViewScheduleEdit.do?node=' + encodeURIComponent(nodeName));
             }
 
             function returnEdit(nodeName, givenDate, refusedDate, lot, provider, comments) {

@@ -629,7 +629,7 @@
         <div class="row">
             <div id="note-control-panel">
                 <button type="button"
-                        onclick="popupPage(500,200,'noteBrowser<%=bean.demographicNo%>','casemgmt/noteBrowser.jsp?demographic_no=<%=bean.demographicNo%>&FirstTime=1');">
+                        onclick="popupPage(500,200,'noteBrowser<%=bean.demographicNo%>','casemgmt/ViewNoteBrowser.do?demographic_no=<%=bean.demographicNo%>&FirstTime=1');">
                     <fmt:message key="encounter.Index.BrowseNotes"/></button>
                 <button type="button" onclick="notesLoadAll();"><fmt:message key="encounter.Index.btnLoadAllNotes"/></button>
                 <button type="button" onclick="toggleFullViewForAll();"><fmt:message key="encounter.Index.btneExpandLoadedNotes"/></button>

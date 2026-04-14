@@ -47,6 +47,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+import org.owasp.encoder.Encode;
+
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -73,7 +75,11 @@ public class EctDeleteMeasurementStyleSheet2Action extends ActionSupport {
                         MeasurementCSSLocation location = lDao.find(ConversionUtils.fromIntString(deleteCheckbox[i]));
                         if (location != null) {
                             List<String> errors = new ArrayList<>();
-                            errors.add(getText("error.encounter.Measurements.cannotDeleteStyleSheet", new String[]{location.getLocation()}));
+                            // Error bundle contains embedded <li>...</li> and the JSP renders
+                            // actionErrors unencoded, so HTML-encode the DB-sourced {0} value
+                            // before substitution to prevent breakout of the list-item context.
+                            errors.add(getText("error.encounter.Measurements.cannotDeleteStyleSheet",
+                                    new String[]{Encode.forHtml(location.getLocation())}));
                             request.setAttribute("actionErrors", errors);
                             return "error";
                         }

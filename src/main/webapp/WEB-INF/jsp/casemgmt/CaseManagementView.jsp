@@ -158,7 +158,17 @@
         <div class="tabs" id="tabs">
             <%
                 String selectedTab = request.getParameter("tab");
-                if (selectedTab == null || selectedTab.trim().equals("")) {
+                // Allowlist selectedTab against the fixed tabs array before it
+                // feeds the <jsp:include> path below; prevents both path
+                // traversal ("tab=../foo") and a silent broken include if a
+                // caller passes an unknown tab value.
+                boolean validTab = false;
+                if (selectedTab != null && !selectedTab.trim().isEmpty()) {
+                    for (String t : CaseManagementViewFormBean.tabs) {
+                        if (t.equals(selectedTab)) { validTab = true; break; }
+                    }
+                }
+                if (!validTab) {
                     selectedTab = CaseManagementViewFormBean.tabs[0];
                 }
                 pageContext.setAttribute("selectedTab", selectedTab);
@@ -338,7 +348,7 @@
             </tr>
         </table>
         <jsp:include
-                page='<%="/casemgmt/" + selectedTab.toLowerCase().replaceAll(" ", "_") + ".jsp"%>'/>
+                page='<%="/WEB-INF/jsp/casemgmt/" + selectedTab.toLowerCase().replaceAll(" ", "_") + ".jsp"%>'/>
 
 
         <c:if

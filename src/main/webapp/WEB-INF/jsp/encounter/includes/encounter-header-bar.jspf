@@ -7,7 +7,7 @@
             <e:forHtmlContent value="${famDocName}"/>&nbsp;<e:forHtmlContent value="${famDocSurname}"/>
         </span>
         <a href="#"
-           onclick="popupPage(150,200,'calculatorWin','calculators.jsp?sex='+encounterConfig.patientSex+'&amp;age='+encounterConfig.pAge); return false;"
+           onclick="popupPage(150,200,'calculatorWin','${ctx}/encounter/ViewCalculators.do?sex='+encodeURIComponent(encounterConfig.patientSex)+'&amp;age='+encodeURIComponent(encounterConfig.pAge)); return false;"
            title="<fmt:message key="encounter.Index.calculators"/>">
             <img alt="<fmt:message key="encounter.Index.calculators"/>" src="graphics/calculator.gif">
         </a>

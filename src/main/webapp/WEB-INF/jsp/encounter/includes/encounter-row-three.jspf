@@ -65,7 +65,7 @@
 
         <input type="button" class="btn btn-sm btn-secondary"
                value="<fmt:message key="global.btnPrint"/>"
-               onclick="document.forms['encForm'].btnPressed.value='Save'; popupPage(700, 960, 'print', 'encounterPrint.jsp');"/>
+               onclick="document.forms['encForm'].btnPressed.value='Save'; popupPage(700, 960, 'print', '${ctx}/encounter/ViewEncounterPrint.do');"/>
 
         <input type="hidden" name="btnPressed" value="">
 

@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.clinical.gate;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -39,6 +40,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * ({@code _casemgmt.notes}, {@code _con}, {@code _flowsheet},
  * {@code _measurement}, {@code _admin.consult}, etc.) as a second line of
  * defense.
+ *
+ * <p>GET/HEAD only. Some gated JSPs contain self-POST scriptlets that mutate
+ * state; those mutations continue to be handled by their own purpose-built
+ * {@code *2Action} endpoints, not by hitting the JSP directly. Blocking
+ * non-GET at the gate closes the "POST straight to a JSP under a read-only
+ * gate" surface.
  */
 public final class ViewClinical2Action extends ActionSupport {
 
@@ -47,9 +54,18 @@ public final class ViewClinical2Action extends ActionSupport {
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
+
+        String method = request.getMethod();
+        if (!"GET".equalsIgnoreCase(method) && !"HEAD".equalsIgnoreCase(method)) {
+            response.setHeader("Allow", "GET, HEAD");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", null)) {
-            throw new SecurityException("missing required sec object");
+            throw new SecurityException("missing required sec object (_eChart)");
         }
         return SUCCESS;
     }

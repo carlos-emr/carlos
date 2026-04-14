@@ -72,11 +72,11 @@
                 },
                 calculators: [
                     { name: "<fmt:message key='encounter.Index.bodyMass'/>", action: "popupPage(650,775,'BodyMassIndex','http://www.intmed.mcw.edu/clincalc/body.html')" },
-                    { name: "<fmt:message key='encounter.Index.coronary'/>", action: "popupPage(525,775,'CoronaryArteryDiseaseRisk','calculators/CoronaryArteryDiseaseRiskPrediction.jsp?sex=<e:forJavaScript value='${bean.patientSex}'/>&age=<e:forJavaScript value='${pAge}'/>')" },
-                    { name: "<fmt:message key='encounter.Index.msgOsteoporotic'/>", action: "popupPage(525,775,'OsteoporoticFracture','calculators/OsteoporoticFracture.jsp?sex=<e:forJavaScript value='${bean.patientSex}'/>&age=<e:forJavaScript value='${pAge}'/>')" },
+                    { name: "<fmt:message key='encounter.Index.coronary'/>", action: "popupPage(525,775,'CoronaryArteryDiseaseRisk','${ctx}/encounter/calculators/ViewCoronaryArteryDiseaseRiskPrediction.do?sex=<e:forJavaScript value='${bean.patientSex}'/>&age=<e:forJavaScript value='${pAge}'/>')" },
+                    { name: "<fmt:message key='encounter.Index.msgOsteoporotic'/>", action: "popupPage(525,775,'OsteoporoticFracture','${ctx}/encounter/calculators/ViewOsteoporoticFracture.do?sex=<e:forJavaScript value='${bean.patientSex}'/>&age=<e:forJavaScript value='${pAge}'/>')" },
                     { name: "<fmt:message key='encounter.Index.pregnancy'/>", action: "popupPage(650,775,'PregancyCalculator','http://www.intmed.mcw.edu/clincalc/pregnancy.html')" },
-                    { name: "<fmt:message key='encounter.Index.simpleCalculator'/>", action: "popupPage(400,500,'SimpleCalc','calculators/SimpleCalculator.jsp')" },
-                    { name: "<fmt:message key='encounter.Index.generalConversions'/>", action: "popupPage(650,775,'GeneralConversions','calculators/GeneralCalculators.jsp')" }
+                    { name: "<fmt:message key='encounter.Index.simpleCalculator'/>", action: "popupPage(400,500,'SimpleCalc','${ctx}/encounter/calculators/ViewSimpleCalculator.do')" },
+                    { name: "<fmt:message key='encounter.Index.generalConversions'/>", action: "popupPage(650,775,'GeneralConversions','${ctx}/encounter/calculators/ViewGeneralCalculators.do')" }
                 ],
                 templates: [<c:forEach var="tmpl" items="${templateNames}" varStatus="s">"${tmpl}"<c:if test="${!s.last}">,</c:if></c:forEach>]
             };

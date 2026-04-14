@@ -391,7 +391,7 @@
                         tracker = "&tracker=slim";
                     }
 
-                    String flowsheetPath = "encounter/oscarMeasurements/TemplateFlowSheet.jsp";
+                    String flowsheetPath = "encounter/oscarMeasurements/ViewTemplateFlowSheet.do";
             %>
 
             <a href="<%= request.getContextPath() %>/<%=flowsheetPath%>?demographic_no=<%= Encode.forUriComponent(demographic) %>&template=<%=Encode.forUriComponent(flowsheet)%><%=tracker%>"

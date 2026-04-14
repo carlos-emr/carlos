@@ -1160,6 +1160,10 @@ public class CaseManagementView2Action extends ActionSupport {
 
         // Use include() for XHR requests to prevent Tomcat 11 from closing the output
         // stream at the 8KB buffer boundary when Struts performs a forward() dispatch.
+        // Includes the underlying JSP directly rather than the .do gate because web.xml
+        // only maps the Struts filter for REQUEST+FORWARD (not INCLUDE), so a .do target
+        // on RequestDispatcher.include() would not route through Struts. The _eChart
+        // privilege check already ran at the top of execute() in this same request.
         if ("XMLHttpRequest".equalsIgnoreCase(request.getHeader("X-Requested-With"))) {
             request.getRequestDispatcher("/WEB-INF/jsp/casemgmt/viewNotes.jsp").include(request, response);
             return NONE;
