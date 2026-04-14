@@ -72,7 +72,7 @@ public final class RptReportCreator {
      * @throws SecurityException if the identifier is invalid
      */
     static void validateSqlIdentifier(String identifier, String fieldType) {
-        if (identifier == null || !SQL_IDENTIFIER.matcher(identifier.trim()).matches()) {
+        if (identifier == null || !SQL_IDENTIFIER.matcher(identifier).matches()) {
             MiscUtils.getLogger().error("Invalid " + fieldType + " in report configuration");
             throw new SecurityException("Invalid " + fieldType + " in report configuration");
         }

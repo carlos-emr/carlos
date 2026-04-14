@@ -123,4 +123,20 @@ class RptReportCreatorIdentifierValidationTest {
                 "a,b", "column name"))
                 .isInstanceOf(SecurityException.class);
     }
+
+    @Test
+    @DisplayName("should reject identifier with leading whitespace")
+    void shouldReject_identifierWithLeadingWhitespace() {
+        assertThatThrownBy(() -> RptReportCreator.validateSqlIdentifier(
+                " tableName", "table name"))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
+    @DisplayName("should reject identifier with trailing whitespace")
+    void shouldReject_identifierWithTrailingWhitespace() {
+        assertThatThrownBy(() -> RptReportCreator.validateSqlIdentifier(
+                "tableName ", "table name"))
+                .isInstanceOf(SecurityException.class);
+    }
 }
