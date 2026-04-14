@@ -55,9 +55,11 @@
                 .replace(", ", "")
                 .replace(" ", "");
         if (safeName.isEmpty()) safeName = "report";
-        // Use both quoted filename (raw ASCII, per RFC 6266) and filename* (URI-encoded, per RFC 5987)
-        // for broad client compatibility with non-ASCII names.
-        String rawFilename = safeName + ".doc";
+        // Use an ASCII-only fallback in quoted filename (for legacy RFC 6266 clients)
+        // and the full sanitized UTF-8 name in filename* (RFC 5987).
+        String asciiSafeName = safeName.replaceAll("[^\\p{ASCII}]", "_");
+        if (asciiSafeName.isEmpty()) asciiSafeName = "report";
+        String rawFilename = asciiSafeName + ".doc";
         String encodedFilename = Encode.forUriComponent(safeName + ".doc");
         response.setContentType("application/msword");
         response.setHeader("Content-Disposition",
