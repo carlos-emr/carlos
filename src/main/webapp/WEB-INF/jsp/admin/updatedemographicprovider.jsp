@@ -87,7 +87,7 @@
             if (request.getParameter("update") != null
                     && request.getParameter("update").equals("UpdateResident")) {
                 // Validate last_name_from and last_name_to as single letters A-Z (server-side)
-                // to prevent regex injection; the hidden "regexp" field is no longer accepted.
+                // to prevent ReDoS; the hidden "regexp" field is no longer accepted.
                 String lastNameFrom = request.getParameter("last_name_from");
                 String lastNameTo = request.getParameter("last_name_to");
                 String regexp = null;
@@ -333,8 +333,8 @@
                                 </option>
                                 <% } %>
                             </select> <br>
-                            <INPUT type="hidden" name="update" value="UpdateMrp">
-                            <INPUT class="btn btn-primary" type="submit" value="<fmt:message key="global.update"/>">
+                            <input type="hidden" name="update" value="UpdateMrp">
+                            <input class="btn btn-primary" type="submit" value="<fmt:message key="global.update"/>">
                         </td>
                     </tr>
                 </form>

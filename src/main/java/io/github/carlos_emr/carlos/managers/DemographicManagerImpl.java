@@ -379,7 +379,7 @@ public class DemographicManagerImpl implements DemographicManager {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
 
         if (provider == null || provider.getProviderNo() == null || regex == null) {
-            return new ArrayList<>(); // Return an empty list if providers or regex is null
+            return new ArrayList<>(); // Return an empty list if provider or regex is null
         }
 
         // Reject any regex that is not a simple letter-range expression (e.g. "^[A-M]").
