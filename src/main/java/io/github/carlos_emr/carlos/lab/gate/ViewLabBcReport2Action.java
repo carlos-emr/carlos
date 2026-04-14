@@ -45,12 +45,19 @@ public final class ViewLabBcReport2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_lab)");
         }
 
-        // Require POST when mutation-trigger params are present.
+        // Require POST when mutation-trigger params are present. report.jsp
+        // writes Hl7Message.notes when cmd_save is supplied, updates Hl7Link
+        // status/provider/signedOn on cmd_sign, and flips Hl7Link.status to
+        // "A" when viewed is supplied — gate those alongside conventional
+        // submit/action names.
         boolean hasMutationTrigger = request.getParameter("submit") != null
                 || request.getParameter("action") != null
                 || request.getParameter("method") != null
                 || request.getParameter("linkChoice") != null
-                || request.getParameter("buttonAction") != null;
+                || request.getParameter("buttonAction") != null
+                || request.getParameter("cmd_save") != null
+                || request.getParameter("cmd_sign") != null
+                || request.getParameter("viewed") != null;
         if (hasMutationTrigger && !"POST".equalsIgnoreCase(request.getMethod())) {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
