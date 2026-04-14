@@ -246,7 +246,7 @@
 
                         <oscar:oscarPropertiesCheck property="WORKFLOW" value="yes">
                             <li><a href="javascript:void(0)"
-                                   onClick="popup(700,1024,'<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList.jsp','<fmt:message key="global.workflow"/>')"><fmt:message key="global.btnworkflow"/>
+                                   onClick="popup(700,1024,'<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList.do','<fmt:message key="global.workflow"/>')"><fmt:message key="global.btnworkflow"/>
                             </a></li>
                         </oscar:oscarPropertiesCheck>
 
@@ -337,7 +337,7 @@
             <ul id="userSettingsMenu">
                 <li>
                     <a title="Scratch Pad" href="javascript: function myFunction() {return false; }"
-                       onClick="popup(700,1024,'<%= request.getContextPath() %>/scratch/index.jsp','scratch')"><span
+                       onClick="popup(700,1024,'<%= request.getContextPath() %>/Scratch.do','scratch')"><span
                             class="fa-solid fa-rectangle-list"></span></a>
                 </li>
                 <li>

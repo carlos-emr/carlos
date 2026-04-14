@@ -60,7 +60,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ include file="/common/webAppContextAndSuperMgr.jsp" %>
+<%@ include file="/WEB-INF/jsp/common/webAppContextAndSuperMgr.jsp" %>
 
 <html>
     <head>
