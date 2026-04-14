@@ -792,11 +792,11 @@
                 <fieldset>
                     <legend><span class="FieldData"><i>Next Appointment: <oscar:nextAppt
                             demographicNo="<%=demographicID%>"/></i></span></legend>
-                    <form id="reassignForm_<%=docId%>" name="reassignForm_<%=docId%>" method="post" action="">
-                        <input type="hidden" name="flaggedLabs" value="<%=docId%>"/>
+                    <form id="reassignForm_<%=Encode.forHtmlAttribute(docId)%>" name="reassignForm_<%=Encode.forHtmlAttribute(docId)%>" method="post" action="">
+                        <input type="hidden" name="flaggedLabs" value="<%=Encode.forHtmlAttribute(docId)%>"/>
                         <input type="hidden" name="selectedProviders" value=""/>
                         <input type="hidden" name="labType" value="DOC"/>
-                        <input type="hidden" name="labType<%=docId%>DOC" value="imNotNull"/>
+                        <input type="hidden" name="labType<%=Encode.forHtmlAttribute(docId)%>DOC" value="imNotNull"/>
                         <input type="hidden" name="providerNo" value="<%=providerNo%>"/>
                         <input type="hidden" name="favorites" value=""/>
                         <input type="hidden" name="ajax" value="yes"/>
@@ -804,8 +804,8 @@
                 </fieldset>
                 <fieldset>
                     <legend><fmt:message key="inboxmanager.document.Comment"/></legend>
-                    <form name="acknowledgeForm_<%=docId%>" id="acknowledgeForm_<%=docId%>"
-                          onsubmit="updateStatus('acknowledgeForm_<%=docId%>');" method="post"
+                    <form name="acknowledgeForm_<%=Encode.forHtmlAttribute(docId)%>" id="acknowledgeForm_<%=Encode.forHtmlAttribute(docId)%>"
+                          onsubmit="updateStatus('acknowledgeForm_<%=Encode.forJavaScriptAttribute(docId)%>');" method="post"
                           action="javascript:void(0);">
 
                         <table width="100%" height="100%" border="0" cellspacing="0" cellpadding="0">
@@ -814,8 +814,8 @@
                                     <table width="100%" border="0" cellspacing="0" cellpadding="3">
                                         <tr>
                                             <td align="left" class="" width="100%">
-                                                <input type="hidden" name="segmentID" value="<%= docId%>"/>
-                                                <input type="hidden" name="multiID" value="<%= docId%>"/>
+                                                <input type="hidden" name="segmentID" value="<%= Encode.forHtmlAttribute(docId)%>"/>
+                                                <input type="hidden" name="multiID" value="<%= Encode.forHtmlAttribute(docId)%>"/>
                                                 <input type="hidden" name="providerNo" value="<%= providerNo%>"/>
                                                 <input type="hidden" name="status" value="A" id="ackStatus"/>
                                                 <input type="hidden" name="labType" value="DOC"/>
@@ -830,10 +830,10 @@
                                                        value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>">
                                                 <input type="button" tabindex="<%=tabindex++%>" class="smallButton"
                                                        value="Comment"
-                                                       onclick="addDocComment('<%=docId%>','<%=curAckStatus%>')"/>
+                                                       onclick="addDocComment('<%=Encode.forJavaScriptAttribute(docId)%>','<%=curAckStatus%>')"/>
                                                 <input type="button" tabindex="<%=tabindex++%>" class="smallButton"
                                                        value="<fmt:message key="oscarMDS.index.btnForward"/>"
-                                                       onClick="ForwardSelectedRows(<%=docId%> + ':DOC', null, null);">
+                                                       onClick="ForwardSelectedRows(<%=Encode.forJavaScriptAttribute(docId)%> + ':DOC', null, null);">
                                                 <input type="button" tabindex="<%=tabindex++%>" class="smallButton"
                                                        value="<fmt:message key="oscarMDS.index.btnFile"/>"
                                                        onclick="fileDoc('<%=documentNo%>');">

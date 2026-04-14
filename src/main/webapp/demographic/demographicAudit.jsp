@@ -111,11 +111,11 @@
     <tr bgcolor="<%=(index%2==0)?"ivory":"white"%>">
         <td><%=fmt.format(log.getCreated()) %>
         </td>
-        <td><%=providerDao.getProviderName(log.getProviderNo()) %>
+        <td><%= Encode.forHtml(providerDao.getProviderName(log.getProviderNo())) %>
         </td>
-        <td><%=log.getAction() %>
+        <td><%= Encode.forHtml(log.getAction()) %>
         </td>
-        <td><%=log.getContent() %>
+        <td><%= Encode.forHtml(log.getContent()) %>
         </td>
         <td><%=log.getContentId() != null && !"null".equals(log.getContentId()) ? Encode.forHtml(log.getContentId()) : "" %>
         </td>
