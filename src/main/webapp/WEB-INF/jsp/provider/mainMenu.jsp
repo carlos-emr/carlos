@@ -221,7 +221,7 @@
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="r">
                                 <li>
                                     <a HREF="#"
-                                       onclick="popup('700', '1024', '<%= request.getContextPath() %>/documentManager/documentReport.jsp?function=providers&functionid=<%=curUser_no%>&curUser=<%=curUser_no%>', 'edocView');"
+                                       onclick="popup('700', '1024', '<%= request.getContextPath() %>/documentManager/ViewDocumentReport.do?function=providers&functionid=<%=curUser_no%>&curUser=<%=curUser_no%>', 'edocView');"
                                        TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewEdoc"/>'><fmt:message key="global.edoc"/></a>
                                 </li>
                             </security:oscarSec>

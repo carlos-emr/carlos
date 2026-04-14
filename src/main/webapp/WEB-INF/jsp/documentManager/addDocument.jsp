@@ -279,7 +279,7 @@
             <fmt:message key="dms.addDocument.AddLink"/>
         </button>
         <button type="button" class="btn btn-secondary"
-                onclick="popup1(450, 600, 'addedithtmldocument.jsp?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&mode=addHtml', 'addhtml')">
+                onclick="popup1(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml.do?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&mode=addHtml', 'addhtml')">
             <fmt:message key="dms.addDocument.AddHTML"/>
         </button>
     </div>
@@ -393,7 +393,7 @@
                        value="<fmt:message key='dms.addDocument.btnAdd'/>">
                 <input type="button" name="Button" class="btn btn-warning"
                        value="<fmt:message key='global.btnCancel'/>"
-                       onclick="window.location='documentReport.jsp?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>'">
+                       onclick="window.location='<%= request.getContextPath() %>/documentManager/ViewDocumentReport.do?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>'">
             </div>
         </form>
     </div>
@@ -494,7 +494,7 @@
             <div class="d-flex gap-2 mb-2">
                 <input class="btn btn-warning" type="button" name="Button"
                        value="<fmt:message key='global.btnCancel'/>"
-                       onclick="window.location='documentReport.jsp?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>'">
+                       onclick="window.location='<%= request.getContextPath() %>/documentManager/ViewDocumentReport.do?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>'">
             </div>
 
         </form>

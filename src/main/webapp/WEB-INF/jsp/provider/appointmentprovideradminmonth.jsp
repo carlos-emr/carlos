@@ -996,7 +996,7 @@
                         popupOscarRx(425, 430, '<%= request.getContextPath() %>/share/CalendarPopup.jsp?urlfrom=<%= request.getContextPath() %>/provider/providercontrol.do&year=<%=strYear%>&month=<%=strMonth%>&param=<%=URLEncoder.encode("&view=0&displaymode=day&dboperation=searchappointmentday","UTF-8")%>');
                         return false;  //run code for 'C'alendar
                     case <fmt:message key="global.edocShortcut"/> :
-                        popupOscarRx('700', '1024', '<%= request.getContextPath() %>/documentManager/documentReport.jsp?function=providers&functionid=<%=curUser_no%>&curUser=<%=curUser_no%>', 'edocView');
+                        popupOscarRx('700', '1024', '<%= request.getContextPath() %>/documentManager/ViewDocumentReport.do?function=providers&functionid=<%=curUser_no%>&curUser=<%=curUser_no%>', 'edocView');
                         return false;  //run code for e'D'oc
                     case <fmt:message key="global.resourcesShortcut"/> :
                         popupOscarRx(550, 687, '<%=Encode.forJavaScript(resourcebaseurl)%>');

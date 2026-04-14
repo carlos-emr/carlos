@@ -856,7 +856,7 @@
     <table>
         <tr style="display: flex;">
             <td align="left" valign="top">
-                <form method="post" name="PdfInfoForm" action="incomingDocs.jsp">
+                <form method="post" name="PdfInfoForm" action="<%= request.getContextPath() %>/documentManager/ViewIncomingDocs.do">
                     <input type="hidden" name="pdfNo" value="<%=Encode.forHtmlAttribute(pdfNo)%>">
                     <input type="hidden" name="pdfDir" value="<%=Encode.forHtmlAttribute(pdfDir)%>">
                     <input type="hidden" name="pdfName" value="<%=Encode.forHtmlAttribute(pdfName)%>">

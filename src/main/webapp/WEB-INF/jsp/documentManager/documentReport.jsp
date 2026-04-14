@@ -83,15 +83,11 @@
 
     UserPropertyDAO pref = SpringUtils.getBean(UserPropertyDAO.class);
 
-//if delete request is made
-    if (request.getParameter("delDocumentNo") != null) {
-        EDocUtil.deleteDocument(request.getParameter("delDocumentNo"));
-    }
-
-//if undelete request is made
-    if (request.getParameter("undelDocumentNo") != null) {
-        EDocUtil.undeleteDocument(request.getParameter("undelDocumentNo"));
-    }
+// NOTE: Historic GET-triggered delete / undelete scriptlets removed.
+// Delete requests now go to /documentManager/DocumentDelete.do (POST,
+// _edoc w) and undelete to /documentManager/DocumentUndelete.do (POST,
+// _admin.edocdelete w). The submitDocAction() JS helper below posts to
+// the appropriate .do endpoint.
 
 //view  - tabs
     String view = "all";
@@ -222,16 +218,23 @@
                 }
             }
 
-            /** Creates a dynamic POST form to submit a document action (delete/unfile) to documentReport.jsp. */
+            /** Creates a dynamic POST form to submit a document action (delete/undelete) to the appropriate .do endpoint. */
             function submitDocAction(paramName, docId, func, funcId, viewStatus) {
                 var form = document.createElement('form');
                 form.method = 'post';
-                form.action = 'documentReport.jsp';
+                if (paramName === 'delDocumentNo') {
+                    form.action = '<%= request.getContextPath() %>/documentManager/DocumentDelete.do';
+                } else if (paramName === 'undelDocumentNo') {
+                    form.action = '<%= request.getContextPath() %>/documentManager/DocumentUndelete.do';
+                } else {
+                    form.action = '<%= request.getContextPath() %>/documentManager/ViewDocumentReport.do';
+                }
                 var fields = {};
                 fields[paramName] = docId;
                 fields['function'] = func;
                 fields['functionid'] = funcId;
                 fields['viewstatus'] = viewStatus;
+                fields['source'] = 'report';
                 for (var key in fields) {
                     var input = document.createElement('input');
                     input.type = 'hidden';
@@ -485,7 +488,7 @@
                                 <%if (DocumentBrowserLink) {%>
                                 <div class="mb-3">
                                     <a class="btn btn-link"
-                                        href="${ pageContext.request.contextPath }/documentManager/documentBrowser.jsp?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&categorykey=<%=Encode.forUri(currentkey)%>">
+                                        href="${ pageContext.request.contextPath }/documentManager/ViewDocumentBrowser.do?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&categorykey=<%=Encode.forUri(currentkey)%>">
                                         <fmt:message key="dms.documentReport.msgBrowser"/>
                                     </a>
                                 </div>
@@ -662,7 +665,7 @@
                                         <% if (curdoc.getStatus() != 'D') {
                                             if (curdoc.getStatus() == 'H') { %>
                                         <a href="javascript:void(0)"
-                                           onclick="popup1(450, 600, 'addedithtmldocument.jsp?editDocumentNo=<%=Encode.forUriComponent(String.valueOf(curdoc.getDocId()))%>&function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>', 'EditDoc')"
+                                           onclick="popup1(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml.do?editDocumentNo=<%=Encode.forUriComponent(String.valueOf(curdoc.getDocId()))%>&function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>', 'EditDoc')"
                                            title="<fmt:message key="dms.documentReport.btnEdit"/>"
                                            class="btn btn-link" style="padding:0;">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
@@ -675,7 +678,7 @@
                                         </a>
                                         <%} else {%>
                                         <a href="javascript:void(0)"
-                                           onclick="popup1(350, 500, 'editDocument.jsp?editDocumentNo=<%=curdoc.getDocId()%>&function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>', 'EditDoc')"
+                                           onclick="popup1(350, 500, '<%= request.getContextPath() %>/documentManager/ViewEditDocument.do?editDocumentNo=<%=curdoc.getDocId()%>&function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>', 'EditDoc')"
                                            title="<fmt:message key="dms.documentReport.btnEdit"/>"
                                            class="btn btn-link" style="padding:0;">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"

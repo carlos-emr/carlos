@@ -911,7 +911,7 @@
             //alert(div);
             var url = '';
             if (type == 'DOC')
-                url = "<%= request.getContextPath() %>/documentManager/showDocument.jsp";
+                url = "<%= request.getContextPath() %>/documentManager/ViewShowDocument.do";
             else if (type == 'MDS')
                 url = "";
             else if (type == 'HL7')
