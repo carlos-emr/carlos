@@ -257,29 +257,26 @@
                                                 value="/CaseManagementEntry.do?method=edit&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                                 var="notesURL"/>
                                         <input type="button" value="Edit and Sign"
-                                               onclick="popupNotePage('<c:out value="${notesURL}"
-                                                                              />')">
+                                               onclick="popupNotePage('<%= org.owasp.encoder.Encode.forJavaScriptAttribute((String) pageContext.getAttribute("notesURL")) %>')">
                                     </c:if> <c:if
                                             test="${note.signed and param.providerNo eq note.providerNo}">
                                         <c:url
                                                 value="/CaseManagementEntry.do?method=edit&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                                 var="notesURL"/>
                                         <input type="button" value="Edit This Note"
-                                               onclick="popupNotePage('<c:out value="${notesURL}"
-                                                                              />')">
+                                               onclick="popupNotePage('<%= org.owasp.encoder.Encode.forJavaScriptAttribute((String) pageContext.getAttribute("notesURL")) %>')">
                                     </c:if> <c:if test="${note.hasHistory == true}">
                                         <c:url
                                                 value="/CaseManagementEntry.do?method=history&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                                 var="historyURL"/>
                                         <input type="button" value="Note History"
-                                               onclick="popupHistoryPage('<c:out value="${historyURL}"
-                                                                                 />')">
+                                               onclick="popupHistoryPage('<%= org.owasp.encoder.Encode.forJavaScriptAttribute((String) pageContext.getAttribute("historyURL")) %>')">
                                     </c:if> <c:if test="${note.locked}">
                                         <c:url
                                                 value="/CaseManagementView.do?method=unlock&noteId=${note.id}"
                                                 var="lockedURL"/>
                                         <input type="button" value="Unlock"
-                                               onclick="popupPage('<c:out value="${lockedURL}" />')">
+                                               onclick="popupPage('<%= org.owasp.encoder.Encode.forJavaScriptAttribute((String) pageContext.getAttribute("lockedURL")) %>')">
                                     </c:if></td>
                                 </tr>
                                 <tr bgcolor="<%=bgcolor1 %>">
