@@ -21,14 +21,19 @@
  */
 package io.github.carlos_emr.carlos.decision.gate;
 
+import java.io.IOException;
+import java.util.Locale;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -37,37 +42,57 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * Every JSP in {@code /WEB-INF/jsp/decision/} is routed through this action.
  * All execution paths require {@code _forms r}. When the request carries a
- * {@code submit} parameter starting with "Save" (indicating the user is
- * committing a checklist/risk/planner update), the action additionally
- * requires the request be POST and {@code _forms w} -- this closes the
- * GET-triggered mutation vector the original JSPs presented, where scriptlet
- * code would persist {@code DesAnnualReviewPlan}/{@code Desaprisk} rows or
- * overwrite XML config files based solely on query-string parameters.
+ * {@code submit} parameter whose trimmed value (case-insensitive, {@link
+ * Locale#ROOT}) starts with "save", the action additionally requires the
+ * request be POST and {@code _forms w} -- this closes the GET-triggered
+ * mutation vector the original JSPs presented, where scriptlet code would
+ * persist {@code DesAnnualReviewPlan}/{@code Desaprisk} rows or overwrite
+ * XML config files based solely on query-string parameters.
  *
  * The actual save logic remains in the JSP scriptlets (pending a future
  * refactor into dedicated save actions); this gate prevents the scriptlets
  * from running on an unauthenticated GET.
+ *
+ * <p><b>Coupling note:</b> the gate's "save" prefix detection must stay in
+ * sync with the scriptlet-side {@code submit} checks (currently
+ * {@code equals(" Save ")} and {@code equals("Save and Exit")}). If a JSP
+ * is added that mutates under a different {@code submit} value -- or under
+ * no {@code submit} value at all -- the gate will NOT block it. Prefer
+ * extracting new save logic into a dedicated {@code *2Action} rather than
+ * relying on this prefix heuristic.
  */
 public final class ViewDecision2Action extends ActionSupport {
+
+    private static final Logger logger = MiscUtils.getLogger();
+
+    private final SecurityInfoManager securityInfoManager =
+            SpringUtils.getBean(SecurityInfoManager.class);
 
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
-        SecurityInfoManager sim = SpringUtils.getBean(SecurityInfoManager.class);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null || !sim.hasPrivilege(loggedInInfo, "_forms", "r", null)) {
+        if (loggedInInfo == null
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_forms", "r", null)) {
             throw new SecurityException("missing required sec object (_forms r)");
         }
 
         String submit = request.getParameter("submit");
-        if (submit != null && submit.trim().toLowerCase().startsWith("save")) {
+        if (submit != null && submit.trim().toLowerCase(Locale.ROOT).startsWith("save")) {
             if (!"POST".equalsIgnoreCase(request.getMethod())) {
-                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                try {
+                    response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                } catch (IOException e) {
+                    // Response may already be committed (broken pipe, client abort).
+                    // Log for observability; the gate has already prevented the scriptlet
+                    // save path by returning NONE below.
+                    logger.warn("Failed to send 405 on non-POST save attempt", e);
+                }
                 return NONE;
             }
-            if (!sim.hasPrivilege(loggedInInfo, "_forms", "w", null)) {
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_forms", "w", null)) {
                 throw new SecurityException("missing required sec object (_forms w)");
             }
         }

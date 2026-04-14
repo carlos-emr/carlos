@@ -76,9 +76,6 @@
         <action name="decision/antenatal/obarriskedit_99_12" class="io.github.carlos_emr.carlos.decision.gate.ViewDecision2Action">
             <result name="success">/WEB-INF/jsp/decision/antenatal/obarriskedit_99_12.jsp</result>
         </action>
-        <action name="decision/antenatal/zgetarriskdata" class="io.github.carlos_emr.carlos.decision.gate.ViewDecision2Action">
-            <result name="success">/WEB-INF/jsp/decision/antenatal/zgetarriskdata.jsp</result>
-        </action>
 
         <action name="encounter/MeasurementData" class="io.github.carlos_emr.carlos.measurements.web.MeasurementData2Action"/>
         <action name="oscarResearch/oscarDxResearch/setupDxResearch" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxSetupResearch2Action">

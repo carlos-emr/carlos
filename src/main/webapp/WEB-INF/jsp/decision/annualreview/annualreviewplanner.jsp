@@ -239,13 +239,13 @@
                                                                                            value="  Exit  "
                                                                                            onclick="javascript:return onExit();"/>
                 <input type="button"
-                       name="submit" value="Print"
-                       onclick="popupPage(700,800,'decision/annualreview/annualreviewplannerprint.do?demographic_no=<%=Encode.forJavaScriptAttribute(demographic_no)%>&formId=<%=Encode.forJavaScriptAttribute(form_no)%>');return false;"/>
+                       name="action" value="Print"
+                       onclick="popupPage(700,800,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplannerprint.do?demographic_no=<%=Encode.forJavaScriptAttribute(demographic_no)%>&formId=<%=Encode.forJavaScriptAttribute(form_no)%>');return false;"/>
             </td>
             <td align="right"><a href=#
-                                 onClick="popupPage(600,930,'decision/annualreview/riskedit.do');return false;"> Edit
+                                 onClick="popupPage(600,930,'<%= request.getContextPath() %>/decision/annualreview/riskedit.do');return false;"> Edit
                 Risk </a> | <a href=#
-                               onClick="popupPage(600,930,'decision/annualreview/checklistedit.do');return false;">
+                               onClick="popupPage(600,930,'<%= request.getContextPath() %>/decision/annualreview/checklistedit.do');return false;">
                 Edit CheckList </a></td>
         </tr>
     </table>
@@ -271,13 +271,13 @@
                                                                                            value="  Exit  "
                                                                                            onclick="javascript:return onExit();"/>
                 <input type="button"
-                       name="submit" value="Print"
-                       onclick="popupPage(700,800,'decision/annualreview/annualreviewplannerprint.do?demographic_no=<%=Encode.forJavaScriptAttribute(demographic_no)%>&formId=<%=Encode.forJavaScriptAttribute(form_no)%>');return false;"/>
+                       name="action" value="Print"
+                       onclick="popupPage(700,800,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplannerprint.do?demographic_no=<%=Encode.forJavaScriptAttribute(demographic_no)%>&formId=<%=Encode.forJavaScriptAttribute(form_no)%>');return false;"/>
             </td>
             <td align="right"><a href=#
-                                 onClick="popupPage(600,930,'decision/annualreview/riskedit.do');return false;"> Edit
+                                 onClick="popupPage(600,930,'<%= request.getContextPath() %>/decision/annualreview/riskedit.do');return false;"> Edit
                 Risks </a> | <a href=#
-                                onClick="popupPage(600,930,'decision/annualreview/checklistedit.do');return false;">
+                                onClick="popupPage(600,930,'<%= request.getContextPath() %>/decision/annualreview/checklistedit.do');return false;">
                 Edit CheckList </a></td>
         </tr>
     </table>
