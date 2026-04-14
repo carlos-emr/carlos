@@ -48,9 +48,18 @@
     if (StringUtils.empty(residentName)) residentName = "no name";
 
     if ("download".equals(method)) {
+        // Strip CR, LF, NUL and other ASCII control characters, double-quotes, and backslashes
+        // to prevent HTTP response splitting and Content-Disposition header injection.
+        String safeName = residentName
+                .replaceAll("[\\r\\n\\u0000-\\u001F\\u007F\"\\\\]", "")
+                .replace(", ", "")
+                .replace(" ", "");
+        if (safeName.isEmpty()) safeName = "report";
+        // Use both quoted filename (ASCII) and filename* (RFC 6266 / RFC 5987) for broad compatibility.
+        String encodedName = Encode.forUriComponent(safeName) + ".doc";
         response.setContentType("application/msword");
-        String filename = residentName.replace(", ", "").replace(" ", "") + ".doc";
-        response.setHeader("Content-Disposition", "attachment; filename=" + filename);
+        response.setHeader("Content-Disposition",
+                "attachment; filename=\"" + encodedName + "\"; filename*=UTF-8''" + encodedName);
     }
 
     HashMap<String, String> purposes = new HashMap<String, String>();
