@@ -51,7 +51,7 @@
         // Strip CR, LF, NUL and other ASCII control characters, double-quotes, and backslashes
         // to prevent HTTP response splitting and Content-Disposition header injection.
         String safeName = residentName
-                .replaceAll("[\\r\\n\\u0000-\\u001F\\u007F\"\\\\]", "")
+                .replaceAll("[\\r\\n\\x00-\\x1F\\x7F\"\\\\]", "")
                 .replace(", ", "")
                 .replace(" ", "");
         if (safeName.isEmpty()) safeName = "report";
