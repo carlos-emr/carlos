@@ -88,7 +88,7 @@
         <fmt:message key="oscarReport.RptByExample.MsgMyFavorites"/>
     </title>
 
-    <%@ include file="/includes/global-head.jspf" %>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.request.contextPath}/share/css/extractedFromPages.css">
     <fmt:message key="oscarReport.RptByExample.MsgConfirmDelete" var="msgConfirmDelete"/>

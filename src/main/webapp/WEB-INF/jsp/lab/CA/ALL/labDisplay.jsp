@@ -362,7 +362,7 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
     </title>
 
      <!-- include jQuery Bootstrap jQueryUI fontawesome standard scripts and styles -->
-     <%@ include file="/includes/global-head.jspf" %>
+     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
 
     <script>
         var contextpath = "${pageContext.servletContext.contextPath}";

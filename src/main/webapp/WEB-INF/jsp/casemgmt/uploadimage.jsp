@@ -60,7 +60,7 @@
 %>
 <html>
 <head>
-    <%@ include file="/includes/global-head.jspf" %>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <title>Client Image Manager</title>
     <script>
         function init_page() {

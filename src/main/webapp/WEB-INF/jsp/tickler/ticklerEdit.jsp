@@ -150,7 +150,7 @@
 <html>
     <head>
         <title><fmt:message key="tickler.ticklerEdit.title"/></title>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <style>
             /* Links — CARLOS primary blue */
             a { color: var(--carlos-primary); }

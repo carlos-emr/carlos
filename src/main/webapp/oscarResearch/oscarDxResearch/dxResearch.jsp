@@ -108,7 +108,7 @@
     <head>
         <title><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.title"/></title>
 
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script type="text/javascript"

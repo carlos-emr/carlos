@@ -34,7 +34,7 @@
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@include file="/layouts/caisi_html_top.jspf" %>
+<%@include file="/WEB-INF/jsp/layouts/caisi_html_top.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.login.Login2Action" %>
 <h2>Please select which facility you would like to currently work in</h2>
 <%
@@ -66,4 +66,4 @@
     %>
 </ul>
 
-<%@include file="/layouts/caisi_html_bottom.jspf" %>
+<%@include file="/WEB-INF/jsp/layouts/caisi_html_bottom.jspf" %>

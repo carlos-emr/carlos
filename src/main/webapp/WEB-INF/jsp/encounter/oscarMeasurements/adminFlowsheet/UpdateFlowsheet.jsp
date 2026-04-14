@@ -163,7 +163,7 @@ display:inline-block;
     <em>for <strong><%=Encode.forHtml(flowsheet)%></strong> flowsheet </em>
 </div></div>
     <%} else { %>
-    <%@ include file="/share/templates/patient.jspf" %>
+    <%@ include file="/WEB-INF/jsp/share/templates/patient.jspf" %>
     <div style="height:60px;"></div>
     <%
         }

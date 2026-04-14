@@ -217,7 +217,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <%@ include file="/includes/global-head.jspf" %>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <c:set var="ctx" value="${pageContext.request.contextPath}"/>
     <title><fmt:message key="provider.providerpreference.pageTitle"/></title>
 

@@ -324,7 +324,7 @@
 %>
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="appointment.appointmentgrouprecords.title"/></title>
         <style>
             .provider-current { background-color: var(--carlos-bg-light, #e8f0fe); }

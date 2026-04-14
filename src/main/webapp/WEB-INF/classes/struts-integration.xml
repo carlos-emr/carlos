@@ -100,5 +100,15 @@
             <result name="testresult">/WEB-INF/jsp/prevention/test_case.jsp</result>
         </action>
 
+        <!--
+            ===== share/CalendarPopup.jsp view gate =========================
+            Pure client-side date-picker popup (separate from the legacy
+            calendar/oscarCalendarPopup.jsp which is gated separately).
+            Authenticated-only; GET/HEAD only.
+        -->
+        <action name="share/CalendarPopup" class="io.github.carlos_emr.carlos.share.gate.ViewShareCalendarPopup2Action">
+            <result name="success">/WEB-INF/jsp/share/CalendarPopup.jsp</result>
+        </action>
+
     </package>
 </struts>
