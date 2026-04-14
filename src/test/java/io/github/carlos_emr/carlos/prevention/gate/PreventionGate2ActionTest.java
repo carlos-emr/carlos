@@ -125,7 +125,28 @@ class PreventionGate2ActionTest extends CarlosWebTestBase {
         void shouldThrowSecurityException_whenWritePrivilegeDenied() {
             denyPrivilege("_prevention", "w");
             assertThatThrownBy(() -> executeAction(new ViewPreventionManager2Action()))
-                    .isInstanceOf(SecurityException.class);
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("ViewPreventionManager2Action");
+        }
+
+        @Test
+        @DisplayName("should return SUCCESS for GET with empty formAction parameter")
+        void shouldReturnSuccess_forGetWithEmptyFormAction() throws Exception {
+            allowPrivilege("_prevention", "w");
+            getMockRequest().setMethod("GET");
+            addRequestParameter("formAction", "");
+            assertThat(executeAction(new ViewPreventionManager2Action()))
+                    .isEqualTo(ActionSupport.SUCCESS);
+        }
+
+        @Test
+        @DisplayName("should accept lowercase post as a valid POST method")
+        void shouldReturnSuccess_forLowercasePost() throws Exception {
+            allowPrivilege("_prevention", "w");
+            getMockRequest().setMethod("post");
+            addRequestParameter("formAction", "update");
+            assertThat(executeAction(new ViewPreventionManager2Action()))
+                    .isEqualTo(ActionSupport.SUCCESS);
         }
     }
 

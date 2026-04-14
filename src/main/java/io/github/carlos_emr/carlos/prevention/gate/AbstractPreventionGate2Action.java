@@ -84,12 +84,13 @@ public abstract class AbstractPreventionGate2Action extends ActionSupport {
      * @throws Exception from the underlying servlet I/O when writing the 405.
      */
     @Override
-    public String execute() throws Exception {
+    public final String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", privilegeType(), null)) {
-            throw new SecurityException("missing required sec object (_prevention)");
+            throw new SecurityException("missing required sec object (_prevention "
+                    + privilegeType() + ") in " + getClass().getSimpleName());
         }
 
         if (requireConditionalPost()) {
@@ -97,7 +98,7 @@ public abstract class AbstractPreventionGate2Action extends ActionSupport {
             if (formAction != null && !formAction.isEmpty()
                     && !"POST".equalsIgnoreCase(request.getMethod())) {
                 HttpServletResponse response = ServletActionContext.getResponse();
-                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
                 return NONE;
             }
         }
