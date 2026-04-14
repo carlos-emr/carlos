@@ -72,35 +72,7 @@
 
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     </head>
-    <script type="text/javascript">
-        function escapeRegex(str) {
-            return str.replace(/[.*+?^$\x7b\x7d()|[\]\\-]/g, '\\$&');
-        }
 
-        function setregexp() {
-            var from = escapeRegex(document.ADDAPPT.last_name_from.value);
-            var to = escapeRegex(document.ADDAPPT.last_name_to.value);
-            document.ADDAPPT.regexp.value = "^[" + from + "-" + to + "]";
-        }
-
-        function setregexp1() {
-            var from = escapeRegex(document.ADDAPPT1.last_name_from.value);
-            var to = escapeRegex(document.ADDAPPT1.last_name_to.value);
-            document.ADDAPPT1.regexp.value = "^[" + from + "-" + to + "]";
-        }
-
-        function setregexp2() {
-            var from = escapeRegex(document.ADDAPPT2.last_name_from.value);
-            var to = escapeRegex(document.ADDAPPT2.last_name_to.value);
-            document.ADDAPPT2.regexp.value = "^[" + from + "-" + to + "]";
-        }
-
-        function setregexp3() {
-            var from = escapeRegex(document.ADDMRP.last_name_from.value);
-            var to = escapeRegex(document.ADDMRP.last_name_to.value);
-            document.ADDMRP.regexp.value = "^[" + from + "-" + to + "]";
-        }
-    </script>
     <%
         for (Provider p : providerManager.getProviders(loggedInInfo, true)) {
             names.add(p.getProviderNo());
@@ -114,10 +86,22 @@
         <%
             if (request.getParameter("update") != null
                     && request.getParameter("update").equals("UpdateResident")) {
+                // Validate last_name_from and last_name_to as single letters A-Z (server-side)
+                // to prevent regex injection; the hidden "regexp" field is no longer accepted.
+                String lastNameFrom = request.getParameter("last_name_from");
+                String lastNameTo = request.getParameter("last_name_to");
+                String regexp = null;
+                if (lastNameFrom != null && lastNameFrom.matches("[A-Za-z]")
+                        && lastNameTo != null && lastNameTo.matches("[A-Za-z]")) {
+                    regexp = "^[" + lastNameFrom.toUpperCase() + "-" + lastNameTo.toUpperCase() + "]";
+                }
                 // find demographicNos for records with last name starting with and have a resident assigned
-                List<Integer> noList = demographicManager.getDemographicNumbersByResidentNumberAndDemographicLastNameRegex(
-                        loggedInInfo, request.getParameter("oldcust2"), request.getParameter("regexp")
-                );
+                List<Integer> noList = null;
+                if (regexp != null) {
+                    noList = demographicManager.getDemographicNumbersByResidentNumberAndDemographicLastNameRegex(
+                            loggedInInfo, request.getParameter("oldcust2"), regexp
+                    );
+                }
                 int rowsAffected = 0;
                 if (noList != null) {
                     int nosize = noList.size();
@@ -155,11 +139,22 @@
             }
             if (request.getParameter("update") != null
                     && request.getParameter("update").equals("UpdateNurse")) {
-                List<Integer> noList = demographicManager.getDemographicNumbersByNurseNumberAndDemographicLastNameRegex(
-                        loggedInInfo,
-                        request.getParameter("oldcust1"),
-                        request.getParameter("regexp")
-                );
+                // Validate last_name_from and last_name_to as single letters A-Z (server-side)
+                String lastNameFromNurse = request.getParameter("last_name_from");
+                String lastNameToNurse = request.getParameter("last_name_to");
+                String regexpNurse = null;
+                if (lastNameFromNurse != null && lastNameFromNurse.matches("[A-Za-z]")
+                        && lastNameToNurse != null && lastNameToNurse.matches("[A-Za-z]")) {
+                    regexpNurse = "^[" + lastNameFromNurse.toUpperCase() + "-" + lastNameToNurse.toUpperCase() + "]";
+                }
+                List<Integer> noList = null;
+                if (regexpNurse != null) {
+                    noList = demographicManager.getDemographicNumbersByNurseNumberAndDemographicLastNameRegex(
+                            loggedInInfo,
+                            request.getParameter("oldcust1"),
+                            regexpNurse
+                    );
+                }
                 int rowsAffected = 0;
                 if (noList != null) {
                     int nosize = noList.size();
@@ -196,11 +191,22 @@
             }
             if (request.getParameter("update") != null
                     && request.getParameter("update").equals("UpdateMidwife")) {
-                List<Integer> noList = demographicManager.getDemographicNumbersByMidwifeNumberAndDemographicLastNameRegex(
-                        loggedInInfo,
-                        request.getParameter("oldcust4"),
-                        request.getParameter("regexp")
-                );
+                // Validate last_name_from and last_name_to as single letters A-Z (server-side)
+                String lastNameFromMidwife = request.getParameter("last_name_from");
+                String lastNameToMidwife = request.getParameter("last_name_to");
+                String regexpMidwife = null;
+                if (lastNameFromMidwife != null && lastNameFromMidwife.matches("[A-Za-z]")
+                        && lastNameToMidwife != null && lastNameToMidwife.matches("[A-Za-z]")) {
+                    regexpMidwife = "^[" + lastNameFromMidwife.toUpperCase() + "-" + lastNameToMidwife.toUpperCase() + "]";
+                }
+                List<Integer> noList = null;
+                if (regexpMidwife != null) {
+                    noList = demographicManager.getDemographicNumbersByMidwifeNumberAndDemographicLastNameRegex(
+                            loggedInInfo,
+                            request.getParameter("oldcust4"),
+                            regexpMidwife
+                    );
+                }
                 int rowsAffected = 0;
                 if (noList != null) {
                     int nosize = noList.size();
@@ -240,8 +246,20 @@
             }
             if (request.getParameter("update") != null
                     && request.getParameter("update").equals("UpdateMrp")) {
+                // Validate last_name_from and last_name_to as single letters A-Z (server-side)
+                // to prevent ReDoS: the hidden "regexp" field is no longer accepted.
+                String lastNameFromMrp = request.getParameter("last_name_from");
+                String lastNameToMrp = request.getParameter("last_name_to");
+                String regexpMrp = null;
+                if (lastNameFromMrp != null && lastNameFromMrp.matches("[A-Za-z]")
+                        && lastNameToMrp != null && lastNameToMrp.matches("[A-Za-z]")) {
+                    regexpMrp = "^[" + lastNameFromMrp.toUpperCase() + "-" + lastNameToMrp.toUpperCase() + "]";
+                }
                 Provider provider = providerManager.getProvider(loggedInInfo, request.getParameter("oldcust5"));
-                List<Demographic> noList = demographicManager.getDemographicsNameRangeByProvider(loggedInInfo, provider, request.getParameter("regexp"));
+                List<Demographic> noList = null;
+                if (regexpMrp != null) {
+                    noList = demographicManager.getDemographicsNameRangeByProvider(loggedInInfo, provider, regexpMrp);
+                }
 
                 int rowsAffected = 0;
                 if (noList != null) {
@@ -264,7 +282,7 @@
         <div class="card card-body bg-body-tertiary">
             <table class="table table-striped  table-sm">
                 <FORM NAME="ADDMRP" METHOD="post"
-                      ACTION="updatedemographicprovider.jsp" onsubmit="return(setregexp3())">
+                      ACTION="updatedemographicprovider.jsp">
                     <tr>
                         <td>
                             <b><fmt:message key="admin.updatedemographicprovider.msgMrp"/></b>
@@ -315,8 +333,7 @@
                                 </option>
                                 <% } %>
                             </select> <br>
-                            <INPUT type="hidden" name="regexp" value="">
-                            <input type="hidden" name="update" value="UpdateMrp">
+                            <INPUT type="hidden" name="update" value="UpdateMrp">
                             <INPUT class="btn btn-primary" type="submit" value="<fmt:message key="global.update"/>">
                         </td>
                     </tr>
@@ -328,7 +345,7 @@
         <div class="card card-body bg-body-tertiary">
             <table class="table table-striped  table-sm">
                 <FORM NAME="ADDAPPT1" METHOD="post"
-                      ACTION="updatedemographicprovider.jsp" onsubmit="return(setregexp1())">
+                      ACTION="updatedemographicprovider.jsp">
                     <tr>
                         <td>
                             <b><fmt:message key="admin.updatedemographicprovider.msgNurse"/></b>
@@ -379,7 +396,6 @@
                                 </option>
                                 <% } %>
                             </select> <br>
-                            <INPUT type="hidden" name="regexp" value="">
                             <input type="hidden" name="update" value="UpdateNurse">
                             <INPUT class="btn btn-primary" type="submit"
                                    value="<fmt:message key="global.update"/>">
@@ -393,7 +409,7 @@
         <div class="card card-body bg-body-tertiary">
             <table class="table table-striped  table-sm">
                 <FORM NAME="ADDAPPT2" METHOD="post"
-                      ACTION="updatedemographicprovider.jsp" onsubmit="return(setregexp2())">
+                      ACTION="updatedemographicprovider.jsp">
                     <tr>
                         <td><b><fmt:message key="admin.updatedemographicprovider.msgMidwife"/></b></td>
                     </tr>
@@ -446,7 +462,6 @@
                                 </option>
                                 <% } %>
                             </select> <br>
-                            <input type="hidden" NAME="regexp" value="">
                             <input type="hidden" name="update" value="UpdateMidwife">
                             <input class="btn btn-primary" type="submit"
                                    value="<fmt:message key="global.update"/>">
@@ -460,7 +475,7 @@
         <div class="card card-body bg-body-tertiary">
             <table class="table table-striped  table-sm">
                 <FORM NAME="ADDAPPT" METHOD="post"
-                      ACTION="updatedemographicprovider.jsp" onsubmit="return(setregexp())">
+                      ACTION="updatedemographicprovider.jsp">
                     <tr>
                         <td><b><fmt:message key="admin.updatedemographicprovider.msgResident"/></b></td>
                     </tr>
@@ -509,7 +524,7 @@
                                 </option>
                                 <% } %>
                             </select> <br>
-                            <INPUT TYPE="hidden" NAME="regexp" VALUE=""> <input
+                            <input
                                     type="hidden" name="update" value="UpdateResident"> <INPUT
                                     class="btn btn-primary"
                                     TYPE="submit"

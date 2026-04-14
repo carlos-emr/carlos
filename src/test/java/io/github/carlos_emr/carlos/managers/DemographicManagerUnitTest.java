@@ -1300,6 +1300,17 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
         }
 
         @Test
+        @DisplayName("should return empty list when regex is unsafe for getDemographicsNameRangeByProvider")
+        void shouldReturnEmptyList_whenRegexIsUnsafe() {
+            Provider provider = createTestProvider();
+
+            // Unsafe/catastrophic patterns must be rejected to prevent ReDoS
+            assertThat(manager.getDemographicsNameRangeByProvider(mockLoggedInInfo, provider, "^(a+)+$")).isEmpty();
+            assertThat(manager.getDemographicsNameRangeByProvider(mockLoggedInInfo, provider, ".*")).isEmpty();
+            assertThat(manager.getDemographicsNameRangeByProvider(mockLoggedInInfo, provider, "^[A-Z")).isEmpty();
+        }
+
+        @Test
         @DisplayName("should filter demographics by lastname regex")
         void shouldFilterDemographics_byLastnameRegex() {
             Provider provider = createTestProvider();
