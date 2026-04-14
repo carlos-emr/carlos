@@ -24,7 +24,7 @@
         MSPReconcile rec = new MSPReconcile();
         rec.settleBGBills();
 %>
-<jsp:forward page="<%= request.getContextPath() %>/billing/CA/BC/ViewSettleBG.do">
+<jsp:forward page="/billing/CA/BC/ViewSettleBG.do">
     <jsp:param name="settled" value="true"/>
 </jsp:forward>
 <%}%>

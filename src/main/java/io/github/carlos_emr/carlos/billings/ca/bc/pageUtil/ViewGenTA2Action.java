@@ -24,7 +24,7 @@ import org.apache.struts2.ServletActionContext;
 
 /**
  * Mutation gate for {@code billing/CA/BC/genTA.jsp}. The JSP performs
- * bulk teleplanS*Dao.persist() calls when parsing Teleplan response records in a scriptlet. Enforces {@code _admin.billing} or {@code _admin} or {@code _admin} w privilege AND
+ * bulk teleplanS*Dao.persist() calls when parsing Teleplan response records in a scriptlet. Enforces {@code _admin.billing} or {@code _admin} w privilege AND
  * POST-only before forwarding to the JSP. GET requests return 405.
  * <p>
  * Class name retains the {@code View...} prefix for consistency with
