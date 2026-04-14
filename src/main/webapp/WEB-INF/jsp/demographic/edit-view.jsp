@@ -829,7 +829,7 @@
                                                                                             defaultVal="false"
                                                                                             property="FIRST_NATIONS_MODULE">
 
-                                                                    <jsp:include page="/demographic/displayFirstNationsModule.jsp"
+                                                                    <jsp:include page="/WEB-INF/jsp/demographic/displayFirstNationsModule.jsp"
                                                                                  flush="false">
                                                                         <jsp:param name="demo"
                                                                                    value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
@@ -1216,7 +1216,7 @@
                                                             <oscar:oscarPropertiesCheck
                                                                     property="DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM"
                                                                     value="true">
-                                                                <jsp:include page="/demographic/displayHealthCareTeam.jsp">
+                                                                <jsp:include page="/WEB-INF/jsp/demographic/displayHealthCareTeam.jsp">
                                                                     <jsp:param name="demographicNo"
                                                                                value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
                                                                 </jsp:include>

@@ -1170,7 +1170,7 @@
                                                             value="true">
                                                         <tr>
                                                             <td colspan="4">
-                                                                <jsp:include page="/demographic/manageHealthCareTeam.jsp">
+                                                                <jsp:include page="/WEB-INF/jsp/demographic/manageHealthCareTeam.jsp">
                                                                     <jsp:param name="demographicNo"
                                                                                value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
                                                                 </jsp:include>
