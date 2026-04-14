@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.integration.mcedt.DelegateFactory;
 import io.github.carlos_emr.carlos.integration.mcedt.McedtMessageCreator;
+import io.github.carlos_emr.carlos.integration.mcedt.McedtSecurity;
 
 import ca.ontario.health.edt.Detail;
 import ca.ontario.health.edt.DetailData;
@@ -61,6 +62,7 @@ public class Resource2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        McedtSecurity.requireRead(request);
         String method = request.getParameter("method");
         if ("loadDownloadList".equals(method)) {
             return loadDownloadList();
@@ -68,7 +70,7 @@ public class Resource2Action extends ActionSupport {
             return loadSentList();
         } else if ("changeDisplay".equals(method)) {
             return changeDisplay();
-        } 
+        }
         //functions needed for the upload page
         ActionUtils.removeSuccessfulUploads(request);
         ActionUtils.removeUploadResponseResults(request);

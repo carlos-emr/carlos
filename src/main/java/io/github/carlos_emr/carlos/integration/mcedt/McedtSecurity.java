@@ -1,0 +1,80 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.integration.mcedt;
+
+import jakarta.servlet.http.HttpServletRequest;
+
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+/**
+ * Shared privilege + HTTP-method guards for MCEDT actions.
+ *
+ * MCEDT endpoints access the Ontario MOH EDT service (file upload, download,
+ * update, resubmit) and change passwords on behalf of the clinic. All entry
+ * points require the {@code _admin} privilege and all state-changing methods
+ * must be POST to prevent CSRF-style GET triggering of MOH transactions.
+ */
+public final class McedtSecurity {
+
+    /** MCEDT is a clinic-wide integration: gated behind the generic admin privilege. */
+    public static final String PRIVILEGE = "_admin";
+
+    private McedtSecurity() {
+    }
+
+    /** Assert the session holds {@code _admin} read. */
+    public static void requireRead(HttpServletRequest request) {
+        assertPrivilege(request, "r");
+    }
+
+    /** Assert the session holds {@code _admin} write. */
+    public static void requireWrite(HttpServletRequest request) {
+        assertPrivilege(request, "w");
+    }
+
+    /**
+     * Reject non-POST requests. State-changing MCEDT methods (upload, download,
+     * delete, submit, change-password, resubmit) must be POST. Returns
+     * {@code true} if the request is POST; throws {@link SecurityException}
+     * otherwise so callers can gate within their method dispatcher.
+     */
+    public static boolean isPost(HttpServletRequest request) {
+        return "POST".equalsIgnoreCase(request.getMethod());
+    }
+
+    /** Throw {@link SecurityException} unless the request is POST. */
+    public static void requirePost(HttpServletRequest request) {
+        if (!isPost(request)) {
+            throw new SecurityException("MCEDT mutation requires POST");
+        }
+    }
+
+    private static void assertPrivilege(HttpServletRequest request, String mode) {
+        SecurityInfoManager sim = SpringUtils.getBean(SecurityInfoManager.class);
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || !sim.hasPrivilege(loggedInInfo, PRIVILEGE, mode, null)) {
+            throw new SecurityException("missing required sec object (" + PRIVILEGE + " " + mode + ")");
+        }
+    }
+}

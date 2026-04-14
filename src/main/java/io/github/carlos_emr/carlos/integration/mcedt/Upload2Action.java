@@ -55,7 +55,12 @@ public class Upload2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        McedtSecurity.requireRead(request);
         String method = request.getParameter("method");
+        if ("removeSelected".equals(method) || "uploadToMcedt".equals(method)) {
+            McedtSecurity.requireWrite(request);
+            McedtSecurity.requirePost(request);
+        }
         if ("cancelUpload".equals(method)) {
             return cancelUpload();
         } else if ("addNew".equals(method)) {
@@ -64,7 +69,7 @@ public class Upload2Action extends ActionSupport {
             return removeSelected();
         } else if ("uploadToMcedt".equals(method)) {
             return uploadToMcedt();
-        } 
+        }
         return SUCCESS;
     }
 

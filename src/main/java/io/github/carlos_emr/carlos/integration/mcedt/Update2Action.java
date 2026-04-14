@@ -55,7 +55,12 @@ public class Update2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        McedtSecurity.requireRead(request);
         String method = request.getParameter("method");
+        if ("addUpdateRequest".equals(method) || "sendUpdateRequest".equals(method)) {
+            McedtSecurity.requireWrite(request);
+            McedtSecurity.requirePost(request);
+        }
         if ("addUpdateRequest".equals(method)) {
             return addUpdateRequest();
         } else if ("cancel".equals(method)) {

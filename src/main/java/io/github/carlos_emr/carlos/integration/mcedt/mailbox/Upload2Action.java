@@ -38,6 +38,7 @@ import org.apache.cxf.helpers.FileUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.integration.mcedt.DelegateFactory;
 import io.github.carlos_emr.carlos.integration.mcedt.McedtMessageCreator;
+import io.github.carlos_emr.carlos.integration.mcedt.McedtSecurity;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.CarlosProperties;
@@ -64,7 +65,14 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
 
     @Override
     public String execute() throws Exception {
+        McedtSecurity.requireRead(request);
         String method = request.getParameter("method");
+        if ("removeSelected".equals(method) || "uploadToMcedt".equals(method)
+                || "submitToMcedt".equals(method) || "uploadSubmitToMcedt".equals(method)
+                || "deleteUpload".equals(method) || "addUpload".equals(method)) {
+            McedtSecurity.requireWrite(request);
+            McedtSecurity.requirePost(request);
+        }
         if ("cancelUpload".equals(method)) {
             return cancelUpload();
         } else if ("addNew".equals(method)) {

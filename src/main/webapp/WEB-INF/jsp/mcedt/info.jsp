@@ -38,7 +38,7 @@
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 
 <head>
-    <jsp:include page="/mcedt/head-includes.jsp"/>
+    <jsp:include page="/WEB-INF/jsp/mcedt/head-includes.jsp"/>
 
     <script language="javascript">
         function goBack(control) {
