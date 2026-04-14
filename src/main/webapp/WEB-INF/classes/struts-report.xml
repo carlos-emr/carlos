@@ -172,8 +172,10 @@
             oscarReport/ + report/ JSPs have been relocated behind
             /WEB-INF/jsp/ and are reached only through these View*.do view
             gates. Each gate enforces _report r via ViewReport2Action
-            (GET/HEAD only; 405 on other methods). In-JSP <security:oscarSec>
-            taglibs continue to enforce narrower per-page privileges.
+            (GET/HEAD/POST; 405 on other methods — POST is accepted because
+            several report JSPs self-post filter/config forms back through
+            the gate). In-JSP <security:oscarSec> taglibs continue to enforce
+            narrower per-page privileges.
         -->
         <action name="oscarReport/ViewManageDemographicQueryFavourites" class="io.github.carlos_emr.carlos.report.gate.ViewReport2Action">
             <result name="success">/WEB-INF/jsp/oscarReport/ManageDemographicQueryFavourites.jsp</result>
