@@ -29,20 +29,49 @@ import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * Self-posting view gate for appointment forms that contain scriptlet mutations inside the JSP (appointmentgrouprecords, appointmentrepeatbooking, appointmenteditrepeatbooking). Requires _appointment w; allows GET, HEAD, and POST. Scriptlet extraction into dedicated *2Action classes is flagged for follow-up — in-JSP <security:oscarSec> taglibs remain as second-line defense.
+ * Self-posting view gate for appointment forms that contain scriptlet
+ * mutations inside the JSP ({@code appointmentgrouprecords},
+ * {@code appointmentrepeatbooking}, {@code appointmenteditrepeatbooking},
+ * {@code appointmentaddrecordprint}). Requires {@code _appointment w}; allows
+ * GET, HEAD, and POST. Scriptlet extraction into dedicated {@code *2Action}
+ * classes is flagged for follow-up — in-JSP {@code <security:oscarSec>}
+ * taglibs remain as second-line defense.
+ *
+ * @since 2026-04-14
  */
 public final class ViewAppointmentSelfPost2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Checks {@code _appointment w} then permits GET, HEAD, or POST.
+     *
+     * @return {@link #SUCCESS} when authorized and the method is allowed;
+     *         {@link #NONE} after sending 405 for unsupported methods
+     * @throws SecurityException when the session is missing or the caller
+     *         lacks {@code _appointment w}
+     * @throws Exception propagated from Struts I/O
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            MiscUtils.getLogger().warn("Denied appointment self-post: no session");
+            throw new SecurityException("missing required sec object (_appointment w)");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {
+            MiscUtils.getLogger().warn("Denied appointment self-post: provider={} lacks _appointment w",
+                    loggedInInfo.getLoggedInProviderNo());
+            throw new SecurityException("missing required sec object (_appointment w)");
+        }
 
         String method = request.getMethod();
         if (!"GET".equalsIgnoreCase(method)
@@ -51,12 +80,6 @@ public final class ViewAppointmentSelfPost2Action extends ActionSupport {
             response.setHeader("Allow", "GET, HEAD, POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
-        }
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null
-                || !securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {
-            throw new SecurityException("missing required sec object (_appointment w)");
         }
         return SUCCESS;
     }

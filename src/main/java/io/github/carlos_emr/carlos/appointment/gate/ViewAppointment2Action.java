@@ -29,32 +29,55 @@ import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * Read-only view gate for appointment JSPs that render lists, cards, search forms, and print views. GET/HEAD only (405 on other verbs).
+ * Read-scope view gate for appointment JSPs that render lists, cards, search
+ * forms, and print views. Requires {@code _appointment r}. Accepts GET, HEAD,
+ * and POST — POST is required for the tickler ({@code ticklerAdd.jsp}) and
+ * alternate-contact ({@code AddAlternateContact.jsp}) search-handoff forms
+ * that submit to {@code appointmentcontrol.do}.
+ *
+ * @since 2026-04-14
  */
 public final class ViewAppointment2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Checks {@code _appointment r} then permits GET, HEAD, or POST.
+     *
+     * @return {@link #SUCCESS} when authorized and the method is allowed;
+     *         {@link #NONE} after sending 405 for unsupported methods
+     * @throws SecurityException when the session is missing or the caller
+     *         lacks {@code _appointment r}
+     * @throws Exception propagated from Struts I/O
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
-        String method = request.getMethod();
-        if (!"GET".equalsIgnoreCase(method) && !"HEAD".equalsIgnoreCase(method)) {
-            response.setHeader("Allow", "GET, HEAD");
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            MiscUtils.getLogger().warn("Denied appointment read: no session");
+            throw new SecurityException("missing required sec object (_appointment r)");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "r", null)) {
+            MiscUtils.getLogger().warn("Denied appointment read: provider={} lacks _appointment r",
+                    loggedInInfo.getLoggedInProviderNo());
+            throw new SecurityException("missing required sec object (_appointment r)");
         }
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null
-                || !securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "r", null)) {
-            throw new SecurityException("missing required sec object (_appointment r)");
+        String method = request.getMethod();
+        if (!"GET".equalsIgnoreCase(method)
+                && !"HEAD".equalsIgnoreCase(method)
+                && !"POST".equalsIgnoreCase(method)) {
+            response.setHeader("Allow", "GET, HEAD, POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
         return SUCCESS;
     }

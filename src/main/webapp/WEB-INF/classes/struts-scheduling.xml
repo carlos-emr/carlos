@@ -155,7 +155,7 @@
         <action name="appointment/appointmentaddrecordcard" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action">
             <result name="success">/WEB-INF/jsp/appointment/appointmentaddrecordcard.jsp</result>
         </action>
-        <action name="appointment/appointmentaddrecordprint" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action">
+        <action name="appointment/appointmentaddrecordprint" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentSelfPost2Action">
             <result name="success">/WEB-INF/jsp/appointment/appointmentaddrecordprint.jsp</result>
         </action>
         <action name="appointment/appointmentcopyrecord" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action">
