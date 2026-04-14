@@ -43,7 +43,7 @@
             <result name="failure">/waitinglist/EditWaitingListName.jsp</result>
         </action>
         <action name="demographic/SearchDemographic" class="io.github.carlos_emr.carlos.commn.web.SearchDemographicAutoComplete2Action">
-            <result name="success">/demographic/Autocomplete.do</result>
+            <result name="success">/WEB-INF/jsp/demographic/autocomplete.jsp</result>
         </action>
         <action name="demographic/FindNextAvailableSlot" class="io.github.carlos_emr.carlos.commn.web.FindNextAvailableSlot2Action"/>
         <action name="provider/SearchProvider" class="io.github.carlos_emr.carlos.commn.web.SearchProviderAutoComplete2Action"/>
@@ -62,12 +62,12 @@
         <action name="searchProfessionalSpecialist" class="io.github.carlos_emr.carlos.contactRegistry.ProfessionalSpecialist2Action" method="search"/>
         <action name="getProfessionalSpecialist" class="io.github.carlos_emr.carlos.contactRegistry.ProfessionalSpecialist2Action" method="get"/>
         <action name="demographic/Contact" class="io.github.carlos_emr.carlos.commn.web.Contact2Action">
-            <result name="pForm">/demographic/EditProfessionalContact.do</result>
-            <result name="cForm">/demographic/EditContact.do</result>
-            <result name="view">/demographic/ViewContact.do</result>
-            <result name="manage">/demographic/ManageContacts.do</result>
-            <result name="windowClose">/demographic/DemographicClose.do</result>
-            <result name="ajax">/demographic/DemographicEdit.do</result>
+            <result name="pForm">/WEB-INF/jsp/demographic/addEditProfessionalContact.jsp</result>
+            <result name="cForm">/WEB-INF/jsp/demographic/addEditContact.jsp</result>
+            <result name="view">/WEB-INF/jsp/demographic/viewContact.jsp</result>
+            <result name="manage">/WEB-INF/jsp/demographic/ManageContacts.jsp</result>
+            <result name="windowClose">/WEB-INF/jsp/demographic/close.jsp</result>
+            <result name="ajax">/WEB-INF/jsp/demographic/demographiceditdemographic.jsp</result>
         </action>
         <action name="PopulationReport" class="io.github.carlos_emr.carlos.commn.web.PopulationReport2Action" method="execute">
             <result name="report">/WEB-INF/jsp/report/PopulationReport.jsp</result>

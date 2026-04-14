@@ -124,7 +124,7 @@
     </head>
     <body onload="setfocus()">
 
-    <form method="post" name="titlesearch" action="/demographic/ViewContactSearch.do" onSubmit="return check();">
+    <form method="post" name="titlesearch" action="<%= request.getContextPath() %>/demographic/ViewContactSearch.do" onSubmit="return check();">
         <table bgcolor="#CCCCFF" width="100%">
             <tr>
                 <td class="searchTitle" colspan="4">Search Contacts</td>
@@ -208,7 +208,7 @@
 
     </script>
 
-    <form method="post" name="nextform" action="/demographic/ViewContactSearch.do">
+    <form method="post" name="nextform" action="<%= request.getContextPath() %>/demographic/ViewContactSearch.do">
         <%
             if (nLastPage >= 0) {
         %> <input type="submit" class="mbttn" name="submit"

@@ -95,7 +95,7 @@
                 total++;
                 jQuery("#contact_num").val(total);
                 jQuery.ajax({
-                    url: '/demographic/ViewContact.do?search=Search&id=' + total, async: false, success: function (data) {
+                    url: '<%= request.getContextPath() %>/demographic/ViewContact.do?search=Search&id=' + total, async: false, success: function (data) {
                         jQuery("#contact_container").append(data);
                     }
                 });
@@ -106,7 +106,7 @@
                 total++;
                 jQuery("#contact_num").val(total);
                 jQuery.ajax({
-                    url: '/demographic/ViewContact.do?search=&id=' + total, async: false, success: function (data) {
+                    url: '<%= request.getContextPath() %>/demographic/ViewContact.do?search=&id=' + total, async: false, success: function (data) {
                         jQuery("#contact_container").append(data);
                     }
                 });
@@ -125,7 +125,7 @@
                 total++;
                 jQuery("#procontact_num").val(total);
                 jQuery.ajax({
-                    url: '/demographic/ViewProContact.do?search=Search&id=' + total, async: false, success: function (data) {
+                    url: '<%= request.getContextPath() %>/demographic/ViewProContact.do?search=Search&id=' + total, async: false, success: function (data) {
                         jQuery("#procontact_container").append(data);
                     }
                 });
@@ -136,7 +136,7 @@
                 total++;
                 jQuery("#procontact_num").val(total);
                 jQuery.ajax({
-                    url: '/demographic/ViewProContact.do?search=&id=' + total, async: false, success: function (data) {
+                    url: '<%= request.getContextPath() %>/demographic/ViewProContact.do?search=&id=' + total, async: false, success: function (data) {
                         jQuery("#procontact_container").append(data);
                     }
                 });
@@ -209,7 +209,7 @@
             }
 
             function search_contact(nameEl, valueEl) {
-                var url = '/demographic/ViewContactSearch.do?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
+                var url = '<%= request.getContextPath() %>/demographic/ViewContactSearch.do?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
                 var popup = window.open(url, 'demographic_search');
                 demo_no_orig = document.contactForm.elements[valueEl].value;
                 //check_demo_no = setInterval("if (demo_no_orig != document.contactForm.elements[valueEl].value) updTklrList()",100);
@@ -223,7 +223,7 @@
             }
 
             function search_procontact(nameEl, valueEl) {
-                var url = '/demographic/ViewProContactSearch.do?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
+                var url = '<%= request.getContextPath() %>/demographic/ViewProContactSearch.do?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
                 var popup = window.open(url, 'demographic_search');
                 demo_no_orig = document.contactForm.elements[valueEl].value;
                 //check_demo_no = setInterval("if (demo_no_orig != document.contactForm.elements[valueEl].value) updTklrList()",100);
@@ -237,7 +237,7 @@
             }
 
             function search_professionalSpecialist(nameEl, valueEl) {
-                var url = '/demographic/ViewProfessionalSpecialistSearch.do?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
+                var url = '<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch.do?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
                 var popup = window.open(url, 'demographic_search');
                 demo_no_orig = document.contactForm.elements[valueEl].value;
                 //check_demo_no = setInterval("if (demo_no_orig != document.contactForm.elements[valueEl].value) updTklrList()",100);

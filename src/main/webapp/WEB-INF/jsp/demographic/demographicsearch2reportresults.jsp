@@ -323,7 +323,7 @@
         //-->
     </SCRIPT>
 
-    <form method="post" name="nextform" action="/demographic/ViewDemographicSearch2ReportResults.do">
+    <form method="post" name="nextform" action="<%= request.getContextPath() %>/demographic/ViewDemographicSearch2ReportResults.do">
         <%
             if (nLastPage >= 0) {
         %> <input type="submit" class="mbttn" name="submit"

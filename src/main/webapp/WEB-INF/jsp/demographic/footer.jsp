@@ -37,7 +37,7 @@
 <hr width="100%" color="orange">
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr>
-        <td><a href="/demographic/ViewSearch.do"> <img src="<%= request.getContextPath() %>/images/leftarrow.gif"
+        <td><a href="<%= request.getContextPath() %>/demographic/ViewSearch.do"> <img src="<%= request.getContextPath() %>/images/leftarrow.gif"
                                        border="0" width="25" height="20" align="absmiddle"> <fmt:message key="demographic.footer.btnBack"/></a></td>
 
         <td align="right">

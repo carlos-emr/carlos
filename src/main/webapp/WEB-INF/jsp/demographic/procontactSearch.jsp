@@ -168,7 +168,7 @@
     </head>
     <body onload="setfocus()" class="BodyStyle">
 
-    <form method="post" name="titlesearch" action="/demographic/ViewProContactSearch.do" onSubmit="return check();">
+    <form method="post" name="titlesearch" action="<%= request.getContextPath() %>/demographic/ViewProContactSearch.do" onSubmit="return check();">
 
         <table class="MainTable">
 

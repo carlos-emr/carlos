@@ -125,7 +125,7 @@
     </head>
     <body bgcolor="white" onload="setfocus()" topmargin="0" leftmargin="0" rightmargin="0">
 
-    <form method="post" name="titlesearch" action="/demographic/ViewProfessionalSpecialistSearch.do" onSubmit="return check();">
+    <form method="post" name="titlesearch" action="<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch.do" onSubmit="return check();">
         <table border="0" cellpadding="1" cellspacing="0" width="100%" bgcolor="#CCCCFF">
             <tr>
                 <td class="searchTitle" colspan="4">Search Professional Contacts</td>

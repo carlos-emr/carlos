@@ -145,12 +145,12 @@
     <h3><fmt:message key="demographic.demographiccohort.addtopatientset"/></h3>
     <ul>
         <c:forEach var="set" items="${arrDemoSets}">
-            <li><a href="<%= request.getContextPath() %>/demographic/ViewDemographicCohort.do?demographic_no=<%= Encode.forUriComponent(demoNo) %>&setName=<c:out value="${set}"/>"><c:out
+            <li><a href="<%= request.getContextPath() %>/demographic/ViewDemographicCohort.do?demographic_no=<%= Encode.forUriComponent(demoNo) %>&setName=<%= Encode.forUriComponent((String) pageContext.getAttribute("set")) %>"><c:out
                     value="${set}"/></a></li>
         </c:forEach>
     </ul>
     <br>
-    <form method="get" action="/demographic/ViewDemographicCohort.do">
+    <form method="get" action="<%= request.getContextPath() %>/demographic/ViewDemographicCohort.do">
         <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demoNo) %>">
         <h3><fmt:message key="demographic.demographiccohort.newpatientset"/></h3>
         <input type="text" name="setName">&nbsp;<input type="submit"
