@@ -27,12 +27,13 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for the {@link SearchConfig} encrypt/decrypt methods.
  *
  * <p>Validates the AES/GCM/NoPadding cipher round-trip, IV randomness,
- * and null-key passthrough behaviour.</p>
+ * null-key passthrough behaviour, and tamper detection.</p>
  *
  * @since 2026-04-14
  */
@@ -86,5 +87,27 @@ class SearchConfigUnitTest {
         String unicode = "provider:日本語テスト:42";
         String encrypted = config.encrypt(unicode);
         assertThat(config.decrypt(encrypted)).isEqualTo(unicode);
+    }
+
+    @Test
+    @DisplayName("should reject tampered ciphertext with an exception")
+    void shouldRejectTamperedCiphertext_whenDecrypting() throws Exception {
+        String encrypted = config.encrypt("appointmentType:1:providerB");
+        byte[] decoded = java.util.Base64.getDecoder().decode(encrypted);
+        decoded[decoded.length - 1] ^= 0xFF;
+        String tampered = java.util.Base64.getEncoder().encodeToString(decoded);
+
+        assertThatThrownBy(() -> config.decrypt(tampered))
+                .isInstanceOf(Exception.class);
+    }
+
+    @Test
+    @DisplayName("should reject ciphertext that is too short")
+    void shouldRejectShortCiphertext_whenDecrypting() throws Exception {
+        String tooShort = java.util.Base64.getEncoder().encodeToString(new byte[10]);
+
+        assertThatThrownBy(() -> config.decrypt(tooShort))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Ciphertext too short");
     }
 }

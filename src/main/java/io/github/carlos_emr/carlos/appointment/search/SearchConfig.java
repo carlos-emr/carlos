@@ -67,6 +67,11 @@ import org.w3c.dom.Node;
 public class SearchConfig {
     protected static Logger logger = MiscUtils.getLogger();
 
+    private static final int GCM_IV_LENGTH_BYTES = 12;
+    private static final int GCM_TAG_LENGTH_BITS = 128;
+    private static final int GCM_TAG_LENGTH_BYTES = GCM_TAG_LENGTH_BITS / 8;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
     private int daysToSearchAheadLimit = 10; //Number of days it searches before giving up. ie search for the next 60 days before giving up
     private int numberOfAppointmentOptionsToReturn = 10; //Number of appts that seems like it gives a reasonable choice.
     private SecretKey secretKey = null;
@@ -625,11 +630,11 @@ public class SearchConfig {
 
     public String encrypt(String toEncrypt) throws Exception {
         if (secretKey == null) return toEncrypt;
-        byte[] iv = new byte[12];
-        new SecureRandom().nextBytes(iv);
+        byte[] iv = new byte[GCM_IV_LENGTH_BYTES];
+        SECURE_RANDOM.nextBytes(iv);
 
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey, new GCMParameterSpec(128, iv));
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey, new GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv));
         byte[] ciphertext = cipher.doFinal(toEncrypt.getBytes(StandardCharsets.UTF_8));
 
         ByteBuffer out = ByteBuffer.allocate(iv.length + ciphertext.length).put(iv).put(ciphertext);
@@ -639,14 +644,18 @@ public class SearchConfig {
     public String decrypt(String toDecrypt) throws Exception {
         if (secretKey == null) return toDecrypt;
         byte[] raw = Base64.decodeBase64(toDecrypt.getBytes(StandardCharsets.UTF_8));
+        if (raw.length < GCM_IV_LENGTH_BYTES + GCM_TAG_LENGTH_BYTES) {
+            throw new IllegalArgumentException("Ciphertext too short: expected at least "
+                    + (GCM_IV_LENGTH_BYTES + GCM_TAG_LENGTH_BYTES) + " bytes, got " + raw.length);
+        }
         ByteBuffer in = ByteBuffer.wrap(raw);
-        byte[] iv = new byte[12];
+        byte[] iv = new byte[GCM_IV_LENGTH_BYTES];
         in.get(iv);
         byte[] ciphertext = new byte[in.remaining()];
         in.get(ciphertext);
 
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-        cipher.init(Cipher.DECRYPT_MODE, secretKey, new GCMParameterSpec(128, iv));
+        cipher.init(Cipher.DECRYPT_MODE, secretKey, new GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv));
         return new String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8);
     }
 
