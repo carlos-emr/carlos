@@ -29,6 +29,7 @@ class ViewAppointmentSelfPost2ActionTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
+    private AutoCloseable mocks;
     @Mock private SecurityInfoManager mockSecurityInfoManager;
     @Mock private LoggedInInfo mockLoggedInInfo;
     private MockHttpServletRequest mockRequest;
@@ -37,7 +38,7 @@ class ViewAppointmentSelfPost2ActionTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
+        mocks = MockitoAnnotations.openMocks(this);
         mockRequest = new MockHttpServletRequest();
         mockResponse = new MockHttpServletResponse();
         mockRequest.setMethod("POST");
@@ -54,9 +55,10 @@ class ViewAppointmentSelfPost2ActionTest extends CarlosUnitTestBase {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws Exception {
         if (loggedInInfoMock != null) loggedInInfoMock.close();
         if (servletActionContextMock != null) servletActionContextMock.close();
+        if (mocks != null) mocks.close();
     }
 
     @Test
