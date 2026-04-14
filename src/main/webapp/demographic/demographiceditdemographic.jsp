@@ -1230,7 +1230,7 @@
                             <td>
                                 <a
                                         href="javascript: function myFunction() {return false; }"
-                                        onClick="popupPage(700,1000,'<%= request.getContextPath() %>/tickler/ticklerMain.jsp?demoview=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>');return false;">
+                                        onClick="popupPage(700,1000,'<%= request.getContextPath() %>/tickler/ViewTicklerMain.do?demoview=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>');return false;">
                                     <fmt:message key="global.tickler"/></a>
                             </td>
                         </tr>

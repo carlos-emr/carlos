@@ -231,16 +231,16 @@
         <div class="adminBox">
             <h3>&nbsp;<fmt:message key="admin.admin.UserManagement"/></h3>
             <ul>
-                <li><a href="${pageContext.request.contextPath}/admin/provideraddarecordhtm.jsp">
+                <li><a href="${pageContext.request.contextPath}/admin/ViewProviderAddARecordHtm.do">
                     <fmt:message key="admin.admin.btnAddProvider"/>
                 </a></li>
-                <li><a href="${pageContext.request.contextPath}/admin/providersearchrecordshtm.jsp">
+                <li><a href="${pageContext.request.contextPath}/admin/ViewProviderSearchRecordsHtm.do">
                     <fmt:message key="admin.admin.btnSearchProvider"/>
                 </a></li>
-                <li><a href="${pageContext.request.contextPath}/admin/securityaddarecord.jsp">
+                <li><a href="${pageContext.request.contextPath}/admin/ViewSecurityAddARecord.do">
                     <fmt:message key="admin.admin.btnAddLogin"/>
                 </a></li>
-                <li><a href="${pageContext.request.contextPath}/admin/securitysearchrecordshtm.jsp">
+                <li><a href="${pageContext.request.contextPath}/admin/ViewSecuritySearchRecordsHtm.do">
                     <fmt:message key="admin.admin.btnSearchLogin"/>
                 </a></li>
 
@@ -367,7 +367,7 @@
                            onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/ON/endYearStatement.do");return false;'><fmt:message key="admin.admin.endYearStatement"/></a></li>
                     <%if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
                     <li>
-                        <a href='#' onclick='popupPage(300,750,"${pageContext.request.contextPath}/admin/clinicNbrManage.jsp");return false;'>Manage Clinic NBR Codes</a>
+                        <a href='#' onclick='popupPage(300,750,"${pageContext.request.contextPath}/admin/ViewClinicNbrManage.do");return false;'>Manage Clinic NBR Codes</a>
                     </li>
                     <%}%>
                     <li>
@@ -399,8 +399,8 @@
                     <li><a href="#"
                            onclick='popupPage(800,1000,"${pageContext.request.contextPath}/lab/CA/BC/LabUpload.jsp");return false;'><fmt:message key="admin.admin.oldLabUpload"/></a></li>
                 </oscar:oscarPropertiesCheck>
-                <li><a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/admin/labforwardingrules.jsp");return false;'><fmt:message key="admin.admin.labFwdRules"/></a></li>
-                <li><a href="javascript:void(0);" onclick='popupPage(550,800,"${pageContext.request.contextPath}/admin/addQueue.jsp");return false;'><fmt:message key="admin.admin.AddNewQueue"/></a></li>
+                <li><a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/admin/labForwardingRules.do");return false;'><fmt:message key="admin.admin.labFwdRules"/></a></li>
+                <li><a href="javascript:void(0);" onclick='popupPage(550,800,"${pageContext.request.contextPath}/admin/ViewAddQueue.do");return false;'><fmt:message key="admin.admin.AddNewQueue"/></a></li>
             </ul>
         </div>
 
@@ -493,10 +493,10 @@
                     <li><a href="${pageContext.request.contextPath}/oscarReport/cbi_submit_form.jsp"><fmt:message key="admin.admin.cbiSubmit"/></a></li>
                     <li><a href="${pageContext.request.contextPath}/admin/cbiAdmin.jsp"><fmt:message key="admin.admin.cbi.reportlink"/></a></li>
                     <li><a href="${pageContext.request.contextPath}/oscarReport/cbi_report_form.jsp"><fmt:message key="admin.admin.cbiRpt"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/admin/UsageReport.jsp"><fmt:message key="admin.admin.usageRpt"/></a></li>
+                    <li><a href="${pageContext.request.contextPath}/admin/ViewUsageReport.do"><fmt:message key="admin.admin.usageRpt"/></a></li>
                     <oscar:oscarPropertiesCheck property="SERVERLOGGING" value="yes">
                         <li><a href="#"
-                               onclick='popupPage(600,900, "${pageContext.request.contextPath}/admin/oscarLogging.jsp")'><fmt:message key="admin.admin.serverLog"/></a></li>
+                               onclick='popupPage(600,900, "${pageContext.request.contextPath}/admin/ViewOscarLogging.do")'><fmt:message key="admin.admin.serverLog"/></a></li>
                     </oscar:oscarPropertiesCheck>
                     <li><a href="#"
                            onclick='popupPage(600,900,"${pageContext.request.contextPath}/report/DxresearchReport.do")'><fmt:message key="admin.admin.diseaseRegister"/></a></li>
@@ -624,11 +624,11 @@
                         <li><a href="#"
                                onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/AdminNewGroup.do?submit=blank");return false;'><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
                         <li><a href="#"
-                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/admindisplaymygroup.jsp");return false;'><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></a></li>
+                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/ViewAdminDisplayMyGroup.do");return false;'><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></a></li>
                         <li><a href="#"
                                onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/GroupNoAcl.do")'><fmt:message key="admin.admin.btnGroupNoAcl"/></a></li>
                         <li><a href="#"
-                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/groupPreferences.jsp")'><fmt:message key="admin.admin.btnGroupPreference"/></a></li>
+                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/groupPreferences.do")'><fmt:message key="admin.admin.btnGroupPreference"/></a></li>
                         <li><a href="#" onclick='popupPage(800, 700, "${pageContext.request.contextPath}/oscarPrevention/ViewPreventionManager.do");return false;'
                                title="Customize prevention notifications."><fmt:message key="admin.admin.preventionNotification.title"/></a></li>
                     </security:oscarSec>
@@ -714,13 +714,13 @@
 
                     </security:oscarSec>
 
-                    <li><a href="#" onclick='popupPage(800,1000, "${pageContext.request.contextPath}/admin/keygen/keyManager.jsp");return false;'><fmt:message key="admin.admin.keyPairGen"/></a></li>
+                    <li><a href="#" onclick='popupPage(800,1000, "${pageContext.request.contextPath}/admin/ViewKeygenKeyManager.do");return false;'><fmt:message key="admin.admin.keyPairGen"/></a></li>
                     <li><a href="#" onclick='popupPage(600,600, "${pageContext.request.contextPath}/FacilityManager.do");return false;'><fmt:message key="admin.admin.manageFacilities"/></a></li>
                     <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/encounter/oscarMeasurements/adminFlowsheet/NewFlowsheet.jsp");return false;'>Create
                         New Flowsheet</a></li>
                     <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/ManageFlowsheets.do");return false;'><fmt:message key="admin.admin.flowsheetManager"/></a></li>
-                    <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/lotnraddrecordhtm.jsp");return false;'><fmt:message key="admin.admin.add_lot_nr.title"/></a></li>
-                    <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/lotnrsearchrecordshtm.jsp");return false;'><fmt:message key="admin.lotnrsearchrecordshtm.title"/></a></li>
+                    <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/ViewLotNrAddRecordHtm.do");return false;'><fmt:message key="admin.admin.add_lot_nr.title"/></a></li>
+                    <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/ViewLotNrSearchRecordsHtm.do");return false;'><fmt:message key="admin.lotnrsearchrecordshtm.title"/></a></li>
 
                     <oscar:oscarPropertiesCheck property="LOGINTEST" value="yes">
                         <li><a href="#"
@@ -780,7 +780,7 @@
                     <security:oscarSec roleName="<%=roleName$%>"
                                        objectName="_admin, _admin.traceability" rights="r">
                         <li><a href="#"
-                               onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/traceReport.jsp?keyword=admin");return false;'>
+                               onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/ViewTraceReport.do?keyword=admin");return false;'>
                             <fmt:message key="admin.admin.traceabilityReport"/></a></li>
                     </security:oscarSec>
 
@@ -797,11 +797,11 @@
                 <h3>&nbsp;<fmt:message key="admin.admin.Integration"/></h3>
                 <ul>
 
-                    <li>&nbsp;<a href="#" onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/api/clients.jsp");return false;'>REST Clients</a></li>
+                    <li>&nbsp;<a href="#" onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/ViewApiClients.do");return false;'>REST Clients</a></li>
                     <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/hospitalReportManager.jsp");return false;'>Hospital
                         Report Manager (HRM) Status</a></li>
 
-                    <li><a href="javascript:void(0);" onclick="popupPage(550,800, '${pageContext.request.contextPath}/admin/updateDrugref.jsp');return false;"><fmt:message key="admin.admin.UpdateDrugref"/></a></li>
+                    <li><a href="javascript:void(0);" onclick="popupPage(550,800, '${pageContext.request.contextPath}/admin/ViewUpdateDrugref.do');return false;"><fmt:message key="admin.admin.UpdateDrugref"/></a></li>
                 </ul>
             </div>
         </security:oscarSec>
@@ -828,7 +828,7 @@
                 <h3>&nbsp;<fmt:message key="admin.admin.DataManagement"/></h3>
                 <ul>
                     <li><a href="#"
-                           onclick='popupPage(500,600, "${pageContext.request.contextPath}/admin/adminbackupdownload.jsp"); return false;'><fmt:message key="admin.admin.btnAdminBackupDownload"/></a></li>
+                           onclick='popupPage(500,600, "${pageContext.request.contextPath}/admin/ViewAdminBackupDownload.do"); return false;'><fmt:message key="admin.admin.btnAdminBackupDownload"/></a></li>
 
                     <li><a href="#"
                            onclick='popupPage(550,800, "${pageContext.request.contextPath}/demographic/demographicExport.jsp");return false;'><fmt:message key="admin.admin.DemoExport"/></a></li>

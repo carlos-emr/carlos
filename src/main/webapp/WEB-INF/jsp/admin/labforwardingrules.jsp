@@ -267,7 +267,7 @@
 
     $("#providers-selection").change(function (e) {
         e.preventDefault();
-        $("#dynamic-content").load('${ctx}/admin/labforwardingrules.jsp?providerNo=' + $("#providers-selection").val(),
+        $("#dynamic-content").load('${ctx}/admin/labForwardingRules.do?providerNo=' + $("#providers-selection").val(),
             function (response, status, xhr) {
                 if (status == "error") {
                     var msg = "Sorry but there was an error: ";
