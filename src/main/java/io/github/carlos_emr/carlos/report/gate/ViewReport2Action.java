@@ -34,7 +34,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Shared read-privilege view gate for oscarReport/ + report/ JSPs relocated
  * behind {@code /WEB-INF/jsp/}. Enforces {@code _report r} at the action
- * boundary before the container forwards to the JSP result. GET / HEAD only.
+ * boundary before the container forwards to the JSP result. GET / HEAD / POST
+ * only — POST is accepted because several report JSPs (reportFilter,
+ * reportFormConfig, reportonbilledphcp, etc.) self-post filter/config forms
+ * back through the gate.
  *
  * <p>In-JSP {@code <security:oscarSec>} taglibs continue to enforce narrower
  * per-page privileges ({@code _admin.reports}, {@code _report.econsult},
@@ -53,8 +56,10 @@ public final class ViewReport2Action extends ActionSupport {
         HttpServletResponse response = ServletActionContext.getResponse();
 
         String method = request.getMethod();
-        if (!"GET".equalsIgnoreCase(method) && !"HEAD".equalsIgnoreCase(method)) {
-            response.setHeader("Allow", "GET, HEAD");
+        if (!"GET".equalsIgnoreCase(method)
+                && !"HEAD".equalsIgnoreCase(method)
+                && !"POST".equalsIgnoreCase(method)) {
+            response.setHeader("Allow", "GET, HEAD, POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }

@@ -42,7 +42,7 @@
 
 // search the list
     int n = bDeletedList ? 0 : 1;
-    String link = bDeletedList ? "<a href='<%= request.getContextPath() %>/report/ViewReportFormRecord.do'>Report list</a>" : "<a href='<%= request.getContextPath() %>/report/ViewReportFormRecord.do?undelete=true'>Deleted report list</a>";
+    String link = bDeletedList ? "<a href='" + request.getContextPath() + "/report/ViewReportFormRecord.do'>Report list</a>" : "<a href='" + request.getContextPath() + "/report/ViewReportFormRecord.do?undelete=true'>Deleted report list</a>";
     Vector vec = reportFilter.getNameList(reportId, n);
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

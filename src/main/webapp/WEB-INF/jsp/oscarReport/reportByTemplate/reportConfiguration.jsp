@@ -128,7 +128,7 @@
         <%@ include file="rbtTopNav.jspf" %>
 
             <%if (templateid == null) { %>
-        <jsp:forward page="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewHomePage.do"/>
+        <jsp:forward page="/oscarReport/reportByTemplate/ViewHomePage.do"/>
             <%}%>
 
     <h3>

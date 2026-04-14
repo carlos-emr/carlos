@@ -258,7 +258,7 @@
                 String encodedSdate = Encode.forUriComponent(sdate);
                 String encodedEdate = Encode.forUriComponent(edate);
                 String encodedDsmode = request.getParameter("dsmode") != null ? "&dsmode=" + Encode.forUriComponent(request.getParameter("dsmode")) : "";
-                String sortBaseUrl = "<%= request.getContextPath() %>/report/ViewReportdaysheet.do?provider_no=" + encodedProviderNo + "&sdate=" + encodedSdate + "&edate=" + encodedEdate;
+                String sortBaseUrl = request.getContextPath() + "/report/ViewReportdaysheet.do?provider_no=" + encodedProviderNo + "&sdate=" + encodedSdate + "&edate=" + encodedEdate;
     %>
     <div class="section-header" style="font-weight:bold; font-size:14px; padding:6px 10px; background:#eee; border-bottom:1px solid #ddd; margin:15px 0 0 0;">
         <%=Encode.forHtml(providerBean.getProperty(rsdemo.getString("provider_no")) + " - " + dateTemp + (request.getParameter("sTime") != null ? (" " + sTime + "-" + eTime) : "")) %>
