@@ -62,11 +62,20 @@
             <result name="success">/messenger/ViewMessage.do</result>
         </action>
         <action name="messenger/Doc2PDF" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachPDF2Action">
-            <result name="success">/messenger/selfCloseAndRefreshOpener.jsp</result>
+            <result name="success">/WEB-INF/jsp/messenger/selfCloseAndRefreshOpener.jsp</result>
             <result name="attaching">/WEB-INF/jsp/messenger/generatePreviewPDF.jsp</result>
         </action>
         <action name="messenger/PreviewPDF" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgPreviewPDF2Action">
             <result name="success">/WEB-INF/jsp/messenger/generatePreviewPDF.jsp</result>
+        </action>
+        <!--
+            Residue view gate — attachmentFrameset.jsp is the frameset host
+            for the PDF preview popup opened from CreateMessage.jsp. Enforces
+            _msg r at the frame-host layer; the framed PreviewPDF.do enforces
+            its own _msg r via MsgPreviewPDF2Action.
+        -->
+        <action name="messenger/attachmentFrameset" class="io.github.carlos_emr.carlos.messenger.gate.ViewAttachmentFrameset2Action">
+            <result name="success">/WEB-INF/jsp/messenger/attachmentFrameset.jsp</result>
         </action>
 
         <action name="messenger/AdjustAttachments" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAdjustAttachments2Action"/>

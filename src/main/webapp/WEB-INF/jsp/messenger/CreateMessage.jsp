@@ -375,7 +375,7 @@ function validateFields() {
 	    var vheight = 700;
 	    var vwidth = 900;
 	    var windowprops = "height="+vheight+",width="+vwidth+",location=0,scrollbars=1,menubar=0,toolbar=1,resizable=1,screenX=0,screenY=0,top=0,left=0";
-	    var page = 'attachmentFrameset.jsp?demographic_no=' +demographic;
+	    var page = '<%= request.getContextPath() %>/messenger/attachmentFrameset.do?demographic_no=' +demographic;
 
 	    if ( demographic == "" || !demographic || demographic == "null") {
 	        showAlert(msgSelectDemographic, 'warning');
