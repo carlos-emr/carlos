@@ -28,14 +28,17 @@
 <struts>
     <package name="scheduling" namespace="/" extends="struts-default">
 
+        <!-- Scoped to SecurityException only: routes the view-gate denial
+             path (tickler/View* actions) to /securityError.jsp. A package-wide
+             catch-all on java.lang.Exception would silently reroute unrelated
+             actions (waitinglist, appointment, schedule, billing, etc.) to
+             errorpage.jsp and swallow their original failure semantics. -->
         <global-results>
             <result name="securityError">/securityError.jsp</result>
-            <result name="error">/errorpage.jsp</result>
         </global-results>
 
         <global-exception-mappings>
             <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
-            <exception-mapping exception="java.lang.Exception" result="error"/>
         </global-exception-mappings>
 
         <action name="notification/create" class="io.github.carlos_emr.carlos.commn.web.ProviderNotification2Action"/>
