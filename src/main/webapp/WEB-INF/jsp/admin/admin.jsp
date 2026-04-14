@@ -629,7 +629,7 @@
                                onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/GroupNoAcl.do")'><fmt:message key="admin.admin.btnGroupNoAcl"/></a></li>
                         <li><a href="#"
                                onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/groupPreferences.do")'><fmt:message key="admin.admin.btnGroupPreference"/></a></li>
-                        <li><a href="#" onclick='popupPage(800, 700, "${pageContext.request.contextPath}/oscarPrevention/PreventionManager.jsp");return false;'
+                        <li><a href="#" onclick='popupPage(800, 700, "${pageContext.request.contextPath}/prevention/ViewPreventionManager.do");return false;'
                                title="Customize prevention notifications."><fmt:message key="admin.admin.preventionNotification.title"/></a></li>
                     </security:oscarSec>
                 </ul>

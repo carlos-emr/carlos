@@ -666,7 +666,7 @@
                 <% if (prevHash == null) { %>
                 <h3 class="alert alert-danger"><fmt:message key="oscarprevention.addpreventiondata.preventionNotFound"/></h3>
                 <%} else { %>
-                <form action="${pageContext.request.contextPath}/oscarPrevention/AddPrevention.do" method="post" onsubmit="return handleFormSubmission()">
+                <form action="${pageContext.request.contextPath}/prevention/AddPrevention.do" method="post" onsubmit="return handleFormSubmission()">
                     <input type="hidden" name="prevention" value="<%=Encode.forHtmlAttribute(prevention != null ? prevention : "")%>"/>
                     <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no != null ? demographic_no : "")%>"/>
                     <input type="hidden" name="providerNo" value="<%=Encode.forHtmlAttribute(provider != null ? provider : "")%>"/>

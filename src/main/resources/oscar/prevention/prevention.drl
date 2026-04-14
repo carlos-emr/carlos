@@ -33,11 +33,11 @@
 // APPLICATION CONTEXT:
 //   Called from: PreventionDSImpl.java (io.github.carlos_emr.carlos.prevention)
 //   Purpose: Powers the Prevention module's clinical decision support warnings
-//     shown on the prevention summary page (oscarPrevention/index.jsp).
+//     shown on the prevention summary page (prevention/index.jsp).
 //   Loading: Three-tier priority:
 //     1. Filesystem path from PREVENTION_FILE property in carlos.properties
 //     2. Database ResourceStorage (active PREVENTION_RULES record)
-//     3. Classpath fallback: /oscar/oscarPrevention/prevention.drl (this file)
+//     3. Classpath fallback: /oscar/prevention/prevention.drl (this file)
 //   Execution: PreventionDSImpl.getMessages(Prevention) creates a KieSession,
 //     inserts a Prevention fact, fires all rules, then disposes the session.
 //     Warnings/reminders are collected from the Prevention object afterward.

@@ -254,7 +254,7 @@
                 <h3>Appointment <fmt:message key="admin.admin.preventionNotification.title"/>:</h3>
                 These settings will set the "stop sign" notifications you see displayed on the appointment screen.
 
-                <form name="masterForm" action="PreventionManager.jsp?formAction=update" method="post">
+                <form name="masterForm" action="<%=request.getContextPath()%>/prevention/ViewPreventionManager.do?formAction=update" method="post">
                     <table bgcolor="#666666" cellspacing="0" cellpadding="0" border="0" width="530">
                         <td>
                             <table cellspacing="1" cellpadding="6" border="0" width="530">
@@ -295,7 +295,7 @@
                 <h3>Customize <fmt:message key="admin.admin.preventionNotification.title"/>:</h3>
                 To customize the notifications below, "Display on Appointment Screen" must be enabled.
 
-                <form name="prevForm" action="PreventionManager.jsp?formAction=custom" method="post">
+                <form name="prevForm" action="<%=request.getContextPath()%>/prevention/ViewPreventionManager.do?formAction=custom" method="post">
                     <table bgcolor="#666666" cellspacing="0" cellpadding="0" border="0" width="530">
                         <td>
 

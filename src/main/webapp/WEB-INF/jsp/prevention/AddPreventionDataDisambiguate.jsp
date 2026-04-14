@@ -303,7 +303,7 @@
                     %>
 
                     <li>
-                        <a href="<%=request.getContextPath()%>/oscarPrevention/AddPreventionData.jsp?snomedId=<%=Encode.forUriComponent(String.valueOf(mapping.getCvcSnomedId()))%>&prevention=<%= Encode.forUriComponent(prevention) %>&demographic_no=<%=Encode.forUriComponent(demographicNo)%>&prevResultDesc=<%=Encode.forUriComponent(prevResultDesc)%>"><%=i.getPicklistName()%>
+                        <a href="<%=request.getContextPath()%>/prevention/AddPrevention.do?snomedId=<%=Encode.forUriComponent(String.valueOf(mapping.getCvcSnomedId()))%>&prevention=<%= Encode.forUriComponent(prevention) %>&demographic_no=<%=Encode.forUriComponent(demographicNo)%>&prevResultDesc=<%=Encode.forUriComponent(prevResultDesc)%>"><%=i.getPicklistName()%>
                         </a></li>
                     <% }
                     } %>

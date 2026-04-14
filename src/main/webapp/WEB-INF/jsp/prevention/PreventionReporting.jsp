@@ -165,7 +165,7 @@
             </h4>
         </div>
 
-        <form action="${pageContext.request.contextPath}/oscarPrevention/PreventionReport.do" method="get">
+        <form action="${pageContext.request.contextPath}/prevention/PreventionReport.do" method="get">
             <table class="table table-sm" style="font-size:13px; margin-bottom:10px;">
                 <tr>
                     <td style="width:180px;">Patient Demographic Query</td>
