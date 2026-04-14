@@ -55,11 +55,13 @@
                 .replace(", ", "")
                 .replace(" ", "");
         if (safeName.isEmpty()) safeName = "report";
-        // Use both quoted filename (ASCII) and filename* (RFC 6266 / RFC 5987) for broad compatibility.
-        String encodedName = Encode.forUriComponent(safeName) + ".doc";
+        // Use both quoted filename (raw ASCII, per RFC 6266) and filename* (URI-encoded, per RFC 5987)
+        // for broad client compatibility with non-ASCII names.
+        String rawFilename = safeName + ".doc";
+        String encodedFilename = Encode.forUriComponent(safeName + ".doc");
         response.setContentType("application/msword");
         response.setHeader("Content-Disposition",
-                "attachment; filename=\"" + encodedName + "\"; filename*=UTF-8''" + encodedName);
+                "attachment; filename=\"" + rawFilename + "\"; filename*=UTF-8''" + encodedFilename);
     }
 
     HashMap<String, String> purposes = new HashMap<String, String>();
