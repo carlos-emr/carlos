@@ -105,7 +105,8 @@ public class AuditLogManager {
 
         java.util.List<String> command = new java.util.ArrayList<>();
         command.add(mysqldump);
-        command.add("--user=" + user);
+        command.add("--user");
+        command.add(user);
         command.add("-w");
 
         StringBuilder whereClause = new StringBuilder();
@@ -113,7 +114,8 @@ public class AuditLogManager {
         command.add(whereClause.toString());
 
         command.add("-t");
-        command.add("--result-file=" + filename);
+        command.add("--result-file");
+        command.add(filename);
         command.add(dbName);
         command.add("log");
 
