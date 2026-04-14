@@ -904,21 +904,27 @@ public final class EDocUtil {
 
     public static void refileDocument(String documentNo, String queueId) throws Exception {
 
-        String sourceDocDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        File sourceDocDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         Document d = getDocumentDao().find(ConversionUtils.fromIntString(documentNo));
-        File sourceFile = new File(sourceDocDir, d.getDocfilename());
+
+        // Contain the source file inside DOCUMENT_DIR
+        File sourceFile = PathValidationUtils.validatePath(d.getDocfilename(), sourceDocDir);
 
         String destFileName = sourceFile.getName();
         if (destFileName.length() > 18) {
-            destFileName = destFileName.substring(14, destFileName.length());
+            destFileName = destFileName.substring(14);
         }
 
+        // Contain the destination inside the configured incoming-doc directory
+        String incomingBaseDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        File incomingRoot = new File(incomingBaseDir);
         String destPath = IncomingDocUtil.getIncomingDocumentFilePath(queueId, "Refile");
         File destFile = new File(destPath, "R" + destFileName);
+        PathValidationUtils.validateExistingPath(destFile, incomingRoot);
 
         try {
             if (destFile.exists()) {
-                throw new IOException("Cannot refile document #" + documentNo + " " + d.getDocdesc() + ". Destination File " + destFile.getAbsolutePath() + " already exists");
+                throw new IOException("Cannot refile document #" + documentNo + ": destination already exists");
             } else {
                 FileUtils.copyFile(sourceFile, destFile);
             }
@@ -1375,11 +1381,14 @@ public final class EDocUtil {
 	public static boolean isDocumentAlreadyRefiledInQueue(String filename, int queueId) {
 		String destFileName = filename;
 		if (destFileName.length() > 18) {
-			destFileName = destFileName.substring(14, filename.length());
+			destFileName = destFileName.substring(14);
 		}
 
+		String incomingBaseDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+		File incomingRoot = new File(incomingBaseDir);
 		String destPath = IncomingDocUtil.getIncomingDocumentFilePath(String.valueOf(queueId), "Refile");
 		File destFile = new File(destPath, "R" + destFileName);
+		PathValidationUtils.validateExistingPath(destFile, incomingRoot);
 		return destFile.exists();
 	}
 

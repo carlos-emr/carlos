@@ -86,10 +86,15 @@
     }
 
     if (request.getParameter("refileDocumentNo") != null && request.getParameter("refileDocumentNo").length() > 0) {
-        try {
-            EDocUtil.refileDocument(request.getParameter("refileDocumentNo"), request.getParameter("queueId"));
-        } catch (Exception e) {
-            errorMessage = e.getMessage();
+        String refileDocNo = request.getParameter("refileDocumentNo");
+        String refileQueueId = request.getParameter("queueId");
+        // Defense-in-depth: validate that both parameters are numeric before passing to EDocUtil
+        if (refileDocNo.matches("\\d+") && refileQueueId != null && refileQueueId.matches("\\d+")) {
+            try {
+                EDocUtil.refileDocument(refileDocNo, refileQueueId);
+            } catch (Exception e) {
+                errorMessage = e.getMessage();
+            }
         }
     }
 
