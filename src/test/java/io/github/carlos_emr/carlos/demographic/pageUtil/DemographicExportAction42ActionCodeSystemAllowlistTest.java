@@ -53,6 +53,7 @@ class DemographicExportAction42ActionCodeSystemAllowlistTest {
     // Allowlist contents
     // -------------------------------------------------------------------------
 
+    /** Verifies the allowlist contains the expected coding system to DAO class mappings. */
     @Nested
     @DisplayName("ALLOWED_CODE_SYSTEM_DAOS allowlist")
     class AllowlistContents {
@@ -105,6 +106,7 @@ class DemographicExportAction42ActionCodeSystemAllowlistTest {
     // Rejection of unknown keys
     // -------------------------------------------------------------------------
 
+    /** Verifies that unknown or malicious coding system keys are rejected by the allowlist. */
     @Nested
     @DisplayName("allowlist lookup rejection")
     class AllowlistLookupRejection {

@@ -242,6 +242,8 @@ public class DemographicExportAction42Action extends ActionSupport {
      * <p>Replaces the previous {@code Class.forName()} reflection lookup (CWE-470) with
      * a static, compile-time-safe map. Keys are lowercase coding system identifiers
      * matching values stored in {@code dxresearch.coding_system}.</p>
+     *
+     * @since 2026-04-14
      */
     static final Map<String, Class<? extends AbstractCodeSystemDao>> ALLOWED_CODE_SYSTEM_DAOS = Map.of(
             "icd9", Icd9Dao.class,
