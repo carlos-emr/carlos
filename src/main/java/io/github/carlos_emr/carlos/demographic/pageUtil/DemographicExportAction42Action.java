@@ -324,6 +324,7 @@ public class DemographicExportAction42Action extends ActionSupport {
         }
 
         String ffwd = "fail";
+        boolean fileStreamed = false;
         String tmpDir = oscarProperties.getProperty("TMP_DIR") + File.separator + RandomStringUtils.random(8, true, false);
 
 
@@ -2673,6 +2674,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                             Util.downloadFile(zipName + ".pgp", tmpDir, response);
                             Util.cleanFile(zipName + ".pgp", tmpDir);
                             ffwd = "success";
+                            fileStreamed = true;
 
                         } else {
                             setExportStatusHeader(response, "error");
@@ -2689,6 +2691,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                             setExportStatusHeader(response, "success");
                             Util.downloadFile(zipName, tmpDir, response);
                             ffwd = "success";
+                            fileStreamed = true;
                         } else {
                             setExportStatusHeader(response, "error");
                             // nosemgrep: tainted-session-from-http-request -- value is hardcoded literal "No", not user input
@@ -2872,7 +2875,9 @@ public class DemographicExportAction42Action extends ActionSupport {
             exportAuditLog.setData(dataBuilder.toString());
             LogAction.addLogSynchronous(exportAuditLog);
         }
-        return ffwd;
+        // When a file was streamed to the response, return null to prevent Struts
+        // from rendering a JSP result into the already-committed response.
+        return fileStreamed ? null : ffwd;
     }
 
     File makeReadMe(ArrayList<String> dirs, ArrayList<File> fs) throws IOException {

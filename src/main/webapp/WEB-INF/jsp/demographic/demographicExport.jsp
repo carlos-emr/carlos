@@ -238,8 +238,6 @@
 
                     var exportStatus = response.headers.get('X-Export-Status');
 
-                    document.getElementById('exportLoadingOverlay').style.display = 'none';
-
                     if (exportStatus === 'success' && response.ok) {
                         var blob = await response.blob();
                         var contentDisposition = response.headers.get('Content-Disposition');
@@ -259,8 +257,10 @@
                         document.body.removeChild(a);
                         URL.revokeObjectURL(url);
 
+                        document.getElementById('exportLoadingOverlay').style.display = 'none';
                         document.getElementById('exportSuccessMessage').style.display = 'block';
                     } else {
+                        document.getElementById('exportLoadingOverlay').style.display = 'none';
                         document.getElementById('exportErrorMessage').style.display = 'block';
                     }
                 } catch (e) {
