@@ -33,8 +33,6 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.ParameterizedSql" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%
-    String VALUE = "value_";
-    String DATE_FORMAT = "dateFormat_";
     String SAVE_AS = "default";
     String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
 // get form name

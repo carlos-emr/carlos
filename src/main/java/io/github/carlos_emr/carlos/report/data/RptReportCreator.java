@@ -41,6 +41,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 import java.util.Vector;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -53,6 +54,30 @@ import io.github.carlos_emr.carlos.login.DBHelp;
 public final class RptReportCreator {
     DBHelp dbObj = new DBHelp();
 
+    /**
+     * Pattern for a single SQL identifier: starts with a letter or underscore,
+     * followed by letters, digits, or underscores. Used to validate column
+     * and table names from {@code reportConfig} before concatenation into SQL.
+     */
+    private static final Pattern SQL_IDENTIFIER = Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_]*$");
+
+    /**
+     * Validates that a string is a safe SQL identifier (table name or column
+     * name). Rejects null, empty, or anything that doesn't match the
+     * {@link #SQL_IDENTIFIER} pattern.
+     *
+     * @param identifier the value to validate
+     * @param fieldType  a human-readable label used in the error message
+     *                   (e.g. "table name", "column name")
+     * @throws SecurityException if the identifier is invalid
+     */
+    static void validateSqlIdentifier(String identifier, String fieldType) {
+        if (identifier == null || !SQL_IDENTIFIER.matcher(identifier.trim()).matches()) {
+            MiscUtils.getLogger().error("Invalid " + fieldType + " in report configuration");
+            throw new SecurityException("Invalid " + fieldType + " in report configuration");
+        }
+    }
+
     // select formBCAR.pg1_ethOrig as Ethnic Origin, ...
     public String getSelectField(String recordId) throws SQLException {
         StringBuilder ret = new StringBuilder();
@@ -62,10 +87,20 @@ public final class RptReportCreator {
             return ret.toString();
         }
         while (rs.next()) {
+            String tableName = DBHelp.getString(rs, "table_name");
+            String colName = DBHelp.getString(rs, "name");
             String caption = DBHelp.getString(rs, "caption");
-            ret.append((ret.length() < 8 ? " " : ", ") + DBHelp.getString(rs, "table_name") + "." + DBHelp.getString(rs, "name"));
+
+            // Validate table and column names to prevent SQL injection
+            // via poisoned reportConfig rows
+            validateSqlIdentifier(tableName, "table name");
+            validateSqlIdentifier(colName, "column name");
+
+            ret.append((ret.length() < 8 ? " " : ", ") + tableName + "." + colName);
             if (caption != null && caption.length() > 0) {
-                ret.append(" as '" + DBHelp.getString(rs, "caption") + "'");
+                // Escape single quotes in caption to prevent SQL injection
+                String safeCaption = caption.replace("'", "''");
+                ret.append(" as '" + safeCaption + "'");
             }
         }
         rs.close();
@@ -116,8 +151,7 @@ public final class RptReportCreator {
 
     /**
      * Maximum number of {@code ${var}} placeholder replacements per template.
-     * Mirrors the legacy limit in {@link #getWhereValueClause}; a typical
-     * report template has fewer than 10 placeholders.
+     * A typical report template has fewer than 10 placeholders.
      */
     private static final int MAX_PLACEHOLDER_REPLACEMENTS = 100;
 
@@ -140,44 +174,7 @@ public final class RptReportCreator {
         return sb.toString();
     }
 
-    // Replace the result one by one if not null
-    public static String getWhereValueClause(String value, Vector vec) {
-        String ret = "";
-        for (int i = 0; i < MAX_PLACEHOLDER_REPLACEMENTS; i++) {
-            // Use indexOf to check for template variables to avoid potential ReDoS
-            int startIdx = value.indexOf("${");
-            if (startIdx >= 0) {
-                int endIdx = value.indexOf("}", startIdx);
-                if (endIdx > startIdx + 2) {
-                    // Found a complete ${...} pattern
-                    String replacement = (i < vec.size() && vec.get(i) != null) ? (String) vec.get(i) : "";
-                    // Check if placeholder is inside a quoted string (char before ${ is a single quote)
-                    boolean inQuotedContext = startIdx > 0 && value.charAt(startIdx - 1) == '\'';
-                    if (inQuotedContext) {
-                        // Escape backslashes first (MySQL backslash-escape bypass), then single quotes
-                        replacement = replacement.replace("\\", "\\\\").replace("'", "''");
-                    } else {
-                        // Unquoted numeric context: only allow digits and optional leading minus
-                        if (!replacement.isEmpty() && !replacement.matches("-?\\d+(\\.\\d+)?")) {
-                            MiscUtils.getLogger().warn("Non-numeric value rejected for unquoted SQL placeholder in report template");
-                            replacement = "";
-                        }
-                    }
-                    value = value.substring(0, startIdx) + replacement + value.substring(endIdx + 1);
-                } else {
-                    ret = value;
-                    break;
-                }
-            } else {
-                ret = value;
-                break;
-            }
-        }
-        return ret;
-    }
-
     /**
-     * Parameterized version of {@link #getWhereValueClause(String, Vector)}.
      * Replaces {@code ${var}} placeholders with {@code ?} bind markers and
      * collects the corresponding values into a parameter list.
      *

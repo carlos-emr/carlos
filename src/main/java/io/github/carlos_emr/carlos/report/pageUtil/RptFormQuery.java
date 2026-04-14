@@ -33,8 +33,8 @@
  */
 package io.github.carlos_emr.carlos.report.pageUtil;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Enumeration;
 import java.util.List;
 import java.util.Vector;
 import java.util.regex.Pattern;
@@ -43,6 +43,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.report.data.RptReportCreator;
+import io.github.carlos_emr.carlos.report.data.RptReportFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -51,8 +52,6 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 public class RptFormQuery {
 
     static String CHECK_BOX = "filter_";
-    static String VALUE = "value_";
-    static String DATE_FORMAT = "dateFormat_";
     static String VARNAME_FORMAT = "startDate\\d|endDate\\d";
 
     /**
@@ -102,7 +101,8 @@ public class RptFormQuery {
         reportSql += tableName;
 
         // get value param string — single call ensures vecValue and vecDateFormat stay index-aligned
-        Vector[] valueParams = getValueParam(request);
+        // Templates loaded from the database (not HTTP params) to prevent SQL injection
+        Vector[] valueParams = getValueParam(reportId, request);
         Vector vecValue = valueParams[0];
         Vector vecDateFormat = valueParams[1];
         List<ParameterizedSql> vecVarValue = getQueryValueParameterized(vecValue, vecDateFormat, request);
@@ -154,54 +154,59 @@ public class RptFormQuery {
         return new ParameterizedSql(reportSql, new ArrayList<>());
     }
 
-    private Vector[] getValueParam(HttpServletRequest request) {
+    /**
+     * Loads the WHERE clause templates and date formats for checked report
+     * filters. Templates are read from the {@code reportFilter} database table
+     * (trusted source) rather than from HTTP request parameters, preventing
+     * user-submitted {@code value_X} parameters from injecting arbitrary SQL.
+     *
+     * <p>Only the {@code filter_X} checkbox parameters from the request are
+     * used to determine which filters the user selected.
+     *
+     * @param reportId the report identifier
+     * @param request  the HTTP request (used only for checkbox state)
+     * @return a two-element array: {@code [0]} = WHERE templates,
+     *         {@code [1]} = date format strings
+     * @throws SQLException if the database lookup fails
+     */
+    private Vector[] getValueParam(String reportId, HttpServletRequest request) throws SQLException {
         Vector[] ret = new Vector[2];
-        String serialNo = "";
         Vector vecValue = new Vector();
         Vector vecDateFormat = new Vector();
 
-        Enumeration varEnum = request.getParameterNames();
-        while (varEnum.hasMoreElements()) {
-            String name = (String) varEnum.nextElement();
-            if (name.startsWith(VALUE)) {
-                serialNo = name.substring(VALUE.length());
-                if (request.getParameter(CHECK_BOX + serialNo) == null)
-                    continue;
+        // Load filter definitions from the database (trusted source) instead
+        // of from user-controllable HTTP parameters — prevents SQL injection
+        // via tampered value_X hidden fields.
+        RptReportFilter reportFilter = new RptReportFilter();
+        Vector filterList = reportFilter.getNameList(reportId, 1); // status=1 (active)
 
-                vecValue.add(request.getParameter(name));
-                vecDateFormat.add(request.getParameter(DATE_FORMAT + serialNo));
+        for (int i = 0; i < filterList.size(); i++) {
+            String[] filter = (String[]) filterList.get(i);
+            String orderNo = filter[3]; // order_no, used as filter_X suffix
+
+            // Only include filters that the user checked in the form
+            if (request.getParameter(CHECK_BOX + orderNo) != null) {
+                vecValue.add(filter[1]);     // WHERE clause template from DB
+                vecDateFormat.add(filter[5]); // date_format from DB
             }
         }
+
         ret[0] = vecValue;
         ret[1] = vecDateFormat;
         return ret;
     }
 
-    // filling the var with the real date value
-    private Vector getQueryValue(Vector vecValue, Vector vecDateFormat, HttpServletRequest request) throws Exception {
-        Vector ret = new Vector();
-        for (int i = 0; i < vecValue.size(); i++) {
-            String tempVal = (String) vecValue.get(i);
-            Vector vecVar = RptReportCreator.getVarVec(tempVal);
-            Vector vecVarValue = new Vector();
-            for (int j = 0; j < vecVar.size(); j++) {
-                // conver date format if needed
-                if (((String) vecVar.get(j)).matches(VARNAME_FORMAT) && ((String) vecDateFormat.get(i)).length() > 1) {
-                    vecVarValue.add(RptReportCreator.getDiffDateFormat(request.getParameter((String) vecVar.get(j)),
-                            (String) vecDateFormat.get(i), "yyyy-MM-dd"));
-                } else {
-                    vecVarValue.add(request.getParameter((String) vecVar.get(j)));
-                }
-            }
-            ret.add(RptReportCreator.getWhereValueClause(tempVal, vecVarValue));
-        }
-        return ret;
-    }
-
     /**
-     * Parameterized version of {@link #getQueryValue}. Returns a list of
-     * {@link ParameterizedSql} fragments, each containing a WHERE clause
-     * template with {@code ?} placeholders and the corresponding bind values.
+     * Builds parameterized WHERE clause fragments from the report filter
+     * templates. Each {@code ${var}} placeholder in the template is replaced
+     * with a {@code ?} bind marker, and the corresponding request parameter
+     * value is collected for later binding.
+     *
+     * @param vecValue      WHERE clause templates from the database
+     * @param vecDateFormat date format strings for date conversion
+     * @param request       the HTTP request (used only for variable values)
+     * @return list of parameterized WHERE clause fragments
+     * @throws Exception if date conversion fails
      */
     private List<ParameterizedSql> getQueryValueParameterized(Vector vecValue, Vector vecDateFormat, HttpServletRequest request) throws Exception {
         List<ParameterizedSql> ret = new ArrayList<>();
@@ -241,17 +246,6 @@ public class RptFormQuery {
             params.addAll(frag.getParams());
         }
         return new ParameterizedSql(sql.toString(), params);
-    }
-
-    public String getQueryWhere(Vector vecVarValue) {
-        String ret = "";
-        if (vecVarValue.size() > 0) {
-            ret = (String) vecVarValue.get(0);
-        }
-        for (int i = 1; i < vecVarValue.size(); i++) {
-            ret += " and " + (String) vecVarValue.get(i);
-        }
-        return ret;
     }
 
 }
