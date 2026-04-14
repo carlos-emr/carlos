@@ -99,6 +99,20 @@ public class XforwardHeaderFilter implements Filter {
                 + "|"
                 + "[0-9a-fA-F:.]*:[0-9a-fA-F:.]*");
 
+        /**
+         * Classification of an IP address extracted from the {@code X-Forwarded-For} header.
+         */
+        enum IpClassification {
+            /** Valid, routable IP — safe to use as the client address. */
+            VALID,
+            /** Loopback ({@code 127.0.0.0/8}, {@code ::1}) or unspecified ({@code 0.0.0.0}, {@code ::}). */
+            LOOPBACK_OR_UNSPECIFIED,
+            /** Not a numeric IP literal (hostname, etc.) — rejected without DNS lookup. */
+            NOT_IP_LITERAL,
+            /** Looks like an IP literal but failed to parse (malformed). */
+            UNPARSEABLE
+        }
+
         public ModifyRemoteAddress(HttpServletRequest request) {
             super(request);
         }
@@ -126,13 +140,60 @@ public class XforwardHeaderFilter implements Filter {
             }
             ip = ip.trim();
 
-            if (isLoopbackOrUnspecified(ip)) {
-                logger.warn("Rejected loopback/unspecified address '{}' from X-Forwarded-For header; "
-                        + "using raw peer address instead", LogSanitizer.sanitize(ip));
+            IpClassification classification = classifyIp(ip);
+            if (classification != IpClassification.VALID) {
+                String sanitizedIp = LogSanitizer.sanitize(ip);
+                switch (classification) {
+                    case LOOPBACK_OR_UNSPECIFIED:
+                        logger.warn("Rejected loopback/unspecified address '{}' from X-Forwarded-For header; "
+                                + "using raw peer address instead", sanitizedIp);
+                        break;
+                    case NOT_IP_LITERAL:
+                        logger.warn("Rejected non-IP-literal value '{}' from X-Forwarded-For header; "
+                                + "using raw peer address instead", sanitizedIp);
+                        break;
+                    case UNPARSEABLE:
+                        logger.warn("Rejected unparseable IP literal '{}' from X-Forwarded-For header; "
+                                + "using raw peer address instead", sanitizedIp);
+                        break;
+                    default:
+                        break;
+                }
                 return super.getRemoteAddr();
             }
 
             return ip;
+        }
+
+        /**
+         * Classifies the given IP string for security filtering of the
+         * {@code X-Forwarded-For} header.
+         *
+         * <p>Returns {@link IpClassification#VALID} only for routable numeric IP
+         * literals. Loopback/unspecified addresses, hostnames, and malformed
+         * literals are classified separately so callers can log accurate
+         * rejection reasons.</p>
+         *
+         * @param ip the IP address string to classify
+         * @return the classification result
+         */
+        static IpClassification classifyIp(String ip) {
+            if (ip == null || ip.isBlank()) {
+                return IpClassification.NOT_IP_LITERAL;
+            }
+            String trimmed = ip.trim();
+            if (!IP_LITERAL_PATTERN.matcher(trimmed).matches()) {
+                return IpClassification.NOT_IP_LITERAL;
+            }
+            try {
+                InetAddress addr = InetAddress.getByName(trimmed);
+                if (addr.isLoopbackAddress() || addr.isAnyLocalAddress()) {
+                    return IpClassification.LOOPBACK_OR_UNSPECIFIED;
+                }
+                return IpClassification.VALID;
+            } catch (UnknownHostException e) {
+                return IpClassification.UNPARSEABLE;
+            }
         }
 
         /**
@@ -150,19 +211,7 @@ public class XforwardHeaderFilter implements Filter {
          * @return {@code true} if the address is loopback, unspecified, non-IP-literal, or unparseable
          */
         static boolean isLoopbackOrUnspecified(String ip) {
-            if (ip == null || ip.isBlank()) {
-                return true;
-            }
-            String trimmed = ip.trim();
-            if (!IP_LITERAL_PATTERN.matcher(trimmed).matches()) {
-                return true;
-            }
-            try {
-                InetAddress addr = InetAddress.getByName(trimmed);
-                return addr.isLoopbackAddress() || addr.isAnyLocalAddress();
-            } catch (UnknownHostException e) {
-                return true;
-            }
+            return classifyIp(ip) != IpClassification.VALID;
         }
     }
 }

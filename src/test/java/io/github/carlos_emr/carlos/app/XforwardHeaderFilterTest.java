@@ -311,4 +311,72 @@ class XforwardHeaderFilterTest extends CarlosUnitTestBase {
             assertThat(XforwardHeaderFilter.ModifyRemoteAddress.isLoopbackOrUnspecified("localhost")).isTrue();
         }
     }
+
+    @Nested
+    @DisplayName("classifyIp classification method")
+    class ClassifyIpMethod {
+
+        @Test
+        @DisplayName("should classify 127.0.0.1 as LOOPBACK_OR_UNSPECIFIED")
+        void shouldClassifyLoopback_asLoopbackOrUnspecified() {
+            assertThat(XforwardHeaderFilter.ModifyRemoteAddress.classifyIp("127.0.0.1"))
+                    .isEqualTo(XforwardHeaderFilter.ModifyRemoteAddress.IpClassification.LOOPBACK_OR_UNSPECIFIED);
+        }
+
+        @Test
+        @DisplayName("should classify ::1 as LOOPBACK_OR_UNSPECIFIED")
+        void shouldClassifyIpv6Loopback_asLoopbackOrUnspecified() {
+            assertThat(XforwardHeaderFilter.ModifyRemoteAddress.classifyIp("::1"))
+                    .isEqualTo(XforwardHeaderFilter.ModifyRemoteAddress.IpClassification.LOOPBACK_OR_UNSPECIFIED);
+        }
+
+        @Test
+        @DisplayName("should classify 0.0.0.0 as LOOPBACK_OR_UNSPECIFIED")
+        void shouldClassifyUnspecified_asLoopbackOrUnspecified() {
+            assertThat(XforwardHeaderFilter.ModifyRemoteAddress.classifyIp("0.0.0.0"))
+                    .isEqualTo(XforwardHeaderFilter.ModifyRemoteAddress.IpClassification.LOOPBACK_OR_UNSPECIFIED);
+        }
+
+        @Test
+        @DisplayName("should classify hostname as NOT_IP_LITERAL")
+        void shouldClassifyHostname_asNotIpLiteral() {
+            assertThat(XforwardHeaderFilter.ModifyRemoteAddress.classifyIp("evil.attacker.com"))
+                    .isEqualTo(XforwardHeaderFilter.ModifyRemoteAddress.IpClassification.NOT_IP_LITERAL);
+        }
+
+        @Test
+        @DisplayName("should classify localhost as NOT_IP_LITERAL")
+        void shouldClassifyLocalhost_asNotIpLiteral() {
+            assertThat(XforwardHeaderFilter.ModifyRemoteAddress.classifyIp("localhost"))
+                    .isEqualTo(XforwardHeaderFilter.ModifyRemoteAddress.IpClassification.NOT_IP_LITERAL);
+        }
+
+        @Test
+        @DisplayName("should classify null as NOT_IP_LITERAL")
+        void shouldClassifyNull_asNotIpLiteral() {
+            assertThat(XforwardHeaderFilter.ModifyRemoteAddress.classifyIp(null))
+                    .isEqualTo(XforwardHeaderFilter.ModifyRemoteAddress.IpClassification.NOT_IP_LITERAL);
+        }
+
+        @Test
+        @DisplayName("should classify malformed IP literal as UNPARSEABLE")
+        void shouldClassifyMalformed_asUnparseable() {
+            assertThat(XforwardHeaderFilter.ModifyRemoteAddress.classifyIp("999.999.999.999"))
+                    .isEqualTo(XforwardHeaderFilter.ModifyRemoteAddress.IpClassification.UNPARSEABLE);
+        }
+
+        @Test
+        @DisplayName("should classify legitimate external IP as VALID")
+        void shouldClassifyExternalIp_asValid() {
+            assertThat(XforwardHeaderFilter.ModifyRemoteAddress.classifyIp("203.0.113.50"))
+                    .isEqualTo(XforwardHeaderFilter.ModifyRemoteAddress.IpClassification.VALID);
+        }
+
+        @Test
+        @DisplayName("should classify RFC1918 address as VALID")
+        void shouldClassifyRfc1918_asValid() {
+            assertThat(XforwardHeaderFilter.ModifyRemoteAddress.classifyIp("10.0.0.50"))
+                    .isEqualTo(XforwardHeaderFilter.ModifyRemoteAddress.IpClassification.VALID);
+        }
+    }
 }
