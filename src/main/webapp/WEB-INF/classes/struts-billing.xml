@@ -48,7 +48,7 @@
         </action>
         <action name="billing" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.Billing2Action">
             <result name="BC">/billing/CA/BC/billingBC.jsp</result>
-            <result name="ON">/WEB-INF/jsp/billing/CA/ON/billingOB.jsp</result>
+            <result name="ON">/WEB-INF/jsp/billing/CA/ON/billingON.jsp</result>
         </action>
         <action name="billing/CA/BC/CreateBilling" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingCreateBilling2Action">
             <result name="success">/billing/CA/BC/billingCreated.jsp</result>

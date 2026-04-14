@@ -86,6 +86,7 @@
         if (!groupReport) {
             for (int i = 0; i < lProvider.size(); i++) {
                 JdbcBillingCreateBillingFile objFile = new JdbcBillingCreateBillingFile();
+                objFile.setContextPath(request.getContextPath());
                 objFile.setDateRange(dateRange);
                 BillingProviderData dataProvider = (BillingProviderData) lProvider.get(i);
                 MiscUtils.getLogger().info("creating solo disk for =" + lProvider.get(i));
@@ -150,6 +151,7 @@
                     if (((BillingProviderData) lProvider2.get(i)).getBillingGroupNo().compareTo(StrGroupNo.toString()) != 0)
                         continue;
                     objFile = new JdbcBillingCreateBillingFile();
+                    objFile.setContextPath(request.getContextPath());
                     objFile.setDateRange(dateRange);
                     BillingProviderData dataProvider = (BillingProviderData) lProvider2.get(i);
                     String ohipFilename = obj.getOhipfilename(diskId);
@@ -181,6 +183,7 @@
         List lProvider = new Vector();
         lProvider.add(obj.getProviderObj(provider));
         JdbcBillingCreateBillingFile objFile = new JdbcBillingCreateBillingFile();
+        objFile.setContextPath(request.getContextPath());
         objFile.setDateRange(dateRange);
         for (int i = 0; i < lProvider.size(); i++) {
             BillingProviderData dataProvider = (BillingProviderData) lProvider.get(i);

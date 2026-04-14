@@ -13,6 +13,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -22,11 +23,10 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * View gate for {@code billing/CA/ON/billingONfavourite.jsp}. Enforces {@code _billing}
- * {@code r} privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/} location. Created as part of the ON billing migration
- * to gate direct-access paths behind Struts2 actions (same pattern as
- * PR #1632 for BC billing).
+ * Gate for {@code billing/CA/ON/billingONfavourite.jsp}. Enforces {@code _billing}
+ * {@code r} privilege for read-only views; mutating paths (add/edit/delete via
+ * the {@code action} parameter) additionally require POST to prevent CSRF-ish
+ * state-change over GET.
  *
  * @since 2026-04-13
  */
@@ -37,10 +37,19 @@ public final class ViewBillingONFavourite2Action extends ActionSupport {
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
+        }
+
+        String action = request.getParameter("action");
+        if (action != null
+                && (action.startsWith("add") || action.startsWith("edit") || action.startsWith("delete"))
+                && !"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
 
         return SUCCESS;

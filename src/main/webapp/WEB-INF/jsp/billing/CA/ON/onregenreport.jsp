@@ -76,6 +76,7 @@
         String ohipFilename = obj.getOhipfilename(Integer.parseInt(diskId));
         String htmlFilename = obj.getHtmlfilename(Integer.parseInt(diskId), dataProvider.getProviderNo());
         JdbcBillingCreateBillingFile objFile = new JdbcBillingCreateBillingFile();
+        objFile.setContextPath(request.getContextPath());
         objFile.setProviderNo(dataProvider.getProviderNo());
         objFile.setOhipFilename(ohipFilename);
         objFile.setHtmlFilename(htmlFilename);
@@ -108,6 +109,7 @@
             JdbcBillingCreateBillingFile objFile = null;
             for (int i = 0; i < lProvider.size(); i++) {
                 objFile = new JdbcBillingCreateBillingFile();
+                objFile.setContextPath(request.getContextPath());
                 BillingProviderData dataProvider = (BillingProviderData) lProvider.get(i);
                 String ohipFilename = obj.getOhipfilename(Integer.parseInt(diskId));
                 String htmlFilename = obj.getHtmlfilename(Integer.parseInt(diskId), dataProvider

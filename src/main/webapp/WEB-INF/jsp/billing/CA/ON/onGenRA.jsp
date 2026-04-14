@@ -109,18 +109,25 @@
             awnd.focus();
         }
 
+        function postTo(action, rano, target) {
+            var form = document.createElement('form');
+            form.method = 'post';
+            form.action = action;
+            if (target) {
+                form.target = target;
+            }
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'rano';
+            input.value = rano;
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
+        }
+
         function checkReconcile(action, rano) {
             if (confirm("You are about to reconcile the file, are you sure?")) {
-                var form = document.createElement('form');
-                form.method = 'post';
-                form.action = action;
-                var input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'rano';
-                input.value = rano;
-                form.appendChild(input);
-                document.body.appendChild(form);
-                form.submit();
+                postTo(action, rano);
             } else {
                 alert("You have cancel the action!");
             }
@@ -189,12 +196,21 @@
             </td>
             <td align="center"><a
                     href="<%= request.getContextPath() %>/billing/CA/ON/ViewOnGenRAError.do?rano=<%=raNo%>&proNo="
-                    target="_blank">Error</a> | <a
-                    href="<%= request.getContextPath() %>/billing/CA/ON/ViewOnGenRASummary.do?rano=<%=raNo%>&proNo="
-                    target="_blank">Summary</a>| <a
-                    href="<%= request.getContextPath() %>/billing/CA/ON/ViewGenRADesc.do?rano=<%=raNo%>" target="_blank">Report
-            </a></td>
-            <td><%=status.compareTo("N") == 0 ? "<a href=# onClick=\"checkReconcile('../billing/CA/ON/ViewOnGenRAsettle.do','" + raNo + "')\">Settle</a> <a href=# onClick=\"checkReconcile('../billing/CA/ON/ViewOnGenRAsettle35.do','" + raNo + "')\">S35</a>" : status.compareTo("S") == 0 ? " <a href=# onClick=\"checkReconcile('../billing/CA/ON/ViewOnGenRAsettle35.do','" + raNo + "')\">S35</a>" : "Processed"%>
+                    target="_blank">Error</a> | <a href="#" onclick="postTo('<%= request.getContextPath() %>/billing/CA/ON/ViewOnGenRASummary.do','<%=raNo%>','_blank');return false;">Summary</a>|
+                    <a href="#" onclick="postTo('<%= request.getContextPath() %>/billing/CA/ON/ViewGenRADesc.do','<%=raNo%>','_blank');return false;">Report</a></td>
+            <td><%
+                String ctxPath = request.getContextPath();
+                String settleUrl = ctxPath + "/billing/CA/ON/ViewOnGenRAsettle.do";
+                String settle35Url = ctxPath + "/billing/CA/ON/ViewOnGenRAsettle35.do";
+                if (status.compareTo("N") == 0) {
+            %>
+                <a href="#" onclick="checkReconcile('<%=settleUrl%>','<%=raNo%>')">Settle</a>
+                <a href="#" onclick="checkReconcile('<%=settle35Url%>','<%=raNo%>')">S35</a>
+            <% } else if (status.compareTo("S") == 0) { %>
+                <a href="#" onclick="checkReconcile('<%=settle35Url%>','<%=raNo%>')">S35</a>
+            <% } else { %>
+                Processed
+            <% } %>
             </td>
         </tr>
         <%

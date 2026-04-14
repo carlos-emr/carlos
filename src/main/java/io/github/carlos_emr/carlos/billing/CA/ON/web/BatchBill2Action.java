@@ -29,6 +29,8 @@
 package io.github.carlos_emr.carlos.billing.CA.ON.web;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -161,7 +163,13 @@ public class BatchBill2Action extends ActionSupport {
         }
 
         try {
-            response.sendRedirect(request.getContextPath() + "/billing/CA/ON/BatchBill.do?provider_no=" + request.getParameter("providers") + "&service_code=" + request.getParameter("service_code"));
+            String providersParam = request.getParameter("providers");
+            String serviceCodeParam = request.getParameter("service_code");
+            response.sendRedirect(request.getContextPath()
+                    + "/billing/CA/ON/BatchBill.do?provider_no="
+                    + URLEncoder.encode(providersParam == null ? "" : providersParam, StandardCharsets.UTF_8)
+                    + "&service_code="
+                    + URLEncoder.encode(serviceCodeParam == null ? "" : serviceCodeParam, StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -195,7 +203,13 @@ public class BatchBill2Action extends ActionSupport {
         }
 
         try {
-            response.sendRedirect(request.getContextPath() + "/billing/CA/ON/BatchBill.do?provider_no=" + request.getParameter("providers") + "&service_code=" + request.getParameter("service_code"));
+            String providersParam = request.getParameter("providers");
+            String serviceCodeParam = request.getParameter("service_code");
+            response.sendRedirect(request.getContextPath()
+                    + "/billing/CA/ON/BatchBill.do?provider_no="
+                    + URLEncoder.encode(providersParam == null ? "" : providersParam, StandardCharsets.UTF_8)
+                    + "&service_code="
+                    + URLEncoder.encode(serviceCodeParam == null ? "" : serviceCodeParam, StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

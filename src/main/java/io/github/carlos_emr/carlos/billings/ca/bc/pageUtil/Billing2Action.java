@@ -61,10 +61,7 @@ public final class Billing2Action extends ActionSupport {
         String region = request.getParameter("billRegion") != null ? request.getParameter("billRegion") : CarlosProperties.getProperties().getProperty("billregion");
 
         if ("ON".equals(region)) {
-            String newURL = request.getContextPath() + "/billing.do";
-            newURL = newURL + "?" + request.getQueryString();
-            response.sendRedirect(newURL);
-            return NONE;
+            return "ON";
         } else {
             if (request.getParameter("demographic_no") != null &&
                     request.getParameter("appointment_no") != null) {

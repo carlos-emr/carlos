@@ -347,7 +347,7 @@
                     //alert(('status'+idNum) + document.getElementById('status'+idNum).checked);
                     val = 'Y';
                 }
-                xmlHttp.open("POST", "/billing/CA/ON/BillingONStatusERUpdateStatus.do", true);
+                xmlHttp.open("POST", "<%= request.getContextPath() %>/billing/CA/ON/BillingONStatusERUpdateStatus.do", true);
                 xmlHttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
                 xmlHttp.send("id=" + encodeURIComponent(idNum) + "&val=" + encodeURIComponent(val));
             }
@@ -817,7 +817,7 @@
                     <td><font size="-1"><%=bObj.getDob() %>
                     </font></td>
                     <td style="text-align:right"><a href=#
-                                                    onclick="popupPage(800,700,'/billing/CA/ON/BillingONCorrection.do?billing_no=<%=bObj.getBilling_no()%>','BillCorrection<%=bObj.getBilling_no()%>');return false;"><%=bObj.getBilling_no() %>
+                                                    onclick="popupPage(800,700,'<%= request.getContextPath() %>/billing/CA/ON/BillingONCorrection.do?billing_no=<%=bObj.getBilling_no()%>');return false;"><%=bObj.getBilling_no() %>
                     </a></td>
                     <td><%=bObj.getRef_no() %>
                     </td>
@@ -1037,11 +1037,11 @@
                         <td style="text-align:center"><%=payProgram%>
                         </td>
                         <td style="text-align:center"><a href=#
-                                                         onclick="popupPage(800,700,'/billing/CA/ON/BillingONCorrection.do?billing_no=<%=ch1Obj.getId()%>','BillCorrection<%=ch1Obj.getId()%>');nav_colour_swap(this.id, <%=bList.size()%>);return false;"><%=ch1Obj.getId()%>
+                                                         onclick="popupPage(800,700,'<%= request.getContextPath() %>/billing/CA/ON/BillingONCorrection.do?billing_no=<%=ch1Obj.getId()%>');nav_colour_swap(this.id, <%=bList.size()%>);return false;"><%=ch1Obj.getId()%>
                         </a></td>
                         <!--ACCOUNT-->
                         <td class="highlightBox"><a id="A<%=i%>" href=#
-                                                    onclick="popupPage(800,700,'/billing/CA/ON/BillingONCorrection.do?billing_no=<%=ch1Obj.getId()%>','BillCorrection<%=ch1Obj.getId()%>');nav_colour_swap(this.id, <%=bList.size()%>);return false;">Edit</a> <%=errorCode%>
+                                                    onclick="popupPage(800,700,'<%= request.getContextPath() %>/billing/CA/ON/BillingONCorrection.do?billing_no=<%=ch1Obj.getId()%>');nav_colour_swap(this.id, <%=bList.size()%>);return false;">Edit</a> <%=errorCode%>
                         </td>
                         <!--MESSAGES-->
                         <td style="text-align:center">$<%=cash%>

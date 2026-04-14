@@ -132,6 +132,7 @@
                 }
 
                 JdbcBillingCreateBillingFile dbObj = new JdbcBillingCreateBillingFile();
+                dbObj.setContextPath(request.getContextPath());
                 dbObj.setEFlag("0");
                 dbObj.setDateRange(dateRange);
                 dbObj.setProviderNo(pro);
@@ -209,6 +210,7 @@
                     }
 
                     JdbcBillingCreateBillingFile dbObj = new JdbcBillingCreateBillingFile();
+                    dbObj.setContextPath(request.getContextPath());
                     dbObj.setEFlag("0");
                     dbObj.setDateRange(dateRange);
                     dbObj.setProviderNo(provider);

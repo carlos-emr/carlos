@@ -906,7 +906,7 @@
             t0 = escape("document.forms[0].elements[\'" + d + "\'].value");
             //t1 = escape("");
             //alert(('/billing/CA/ON/ViewSearchRefDoc.do?param='+t0));
-            awnd = rs('att', ('/billing/CA/ON/ViewSearchRefDoc.do?param=' + t0), 1000, 800, 1);
+            awnd = rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc.do?param=' + t0), 1000, 800, 1);
             //awnd.focus();
         }
 
@@ -914,7 +914,7 @@
             var d = elementName;
             t0 = escape("document.forms[0].elements[\'" + d + "\'].value");
             t1 = escape("document.forms[0].elements[\'" + name2 + "\'].value");
-            awnd = rs('att', ('/billing/CA/ON/ViewSearchRefDoc.do?param=' + t0 + '&param2=' + t1 + '&submit=Search&keyword=' + document.forms[0].elements[name2].value), 1000, 800, 1);
+            awnd = rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc.do?param=' + t0 + '&param2=' + t1 + '&submit=Search&keyword=' + document.forms[0].elements[name2].value), 1000, 800, 1);
             //awnd.focus();
         }
 
