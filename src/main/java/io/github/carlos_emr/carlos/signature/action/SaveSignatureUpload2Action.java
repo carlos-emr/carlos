@@ -27,10 +27,12 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
@@ -96,78 +98,100 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             return NONE;
         }
 
-        if (signatureKey != null) {
-            String filename = DigitalSignatureUtils.getTempFilePath(signatureKey);
-
-            // Defence-in-depth: confirm the resolved path is within the temp directory
-            try {
-                File tmpDir = new File(System.getProperty("java.io.tmpdir"));
-                PathValidationUtils.validateExistingPath(new File(filename), tmpDir);
-            } catch (SecurityException e) {
-                MiscUtils.getLogger().warn("Path traversal attempt blocked for signatureKey: {}", LogSanitizer.sanitize(signatureKey));
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid signature key");
-                return NONE;
-            }
-
-            if ("IPAD".equalsIgnoreCase(uploadSource) && imageString != null && !imageString.isEmpty()) {
-                try (FileOutputStream fos = new FileOutputStream(filename)) {
-                    imageString = imageString.substring(imageString.indexOf(",") + 1);
-                    Base64 b64 = new Base64();
-                    byte[] imageByteData = imageString.getBytes();
-                    byte[] imageData = b64.decode(imageByteData);
-                    if (imageData != null) {
-                        fos.write(imageData);
-                        MiscUtils.getLogger().debug("Signature uploaded: {}, size={}", filename, imageData.length);
-                    }
-                } catch (Exception e) {
-                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage());
-                    MiscUtils.getLogger().error("Error uploading signature from IPAD: {}", filename, e);
-                    return NONE;
-                }
-            } else if (uploadSource == null) {
-                try (FileOutputStream fos = new FileOutputStream(filename);
-                     InputStream is = request.getInputStream()) {
-                    int i;
-                    int counter = 0;
-                    while ((i = is.read()) != -1) {
-                        fos.write(i);
-                        counter++;
-                    }
-                    MiscUtils.getLogger().debug("Signature uploaded : " + filename + ", size=" + counter);
-                } catch (Exception e) {
-                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage());
-                    MiscUtils.getLogger().error("Error uploading signature: {}", filename, e);
-                    return NONE;
-                }
-            }
-
-            if (saveToDB) {
-                int demographicNo = -1;
-                if (demographic != null && !demographic.isEmpty()) {
-                    demographicNo = Integer.parseInt(demographic);
-                }
-                DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
-                DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(
-                        loggedInInfo,
-                        signatureKey,
-                        demographicNo,
-                        moduleType);
-                if (signature != null) {
-                    signatureId = "" + signature.getId();
-                }
-            }
-
-            response.setStatus(HttpServletResponse.SC_OK);
+        if (signatureKey == null) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing signature key");
+            return NONE;
         }
 
+        String filename = DigitalSignatureUtils.getTempFilePath(signatureKey);
+
+        // Defence-in-depth: confirm the resolved path is within the temp directory,
+        // then reuse the validated File for downstream sinks so static analysers
+        // (CodeQL) can see the sanitiser on the dataflow.
+        File safeTarget;
+        try {
+            File tmpDir = new File(System.getProperty("java.io.tmpdir"));
+            safeTarget = PathValidationUtils.validateExistingPath(new File(filename), tmpDir);
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().warn("Path traversal attempt blocked for signatureKey: {}", LogSanitizer.sanitize(signatureKey));
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid signature key");
+            return NONE;
+        }
+
+        if ("IPAD".equalsIgnoreCase(uploadSource) && imageString != null && !imageString.isEmpty()) {
+            try (FileOutputStream fos = new FileOutputStream(safeTarget)) {
+                imageString = imageString.substring(imageString.indexOf(",") + 1);
+                Base64 b64 = new Base64();
+                byte[] imageByteData = imageString.getBytes(StandardCharsets.US_ASCII);
+                byte[] imageData = b64.decode(imageByteData);
+                if (imageData != null) {
+                    fos.write(imageData);
+                    MiscUtils.getLogger().debug("Signature uploaded: {}, size={}", LogSanitizer.sanitize(filename), imageData.length);
+                }
+            } catch (Exception e) {
+                MiscUtils.getLogger().error("Error uploading signature from IPAD: {}", LogSanitizer.sanitize(filename), e);
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Upload failed");
+                return NONE;
+            }
+        } else if (uploadSource == null) {
+            try (FileOutputStream fos = new FileOutputStream(safeTarget);
+                 InputStream is = request.getInputStream()) {
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                int counter = 0;
+                while ((bytesRead = is.read(buffer)) != -1) {
+                    counter += bytesRead;
+                    if (counter > MAX_UPLOAD_BYTES) {
+                        MiscUtils.getLogger().warn("Signature upload exceeded {} bytes; rejecting", MAX_UPLOAD_BYTES);
+                        response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, "Upload too large");
+                        return NONE;
+                    }
+                    fos.write(buffer, 0, bytesRead);
+                }
+                MiscUtils.getLogger().debug("Signature uploaded: {}, size={}", LogSanitizer.sanitize(filename), counter);
+            } catch (Exception e) {
+                MiscUtils.getLogger().error("Error uploading signature: {}", LogSanitizer.sanitize(filename), e);
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Upload failed");
+                return NONE;
+            }
+        }
+
+        if (saveToDB) {
+            int demographicNo = -1;
+            if (demographic != null && !demographic.isEmpty()) {
+                try {
+                    demographicNo = Integer.parseInt(demographic);
+                } catch (NumberFormatException e) {
+                    MiscUtils.getLogger().warn("Invalid demographicNo: {}", LogSanitizer.sanitize(demographic));
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid demographicNo");
+                    return NONE;
+                }
+            }
+            DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
+            DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(
+                    loggedInInfo,
+                    signatureKey,
+                    demographicNo,
+                    moduleType);
+            if (signature != null) {
+                signatureId = String.valueOf(signature.getId());
+            }
+        }
+
+        response.setStatus(HttpServletResponse.SC_OK);
+
         // Preserve the JSP's HTML-fragment response contract so existing
-        // iframe-scraping JS callers continue to work unchanged.
+        // iframe-scraping JS callers continue to work unchanged. signatureId
+        // is a numeric DB id, but encode defensively for the HTML attribute
+        // context to satisfy static analysers and harden against future drift.
         response.setContentType("text/html;charset=UTF-8");
         try (PrintWriter out = response.getWriter()) {
             out.write("<input type=\"hidden\" name=\"signatureId\" value=\"");
-            out.write(signatureId);
+            out.write(Encode.forHtmlAttribute(signatureId));
             out.write("\"/>");
         }
         return NONE;
     }
+
+    private static final int MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 }
