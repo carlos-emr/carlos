@@ -31,7 +31,7 @@ import java.util.*;
 
 import org.apache.logging.log4j.Logger;
 import org.hibernate.*;
-import org.springframework.orm.jpa.hibernate.LocalSessionFactoryBean;
+import org.springframework.orm.hibernate5.LocalSessionFactoryBean;
 
 /**
  * Session-tracking SessionFactory wrapper for Hibernate session leak detection.
