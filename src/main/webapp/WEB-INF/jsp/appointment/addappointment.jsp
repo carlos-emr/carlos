@@ -527,7 +527,7 @@ Ontario, Canada
 
             function openTypePopup() {
                 windowprops = "height=230,width=500,location=no,scrollbars=no,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=100,left=100";
-                var popup = window.open("appointmentType.jsp?type=" + document.forms['ADDAPPT'].type.value, "Appointment Type", windowprops);
+                var popup = window.open("appointmentTypeAction.do?type=" + document.forms['ADDAPPT'].type.value, "Appointment Type", windowprops);
                 if (popup != null) {
                     if (popup.opener == null) {
                         popup.opener = self;
@@ -1131,7 +1131,7 @@ Ontario, Canada
         <% } %>
 
         <form name="ADDAPPT" id="addappt" method="post"
-              action="<%=request.getContextPath()%>/appointment/appointmentcontrol.jsp"
+              action="<%=request.getContextPath()%>/appointment/appointmentcontrol.do"
               onsubmit="return(onAdd())">
             <input type="hidden" name="displaymode" value="">
             <input type="hidden" name="year" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("year"))) %>">
@@ -1451,7 +1451,7 @@ Ontario, Canada
                 %>
                 <input type="hidden" name="search_mode" id="search_mode" value="<%= Encode.forHtmlAttribute(searchMode) %>">
                 <input type="hidden" name="originalpage"
-                       value="<%=request.getContextPath() %>/appointment/addappointment.jsp">
+                       value="<%=request.getContextPath() %>/appointment/addappointment.do">
                 <input type="hidden" name="limit1" value="0">
                 <input type="hidden" name="limit2" value="5">
                 <input type="hidden" name="ptstatus" value="active">

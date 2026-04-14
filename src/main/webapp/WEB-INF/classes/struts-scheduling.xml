@@ -116,17 +116,62 @@
             <result name="success">/WEB-INF/jsp/appointment/appointmentcutrecord.jsp</result>
         </action>
         <action name="appointment/apptStatusSetting" class="io.github.carlos_emr.carlos.appt.status.web.AppointmentStatus2Action" method="execute">
-            <result name="success">/appointment/appointmentstatussetting.jsp</result>
-            <result name="edit">/appointment/appointmentstatusedit.jsp</result>
+            <result name="success">/WEB-INF/jsp/appointment/appointmentstatussetting.jsp</result>
+            <result name="edit">/WEB-INF/jsp/appointment/appointmentstatusedit.jsp</result>
         </action>
         <action name="appointment/appointmentTypeAction" class="io.github.carlos_emr.carlos.appt.web.AppointmentType2Action">
             <result name="edit">/appointment/appointmentTypeAction.do?oper=edit</result>
-            <result name="success">/appointment/appointmentTypeList.jsp</result>
-            <result name="failure">/appointment/appointmentTypeList.jsp</result>
+            <result name="success">/WEB-INF/jsp/appointment/appointmentTypeList.jsp</result>
+            <result name="failure">/WEB-INF/jsp/appointment/appointmentTypeList.jsp</result>
             <result name="redirect" type="redirectAction">
             <param name="actionName">appointmentTypeAction</param>
             <param name="namespace">/appointment</param>
         </result>
+        </action>
+
+        <!--
+            ===== appointment/ JSP view gates =====
+            Tail-interactive slice of the appointment module migration:
+            all public-path .jsp moved behind /WEB-INF/jsp/ and reached
+            only through these .do action gates. Closes the residue CVE
+            vectors where appointmentaddarecord/update/delete/cut.jsp
+            lived in both public and WEB-INF paths with divergent logic.
+        -->
+        <action name="appointment/addappointment" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action">
+            <result name="success">/WEB-INF/jsp/appointment/addappointment.jsp</result>
+        </action>
+        <action name="appointment/editappointment" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action">
+            <result name="success">/WEB-INF/jsp/appointment/editappointment.jsp</result>
+        </action>
+        <action name="appointment/appointmentcontrol" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentcontrol.jsp</result>
+        </action>
+        <action name="appointment/appointmentsearch" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentsearch.jsp</result>
+        </action>
+        <action name="appointment/appointmentviewrecordcard" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentviewrecordcard.jsp</result>
+        </action>
+        <action name="appointment/appointmentaddrecordcard" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentaddrecordcard.jsp</result>
+        </action>
+        <action name="appointment/appointmentaddrecordprint" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentSelfPost2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentaddrecordprint.jsp</result>
+        </action>
+        <action name="appointment/appointmentcopyrecord" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentcopyrecord.jsp</result>
+        </action>
+        <action name="appointment/appointmentgrouprecords" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentSelfPost2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentgrouprecords.jsp</result>
+        </action>
+        <action name="appointment/appointmentrepeatbooking" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentSelfPost2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentrepeatbooking.jsp</result>
+        </action>
+        <action name="appointment/appointmenteditrepeatbooking" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentSelfPost2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmenteditrepeatbooking.jsp</result>
+        </action>
+        <action name="appointment/printappointment" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action">
+            <result name="success">/WEB-INF/jsp/appointment/printappointment.jsp</result>
         </action>
         <action name="tickler/EditTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action">
             <result name="close">/WEB-INF/jsp/tickler/ticklerEditSuccess.jsp</result>

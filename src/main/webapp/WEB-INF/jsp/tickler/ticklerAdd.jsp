@@ -666,7 +666,7 @@
             }
             ChartNo = bFirstDisp ? "" : request.getParameter("chart_no") == null ? "" : request.getParameter("chart_no");
         %>
-        <form name="ADDAPPT" method="post" action="<%= request.getContextPath() %>/appointment/appointmentcontrol.jsp">
+        <form name="ADDAPPT" method="post" action="<%= request.getContextPath() %>/appointment/appointmentcontrol.do">
             <input type="hidden" name="orderby" value="last_name">
             <input type="hidden" name="search_mode" value="<%=Encode.forHtmlAttribute(searchMode)%>">
             <input type="hidden" name="originalpage" value="<%=Encode.forHtmlAttribute(request.getContextPath() + "/tickler/ViewAddTickler.do")%>">

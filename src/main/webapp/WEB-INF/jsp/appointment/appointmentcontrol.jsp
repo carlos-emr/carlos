@@ -34,7 +34,10 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) {
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        return;
+    }
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment"
@@ -42,22 +45,29 @@
     <%response.sendRedirect(request.getContextPath() + "/logout.jsp");%>
 </security:oscarSec>
 <%
-    // associate each operation with an output JSP file -- displaymode
+    // associate each operation with an output action — displaymode
+    // Post-migration: all sibling appointment JSPs live behind /WEB-INF/jsp/
+    // so every dispatch target is now an absolute .do URL (view gate or
+    // mutation action). The dead "Search" entry (WITHOUT trailing space)
+    // was removed — its former target appointmentsearchrecords.jsp does
+    // not exist in the repo. The live "Search " operation (WITH trailing
+    // space — mind the difference) is still active: addappointment.jsp
+    // submits exactly "Search " as the displaymode value, so do not merge
+    // the two entries in a later cleanup.
     String[][] opToFile = new String[][]{
             {"Add Appointment", "/appointment/AddRecord.do"},
-            {"Group Appt", "appointmentgrouprecords.jsp"},
-            {"Group Action", "appointmentgrouprecords.jsp"},
-            {"Add Appt & PrintPreview", "appointmentaddrecordprint.jsp"},
-            {"Add Appt & PrintCard", "appointmentaddrecordcard.jsp"},
-            {"PrintCard", "appointmentviewrecordcard.jsp"},
+            {"Group Appt", "/appointment/appointmentgrouprecords.do"},
+            {"Group Action", "/appointment/appointmentgrouprecords.do"},
+            {"Add Appt & PrintPreview", "/appointment/appointmentaddrecordprint.do"},
+            {"Add Appt & PrintCard", "/appointment/appointmentaddrecordcard.do"},
+            {"PrintCard", "/appointment/appointmentviewrecordcard.do"},
             {"TicklerSearch", "/tickler/ViewAddTickler.do"},
             {"Search ", "/demographic/DemographicSearch.do"},
-            {"Search", "appointmentsearchrecords.jsp"},
-            {"edit", "editappointment.jsp"},
+            {"edit", "/appointment/editappointment.do"},
             {"Update Appt", "/appointment/UpdateRecord.do"},
             {"Delete Appt", "/appointment/DeleteRecord.do"},
             {"Cut", "/appointment/CutRecord.do"},
-            {"Copy", "appointmentcopyrecord.jsp"}
+            {"Copy", "/appointment/appointmentcopyrecord.do"}
     };
 
     // create an operation-to-file dictionary
@@ -86,7 +96,15 @@
     // the web.xml filter-mapping), so .do targets must use forward() instead of include().
     if (target.endsWith(".do")) {
         if (response.isCommitted()) {
-            MiscUtils.getLogger().error("appointmentcontrol.jsp: cannot forward to {} — response already committed", target);
+            // Defensive: nothing in the preceding scriptlet writes body bytes,
+            // so this path should be unreachable in practice. If we do land
+            // here, the response has already been flushed — sendError() would
+            // fail (can't set status on committed response) and throwing would
+            // mix a stack trace into the committed body. Log-and-return is the
+            // only non-destructive option. This is noted as a defensive
+            // no-op, not a silent success — the client sees whatever partial
+            // bytes were flushed and the error is visible in server logs.
+            MiscUtils.getLogger().error("appointmentcontrol.jsp: cannot forward to {} — response already committed; returning without further output", target);
             return;
         }
         request.getRequestDispatcher(target).forward(request, response);
