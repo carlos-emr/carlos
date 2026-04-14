@@ -28,6 +28,14 @@ import org.apache.struts2.ServletActionContext;
  * {@link #requirePost()} returns {@code true}, also enforces POST-only access
  * (returning HTTP 405 for other methods).
  *
+ * <p>Provider-module convention: {@code _appointment r} is the default
+ * provider-area entry privilege and is used for most view gates regardless of
+ * topical relevance (encounter history, vaccine registry, signature edit,
+ * preferences, etc.). This reflects that any practicing provider holds
+ * {@code _appointment r} — it is effectively "logged-in-as-a-provider."
+ * Only gates that mutate admin-level state ({@code _admin w}) or require
+ * demographic writes ({@code _demographic w}) deviate.
+ *
  * @since 2026-04-13
  */
 public abstract class BaseProviderViewGate2Action extends ActionSupport {
@@ -47,7 +55,7 @@ public abstract class BaseProviderViewGate2Action extends ActionSupport {
     }
 
     @Override
-    public String execute() throws Exception {
+    public final String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 

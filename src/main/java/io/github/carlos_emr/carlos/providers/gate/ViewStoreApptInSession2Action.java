@@ -14,7 +14,11 @@ package io.github.carlos_emr.carlos.providers.gate;
 
 /**
  * View gate for {@code provider/storeApptInSession.jsp}. Enforces
- * {@code _appointment} {@code r} privilege before forwarding to the JSP. POST-only (GET returns 405).
+ * {@code _appointment} {@code r} privilege and POST-only (GET returns 405).
+ * Read privilege is correct here: the JSP mutates only HTTP session state
+ * ({@code session.setAttribute("cur_appointment_no", ...)}) for an appointment
+ * the caller can already view; POST is required so CSRF cannot flip session
+ * context via a forged GET.
  *
  * @since 2026-04-13
  */
