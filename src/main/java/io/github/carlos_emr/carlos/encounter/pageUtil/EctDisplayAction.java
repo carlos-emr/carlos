@@ -100,8 +100,8 @@ public class EctDisplayAction extends ActionSupport {
             Actions.put("unresolvedIssues", "/encounter/displayIssues.do");
             Actions.put("resolvedIssues", "/encounter/displayIssues.do");
             Actions.put("Rx", "/encounter/displayRx.do");
-            Actions.put("success", "/encounter/LeftNavBarDisplay.jsp");
-            Actions.put("error", "/encounter/LeftNavBarError.jsp");
+            Actions.put("success", "/encounter/ViewLeftNavBarDisplay.do");
+            Actions.put("error", "/encounter/ViewLeftNavBarError.do");
             Actions.put("HRM", "/encounter/displayHRM.do");
 
             if (logger.isDebugEnabled()) {

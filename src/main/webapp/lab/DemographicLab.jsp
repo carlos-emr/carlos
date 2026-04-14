@@ -259,7 +259,7 @@
 				<%}%> &nbsp;&nbsp;&nbsp; Page : <%=pageNum%> </span> <% } %>
                         </td>
                         <td align="right" valign="center" width="30%"><a
-                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/About.jsp')"><fmt:message key="global.about"/></a></td>
+                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout.do')"><fmt:message key="global.about"/></a></td>
                     </tr>
                 </table>
             </td>

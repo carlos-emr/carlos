@@ -397,7 +397,7 @@
                                 %>
                                 <tr>
                                     <td>
-                                        <% currentURI = request.getContextPath() + "/encounter/echarthistoryprint.jsp?echartid=" + Encode.forUriComponent(String.valueOf(ec.getId())) + "&demographic_no=" + encDemoNo; %>
+                                        <% currentURI = request.getContextPath() + "/encounter/ViewEcharthistoryprint.do?echartid=" + Encode.forUriComponent(String.valueOf(ec.getId())) + "&demographic_no=" + encDemoNo; %>
                                         <input type="checkbox" name="uriArray" value="<%=Encode.forHtmlAttribute(currentURI)%>"
                                                        style="display:none"/>
                                         <input type="checkbox" name="indexArray" value="<%= Integer.toString(indexCount++) %>"/>

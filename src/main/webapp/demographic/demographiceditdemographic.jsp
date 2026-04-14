@@ -1198,7 +1198,7 @@
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(700,960,'<%= request.getContextPath() %>/encounter/oscarConsultationRequest/DisplayDemographicConsultationRequests.jsp?de=<%=demographic.getDemographicNo()%>&proNo=<%=demographic.getProviderNo()%>')"><fmt:message key="demographic.demographiceditdemographic.btnConsultation"/></a></td>
+                                    onClick="popupPage(700,960,'<%= request.getContextPath() %>/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests.do?de=<%=demographic.getDemographicNo()%>&proNo=<%=demographic.getProviderNo()%>')"><fmt:message key="demographic.demographiceditdemographic.btnConsultation"/></a></td>
                         </tr>
 
                         <tr>

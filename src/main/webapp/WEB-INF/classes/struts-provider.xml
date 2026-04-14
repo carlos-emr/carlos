@@ -108,7 +108,7 @@
         </action>
         <action name="provider/CppPreferences" class="io.github.carlos_emr.carlos.provider.web.CppPreferences2Action">
             <result name="form">/WEB-INF/jsp/provider/cpp_preferences.jsp</result>
-            <result name="exit">/encounter/close.jsp</result>
+            <result name="exit">/WEB-INF/jsp/encounter/close.jsp</result>
         </action>
         <action name="DocumentDescriptionTemplate" class="io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action"/>
         <action name="PrinterList" class="io.github.carlos_emr.carlos.printer.PrinterList2Action"/>

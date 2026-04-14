@@ -97,11 +97,11 @@
             <result name="editdesc">/oscarReport/editCodeDesc.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/adminFlowsheet/FlowSheetCustomAction" class="io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action">
-            <result name="success">/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp</result>
-            <result name="newflowsheet">/encounter/oscarMeasurements/adminFlowsheet/NewFlowsheet.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp</result>
+            <result name="newflowsheet">/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/NewFlowsheet.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/FlowSheetDrugAction" class="io.github.carlos_emr.carlos.commn.web.FlowSheetDrug2Action">
-            <result name="success">/encounter/oscarMeasurements/TemplateFlowSheet.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/TemplateFlowSheet.jsp</result>
         </action>
         <action name="appointment/AddRecord" class="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentAddRecord2Action">
             <result name="success">/WEB-INF/jsp/appointment/appointmentaddarecord.jsp</result>

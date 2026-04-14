@@ -695,12 +695,12 @@
                         }
                     %>
                     <li><a href="#"
-                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/encounter/oscarConsultationRequest/config/EditSpecialists.jsp");return false;'><fmt:message key="admin.admin.professionalSpecialistAdmin"/></a></li>
+                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/encounter/oscarConsultationRequest/config/ViewEditSpecialists.do");return false;'><fmt:message key="admin.admin.professionalSpecialistAdmin"/></a></li>
 
                     <li><a href="#"
                            onclick='popupPage(400,450, "${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchCustomization.jsp");return false;'><fmt:message key="encounter.Index.btnCustomize"/> <fmt:message key="oscar.admin.diseaseRegistryQuickList"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(250,450, "${pageContext.request.contextPath}/encounter/oscarMeasurements/Customization.jsp");return false;'><fmt:message key="encounter.Index.btnCustomize"/> <fmt:message key="admin.admin.oscarMeasurements"/></a></li>
+                           onclick='popupPage(250,450, "${pageContext.request.contextPath}/encounter/oscarMeasurements/ViewCustomization.do");return false;'><fmt:message key="encounter.Index.btnCustomize"/> <fmt:message key="admin.admin.oscarMeasurements"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(200,300, "${pageContext.request.contextPath}/admin/ResourceBaseUrl.do");return false;'
                            title='<fmt:message key="admin.admin.baseURLSettingTitle"/>'><fmt:message key="admin.admin.btnBaseURLSetting"/></a></li>
@@ -716,7 +716,7 @@
 
                     <li><a href="#" onclick='popupPage(800,1000, "${pageContext.request.contextPath}/admin/ViewKeygenKeyManager.do");return false;'><fmt:message key="admin.admin.keyPairGen"/></a></li>
                     <li><a href="#" onclick='popupPage(600,600, "${pageContext.request.contextPath}/FacilityManager.do");return false;'><fmt:message key="admin.admin.manageFacilities"/></a></li>
-                    <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/encounter/oscarMeasurements/adminFlowsheet/NewFlowsheet.jsp");return false;'>Create
+                    <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/encounter/oscarMeasurements/adminFlowsheet/ViewNewFlowsheet.do");return false;'>Create
                         New Flowsheet</a></li>
                     <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/ManageFlowsheets.do");return false;'><fmt:message key="admin.admin.flowsheetManager"/></a></li>
                     <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/ViewLotNrAddRecordHtm.do");return false;'><fmt:message key="admin.admin.add_lot_nr.title"/></a></li>

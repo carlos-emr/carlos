@@ -76,7 +76,7 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                 // set text for lefthand module title
                 Dao.setLeftHeading(getText("encounter.Index.msgForms"));
                 // set link for lefthand module title
-                Dao.setLeftPopup(600, 700, winName, request.getContextPath() + "/encounter/formlist.jsp?demographic_no=" + bean.demographicNo);
+                Dao.setLeftPopup(600, 700, winName, request.getContextPath() + "/encounter/ViewFormlist.do?demographic_no=" + bean.demographicNo);
 
                 // we're going to display a pop up menu of forms so we set the menu title and id num of menu
                 Dao.setRightHeadingID(menuId);

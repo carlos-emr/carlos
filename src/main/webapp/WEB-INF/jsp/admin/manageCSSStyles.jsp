@@ -46,7 +46,7 @@
 %>
 
 
-<%@include file="/casemgmt/taglibs.jsp" %>
+<%@include file="/casemgmt/ViewTaglibs.do" %>
 <fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <html>
