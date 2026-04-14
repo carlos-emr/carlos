@@ -471,10 +471,10 @@ public final class Login2Action extends ActionSupport {
                     LogAction.addLog(username, LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityId, ip);
                     // FP for open-redirect scanners (CodeQL java/unvalidated-url-redirection #5909):
                     // nextPage is validated by RedirectValidationUtils.isValidRelativeRedirect()
-                    // at line 441 before this branch is entered; it rejects absolute URIs,
+                    // immediately above before entering this branch; it rejects absolute URIs,
                     // protocol-relative URLs, backslash bypasses, control characters, and
                     // path-traversal sequences — only safe relative paths reach here.
-                    response.sendRedirect(nextPage); // nosemgrep: javasecurity.S5146, java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by RedirectValidationUtils.isValidRelativeRedirect at line 441 // lgtm[java/unvalidated-url-redirection]
+                    response.sendRedirect(nextPage); // nosemgrep: javasecurity.S5146, java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by RedirectValidationUtils.isValidRelativeRedirect() before entering this branch // lgtm[java/unvalidated-url-redirection]
                     return NONE;
                 }
             }
