@@ -1021,7 +1021,7 @@
                         popupOscarRx(625, 1024, '<%=request.getContextPath()%>/encounter/IncomingConsultation.do?providerNo=<%=curUser_no%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname, StandardCharsets.UTF_8)%>');
                         return false;  //run code for c'O'nsultation
                     case <fmt:message key="global.reportShortcut"/> :
-                        popupOscarRx(650, 1024, '<%= request.getContextPath() %>/report/ViewReportindex.do', 'reportPage');
+                        popupOscarRx(650, 1024, '<%= request.getContextPath() %>/report/reportindex.jsp', 'reportPage');
                         return false;  //run code for 'R'eports
                     case <fmt:message key="global.prefShortcut"/> : {
                         popupOscarRx(715, 680, '<%= request.getContextPath() %>/provider/ViewProviderPreference.do?provider_no=<%=Encode.forUriComponent(curUser_no)%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&mygroup_no=<%=Encode.forUriComponent(mygroupno)%>'); //run code for 'P'references

@@ -157,7 +157,7 @@
                 <tr bgcolor="#FFFFFF">
                     <div align="right"><a
                             href="javascript: function myFunction() {return false; }"
-                            onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider.do?action=billingreport')">
+                            onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport')">
                         <font face="Arial, Helvetica, sans-serif" size="1">Manage
                             Provider List</font> </a></div>
                 </tr>

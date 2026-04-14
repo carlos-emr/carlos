@@ -361,7 +361,7 @@
                         ReportEvaluator re = arrList.get(i);
                     %>
                     <li title="<%=re.getName()%>"><%=re.getNumeratorCount()%> / <%=re.getDenominatorCount()%>&nbsp;
-                        <a style="text-decoration:none;" target="_blank" href="<%= request.getContextPath() %>/report/ViewReportExport.do?id=<%=i%>"><fmt:message key="report.ClinicalReports.msgCSV"/></a>&nbsp;
+                        <a style="text-decoration:none;" target="_blank" href="<%= request.getContextPath() %>/report/reportExport.jsp?id=<%=i%>"><fmt:message key="report.ClinicalReports.msgCSV"/></a>&nbsp;
                         <form method="post" action="<%= request.getContextPath() %>/report/RemoveClinicalReport.do" style="display:inline;">
                             <input type="hidden" name="id" value="<%=i%>"/>
                             <a style="text-decoration:none;" href="javascript:void(0);" onclick="this.closest('form').submit();"><fmt:message key="report.ClinicalReports.msgDel"/></a>
@@ -369,7 +369,7 @@
                     </li>
                     <% }%>
                 </ul>
-                <a style="text-decoration:none;" target="_blank" href="<%= request.getContextPath() %>/report/ViewReportExport.do"><fmt:message key="report.ClinicalReports.msgCSV"/></a>
+                <a style="text-decoration:none;" target="_blank" href="<%= request.getContextPath() %>/report/reportExport.jsp"><fmt:message key="report.ClinicalReports.msgCSV"/></a>
                 <%}%>
 
             </td>
@@ -713,7 +713,7 @@
                         session.setAttribute("clinicalReportCSV", swr.toString());
                     }
                 %>
-                <form target="_new" action="<%= request.getContextPath() %>/report/ViewClinicalExport.do">
+                <form target="_new" action="<%= request.getContextPath() %>/report/ClinicalExport.jsp">
                     <input type="submit" name="getCSV"
                            value="<fmt:message key="report.ClinicalReports.msgExporttoCSV"/>">
                     <input type="submit" name="getXLS"

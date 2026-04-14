@@ -72,7 +72,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
 
         if (!validate(request)) {
             MiscUtils.getLogger().debug("the form is invalid");
-            response.sendRedirect(request.getContextPath() + "/oscarReport/oscarMeasurements/ViewInitializePatientsMetGuidelineCDMReport.do");
+            response.sendRedirect(request.getContextPath() + "/oscarReport/oscarMeasurements/InitializePatientsMetGuidelineCDMReport.jsp");
             return NONE;
         }
 

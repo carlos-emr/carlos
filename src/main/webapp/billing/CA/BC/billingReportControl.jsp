@@ -127,7 +127,7 @@
 <table width="100%" border="0" cellspacing="0" cellpadding="0">
     <tr bgcolor="#FFFFFF">
         <div align="right"><a href=#
-                              onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider.do?action=billingreport')"><font
+                              onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport')"><font
                 face="Arial, Helvetica, sans-serif" size="1">Manage Provider
             List </font></a></div>
     </tr>
