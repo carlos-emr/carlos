@@ -35,6 +35,7 @@
 
 <%@ page
         import="java.util.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementMapConfig, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
 
@@ -222,7 +223,7 @@
                             <% if (measurement != null && !measurement.equals("&nbsp;")) {%>
                             <%=measurement%>
                             <%} else {%>
-                            <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementMap2.do?loinc=<%=s%>">map</a>
+                            <a href="<%= Encode.forHtmlAttribute(request.getContextPath() + "/encounter/oscarMeasurements/ViewAddMeasurementMap2.do?loinc=" + Encode.forUriComponent(s)) %>">map</a>
                             <%}%>
                         </td>
                         <td class="Cell"><%=s%>

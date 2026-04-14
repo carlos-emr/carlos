@@ -42,13 +42,14 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  */
 public final class ViewClinical2Action extends ActionSupport {
 
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
-        SecurityInfoManager sim = SpringUtils.getBean(SecurityInfoManager.class);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null || !sim.hasPrivilege(loggedInInfo, "_eChart", "r", null)) {
-            throw new SecurityException("missing required sec object (_eChart r)");
+        if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", null)) {
+            throw new SecurityException("missing required sec object");
         }
         return SUCCESS;
     }

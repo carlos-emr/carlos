@@ -597,20 +597,20 @@
     <body id="body" class="encounter-layout">
     <jsp:include page="/images/spinner.jsp" flush="true"/>
     <div id="header">
-        <jsp:include page="<%= request.getContextPath() %>/casemgmt/ViewNewEncounterHeader.do"/>
+        <jsp:include page="/WEB-INF/jsp/casemgmt/newEncounterHeader.jsp"/>
     </div>
 
     <div id="navigation-layout">
         <div id="rightNavBar">
-            <jsp:include page="<%= request.getContextPath() %>/casemgmt/ViewRightColumn.do"/>
+            <jsp:include page="/WEB-INF/jsp/casemgmt/rightColumn.jsp"/>
         </div>
 
         <div id="leftNavBar">
-            <jsp:include page="<%= request.getContextPath() %>/casemgmt/ViewNewNavigation.do"/>
+            <jsp:include page="/WEB-INF/jsp/casemgmt/newNavigation.jsp"/>
         </div>
 
         <div id="content">
-            <jsp:include page="<%= request.getContextPath() %>/casemgmt/ViewNewCaseManagementView.do"/>
+            <jsp:include page="/WEB-INF/jsp/casemgmt/newCaseManagementView.jsp"/>
         </div>
     </div>
     <!-- hovering divs -->

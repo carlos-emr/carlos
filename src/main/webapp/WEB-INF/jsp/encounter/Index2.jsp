@@ -121,7 +121,7 @@
 <%
     EctSessionBean bean = null;
     if ((bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
-        response.sendRedirect("<%= request.getContextPath() %>/encounter/ViewError.do");
+        response.sendRedirect(request.getContextPath() + "/encounter/ViewError.do");
         return;
     }
     // Make bean available for EL access as ${bean}

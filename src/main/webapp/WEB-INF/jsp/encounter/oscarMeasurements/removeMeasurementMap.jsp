@@ -75,7 +75,7 @@
         }
 
         function remap(id, identifier, name, type) {
-            popupStart(300, 1000, '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewRemapMeasurementMap.do?id=' + id + '&identifier=' + identifier + '&name=' + name + '&type=' + type, 'Remap Measurement')
+            popupStart(300, 1000, '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewRemapMeasurementMap.do?id=' + encodeURIComponent(id) + '&identifier=' + encodeURIComponent(identifier) + '&name=' + encodeURIComponent(name) + '&type=' + encodeURIComponent(type), 'Remap Measurement')
         }
 
         <%String outcome = request.getParameter("outcome");

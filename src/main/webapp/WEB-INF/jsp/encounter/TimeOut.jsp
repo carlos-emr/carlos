@@ -37,7 +37,7 @@
 <%
     EctSessionBean sessionbean = null;
     if ((sessionbean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
-        response.sendRedirect("<%= request.getContextPath() %>/encounter/ViewError.do");
+        response.sendRedirect(request.getContextPath() + "/encounter/ViewError.do");
         return;
     }
 %>

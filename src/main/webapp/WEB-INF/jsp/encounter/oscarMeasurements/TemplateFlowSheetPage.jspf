@@ -322,7 +322,7 @@ div.headPrevention p {
         	selectedItemsStr = "&selectedItems=" + encodeURIComponent(selectedItems.join(','));
         }
 
-        var url = '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheet.do?demographic_no=<%= Encode.forJavaScript(safeDemoNoUri) %>&template=<%= Encode.forJavaScript(safeTempUri) %>';
+        var url = '<%= Encode.forJavaScript(request.getContextPath()) %>/encounter/oscarMeasurements/ViewTemplateFlowSheet.do?demographic_no=<%= Encode.forJavaScript(safeDemoNoUri) %>&template=<%= Encode.forJavaScript(safeTempUri) %>';
         if(numEle.length > 0){
         	url = url + '&numEle='+numEle;
         }

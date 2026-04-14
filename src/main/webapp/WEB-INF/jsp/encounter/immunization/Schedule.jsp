@@ -119,7 +119,7 @@
 
         function edit(nodeName, colName) {
             windowprops = "height=443,width=630,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-            window.open("<%= request.getContextPath() %>/encounter/immunization/ViewScheduleEdit.do?node=" + nodeName + "&name=" + colName, "<fmt:message key='encounter.immunization.Schedule.msgRecordImm'/>", windowprops);
+            window.open("<%= request.getContextPath() %>/encounter/immunization/ViewScheduleEdit.do?node=" + encodeURIComponent(nodeName) + "&name=" + encodeURIComponent(colName), "<fmt:message key='encounter.immunization.Schedule.msgRecordImm'/>", windowprops);
         }
 
         function returnEdit(nodeName, givenDate, refusedDate, lot, provider, comments) {

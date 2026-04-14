@@ -1161,7 +1161,7 @@ public class CaseManagementView2Action extends ActionSupport {
         // Use include() for XHR requests to prevent Tomcat 11 from closing the output
         // stream at the 8KB buffer boundary when Struts performs a forward() dispatch.
         if ("XMLHttpRequest".equalsIgnoreCase(request.getHeader("X-Requested-With"))) {
-            request.getRequestDispatcher("/casemgmt/ViewViewNotes.do").include(request, response);
+            request.getRequestDispatcher("/WEB-INF/jsp/casemgmt/viewNotes.jsp").include(request, response);
             return NONE;
         }
 

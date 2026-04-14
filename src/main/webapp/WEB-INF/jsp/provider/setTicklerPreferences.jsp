@@ -30,7 +30,7 @@
 --%>
 
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@ include file="/casemgmt/ViewTaglibs.do" %>
+<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <%@page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>

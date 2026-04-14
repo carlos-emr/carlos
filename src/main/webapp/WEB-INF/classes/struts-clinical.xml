@@ -97,7 +97,7 @@
             <result name="ajaxDisplayNotes">/WEB-INF/jsp/casemgmt/ChartNotesAjax.jsp</result>
             <result name="page.casemgmt.view">/WEB-INF/jsp/casemgmt/encounterLayout.jsp</result>
             <result name="page.newcasemgmt.view">/WEB-INF/jsp/casemgmt/newEncounterLayout.jsp</result>
-            <result name="domain-error">/casemgmt/domain-error.jsp</result>
+            <result name="domain-error">/WEB-INF/jsp/casemgmt/domain-error.jsp</result>
             <result name="clientNeverInTheProgramError">/WEB-INF/jsp/casemgmt/clientNeverInTheProgramError.jsp</result>
             <result name="unlockForm">/WEB-INF/jsp/casemgmt/unlockNoteForm.jsp</result>
             <result name="unlockSuccess">/WEB-INF/jsp/casemgmt/unlockNoteSuccess.jsp</result>

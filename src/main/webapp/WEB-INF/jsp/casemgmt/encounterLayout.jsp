@@ -57,8 +57,8 @@
     <table border="0" width="100%" cellspacing="5">
         <tbody>
         <tr>
-            <td width="22%" valign="top"><jsp:include page="<%= request.getContextPath() %>/casemgmt/ViewNavigation.do"/></td>
-            <td width="78%" valign="top"><jsp:include page="<%= request.getContextPath() %>/casemgmt/ViewCaseManagementView.do"/></td>
+            <td width="22%" valign="top"><jsp:include page="/WEB-INF/jsp/casemgmt/navigation.jsp"/></td>
+            <td width="78%" valign="top"><jsp:include page="/WEB-INF/jsp/casemgmt/CaseManagementView.jsp"/></td>
         </tr>
         </tbody>
     </table>

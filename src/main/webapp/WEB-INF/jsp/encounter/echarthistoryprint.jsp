@@ -47,7 +47,7 @@
 
     EctSessionBean bean = new EctSessionBean();
     if ((bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
-        response.sendRedirect("<%= request.getContextPath() %>/encounter/ViewError.do");
+        response.sendRedirect(request.getContextPath() + "/encounter/ViewError.do");
         return;
     }
     bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request), request.getParameter("echartid"), request.getParameter("demographic_no"));

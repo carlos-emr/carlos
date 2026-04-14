@@ -66,14 +66,15 @@ public class EctDefineNewMeasurementGroup2Action extends ActionSupport {
 
             if (!validate.matchRegExp(regExp, groupName)) {
                 addActionError(getText("errors.invalid", new String[]{groupName}));
-                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/ViewDefineNewMeasurementGroup.do");
+                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/SetupStyleSheetList.do");
                 return NONE;
             }
 
             //Write the new groupName to the database if there's no duplication
             if (!write2Database(groupName, styleSheet)) {
                 addActionError(getText("error.encounter.addNewMeasurementGroup.duplicateGroupName", new String[]{groupName}));
-                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/ViewDefineNewMeasurementGroup.do");
+                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/SetupStyleSheetList.do");
+                return NONE;
             }
 
             HttpSession session = request.getSession();

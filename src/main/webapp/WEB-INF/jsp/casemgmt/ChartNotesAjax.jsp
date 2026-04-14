@@ -126,7 +126,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     String demographicNo = request.getParameter("demographicNo");
     EctSessionBean bean;
     if ((bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
-        response.sendRedirect("<%= request.getContextPath() %>/casemgmt/ViewError.do");
+        response.sendRedirect(request.getContextPath() + "/casemgmt/ViewError.do");
         return;
     }
 
@@ -416,7 +416,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                       id="caseNote_note<%=savedId%>"><%=Encode.forHtml(cform.getCaseNote_note())%></textarea>
 
             <div class="sig <%= note.isSigned() ? "" : "note-unsigned"%>" id="sig<%=globalNoteId%>">
-                <%@ include file="<%= request.getContextPath() %>/casemgmt/ViewNoteIssueList.do" %>
+                <%@ include file="/WEB-INF/jsp/casemgmt/noteIssueList.jsp" %>
             </div>
 
 
@@ -841,7 +841,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                   style="line-height: 1.1em;" name="caseNote_note"
                   id="caseNote_note<%=savedId%>"><%=Encode.forHtml(cform.getCaseNote_note()) %></textarea>
         <div class="sig" id="sig<%=savedId%>">
-            <%@ include file="<%= request.getContextPath() %>/casemgmt/ViewNoteIssueList.do" %>
+            <%@ include file="/WEB-INF/jsp/casemgmt/noteIssueList.jsp" %>
         </div> <!-- end of div sig<%=savedId%> -->
 
 

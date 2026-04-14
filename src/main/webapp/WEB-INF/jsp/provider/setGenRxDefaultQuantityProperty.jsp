@@ -29,7 +29,7 @@
 
 --%>
 
-<%@ include file="/casemgmt/ViewTaglibs.do" %>
+<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ page import="java.util.ResourceBundle"%>
 
 <%

@@ -36,6 +36,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page import="java.util.List" %>
 <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
 <html>
@@ -115,7 +116,10 @@
                                     <c:forEach var="measurementType" items="${measurementTypes.measurementTypeVector}" varStatus="ctr">
                                     <tr class="data">
                                         <td width="5">
-                                            <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewExportMeasurement.do?mType=${measurementType.type}" target="_blank">
+                                            <c:url var="exportMeasurementUrl" value="/encounter/oscarMeasurements/ViewExportMeasurement.do">
+                                                <c:param name="mType" value="${measurementType.type}"/>
+                                            </c:url>
+                                            <a href="${e:forHtmlAttribute(exportMeasurementUrl)}" target="_blank">
                                                 <c:out value="${measurementType.type}"/>
                                             </a>
                                         </td>

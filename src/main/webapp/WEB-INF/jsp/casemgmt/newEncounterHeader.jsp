@@ -48,7 +48,7 @@
 
     EctSessionBean bean = null;
     if ((bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
-        response.sendRedirect("<%= request.getContextPath() %>/casemgmt/ViewError.do");
+        response.sendRedirect(request.getContextPath() + "/casemgmt/ViewError.do");
         return;
     }
 

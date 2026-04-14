@@ -50,7 +50,7 @@
 <%@page import="io.github.carlos_emr.carlos.report.data.DemographicSets" %>
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DataExport" %>
-<%@include file="/casemgmt/ViewTaglibs.do" %>
+<%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <%
     DemographicSets ds = new DemographicSets();
