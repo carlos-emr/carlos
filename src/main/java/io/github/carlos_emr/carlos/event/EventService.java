@@ -52,10 +52,12 @@ public class EventService implements ApplicationEventPublisherAware {
      *
      */
     public void appointmentStatusChanged(Object source, String appointment_no, String provider_no, String status) {
-        logger.debug("appointmentStatusChanged thrown by {} appt# {} status {}",
-                () -> source.getClass().getName(),
-                () -> LogSanitizer.sanitize(appointment_no),
-                () -> LogSanitizer.sanitize(status));
+        if (logger.isDebugEnabled()) {
+            logger.debug("appointmentStatusChanged thrown by {} appt# {} status {}",
+                    source.getClass().getName(),
+                    LogSanitizer.sanitize(appointment_no),
+                    LogSanitizer.sanitize(status));
+        }
 
         applicationEventPublisher.publishEvent(new AppointmentStatusChangeEvent(source, appointment_no, provider_no, status));
     }
