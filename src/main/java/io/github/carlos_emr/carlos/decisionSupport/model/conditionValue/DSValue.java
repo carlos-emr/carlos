@@ -81,7 +81,7 @@ public abstract class DSValue {
     // Performance Optimization: Extracted dynamically compiled regex patterns
     // to static final fields to avoid recompiling them repeatedly within loop/static contexts.
     // This reduces overhead, as Pattern.compile() creates an expensive state machine.
-    private static final Pattern STRING_QUOTE_PATTERN = Pattern.compile("'.+?'");
+    private static final Pattern STRING_QUOTE_PATTERN = Pattern.compile("'[^']++'");
     private static final Pattern STRING_SEPARATOR_PATTERN = Pattern.compile("'[\\s]*,");
     private static final Pattern OPERATOR_PATTERN = Pattern.compile("[<>=-]+");
     private static final Pattern UNIT_PATTERN = Pattern.compile("([^\\s]+$)");
