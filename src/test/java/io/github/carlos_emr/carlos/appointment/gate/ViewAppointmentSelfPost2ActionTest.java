@@ -93,4 +93,48 @@ class ViewAppointmentSelfPost2ActionTest extends CarlosUnitTestBase {
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("GET, HEAD, POST");
     }
+
+    @Test
+    void shouldSend405_onGetWhenTargetingAppointmentAddRecordPrint() throws Exception {
+        mockRequest.setMethod("GET");
+        mockRequest.setRequestURI("/carlos/appointment/appointmentaddrecordprint.do");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+    }
+
+    @Test
+    void shouldReturnSuccess_onPostToAppointmentAddRecordPrint() throws Exception {
+        mockRequest.setMethod("POST");
+        mockRequest.setRequestURI("/carlos/appointment/appointmentaddrecordprint.do");
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+    }
+
+    @Test
+    void shouldSend405_onGetWhenGroupapptParamPresent() throws Exception {
+        mockRequest.setMethod("GET");
+        mockRequest.setRequestURI("/carlos/appointment/appointmentgrouprecords.do");
+        mockRequest.setParameter("groupappt", "Add Group Appointment");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+    }
+
+    @Test
+    void shouldReturnSuccess_onPostWithGroupapptParam() throws Exception {
+        mockRequest.setMethod("POST");
+        mockRequest.setRequestURI("/carlos/appointment/appointmentgrouprecords.do");
+        mockRequest.setParameter("groupappt", "Add Group Appointment");
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+    }
+
+    @Test
+    void shouldReturnSuccess_onGetWithoutMutationIntent() throws Exception {
+        // GET to appointmentgrouprecords without groupappt is a legitimate form-render.
+        mockRequest.setMethod("GET");
+        mockRequest.setRequestURI("/carlos/appointment/appointmentgrouprecords.do");
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+    }
 }

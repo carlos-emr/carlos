@@ -37,9 +37,14 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * mutations inside the JSP ({@code appointmentgrouprecords},
  * {@code appointmentrepeatbooking}, {@code appointmenteditrepeatbooking},
  * {@code appointmentaddrecordprint}). Requires {@code _appointment w}; allows
- * GET, HEAD, and POST. Scriptlet extraction into dedicated {@code *2Action}
- * classes is flagged for follow-up — in-JSP {@code <security:oscarSec>}
- * taglibs remain as second-line defense.
+ * GET, HEAD, and POST for the read/form-render path, but forces POST when the
+ * request carries mutation-intent — either the {@code groupappt} parameter is
+ * present (triggers persist in the three group-records JSPs) or the request
+ * targets {@code appointmentaddrecordprint.do} (which persists unconditionally
+ * on every hit). This prevents GET-triggered mutations and cross-origin link
+ * abuse even for users that hold {@code _appointment w}. Scriptlet extraction
+ * into dedicated {@code *2Action} classes is flagged for follow-up — in-JSP
+ * {@code <security:oscarSec>} taglibs remain as second-line defense.
  *
  * @since 2026-04-14
  */
@@ -49,10 +54,12 @@ public final class ViewAppointmentSelfPost2Action extends ActionSupport {
             SpringUtils.getBean(SecurityInfoManager.class);
 
     /**
-     * Checks {@code _appointment w} then permits GET, HEAD, or POST.
+     * Checks {@code _appointment w} then permits GET, HEAD, or POST — except
+     * when mutation-intent params or a mutation-only action URI require POST.
      *
      * @return {@link #SUCCESS} when authorized and the method is allowed;
-     *         {@link #NONE} after sending 405 for unsupported methods
+     *         {@link #NONE} after sending 405 for unsupported methods or
+     *         mutation intent over GET/HEAD
      * @throws SecurityException when the session is missing or the caller
      *         lacks {@code _appointment w}
      * @throws Exception propagated from Struts I/O
@@ -79,6 +86,20 @@ public final class ViewAppointmentSelfPost2Action extends ActionSupport {
                 && !"POST".equalsIgnoreCase(method)) {
             response.setHeader("Allow", "GET, HEAD, POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
+        // Block GET/HEAD when the request would trigger a mutation:
+        //  - appointmentaddrecordprint.do always persists on every hit
+        //  - the three group-records JSPs persist when the "groupappt" param is present
+        String uri = request.getRequestURI();
+        boolean alwaysMutates = uri != null && uri.endsWith("/appointmentaddrecordprint.do");
+        boolean groupapptMutation = request.getParameter("groupappt") != null;
+        if ((alwaysMutates || groupapptMutation) && !"POST".equalsIgnoreCase(method)) {
+            MiscUtils.getLogger().warn("Denied appointment self-post: mutation intent on {} requires POST, got {}",
+                    uri, method);
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Mutation requires POST");
             return NONE;
         }
         return SUCCESS;

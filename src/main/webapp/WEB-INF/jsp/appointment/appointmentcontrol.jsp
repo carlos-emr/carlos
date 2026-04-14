@@ -96,8 +96,16 @@
     // the web.xml filter-mapping), so .do targets must use forward() instead of include().
     if (target.endsWith(".do")) {
         if (response.isCommitted()) {
-            MiscUtils.getLogger().error("appointmentcontrol.jsp: cannot forward to {} — response already committed", target);
-            throw new IllegalStateException("response already committed; cannot forward appointment dispatch");
+            // Defensive: nothing in the preceding scriptlet writes body bytes,
+            // so this path should be unreachable in practice. If we do land
+            // here, the response has already been flushed — sendError() would
+            // fail (can't set status on committed response) and throwing would
+            // mix a stack trace into the committed body. Log-and-return is the
+            // only non-destructive option. This is noted as a defensive
+            // no-op, not a silent success — the client sees whatever partial
+            // bytes were flushed and the error is visible in server logs.
+            MiscUtils.getLogger().error("appointmentcontrol.jsp: cannot forward to {} — response already committed; returning without further output", target);
+            return;
         }
         request.getRequestDispatcher(target).forward(request, response);
     } else {

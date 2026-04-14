@@ -2515,11 +2515,13 @@
     <script>
 
     /**
-     * Builds the addappointment.jsp URL pre-filled with slot coordinates.
+     * Builds the addappointment.do URL pre-filled with slot coordinates.
      * Uses bFirstDisp=true and year/month/day parameters to match the standard
-     * schedule slot link format used throughout the schedule view.
-     * Patient name is resolved server-side in addappointment.jsp via demographic_no
-     * (no name PHI transmitted through the URL).
+     * schedule slot link format used throughout the schedule view. The target
+     * is the ViewAppointmentWrite2Action gate — do not reintroduce a direct
+     * addappointment.jsp reference (the JSP lives under /WEB-INF/jsp/).
+     * Patient name is resolved server-side via demographic_no (no name PHI
+     * transmitted through the URL).
      */
     function buildApptUrl(ctx, demographicNo, providerNo, startTime, endTime, duration, year, month, day) {
         var mm = String(month).padStart(2, '0');
