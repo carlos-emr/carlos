@@ -200,7 +200,7 @@
                         <td style="text-align: right">
 
                             <a href="javascript:void(0)"
-                               onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/encounter/About.jsp')"><fmt:message key="global.about"/></a>
+                               onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/encounter/ViewAbout.do')"><fmt:message key="global.about"/></a>
                         </td>
                     </tr>
                 </table>
@@ -328,7 +328,7 @@
                                         %>
                                         <td width="60%"></td>
                                         <td align="left"><a
-                                                href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?moreMessages=true">
+                                                href="${pageContext.request.contextPath}/messenger/DisplayMessages.do?moreMessages=true">
                                             <fmt:message key="messenger.DisplayMessages.msgAllMessage"/>
                                         </a></td>
                                         <%}%>

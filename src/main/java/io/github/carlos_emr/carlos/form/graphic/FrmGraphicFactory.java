@@ -62,7 +62,12 @@ public class FrmGraphicFactory {
         }
         FrmPdfGraphic pdfGraph = null;
         try {
-            Class<? extends FrmPdfGraphic> classDefinition = Class.forName(name) // nosemgrep: unsafe-reflection -- name is validated against ALLOWED_GRAPHIC_CLASSES whitelist above
+            // FP for unsafe-reflection scanners (CodeQL java/unsafe-reflection, Semgrep
+            // unsafe-reflection): name is guarded by the ALLOWED_GRAPHIC_CLASSES allowlist
+            // above (3 fully-qualified FrmPdfGraphic subclass names); asSubclass constrains
+            // to FrmPdfGraphic; no-arg constructor only. None of the three allowed classes
+            // have side-effecting constructors.
+            Class<? extends FrmPdfGraphic> classDefinition = Class.forName(name) // nosemgrep: unsafe-reflection -- allowlisted // lgtm[java/unsafe-reflection]
                     .asSubclass(FrmPdfGraphic.class);
             pdfGraph = classDefinition.getDeclaredConstructor().newInstance();
         } catch (ReflectiveOperationException e) {

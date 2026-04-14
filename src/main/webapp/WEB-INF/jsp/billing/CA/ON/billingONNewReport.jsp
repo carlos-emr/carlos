@@ -48,7 +48,7 @@
 
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.carlos.login.*, io.github.carlos_emr.*, java.net.*" errorPage="/errorpage.jsp" %>
-<%@ include file="/admin/dbconnection.jsp" %>
+<%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
@@ -515,7 +515,7 @@
 
             <input type="submit" name="Submit" class="btn btn-sm btn-primary" value="Create Report">
         </div>
-        <a href="#" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport'); return false;" class="btn btn-sm btn-secondary">Manage Provider List</a>
+        <a href="#" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider.do?action=billingreport'); return false;" class="btn btn-sm btn-secondary">Manage Provider List</a>
     </form>
 
     <table id="reportTbl" class="table table-sm table-striped table-hover" style="margin-top:10px;">

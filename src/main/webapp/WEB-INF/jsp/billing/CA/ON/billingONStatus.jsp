@@ -434,8 +434,8 @@
     </h3>
     <div class="container-fluid">
         <!--Hiding for now since this does not seem to manage the providers in the select
-            <a href="javascript: function myFunction() {return false; }" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport')">Manage Provider List</a>-->
-        <form name="serviceform" class="d-flex flex-wrap align-items-center gap-2" method="get" action="/billing/CA/ON/ViewBillingONStatus.do"
+            <a href="javascript: function myFunction() {return false; }" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider.do?action=billingreport')">Manage Provider List</a>-->
+        <form name="serviceform" class="d-flex flex-wrap align-items-center gap-2" method="get" action="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingONStatus.do"
               onsubmit="ShowSpin(true);">
             <input type="hidden" id="sortName" name="sortName" value="<%= Encode.forHtmlAttribute(sortName) %>">
             <input type="hidden" id="sortOrder" name="sortOrder" value="<%= Encode.forHtmlAttribute(sortOrder) %>">

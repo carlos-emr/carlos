@@ -83,7 +83,7 @@
                     <c:if test="${printReceipt}">
                     popupPage(350, 750, 'printappointment.jsp?appointment_no=${e:forJavaScript(apptId)}');
                     </c:if>
-                    self.opener.refresh();
+                    try { self.opener.refresh(); } catch (e) { /* opener may be closed or cross-origin */ }
                     self.close();
                 </script>
             </c:when>

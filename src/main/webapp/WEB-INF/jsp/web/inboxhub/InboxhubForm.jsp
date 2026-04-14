@@ -1,0 +1,935 @@
+<!--
+Copyright (c) 2023. Magenta Health Inc. All Rights Reserved.
+
+This software is published under the GPL GNU General Public License.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+-->
+
+<%@ page import="java.util.*" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+
+<%@ page import="org.apache.logging.log4j.Logger" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarLogDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.inboxhub.query.InboxhubQuery" %>
+<%@ page import="io.github.carlos_emr.carlos.mds.data.CategoryData" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+
+
+<!DOCTYPE html>
+
+<input type="hidden" class="totalDocsCount" id="totalDocsCount" value="${totalDocsCount}" />
+<input type="hidden" class="totalLabsCount" id="totalLabsCount" value="${totalLabsCount}" />
+<input type="hidden" class="totalHRMCount" id="totalHRMCount" value="${totalHRMCount}" />
+<input type="hidden" class="totalResultsCount" id="totalResultsCount" value="${totalResultsCount}" />
+
+<!-- Preview button -->
+<div class="card mb-1 shadow-sm rounded-1">
+  <div class="card-body p-2">
+    <div class="d-grid">
+        <input type="checkbox" class="btn-check btn-sm" name="viewMode2" id="btnViewMode2" autocomplete="off" onchange="fetchInboxhubDataByMode(this)" ${query.viewMode ? 'checked' : ''}>
+        <label class="btn btn-secondary btn-sm" id="btnViewModeLabel" for="btnViewMode2"><c:choose><c:when test="${query.viewMode}"><fmt:message key="inboxhub.form.listMode"/></c:when><c:otherwise><fmt:message key="inboxhub.form.previewMode"/></c:otherwise></c:choose></label>
+    </div>
+  </div>
+</div>
+
+<!-- Search form Accordion -->
+<div class="accordion" id="inbox-hub-search">
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingSearch">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSearch" aria-expanded="true" aria-controls="collapseSearch">
+                <fmt:message key="inboxhub.form.search"/>
+            </button>
+        </h2>
+        <div id="collapseSearch" class="accordion-collapse collapse show" aria-labelledby="headingSearch" data-bs-parent="#inbox-hub-search">
+            <div class="accordion-body">
+                 <form action="${pageContext.request.contextPath}/web/inboxhub/Inboxhub.do?method=displayInboxForm" method="post" id="inboxSearchForm" onsubmit="return validatePatientOptions();">
+                    <div class="m-2">
+                        <input type="hidden" name="query.viewMode" id="btnViewMode" value="${query.viewMode ? 'true' : 'false'}">
+
+                        <div class="mb-1">
+                            <!--Provider-->
+                            <label class="fw-bold text-uppercase">
+                                <fmt:message key="inbox.inboxmanager.msgProviders"/>
+                            </label>
+                            <input type="hidden" name="query.searchAll" id="searchProviderAll" value="${e:forHtmlAttribute(query.searchAll)}"/>
+                            <!-- Any Provider -->
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="providerRadios" value="option1" id="anyProvider" ${query.searchAll eq 'true' ? 'checked' : ''} onClick="changeValueElementByName('query.searchAll', 'true');toggleInputVisibility('specificProvider', 'specificProviderId', 200);"/>
+                                <label class="form-check-label" for="anyProvider"><fmt:message key="oscarMDS.search.formAnyProvider"/></label>
+                            </div>
+                            <!-- No Provier -->
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="providerRadios" value="option2" id="noProvider" ${query.searchAll eq 'false' ? 'checked' : ''} onClick="changeValueElementByName('query.searchAll', 'false');toggleInputVisibility('specificProvider', 'specificProviderId', 200);"/>
+                                <label class="form-check-label" for="noProvider"><fmt:message key="oscarMDS.search.formNoProvider"/></label>
+                            </div>
+                            <!-- Specific Provider -->
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="providerRadios" value="option3" id="specificProvider" ${query.searchAll eq '' ? 'checked' : ''} onclick="changeValueElementByName('query.searchAll', ''); changeValueElementByName('query.searchProviderNo', document.getElementsByName('query.searchProviderNo')[0].value);toggleInputVisibility('specificProvider', 'specificProviderId', 200);" />
+                                <label class="form-check-label" for="specificProvider"><fmt:message key="oscarMDS.search.formSpecificProvider"/></label>
+                                <div id="specificProviderId" class="ms-3">
+                                    <input type="hidden" name="query.searchProviderNo" id="findProvider" value="${e:forHtmlAttribute(query.searchProviderNo)}"/>
+                                    <div class="input-group input-group-sm">
+                                        <input class="form-control pe-0 m-1" type="text" id="autocompleteProvider" name="query.searchProviderName" value="<e:forHtmlAttribute value='${query.searchProviderName}' />" placeholder="Provider"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-1">
+                            <!--Patient(s)-->
+                            <label class="fw-bold text-uppercase">
+                                <fmt:message key="inbox.inboxmanager.msgPatinets"/>
+                            </label>
+                            <!-- All Patients (including unmatched) -->
+                            <input type="hidden" name="query.unmatched" id="unmatchedId" value="${e:forHtmlAttribute(query.unmatched)}"/>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="patientsRadios" value="patientsOption1" id="allPatients" ${query.unmatched eq 'false' and query.patientFirstName eq '' and query.patientLastName eq '' and query.patientHealthNumber eq '' ? 'checked' : ''} onClick="changeValueElementByName('query.unmatched', 'false');toggleInputVisibility('specificPatients', 'specificPatientsId', 200);"/>
+                                <label class="form-check-label" for="allPatients"><fmt:message key="oscarMDS.search.formAllPatients"/></label>
+                            </div>
+                            <!-- Unmatched to Existing Patient -->
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="patientsRadios" value="patientsOption2" id="unmatchedPatients" ${query.unmatched eq 'true' ? 'checked' : ''} onClick="changeValueElementByName('query.unmatched', 'true');toggleInputVisibility('specificPatients', 'specificPatientsId', 200);" />
+                                <label class="form-check-label" for="unmatchedPatients"><fmt:message key="oscarMDS.search.formExistingPatient"/></label>
+                            </div>
+                            <!-- Specific Patient(s) -->
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="patientsRadios" value="patientsOption3" id="specificPatients" ${query.unmatched eq 'false' and (query.patientFirstName ne '' or query.patientLastName ne '' or query.patientHealthNumber ne '') ? 'checked' : ''} onClick="changeValueElementByName('query.unmatched', 'false');toggleInputVisibility('specificPatients', 'specificPatientsId', 200);"/>
+                                <label class="form-check-label" for="specificPatients"><fmt:message key="oscarMDS.search.formSpecificPatients"/></label> <br>
+                                <div id="specificPatientsId" class="d-grid ms-3">
+                                    <div class="input-group input-group-sm">
+                                        <input class="form-control pe-0 m-1" type="text" name="query.patientFirstName" id="inputFirstName" value="<e:forHtmlAttribute value='${query.patientFirstName}'/>" placeholder="<fmt:message key='admin.provider.formFirstName'/>"/>
+                                    </div>
+                                    <div class="input-group input-group-sm">
+                                        <input class="form-control pe-0 mb-1 mx-1" type="text" name="query.patientLastName" id="inputLastName" value="<e:forHtmlAttribute value='${query.patientLastName}'/>" placeholder="<fmt:message key='admin.provider.formLastName'/>"/>
+                                    </div>
+                                    <div class="input-group input-group-sm">
+                                        <input class="form-control pe-0 mb-1 mx-1" type="text" name="query.patientHealthNumber" id="inputHIN" value="<e:forHtmlAttribute value='${query.patientHealthNumber}'/>" placeholder="<fmt:message key='oscarMDS.index.msgHealthNumber'/>"/>
+                                    </div>
+                                    <div class="text-danger d-none ms-1" id="specificPatientErrorMessage"><fmt:message key="inboxhub.form.specificPatientError"/></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-1">
+                            <!-- Date Range-->
+                            <label class="fw-bold text-uppercase">
+                                <fmt:message key="inbox.inboxmanager.msgDateRange"/>
+                            </label>
+                            <div id="dateId" class="inbox-form-date-range">
+                                <div class="inbox-form-datepicker-wrapper mb-1 d-flex">
+                                    <label class="my-auto pe" for="startDate"><fmt:message key="inboxhub.form.startDate"/></label>
+                                    <div class="input-group input-group-sm d-inline-flex">
+                                        <input class="form-control pe-0 inbox-form-datepicker-input" type="text" placeholder="yyyy-mm-dd" id="startDate" name="query.startDate" value="${e:forHtmlAttribute(query.startDate)}"/>
+                                        <span class="input-group-text" for="startDate" id="startDateIcon"><i class="fa-solid fa-calendar"></i></span>
+                                    </div>
+                                    <i class="fa-solid fa-circle-xmark clear-btn" aria-hidden="true" id="clearStartDate"></i>
+                                </div>
+                                <div class="inbox-form-datepicker-wrapper d-flex">
+                                    <label class="my-auto" for="endDate"><fmt:message key="inboxhub.form.endDate"/></label>
+                                    <div class="input-group input-group-sm d-inline-flex">
+                                        <input class="form-control pe-0 inbox-form-datepicker-input" type="text" placeholder="yyyy-mm-dd" id="endDate" name="query.endDate" value="${e:forHtmlAttribute(query.endDate)}"/>
+                                        <span class="input-group-text" for="endDate" id="endDateIcon"><i class="fa-solid fa-calendar"></i></span>
+                                    </div>
+                                    <i class="fa-solid fa-circle-xmark clear-btn" aria-hidden="true" id="clearEndDate"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-1">
+                            <!--Type-->
+                            <label class="fw-bold text-uppercase">
+                                <fmt:message key="inbox.inboxmanager.msgType"/>
+                            </label>
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" name="query.doc" value="true" ${query.doc || (!query.doc && !query.lab && !query.hrm) ? 'checked' : ''} id="btnDoc" autocomplete="off">
+                                <label class="form-check-label" for="btnDoc"><fmt:message key="inbox.inboxmanager.msgTypeDocs"/></label><br>
+                            </div>
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" name="query.lab" value="true" ${query.lab || (!query.doc && !query.lab && !query.hrm) ? 'checked' : ''} id="btnLab" autocomplete="off">
+                                <label class="form-check-label" for="btnLab"><fmt:message key="inbox.inboxmanager.msgTypeLabs"/></label><br>
+                            </div>
+
+                            <c:if test="${!CarlosProperties.getInstance().isBritishColumbiaBillingRegion()}">
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" name="query.hrm" value="true" ${query.hrm || (!query.doc && !query.lab && !query.hrm) ? 'checked' : ''} id="btnHRM" autocomplete="off">
+                                    <label class="form-check-label" for="btnHRM"><fmt:message key="inbox.inboxmanager.msgTypeHRM"/></label><br>
+                                </div>
+                            </c:if>
+                        </div>
+
+                        <div class="mb-1">
+                            <!--Review Status-->
+                            <label class="fw-bold text-uppercase">
+                                <fmt:message key="inbox.inboxmanager.msgReviewStatus"/>
+                            </label>
+                            <input type="hidden" name="query.status" id="statusId" value="${e:forHtmlAttribute(query.status)}"/>
+                            <div class="form-check">
+                                <input type="radio" class="form-check-input" name="statusReview" id="statusAll" value="All"
+                                    ${empty query.status ? 'checked' : ''} onclick="changeValueElementByName('query.status', '')">
+                                <label class="form-check-label" for="statusAll"><fmt:message key="inbox.inboxmanager.msgAll"/>
+                            </div>
+                            <div class="form-check">
+                                <input type="radio" class="form-check-input" name="statusReview" id="statusNew" value="N"
+                                    ${query.status eq 'N' ? 'checked' : ''} onclick="changeValueElementByName('query.status', 'N')">
+                                <label class="form-check-label" for="statusNew"><fmt:message key="inbox.inboxmanager.msgNew"/></label>
+                            </div>
+                            <div class="form-check">
+                                <input type="radio" class="form-check-input" name="statusReview" id="statusAcknowledged" value="A"
+                                    ${query.status eq 'A' ? 'checked' : ''} onclick="changeValueElementByName('query.status', 'A')">
+                                <label class="form-check-label" for="statusAcknowledged"><fmt:message key="inbox.inboxmanager.msgAcknowledged"/></label>
+                            </div>
+                            <div class="form-check">
+                                <input type="radio" class="form-check-input" name="statusReview" id="statusFiled" value="F"
+                                    ${query.status eq 'F' ? 'checked' : ''} onclick="changeValueElementByName('query.status', 'F')">
+                                <label class="form-check-label" for="statusFiled"><fmt:message key="inbox.inboxmanager.msgFiled"/></label>
+                            </div>
+                        </div>
+
+                        <div class="mb-2">
+                            <!--Abnormal-->
+                            <label class="fw-bold text-uppercase">
+                                <fmt:message key="inbox.inboxmanager.msgResultStatus"/>
+                            </label>
+                            <input type="hidden" name="query.abnormal" id="abnormalId" value="${e:forHtmlAttribute(query.abnormal)}"/>
+                            <div class="form-check">
+                                <input type="radio" class="form-check-input" name="abnormalResult" id="abnormalAll" value="All"
+                                    ${query.abnormal eq 'all' ? 'checked' : ''} onclick="changeValueElementByName('query.abnormal', 'all')">
+                                <label class="form-check-label" for="abnormalAll"><fmt:message key="inbox.inboxmanager.msgAll"/></label>
+                            </div>
+                            <div class="form-check">
+                                <input type="radio" class="form-check-input" name="abnormalResult" id="Abnormal" value="Abnormal"
+                                    ${query.abnormal eq 'abnormalOnly' ? 'checked' : ''} onclick="changeValueElementByName('query.abnormal', 'abnormalOnly')">
+                                <label class="form-check-label" for="Abnormal"><fmt:message key="global.abnormal"/></label>
+                            </div>
+                            <div class="form-check">
+                                <input type="radio" class="form-check-input" name="abnormalResult" id="abnormalNormal" value="Normal"
+                                    ${query.abnormal eq 'normalOnly' ? 'checked' : ''} onclick="changeValueElementByName('query.abnormal', 'normalOnly')">
+                                <label class="form-check-label" for="abnormalNormal"><fmt:message key="inbox.inboxmanager.msgNormal"/></label>
+                            </div>
+                        </div>
+
+                        <!--Search Button-->
+                        <div class="d-grid gap-1">
+                            <button id="inboxhubFormSearchBtn" class="btn btn-primary btn-sm" type="submit" value='<fmt:message key="oscarMDS.search.btnSearch"/>'>
+                                <span id="inboxhubFormSearchSpinner" class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none;"></span>
+                                <span id="inboxhubFormSearchText"><fmt:message key="oscarMDS.search.btnSearch"/></span>
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="resetInboxFilters();">Reset</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- End of the Search form Accordion -->
+
+<c:if test="${ categoryData.unmatchedDocs gt 0 or categoryData.unmatchedLabs gt 0 or categoryData.unmatchedHRMCount gt 0 or not empty requestScope.categoryData.patientList }">
+<div class="category-list"> 
+    <c:set var="allTypes" value="${!query.doc and !query.lab and !query.hrm}" />
+    <c:set var="showHRM" value="${(query.hrm or allTypes) and (query.abnormalBool == null or !query.abnormalBool)}" />
+
+    <c:if test="${ categoryData.unmatchedDocs gt 0 or categoryData.unmatchedLabs gt 0 or categoryData.unmatchedHRMCount gt 0}">
+    <!-- Unmatched List Accordion -->
+    <div class="accordion mt-1" id="inbox-hub-unmatched-list">
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="headingUnmatchedList">
+                <a class="text-decoration-none accordion-button ${e:forHtmlAttribute(param.providerNo eq 0 ? '' : 'collapsed')}" type="button" data-bs-toggle="collapse" data-bs-target="#collapseUnmatched" aria-expanded="false" aria-controls="collapseUnmatched">
+                    <fmt:message key="inbox.inboxmanager.msgUnmatched"/>
+                </a>
+            </h2>
+            <div id="collapseUnmatched" class="accordion-collapse collapse ${e:forHtmlAttribute(param.providerNo eq 0 ? 'show' : '')}" aria-labelledby="headingUnmatchedList" data-bs-parent="#inbox-hub-unmatched-list">
+                <div class="accordion-body my-2 ms-3">
+                    <div class="accordion-item border-0">
+                        <div class="accordion-header category-list-header d-flex" id="headingUnmatchedAll">
+                            <c:set var="unmatchedDocCount" value="${ categoryData.unmatchedDocs }" />
+                            <c:set var="unmatchedLabCount" value="${ categoryData.unmatchedLabs }" />
+                            <c:set var="unmatchedHrmCount" value="${ categoryData.unmatchedHRMCount }" />
+                            <c:set var="totalUnmatchedCount" value="0" />
+                            <c:set var="totalUnmatchedCount" value="${totalUnmatchedCount
+                                + (query.doc or allTypes ? categoryData.unmatchedDocs : 0)
+                                + (query.lab or allTypes ? categoryData.unmatchedLabs : 0)
+                                + (showHRM ? categoryData.unmatchedHRMCount : 0)}" />
+                            <span class="collapse-btn" data-bs-toggle="collapse" data-bs-target="#collapseUnmatchedAll" aria-expanded="true" aria-controls="collapseUnmatchedAll"></span>
+                            <a id="patient0all" class="text-decoration-none text-wrap text-start collapse-heading btn category-btn py-1 px-0 ms-3" onclick="filterView(0, 'all', this)">
+                                <fmt:message key="inbox.inboxmanager.msgAll"/> (<span id="patientNumDocs0">${e:forHtml(totalUnmatchedCount)}</span>)
+                            </a>
+                        </div>
+                        <div id="collapseUnmatchedAll" class="accordion-collapse collapse show" aria-labelledby="headingUnmatchedAll">
+                            <div class="accordion-body collapse-sub-category-list">
+                                <ul class="list-unstyled" id="labdoc0showSublist">
+                                    <c:if test="${ not empty categoryData.unmatchedDocs and (query.doc or allTypes) }" >
+                                    <li>
+                                        <a id="patient0docs" href="javascript:void(0);" class="btn category-btn text-decoration-none" onclick="filterView(0, 'doc', this);" title="<fmt:message key='inboxhub.list.documents'/>">
+                                            <fmt:message key="inboxhub.list.documents"/> (<span id="pDocNum_0">${e:forHtml(categoryData.unmatchedDocs)}</span>)
+                                        </a>
+                                    </li>
+                                    </c:if>
+                                    <c:if test="${ not empty categoryData.unmatchedLabs and (query.lab or allTypes) }" >
+                                    <li>
+                                        <a id="patient0hl7s" href="javascript:void(0);" class="btn category-btn text-decoration-none" onclick="filterView(0, 'lab', this);" title="<fmt:message key='inboxhub.form.hl7'/>">
+                                            <fmt:message key="inboxhub.form.hl7"/> (<span id="pLabNum_0">${e:forHtml(categoryData.unmatchedLabs)}</span>)
+                                        </a>
+                                    </li>
+                                    </c:if>
+                                    <c:if test="${ not empty categoryData.unmatchedHRMCount and !CarlosProperties.getInstance().isBritishColumbiaBillingRegion() and showHRM}" >
+                                    <li>
+                                        <a id="patient0hrms" href="javascript:void(0);" class="btn category-btn text-decoration-none" onclick="filterView(0, 'hrm', this);" title="<fmt:message key='inboxhub.form.hrm'/>">
+                                            <fmt:message key="inboxhub.form.hrm"/> (<span id="pHRMNum_0">${e:forHtml(categoryData.unmatchedHRMCount)}</span>)
+                                        </a>
+                                    </li>
+                                    </c:if>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- End of the Unmatched Accordion -->
+    </c:if>
+    <c:if test="${ not empty requestScope.categoryData.patientList and !query.unmatched}">
+    <!-- Matched List Accordion -->
+    <div class="accordion mt-1" id="inbox-hub-matched-list">
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="headingMatchedList">
+                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseMatched" aria-expanded="false" aria-controls="collapseMatched">
+                    <fmt:message key="inboxhub.form.matched"/>
+                </button>
+            </h2>
+            <div id="collapseMatched" class="accordion-collapse collapse show" aria-labelledby="headingMatchedList" data-bs-parent="#inbox-hub-matched-list">
+                <div class="accordion-body my-2 ms-3">
+                    <c:forEach items="${requestScope.categoryData.patientList}" var="patient">
+                    <c:set var="patientId" value="${patient.id}" />
+                    <c:set var="patientName" value="${ patient.lastName }, ${patient.firstName}" />
+                    <%-- Subtracting hrm count from document count because document count include both documents and HRMs 
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+                    <c:set var="docCount" value="${ patient.docCount - patient.hrmCount }" />
+                    <c:set var="labCount" value="${ patient.labCount }" />
+                    <c:set var="hrmCount" value="${ patient.hrmCount }" />
+                    <c:set var="numDocs" value="0" />
+                    <c:set var="numDocs" value="${numDocs
+                                + (query.doc or allTypes ? docCount : 0)
+                                + (query.lab or allTypes ? labCount : 0)
+                                + (showHRM ? hrmCount : 0)}" />
+                    <div class="accordion-item border-0">
+                        <div class="accordion-header category-list-header d-flex" id="headingPatient${patientId}MatchedAll">
+                            <span class="collapse-btn collapsed" data-bs-toggle="collapse" data-bs-target="#collapsePatient${patientId}MatchedAll" aria-expanded="true" aria-controls="collapsePatient${patientId}MatchedAll"></span>
+                            <a id="patient${patientId}all" href="javascript:void(0);" class="text-decoration-none text-wrap text-start collapse-heading btn category-btn py-1 px-0 ms-3" onclick="filterView(${patientId}, 'all', this);" title="<e:forHtmlAttribute value='${patientName}' />">
+                                <e:forHtmlContent value='${patientName}' /> (<span id="patientNumDocs${patientId}">${numDocs}</span>)
+                            </a>
+                        </div>
+                        <div id="collapsePatient${patientId}MatchedAll" class="accordion-collapse collapse" aria-labelledby="headingPatient${patientId}MatchedAll">
+                            <div class="accordion-body collapse-sub-category-list">
+                                <ul class="list-unstyled" id="labdoc${patientId}showSublist">
+                                    <c:if test="${not empty docCount and (query.doc or allTypes)}">
+                                    <li>
+                                        <a id="patient${patientId}docs" href="javascript:void(0);" class="btn category-btn text-decoration-none" onclick="filterView(${patientId}, 'doc', this);" title="<fmt:message key='inboxhub.list.documents'/>">
+                                            <fmt:message key="inboxhub.list.documents"/> (<span id="pDocNum_${patientId}">${e:forHtml(docCount)}</span>)
+                                        </a>
+                                    </li>
+                                    </c:if>
+                                    <c:if test="${not empty labCount and (query.lab or allTypes)}">
+                                    <li>
+                                        <a id="patient${patientId}hl7s" href="javascript:void(0);" class="btn category-btn text-decoration-none" onclick="filterView(${patientId}, 'lab', this);" title="<fmt:message key='inboxhub.form.hl7'/>">
+                                            <fmt:message key="inboxhub.form.hl7"/> (<span id="pLabNum_${patientId}">${e:forHtml(labCount)}</span>)
+                                        </a>
+                                    </li>
+                                    </c:if>
+                                    <c:if test="${not empty hrmCount and !CarlosProperties.getInstance().isBritishColumbiaBillingRegion() and showHRM}">
+                                    <li>
+                                        <a id="patient${patientId}hrms" href="javascript:void(0);" class="btn category-btn text-decoration-none" onclick="filterView(${patientId}, 'hrm', this);" title="<fmt:message key='inboxhub.form.hrm'/>">
+                                            <fmt:message key="inboxhub.form.hrm"/> (<span id="pLabNum_${patientId}">${e:forHtml(hrmCount)}</span>)
+                                        </a>
+                                    </li>
+                                    </c:if>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    </c:forEach>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- End of the Matched Accordion -->
+    </c:if>
+</div>
+</c:if>
+
+<div aria-live="polite" aria-atomic="true" class="position-absolute bottom-0 end-0 p-3" style="z-index: 11; display: none;">
+    <div id="ajaxErrorToast" class="toast align-items-center text-white bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="5000">
+        <div class="d-flex">
+            <div class="toast-body">
+                <fmt:message key="inboxhub.form.ajaxError"/>
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+<script>
+    var page = 1;
+    var pageSize = 20;
+    var inboxhubListProgressWidth = 0;
+    var hasMoreData = true;
+    var isFetchingData = false;
+    var currentFetchRequest = null;
+    var inboxSearchFormData = "";
+    var filter = "";
+    var searchProviderNo = "<e:forJavaScript value='${sessionScope.user}' />";
+
+    jQuery(document).ready( function() {
+        toggleInputVisibility('specificProvider', 'specificProviderId', 0);
+        toggleInputVisibility('specificPatients', 'specificPatientsId', 0);
+
+        document.getElementById('startDateIcon').addEventListener('click', function() {
+            document.getElementById('startDate').focus();
+        });
+        document.getElementById('endDateIcon').addEventListener('click', function() {
+            document.getElementById('endDate').focus();
+        });
+
+        // Initialize datepickers and clear buttons
+        setupDatepicker('#startDate', '#clearStartDate');
+        setupDatepicker('#endDate', '#clearEndDate');
+
+        inboxSearchFormData = jQuery("#inboxSearchForm").serialize();
+        fetchInboxhubData();
+
+        autoCompleteProvider();
+    });
+
+    function changeValueElementByName(name, newValue) {
+        let inPatient = document.getElementsByName(name);
+        if (inPatient && inPatient.length > 0) {
+            inPatient[0].value = newValue;
+        }
+    }
+
+    function toggleInputVisibility(selectedRadioId, inputDivId, animationTime) {
+        const selectedRadio = document.getElementById(selectedRadioId);
+        const inputDiv = jQuery('#' + inputDivId);
+        if (selectedRadio.checked) {
+            inputDiv.hide().removeClass('d-none').slideDown(animationTime);  // Show with animation and remove 'd-none'
+        } else {
+            inputDiv.slideUp(animationTime, function() {
+                inputDiv.addClass('d-none');  // Hide with animation and add 'd-none'
+            });
+        }
+    }
+
+    function updateInputDisabled(itemName, inputDivId, radioValue) {
+        const selectedRadio = sessionStorage.getItem(itemName);
+        const inputDiv = document.getElementById(inputDivId);
+        const inputs = inputDiv.getElementsByTagName('input');
+        let disableVal = true;
+        if (selectedRadio === radioValue) {
+            disableVal = false;
+        }
+        for (var i = 0; i < inputs.length; i++) {
+            inputs[i].disabled = disableVal;
+        }
+    }
+
+    function setupDatepicker(dateInputId, clearBtnId) {
+        let dateInput = jQuery(dateInputId);
+        let clearBtn = jQuery(clearBtnId);
+        let inputEl = dateInput[0];
+
+        flatpickr(inputEl, {
+            dateFormat: 'Y-m-d',
+            allowInput: false,
+            onChange: function() {
+                clearBtn.toggle(!!dateInput.val());
+            },
+            onClose: function() {
+                clearBtn.toggle(!!dateInput.val());
+            }
+        });
+
+        // Clear button click handler
+        clearBtn.on('click', function() {
+            inputEl._flatpickr.clear();
+            clearBtn.toggle(false);
+        });
+
+        // Initialize clear button visibility
+        clearBtn.toggle(!!dateInput.val());
+    }
+
+    /**
+     * Adds a click event to all links within the '.category-list' to highlight the clicked link.
+     */
+    function highlightClickedLink(link) {
+        // If the clicked link already has the 'selected' class, remove it
+        if (link.classList.contains('selected')) {
+            link.classList.remove('selected');
+        } else {
+            // Otherwise, remove 'selected' from all links and add it to the clicked link
+            document.querySelectorAll('.category-list a').forEach(item => {
+                item.classList.remove('selected');
+            });
+            link.classList.add('selected');
+        }
+    }
+
+    function validatePatientOptions() {
+        // Get the selected patient option value
+        const selectedValue = document.querySelector('input[name="patientsRadios"]:checked').value;
+
+        // If the "patientsOption1" radio is selected, clear the patient details fields
+        if (selectedValue === "patientsOption1") {
+            ['query.patientFirstName', 'query.patientLastName', 'query.patientHealthNumber'].forEach(fieldName => {
+                changeValueElementByName(fieldName, '')
+            });
+        }
+
+        // If "patientsOption3" is selected, validate the patient details fields
+        if (selectedValue === "patientsOption3") {
+            // Retrieve the values of the specific patient input fields (first name, last name, health number)
+            const fields = ['inputFirstName', 'inputLastName', 'inputHIN'].map(id => 
+                document.getElementById(id).value.trim()
+            );
+
+            const errorMessage = document.getElementById('specificPatientErrorMessage');
+            
+            const isAllFieldsEmpty = fields.every(field => field === '');
+            
+            // If all fields are empty, display the error message and prevent form submission
+            if (isAllFieldsEmpty) {
+                errorMessage.classList.remove('d-none'); // Show error message
+                return false; // Prevent form submission
+            }
+
+            // If at least one field is filled, hide the error message
+            errorMessage.classList.add('d-none'); // Hide error message
+        }
+
+        ShowSpin(true);
+        return true;
+    }
+
+    function filterView(demographicFilter, typeFilter, link) {
+        // Adds a click event to all links within the '.category-list' to highlight the clicked link.
+        highlightClickedLink(link);
+
+        filter = link.classList.contains("selected") ? ("&demographicFilter=" + demographicFilter + "&typeFilter=" + typeFilter) : "";
+        fetchInboxhubData();
+    }
+
+    <fmt:message key="inboxhub.form.listMode" var="listModeLabelVar"/>
+    <fmt:message key="inboxhub.form.previewMode" var="previewModeLabelVar"/>
+    <fmt:message key="inboxhub.form.percentComplete" var="percentCompleteLabelVar"/>
+    var listModeLabel = '${e:forJavaScript(listModeLabelVar)}';
+    var previewModeLabel = '${e:forJavaScript(previewModeLabelVar)}';
+    var percentCompleteLabel = '${e:forJavaScript(percentCompleteLabelVar)}';
+
+    function fetchInboxhubDataByMode(btnViewMode2) {
+        jQuery('#btnViewMode').val(btnViewMode2.checked ? 'true' : 'false');
+        jQuery("#btnViewModeLabel").html(btnViewMode2.checked ? listModeLabel : previewModeLabel);
+        fetchInboxhubData();
+    }
+
+    function fetchInboxhubData() {
+        // Re-serialize the search form so programmatic checkbox/radio changes take effect
+        inboxSearchFormData = jQuery("#inboxSearchForm").serialize();
+        const viewModeBtn = document.getElementById("btnViewMode");
+        viewModeBtn.disabled = true;
+        resetDataPageCount();
+        if (viewModeBtn.value === 'true') {
+            fetchInboxhubViewData();
+        } else {
+            fetchInboxhubListData();
+        }
+    }
+
+    /**
+     * Listens for refresh requests from lab/HRM popup windows after acknowledge or sign-off.
+     *
+     * Popup windows cannot call fetchInboxhubData() directly via window.opener because
+     * Struts 7's CoopInterceptor sets Cross-Origin-Opener-Policy: same-origin on all .do
+     * responses, which nulls window.opener on popups opened from this page. BroadcastChannel
+     * provides reliable same-origin cross-window messaging that is unaffected by COOP.
+     *
+     * Senders: oscarMDSIndex.js updateStatus(), hrmActions.js doSignOff()
+     * Channel: 'inboxhub-refresh'
+     */
+    try {
+        const inboxhubRefreshChannel = new BroadcastChannel('inboxhub-refresh');
+        inboxhubRefreshChannel.onmessage = function() {
+            fetchInboxhubData();
+            // When Rapid Review is on, open the next item after the refresh completes
+            if (rapidReviewState) {
+                pendingRapidReviewOpen = true;
+            }
+        };
+    } catch (e) {
+        // BroadcastChannel unsupported — user must manually refresh the inbox
+    }
+
+    /**
+     * Resets all inbox filters to defaults by reloading the page with no parameters.
+     * This ensures counts, filters, and toolbar state all return to the default view
+     * showing New items for the current provider.
+     */
+    function resetInboxFilters() {
+        var ctxPath = "<e:forJavaScript value='${pageContext.request.contextPath}' />";
+        window.location.href = ctxPath + '/web/inboxhub/Inboxhub.do?method=displayInboxForm';
+    }
+
+    // Flag set by BroadcastChannel listener to open the next item after data loads
+    var pendingRapidReviewOpen = false;
+
+    /**
+     * Rapid Review auto-advance: opens the first item in the inbox table.
+     * Called after an acknowledge refreshes the list, so the previously-acknowledged
+     * item is gone and the "first" item is effectively the next one to review.
+     * Uses a short delay to let the DataTable finish rendering.
+     */
+    function openNextInboxItem() {
+        setTimeout(function() {
+            var nextLink = document.querySelector('#inbox_table tbody tr a');
+            if (nextLink) {
+                nextLink.click();
+            }
+        }, 500);
+    }
+
+    // State variables preserved across inbox refreshes (the toolbar HTML inside
+    // #inboxhubMode is replaced on each fetch, so checkbox state must be restored)
+    var activeTypeFilter = null;
+    var ackToggleState = false;
+    var rapidReviewState = false;
+    var savedStartDate = '';  // preserves the original start date when toggling Acknowledged
+
+    /**
+     * Filters the inbox to show only one type (DOC, HL7, HRM) or all types.
+     * Clicking the active filter or "ALL" resets to show everything.
+     * Updates the type checkboxes in the search panel and highlights the active badge.
+     *
+     * @param {string} type - 'ALL', 'DOC', 'HL7', or 'HRM'
+     */
+    function filterByType(type) {
+        var btnDoc = document.getElementById('btnDoc');
+        var btnLab = document.getElementById('btnLab');
+        var btnHRM = document.getElementById('btnHRM');
+
+        if (type === 'ALL' || activeTypeFilter === type) {
+            // Reset to show all types
+            if (btnDoc) btnDoc.checked = true;
+            if (btnLab) btnLab.checked = true;
+            if (btnHRM) btnHRM.checked = true;
+            activeTypeFilter = null;
+        } else {
+            // Filter to only the selected type
+            if (btnDoc) btnDoc.checked = (type === 'DOC');
+            if (btnLab) btnLab.checked = (type === 'HL7');
+            if (btnHRM) btnHRM.checked = (type === 'HRM');
+            activeTypeFilter = type;
+        }
+        highlightActiveTypeFilter();
+        fetchInboxhubData();
+    }
+
+    /**
+     * Highlights the active type filter badge and removes highlight from others.
+     * Called after filterByType changes the active filter.
+     */
+    function highlightActiveTypeFilter() {
+        var filters = document.querySelectorAll('.inbox-type-filter');
+        for (var i = 0; i < filters.length; i++) {
+            filters[i].classList.remove('active-type-filter');
+        }
+        var activeId = activeTypeFilter ? ('filter' + activeTypeFilter) : 'filterAll';
+        var activeEl = document.getElementById(activeId);
+        if (activeEl) activeEl.classList.add('active-type-filter');
+    }
+
+    /**
+     * Toggles the inbox between showing New items and Acknowledged items.
+     * Updates the hidden status filter field and refreshes the inbox data.
+     *
+     * @param {boolean} checked - true to show Acknowledged, false to show New
+     */
+    function toggleAcknowledged(checked) {
+        ackToggleState = checked;
+        changeValueElementByName('query.status', checked ? 'A' : 'N');
+        // Also update the radio buttons in the search panel to stay in sync
+        var radioId = checked ? 'statusAcknowledged' : 'statusNew';
+        var radio = document.getElementById(radioId);
+        if (radio) radio.checked = true;
+
+        // When showing acknowledged items, scope to today only so the list
+        // isn't overwhelmed with historical data. Clear the date when toggling back.
+        var startDateEl = document.getElementById('startDate');
+        var fp = startDateEl._flatpickr;
+        if (checked) {
+            savedStartDate = startDateEl.value;
+            if (fp) { fp.setDate(new Date(), true); } else { startDateEl.value = new Date().toISOString().slice(0, 10); }
+        } else {
+            if (fp) { fp.setDate(savedStartDate || '', true); } else { startDateEl.value = savedStartDate || ''; }
+        }
+
+        fetchInboxhubData();
+    }
+
+    /**
+     * Toggles Rapid Review mode. When enabled, acknowledging a lab in the popup
+     * automatically opens the next item in the list for sequential review.
+     *
+     * @param {boolean} checked - true to enable auto-advance, false to disable
+     */
+    function toggleRapidReview(checked) {
+        rapidReviewState = checked;
+    }
+
+    /**
+     * Restores toolbar toggle states after the inbox HTML is replaced.
+     * Called from addDataInInboxhubListTable when page 1 data is loaded.
+     */
+    function restoreToolbarState() {
+        var ackToggle = document.getElementById('ackToggle');
+        if (ackToggle) ackToggle.checked = ackToggleState;
+        var rapidToggle = document.getElementById('rapidReviewToggle');
+        if (rapidToggle) rapidToggle.checked = rapidReviewState;
+        highlightActiveTypeFilter();
+    }
+
+    function fetchInboxhubListData() {
+        if (!hasMoreData || isFetchingData) { return; }
+        isFetchingData = true; 
+        const url = "<e:forJavaScript value='${pageContext.request.contextPath}' />/web/inboxhub/Inboxhub.do?method=displayInboxList";
+        currentFetchRequest = jQuery.ajax({
+			url: url,
+			method: 'POST',
+			data: inboxSearchFormData + filter + "&page=" + page + "&pageSize=" + pageSize,		
+			success: function(data) {
+                HideSpin();
+                addDataInInboxhubListTable(data);
+                isFetchingData = false;
+                jQuery('#btnViewMode').prop('disabled', false);
+                loadMoreListData();
+			},
+            error: function(xhr, status, error) {
+                if (status !== 'abort') { toastErrorMessage(); }
+                jQuery('#btnViewMode').prop('disabled', false);
+                HideSpin();
+            }
+        });
+    }
+
+    function fetchInboxhubViewData() {
+        if (!hasMoreData || isFetchingData) { return; }
+        ShowSpin(true);
+        isFetchingData = true;
+        const url = "<e:forJavaScript value='${pageContext.request.contextPath}' />/web/inboxhub/Inboxhub.do?method=displayInboxView";
+        currentFetchRequest = jQuery.ajax({
+			url: url,
+			method: 'POST',
+			data: inboxSearchFormData + filter + "&page=" + page + "&pageSize=" + pageSize,			
+			success: function(data) {
+                HideSpin();
+                addDataInInboxhubViewTable(data);
+                isFetchingData = false;
+                jQuery('#btnViewMode').prop('disabled', false);
+                page++;
+			},
+            error: function(xhr, status, error) {
+                if (status !== 'abort') { toastErrorMessage(); }
+                jQuery('#btnViewMode').prop('disabled', false);
+                HideSpin();
+            }
+        });
+    }
+
+    function addDataInInboxhubListTable(data) {
+        if (page == 1) {
+            jQuery("#inboxhubMode").html(data);
+            jQuery('#inbox_table').DataTable().draw(false); // `draw(false)` prevents resetting the scroll position
+            showInboxhubStats();
+            restoreToolbarState();
+            // Rapid Review auto-open: after acknowledging an item, open the next one
+            if (pendingRapidReviewOpen) {
+                pendingRapidReviewOpen = false;
+                openNextInboxItem();
+            }
+            startInboxhubListProgress();
+            updateInboxhubListProgress();
+            return;
+        }
+
+        let inboxhubListTable = jQuery('#inbox_table').DataTable();
+
+        // Check if the string contains <script> tags
+        if (!containsScriptTag(data)) {
+            // Split the concatenated rows by the closing </tr> tag, and re-add </tr> to each split part
+            const splitRows = data.split(/<\/tr>/i).map(row => row + '</tr>').filter(row => row.trim() !== '</tr>');
+            // Add rows to DataTable without destroying it
+            jQuery.each(splitRows, function(index, row) {
+                inboxhubListTable.row.add(jQuery(row));
+            });
+
+            // Redraw the table
+            inboxhubListTable.draw(false); // `draw(false)` prevents resetting the scroll position
+        } else {
+            jQuery("#inboxhubMode").append(data);
+        }
+
+        updateInboxhubListProgress();
+    }
+
+    /**
+     * Helper function to detect presence of <script> tags (in any weird browser-accepted form) in an HTML string.
+     */
+    function containsScriptTag(htmlString) {
+        try {
+            const parser = new DOMParser();
+            // Parse as text/html for browser compliance
+            const doc = parser.parseFromString(htmlString, 'text/html');
+            return doc.getElementsByTagName('script').length > 0;
+        } catch (e) {
+            // If parsing fails, err on the side of caution
+            return true;
+        }
+    }
+
+    function addDataInInboxhubViewTable(data) {
+        if (page == 1) {
+            jQuery("#inboxhubMode").html(data);
+        } else {
+            jQuery("#inboxViewItems").append(data);
+        }
+    }
+
+    function autoCompleteProvider() {
+        jQuery("#autocompleteProvider").autocomplete({
+            source: contextPath + "/provider/SearchProvider.do?method=labSearch",
+            minLength: 2,
+            focus: function (event, ui) {
+                jQuery("#autocompleteProvider").val(ui.item.label);
+                return false;
+            },
+            select: function (event, ui) {
+                jQuery("#autocompleteProvider").val(ui.item.label);
+                jQuery("#findProvider").val(ui.item.value);
+                return false;
+            }
+        })
+    }
+
+    function loadMoreListData() {
+        page++;
+        fetchInboxhubListData();
+    }
+
+    function resetDataPageCount() {
+        ShowSpin(true);
+
+        // Enable search and hide the spinner if it is present.
+        jQuery('#inboxhubFormSearchBtn').prop('disabled', false); // Enable search button
+        jQuery('#inboxhubFormSearchSpinner').hide(); // Hide spinner
+
+        if (currentFetchRequest) {
+            currentFetchRequest.abort();  // Cancel the ongoing AJAX request
+        }
+        jQuery("#inboxhubMode").empty();
+        page = 1;
+        hasMoreData = true;
+        isFetchingData = false;
+    }
+
+    // Show the toast and wrapper div
+    function toastErrorMessage() {
+        jQuery('#ajaxErrorToast').parent().css('display', 'block'); // Show the wrapper
+        bootstrap.Toast.getOrCreateInstance(document.getElementById('ajaxErrorToast')).show(); // Show the toast
+    }
+
+    // Hide the toast and wrapper div completely when the toast is dismissed
+    document.getElementById('ajaxErrorToast').addEventListener('hidden.bs.toast', function () {
+        this.parentElement.style.display = 'none'; // Hide the wrapper to prevent background blocking
+    });
+
+    function showInboxhubStats() {
+        jQuery('#totalDocsCountStat').text(jQuery('#totalDocsCount').val());
+        jQuery('#totalLabsCountStat').text(jQuery('#totalLabsCount').val());
+        jQuery('#totalHRMsCountStat').text(jQuery('#totalHRMCount').val());
+    }
+
+    function startInboxhubListProgress() {
+        const totalResultsCount = jQuery("#totalResultsCount").val();
+        inboxhubListProgressWidth = 0;
+        jQuery('#loadInboxListProgressBar').attr('aria-valuemax', totalResultsCount);
+        jQuery('#loadInboxListProgressBar').css('width', inboxhubListProgressWidth + '%').attr('aria-valuenow', inboxhubListProgressWidth);
+        jQuery('#inboxListProgressCount').text(inboxhubListProgressWidth + percentCompleteLabel);
+        
+        jQuery('#inboxhubFormSearchBtn').prop('disabled', true); // Disable button
+        jQuery('#inboxhubFormSearchSpinner').show(); // Show spinner
+        jQuery('#stopLoadingInboxList').show(); // Show stop button
+        jQuery('#loadInboxListProgress').show(); // Show progress bar
+        jQuery('#loadingLabel').show();
+    }
+
+    function stopInboxhubListProgress(hideTime) {
+        if (currentFetchRequest) {
+            currentFetchRequest.abort();  // Cancel the ongoing AJAX request
+        }
+        hasMoreData = false;
+        jQuery('#inboxhubFormSearchBtn').prop('disabled', false); // Enable search button
+        jQuery('#inboxhubFormSearchSpinner').hide(); // Hide spinner
+        setTimeout(function() {
+            jQuery('#stopLoadingInboxList').hide(); // Hide stop button
+            jQuery('#loadInboxListProgress').hide(); // Hide progress bar
+            jQuery('#loadingLabel').hide();
+        }, hideTime);
+    }
+
+    function updateInboxhubListProgress() {
+        const totalResultsCount = jQuery("#totalResultsCount").val();
+        const currentlyLoadedResultsCount = jQuery('#inboxhubListModeTableBody tr').length;
+
+        if (totalResultsCount < currentlyLoadedResultsCount && hasMoreData) {
+            return;
+        }
+
+        if (totalResultsCount >= currentlyLoadedResultsCount && hasMoreData) {
+            const percentage = (currentlyLoadedResultsCount / totalResultsCount) * 100;
+            const formattedPercentage = percentage === 100 ? '100' : percentage.toFixed(2); // Keep 2 digits after decimal
+            jQuery('#loadInboxListProgressBar').css('width', formattedPercentage + '%').attr('aria-valuenow', currentlyLoadedResultsCount);
+            jQuery('#inboxListProgressCount').text(formattedPercentage + percentCompleteLabel);
+            return;
+        }
+
+        if (!hasMoreData) {
+            jQuery('#loadInboxListProgressBar').css('width', 100 + '%').attr('aria-valuenow', totalResultsCount);
+            jQuery('#inboxListProgressCount').text(100 + percentCompleteLabel);
+            stopInboxhubListProgress(1000);
+        }
+    }
+</script>

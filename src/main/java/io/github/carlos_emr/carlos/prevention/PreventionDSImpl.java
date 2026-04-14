@@ -66,7 +66,7 @@ import io.github.carlos_emr.CarlosProperties;
  *         <li>An absolute filesystem path to a {@code .drl} file, loaded via
  *             {@link DroolsHelper#loadFromInputStream(java.io.InputStream)}</li>
  *         <li>A {@code classpath:} prefixed resource path (e.g.,
- *             {@code classpath:/oscar/oscarPrevention/prevention.drl}), loaded via
+ *             {@code classpath:/oscar/prevention/prevention.drl}), loaded via
  *             {@link DroolsHelper#loadFromUrl(java.net.URL)}</li>
  *       </ul>
  *   </li>
@@ -78,7 +78,7 @@ import io.github.carlos_emr.CarlosProperties;
  *       {@link DSPreventionDrools#createRuleBase(byte[])}.</li>
  *   <li><strong>Classpath fallback (Priority 3)</strong> --
  *       If neither of the above sources provides rules, falls back to the bundled
- *       {@code /oscar/oscarPrevention/prevention.drl} resource on the classpath, loaded via
+ *       {@code /oscar/prevention/prevention.drl} resource on the classpath, loaded via
  *       {@link DroolsHelper#loadFromUrl(java.net.URL)}.</li>
  * </ol>
  *
@@ -159,7 +159,7 @@ public class PreventionDSImpl implements PreventionDS {
      *       The XML byte content is converted to DRL via
      *       {@link DSPreventionDrools#createRuleBase(byte[])}.</li>
      *   <li><strong>Classpath fallback</strong> -- Loads the bundled
-     *       {@code /oscar/oscarPrevention/prevention.drl} from the classpath.</li>
+     *       {@code /oscar/prevention/prevention.drl} from the classpath.</li>
      * </ol>
      *
      * <p>Errors at each tier are logged and do not prevent attempting
@@ -221,12 +221,12 @@ public class PreventionDSImpl implements PreventionDS {
 
             // Priority 3: Classpath fallback to bundled prevention.drl
             if (!fileFound) {
-                URL url = PreventionDS.class.getResource("/oscar/oscarPrevention/prevention.drl");  //TODO: change this so it is configurable;
+                URL url = PreventionDS.class.getResource("/oscar/prevention/prevention.drl");  //TODO: change this so it is configurable;
                 if (url != null) {
                     log.debug("Loading prevention rules from classpath fallback: {}", url.getFile());
                     kieBase = DroolsHelper.loadFromUrl(url);
                 } else {
-                    log.error("Failed to load prevention rule base: classpath fallback resource /oscar/oscarPrevention/prevention.drl not found");
+                    log.error("Failed to load prevention rule base: classpath fallback resource /oscar/prevention/prevention.drl not found");
                 }
             }
         } catch (Exception e) {

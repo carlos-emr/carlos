@@ -221,7 +221,7 @@
         }
     </script>
 
-    <form action="${pageContext.request.contextPath}/oscarPrevention/AddPrevention.do" method="post" onsubmit="return process(this);" id="injectForm">
+    <form action="${pageContext.request.contextPath}/prevention/AddPrevention.do" method="post" onsubmit="return process(this);" id="injectForm">
         <input type="hidden" name="prevention" value="RH"/>
         <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
         <input type="hidden" name="workflowId" value="<%= Encode.forHtmlAttribute(workflowId) %>"/>
