@@ -1,0 +1,4 @@
+## 2026-04-14 - [Parameterized Dynamic INSERT Queries]
+**Vulnerability:** Dynamic eForm data generation in `EFormReportToolDaoImpl` used unsafe raw string concatenation to inject `providerNo` and all dynamic `EFormValue` user inputs into a native SQL `INSERT INTO` query. This opened up the system to SQL injection.
+**Learning:** When building dynamic SQL queries (like INSERT statements for dynamically generated tables), while column names might be necessary to append via `StringBuilder`, the actual data values must strictly use query parameterization (e.g., `?` placeholders for positional parameters) and `q.setParameter()`.
+**Prevention:** Always append placeholder variables like `?` in loops for the values clause and bind them sequentially using `setParameter(index, value)` to prevent SQL injection in native query operations.

@@ -127,11 +127,11 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         sb.append(fdid + ",");
         sb.append(demographicNo + ",");
         sb.append("\'" + DateFormatUtils.format(dateFormCreated, "yyyy-MM-dd HH:mm:ss") + "\',");
-        sb.append("\'" + providerNo + "\',");
+        sb.append("?,");
         sb.append("0,");
         sb.append("now(),");
         for (EFormValue v : values) {
-            sb.append("\'" + v.getVarValue() + "\'");
+            sb.append("?");
             sb.append(",");
         }
         sb.deleteCharAt(sb.length() - 1);
@@ -141,6 +141,11 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         //logger.debug("sql=" + sb.toString());
 
         Query q = entityManager.createNativeQuery(sb.toString());
+        int paramIndex = 1;
+        q.setParameter(paramIndex++, providerNo);
+        for (EFormValue v : values) {
+            q.setParameter(paramIndex++, v.getVarValue());
+        }
         q.executeUpdate();
     }
 
