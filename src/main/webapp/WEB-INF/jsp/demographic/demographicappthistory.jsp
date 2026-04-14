@@ -337,7 +337,7 @@
                             bgcolor="<%=bodd?weakColor:"white"%>" appt_no="<%=Encode.forHtmlAttribute(appointment.getId().toString())%>"
                             demographic_no="<%=Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no))%>" provider_no="<%=Encode.forHtmlAttribute(provider!=null?provider.getId():"")%>">
                         <td align="center"><a href=#
-                                              onClick="popupPageNew(360,680, '<%= request.getContextPath() %>/appointment/appointmentcontrol.jsp?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>&appointment_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(appointment.getId().toString()))%>&displaymode=edit&dboperation=search');return false;"><%=Encode.forHtml(appointment.getAppointmentDate() != null ? appointment.getAppointmentDate().toString() : "")%>
+                                              onClick="popupPageNew(360,680, '<%= request.getContextPath() %>/appointment/appointmentcontrol.do?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>&appointment_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(appointment.getId().toString()))%>&displaymode=edit&dboperation=search');return false;"><%=Encode.forHtml(appointment.getAppointmentDate() != null ? appointment.getAppointmentDate().toString() : "")%>
                         </a></td>
                         <td align="center"><%=Encode.forHtml(appointment.getStartTime() != null ? appointment.getStartTime().toString() : "")%>
                         </td>

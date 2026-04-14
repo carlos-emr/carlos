@@ -42,22 +42,25 @@
     <%response.sendRedirect(request.getContextPath() + "/logout.jsp");%>
 </security:oscarSec>
 <%
-    // associate each operation with an output JSP file -- displaymode
+    // associate each operation with an output action — displaymode
+    // Post-migration: all sibling appointment JSPs live behind /WEB-INF/jsp/
+    // so every dispatch target is now an absolute .do URL (view gate or
+    // mutation action). The dead "Search" entry was removed — its former
+    // target appointmentsearchrecords.jsp does not exist in the repo.
     String[][] opToFile = new String[][]{
             {"Add Appointment", "/appointment/AddRecord.do"},
-            {"Group Appt", "appointmentgrouprecords.jsp"},
-            {"Group Action", "appointmentgrouprecords.jsp"},
-            {"Add Appt & PrintPreview", "appointmentaddrecordprint.jsp"},
-            {"Add Appt & PrintCard", "appointmentaddrecordcard.jsp"},
-            {"PrintCard", "appointmentviewrecordcard.jsp"},
+            {"Group Appt", "/appointment/appointmentgrouprecords.do"},
+            {"Group Action", "/appointment/appointmentgrouprecords.do"},
+            {"Add Appt & PrintPreview", "/appointment/appointmentaddrecordprint.do"},
+            {"Add Appt & PrintCard", "/appointment/appointmentaddrecordcard.do"},
+            {"PrintCard", "/appointment/appointmentviewrecordcard.do"},
             {"TicklerSearch", "/tickler/ViewAddTickler.do"},
             {"Search ", "/demographic/DemographicSearch.do"},
-            {"Search", "appointmentsearchrecords.jsp"},
-            {"edit", "editappointment.jsp"},
+            {"edit", "/appointment/editappointment.do"},
             {"Update Appt", "/appointment/UpdateRecord.do"},
             {"Delete Appt", "/appointment/DeleteRecord.do"},
             {"Cut", "/appointment/CutRecord.do"},
-            {"Copy", "appointmentcopyrecord.jsp"}
+            {"Copy", "/appointment/appointmentcopyrecord.do"}
     };
 
     // create an operation-to-file dictionary

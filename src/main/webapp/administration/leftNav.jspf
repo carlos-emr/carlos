@@ -453,7 +453,7 @@ String curProvider_no = (String)session.getAttribute("user");
 					<oscar:oscarPropertiesCheck property="ENABLE_EDIT_APPT_STATUS"
 						value="yes">
 						<li><a href="javascript:void(0);"
-							class="xlink" rel='${ctx}/appointment/appointmentstatuscontrol.jsp'
+							class="xlink" rel='${ctx}/appointment/apptStatusSetting.do?dispatch=view'
 							title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:message key="admin.admin.appointmentStatusSetting"/></a></li>
 					</oscar:oscarPropertiesCheck>
 		

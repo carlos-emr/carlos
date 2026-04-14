@@ -530,11 +530,11 @@
             }
 
             function ts1(s) {
-                popupPage(360, 780, ('<%= request.getContextPath() %>/appointment/addappointment.jsp?' + s));
+                popupPage(360, 780, ('<%= request.getContextPath() %>/appointment/addappointment.do?' + s));
             }
 
             function tsr(s) {
-                popupPage(360, 780, ('<%= request.getContextPath() %>/appointment/appointmentcontrol.jsp?displaymode=edit&dboperation=search&' + s));
+                popupPage(360, 780, ('<%= request.getContextPath() %>/appointment/appointmentcontrol.do?displaymode=edit&dboperation=search&' + s));
             }
 
             function goFilpView(s) {
@@ -554,7 +554,7 @@
             }
 
             function goSearchView(s) {
-                popupPage(600, 650, "<%= request.getContextPath() %>/appointment/appointmentsearch.jsp?provider_no=" + s);
+                popupPage(600, 650, "<%= request.getContextPath() %>/appointment/appointmentsearch.do?provider_no=" + s);
             }
 
             function review(key) {
@@ -1847,7 +1847,7 @@
                                                 <tr>
                                                     <td class="<%=bColorHour?"scheduleTime00":"scheduleTimeNot00"%>">
                                                         <a href="javascript:void(0)"
-                                                           onClick="confirmPopupPage(600,780, '<%= request.getContextPath() %>/appointment/addappointment.jsp?provider_no=<%=Encode.forJavaScriptAttribute(curProvider_no[nProvider])%>&bFirstDisp=<%=true%>&year=<%=Encode.forJavaScriptAttribute(strYear)%>&month=<%=Encode.forJavaScriptAttribute(strMonth)%>&day=<%=Encode.forJavaScriptAttribute(strDay)%>&start_time=<%=Encode.forJavaScriptAttribute((hourCursor>9?(""+hourCursor):("0"+hourCursor))+":"+ (minuteCursor<10?"0":"") +minuteCursor)%>&end_time=<%=Encode.forJavaScriptAttribute((hourCursor>9?(""+hourCursor):("0"+hourCursor))+":"+(minuteCursor+depth-1))%>&duration=<%=Encode.forJavaScriptAttribute(dateTimeCodeBean.get("duration"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("duration"+hourmin.toString()) : "")%>','<%=Encode.forJavaScriptAttribute(dateTimeCodeBean.get("confirm"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("confirm"+hourmin.toString()) : "")%>','<%=Encode.forJavaScriptAttribute(allowDay)%>','<%=Encode.forJavaScriptAttribute(allowWeek)%>');return false;"
+                                                           onClick="confirmPopupPage(600,780, '<%= request.getContextPath() %>/appointment/addappointment.do?provider_no=<%=Encode.forJavaScriptAttribute(curProvider_no[nProvider])%>&bFirstDisp=<%=true%>&year=<%=Encode.forJavaScriptAttribute(strYear)%>&month=<%=Encode.forJavaScriptAttribute(strMonth)%>&day=<%=Encode.forJavaScriptAttribute(strDay)%>&start_time=<%=Encode.forJavaScriptAttribute((hourCursor>9?(""+hourCursor):("0"+hourCursor))+":"+ (minuteCursor<10?"0":"") +minuteCursor)%>&end_time=<%=Encode.forJavaScriptAttribute((hourCursor>9?(""+hourCursor):("0"+hourCursor))+":"+(minuteCursor+depth-1))%>&duration=<%=Encode.forJavaScriptAttribute(dateTimeCodeBean.get("duration"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("duration"+hourmin.toString()) : "")%>','<%=Encode.forJavaScriptAttribute(dateTimeCodeBean.get("confirm"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("confirm"+hourmin.toString()) : "")%>','<%=Encode.forJavaScriptAttribute(allowDay)%>','<%=Encode.forJavaScriptAttribute(allowWeek)%>');return false;"
                                                            title='<%=MyDateFormat.getTimeXX_XXampm(hourCursor +":"+ (minuteCursor<10?"0":"")+minuteCursor)%> - <%=MyDateFormat.getTimeXX_XXampm(hourCursor +":"+((minuteCursor+depth-1)<10?"0":"")+(minuteCursor+depth-1))%>'
                                                            class="adhour">
                                                             <%=(hourCursor < 10 ? "0" : "") + hourCursor + ":"%><%=(minuteCursor < 10 ? "0" : "") + minuteCursor%>&nbsp;</a>
@@ -2087,7 +2087,7 @@
                                                         %>
                                                         <a href="javascript:void(0)"
                                                            class="<%= showTooltipDot ? "appt-reason-tooltip appt-tooltip-provider-" + curProvider_no[nProvider] : "" %>"
-                                                           onClick="popupPage(600,780,'<%= request.getContextPath() %>/appointment/appointmentcontrol.jsp?appointment_no=<%=appointment.getId()%>&provider_no=<%=curProvider_no[nProvider]%>&year=<%=year%>&month=<%=month%>&day=<%=day%>&start_time=<%=iS+":"+iSm%>&demographic_no=0&displaymode=edit&dboperation=search');return false;"
+                                                           onClick="popupPage(600,780,'<%= request.getContextPath() %>/appointment/appointmentcontrol.do?appointment_no=<%=appointment.getId()%>&provider_no=<%=curProvider_no[nProvider]%>&year=<%=year%>&month=<%=month%>&day=<%=day%>&start_time=<%=iS+":"+iSm%>&demographic_no=0&displaymode=edit&dboperation=search');return false;"
                                                            <%= showTooltipDot ? "data-title-full=\"" + dotTooltipFull + "\" data-title-short=\"" + dotTooltipShort + "\" title=\"" + dotTooltipFull + "\"" : "" %>>
                                                             <span>
                                                             .<%=(view == 0 && numAvailProvider != 1) ? (name.length() > len ? name.substring(0, len).toUpperCase() : Encode.forHtmlContent(name.toUpperCase())) : Encode.forHtmlContent(name.toUpperCase())%>
@@ -2187,7 +2187,7 @@
                                                             boolean showTooltip = CarlosProperties.getInstance().getBooleanProperty("SHOW_APPT_REASON_TOOLTIP", "yes");
                                                         %>
                                                         <a class="apptLink<%= showTooltip ? " appt-reason-tooltip appt-tooltip-provider-" + curProvider_no[nProvider] : "" %>" href="javascript:void(0)"
-                                                           onClick="popupPage(535,860,'<%= request.getContextPath() %>/appointment/appointmentcontrol.jsp?appointment_no=<%=appointment.getId()%>&provider_no=<%=curProvider_no[nProvider]%>&year=<%=year%>&month=<%=month%>&day=<%=day%>&start_time=<%=iS+":"+iSm%>&demographic_no=<%=demographic_no%>&displaymode=edit&dboperation=search');return false;"
+                                                           onClick="popupPage(535,860,'<%= request.getContextPath() %>/appointment/appointmentcontrol.do?appointment_no=<%=appointment.getId()%>&provider_no=<%=curProvider_no[nProvider]%>&year=<%=year%>&month=<%=month%>&day=<%=day%>&start_time=<%=iS+":"+iSm%>&demographic_no=<%=demographic_no%>&displaymode=edit&dboperation=search');return false;"
                                                            <%= showTooltip ? "data-title-full=\"" + tooltipFull + "\" data-title-short=\"" + tooltipShort + "\" title=\"" + tooltipFull + "\"" : "" %> >
                                                             <%=(name.length() > len ? Encode.forHtmlContent(name.substring(0, len)) : Encode.forHtmlContent(name))%>
                                                         </a>
@@ -2524,7 +2524,7 @@
     function buildApptUrl(ctx, demographicNo, providerNo, startTime, endTime, duration, year, month, day) {
         var mm = String(month).padStart(2, '0');
         var dd = String(day).padStart(2, '0');
-        return ctx + '/appointment/addappointment.jsp'
+        return ctx + '/appointment/addappointment.do'
             + '?demographic_no='   + encodeURIComponent(demographicNo)
             + '&provider_no='      + encodeURIComponent(providerNo)
             + '&bFirstDisp=true'
