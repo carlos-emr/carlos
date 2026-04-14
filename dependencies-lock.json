@@ -280,6 +280,14 @@
     "optional" : false,
     "integrity" : "sha512:YbtgqmcRqHPES4trwwZCF9O2h5VuYbTfhGEMG9gruFIqwQXabrzm8HH29vhrtOQMoX/oGN1/anSwlJ/scSNzZw=="
   }, {
+    "groupId" : "com.github.openosp",
+    "artifactId" : "ultrabuk-htmltopdf-java",
+    "version" : "1.0.11",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:fiXBLMWhIZZiGGp6MBg3zZU1wOAYiM/TU/gU17e9YdHePhNIPM0F0dimSeMUTM8CMN4khJyM809pvRJAaUuY/Q=="
+  }, {
     "groupId" : "com.github.virtuald",
     "artifactId" : "curvesapi",
     "version" : "1.08",
@@ -1957,35 +1965,35 @@
   }, {
     "groupId" : "org.apache.logging.log4j",
     "artifactId" : "log4j-1.2-api",
-    "version" : "2.25.3",
+    "version" : "2.25.4",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:6XW4Fau8O/cuUR+Z4dHK5/vLjbOHE+Lx90kOkzQe70nkXV4ZTWO/axvz+20YdANpY4uXZjDiALQJ/gZKp3RgFA=="
+    "integrity" : "sha512:uxEm4WOKEAfeMGjpoKXiAOz0S7UqZt5nkvmIa30svcLo1eYf+uRIwQqqCbgd35VsPGrnh66zpD8msYE8m1qQCw=="
   }, {
     "groupId" : "org.apache.logging.log4j",
     "artifactId" : "log4j-api",
-    "version" : "2.25.3",
+    "version" : "2.25.4",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:zpqvW+7A+4y+2MSuipGljT9pNccxIgspTXDxVpEotf82fhv5TWlXLderBb/ypjveX/dInrl0Powwe2ROrq28UA=="
+    "integrity" : "sha512:5taorWVC8HGXi0aFgGOhpvoqNwmmlGAHjKs8tXkHwQzXwHRrg68E2ChBIMM4Lr29Guq9pMNwBBwYe5A9r3GpSw=="
   }, {
     "groupId" : "org.apache.logging.log4j",
     "artifactId" : "log4j-core",
-    "version" : "2.25.3",
+    "version" : "2.25.4",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:ZKB3at/QsIL4Dkn0r7iZjBXTDFFaNEGgdDZNN0eaL8BZvddGlMP2CbH64dLsoMuINH4a/Yh3SsaYpCuHRL8lnw=="
+    "integrity" : "sha512:/GHoRYfGwGD4n3H6rWpUex+966cG15XaohDflHsICSsDntQLDJpLUH/WIH0z95aHAgnkfKYsHyJIldLet7QV/g=="
   }, {
     "groupId" : "org.apache.logging.log4j",
     "artifactId" : "log4j-slf4j2-impl",
-    "version" : "2.25.3",
+    "version" : "2.25.4",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:sQ5aBIXic8k85U3243No40hsEJA7TulIoRbrSKO/IBUh4Ku3lRMONJEdnhFd37VJDtX3YbbiFJush+qZMhYkRw=="
+    "integrity" : "sha512:x+Rxsux93XQDdzb38JhW7sg1PleTDsx1jEnTtjsbrHrJ1//15sJlHfBYyzwheoXGJpSVE2hvfOvvOYtGwaKO3w=="
   }, {
     "groupId" : "org.apache.neethi",
     "artifactId" : "neethi",

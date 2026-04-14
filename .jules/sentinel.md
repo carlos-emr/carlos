@@ -1,0 +1,4 @@
+## 2026-04-14 - Fix SQL injection in DrugDaoImpl.findByParameter
+**Vulnerability:** SQL injection via unsanitized column name and unparameterized value in JPA native query (`entityManager.createNativeQuery`).
+**Learning:** Dynamic column names cannot be parameterized in SQL queries, but concatenating them directly creates vulnerabilities. Same for values, which must always be parameterized with placeholders (`?1`, `:name`) rather than string concatenation (`+`).
+**Prevention:** 1) For dynamic column names, always validate against a strict allowlist or regex (e.g. `^[a-zA-Z0-9_]+$`) before appending them to a query. 2) For dynamic values, always use parameterization (`query.setParameter()`) instead of string concatenation.
