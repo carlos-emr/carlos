@@ -132,8 +132,10 @@ public final class RxShowAllergy2Action extends ActionSupport {
      * <li>method - String method name for routing (optional, "reorder" supported)</li>
      * </ul>
      *
-     * @return String "failure" if demographicNo is missing, null for redirect
-     * @throws IOException if redirect fails
+     * @return String "success" to forward to ShowAllergies2.jsp, "failure" if
+     *         demographicNo is missing or patient cannot be loaded, or null
+     *         for method-dispatch paths that write the response directly
+     * @throws IOException if servlet I/O fails
      * @throws ServletException if servlet processing fails
      */
     public String execute()

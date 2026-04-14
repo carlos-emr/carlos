@@ -1351,7 +1351,7 @@ function renderRxStage() {
            }
            this.waitifrm=document.getElementById("xmaskframe");
 
-           this.waitifrm.setAttribute("src",displaySRC+".jsp?randomId="+randomId);
+           this.waitifrm.setAttribute("src",displaySRC+"?randomId="+randomId);
            this.waitifrm.style.display="block";
            this.waitifrm.style.height=H;
 
