@@ -334,7 +334,7 @@
                             <%
                             } else {
                             %>
-                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/ALL/ViewLabDisplay.do?inWindow=true&segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>&showLatest=true')"><%=labRead%><%=Encode.forHtml(result.getPatientName())%>
+                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/ALL/ViewLabDisplay.do?inWindow=true&segmentID=<%=Encode.forUriComponent(segmentID)%>&providerNo=<%=Encode.forUriComponent(providerNo)%>&searchProviderNo=<%=Encode.forUriComponent(searchProviderNo)%>&status=<%=Encode.forUriComponent(status)%>&showLatest=true')"><%=labRead%><%=Encode.forHtml(result.getPatientName())%>
                             </a>
                             <%
                                 }
