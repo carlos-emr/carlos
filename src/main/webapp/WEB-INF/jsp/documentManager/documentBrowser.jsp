@@ -75,23 +75,13 @@
     String categoryKey = request.getParameter("categorykey");
     String errorMessage = "";
 
-//if delete request is made
-    if (request.getParameter("delDocumentNo") != null && request.getParameter("delDocumentNo").length() > 0) {
-        EDocUtil.deleteDocument(request.getParameter("delDocumentNo"));
-    }
-
-//if undelete request is made
-    if (request.getParameter("undelDocumentNo") != null && request.getParameter("undelDocumentNo").length() > 0) {
-        EDocUtil.undeleteDocument(request.getParameter("undelDocumentNo"));
-    }
-
-    if (request.getParameter("refileDocumentNo") != null && request.getParameter("refileDocumentNo").length() > 0) {
-        try {
-            EDocUtil.refileDocument(request.getParameter("refileDocumentNo"), request.getParameter("queueId"));
-        } catch (Exception e) {
-            errorMessage = e.getMessage();
-        }
-    }
+// NOTE: Historic GET-triggered delete / undelete / refile scriptlets
+// were removed in favor of POST-only Struts2 mutation actions:
+//   /documentManager/DocumentDelete.do   (_edoc w)
+//   /documentManager/DocumentUndelete.do (_admin.edocdelete w)
+//   /documentManager/DocumentRefile.do   (_edoc w)
+// The submit-helpers below (doDelete, doUndelete, doRefile) now point
+// the DisplayDoc form at the appropriate .do endpoint before posting.
 
     QueueDao queueDao = SpringUtils.getBean(QueueDao.class);
     List<Hashtable> queues = queueDao.getQueues();
@@ -197,18 +187,21 @@ Remote documents not supported
         }
 
         function DeleteDoc() {
+            document.DisplayDoc.action = '<%= request.getContextPath() %>/documentManager/DocumentDelete.do';
             document.DisplayDoc.delDocumentNo.value = docid;
             document.DisplayDoc.viewstatus.value = document.DisplayDoc.selviewstatus.options[document.DisplayDoc.selviewstatus.selectedIndex].value;
             document.DisplayDoc.submit();
         }
 
         function UnDeleteDoc() {
+            document.DisplayDoc.action = '<%= request.getContextPath() %>/documentManager/DocumentUndelete.do';
             document.DisplayDoc.undelDocumentNo.value = docid;
             document.DisplayDoc.viewstatus.value = document.DisplayDoc.selviewstatus.options[document.DisplayDoc.selviewstatus.selectedIndex].value;
             document.DisplayDoc.submit();
         }
 
         function RefileDoc() {
+            document.DisplayDoc.action = '<%= request.getContextPath() %>/documentManager/DocumentRefile.do';
             document.DisplayDoc.refileDocumentNo.value = docid;
             document.DisplayDoc.viewstatus.value = document.DisplayDoc.selviewstatus.options[document.DisplayDoc.selviewstatus.selectedIndex].value;
             document.DisplayDoc.submit();
@@ -395,17 +388,17 @@ Remote documents not supported
             var doctype = selected[0].value.substring(docidindexend + 1, selected[0].value.length);
 
             if (doctype == 'text/html') {
-                popup(450, 600, 'addedithtmldocument.jsp?editDocumentNo=' + docid + '&function=<%=Encode.forJavaScript(Encode.forUriComponent(module))%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'EditDoc');
+                popup(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml.do?editDocumentNo=' + docid + '&function=<%=Encode.forJavaScript(Encode.forUriComponent(module))%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'EditDoc');
             } else {
 
-                popup(350, 500, 'editDocument.jsp?editDocumentNo=' + docid + '&function=<%=Encode.forJavaScript(Encode.forUriComponent(module))%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'EditDoc');
+                popup(350, 500, '<%= request.getContextPath() %>/documentManager/ViewEditDocument.do?editDocumentNo=' + docid + '&function=<%=Encode.forJavaScript(Encode.forUriComponent(module))%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'EditDoc');
             }
         }
 
     </script>
 </head>
 <body onload="window.innerWidth=<%=winwidth.length()>0?winwidth:"screen.availWidth*0.9"%>;window.innerHeight=<%=winheight.length()>0?winheight:"screen.availHeight*0.9"%>;">
-<form name="DisplayDoc" method="post" action="documentBrowser.jsp">
+<form name="DisplayDoc" method="post" action="<%= request.getContextPath() %>/documentManager/ViewDocumentBrowser.do">
 
     <table>
         <%if (errorMessage.length() > 0) {%>

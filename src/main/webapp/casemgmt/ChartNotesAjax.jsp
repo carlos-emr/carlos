@@ -520,7 +520,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 int hash = Math.abs(winName.hashCode());
 
                 String encodedDispDocNo = Encode.forUriComponent(dispDocNo);
-                url = "popupPage(1000,1200,'" + hash + "', '" + request.getContextPath() + "/documentManager/showDocument.jsp?inWindow=true&segmentID=" + encodedDispDocNo +"');";
+                url = "popupPage(1000,1200,'" + hash + "', '" + request.getContextPath() + "/documentManager/ViewShowDocument.do?inWindow=true&segmentID=" + encodedDispDocNo +"');";
                 url = url + "return false;";
             %>
             <div class="view-links"
@@ -537,7 +537,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 int hash = Math.abs(winName.hashCode());
 
                 String encodedDispDocNo = Encode.forUriComponent(dispDocNo);
-                url = "popupPage(1000,1200,'" + hash + "', '" + request.getContextPath() + "/documentManager/showDocument.jsp?inWindow=true&segmentID=" + encodedDispDocNo +"');";
+                url = "popupPage(1000,1200,'" + hash + "', '" + request.getContextPath() + "/documentManager/ViewShowDocument.do?inWindow=true&segmentID=" + encodedDispDocNo +"');";
                 url = url + "return false;";
             %>
             <div class="view-links"

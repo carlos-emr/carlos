@@ -808,7 +808,7 @@ function showDocLab(childId, docNo, providerNo, searchProviderNo, status, demoNa
     //alert(div);
     let url = '';
     if (type == 'DOC')
-        url = "../documentManager/showDocument.jsp";
+        url = "../documentManager/ViewShowDocument.do";
     else if (type == 'MDS')
         url = "";
     else if (type == 'HL7')

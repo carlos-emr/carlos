@@ -253,7 +253,7 @@ public class PersonaService extends AbstractServiceImpl {
 
         MenuTo1 moreMenuList = new MenuTo1()
                 .addWithState(idCounter++, bundle.getString("navbar.menu.reports"), null, "reports")
-                .add(idCounter++, bundle.getString("navbar.menu.documents"), null, "../documentManager/documentReport.jsp?function=providers&functionid=" + provider.getPractitionerNo(), "edocView");
+                .add(idCounter++, bundle.getString("navbar.menu.documents"), null, "../documentManager/ViewDocumentReport.do?function=providers&functionid=" + provider.getPractitionerNo(), "edocView");
 
 
         List<Dashboard> dashboards = dashboardManager.getDashboards(getLoggedInInfo());

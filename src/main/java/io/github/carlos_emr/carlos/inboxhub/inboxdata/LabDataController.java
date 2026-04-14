@@ -159,7 +159,7 @@ public class LabDataController {
      *       <li>Other: Generic HL7 display via /lab/CA/ALL/labDisplay.jsp</li>
      *     </ul>
      *   </li>
-     *   <li><b>Document</b>: Routed to /documentManager/showDocument.jsp for medical documents</li>
+     *   <li><b>Document</b>: Routed to /documentManager/ViewShowDocument.do for medical documents</li>
      *   <li><b>HRM</b>: Hospital Report Manager display via /hospitalReportManager/Display.do with duplicate handling</li>
      *   <li><b>Other</b>: Default BC lab display via /lab/CA/BC/labDisplay.jsp</li>
      * </ul>
@@ -197,7 +197,7 @@ public class LabDataController {
                 }
             }
             else if (labResult.isDocument()) {
-                url.append("/documentManager/showDocument.jsp?inWindow=true");
+                url.append("/documentManager/ViewShowDocument.do?inWindow=true");
             }
             else if (labResult.isHRM()) {
                 url.append("/hospitalReportManager/Display.do?");

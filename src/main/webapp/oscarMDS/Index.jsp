@@ -166,13 +166,13 @@
                                 <a href="javascript:popupStart(800,1000,'${pageContext.servletContext.contextPath}/lab/CA/ALL/testUploader.jsp')"
                                    style="color: #FFFFFF; "><fmt:message key="admin.admin.hl7LabUpload"/></a>
                                 <% if (CarlosProperties.getInstance().getBooleanProperty("legacy_document_upload_enabled", "true")) { %>
-                                <a href="javascript:popupStart(600,500,'${pageContext.servletContext.contextPath}/documentManager/html5AddDocuments.jsp')"
+                                <a href="javascript:popupStart(600,500,'${pageContext.servletContext.contextPath}/documentManager/ViewHtml5AddDocuments.do')"
                                    style="color: #FFFFFF; "><fmt:message key="inboxmanager.document.uploadDoc"/></a>
                                 <% } else { %>
-                                <a href="javascript:popupStart(800,1000,'${pageContext.servletContext.contextPath}/documentManager/documentUploader.jsp')"
+                                <a href="javascript:popupStart(800,1000,'${pageContext.servletContext.contextPath}/documentManager/ViewDocumentUploader.do')"
                                    style="color: #FFFFFF; "><fmt:message key="inboxmanager.document.uploadDoc"/></a>
 
-                                <%--    Soon:         	<a href="javascript:void(0)" style="color:white;" class="dialog-link" id="/documentManager/documentUploader.jsp" >
+                                <%--    Soon:         	<a href="javascript:void(0)" style="color:white;" class="dialog-link" id="/documentManager/ViewDocumentUploader.do" >
                                                     <fmt:message key="inboxmanager.document.uploadDoc"/>
                                                 </a> --%>
                                 <% } %>
@@ -180,7 +180,7 @@
                                 <a href="javascript:popupStart(700,1100,'${pageContext.servletContext.contextPath}/documentManager/inboxManage.do?method=getDocumentsInQueues')"
                                    style="color: #FFFFFF;"><fmt:message key="inboxmanager.document.pendingDocs"/></a>
 
-                                <a href="javascript:popupStart(800,1200,'${pageContext.servletContext.contextPath}/documentManager/incomingDocs.jsp')"
+                                <a href="javascript:popupStart(800,1200,'${pageContext.servletContext.contextPath}/documentManager/ViewIncomingDocs.do')"
                                    style="color: #FFFFFF;"><fmt:message key="inboxmanager.document.incomingDocs"/></a>
 
                                 <% if (!CarlosProperties.getInstance().isBritishColumbiaBillingRegion()) { %>

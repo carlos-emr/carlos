@@ -161,7 +161,7 @@ public class LabsDocsSummary implements Summary {
 
 
             if (curDoc.isPDF()) {
-                url = "../documentManager/MultiPageDocDisplay.jsp?segmentID=" + dispDocNo + "&providerNo=" + loggedInInfo.getLoggedInProviderNo() + "&searchProviderNo=" + loggedInInfo.getLoggedInProviderNo() + "&status=A&demoName=";
+                url = "../documentManager/ViewMultiPageDocDisplay.do?segmentID=" + dispDocNo + "&providerNo=" + loggedInInfo.getLoggedInProviderNo() + "&searchProviderNo=" + loggedInInfo.getLoggedInProviderNo() + "&status=A&demoName=";
             } else {
                 url = "";
             }

@@ -69,35 +69,94 @@
             <result name="failure">/errorpage.jsp</result>
             <result name="success">/oscarMDS/OpenEChart.jsp</result>
         </action>
+        <!--
+            Document-manager JSPs have been relocated behind /WEB-INF/jsp/
+            and are reached only through the .do actions below (view gates +
+            dedicated mutation actions). GET-triggerable scriptlet delete /
+            undelete / refile vectors that previously lived in
+            documentBrowser.jsp and documentReport.jsp are now POST-only
+            Struts2 mutation actions with appropriate privilege enforcement.
+        -->
         <action name="previewDocs" class="io.github.carlos_emr.carlos.documentManager.actions.DocumentPreview2Action">
-            <result name="fetchDocuments">/documentManager/attachDocument.jsp</result>
+            <result name="fetchDocuments">/WEB-INF/jsp/documentManager/attachDocument.jsp</result>
         </action>
         <action name="documentManager/addEditDocument" class="io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2Action">
-            <result name="successAdd">/documentManager/documentReport.jsp</result>
-            <result name="failAdd">/documentManager/documentReport.jsp</result>
-            <result name="failEdit">/documentManager/editDocument.jsp</result>
+            <result name="successAdd">/WEB-INF/jsp/documentManager/documentReport.jsp</result>
+            <result name="failAdd">/WEB-INF/jsp/documentManager/documentReport.jsp</result>
+            <result name="failEdit">/WEB-INF/jsp/documentManager/editDocument.jsp</result>
             <result name="successEdit">/documentManager/closeWindow.html</result>
         </action>
         <action name="documentManager/combinePDFs" class="io.github.carlos_emr.carlos.documentManager.actions.CombinePDF2Action">
-            <result name="success">/documentManager/documentReport.jsp</result>
+            <result name="success">/WEB-INF/jsp/documentManager/documentReport.jsp</result>
         </action>
         <action name="documentManager/addLink" class="io.github.carlos_emr.carlos.documentManager.actions.AddEditHtml2Action">
-            <result name="success">/documentManager/documentReport.jsp</result>
-            <result name="failed">/documentManager/documentReport.jsp</result>
+            <result name="success">/WEB-INF/jsp/documentManager/documentReport.jsp</result>
+            <result name="failed">/WEB-INF/jsp/documentManager/documentReport.jsp</result>
         </action>
         <action name="documentManager/addEditHtml" class="io.github.carlos_emr.carlos.documentManager.actions.AddEditHtml2Action">
             <result name="success">/documentManager/closeWindow.html</result>
-            <result name="failed">/documentManager/addedithtmldocument.jsp</result>
+            <result name="failed">/WEB-INF/jsp/documentManager/addedithtmldocument.jsp</result>
         </action>
         <action name="documentManager/ManageDocument" class="io.github.carlos_emr.carlos.documentManager.actions.ManageDocument2Action">
-            <result name="displaySingleDoc">/documentManager/MultiPageDocDisplay.jsp</result>
-            <result name="nextIncomingDoc">/documentManager/incomingDocs.jsp</result>
+            <result name="displaySingleDoc">/WEB-INF/jsp/documentManager/MultiPageDocDisplay.jsp</result>
+            <result name="nextIncomingDoc">/WEB-INF/jsp/documentManager/incomingDocs.jsp</result>
             <result name="error">/failure.jsp</result>
         </action>
         <action name="documentManager/SplitDocument" class="io.github.carlos_emr.carlos.documentManager.actions.SplitDocument2Action">
             <result name="success">/oscarMDS/Splitclose.jsp</result>
         </action>
         <action name="documentManager/documentUpload" class="io.github.carlos_emr.carlos.documentManager.actions.DocumentUpload2Action"/>
+
+        <!-- View gates (_edoc r) -->
+        <action name="documentManager/ViewDocumentBrowser" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentRead2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/documentBrowser.jsp</result>
+        </action>
+        <action name="documentManager/ViewDocumentReport" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentRead2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/documentReport.jsp</result>
+        </action>
+        <action name="documentManager/ViewShowDocument" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentRead2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/showDocument.jsp</result>
+        </action>
+        <action name="documentManager/ViewMultiPageDocDisplay" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentRead2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/MultiPageDocDisplay.jsp</result>
+        </action>
+        <action name="documentManager/ViewIncomingDocs" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentRead2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/incomingDocs.jsp</result>
+        </action>
+
+        <!-- View gates (_edoc w) -->
+        <action name="documentManager/ViewAddDocument" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentWrite2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/addDocument.jsp</result>
+        </action>
+        <action name="documentManager/ViewEditDocument" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentWrite2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/editDocument.jsp</result>
+        </action>
+        <action name="documentManager/ViewAddEditHtml" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentWrite2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/addedithtmldocument.jsp</result>
+        </action>
+        <action name="documentManager/ViewDocumentUploader" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentWrite2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/documentUploader.jsp</result>
+        </action>
+        <action name="documentManager/ViewHtml5AddDocuments" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentWrite2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/html5AddDocuments.jsp</result>
+        </action>
+
+        <!-- POST-only mutations (replace scriptlet vectors in documentBrowser.jsp + documentReport.jsp) -->
+        <action name="documentManager/DocumentDelete" class="io.github.carlos_emr.carlos.documentManager.actions.DocumentDelete2Action">
+            <result name="methodNotAllowed" type="httpheader">
+                <param name="status">405</param>
+            </result>
+        </action>
+        <action name="documentManager/DocumentUndelete" class="io.github.carlos_emr.carlos.documentManager.actions.DocumentUndelete2Action">
+            <result name="methodNotAllowed" type="httpheader">
+                <param name="status">405</param>
+            </result>
+        </action>
+        <action name="documentManager/DocumentRefile" class="io.github.carlos_emr.carlos.documentManager.actions.DocumentRefile2Action">
+            <result name="methodNotAllowed" type="httpheader">
+                <param name="status">405</param>
+            </result>
+        </action>
         <action name="hospitalReportManager/Display" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMDisplayReport2Action">
             <result name="display" type="dispatcher">/hospitalReportManager/displayHRMReport.jsp</result>
         </action>

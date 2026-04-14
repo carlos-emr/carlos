@@ -433,10 +433,10 @@
             var doctype = selected[0].value.substring(docidindexend + 1, selected[0].value.length);
 
             if (doctype == 'text/html') {
-                popup(450, 600, '<%= request.getContextPath() %>/documentManager/addedithtmldocument.jsp?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'EditDoc');
+                popup(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml.do?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'EditDoc');
             } else {
 
-                popup(350, 500, '<%= request.getContextPath() %>/documentManager/editDocument.jsp?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'EditDoc');
+                popup(350, 500, '<%= request.getContextPath() %>/documentManager/ViewEditDocument.do?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'EditDoc');
             }
         }
 
