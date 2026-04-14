@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 
+import org.owasp.encoder.Encode;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -61,7 +62,7 @@ public class PatientMatch2Action extends ActionSupport {
             throws ServletException, IOException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
-            throw new SecurityException("missing required sec object (_lab)");
+            throw new SecurityException("missing required sec object: _lab");
         }
 
         String demographicNo = request.getParameter("demographicNo");
@@ -72,8 +73,8 @@ public class PatientMatch2Action extends ActionSupport {
 
         try {
             CommonLabResultData.updatePatientLabRouting(labNo, demographicNo, labType);
-            newURL = request.getContextPath() + "/oscarMDS/PatientMatch.do";
-            newURL = newURL + "?demographicNo=" + demographicNo;
+            newURL = request.getContextPath() + "/oscarMDS/ViewOpenEChart.do";
+            newURL = newURL + "?demographicNo=" + Encode.forUriComponent(demographicNo == null ? "" : demographicNo);
         } catch (Exception e) {
             MiscUtils.getLogger().debug("exception in ReportReassign2Action:" + e);
             newURL = "/errorpage.jsp";

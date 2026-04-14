@@ -29,16 +29,16 @@
     <package name="document" namespace="/" extends="struts-default">
 
         <action name="documentManager/inboxManage" class="io.github.carlos_emr.carlos.documentManager.actions.DmsInboxManage2Action" method="execute">
-            <result name="dms_index">/WEB-INF/jsp/oscarMDS/FileLabs.do</result>
-            <result name="dms_page">/WEB-INF/jsp/oscarMDS/FileLabs.do</result>
-            <result name="document_in_queues">/WEB-INF/jsp/oscarMDS/FileLabs.do</result>
+            <result name="dms_index">/WEB-INF/jsp/oscarMDS/Index.jsp</result>
+            <result name="dms_page">/WEB-INF/jsp/oscarMDS/Page.jsp</result>
+            <result name="document_in_queues">/WEB-INF/jsp/oscarMDS/documentsInQueues.jsp</result>
         </action>
         <action name="oscarMDS/SendMRP" class="io.github.carlos_emr.carlos.mds.pageUtil.SendMostResponProv2Action">
             <result name="failure">/errorpage.jsp</result>
         </action>
         <action name="oscarMDS/UpdateStatus" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportStatusUpdate2Action">
             <result name="failure">/errorpage.jsp</result>
-            <result name="success">/WEB-INF/jsp/oscarMDS/Close.do</result>
+            <result name="success">/WEB-INF/jsp/oscarMDS/Close.jsp</result>
         </action>
         <action name="oscarMDS/RunMacro" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportMacro2Action"/>
         <action name="oscarMDS/ReportReassign" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
@@ -59,15 +59,15 @@
         </action>
         <action name="oscarMDS/Forward" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
             <result name="failure">/errorpage.jsp</result>
-            <result name="success">/WEB-INF/jsp/oscarMDS/SearchPatient.do</result>
+            <result name="success">/WEB-INF/jsp/oscarMDS/PatientSearch.jsp</result>
         </action>
         <action name="oscarMDS/SearchPatient" class="io.github.carlos_emr.carlos.mds.pageUtil.SearchPatient2Action">
-            <result name="failure">/WEB-INF/jsp/oscarMDS/SearchPatient.do?search_mode=search_name&amp;limit1=0&amp;limit2=10</result>
-            <result name="success">/WEB-INF/jsp/oscarMDS/PatientMatch.do</result>
+            <result name="failure">/WEB-INF/jsp/oscarMDS/PatientSearch.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarMDS/OpenEChart.jsp</result>
         </action>
         <action name="oscarMDS/PatientMatch" class="io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action">
             <result name="failure">/errorpage.jsp</result>
-            <result name="success">/WEB-INF/jsp/oscarMDS/PatientMatch.do</result>
+            <result name="success">/WEB-INF/jsp/oscarMDS/OpenEChart.jsp</result>
         </action>
         <action name="previewDocs" class="io.github.carlos_emr.carlos.documentManager.actions.DocumentPreview2Action">
             <result name="fetchDocuments">/documentManager/attachDocument.jsp</result>
@@ -95,7 +95,7 @@
             <result name="error">/failure.jsp</result>
         </action>
         <action name="documentManager/SplitDocument" class="io.github.carlos_emr.carlos.documentManager.actions.SplitDocument2Action">
-            <result name="success">/WEB-INF/jsp/oscarMDS/PatientMatch.do</result>
+            <result name="success">/WEB-INF/jsp/oscarMDS/Splitclose.jsp</result>
         </action>
         <action name="documentManager/documentUpload" class="io.github.carlos_emr.carlos.documentManager.actions.DocumentUpload2Action"/>
         <action name="hospitalReportManager/Display" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMDisplayReport2Action">
@@ -116,19 +116,28 @@
 
         <!-- ===== oscarMDS JSP gating actions (migration slice) ===== -->
         <action name="oscarMDS/ViewCreateLabTest" class="io.github.carlos_emr.carlos.mds.gate.ViewCreateLabTest2Action">
-            <result name="success">/WEB-INF/jsp/oscarMDS/ViewCreateLabTest.do</result>
+            <result name="success">/WEB-INF/jsp/oscarMDS/CreateLabTest.jsp</result>
         </action>
         <action name="oscarMDS/ViewSearch" class="io.github.carlos_emr.carlos.mds.gate.ViewSearch2Action">
-            <result name="success">/WEB-INF/jsp/oscarMDS/ViewSearch.do</result>
+            <result name="success">/WEB-INF/jsp/oscarMDS/Search.jsp</result>
         </action>
         <action name="oscarMDS/ViewSelectProvider" class="io.github.carlos_emr.carlos.mds.gate.ViewSelectProvider2Action">
-            <result name="success">/WEB-INF/jsp/oscarMDS/ViewSelectProvider.do</result>
+            <result name="success">/WEB-INF/jsp/oscarMDS/SelectProvider.jsp</result>
         </action>
         <action name="oscarMDS/ViewSelectProviderAltView" class="io.github.carlos_emr.carlos.mds.gate.ViewSelectProviderAltView2Action">
-            <result name="success">/WEB-INF/jsp/oscarMDS/ViewSelectProviderAltView.do</result>
+            <result name="success">/WEB-INF/jsp/oscarMDS/SelectProviderAltView.jsp</result>
         </action>
         <action name="oscarMDS/ViewSplit" class="io.github.carlos_emr.carlos.mds.gate.ViewSplit2Action">
-            <result name="success">/WEB-INF/jsp/oscarMDS/ViewSplit.do</result>
+            <result name="success">/WEB-INF/jsp/oscarMDS/Split.jsp</result>
+        </action>
+        <action name="oscarMDS/ViewSegmentDisplay" class="io.github.carlos_emr.carlos.mds.gate.ViewSegmentDisplay2Action">
+            <result name="success">/WEB-INF/jsp/oscarMDS/SegmentDisplay.jsp</result>
+        </action>
+        <action name="oscarMDS/ViewOpenEChart" class="io.github.carlos_emr.carlos.mds.gate.ViewOpenEChart2Action">
+            <result name="success">/WEB-INF/jsp/oscarMDS/OpenEChart.jsp</result>
+        </action>
+        <action name="oscarMDS/ViewPatientSearch" class="io.github.carlos_emr.carlos.mds.gate.ViewPatientSearch2Action">
+            <result name="success">/WEB-INF/jsp/oscarMDS/PatientSearch.jsp</result>
         </action>
     </package>
 </struts>

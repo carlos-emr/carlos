@@ -116,7 +116,7 @@
 
 <table border="0" cellpadding="1" cellspacing="0" width="100%"
        bgcolor="#C4D9E7">
-    <form method="post" name="titlesearch" action="/oscarMDS/SearchPatient.do"
+    <form method="post" name="titlesearch" action="<%=request.getContextPath()%>/oscarMDS/SearchPatient.do"
           onSubmit="return checkTypeIn();">
         <input type="hidden"
                name="from" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("from"))) %>"/>

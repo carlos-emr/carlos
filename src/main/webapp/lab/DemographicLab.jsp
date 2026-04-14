@@ -155,7 +155,7 @@
                 }
             }
             if (aBoxIsChecked) {
-                popupStart(300, 400, '/oscarMDS/ViewSelectProvider.do', 'providerselect');
+                popupStart(300, 400, '<%=request.getContextPath()%>/oscarMDS/ViewSelectProvider.do', 'providerselect');
             } else {
                 alert('<fmt:message key="oscarMDS.index.msgSelectOneLab"/>');
             }
@@ -227,7 +227,7 @@
                             <input type="hidden" name="selectedProviders"> <% if (demographicNo == null) { %>
                             <input type="button" class="smallButton"
                                    value="<fmt:message key="oscarMDS.index.btnSearch"/>"
-                                   onClick="window.location='/oscarMDS/ViewSearch.do?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>'">
+                                   onClick="window.location='<%=request.getContextPath()%>/oscarMDS/ViewSearch.do?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>'">
                             <% } %> <input type="button" class="smallButton"
                                            value="<fmt:message key="oscarMDS.index.btnClose"/>"
                                            onClick="window.close()">
@@ -316,7 +316,7 @@
             <td>
                 <%
                     if (result.isMDS()) { %> <a
-                    href="javascript:reportWindow('<%= request.getContextPath() %>/oscarMDS/SearchPatient.do?demographicId=<%= Encode.forJavaScriptAttribute(demographicNo) %>&segmentID=<%= Encode.forJavaScriptAttribute(segmentID) %>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&status=<%= Encode.forJavaScriptAttribute(status) %>')"><%= result.getDiscipline()%>
+                    href="javascript:reportWindow('<%= request.getContextPath() %>/oscarMDS/ViewSegmentDisplay.do?demographicId=<%= Encode.forJavaScriptAttribute(demographicNo) %>&segmentID=<%= Encode.forJavaScriptAttribute(segmentID) %>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&status=<%= Encode.forJavaScriptAttribute(status) %>')"><%= result.getDiscipline()%>
             </a>
                 <% } else if (result.isCML()) { %> <a
                     href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ON/CMLDisplay.jsp?demographicId=<%= Encode.forJavaScriptAttribute(demographicNo) %>&segmentID=<%= Encode.forJavaScriptAttribute(segmentID) %>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&status=<%= Encode.forJavaScriptAttribute(status) %>')"><%=(String) result.getDiscipline()%>
@@ -363,7 +363,7 @@
                             <% if (demographicNo == null) { %> <input type="button"
                                                                       class="smallButton"
                                                                       value="<fmt:message key="oscarMDS.index.btnSearch"/>"
-                                                                      onClick="window.location='/oscarMDS/ViewSearch.do?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>'">
+                                                                      onClick="window.location='<%=request.getContextPath()%>/oscarMDS/ViewSearch.do?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>'">
                             <% } %> <input type="button" class="smallButton"
                                            value="<fmt:message key="oscarMDS.index.btnClose"/>"
                                            onClick="window.close()"> <% if (request.getParameter("fname") != null) { %>

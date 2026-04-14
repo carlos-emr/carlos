@@ -28,6 +28,8 @@ import org.apache.struts2.ServletActionContext;
  * vendor lab inbox) security-hardening migration (2Action gate pattern
  * from #1109, #1629, #1632, #1644, #1662, #1663, #1665, #1666, #1667, #1668).
  *
+ * <p>HTTP method is not enforced; only {@code _lab} privilege is required.
+ *
  * @since 2026-04-13
  */
 public final class ViewSearch2Action extends ActionSupport {
@@ -40,7 +42,7 @@ public final class ViewSearch2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "r", null)) {
-            throw new SecurityException("missing required sec object (_lab)");
+            throw new SecurityException("missing required sec object: _lab");
         }
 
         return SUCCESS;

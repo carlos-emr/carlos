@@ -186,7 +186,7 @@
             var total = jQuery("#test_num").val();
             total++;
             jQuery("#test_num").val(total);
-            jQuery.ajax({url:'/oscarMDS/ViewCreateLabTest.do?id='+total,async:false, success:function(data) {
+            jQuery.ajax({url:'<%=request.getContextPath()%>/oscarMDS/ViewCreateLabTest.do?id='+total,async:false, success:function(data) {
                     jQuery("#test_container").append(data);
                     jQuery('form[name="testForm"] :submit').prop('disabled', false);
                 }});

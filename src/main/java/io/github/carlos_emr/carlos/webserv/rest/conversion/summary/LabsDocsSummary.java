@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.SummaryItemTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.SummaryTo1;
+import org.owasp.encoder.Encode;
 import org.springframework.stereotype.Component;
 
 import io.github.carlos_emr.carlos.documentManager.EDoc;
@@ -99,7 +100,7 @@ public class LabsDocsSummary implements Summary {
             if (result.isMDS()) {
                 if (label == null || label.equals("")) labDisplayName = result.getDiscipline();
                 else labDisplayName = label;
-                url = "../oscarMDS/SearchPatient.do?providerNo=" + loggedInInfo.getLoggedInProvider().getProviderNo() + "&segmentID=" + result.segmentID + "&status=" + result.getReportStatus();
+                url = "../oscarMDS/ViewSegmentDisplay.do?providerNo=" + Encode.forUriComponent(loggedInInfo.getLoggedInProvider().getProviderNo()) + "&segmentID=" + Encode.forUriComponent(String.valueOf(result.segmentID)) + "&status=" + Encode.forUriComponent(String.valueOf(result.getReportStatus()));
             } else if (result.isCML()) {
                 if (label == null || label.equals("")) labDisplayName = result.getDiscipline();
                 else labDisplayName = label;

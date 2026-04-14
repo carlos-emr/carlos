@@ -35,7 +35,7 @@
             <result name="error">/lab/CA/ALL/labDisplay.jsp</result>
         </action>
         <action name="lab/CA/ALL/UnlinkDemographic" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.UnlinkDemographic2Action">
-            <result name="success">/WEB-INF/jsp/oscarMDS/Close.do</result>
+            <result name="success">/WEB-INF/jsp/oscarMDS/Close.jsp</result>
         </action>
         <action name="oscarMDS/FileLabs" class="io.github.carlos_emr.carlos.lab.pageUtil.FileLabs2Action">
             <result name="failure">/errorpage.jsp</result>
@@ -43,7 +43,7 @@
         </action>
         <action name="oscarMDS/ForwardingRules" class="io.github.carlos_emr.carlos.lab.pageUtil.ForwardingRules2Action">
             <result name="failure">/errorpage.jsp</result>
-            <result name="success">/WEB-INF/jsp/oscarMDS/ForwardingRules.do</result>
+            <result name="success">/WEB-INF/jsp/oscarMDS/ForwardingRules.jsp</result>
         </action>
         <action name="admin/ForwardingRules" class="io.github.carlos_emr.carlos.lab.pageUtil.ForwardingRules2Action">
             <result name="failure">/errorpage.jsp</result>
@@ -64,7 +64,7 @@
             <result name="success">/lab/CA/ON/uploadComplete.jsp</result>
         </action>
         <action name="oscarMDS/SubmitLab" class="io.github.carlos_emr.carlos.lab.ca.all.web.SubmitLabByForm2Action">
-            <result name="manage">/WEB-INF/jsp/oscarMDS/SubmitLab.do</result>
+            <result name="manage">/WEB-INF/jsp/oscarMDS/CreateLab.jsp</result>
         </action>
         <action name="lab/DownloadEmbeddedDocumentFromLab" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.DownloadEmbeddedDocumentFromLab2Action"/>
 

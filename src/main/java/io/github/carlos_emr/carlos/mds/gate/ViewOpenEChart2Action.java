@@ -22,17 +22,19 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * View gate for {@code oscarMDS/CreateLabTest.jsp}. Enforces {@code _lab}
- * {@code w} privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/oscarMDS/} location. Part of the oscarMDS (multi-
- * vendor lab inbox) security-hardening migration (2Action gate pattern
- * from #1109, #1629, #1632, #1644, #1662, #1663, #1665, #1666, #1667, #1668).
+ * View gate for {@code oscarMDS/OpenEChart.jsp}. Enforces {@code _lab}
+ * {@code r} privilege before forwarding to the JSP at its
+ * {@code /WEB-INF/jsp/oscarMDS/} location. Used by {@code SearchPatient2Action}
+ * and {@code PatientMatch2Action} as the post-match redirect target so those
+ * actions do not redirect to themselves. Part of the oscarMDS security-
+ * hardening migration (2Action gate pattern from #1109, #1629, #1632, #1644,
+ * #1662, #1663, #1665, #1666, #1667, #1668).
  *
- * <p>HTTP method is not enforced; only {@code _lab} privilege is required.
+ * <p>HTTP method is not enforced; only {@code _lab} read privilege is required.
  *
- * @since 2026-04-13
+ * @since 2026-04-14
  */
-public final class ViewCreateLabTest2Action extends ActionSupport {
+public final class ViewOpenEChart2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -41,7 +43,7 @@ public final class ViewCreateLabTest2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "r", null)) {
             throw new SecurityException("missing required sec object: _lab");
         }
 

@@ -319,7 +319,7 @@
 
                         <td>
                             <% if (result.isMDS()) { %>
-                            <a href="javascript:parent.reportWindow('/oscarMDS/SearchPatient.do?segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=labRead%><%= Encode.forHtml(result.getPatientName())%>
+                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/oscarMDS/ViewSegmentDisplay.do?segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=labRead%><%= Encode.forHtml(result.getPatientName())%>
                             </a>
                             <% } else if (result.isCML()) { %>
                             <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/ON/CMLDisplay.jsp?segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=labRead%><%=Encode.forHtml(result.getPatientName())%>
