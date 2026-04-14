@@ -55,7 +55,6 @@
         <title><fmt:message key="schedule.scheduledatesave.title"/></title>
     </head>
     <%
-        String provider_no = request.getParameter("provider_no");
         String available = request.getParameter("available");
         String priority = "c";
         String reason = request.getParameter("reason");
