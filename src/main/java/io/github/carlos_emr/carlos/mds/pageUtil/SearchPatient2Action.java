@@ -109,7 +109,7 @@ public class SearchPatient2Action extends ActionSupport {
         HttpServletResponse response = ServletActionContext.getResponse();
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "r", null)) {
-            throw new SecurityException("missing required sec object: _lab");
+            throw new SecurityException("missing required sec object (_lab)");
         }
 
         String labNo = request.getParameter("segmentID");

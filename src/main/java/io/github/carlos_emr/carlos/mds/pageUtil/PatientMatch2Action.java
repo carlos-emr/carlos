@@ -85,7 +85,7 @@ public class PatientMatch2Action extends ActionSupport {
             throws ServletException, IOException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
-            throw new SecurityException("missing required sec object: _lab");
+            throw new SecurityException("missing required sec object (_lab)");
         }
 
         String demographicNo = request.getParameter("demographicNo");
