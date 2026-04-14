@@ -28,6 +28,10 @@ import org.apache.struts2.ServletActionContext;
  * {@link #requirePost()} returns {@code true}, also enforces POST-only access
  * (returning HTTP 405 for other methods).
  *
+ * <p>Subclasses cannot override {@link #execute()} (it is {@code final}).
+ * Configure behavior via {@link #getSecurityObject()},
+ * {@link #getAccessRight()}, and {@link #requirePost()}.
+ *
  * <p>Provider-module convention: {@code _appointment r} is the default
  * provider-area entry privilege and is used for most view gates regardless of
  * topical relevance (encounter history, vaccine registry, signature edit,
