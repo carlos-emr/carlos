@@ -469,7 +469,12 @@ public final class Login2Action extends ActionSupport {
                     // facilityId validated via Integer.parseInt() and facilityDao.find() above
                     request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
                     LogAction.addLog(username, LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityId, ip);
-                    response.sendRedirect(nextPage);
+                    // FP for open-redirect scanners (CodeQL java/unvalidated-url-redirection #5909):
+                    // nextPage is validated by RedirectValidationUtils.isValidRelativeRedirect()
+                    // at line 441 before this branch is entered; it rejects absolute URIs,
+                    // protocol-relative URLs, backslash bypasses, control characters, and
+                    // path-traversal sequences — only safe relative paths reach here.
+                    response.sendRedirect(nextPage); // nosemgrep: javasecurity.S5146, java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by RedirectValidationUtils.isValidRelativeRedirect at line 441 // lgtm[java/unvalidated-url-redirection]
                     return NONE;
                 }
             }
