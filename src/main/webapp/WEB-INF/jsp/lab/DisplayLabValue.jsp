@@ -80,7 +80,7 @@
             String providerNo = String.valueOf(session.getAttribute("user"));
             String labDisplayLink = "";
             if (labType.equals(LabResultData.MDS)) {
-                labDisplayLink = request.getContextPath() + "/oscarMDS/SegmentDisplay.jsp?segmentID=" + java.net.URLEncoder.encode(labNo, java.nio.charset.StandardCharsets.UTF_8) + "&providerNo=" + java.net.URLEncoder.encode(providerNo, java.nio.charset.StandardCharsets.UTF_8);
+                labDisplayLink = request.getContextPath() + "/oscarMDS/ViewSegmentDisplay.do?segmentID=" + java.net.URLEncoder.encode(labNo, java.nio.charset.StandardCharsets.UTF_8) + "&providerNo=" + java.net.URLEncoder.encode(providerNo, java.nio.charset.StandardCharsets.UTF_8);
             } else if (labType.equals(LabResultData.CML)) {
                 labDisplayLink = request.getContextPath() + "/lab/CA/ON/ViewCMLDisplay.do?segmentID=" + java.net.URLEncoder.encode(labNo, java.nio.charset.StandardCharsets.UTF_8) + "&providerNo=" + java.net.URLEncoder.encode(providerNo, java.nio.charset.StandardCharsets.UTF_8);
             } else if (labType.equals(LabResultData.HL7TEXT)) {

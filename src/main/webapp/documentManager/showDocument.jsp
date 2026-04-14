@@ -388,7 +388,7 @@
 
             function split(id, demoName) {
                 var loc = "${pageContext.servletContext.contextPath}";
-                loc = loc + "/oscarMDS/Split.jsp?document=";
+                loc = loc + "/oscarMDS/ViewSplit.do?document=";
                 loc = loc + id;
                 loc = loc + "&queueID=";
                 loc = loc + "<%=Encode.forJavaScript(Encode.forUriComponent(StringUtils.defaultString(inQueue)))%>";

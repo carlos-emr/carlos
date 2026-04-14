@@ -40,5 +40,5 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     <a href="javascript:reportWindow('${e:forJavaScript(contextPath)}/documentManager/documentUploader.jsp',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
 </c:if>
 <a href="javascript:reportWindow('${e:forJavaScript(contextPath)}/lab/CA/ALL/insideLabUpload.do',800,1000)" class="nav-link"><fmt:message key="admin.admin.hl7LabUpload"/></a>
-<a href="javascript:reportWindow('${e:forJavaScript(contextPath)}/oscarMDS/CreateLab.jsp',800,1000)" class="nav-link"><fmt:message key="global.createLab" /></a>
-<a href="javascript:reportWindow('${e:forJavaScript(contextPath)}/oscarMDS/ForwardingRules.jsp?providerNo=${e:forJavaScript(providerNo)}');" class="nav-link"><fmt:message key="inboxhub.topbar.forwardingRules"/></a>
+<a href="javascript:reportWindow('${e:forJavaScript(contextPath)}/oscarMDS/SubmitLab.do',800,1000)" class="nav-link"><fmt:message key="global.createLab" /></a>
+<a href="javascript:reportWindow('${e:forJavaScript(contextPath)}/oscarMDS/ForwardingRules.do?providerNo=${e:forJavaScript(providerNo)}');" class="nav-link"><fmt:message key="inboxhub.topbar.forwardingRules"/></a>
