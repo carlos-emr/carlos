@@ -138,7 +138,7 @@
                 <input type="submit" name="submit" value="Save and Exit"/>
                 <input type="button" value="  Exit  " onclick="javascript:return onExit();"/>
                 <input type="button" name="action" value="Print"
-                       onclick="popupPage(700,800,'<%= request.getContextPath() %>/decision/antenatal/antenatalplannerprint.do?demographic_no=<%=Encode.forJavaScriptAttribute(demographic_no)%>&formId=<%=Encode.forJavaScriptAttribute(form_no)%>');return false;"/>
+                       onclick="popupPage(700,800,'<%= request.getContextPath() %>/decision/antenatal/antenatalplannerprint.do?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&formId=<%=Encode.forUriComponent(form_no)%>');return false;"/>
             </td>
             <td align="right">
                 <a href=# onClick="popupPage(600,930,'<%= request.getContextPath() %>/decision/antenatal/obarriskedit_99_12.do');return false;">Edit OB Risks</a> |
