@@ -29,6 +29,7 @@
 package io.github.carlos_emr.carlos.event;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
@@ -51,7 +52,10 @@ public class EventService implements ApplicationEventPublisherAware {
      *
      */
     public void appointmentStatusChanged(Object source, String appointment_no, String provider_no, String status) {
-        logger.debug("appointmentStatusChanged thrown by " + source.getClass().getName() + " appt# " + appointment_no + " status " + status);
+        logger.debug("appointmentStatusChanged thrown by {} appt# {} status {}",
+                source.getClass().getName(),
+                LogSanitizer.sanitize(appointment_no),
+                LogSanitizer.sanitize(status));
 
         applicationEventPublisher.publishEvent(new AppointmentStatusChangeEvent(source, appointment_no, provider_no, status));
     }
