@@ -27,6 +27,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -35,16 +36,19 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * POST-only endpoint that soft-deletes a document. Replaces the
- * GET-triggerable scriptlet in the old {@code documentBrowser.jsp} and
+ * GET-triggerable scriptlet in the legacy {@code documentBrowser.jsp} and
  * {@code documentReport.jsp} which ran
  * {@code EDocUtil.deleteDocument(request.getParameter("delDocumentNo"))}
- * behind only an {@code _edoc r} taglib gate -- allowing any user with
+ * behind only an {@code _edoc r} taglib gate, allowing any user with
  * document-read rights to destroy documents via a crafted GET link.
  *
- * The result forwards back to the document report view so the browser
- * refreshes with the document removed from the visible list.
+ * Redirects back to the caller's view: {@code source=browser} returns to
+ * {@code ViewDocumentBrowser.do} (preserving browser filter state), otherwise
+ * to {@code ViewDocumentReport.do}.
  */
-public final class DocumentDelete2Action extends ActionSupport {
+public class DocumentDelete2Action extends ActionSupport {
+
+    private static final String METHOD_NOT_ALLOWED = "methodNotAllowed";
 
     private String delDocumentNo;
     private String function;
@@ -52,16 +56,14 @@ public final class DocumentDelete2Action extends ActionSupport {
     private String functionid;
     private String curUser;
     private String view;
+    private String viewstatus;
+    private String categorykey;
+    private String source;
 
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
-
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
-        }
 
         SecurityInfoManager sim = SpringUtils.getBean(SecurityInfoManager.class);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -69,27 +71,48 @@ public final class DocumentDelete2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc w)");
         }
 
-        if (delDocumentNo != null && !delDocumentNo.isEmpty()) {
-            EDocUtil.deleteDocument(delDocumentNo);
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            return METHOD_NOT_ALLOWED;
         }
 
-        // Redirect back to the documentReport view with the original query
-        // string so the browser refreshes the list after the delete.
-        StringBuilder url = new StringBuilder(request.getContextPath())
-                .append("/documentManager/ViewDocumentReport.do");
+        if (delDocumentNo != null && !delDocumentNo.isEmpty()) {
+            if (!isPositiveInteger(delDocumentNo)) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid delDocumentNo");
+                return NONE;
+            }
+            deleteDocument(delDocumentNo);
+        }
+
+        StringBuilder url = new StringBuilder(request.getContextPath());
+        if ("browser".equalsIgnoreCase(source)) {
+            url.append("/documentManager/ViewDocumentBrowser.do");
+        } else {
+            url.append("/documentManager/ViewDocumentReport.do");
+        }
         String sep = "?";
-        if (function != null) { url.append(sep).append("function=").append(e(function)); sep = "&"; }
-        if (doctype != null) { url.append(sep).append("doctype=").append(e(doctype)); sep = "&"; }
-        if (functionid != null) { url.append(sep).append("functionid=").append(e(functionid)); sep = "&"; }
-        if (curUser != null) { url.append(sep).append("curUser=").append(e(curUser)); sep = "&"; }
-        if (view != null) { url.append(sep).append("view=").append(e(view)); }
+        if (function != null) { url.append(sep).append("function=").append(Encode.forUriComponent(function)); sep = "&"; }
+        if (doctype != null) { url.append(sep).append("doctype=").append(Encode.forUriComponent(doctype)); sep = "&"; }
+        if (functionid != null) { url.append(sep).append("functionid=").append(Encode.forUriComponent(functionid)); sep = "&"; }
+        if (curUser != null) { url.append(sep).append("curUser=").append(Encode.forUriComponent(curUser)); sep = "&"; }
+        if (view != null) { url.append(sep).append("view=").append(Encode.forUriComponent(view)); sep = "&"; }
+        if (viewstatus != null) { url.append(sep).append("viewstatus=").append(Encode.forUriComponent(viewstatus)); sep = "&"; }
+        if (categorykey != null) { url.append(sep).append("categorykey=").append(Encode.forUriComponent(categorykey)); }
 
         response.sendRedirect(url.toString());
         return NONE;
     }
 
-    private static String e(String s) {
-        return java.net.URLEncoder.encode(s, java.nio.charset.StandardCharsets.UTF_8);
+    /** Test seam: delegates to {@link EDocUtil#deleteDocument(String)}. */
+    protected void deleteDocument(String docNo) {
+        EDocUtil.deleteDocument(docNo);
+    }
+
+    private static boolean isPositiveInteger(String s) {
+        if (s == null || s.isEmpty()) return false;
+        for (int i = 0; i < s.length(); i++) {
+            if (!Character.isDigit(s.charAt(i))) return false;
+        }
+        return true;
     }
 
     public String getDelDocumentNo() { return delDocumentNo; }
@@ -109,4 +132,13 @@ public final class DocumentDelete2Action extends ActionSupport {
 
     public String getView() { return view; }
     @StrutsParameter public void setView(String v) { this.view = v; }
+
+    public String getViewstatus() { return viewstatus; }
+    @StrutsParameter public void setViewstatus(String v) { this.viewstatus = v; }
+
+    public String getCategorykey() { return categorykey; }
+    @StrutsParameter public void setCategorykey(String v) { this.categorykey = v; }
+
+    public String getSource() { return source; }
+    @StrutsParameter public void setSource(String v) { this.source = v; }
 }

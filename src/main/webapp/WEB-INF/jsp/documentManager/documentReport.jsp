@@ -234,6 +234,7 @@
                 fields['function'] = func;
                 fields['functionid'] = funcId;
                 fields['viewstatus'] = viewStatus;
+                fields['source'] = 'report';
                 for (var key in fields) {
                     var input = document.createElement('input');
                     input.type = 'hidden';

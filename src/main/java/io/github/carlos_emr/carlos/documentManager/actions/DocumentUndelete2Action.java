@@ -27,7 +27,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.owasp.encoder.Encode;
 
+import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -35,12 +37,20 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * POST-only endpoint that restores a soft-deleted document. Replaces the
- * GET-triggerable scriptlet in {@code documentReport.jsp} (legacy path;
- * {@code documentBrowser.jsp} has the equivalent path). Requires
- * {@code _admin.edocdelete w} since undelete is an admin-restricted
- * operation (mirrors the original taglib requirement).
+ * GET-triggerable scriptlet in {@code documentReport.jsp} and
+ * {@code documentBrowser.jsp}.
+ *
+ * Authorization model: admins with {@code _admin.edocdelete w} may undelete
+ * any document; the document's original creator may undelete their own
+ * document if they hold {@code _edoc w}. This preserves the creator-undelete
+ * path the legacy UI exposes while closing the GET-triggerable vector.
+ *
+ * Redirects back to the caller's view: {@code source=browser} returns to
+ * {@code ViewDocumentBrowser.do}, otherwise to {@code ViewDocumentReport.do}.
  */
-public final class DocumentUndelete2Action extends ActionSupport {
+public class DocumentUndelete2Action extends ActionSupport {
+
+    private static final String METHOD_NOT_ALLOWED = "methodNotAllowed";
 
     private String undelDocumentNo;
     private String function;
@@ -48,43 +58,83 @@ public final class DocumentUndelete2Action extends ActionSupport {
     private String functionid;
     private String curUser;
     private String view;
+    private String viewstatus;
+    private String categorykey;
+    private String source;
 
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
-        }
-
         SecurityInfoManager sim = SpringUtils.getBean(SecurityInfoManager.class);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null
-                || !sim.hasPrivilege(loggedInInfo, "_admin.edocdelete", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.edocdelete w)");
+        if (loggedInInfo == null) {
+            throw new SecurityException("not logged in");
+        }
+        boolean isAdmin = sim.hasPrivilege(loggedInInfo, "_admin.edocdelete", "w", null);
+        boolean hasEdocWrite = sim.hasPrivilege(loggedInInfo, "_edoc", "w", null);
+        if (!isAdmin && !hasEdocWrite) {
+            throw new SecurityException("missing required sec object (_admin.edocdelete w or _edoc w)");
+        }
+
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            return METHOD_NOT_ALLOWED;
         }
 
         if (undelDocumentNo != null && !undelDocumentNo.isEmpty()) {
-            EDocUtil.undeleteDocument(undelDocumentNo);
+            if (!isPositiveInteger(undelDocumentNo)) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid undelDocumentNo");
+                return NONE;
+            }
+            if (!isAdmin) {
+                EDoc doc = loadDoc(undelDocumentNo);
+                String providerNo = loggedInInfo.getLoggedInProviderNo();
+                if (doc == null
+                        || doc.getCreatorId() == null
+                        || providerNo == null
+                        || !providerNo.equals(doc.getCreatorId())) {
+                    throw new SecurityException("only admins or the document creator may undelete");
+                }
+            }
+            undeleteDocument(undelDocumentNo);
         }
 
-        StringBuilder url = new StringBuilder(request.getContextPath())
-                .append("/documentManager/ViewDocumentReport.do");
+        StringBuilder url = new StringBuilder(request.getContextPath());
+        if ("browser".equalsIgnoreCase(source)) {
+            url.append("/documentManager/ViewDocumentBrowser.do");
+        } else {
+            url.append("/documentManager/ViewDocumentReport.do");
+        }
         String sep = "?";
-        if (function != null) { url.append(sep).append("function=").append(e(function)); sep = "&"; }
-        if (doctype != null) { url.append(sep).append("doctype=").append(e(doctype)); sep = "&"; }
-        if (functionid != null) { url.append(sep).append("functionid=").append(e(functionid)); sep = "&"; }
-        if (curUser != null) { url.append(sep).append("curUser=").append(e(curUser)); sep = "&"; }
-        if (view != null) { url.append(sep).append("view=").append(e(view)); }
+        if (function != null) { url.append(sep).append("function=").append(Encode.forUriComponent(function)); sep = "&"; }
+        if (doctype != null) { url.append(sep).append("doctype=").append(Encode.forUriComponent(doctype)); sep = "&"; }
+        if (functionid != null) { url.append(sep).append("functionid=").append(Encode.forUriComponent(functionid)); sep = "&"; }
+        if (curUser != null) { url.append(sep).append("curUser=").append(Encode.forUriComponent(curUser)); sep = "&"; }
+        if (view != null) { url.append(sep).append("view=").append(Encode.forUriComponent(view)); sep = "&"; }
+        if (viewstatus != null) { url.append(sep).append("viewstatus=").append(Encode.forUriComponent(viewstatus)); sep = "&"; }
+        if (categorykey != null) { url.append(sep).append("categorykey=").append(Encode.forUriComponent(categorykey)); }
 
         response.sendRedirect(url.toString());
         return NONE;
     }
 
-    private static String e(String s) {
-        return java.net.URLEncoder.encode(s, java.nio.charset.StandardCharsets.UTF_8);
+    /** Test seam: delegates to {@link EDocUtil#getDoc(String)}. */
+    protected EDoc loadDoc(String docNo) {
+        return EDocUtil.getDoc(docNo);
+    }
+
+    /** Test seam: delegates to {@link EDocUtil#undeleteDocument(String)}. */
+    protected void undeleteDocument(String docNo) {
+        EDocUtil.undeleteDocument(docNo);
+    }
+
+    private static boolean isPositiveInteger(String s) {
+        if (s == null || s.isEmpty()) return false;
+        for (int i = 0; i < s.length(); i++) {
+            if (!Character.isDigit(s.charAt(i))) return false;
+        }
+        return true;
     }
 
     public String getUndelDocumentNo() { return undelDocumentNo; }
@@ -104,4 +154,13 @@ public final class DocumentUndelete2Action extends ActionSupport {
 
     public String getView() { return view; }
     @StrutsParameter public void setView(String v) { this.view = v; }
+
+    public String getViewstatus() { return viewstatus; }
+    @StrutsParameter public void setViewstatus(String v) { this.viewstatus = v; }
+
+    public String getCategorykey() { return categorykey; }
+    @StrutsParameter public void setCategorykey(String v) { this.categorykey = v; }
+
+    public String getSource() { return source; }
+    @StrutsParameter public void setSource(String v) { this.source = v; }
 }

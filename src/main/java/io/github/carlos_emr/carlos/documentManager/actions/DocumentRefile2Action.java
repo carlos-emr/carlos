@@ -27,20 +27,27 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * POST-only endpoint that refiles a document to a different queue. Replaces
- * the GET-triggerable scriptlet in the old {@code documentBrowser.jsp}.
+ * the GET-triggerable scriptlet in the legacy {@code documentBrowser.jsp}.
  * {@code ManageDocument2Action.refileDocumentAjax} handles the AJAX-from-UI
  * path; this action is the redirect-after-post equivalent used by
  * documentBrowser's full-page submit flow.
+ *
+ * Refile exceptions are caught and surfaced via an {@code errorMessage} query
+ * parameter on the redirect, matching the behavior of the legacy scriptlet.
  */
-public final class DocumentRefile2Action extends ActionSupport {
+public class DocumentRefile2Action extends ActionSupport {
+
+    private static final String METHOD_NOT_ALLOWED = "methodNotAllowed";
 
     private String refileDocumentNo;
     private String queueId;
@@ -49,16 +56,12 @@ public final class DocumentRefile2Action extends ActionSupport {
     private String doctype;
     private String functionid;
     private String categorykey;
+    private String viewstatus;
 
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
-
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
-        }
 
         SecurityInfoManager sim = SpringUtils.getBean(SecurityInfoManager.class);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -66,25 +69,50 @@ public final class DocumentRefile2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc w)");
         }
 
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            return METHOD_NOT_ALLOWED;
+        }
+
+        String errorMessage = null;
         if (refileDocumentNo != null && !refileDocumentNo.isEmpty()) {
-            EDocUtil.refileDocument(refileDocumentNo, queueId);
+            if (!isPositiveInteger(refileDocumentNo) || !isPositiveInteger(queueId)) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid refileDocumentNo or queueId");
+                return NONE;
+            }
+            try {
+                refileDocument(refileDocumentNo, queueId);
+            } catch (Exception e) {
+                MiscUtils.getLogger().error("refileDocument failed", e);
+                errorMessage = e.getMessage() != null ? e.getMessage() : "refile failed";
+            }
         }
 
         StringBuilder url = new StringBuilder(request.getContextPath())
                 .append("/documentManager/ViewDocumentBrowser.do");
         String sep = "?";
-        if (demographicID != null) { url.append(sep).append("demographicID=").append(e(demographicID)); sep = "&"; }
-        if (function != null) { url.append(sep).append("function=").append(e(function)); sep = "&"; }
-        if (doctype != null) { url.append(sep).append("doctype=").append(e(doctype)); sep = "&"; }
-        if (functionid != null) { url.append(sep).append("functionid=").append(e(functionid)); sep = "&"; }
-        if (categorykey != null) { url.append(sep).append("categorykey=").append(e(categorykey)); }
+        if (demographicID != null) { url.append(sep).append("demographicID=").append(Encode.forUriComponent(demographicID)); sep = "&"; }
+        if (function != null) { url.append(sep).append("function=").append(Encode.forUriComponent(function)); sep = "&"; }
+        if (doctype != null) { url.append(sep).append("doctype=").append(Encode.forUriComponent(doctype)); sep = "&"; }
+        if (functionid != null) { url.append(sep).append("functionid=").append(Encode.forUriComponent(functionid)); sep = "&"; }
+        if (categorykey != null) { url.append(sep).append("categorykey=").append(Encode.forUriComponent(categorykey)); sep = "&"; }
+        if (viewstatus != null) { url.append(sep).append("viewstatus=").append(Encode.forUriComponent(viewstatus)); sep = "&"; }
+        if (errorMessage != null) { url.append(sep).append("errorMessage=").append(Encode.forUriComponent(errorMessage)); }
 
         response.sendRedirect(url.toString());
         return NONE;
     }
 
-    private static String e(String s) {
-        return java.net.URLEncoder.encode(s, java.nio.charset.StandardCharsets.UTF_8);
+    /** Test seam: delegates to {@link EDocUtil#refileDocument(String,String)}. */
+    protected void refileDocument(String docNo, String queue) throws Exception {
+        EDocUtil.refileDocument(docNo, queue);
+    }
+
+    private static boolean isPositiveInteger(String s) {
+        if (s == null || s.isEmpty()) return false;
+        for (int i = 0; i < s.length(); i++) {
+            if (!Character.isDigit(s.charAt(i))) return false;
+        }
+        return true;
     }
 
     public String getRefileDocumentNo() { return refileDocumentNo; }
@@ -101,4 +129,6 @@ public final class DocumentRefile2Action extends ActionSupport {
     @StrutsParameter public void setFunctionid(String v) { this.functionid = v; }
     public String getCategorykey() { return categorykey; }
     @StrutsParameter public void setCategorykey(String v) { this.categorykey = v; }
+    public String getViewstatus() { return viewstatus; }
+    @StrutsParameter public void setViewstatus(String v) { this.viewstatus = v; }
 }

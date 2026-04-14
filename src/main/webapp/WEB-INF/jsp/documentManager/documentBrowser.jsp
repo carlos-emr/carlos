@@ -447,6 +447,7 @@ Remote documents not supported
                     <input type="hidden" name="delDocumentNo" value="">
                     <input type="hidden" name="refileDocumentNo" value="">
                     <input type="hidden" name="queueId" value="<%=queueId%>">
+                    <input type="hidden" name="source" value="browser">
 
                     <a
                             href="#" onclick="LoadView('all')"><%=view.equals("all") ? "<b>" : ""%>
