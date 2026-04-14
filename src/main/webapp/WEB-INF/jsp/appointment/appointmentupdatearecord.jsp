@@ -67,6 +67,9 @@
                     </c:if>
                     try { self.opener.refresh(); } catch (e) { /* opener may be closed or cross-origin */ }
                     self.close();
+                </script>
+            </c:when>
+            <c:otherwise>
                 <p>
                 <h1><fmt:message key="appointment.appointmentupdatearecord.msgUpdateFailure"/></h1>
             </c:otherwise>
