@@ -55,7 +55,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.eform" rights="w" reverse="<%=true%>">
 	<%authed=false; %>
-	<%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin.eform");%>
+	<%response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_admin.eform");%>
 </security:oscarSec>
 <%
 	if(!authed) {

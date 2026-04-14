@@ -26,7 +26,7 @@
     String curUser_no = (String) session.getAttribute("user");
 %>
 
-<%@ page import="java.sql.*, java.util.*,java.net.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.sql.*, java.util.*,java.net.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 

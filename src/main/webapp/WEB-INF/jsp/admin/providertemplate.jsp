@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_newCasemgmt.templates" rights="w" reverse="true">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_newCasemgmt.templates");%>
+    <%response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_newCasemgmt.templates");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -47,7 +47,7 @@
 <%
     String curUser_no = (String) request.getAttribute("curUser_no");
 %>
-<%@ page import="java.util.*, io.github.carlos_emr.carlos.commn.model.EncounterTemplate" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, io.github.carlos_emr.carlos.commn.model.EncounterTemplate" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

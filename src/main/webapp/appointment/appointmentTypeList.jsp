@@ -39,7 +39,7 @@
         sError = "Error: " + request.getParameter("err");
 %>
 
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.sql.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>

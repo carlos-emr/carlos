@@ -29,14 +29,14 @@
 --%>
 
 
-<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/casemgmt/WEB-INF/jsp/includes/taglibs.jsp" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_allergy" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_allergy");%>
+    <%response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_allergy");%>
 </security:oscarSec>
 <%
     if (!authed) {

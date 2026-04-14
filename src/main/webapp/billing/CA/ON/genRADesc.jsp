@@ -32,7 +32,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider,io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingONPremium, io.github.carlos_emr.carlos.commn.dao.BillingONPremiumDao" %>
 
-<%@ page import="java.io.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.io.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 
 <%@page import="io.github.carlos_emr.carlos.commn.model.RaHeader" %>

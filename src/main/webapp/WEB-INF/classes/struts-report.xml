@@ -29,8 +29,8 @@
     <package name="report" namespace="/" extends="struts-default">
 
         <global-results>
-            <result name="securityError">/securityError.jsp</result>
-            <result name="error">/errorpage.jsp</result>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </global-results>
 
         <global-exception-mappings>

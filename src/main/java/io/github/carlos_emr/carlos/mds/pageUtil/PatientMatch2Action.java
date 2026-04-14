@@ -100,7 +100,7 @@ public class PatientMatch2Action extends ActionSupport {
                     + "?demographicNo=" + Encode.forUriComponent(demographicNo == null ? "" : demographicNo);
         } catch (Exception e) {
             MiscUtils.getLogger().error("exception in PatientMatch2Action", e);
-            newURL = request.getContextPath() + "/errorpage.jsp";
+            newURL = request.getContextPath() + "/WEB-INF/jsp/error/errorpage.jsp";
         }
 
         response.sendRedirect(newURL);

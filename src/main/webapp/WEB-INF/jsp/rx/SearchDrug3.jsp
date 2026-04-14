@@ -98,7 +98,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_rx" rights="r" reverse="<%=true%>">
 	<%authed=false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_rx");%>
 </security:oscarSec>
 <%
 	if(!authed) {

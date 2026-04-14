@@ -34,7 +34,7 @@
 %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="java.sql.*, java.util.*, java.net.*, io.github.carlos_emr.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicAccessoryDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DemographicAccessory" %>

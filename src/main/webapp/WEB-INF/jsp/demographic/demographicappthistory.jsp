@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -49,7 +49,7 @@
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
-<%@ page import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.db.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.db.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 
 <%@page import="org.apache.commons.lang3.StringUtils" %>

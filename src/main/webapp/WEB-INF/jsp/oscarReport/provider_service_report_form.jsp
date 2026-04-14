@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -63,7 +63,7 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
-<%@ include file="/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/includes/taglibs.jsp" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"
        scope="request"/>
 

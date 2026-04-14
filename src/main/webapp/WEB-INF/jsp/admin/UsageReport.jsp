@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_admin&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -67,7 +67,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
-<%@ include file="/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/includes/taglibs.jsp" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <link href="${ctx}/library/flatpickr/flatpickr.min.css" rel="stylesheet">
 <script src="${ctx}/library/flatpickr/flatpickr.min.js"></script>

@@ -34,7 +34,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
-<%@ page import="java.util.*,java.sql.*,java.util.ResourceBundle" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*,java.sql.*,java.util.ResourceBundle" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroupPrimaryKey" %>

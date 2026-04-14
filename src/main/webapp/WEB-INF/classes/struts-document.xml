@@ -29,8 +29,8 @@
     <package name="document" namespace="/" extends="struts-default">
 
         <global-results>
-            <result name="securityError">/securityError.jsp</result>
-            <result name="error">/errorpage.jsp</result>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </global-results>
 
         <global-exception-mappings>
@@ -44,38 +44,38 @@
             <result name="document_in_queues">/WEB-INF/jsp/oscarMDS/documentsInQueues.jsp</result>
         </action>
         <action name="oscarMDS/SendMRP" class="io.github.carlos_emr.carlos.mds.pageUtil.SendMostResponProv2Action">
-            <result name="failure">/errorpage.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
         </action>
         <action name="oscarMDS/UpdateStatus" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportStatusUpdate2Action">
-            <result name="failure">/errorpage.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
             <result name="success">/WEB-INF/jsp/oscarMDS/Close.jsp</result>
         </action>
         <action name="oscarMDS/RunMacro" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportMacro2Action"/>
         <action name="oscarMDS/ReportReassign" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
-            <result name="failure">/errorpage.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
             <result name="success">/documentManager/inboxManage.do?method=prepareForIndexPage</result>
         </action>
         <action name="lab/CA/ALL/Forward" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
-            <result name="failure">/errorpage.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
             <result name="success">/lab/CA/ALL/ViewLabDisplay.do</result>
         </action>
         <action name="lab/CA/BC/Forward" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
-            <result name="failure">/errorpage.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
             <result name="success">/lab/CA/BC/ViewLabDisplay.do</result>
         </action>
         <action name="lab/CA/ON/Forward" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
-            <result name="failure">/errorpage.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
             <result name="success">/lab/CA/ON/ViewCMLDisplay.do</result>
         </action>
         <action name="oscarMDS/Forward" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
-            <result name="failure">/errorpage.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
         </action>
         <action name="oscarMDS/SearchPatient" class="io.github.carlos_emr.carlos.mds.pageUtil.SearchPatient2Action">
             <result name="failure">/WEB-INF/jsp/oscarMDS/PatientSearch.jsp</result>
             <result name="success">/WEB-INF/jsp/oscarMDS/OpenEChart.jsp</result>
         </action>
         <action name="oscarMDS/PatientMatch" class="io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action">
-            <result name="failure">/errorpage.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
             <result name="success">/WEB-INF/jsp/oscarMDS/OpenEChart.jsp</result>
         </action>
         <!--
@@ -109,7 +109,7 @@
         <action name="documentManager/ManageDocument" class="io.github.carlos_emr.carlos.documentManager.actions.ManageDocument2Action">
             <result name="displaySingleDoc">/WEB-INF/jsp/documentManager/MultiPageDocDisplay.jsp</result>
             <result name="nextIncomingDoc">/WEB-INF/jsp/documentManager/incomingDocs.jsp</result>
-            <result name="error">/failure.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/failure.jsp</result>
         </action>
         <action name="documentManager/SplitDocument" class="io.github.carlos_emr.carlos.documentManager.actions.SplitDocument2Action">
             <result name="success">/WEB-INF/jsp/oscarMDS/Splitclose.jsp</result>

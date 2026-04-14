@@ -48,7 +48,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
-<%@ page errorPage="/errorpage.jsp" import="java.util.*,java.math.*,java.net.*,java.sql.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.*" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" import="java.util.*,java.math.*,java.net.*,java.sql.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.*" %>
 
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>

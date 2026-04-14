@@ -38,7 +38,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -50,7 +50,7 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.DemographicSets, io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="java.util.ArrayList" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/casemgmt/WEB-INF/jsp/includes/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%

@@ -32,7 +32,7 @@
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils"%>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay"%>
 <%  long start = System.currentTimeMillis(); %>
-<%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp"%>
+<%@include file="/WEB-INF/jsp/casemgmt/WEB-INF/jsp/includes/taglibs.jsp"%>
 <fmt:setBundle basename="oscarResources"/>
 <%@page
 	import="java.util.List, java.util.Set, java.util.Iterator, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote"%>
@@ -62,7 +62,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="r" reverse="<%=true%>">
 	<%authed=false; %>
-	<%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_casemgmt.notes");%>
+	<%response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_casemgmt.notes");%>
 </security:oscarSec>
 <%
 	if(!authed) {

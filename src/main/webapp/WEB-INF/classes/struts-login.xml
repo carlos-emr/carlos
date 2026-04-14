@@ -34,10 +34,10 @@
         <action name="login" class="io.github.carlos_emr.carlos.login.Login2Action">
             <result name="provider" type="redirect">/provider/providercontrol.do</result>
             <result name="failure">/logout.jsp</result>
-            <result name="error">/loginfailed.jsp</result>
+            <result name="error">/WEB-INF/jsp/login/loginfailed.jsp</result>
             <result name="caisiPMM">/PMmodule/ProviderInfo.do</result>
-            <result name="forcepasswordreset">/forcepasswordreset.jsp</result>
-            <result name="programLocation">/location.jsp</result>
+            <result name="forcepasswordreset">/WEB-INF/jsp/login/forcepasswordreset.jsp</result>
+            <result name="programLocation">/WEB-INF/jsp/login/location.jsp</result>
             <result name="mfaHandler">/WEB-INF/jsp/mfa/mfa_handler.jsp</result>
         </action>
         <action name="securityRecord/mfa" class="io.github.carlos_emr.carlos.security.MfaActions2Action"/>
@@ -58,6 +58,37 @@
             session without being force-redirected to the login page.
         -->
         <action name="status/SessionHeartbeat" class="io.github.carlos_emr.carlos.status.action.SessionHeartbeat2Action"/>
+
+        <!--
+            ===== webapp-root foldering: login/util view gates ================
+            Login-flow JSPs moved behind /WEB-INF/jsp/login/. The facility
+            picker needs a pre-full-session gate; the login-failed shim exists
+            for scriptlet sendRedirect callers.
+        -->
+        <action name="login/SelectFacility" class="io.github.carlos_emr.carlos.login.gate.ViewSelectFacility2Action">
+            <result name="success">/WEB-INF/jsp/login/select_facility.jsp</result>
+        </action>
+        <action name="login/LoginFailed" class="io.github.carlos_emr.carlos.login.gate.ViewLoginFailed2Action">
+            <result name="success">/WEB-INF/jsp/login/loginfailed.jsp</result>
+        </action>
+        <action name="util/CloseAndReload" class="io.github.carlos_emr.carlos.commn.web.gate.ViewCloseAndReload2Action">
+            <result name="success">/WEB-INF/jsp/util/closenreload.jsp</result>
+        </action>
+
+        <!--
+            ===== Error-page shims =============================================
+            Anonymous-reachable forwards to the WEB-INF error JSPs. Used by
+            scriptlet sendRedirect callers (security:oscarSec failure
+            branches). Struts global-results forward directly to the WEB-INF
+            JSPs for exception-based paths; these shims handle the
+            client-redirect-based paths.
+        -->
+        <action name="error/SecurityError" class="io.github.carlos_emr.carlos.commn.web.error.ViewSecurityError2Action">
+            <result name="success">/WEB-INF/jsp/error/securityError.jsp</result>
+        </action>
+        <action name="error/ErrorPage" class="io.github.carlos_emr.carlos.commn.web.error.ViewErrorPage2Action">
+            <result name="success">/WEB-INF/jsp/error/errorpage.jsp</result>
+        </action>
 
     </package>
 </struts>

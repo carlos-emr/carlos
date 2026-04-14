@@ -29,7 +29,7 @@
 
 --%>
 
-<%@ include file="/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/includes/taglibs.jsp" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>

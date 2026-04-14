@@ -78,7 +78,7 @@
         }
     }
 %>
-<%@ page errorPage="/errorpage.jsp"
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
          import="java.util.*,java.sql.*,java.net.*" %>
 <%@ page import="org.apache.commons.text.WordUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>

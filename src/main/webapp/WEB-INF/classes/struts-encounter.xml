@@ -29,8 +29,8 @@
     <package name="encounter" namespace="/" extends="struts-default">
 
         <global-results>
-            <result name="securityError">/securityError.jsp</result>
-            <result name="error">/errorpage.jsp</result>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </global-results>
 
         <global-exception-mappings>
@@ -39,7 +39,7 @@
         </global-exception-mappings>
 
         <action name="encounter/IncomingEncounter" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctIncomingEncounter2Action">
-            <result name="failure">/errorpage.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
             <result name="success2">/WEB-INF/jsp/encounter/Index2.jsp</result>
             <result name="domain-error">/WEB-INF/jsp/casemgmt/domain-error.jsp</result>
         </action>
@@ -391,7 +391,7 @@
 
         <action name="encounter/SaveEncounter2" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctSaveEncounter2Action">
             <result name="saveAndStay">/WEB-INF/jsp/encounter/Index2.jsp?saved=true</result>
-            <result name="failure">/errorpage.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
             <result name="success">/WEB-INF/jsp/encounter/TimeOut.jsp</result>
             <result name="bill">/billing.do</result>
             <result name="splitchart">/WEB-INF/jsp/encounter/Index2.jsp?saved=true&amp;splitchart=true</result>

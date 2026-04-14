@@ -34,7 +34,7 @@
 
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ page errorPage="/errorpage.jsp"%>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"%>
 
 <%@page import="java.util.*,java.net.*,java.sql.*" %>
 <%@page import="io.github.carlos_emr.*" %>

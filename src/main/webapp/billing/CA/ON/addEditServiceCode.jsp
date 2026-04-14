@@ -28,7 +28,7 @@
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
     }
 %>
-<%@ page errorPage="/errorpage.jsp"
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
          import="java.util.*,java.sql.*,io.github.carlos_emr.*,java.text.*, java.lang.*,java.net.*" %>
 
 <%@ page

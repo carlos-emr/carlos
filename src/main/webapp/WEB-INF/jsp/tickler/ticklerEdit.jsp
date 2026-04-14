@@ -94,7 +94,7 @@
 
 <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_tickler");%>
+    <%response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_tickler");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -116,12 +116,12 @@
     if (ticklerNo != null) {
         t = ticklerManager.getTickler(loggedInInfo, ticklerNo);
         if (t == null) {
-            response.sendRedirect(request.getContextPath() + "/errorpage.jsp");
+            response.sendRedirect(request.getContextPath() + "/error/ErrorPage.do");
             return;
         }
         d = demographicManager.getDemographicWithExt(loggedInInfo, t.getDemographicNo());
     } else {
-        response.sendRedirect(request.getContextPath() + "/errorpage.jsp");
+        response.sendRedirect(request.getContextPath() + "/error/ErrorPage.do");
         return;
     }
 

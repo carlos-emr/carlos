@@ -27,7 +27,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ include file="/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/includes/taglibs.jsp" %>
 <%@ page import="java.util.List" %>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>

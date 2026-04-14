@@ -24,7 +24,7 @@
 --%>
 <!DOCTYPE html>
 
-<%@ include file="/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/includes/taglibs.jsp" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -34,7 +34,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {

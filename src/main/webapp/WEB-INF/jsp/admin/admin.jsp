@@ -39,7 +39,7 @@
                    objectName="_admin,_admin.userAdmin,_admin.schedule,_admin.billing,_admin.invoices,_admin.resource,_admin.reporting,_admin.backup,_admin.messenger,_admin.eform,_admin.encounter,_admin.misc,_admin.torontoRfq,_admin.flowsheet"
                    rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.*");%>
+    <%response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_admin&type=_admin.*");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -58,7 +58,7 @@
     String userlastname = (String) session.getAttribute("userlastname");
 %>
 
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <%
     String country = request.getLocale().getCountry();

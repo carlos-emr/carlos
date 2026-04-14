@@ -252,7 +252,7 @@ public final class Login2Action extends ActionSupport {
         // SECURITY: Reject GET requests to prevent credential exposure in URLs/logs
         if (!"POST".equals(request.getMethod())) {
             MiscUtils.getLogger().error("Someone is trying to login with a GET request.", new Exception());
-            String newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Application Error. See Log.";
+            String newURL = request.getContextPath() + "/WEB-INF/jsp/login/loginfailed.jsp?errormsg=Application Error. See Log.";
             response.sendRedirect(newURL);
             return NONE;
         }
@@ -393,7 +393,7 @@ public final class Login2Action extends ActionSupport {
 
                 // Error Handling
                 if (errorStr != null && !errorStr.isEmpty()) {
-                    String newURL = request.getContextPath() + "/forcepasswordreset.jsp";
+                    String newURL = request.getContextPath() + "/WEB-INF/jsp/login/forcepasswordreset.jsp";
                     newURL = newURL + errorStr;
                     response.sendRedirect(newURL);
                     return NONE;
@@ -407,7 +407,7 @@ public final class Login2Action extends ActionSupport {
                 removeAttributesFromSession(request);
             } catch (Exception e) {
                 logger.error("Error", e);
-                String newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Setting values to the session.";
+                String newURL = request.getContextPath() + "/WEB-INF/jsp/login/loginfailed.jsp?errormsg=Setting values to the session.";
 
                 // Remove the attributes from session
                 removeAttributesFromSession(request);
@@ -440,7 +440,7 @@ public final class Login2Action extends ActionSupport {
             if (nextPage != null) {
                 if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
                     logger.warn("Rejected redirect URL: {}", LogSanitizer.sanitize(nextPage));
-                    response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
+                    response.sendRedirect(request.getContextPath() + "/login/LoginFailed.do");
                     return NONE;
                 } else {
                     // set current facility - validate format and verify the authenticated user has access
@@ -448,7 +448,7 @@ public final class Login2Action extends ActionSupport {
                     // Validate format: must be non-null positive integer (max 9 digits to stay within Integer range)
                     if (facilityIdString == null || !facilityIdString.matches("\\d{1,9}")) {
                         logger.warn("Invalid or missing facility ID in facility selection request");
-                        response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
+                        response.sendRedirect(request.getContextPath() + "/login/LoginFailed.do");
                         return NONE;
                     }
                     int facilityId = Integer.parseInt(facilityIdString);
@@ -457,13 +457,13 @@ public final class Login2Action extends ActionSupport {
                     List<Integer> allowedFacilityIds = providerDao.getFacilityIds(username);
                     if (!allowedFacilityIds.contains(facilityId)) {
                         logger.warn("Provider {} attempted unauthorized facility selection: {}", LogSanitizer.sanitize(username), facilityId);
-                        response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
+                        response.sendRedirect(request.getContextPath() + "/login/LoginFailed.do");
                         return NONE;
                     }
                     Facility facility = facilityDao.find(facilityId);
                     if (facility == null) {
                         logger.warn("Selected facility not found: {}", facilityId);
-                        response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
+                        response.sendRedirect(request.getContextPath() + "/login/LoginFailed.do");
                         return NONE;
                     }
                     // facilityId validated via Integer.parseInt() and facilityDao.find() above
@@ -483,7 +483,7 @@ public final class Login2Action extends ActionSupport {
                 logger.info("{} Blocked: {}", LOG_PRE, LogSanitizer.sanitize(userName));
                 // return mapping.findForward(where); //go to block page
                 // change to block page
-                String newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Oops! Your account is now locked due to incorrect password attempts!";
+                String newURL = request.getContextPath() + "/WEB-INF/jsp/login/loginfailed.jsp?errormsg=Oops! Your account is now locked due to incorrect password attempts!";
 
                 if (ajaxResponse) {
                     ObjectNode json = objectMapper.createObjectNode();
@@ -510,7 +510,7 @@ public final class Login2Action extends ActionSupport {
             strAuth = cl.auth(userName, password, pin, ip);
         } catch (Exception e) {
             logger.error("Error", e);
-            String newURL = request.getContextPath() + "/loginfailed.jsp"
+            String newURL = request.getContextPath() + "/WEB-INF/jsp/login/loginfailed.jsp"
                     + "?errormsg=Unable to process login at this time. Please try again.";
 
             if (ajaxResponse) {
@@ -538,7 +538,7 @@ public final class Login2Action extends ActionSupport {
                 logger.info("{} Inactive: {}", LOG_PRE, LogSanitizer.sanitize(userName));
                 LogAction.addLog(strAuth[0], "login", "failed", "inactive");
 
-                String newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Your account is inactive. Please contact your administrator to activate.";
+                String newURL = request.getContextPath() + "/WEB-INF/jsp/login/loginfailed.jsp?errormsg=Your account is inactive. Please contact your administrator to activate.";
 
                 response.sendRedirect(newURL);
                 return NONE;
@@ -552,13 +552,13 @@ public final class Login2Action extends ActionSupport {
                     security.isForcePasswordReset() != null && security.isForcePasswordReset()
                     && forcedpasswordchange) {
 
-                String newURL = request.getContextPath() + "/forcepasswordreset.jsp";
+                String newURL = request.getContextPath() + "/WEB-INF/jsp/login/forcepasswordreset.jsp";
 
                 try {
                     setUserInfoToSession(request, userName, password, pin, nextPage);
                 } catch (Exception e) {
                     logger.error("Error", e);
-                    newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Setting values to the session.";
+                    newURL = request.getContextPath() + "/WEB-INF/jsp/login/loginfailed.jsp?errormsg=Setting values to the session.";
                 }
 
                 response.sendRedirect(newURL);
@@ -713,7 +713,7 @@ public final class Login2Action extends ActionSupport {
 
             List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
             if (facilityIds.size() > 1) {
-                String facilityPath = "/select_facility.jsp?nextPage=";
+                String facilityPath = "/login/SelectFacility.do?nextPage=";
                 String newURL = request.getContextPath() + facilityPath + Encode.forUriComponent(where);
 
                 response.sendRedirect(newURL);
@@ -746,7 +746,7 @@ public final class Login2Action extends ActionSupport {
         else if (strAuth != null && strAuth.length == 1 && strAuth[0].equals("expired")) {
             logger.warn("Expired password");
             cl.updateLoginList(ip, userName);
-            String newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Your account is expired. Please contact your administrator.";
+            String newURL = request.getContextPath() + "/WEB-INF/jsp/login/loginfailed.jsp?errormsg=Your account is expired. Please contact your administrator.";
 
             if (ajaxResponse) {
                 ObjectNode json = objectMapper.createObjectNode();

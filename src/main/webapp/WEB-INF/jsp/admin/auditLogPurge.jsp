@@ -40,7 +40,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.auditLogPurge" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin.auditLogPurge");%>
+    <%response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_admin.auditLogPurge");%>
 </security:oscarSec>
 <%
     if (!authed) {

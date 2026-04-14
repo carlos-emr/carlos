@@ -59,7 +59,7 @@
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*,java.net.*, java.sql.*, io.github.carlos_emr.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>

@@ -29,9 +29,9 @@
     <package name="demographic" namespace="/" extends="struts-default">
 
         <global-results>
-            <result name="securityError">/securityError.jsp</result>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
             <result name="logout" type="redirect">/logout.jsp</result>
-            <result name="error">/errorpage.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </global-results>
 
         <global-exception-mappings>
@@ -63,7 +63,7 @@
         </action>
         <action name="form/importLogDownload" class="io.github.carlos_emr.carlos.demographic.pageUtil.ImportLogDownload2Action">
             <result name="success">/WEB-INF/jsp/demographic/demographicImport.jsp</result>
-            <result name="error">/errorpage.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </action>
         <action name="demographic/DemographicExport" class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action">
             <result name="success">/WEB-INF/jsp/demographic/demographicExport.jsp</result>

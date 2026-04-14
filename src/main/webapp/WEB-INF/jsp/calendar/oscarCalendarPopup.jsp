@@ -27,7 +27,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ include file="/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/includes/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%

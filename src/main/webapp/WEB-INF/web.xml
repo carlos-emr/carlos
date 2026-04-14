@@ -593,6 +593,6 @@
   </welcome-file-list>
 
   <error-page>
-    <location>/errorpage.jsp</location>
+    <location>/WEB-INF/jsp/error/errorpage.jsp</location>
   </error-page>
 </web-app>

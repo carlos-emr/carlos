@@ -43,7 +43,7 @@
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page
         import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
-        errorPage="/errorpage.jsp" %>
+        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%
     String urlfrom = request.getParameter("urlfrom") == null ? "" : request.getParameter("urlfrom");
     String param = request.getParameter("param") == null ? "" : request.getParameter("param");

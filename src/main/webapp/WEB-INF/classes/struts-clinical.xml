@@ -29,8 +29,8 @@
     <package name="clinical" namespace="/" extends="struts-default">
 
         <global-results>
-            <result name="securityError">/securityError.jsp</result>
-            <result name="error">/errorpage.jsp</result>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </global-results>
 
         <global-exception-mappings>
@@ -80,11 +80,11 @@
         <action name="encounter/MeasurementData" class="io.github.carlos_emr.carlos.measurements.web.MeasurementData2Action"/>
         <action name="oscarResearch/oscarDxResearch/setupDxResearch" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxSetupResearch2Action">
             <result name="success">/oscarResearch/oscarDxResearch/dxResearch.jsp</result>
-            <result name="error">/errorpage.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </action>
         <action name="oscarResearch/dxresearch/setupDxResearch" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxSetupResearch2Action">
             <result name="success">/oscarResearch/oscarDxResearch/dxResearch.jsp</result>
-            <result name="error">/errorpage.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </action>
         <action name="oscarResearch/oscarDxResearch/dxResearch" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearch2Action">
             <result name="codeSearch">/oscarResearch/oscarDxResearch/dxcodeSearch.do</result>
@@ -562,7 +562,7 @@
             <result name="success">/WEB-INF/jsp/casemgmt/showHistory.jsp</result>
         </action>
         <action name="casemgmt/ViewTaglibs" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
-            <result name="success">/WEB-INF/jsp/casemgmt/taglibs.jsp</result>
+            <result name="success">/WEB-INF/jsp/casemgmt/WEB-INF/jsp/includes/taglibs.jsp</result>
         </action>
         <action name="casemgmt/ViewTicklers" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/casemgmt/ticklers.jsp</result>

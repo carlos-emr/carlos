@@ -37,7 +37,7 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ page import="java.util.*,java.net.*, io.github.carlos_emr.carlos.util.*"
-         errorPage="/errorpage.jsp" buffer="64kb" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" buffer="64kb" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDict" %>
 

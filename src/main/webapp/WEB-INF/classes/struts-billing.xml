@@ -175,7 +175,7 @@
         </action>
         <action name="billing/CA/ON/BillingONCorrection" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrection2Action">
             <result name="success">/billing/CA/ON/billingONCorrection.jsp</result>
-            <result name="failure">/failure.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/failure.jsp</result>
             <result name="submitClose">/close.html</result>
             <result name="closeReload">/billing/CA/ON/billingONCorrection.jsp?billing_no=</result>
             <result name="adminReload">/billing/CA/ON/billingONCorrection.jsp?billing_no=&amp;admin&amp;success</result>

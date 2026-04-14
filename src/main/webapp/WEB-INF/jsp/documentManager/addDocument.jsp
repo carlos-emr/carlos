@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("${ pageContext.request.contextPath }/securityError.jsp?type=_edoc");%>
+    <%response.sendRedirect("${ pageContext.request.contextPath }/error/SecurityError.do?type=_edoc");%>
 </security:oscarSec>
 <%
     if (!authed) {

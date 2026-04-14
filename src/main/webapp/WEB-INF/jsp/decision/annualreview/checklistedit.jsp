@@ -38,7 +38,7 @@
     }
 %>
 <%@ page import="java.util.*, java.sql.*, java.io.*, io.github.carlos_emr.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>

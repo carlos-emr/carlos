@@ -29,7 +29,7 @@
 %>
 <%@ page
         import="io.github.carlos_emr.carlos.billing.ca.on.data.*, java.sql.*, io.github.carlos_emr.*, java.net.*"
-        errorPage="/errorpage.jsp" %>
+        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingErrorRepImpl" %>
 <%
     String id = request.getParameter("id");

@@ -37,7 +37,7 @@
     String user_no = "";
     user_no = (String) session.getAttribute("user");
 %>
-<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/casemgmt/WEB-INF/jsp/includes/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.*, java.sql.*, java.net.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>

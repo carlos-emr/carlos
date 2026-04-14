@@ -83,7 +83,7 @@
                 io.github.carlos_emr.carlos.demographic.data.*" %>
 
 <%@ page import=" java.util.*, org.w3c.dom.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.EChartDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.EChart" %>
@@ -103,7 +103,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");%>
+    <%response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_msg");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -123,13 +123,13 @@
     // Reject null/missing or non-integer values before any session writes.
     int demographicNoInt;
     if (demographic_no_raw == null || demographic_no_raw.isEmpty()) {
-        response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");
+        response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_msg");
         return;
     }
     try {
         demographicNoInt = Integer.parseInt(demographic_no_raw);
     } catch (NumberFormatException e) {
-        response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");
+        response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_msg");
         return;
     }
     // Use the validated integer value as the canonical demographic number string

@@ -38,7 +38,7 @@
             : ("0");
     String curUser_no = (String) session.getAttribute("user");
 %>
-<%@ page errorPage="/errorpage.jsp"
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
          import="java.util.*,
                  java.sql.*,
                  io.github.carlos_emr.*,

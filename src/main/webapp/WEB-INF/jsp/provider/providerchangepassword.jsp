@@ -57,7 +57,7 @@
 
 <%@ page
         import="java.lang.*, java.util.*, java.text.*,java.sql.*, io.github.carlos_emr.*"
-        errorPage="/errorpage.jsp" %>
+        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%!
     CarlosProperties op = CarlosProperties.getInstance();

@@ -48,7 +48,7 @@
 %>
 <%@ page
         import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.db.*"
-        errorPage="/errorpage.jsp" %>
+        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.ON.dao.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONExtDao" %>

@@ -24,7 +24,7 @@
 
 --%>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ page import="java.util.*,java.sql.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.util.*,java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*,java.sql.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.util.*,java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 

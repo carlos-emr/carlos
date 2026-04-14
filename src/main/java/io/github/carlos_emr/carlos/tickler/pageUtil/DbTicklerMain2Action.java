@@ -91,7 +91,7 @@ public final class DbTicklerMain2Action extends ActionSupport {
 
         // Security check — requires _tickler update privilege
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "u", null)) {
-            response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_tickler");
+            response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_tickler");
             return NONE;
         }
 

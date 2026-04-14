@@ -33,7 +33,7 @@
 <%-- Updated by Eugene Petruhin on 15 jan 2009 while fixing #2510692 --%>
 <%-- Updated by Eugene Petruhin on 27 jan 2009 while fixing #2510693 --%>
 
-<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/casemgmt/WEB-INF/jsp/includes/taglibs.jsp" %>
 
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>

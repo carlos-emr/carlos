@@ -28,7 +28,7 @@
 
 --%>
 
-<%@ include file="/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/includes/taglibs.jsp" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <script>

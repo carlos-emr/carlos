@@ -32,8 +32,8 @@
             <result name="success">/WEB-INF/jsp/web/inboxhub/Inboxhub.jsp</result>
             <result name="displayList">/WEB-INF/jsp/web/inboxhub/InboxhubListMode.jsp</result>
             <result name="displayView">/WEB-INF/jsp/web/inboxhub/InboxhubViewMode.jsp</result>
-            <result name="unauthorized">/securityError.jsp</result>
-            <result name="error">/failure.jsp</result>
+            <result name="unauthorized">/WEB-INF/jsp/error/securityError.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/failure.jsp</result>
         </action>
         <action name="admin/ManageFax" class="io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action">
         </action>
@@ -42,7 +42,7 @@
         </action>
         <action name="fax/faxAction" class="io.github.carlos_emr.carlos.fax.action.Fax2Action">
             <result name="preview">/WEB-INF/jsp/fax/CoverPage.jsp</result>
-            <result name="error">/errorpage.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
             <result name="CONSULTATION">/encounter/ViewRequest.do</result>
             <result name="EFORM">/eform/efmshowform_data.jsp</result>
             <result name="eFormError">/eform/efmshowform_data.jsp?error=true</result>

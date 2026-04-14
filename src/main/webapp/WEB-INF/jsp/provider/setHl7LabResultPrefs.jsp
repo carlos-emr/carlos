@@ -5,7 +5,7 @@
 <c:set var="roleName" value="${sessionScope.userrole},${sessionScope.user}" />
 
 <security:oscarSec roleName="${roleName}" objectName="_lab" rights="w" reverse="true">
-    <c:redirect url="../securityError.jsp">
+    <c:redirect url="../WEB-INF/jsp/error/securityError.jsp">
         <c:param name="type" value="_lab" />
     </c:redirect>
 </security:oscarSec>

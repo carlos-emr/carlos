@@ -30,7 +30,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -116,7 +116,7 @@
         }
     }
 %>
-<%@ page errorPage="/errorpage.jsp"
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
          import="java.util.*,java.sql.*,java.net.*" %>
 
 <%@ page import="org.apache.commons.text.WordUtils" %>

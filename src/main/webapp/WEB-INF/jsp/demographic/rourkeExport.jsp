@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -50,7 +50,7 @@
 <%@page import="io.github.carlos_emr.carlos.report.data.DemographicSets" %>
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DataExport" %>
-<%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+<%@include file="/WEB-INF/jsp/casemgmt/WEB-INF/jsp/includes/taglibs.jsp" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <%
     DemographicSets ds = new DemographicSets();

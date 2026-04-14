@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report");%>
+    <%response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_report");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -57,7 +57,7 @@
 <%@page import="java.text.DateFormatSymbols" %>
 <%@page import="org.owasp.encoder.Encode" %>
 
-<%@ include file="/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/includes/taglibs.jsp" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"
        scope="request"/>
 <link rel="stylesheet" href="${ctx}/library/flatpickr/flatpickr.min.css" type="text/css"/>

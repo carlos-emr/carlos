@@ -53,7 +53,7 @@
     <%isSiteAccessPrivacy = true; %>
 </security:oscarSec>
 
-<%@ page import="java.util.*,java.sql.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*,java.sql.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <!DOCTYPE html>
 <html>

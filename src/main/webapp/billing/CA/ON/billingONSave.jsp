@@ -43,7 +43,7 @@
         import="java.util.*,java.sql.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*,io.github.carlos_emr.carlos.billing.ca.on.data.*,io.github.carlos_emr.carlos.providers.data.*,java.math.* ,io.github.carlos_emr.carlos.billing.ca.on.administration.*" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="org.springframework.web.context.WebApplicationContext" %>
-<%@ page errorPage="/errorpage.jsp" import="java.util.*" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*,io.github.carlos_emr.carlos.commn.model.*,io.github.carlos_emr.carlos.commn.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>

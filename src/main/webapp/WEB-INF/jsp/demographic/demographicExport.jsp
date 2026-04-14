@@ -40,7 +40,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic,_demographicExport" rights="w"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic&type=_demographicExport");%>
+    <%response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_demographic&type=_demographicExport");%>
 </security:oscarSec>
 <%
     if (!authed) {

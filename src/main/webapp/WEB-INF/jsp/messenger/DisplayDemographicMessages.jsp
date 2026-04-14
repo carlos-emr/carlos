@@ -85,7 +85,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");%>
+    <%response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_msg");%>
 </security:oscarSec>
 <%
     // Exit if user is not authorized
@@ -151,7 +151,7 @@
     if (bean == null) {
         bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
         if (bean == null) {
-            response.sendRedirect(request.getContextPath() + "/errorpage.jsp?message=Session expired");
+            response.sendRedirect(request.getContextPath() + "/error/ErrorPage.do?message=Session expired");
             return;
         }
     }

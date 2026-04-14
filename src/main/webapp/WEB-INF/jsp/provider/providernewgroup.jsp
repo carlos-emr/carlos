@@ -29,7 +29,7 @@
 
 --%>
 
-<%@ page import="java.util.*,java.sql.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*,java.sql.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>

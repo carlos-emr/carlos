@@ -46,7 +46,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page
         import="java.lang.*,io.github.carlos_emr.*"
-        errorPage="/errorpage.jsp" %>
+        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <%!

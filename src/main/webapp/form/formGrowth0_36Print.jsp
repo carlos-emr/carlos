@@ -5,7 +5,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -13,7 +13,7 @@
     }
 %>
 
-<%@ page errorPage="/errorpage.jsp" import="java.util.*" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" import="java.util.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%

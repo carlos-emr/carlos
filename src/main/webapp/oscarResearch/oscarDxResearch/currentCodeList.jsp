@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_dxresearch" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_dxresearch");%>
+    <%response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_dxresearch");%>
 </security:oscarSec>
 <%
     if (!authed) {

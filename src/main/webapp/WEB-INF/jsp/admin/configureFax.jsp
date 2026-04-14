@@ -58,7 +58,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin.fax");%>
+    <%response.sendRedirect(request.getContextPath() + "/error/SecurityError.do?type=_admin.fax");%>
 </security:oscarSec>
 <%
     if (!authed) {

@@ -39,7 +39,7 @@
         bNew = false;
 %>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <HTML>
 <head>

@@ -30,7 +30,7 @@
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 
-<%@ page import="java.util.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderBillCenter" %>

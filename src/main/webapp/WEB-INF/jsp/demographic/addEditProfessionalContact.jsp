@@ -30,7 +30,7 @@
 --%>
 
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ include file="/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/includes/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.Properties" %>
 <%@ page import="java.util.List, io.github.carlos_emr.carlos.utility.SpringUtils" %>

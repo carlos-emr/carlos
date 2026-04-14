@@ -27,7 +27,7 @@
 <%@page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="java.math.*,java.util.*,java.sql.*,io.github.carlos_emr.*,java.net.*" %>
-<!-- errorPage="/errorpage.jsp" -->
+<!-- errorPage="/WEB-INF/jsp/error/errorpage.jsp" -->
 <%@page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@page import="io.github.carlos_emr.carlos.demographic.data.*" %>

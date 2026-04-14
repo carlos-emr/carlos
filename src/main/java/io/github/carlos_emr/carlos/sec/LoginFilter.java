@@ -155,8 +155,8 @@ public class LoginFilter implements Filter {
             "/login.do",
             "/logout.jsp",
             "/index.jsp",
-            "/forcepasswordreset.jsp",
-            "/loginfailed.jsp",
+            "/WEB-INF/jsp/login/forcepasswordreset.jsp",
+            "/WEB-INF/jsp/login/loginfailed.jsp",
             "/index.html",
             "/eformViewForPdfGenerationServlet",
             "/LabViewForPdfGenerationServlet",
@@ -198,7 +198,7 @@ public class LoginFilter implements Filter {
             "/login.do",
             "/logout.jsp",
             "/index.jsp",
-            "/loginfailed.jsp",
+            "/WEB-INF/jsp/login/loginfailed.jsp",
             "/index.html",
             "/eformViewForPdfGenerationServlet",
             "/LabViewForPdfGenerationServlet",
@@ -232,7 +232,7 @@ public class LoginFilter implements Filter {
     private static final String[] EXEMPT_URLS_FOR_REQUEST_TIMEOUT_REDIRECT = {
             "/logout.jsp",
             "/index.jsp",
-            "/loginfailed.jsp",
+            "/WEB-INF/jsp/login/loginfailed.jsp",
             "/index.html"
     };
 
