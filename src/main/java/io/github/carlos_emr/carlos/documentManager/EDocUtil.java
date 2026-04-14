@@ -1388,7 +1388,12 @@ public final class EDocUtil {
 		File incomingRoot = new File(incomingBaseDir);
 		String destPath = IncomingDocUtil.getIncomingDocumentFilePath(String.valueOf(queueId), "Refile");
 		File destFile = new File(destPath, "R" + destFileName);
-		PathValidationUtils.validateExistingPath(destFile, incomingRoot);
+		try {
+			PathValidationUtils.validateExistingPath(destFile, incomingRoot);
+		} catch (SecurityException e) {
+			logger.error("Path traversal attempt in isDocumentAlreadyRefiledInQueue", e);
+			return false;
+		}
 		return destFile.exists();
 	}
 
