@@ -136,7 +136,7 @@ public class SearchPatient2Action extends ActionSupport {
                 newURL = contextPath + PATIENT_SEARCH_URL;
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("exception in SearchPatient2Action:" + e);
+            MiscUtils.getLogger().error("exception in SearchPatient2Action", e);
             // On error, show patient search to allow manual linking
             newURL = contextPath + PATIENT_SEARCH_URL;
         }

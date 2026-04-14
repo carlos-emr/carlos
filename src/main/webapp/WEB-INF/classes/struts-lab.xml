@@ -28,6 +28,16 @@
 <struts>
     <package name="lab" namespace="/" extends="struts-default">
 
+        <global-results>
+            <result name="securityError">/securityError.jsp</result>
+            <result name="error">/errorpage.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+            <exception-mapping exception="java.lang.Exception" result="error"/>
+        </global-exception-mappings>
+
         <action name="lab/CA/ALL/createLabLabel" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.CreateLabLabel2Action">
             <result name="complete">/lab/CA/ALL/labDisplay.jsp</result>
         </action>

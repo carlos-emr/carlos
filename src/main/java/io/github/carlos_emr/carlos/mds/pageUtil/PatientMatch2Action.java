@@ -48,6 +48,29 @@ import org.owasp.encoder.Encode;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that links a lab result to a demographic record and then
+ * redirects the user to the patient's E-Chart view.
+ *
+ * <p>Invoked after {@code SearchPatient2Action} resolves (or the user manually
+ * selects) a demographic match for an MDS lab. Updates the lab-to-demographic
+ * routing via {@code CommonLabResultData.updatePatientLabRouting(...)} then
+ * redirects to {@code /oscarMDS/ViewOpenEChart.do} (the {@code _lab r} gate
+ * for {@code OpenEChart.jsp}) rather than self-redirecting.
+ *
+ * <p>Request parameters:
+ * <ul>
+ *   <li>{@code demographicNo} — target demographic id</li>
+ *   <li>{@code labNo} — lab segment id being linked</li>
+ *   <li>{@code labType} — lab result type (e.g. {@code HL7})</li>
+ * </ul>
+ *
+ * <p>Security: requires {@code _lab} write privilege; throws {@code SecurityException}
+ * on failure. All user-provided URL components are encoded via
+ * {@link org.owasp.encoder.Encode#forUriComponent(String)}.
+ *
+ * @since 2004-02-04
+ */
 public class PatientMatch2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -69,15 +92,15 @@ public class PatientMatch2Action extends ActionSupport {
         String labNo = request.getParameter("labNo");
         String labType = request.getParameter("labType");
 
-        String newURL = "";
+        String newURL;
 
         try {
             CommonLabResultData.updatePatientLabRouting(labNo, demographicNo, labType);
-            newURL = request.getContextPath() + "/oscarMDS/ViewOpenEChart.do";
-            newURL = newURL + "?demographicNo=" + Encode.forUriComponent(demographicNo == null ? "" : demographicNo);
+            newURL = request.getContextPath() + "/oscarMDS/ViewOpenEChart.do"
+                    + "?demographicNo=" + Encode.forUriComponent(demographicNo == null ? "" : demographicNo);
         } catch (Exception e) {
-            MiscUtils.getLogger().debug("exception in ReportReassign2Action:" + e);
-            newURL = "/errorpage.jsp";
+            MiscUtils.getLogger().error("exception in PatientMatch2Action", e);
+            newURL = request.getContextPath() + "/errorpage.jsp";
         }
 
         response.sendRedirect(newURL);
