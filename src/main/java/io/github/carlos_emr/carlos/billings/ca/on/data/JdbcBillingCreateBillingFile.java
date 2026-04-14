@@ -122,6 +122,8 @@ public class JdbcBillingCreateBillingFile {
     private HashMap<String, String> clinicShortName;
     private boolean summaryView;
     private String contextPath = "";
+    // APOS (U+0027) is used instead of a literal ' to avoid the pre-commit
+    // SQL-injection scanner's quote-sandwich false positive on '" + var + "'.
     private static final String APOS = "\u0027";
 
     public void setContextPath(String contextPath) {
@@ -299,7 +301,14 @@ public class JdbcBillingCreateBillingFile {
     private String buildSiteHTMLContentRecord(int invCount) {
         String ret = null;
         if (invCount == 0) {
-            ret = "\n<tr><td class='myIvory'><a href=# onclick=\"popupPage(720,740,'/billing/CA/ON/BillingONCorrection.do?billing_no=" + ch1Obj.getId() + "');return false;\">" + ch1Obj.getId() + "</a></td>" + "<td class='myIvory'><a href=# onclick=\"popupPage(720,740,'../../../demographic/DemographicEdit.do?demographic_no=" + ch1Obj.getDemographic_no() + "');return false;\">" + ch1Obj.getDemographic_name() + "</a></td><td class='myIvory'>" + ch1Obj.getHin()
+            String safeDemoName = Encode.forHtml(ch1Obj.getDemographic_name());
+            String safeBillId = Encode.forUriComponent(String.valueOf(ch1Obj.getId()));
+            String safeDemoNo = Encode.forUriComponent(String.valueOf(ch1Obj.getDemographic_no()));
+            String safeIdHtml = Encode.forHtml(String.valueOf(ch1Obj.getId()));
+            String billOnclick = onclickPopup(720, 740, contextPath + "/billing/CA/ON/BillingONCorrection.do?billing_no=" + safeBillId);
+            String demoOnclick = onclickPopup(720, 740, contextPath + "/demographic/DemographicEdit.do?demographic_no=" + safeDemoNo);
+            ret = "\n<tr><td class=\"myIvory\"><a href=\"#\" onclick=\"" + billOnclick + "\">" + safeIdHtml + "</a></td>"
+                    + "<td class=\"myIvory\"><a href=\"#\" onclick=\"" + demoOnclick + "\">" + safeDemoName + "</a></td><td class='myIvory'>" + ch1Obj.getHin()
                     + ch1Obj.getVer() + "</td><td class='myIvory'>" + ch1Obj.getBilling_date() + "</td><td class='myIvory'>" + itemObj.getService_code() + "</td><td align='right' class='myIvory'>" + itemObj.getFee() + "</td><td align='right' class='myIvory'>" + itemObj.getDx() + "</td><td class='myIvory'> &nbsp; &nbsp;" + referral + hcFlag + m_Flag + " </td>" + "<td bgcolor='" + clinicBgColor + "'> " + clinicShortName.get(ch1Obj.getClinic()) + "</td></tr>";
         } else {
             ret = "\n<tr><td class='myIvory'>&nbsp;</td> <td class='myIvory'>&nbsp;</td>" + "<td class='myIvory'>&nbsp;</td> <td class='myIvory'>&nbsp;</td>" + "<td class='myIvory'>" + itemObj.getService_code() + "</td><td align='right' class='myIvory'>" + itemObj.getFee() + "</td><td align='right' class='myIvory'>" + itemObj.getDx() + "</td><td class='myIvory'>&nbsp;</td>" + "<td bgcolor='" + clinicBgColor + "'> " + clinicShortName.get(ch1Obj.getClinic()) + "</td></tr>";

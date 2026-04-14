@@ -45,11 +45,13 @@ public final class ViewBillingONFavourite2Action extends ActionSupport {
         }
 
         String action = request.getParameter("action");
-        if (action != null
-                && (action.startsWith("add") || action.startsWith("edit") || action.startsWith("delete"))
-                && !"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
+        if (action != null) {
+            String lower = action.toLowerCase();
+            if ((lower.startsWith("add") || lower.startsWith("edit") || lower.startsWith("delete"))
+                    && !"POST".equalsIgnoreCase(request.getMethod())) {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
         }
 
         return SUCCESS;
