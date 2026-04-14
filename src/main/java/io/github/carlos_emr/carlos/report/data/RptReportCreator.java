@@ -63,8 +63,10 @@ public final class RptReportCreator {
 
     /**
      * Validates that a string is a safe SQL identifier (table name or column
-     * name). Rejects null, empty, or anything that doesn't match the
-     * {@link #SQL_IDENTIFIER} pattern.
+     * name). Supports optional schema qualification (e.g. {@code schema.table})
+     * by splitting on {@code '.'} and validating each component against the
+     * {@link #SQL_IDENTIFIER} pattern. At most one dot is permitted (two
+     * components: schema + name).
      *
      * @param identifier the value to validate
      * @param fieldType  a human-readable label used in the error message
@@ -72,9 +74,22 @@ public final class RptReportCreator {
      * @throws SecurityException if the identifier is invalid
      */
     static void validateSqlIdentifier(String identifier, String fieldType) {
-        if (identifier == null || !SQL_IDENTIFIER.matcher(identifier).matches()) {
+        if (identifier == null || identifier.isEmpty()) {
             MiscUtils.getLogger().error("Invalid " + fieldType + " in report configuration");
             throw new SecurityException("Invalid " + fieldType + " in report configuration");
+        }
+        // Split on '.' to support schema-qualified identifiers (e.g. "schema.tableName")
+        // while validating each component individually. At most two components allowed.
+        String[] parts = identifier.split("\\.", -1);
+        if (parts.length > 2) {
+            MiscUtils.getLogger().error("Invalid " + fieldType + " in report configuration");
+            throw new SecurityException("Invalid " + fieldType + " in report configuration");
+        }
+        for (String part : parts) {
+            if (!SQL_IDENTIFIER.matcher(part).matches()) {
+                MiscUtils.getLogger().error("Invalid " + fieldType + " in report configuration");
+                throw new SecurityException("Invalid " + fieldType + " in report configuration");
+            }
         }
     }
 

@@ -108,12 +108,34 @@ class RptReportCreatorIdentifierValidationTest {
     }
 
     @Test
-    @DisplayName("should reject identifier with dot (qualified name)")
-    void shouldReject_identifierWithDot() {
-        // Dots are valid in qualified table.column references but not in
-        // individual identifier components — caller should split and validate each part
+    @DisplayName("should accept schema-qualified identifier")
+    void shouldAccept_schemaQualifiedIdentifier() {
+        // reportConfig.table_name may contain schema-qualified names
+        assertThatCode(() -> RptReportCreator.validateSqlIdentifier("schema.formBCAR", "table name"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("should reject identifier with more than one dot")
+    void shouldReject_identifierWithMultipleDots() {
         assertThatThrownBy(() -> RptReportCreator.validateSqlIdentifier(
-                "schema.table", "table name"))
+                "a.b.c", "table name"))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
+    @DisplayName("should reject identifier with leading dot")
+    void shouldReject_identifierWithLeadingDot() {
+        assertThatThrownBy(() -> RptReportCreator.validateSqlIdentifier(
+                ".table", "table name"))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
+    @DisplayName("should reject identifier with trailing dot")
+    void shouldReject_identifierWithTrailingDot() {
+        assertThatThrownBy(() -> RptReportCreator.validateSqlIdentifier(
+                "schema.", "table name"))
                 .isInstanceOf(SecurityException.class);
     }
 
