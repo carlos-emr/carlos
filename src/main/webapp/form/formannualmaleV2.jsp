@@ -279,7 +279,7 @@
                 <input type="button" value="Print"
                        onclick="javascript:return onPrint();"/> <input type="button"
                                                                        value="Consult"
-                                                                       onclick="javascript:popupOscarCon(700,960,'<%= request.getContextPath() %>/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp?de=<%=demoNo%>');"/>
+                                                                       onclick="javascript:popupOscarCon(700,960,'<%= request.getContextPath() %>/encounter/oscarConsultationRequest/ViewConsultationFormRequest.do?de=<%=demoNo%>');"/>
 
             </td>
             <td align='right'><a

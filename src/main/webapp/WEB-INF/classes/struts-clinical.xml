@@ -39,8 +39,8 @@
         </global-exception-mappings>
 
         <action name="encounter/decisionSupport/guidelineAction" class="io.github.carlos_emr.carlos.decisionSupport.web.DSGuideline2Action" method="execute">
-            <result name="guidelineList">/encounter/decisionSupport/guidelineList.jsp</result>
-            <result name="guidelineDetail">/encounter/decisionSupport/guidelineDetail.jsp</result>
+            <result name="guidelineList">/WEB-INF/jsp/encounter/decisionSupport/guidelineList.jsp</result>
+            <result name="guidelineDetail">/WEB-INF/jsp/encounter/decisionSupport/guidelineDetail.jsp</result>
         </action>
         <action name="encounter/MeasurementData" class="io.github.carlos_emr.carlos.measurements.web.MeasurementData2Action"/>
         <action name="oscarResearch/oscarDxResearch/setupDxResearch" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxSetupResearch2Action">
@@ -92,43 +92,43 @@
             <result name="error">/WEB-INF/jsp/prevention/index.jsp</result>
         </action>
         <action name="CaseManagementView" class="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementView2Action" method="execute">
-            <result name="view">/casemgmt/CaseManagementView.jsp</result>
-            <result name="ajaxView">/casemgmt/ChartNotes.jsp</result>
-            <result name="ajaxDisplayNotes">/casemgmt/ChartNotesAjax.jsp</result>
-            <result name="page.casemgmt.view">/casemgmt/encounterLayout.jsp</result>
-            <result name="page.newcasemgmt.view">/casemgmt/newEncounterLayout.jsp</result>
-            <result name="domain-error">/casemgmt/domain-error.jsp</result>
-            <result name="clientNeverInTheProgramError">/casemgmt/clientNeverInTheProgramError.jsp</result>
-            <result name="unlockForm">/casemgmt/unlockNoteForm.jsp</result>
-            <result name="unlockSuccess">/casemgmt/unlockNoteSuccess.jsp</result>
-            <result name="unlock_ajax">/casemgmt/unlockAjax.jsp</result>
-            <result name="expired">/casemgmt/expired.jsp</result>
-            <result name="listNotes">/casemgmt/viewNotes.jsp</result>
-            <result name="displayNote">/casemgmt/displayNote.jsp</result>
-            <result name="clientHistoryPrintPreview">/casemgmt/client_history_printPreview.jsp</result>
+            <result name="view">/WEB-INF/jsp/casemgmt/CaseManagementView.jsp</result>
+            <result name="ajaxView">/WEB-INF/jsp/casemgmt/ChartNotes.jsp</result>
+            <result name="ajaxDisplayNotes">/WEB-INF/jsp/casemgmt/ChartNotesAjax.jsp</result>
+            <result name="page.casemgmt.view">/WEB-INF/jsp/casemgmt/encounterLayout.jsp</result>
+            <result name="page.newcasemgmt.view">/WEB-INF/jsp/casemgmt/newEncounterLayout.jsp</result>
+            <result name="domain-error">/WEB-INF/jsp/casemgmt/domain-error.jsp</result>
+            <result name="clientNeverInTheProgramError">/WEB-INF/jsp/casemgmt/clientNeverInTheProgramError.jsp</result>
+            <result name="unlockForm">/WEB-INF/jsp/casemgmt/unlockNoteForm.jsp</result>
+            <result name="unlockSuccess">/WEB-INF/jsp/casemgmt/unlockNoteSuccess.jsp</result>
+            <result name="unlock_ajax">/WEB-INF/jsp/casemgmt/unlockAjax.jsp</result>
+            <result name="expired">/WEB-INF/jsp/casemgmt/expired.jsp</result>
+            <result name="listNotes">/WEB-INF/jsp/casemgmt/viewNotes.jsp</result>
+            <result name="displayNote">/WEB-INF/jsp/casemgmt/displayNote.jsp</result>
+            <result name="clientHistoryPrintPreview">/WEB-INF/jsp/casemgmt/client_history_printPreview.jsp</result>
         </action>
         <action name="CaseManagementEntry" class="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementEntry2Action" method="execute">
-            <result name="setUpMainEncounterPage">/casemgmt/newEncounterLayout.jsp</result>
-            <result name="view">/casemgmt/CaseManagementEntry.jsp</result>
+            <result name="setUpMainEncounterPage">/WEB-INF/jsp/casemgmt/newEncounterLayout.jsp</result>
+            <result name="view">/WEB-INF/jsp/casemgmt/CaseManagementEntry.jsp</result>
             <result name="list">/CaseManagementView.do?method=view</result>
             <result name="listCPPNotes" type="redirect">
             <param name="location">${reloadUrl}</param>
         </result>
-            <result name="IssueSearch">/casemgmt/IssueSearch.jsp</result>
-            <result name="NoDemoERR">/casemgmt/noDemo.jsp</result>
-            <result name="windowClose">/casemgmt/close.jsp</result>
-            <result name="windowCloseError">/casemgmt/closeWithError.jsp</result>
-            <result name="historyview">/casemgmt/historyview.jsp</result>
-            <result name="showHistory">/casemgmt/showHistory.jsp</result>
-            <result name="issueList_ajax">/casemgmt/noteIssueList.jsp</result>
-            <result name="expired">/casemgmt/expired.jsp</result>
+            <result name="IssueSearch">/WEB-INF/jsp/casemgmt/IssueSearch.jsp</result>
+            <result name="NoDemoERR">/WEB-INF/jsp/casemgmt/noDemo.jsp</result>
+            <result name="windowClose">/WEB-INF/jsp/casemgmt/close.jsp</result>
+            <result name="windowCloseError">/WEB-INF/jsp/casemgmt/closeWithError.jsp</result>
+            <result name="historyview">/WEB-INF/jsp/casemgmt/historyview.jsp</result>
+            <result name="showHistory">/WEB-INF/jsp/casemgmt/showHistory.jsp</result>
+            <result name="issueList_ajax">/WEB-INF/jsp/casemgmt/noteIssueList.jsp</result>
+            <result name="expired">/WEB-INF/jsp/casemgmt/expired.jsp</result>
         </action>
         <action name="OscarChartPrint" class="io.github.carlos_emr.carlos.casemgmt.web.EChartPrint2Action"/>
         <action name="ClientImage" class="io.github.carlos_emr.carlos.casemgmt.web.ClientImage2Action" method="execute">
             <interceptor-ref name="defaultStack">
                 <param name="actionFileUpload.allowedTypes">image/jpeg,image/gif</param>
             </interceptor-ref>
-            <result name="success">/casemgmt/uploadimage.jsp</result>
+            <result name="success">/WEB-INF/jsp/casemgmt/uploadimage.jsp</result>
         </action>
         <action name="casemgmt/ExtPrintRegistry" class="io.github.carlos_emr.carlos.casemgmt.web.ExtPrintRegistry2Action"/>
 
@@ -150,5 +150,403 @@
         <action name="prevention/ViewPreventionListManager" class="io.github.carlos_emr.carlos.prevention.gate.ViewPreventionListManager2Action">
             <result name="success">/WEB-INF/jsp/prevention/PreventionListManager.jsp</result>
         </action>
+
+        <!--
+            encounter/ + casemgmt/ JSPs have been relocated behind
+            /WEB-INF/jsp/ and are reached only through these View*.do view
+            gates. Each gate enforces _eChart r (the prevailing clinical-work
+            privilege across both modules). In-JSP <security:oscarSec>
+            taglibs continue to enforce narrower per-page privileges
+            (_casemgmt.notes, _con, _flowsheet, _measurement, _admin.consult,
+            etc.) as a second line of defense.
+        -->
+        <action name="encounter/ViewAbout" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/About.jsp</result>
+        </action>
+        <action name="encounter/ViewHelp" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/Help.jsp</result>
+        </action>
+        <action name="encounter/ViewIndex2" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/Index2.jsp</result>
+        </action>
+        <action name="encounter/ViewInsertTemplate" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/InsertTemplate.jsp</result>
+        </action>
+        <action name="encounter/ViewInsertTemplate2" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/InsertTemplate2.jsp</result>
+        </action>
+        <action name="encounter/ViewLeftNavBarDisplay" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+        </action>
+        <action name="encounter/ViewLeftNavBarError" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
+        </action>
+        <action name="encounter/ViewLicense" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/License.jsp</result>
+        </action>
+        <action name="encounter/ViewTimeOut" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/TimeOut.jsp</result>
+        </action>
+        <action name="encounter/ViewViewAttachment" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/ViewAttachment.jsp</result>
+        </action>
+        <action name="encounter/ViewBilling" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/billing.jsp</result>
+        </action>
+        <action name="encounter/ViewCalculators" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/calculators.jsp</result>
+        </action>
+        <action name="encounter/calculators/ViewCoronaryArteryDiseaseRiskPrediction" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/calculators/CoronaryArteryDiseaseRiskPrediction.jsp</result>
+        </action>
+        <action name="encounter/calculators/ViewGeneralCalculators" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/calculators/GeneralCalculators.jsp</result>
+        </action>
+        <action name="encounter/calculators/ViewOsteoporoticFracture" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/calculators/OsteoporoticFracture.jsp</result>
+        </action>
+        <action name="encounter/calculators/ViewSimpleCalculator" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/calculators/SimpleCalculator.jsp</result>
+        </action>
+        <action name="encounter/ViewClose" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/close.jsp</result>
+        </action>
+        <action name="encounter/ViewConcurrencyError" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/concurrencyError.jsp</result>
+        </action>
+        <action name="encounter/decisionSupport/ViewGuidelineDetail" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/decisionSupport/guidelineDetail.jsp</result>
+        </action>
+        <action name="encounter/decisionSupport/ViewGuidelineList" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/decisionSupport/guidelineList.jsp</result>
+        </action>
+        <action name="encounter/ViewEcharthistoryprint" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/echarthistoryprint.jsp</result>
+        </action>
+        <action name="encounter/ViewEncounterPrint" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/encounterPrint.jsp</result>
+        </action>
+        <action name="encounter/ViewError" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/error.jsp</result>
+        </action>
+        <action name="encounter/ViewFormlist" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/formlist.jsp</result>
+        </action>
+        <action name="encounter/immunization/ViewSchedule" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/immunization/Schedule.jsp</result>
+        </action>
+        <action name="encounter/immunization/ViewScheduleConfig" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/immunization/ScheduleConfig.jsp</result>
+        </action>
+        <action name="encounter/immunization/ViewScheduleEdit" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/immunization/ScheduleEdit.jsp</result>
+        </action>
+        <action name="encounter/immunization/config/ViewCreateImmunizationSetInit" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/immunization/config/CreateImmunizationSetInit.jsp</result>
+        </action>
+        <action name="encounter/immunization/config/ViewImmunizationSetDisplay" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/immunization/config/ImmunizationSetDisplay.jsp</result>
+        </action>
+        <action name="encounter/oscarConsultationRequest/ViewCalendarPopup" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/CalendarPopup.jsp</result>
+        </action>
+        <action name="encounter/oscarConsultationRequest/ViewConfirmConsultationRequest" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp</result>
+        </action>
+        <action name="encounter/oscarConsultationRequest/ViewConsultationFormRequest" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp</result>
+        </action>
+        <action name="encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/DisplayDemographicConsultationRequests.jsp</result>
+        </action>
+        <action name="encounter/oscarConsultationRequest/config/ViewAddDepartment" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/AddDepartment.jsp</result>
+        </action>
+        <action name="encounter/oscarConsultationRequest/config/ViewAddInstitution" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/AddInstitution.jsp</result>
+        </action>
+        <action name="encounter/oscarConsultationRequest/config/ViewAddService" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/AddService.jsp</result>
+        </action>
+        <action name="encounter/oscarConsultationRequest/config/ViewAddSpecialist" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/AddSpecialist.jsp</result>
+        </action>
+        <action name="encounter/oscarConsultationRequest/config/ViewDeleteServices" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/DeleteServices.jsp</result>
+        </action>
+        <action name="encounter/oscarConsultationRequest/config/ViewDisplayInstitution" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/DisplayInstitution.jsp</result>
+        </action>
+        <action name="encounter/oscarConsultationRequest/config/ViewDisplayService" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/DisplayService.jsp</result>
+        </action>
+        <action name="encounter/oscarConsultationRequest/config/ViewEditDepartments" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/EditDepartments.jsp</result>
+        </action>
+        <action name="encounter/oscarConsultationRequest/config/ViewEditInstitutions" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/EditInstitutions.jsp</result>
+        </action>
+        <action name="encounter/oscarConsultationRequest/config/ViewEditSpecialists" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/EditSpecialists.jsp</result>
+        </action>
+        <action name="encounter/oscarConsultationRequest/config/ViewEnableRequestResponse" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/EnableRequestResponse.jsp</result>
+        </action>
+        <action name="encounter/oscarConsultationRequest/config/ViewShowAllInstitutions" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/ShowAllInstitutions.jsp</result>
+        </action>
+        <action name="encounter/oscarConsultationRequest/config/ViewShowAllServices" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/ShowAllServices.jsp</result>
+        </action>
+        <action name="encounter/oscarConsultationRequest/ViewNothingtoPrint" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/nothingtoPrint.jsp</result>
+        </action>
+        <action name="encounter/oscarFacesheet/ViewTokenError" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarFacesheet/token_error.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewAddMeasurementData" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementData.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewAddMeasurementGroup" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementGroup.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewCustomization" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/Customization.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewDefineNewMeasurementGroup" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/DefineNewMeasurementGroup.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewDisplayHistory" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/DisplayHistory.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewDisplayMeasurementStyleSheet" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/DisplayMeasurementStyleSheet.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewDisplayMeasurementTypes" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/DisplayMeasurementTypes.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewEditMeasurementGroup" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/EditMeasurementGroup.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewEditMeasurementGroupStyle" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/EditMeasurementGroupStyle.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewHistoryIndex" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/HistoryIndex.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewMeasurementGroupDSadd" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/MeasurementGroupDSadd.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewMeasurementGroupDScomplete" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/MeasurementGroupDScomplete.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewMeasurementGroupDSremove" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/MeasurementGroupDSremove.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewMeasurements" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/Measurements.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewProcessAddMeasurementGroupAction" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/ProcessAddMeasurementGroupAction.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewProcessMeasurementsSubmission" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/ProcessMeasurementsSubmission.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewSelectMeasurementGroup" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/SelectMeasurementGroup.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewTemplateFlowSheet" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/TemplateFlowSheet.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewTemplateFlowSheetPrint" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/TemplateFlowSheetPrint.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewAddMeasurementMap" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/addMeasurementMap.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewAddMeasurementMap2" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/addMeasurementMap2.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetAdd" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/FlowsheetAdd.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetAddTarget" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/FlowsheetAddTarget.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetAddWarning" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/FlowsheetAddWarning.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetEditor" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/FlowsheetEditor.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetItemEditor" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/FlowsheetItemEditor.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetManager" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/FlowsheetManager.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/adminFlowsheet/ViewNewFlowsheet" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/NewFlowsheet.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/adminFlowsheet/ViewUpdateFlowsheet" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/UpdateFlowsheet.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewClose" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/close.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewExportMeasurement" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/exportMeasurement.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewNewHistoryIndex" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/newHistoryIndex.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewNewMeasurementMap" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/newMeasurementMap.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewRemapMeasurementMap" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/remapMeasurementMap.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewRemoveMeasurementMap" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/removeMeasurementMap.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewViewMeasurementMap" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/viewMeasurementMap.jsp</result>
+        </action>
+        <action name="casemgmt/ViewCaseManagementEntry" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/CaseManagementEntry.jsp</result>
+        </action>
+        <action name="casemgmt/ViewCaseManagementView" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/CaseManagementView.jsp</result>
+        </action>
+        <action name="casemgmt/ViewChartNotes" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/ChartNotes.jsp</result>
+        </action>
+        <action name="casemgmt/ViewChartNotesAjax" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/ChartNotesAjax.jsp</result>
+        </action>
+        <action name="casemgmt/ViewIssueSearch" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/IssueSearch.jsp</result>
+        </action>
+        <action name="casemgmt/ViewAllergies" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/allergies.jsp</result>
+        </action>
+        <action name="casemgmt/ViewAttachClient" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/attachClient.jsp</result>
+        </action>
+        <action name="casemgmt/ViewClientNeverInTheProgramError" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/clientNeverInTheProgramError.jsp</result>
+        </action>
+        <action name="casemgmt/ViewClientHistoryPrintPreview" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/client_history_printPreview.jsp</result>
+        </action>
+        <action name="casemgmt/ViewClose" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/close.jsp</result>
+        </action>
+        <action name="casemgmt/ViewCloseWithError" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/closeWithError.jsp</result>
+        </action>
+        <action name="casemgmt/ViewDisplayNote" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/displayNote.jsp</result>
+        </action>
+        <action name="casemgmt/ViewDomainError" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/domain-error.jsp</result>
+        </action>
+        <action name="casemgmt/ViewEncounterLayout" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/encounterLayout.jsp</result>
+        </action>
+        <action name="casemgmt/ViewError" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/error.jsp</result>
+        </action>
+        <action name="casemgmt/ViewExpired" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/expired.jsp</result>
+        </action>
+        <action name="casemgmt/ViewFooter" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/footer.jsp</result>
+        </action>
+        <action name="casemgmt/ViewForward" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/forward.jsp</result>
+        </action>
+        <action name="casemgmt/ViewGroupNoteSelect" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/groupNoteSelect.jsp</result>
+        </action>
+        <action name="casemgmt/ViewGroupNoteSelectAction" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/groupNoteSelectAction.jsp</result>
+        </action>
+        <action name="casemgmt/ViewHistoryview" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/historyview.jsp</result>
+        </action>
+        <action name="casemgmt/ViewIndex" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/index.jsp</result>
+        </action>
+        <action name="casemgmt/ViewMessages" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/messages.jsp</result>
+        </action>
+        <action name="casemgmt/ViewNavigation" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/navigation.jsp</result>
+        </action>
+        <action name="casemgmt/ViewNewCaseManagementView" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/newCaseManagementView.jsp</result>
+        </action>
+        <action name="casemgmt/ViewNewEncounterHeader" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/newEncounterHeader.jsp</result>
+        </action>
+        <action name="casemgmt/ViewNewEncounterLayoutJs" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/newEncounterLayout.js.jsp</result>
+        </action>
+        <action name="casemgmt/ViewNewEncounterLayout" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/newEncounterLayout.jsp</result>
+        </action>
+        <action name="casemgmt/ViewNewNavigation" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/newNavigation.jsp</result>
+        </action>
+        <action name="casemgmt/ViewNoDemo" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/noDemo.jsp</result>
+        </action>
+        <action name="casemgmt/ViewNoteBrowser" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/noteBrowser.jsp</result>
+        </action>
+        <action name="casemgmt/ViewNoteIssueList" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/noteIssueList.jsp</result>
+        </action>
+        <action name="casemgmt/ViewPrescriptions" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/prescriptions.jsp</result>
+        </action>
+        <action name="casemgmt/ViewReminders" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/reminders.jsp</result>
+        </action>
+        <action name="casemgmt/ViewRightColumn" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/rightColumn.jsp</result>
+        </action>
+        <action name="casemgmt/ViewSearch" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/search.jsp</result>
+        </action>
+        <action name="casemgmt/ViewShowHistory" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/showHistory.jsp</result>
+        </action>
+        <action name="casemgmt/ViewTaglibs" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/taglibs.jsp</result>
+        </action>
+        <action name="casemgmt/ViewTicklers" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/ticklers.jsp</result>
+        </action>
+        <action name="casemgmt/ViewUnlockAjax" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/unlockAjax.jsp</result>
+        </action>
+        <action name="casemgmt/ViewUnlockNoteForm" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/unlockNoteForm.jsp</result>
+        </action>
+        <action name="casemgmt/ViewUnlockNoteSuccess" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/unlockNoteSuccess.jsp</result>
+        </action>
+        <action name="casemgmt/ViewUploadimage" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/uploadimage.jsp</result>
+        </action>
+        <action name="casemgmt/ViewViewNotes" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/casemgmt/viewNotes.jsp</result>
+        </action>
+
     </package>
 </struts>

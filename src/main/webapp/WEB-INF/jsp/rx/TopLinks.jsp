@@ -95,7 +95,7 @@
         <td id="topLinkRightColumn">
 	 		<span class="HelpAboutLogout" style="color:white;">
 
-                 <a style="color:white;" href="${ ctx }/encounter/About.jsp" target="_new">About</a>
+                 <a style="color:white;" href="${ ctx }/encounter/ViewAbout.do" target="_new">About</a>
              </span>
         </td>
     </tr>

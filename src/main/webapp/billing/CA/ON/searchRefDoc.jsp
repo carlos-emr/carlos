@@ -283,7 +283,7 @@
         </table>
         <br>
         <a class="btn btn-secondary"
-           href="${pageContext.request.contextPath}/encounter/oscarConsultationRequest/config/EditSpecialists.jsp"><fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.title"/></a>
+           href="${pageContext.request.contextPath}/encounter/oscarConsultationRequest/config/ViewEditSpecialists.do"><fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.title"/></a>
 
     </div>
     </body>

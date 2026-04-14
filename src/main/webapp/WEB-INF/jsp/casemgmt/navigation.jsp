@@ -1,0 +1,627 @@
+<%--
+
+
+    Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for
+    Centre for Research on Inner City Health, St. Michael's Hospital,
+    Toronto, Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+
+
+<%-- Updated by Eugene Petruhin on 11 dec 2008 while fixing #2356548 & #2393547 --%>
+
+<%@page import="java.nio.charset.StandardCharsets" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<% long loadPage = System.currentTimeMillis(); %>
+<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementHelper" %>
+<%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler" %>
+<%@ page import="java.util.ArrayList" %>
+<%@ page import="java.util.Vector" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.immunization.data.EctImmImmunizationData" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
+<%
+    String province = ((String) oscarVariables.getProperty("billregion", "")).trim().toUpperCase();
+    EctSessionBean bean = null;
+    if ("true".equalsIgnoreCase((String) session.getAttribute("casemgmt_bean_flag"))) {
+        EctSessionBean bean1 = (EctSessionBean) session.getAttribute("EctSessionBean");
+        bean = new EctSessionBean();
+        bean.providerNo = bean1.providerNo;
+        bean.demographicNo = bean1.demographicNo;
+        bean.appointmentNo = bean1.appointmentNo;
+        bean.patientLastName = bean1.patientLastName;
+        bean.patientFirstName = bean1.patientFirstName;
+        bean.curProviderNo = bean1.curProviderNo;
+        bean.appointmentDate = bean1.appointmentDate;
+        bean.status = bean1.status;
+        bean.userName = bean1.userName;
+        bean.yearOfBirth = bean1.yearOfBirth;
+        bean.monthOfBirth = bean1.monthOfBirth;
+        bean.dateOfBirth = bean1.dateOfBirth;
+        bean.measurementGroupNames = (java.util.ArrayList) bean1.measurementGroupNames.clone();
+        session.setAttribute("casemgmt_bean", bean);
+        session.setAttribute("casemgmt_bean_flag", "false");
+    }
+//bean=(io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean)session.getAttribute("EctSessionBean");
+//session.setAttribute("casemgmt_bean", bean);
+    bean = (EctSessionBean) session.getAttribute("casemgmt_bean");
+    if (bean == null) bean = new EctSessionBean();
+    if (bean.appointmentNo == null) bean.appointmentNo = "0";
+    String bsurl = (String) session.getAttribute("casemgmt_oscar_baseurl");
+    String backurl = bsurl + "/encounter/IncomingEncounter.do?";
+//get programId
+    String pgId = (String) session.getAttribute("case_program_id");
+    if (pgId == null) pgId = "";
+%>
+
+<script type="text/javascript" language=javascript>
+    function popupPage(varpage) {
+        var page = "" + varpage;
+        windowprops = "height=600,width=700,location=no,"
+            + "scrollbars=yes,menubars=no,toolbars=no,resizable=yes,top=0,left=0";
+        window.open(page, "", windowprops);
+    }
+
+    function onUnbilled(url) {
+        if (confirm("You are about to delete the previous billing, are you sure?")) {
+            popupPage(url);
+        }
+    }
+
+    function selectBox(name) {
+        to = name.options[name.selectedIndex].value;
+        name.selectedIndex = 0;
+        if (to != "null")
+            popupPage(to);
+    }
+
+    function popUpMsg(vheight, vwidth, msgPosition) {
+
+
+        var page = "<%=session.getAttribute("casemgmt_oscar_baseurl")%>" + "/messenger/ViewMessageByPosition.do?from=encounter&orderBy=!date&demographic_no=<%=bean.demographicNo%>&messagePosition=" + msgPosition;
+        windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
+        var popup = window.open(page, "", windowprops);
+        if (popup != null) {
+            if (popup.opener == null) {
+                popup.opener = self;
+            }
+        }
+        popup.focus();
+    }
+
+    function popUpMeasurements(vheight, vwidth, name, varpage) { //open a new popup window
+        if (varpage != 'null') {
+            name.options[0].selected = true;
+            var page = "<%=session.getAttribute("casemgmt_oscar_baseurl")%>" + "/encounter/oscarMeasurements/SetupMeasurements.do?groupName=" + varpage;
+            windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=600,screenY=200,top=0,left=0";
+            var popup = window.open(page, "", windowprops);
+            if (popup != null) {
+                if (popup.opener == null) {
+                    popup.opener = self;
+                    alert("hi this is a null for self!");
+                }
+            }
+        }
+    }
+
+    function popupSearchPage(vheight, vwidth, varpage) { //open a new popup window
+        var page = "" + varpage;
+        windowprop = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
+        var popup = window.open(page, "", windowprop);
+    }
+
+    function grabEnter(event) {
+        if (window.event && window.event.keyCode == 13) {
+            popupSearchPage(600, 800, document.forms['ksearch'].channel.options[document.forms['ksearch'].channel.selectedIndex].value + urlencode(document.forms['ksearch'].keyword.value));
+            return false;
+        } else if (event && event.which == 13) {
+            popupSearchPage(600, 800, document.forms['ksearch'].channel.options[document.forms['ksearch'].channel.selectedIndex].value + urlencode(document.forms['ksearch'].keyword.value));
+            return false;
+        }
+    }
+
+    function urlencode(str) {
+        var ns = (navigator.appName == "Netscape") ? 1 : 0;
+        if (ns) {
+            return escape(str);
+        }
+        var ms = "%25#23 20+2B?3F<3C>3E{7B}7D[5B]5D|7C^5E~7E`60";
+        var msi = 0;
+        var i, c, rs, ts;
+        while (msi < ms.length) {
+            c = ms.charAt(msi);
+            rs = ms.substring(++msi, msi + 2);
+            msi += 2;
+            i = 0;
+            while (true) {
+                i = str.indexOf(c, i);
+                if (i == -1) break;
+                ts = str.substring(0, i);
+                str = ts + "%" + rs + str.substring(++i, str.length);
+            }
+        }
+        return str;
+    }
+</script>
+
+<style type="text/css">
+    .ControlSelect {
+        font-family: Verdana, Tahoma, Arial, sans-serif;
+        font-size: 80%;
+        width: 100%;
+    }
+</style>
+<div id="noprint" name="noprint">
+    <table style="font:bold small-caps 10pt/12pt">
+        <form name="navigationForm" method="get">
+            <% java.util.Date today = new java.util.Date();
+                String curYear = Integer.toString(today.getYear());
+                String curMonth = Integer.toString(today.getMonth());
+                String curDay = Integer.toString(today.getDay());
+                String Hour = Integer.toString(today.getHours());
+                String Min = Integer.toString(today.getMinutes());
+                String eURL = "/encounter/IncomingEncounter.do?casetoEncounter=true&providerNo=" + bean.providerNo + "&appointmentNo=" + bean.appointmentNo + "&demographicNo=" + bean.demographicNo + "&curProviderNo=" + bean.providerNo + "&reason=" + java.net.URLEncoder.encode(" ", StandardCharsets.UTF_8) + "&userName=" + java.net.URLEncoder.encode(bean.patientFirstName + " " + bean.patientLastName, StandardCharsets.UTF_8) + "&curDate=" + curYear + "-" + curMonth + "-" + curDay + "&appointmentDate=" + curYear + "-" + curMonth + "-" + curDay + "&startTime=" + Hour + ":" + Min + "&status=t";%>
+            <caisirole:SecurityAccess accessName="medical encounter" accessType="access"
+                                      providerNo="<%=bean.providerNo%>" demoNo="<%=bean.demographicNo%>"
+                                      programId="<%=pgId%>">
+            </caisirole:SecurityAccess>
+            <!-- tr><td><a href="</td></tr -->
+
+            <tr style="background-color:#BBBBBB;">
+                <td>Clinical Modules</td>
+            </tr>
+
+            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
+                <!-- master -->
+                <caisirole:SecurityAccess accessName="master file" accessType="access" providerNo="<%=bean.providerNo%>"
+                                          demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
+
+                    <tr>
+                        <td><a href="javascript:void(0)"
+                               onClick="popupPage('<%=bsurl%>/demographic/DemographicEdit.do?demographic_no=<%=bean.demographicNo%>');return false;">Master</a>
+                        </td>
+                    </tr>
+
+                </caisirole:SecurityAccess>
+
+                <caisirole:SecurityAccess accessName="billing" accessType="access" providerNo="<%=bean.providerNo%>"
+                                          demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
+                    <!-- billing -->
+
+                    <% if (bean.status.indexOf('B') == -1) { %>
+                    <tr>
+                        <td><a href="javascript:void(0)"
+                               onClick="popupPage('<%=bsurl%>/billing.do?billRegion=<%=java.net.URLEncoder.encode(province, StandardCharsets.UTF_8)%>&billForm=<%=java.net.URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8)%>&hotclick=<%=java.net.URLEncoder.encode("", StandardCharsets.UTF_8)%>&appointment_no=<%=bean.appointmentNo%>&appointment_date=<%=bean.appointmentDate%>&start_time=<%=Hour+":"+Min%>&demographic_name=<%=java.net.URLEncoder.encode(bean.patientLastName+","+bean.patientFirstName)%>&demographic_no=<%=bean.demographicNo%>&providerview=<%=bean.curProviderNo%>&user_no=<%=bean.providerNo%>&apptProvider_no=<%=bean.curProviderNo%>&bNewForm=1&status=t');return false;">Billing</a>
+                        </td>
+                    </tr>
+                    <%} else { %>
+                    <tr>
+                        <td><a href="javascript:void(0)"
+                               onClick="onUnbilled('<%=bsurl%>/billing/CA/<%=province%>/BillingDeleteWithoutNo.do?appointment_no=<%=bean.appointmentNo%>');return false;">Billing</a>
+                        </td>
+                    </tr>
+                    <%} %>
+
+                </caisirole:SecurityAccess>
+
+                <caisirole:SecurityAccess accessName="prescription Write" accessType="access"
+                                          providerNo="<%=bean.providerNo%>" demoNo="<%=bean.demographicNo%>"
+                                          programId="<%=pgId%>">
+
+                    <!-- prescription -->
+
+                    <tr>
+                        <td><a href="javascript:void(0)"
+                               onClick="popupPage('<%=bsurl%>/rx/choosePatient.do?providerNo=<%=bean.providerNo%>&demographicNo=<%=bean.demographicNo%>');return false;">Prescriptions</a>
+                        </td>
+                    </tr>
+
+                </caisirole:SecurityAccess>
+
+                <!-- allergies -->
+                <!-- tr><td><a href="javascript:void(0)" onClick="popupPage('<%=bsurl%>/rx/ShowAllergies2.jsp?providerNo=<%=bean.providerNo%>&demographicNo=<%=bean.demographicNo%>');return false;">Allergies</a></td></tr -->
+
+
+                <!-- Consultations -->
+                <tr>
+                    <td><a href="javascript:void(0)"
+                           onClick="popupPage('<%=bsurl%>/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests.do?de=<%=bean.demographicNo%>');return false;">Consultations</a>
+                    </td>
+                </tr>
+
+                <caisirole:SecurityAccess accessName="immunization" accessType="access"
+                                          providerNo="<%=bean.providerNo%>" demoNo="<%=bean.demographicNo%>"
+                                          programId="<%=pgId%>">
+                    <!-- IMMUNIZATION -->
+                    <oscar:oscarPropertiesCheck property="IMMUNIZATION" value="yes" defaultVal="true">
+                        <% if (EctImmImmunizationData.hasImmunizations(bean.demographicNo)) { %>
+                        <tr>
+                            <td><a style="color:red" href="javascript:void(0)"
+                                   onClick="popupPage('<%=bsurl%>/encounter/immunization/initSchedule.do');return false;">Immunizations</a>
+                            </td>
+                        </tr>
+                        <% } else {%>
+                        <tr>
+                            <td><a href="javascript:void(0)"
+                                   onClick="popupPage('<%=bsurl%>/encounter/immunization/initSchedule.do');return false;">Immunizations</a>
+                            </td>
+                        </tr>
+                        <% } %>
+                    </oscar:oscarPropertiesCheck>
+                </caisirole:SecurityAccess>
+
+                <!-- Prevention -->
+                <caisirole:SecurityAccess accessName="prevention" accessType="access" providerNo="<%=bean.providerNo%>"
+                                          demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
+                    <oscar:oscarPropertiesCheck property="PREVENTION" value="yes">
+                        <tr>
+                            <td><a href="javascript:void(0)"
+                                   onClick="popupPage('<%=bsurl%>/prevention/ViewPreventionIndex.do?demographic_no=<%=bean.demographicNo%>');return false;">
+                                <oscar:preventionWarnings
+                                        demographicNo="<%=bean.demographicNo%>">prevention</oscar:preventionWarnings></a>
+                            </td>
+                        </tr>
+                    </oscar:oscarPropertiesCheck>
+                </caisirole:SecurityAccess>
+
+                <!-- oscarcomm -->
+                <caisirole:SecurityAccess accessName="oscarcomm" accessType="access" providerNo="<%=bean.providerNo%>"
+                                          demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
+
+                </caisirole:SecurityAccess>
+
+                <!-- Disease Registry -->
+                <caisirole:SecurityAccess accessName="disease registry" accessType="access"
+                                          providerNo="<%=bean.providerNo%>" demoNo="<%=bean.demographicNo%>"
+                                          programId="<%=pgId%>">
+
+                    <tr>
+                        <td><a href="javascript:void(0)"
+                               onClick="popupPage('<%=bsurl%>/oscarResearch/dxresearch/setupDxResearch.do?demographicNo=<%=bean.demographicNo%>&providerNo=<%=bean.providerNo%>&quickList=');return false;">Disease
+                            Registry</a></td>
+                    </tr>
+                </caisirole:SecurityAccess>
+
+            </caisi:isModuleLoad>
+
+            <!-- add tickler -->
+            <caisirole:SecurityAccess accessName="Write Ticklers" accessType="Action" providerNo="<%=bean.providerNo%>"
+                                      demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
+                <tr>
+                    <td><a href="javascript:void(0)"
+                           onClick="popupPage('<%=bsurl%>/tickler/ViewAddTickler.do?demographic_no=<%=bean.demographicNo%>&name=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(bean.getPatientLastName() +"," + bean.getPatientFirstName()))%>');return false;">Add
+                        Tickler</a></td>
+                </tr>
+            </caisirole:SecurityAccess>
+
+            <caisirole:SecurityAccess accessName="medical form" accessType="access" providerNo="<%=bean.providerNo%>"
+                                      demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
+                <tr style="background-color:#BBBBBB;">
+                    <td>Forms</td>
+                </tr>
+                <!-- current forms -->
+                <tr>
+                    <td>
+
+                        <select name="selectCurrentForms" class="ControlSelect" onChange="javascript:selectBox(this)"
+                                onMouseOver="javascript:window.status='View any of <%=bean.patientLastName+","+bean.patientFirstName%>\'s current forms.';return true;">
+                            <option value="null" selected>-current forms-</option>
+                            <c:forEach var="cf" items="${casemgmt_newFormBeans}">
+                                <c:if test="${cf.formTable ne ''}">
+                                    <c:set var="pforms" value="${cf.patientForms}" />
+                                    <c:if test="${fn:length(pforms) > 0}">
+                                        <c:set var="pfrm" value="${pforms[0]}" />
+                                        <c:set var="value" value="${sessionScope.casemgmt_oscar_baseurl}/form/forwardshortcutname.do?formname=${cf.formName}&demographic_no=${bean.demographicNo}" />
+                                        <c:set var="label" value="${cf.formName}&nbsp;Cr:${pfrm.created}&nbsp;Ed:${pfrm.edited}" />
+                                        <option value="${value}">${label}</option>
+                                    </c:if>
+                                </c:if>
+                            </c:forEach>
+
+
+                        </select>
+                    </td>
+                </tr>
+
+                <!-- add new form -->
+                <tr>
+                    <td>
+                        <select name="selectNewForms" class="ControlSelect" onChange="javascript:selectBox(this)"
+                                onMouseOver="javascript:window.status='View <%=bean.patientLastName+","+bean.patientFirstName%>\'s new forms list.';return true;">
+                            <option value="null" selected>-add new form-</option>
+                            <c:forEach var="cf" items="${casemgmt_newFormBeans}">
+                                <c:if test="${cf.hidden}">
+                                    <c:set var="value" value="${sessionScope.casemgmt_oscar_baseurl}/appointment/${cf.formValue}${bean.demographicNo}&formId=0&provNo=${bean.providerNo}" />
+                                    <c:set var="label" value="${cf.formName}" />
+                                    <option value="${value}">${label}</option>
+                                </c:if>
+                            </c:forEach>
+                        </select>
+                    </td>
+                </tr>
+
+                <!-- old forms -->
+                <tr>
+                    <td>
+                        <a href="javascript:void(0)"
+                           onClick="popupPage('<%=bsurl%>/encounter/ViewFormlist.do?demographic_no=<%=bean.demographicNo%>'); return false;">-old
+                            forms-</a>
+                    </td>
+                </tr>
+            </caisirole:SecurityAccess>
+
+            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
+                <tr style="background-color:#BBBBBB;">
+                    <td>messenger</td>
+                </tr>
+                <!-- select message -->
+                <tr>
+                    <td>
+                        <select name="msgSelect" class="ControlSelect"
+                                onchange="javascript:popUpMsg(600,900,this.options[this.selectedIndex].value)">
+                            <option value="null" selected>-Select Message-</option>
+                            <c:forEach var="cmb" items="casemgmt_msgBeans">
+                                <option value="${cmb.label}">${cmb.value}</option>
+                            </c:forEach>
+                        </select>
+                    </td>
+                </tr>
+
+                <!-- add a new message -->
+                <tr>
+                    <td>
+                        <a href="javascript:void(0)"
+                           onClick="popupPage('<%=bsurl%>/messenger/SendDemoMessage.do?orderby=date&boxType=3&demographic_no=<%=bean.demographicNo%>&providerNo=<%=bean.providerNo%>&userName=<%=bean.userName%>'); return false;">New
+                            Messages</a>
+                    </td>
+                </tr>
+
+                <!-- all message -->
+                <tr>
+                    <td>
+                        <a href="javascript:void(0)"
+                           onClick="popupPage('<%=bsurl%>/messenger/DisplayDemographicMessages.do?orderby=date&boxType=3&demographic_no=<%=bean.demographicNo%>&providerNo=<%=bean.providerNo%>&userName=<%=bean.userName%>'); return false;">-All
+                            Messages-</a>
+                    </td>
+                </tr>
+            </caisi:isModuleLoad>
+            <%
+                dxResearchBeanHandler dxRes;
+                ArrayList<String> flowsheets;
+                Vector dxCodes;
+            %>
+            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
+                <caisirole:SecurityAccess accessName="measurements" accessType="access"
+                                          providerNo="<%=bean.providerNo%>" demoNo="<%=bean.demographicNo%>"
+                                          programId="<%=pgId%>">
+                    <tr style="background-color:#BBBBBB;">
+                        <td>Case Management Flowsheets</td>
+                    </tr>
+
+                    <!-- caisi flow sheet -->
+                    <tr>
+                        <td>
+                            <%
+                                dxRes = new dxResearchBeanHandler(bean.demographicNo);
+                                dxCodes = dxRes.getActiveCodeListWithCodingSystem();
+                                flowsheets = MeasurementTemplateFlowSheetConfig.getInstance().getUniveralFlowsheets();
+                                for (String flowsheet : flowsheets) {
+                                    MeasurementFlowSheet measurementFlowSheet = MeasurementTemplateFlowSheetConfig.getInstance().getFlowSheet(flowsheet);
+                                    if (MeasurementHelper.flowSheetRequiresWork(bean.demographicNo, measurementFlowSheet)) {
+                            %>* <% }
+                        %>
+                            <a href="javascript:void(0)"
+                               onClick="popupPage('<%=bsurl%>/encounter/oscarMeasurements/ViewTemplateFlowSheet.do?demographic_no=<%=bean.demographicNo%>&template=<%=flowsheet%>','flowsheet')"><%=MeasurementTemplateFlowSheetConfig.getInstance().getDisplayName(flowsheet)%>
+                            </a><br/>
+                            <%}%>
+                        </td>
+                    </tr>
+                </caisirole:SecurityAccess>
+
+                <caisirole:SecurityAccess accessName="measurements" accessType="access"
+                                          providerNo="<%=bean.providerNo%>" demoNo="<%=bean.demographicNo%>"
+                                          programId="<%=pgId%>">
+                    <tr style="background-color:#BBBBBB;">
+                        <td>Measurements</td>
+                    </tr>
+                    <!-- measurement -->
+                    <tr>
+                        <td>
+                            <%
+                                dxRes = new dxResearchBeanHandler(bean.demographicNo);
+                                dxCodes = dxRes.getActiveCodeListWithCodingSystem();
+                                flowsheets = MeasurementTemplateFlowSheetConfig.getInstance().getFlowsheetsFromDxCodes(dxCodes);
+                                for (String flowsheet : flowsheets) {
+                            %>
+                            <a href="javascript:void(0)"
+                               onClick="popupPage('<%=bsurl%>/encounter/oscarMeasurements/ViewTemplateFlowSheet.do?demographic_no=<%=bean.demographicNo%>&template=<%=flowsheet%>','flowsheet')"><%=MeasurementTemplateFlowSheetConfig.getInstance().getDisplayName(flowsheet)%>
+                            </a>
+                            <%}%>
+
+                            <select name="measurementGroupSelect" class="ControlSelect"
+                                    onchange="javascript:popUpMeasurements(500,1000,this,this.options[this.selectedIndex].value)">
+                                <option value="null" selected>-select group-</option>
+                                <%
+                                    for (int j = 0; j < bean.measurementGroupNames.size(); j++) {
+                                        String tmp = (String) bean.measurementGroupNames.get(j);
+                                %>
+                                <option value="<%=tmp%>"><%=tmp %>
+                                </option>
+                                <%}%>
+                            </select>
+                        </td>
+                    </tr>
+
+                    <!-- old measurements -->
+                    <tr>
+                        <td>
+                            <a href="javascript:void(0)"
+                               onClick="popupPage('<%=bsurl%>/encounter/oscarMeasurements/SetupHistoryIndex.do'); return false;">-Old
+                                Measurements--</a>
+                        </td>
+                    </tr>
+                </caisirole:SecurityAccess>
+            </caisi:isModuleLoad>
+
+            <tr style="background-color:#BBBBBB;">
+                <td>Clinical Resources</td>
+            </tr>
+
+            <%
+                String pAge = Integer.toString(UtilDateUtilities.calcAge(bean.yearOfBirth, bean.monthOfBirth, bean.dateOfBirth));
+                CommonLabResultData comLab = new CommonLabResultData();
+                java.util.ArrayList labs = comLab.populateLabResultsData(LoggedInInfo.getLoggedInInfoFromSession(request), "", bean.demographicNo, "", "", "", "U");
+                session.setAttribute("casemgmt_labsbeans", labs);
+            %>
+            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
+                <tr>
+                    <td>
+                        <a href="javascript:void(0)"
+                           ONCLICK="popupPage('http://resource.oscarmcmaster.org/oscarResource/');return false;">resource</a><br>
+                    </td>
+                </tr>
+
+            </caisi:isModuleLoad>
+            <tr>
+                <td>
+                    <a href="javascript:void(0)"
+                       onClick="popupPage('<%=bsurl%>/documentManager/documentReport.jsp?function=demographic&doctype=lab&functionid=<%=bean.demographicNo%>&curUser=<%=bean.curProviderNo%>');return false;">documents</a><br>
+                </td>
+            </tr>
+
+            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
+                <caisirole:SecurityAccess accessName="eform" accessType="access" providerNo="<%=bean.providerNo%>"
+                                          demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
+                    <!-- eform -->
+                    <tr>
+                        <td>
+                            <a href="javascript:void(0)"
+                               onClick="popupPage('<%=bsurl%>/eform/efmpatientformlist.jsp?demographic_no=<%=bean.demographicNo%>');return false;">E-Forms</a><br>
+                        </td>
+                    </tr>
+                </caisirole:SecurityAccess>
+            </caisi:isModuleLoad>
+
+            <caisirole:SecurityAccess accessName="read ticklers" accessType="access" providerNo="<%=bean.providerNo%>"
+                                      demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
+                <tr>
+                    <td>
+                        <a href="javascript:void(0)"
+                           onClick="popupPage('<%=bsurl%>/tickler/ViewTicklerMain.do?demoview=<%=bean.demographicNo%>');return false;">View
+                            Tickler</a><br>
+                    </td>
+                </tr>
+            </caisirole:SecurityAccess>
+
+            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
+                <tr>
+                    <td>
+                        <a href="javascript:void(0)"
+                           onClick="popupPage('<%=bsurl%>/encounter/ViewCalculators.do?sex=<%=bean.patientSex%>&age=<%=pAge%>'); return false;">calculators</a><br>
+                    </td>
+                </tr>
+
+                <caisirole:SecurityAccess accessName="lab" accessType="access" providerNo="<%=bean.providerNo%>"
+                                          demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
+
+                    <!-- lab result -->
+                    <tr>
+                        <td>
+                            <select name="selectCurrentForms" class="ControlSelect"
+                                    onChange="javascript:selectBox(this)"
+                                    onMouseOver="javascript:window.status='View <%=bean.patientFirstName+" "+bean.patientLastName%>\'s lab results'; return true;">
+                                <option value="null" selected>-lab results-</option>
+                                <c:forEach var="labrst" items="${casemgmtLabsbeans}">
+                                    <c:set var="lablable" value="${labrst.dateTime}${labrst.discipline}" />
+                                    <c:set var="mdvalue" value="${bsurl}/oscarMDS/SegmentDisplay.jsp?providerNo=${bean.providerNo}&segmentID=${labrst.segmentID}&status=${labrst.reportStatus}" />
+                                    <c:set var="cmvalue" value="${bsurl}/lab/CA/ON/ViewCMLDisplay.do?providerNo=${bean.providerNo}&segmentID=${labrst.segmentID}" />
+                                    <c:set var="otvalue" value="${bsurl}/lab/CA/BC/ViewLabDisplay.do?segmentID=${labrst.segmentID}&providerNo=${bean.providerNo}" />
+
+                                    <c:choose>
+                                        <c:when test="${labrst.mds}">
+                                            <option value="${mdvalue}">${lablable}</option>
+                                        </c:when>
+                                        <c:when test="${labrst.cml}">
+                                            <option value="${cmvalue}">${lablable}</option>
+                                        </c:when>
+                                        <c:otherwise>
+                                            <option value="${otvalue}">${lablable}</option>
+                                        </c:otherwise>
+                                    </c:choose>
+                                </c:forEach>
+                            </select>
+                            <%session.removeAttribute("casemgmt_labsbeans"); %>
+                        </td>
+                    </tr>
+                </caisirole:SecurityAccess>
+            </caisi:isModuleLoad>
+
+        </form>
+
+        <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
+            <form name="ksearch" method="get">
+                <tr style="background-color:#BBBBBB;">
+                    <td>Internet Resources</td>
+                </tr>
+                <tr>
+                    <td>
+                        search for ...
+                        <br>
+                        <input type="text" name="keyword" value="" onkeypress="return grabEnter(event)"/>
+                        <br>
+                        using ...
+                        <br>
+                        <select name="channel" class="ControlSelect">
+                            <option value="http://resource.oscarmcmaster.org/oscarResource/OSCAR_search/OSCAR_search_results?title=">
+                                OSCAR search
+                            </option>
+                            <option value="http://www.google.com/search?q=">Google</option>
+                            <option value="http://www.ncbi.nlm.nih.gov/entrez/query.fcgi?SUBMIT=y&CDM=Search&DB=PubMed&term=">
+                                Pubmed
+                            </option>
+                            <option value="http://search.nlm.nih.gov/medlineplus/query?DISAMBIGUATION=true&FUNCTION=search&SERVER2=server2&SERVER1=server1&PARAMETER=">
+                                Medline Plus
+                            </option>
+                            <option value="http://www.bnf.org/bnf/bnf/current/noframes/search.htm?n=50&searchButton=Search&q=">
+                                BNF.org
+                            </option>
+                        </select>
+                        <input type="button" name="button" value="Go"
+                               onClick="popupSearchPage(600,800,forms['ksearch'].channel.options[forms['ksearch'].channel.selectedIndex].value+urlencode(forms['ksearch'].keyword.value) ); return false;">
+                    </td>
+                </tr>
+            </form>
+        </caisi:isModuleLoad>
+    </table>
+</div>
