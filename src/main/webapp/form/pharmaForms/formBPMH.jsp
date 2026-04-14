@@ -80,7 +80,7 @@
                 $("#editFamilyDr").click(function () {
                     var familyDrContactId = $("#familyDrContactId").val();
                     var demographicNo = '${ bpmh.demographic.demographicNo }';
-                    var source = "${ pageContext.request.contextPath }/demographic/manageHealthCareTeam.jsp?" +
+                    var source = "${ pageContext.request.contextPath }/demographic/ViewManageHealthCareTeam.do?" +
                         "demographicNo=" + demographicNo +
                         "&view=detached" +
                         "&element=providerId";

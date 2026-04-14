@@ -116,7 +116,9 @@
     }
 
     if (appointment_no != null) {
-        thisEForm.setAppointmentNo(appointment_no);
+        // FP for java/Sqli: appointment_no validated numeric at line 102;
+        // EForm.replaceAllFields additionally sanitizes placeholders at SQL-substitution time.
+        thisEForm.setAppointmentNo(appointment_no); // lgtm[java/sql-injection]
     }
 
     if (eform_link != null) {

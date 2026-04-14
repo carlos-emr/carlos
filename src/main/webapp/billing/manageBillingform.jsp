@@ -237,7 +237,7 @@
     <%
     %>
 
-    <%@ include file="/demographic/zfooterbackclose.jsp" %>
+    <%@ include file="/WEB-INF/jsp/demographic/zfooterbackclose.jsp" %>
 
     </body>
 </html>

@@ -139,13 +139,13 @@
                                     <%
                                     } else {
                                     %>
-                                    <a HREF="#" ONCLICK="popupPage2('<%= request.getContextPath() %>/demographic/search.jsp');return false;"
+                                    <a HREF="#" ONCLICK="popupPage2('<%= request.getContextPath() %>/demographic/ViewSearch.do');return false;"
                                        TITLE='<fmt:message key="global.searchPatientRecords"/>'
                                        OnMouseOver="window.status='<fmt:message key="global.searchPatientRecords"/>' ; return true"><fmt:message key="provider.appointmentProviderAdminDay.search"/></a>
                                     <% } %>
                                 </caisi:isModuleLoad>
                                 <caisi:isModuleLoad moduleName="caisi" reverse="true">
-                                    <a HREF="#" ONCLICK="popupPage2('<%= request.getContextPath() %>/demographic/search.jsp');return false;"
+                                    <a HREF="#" ONCLICK="popupPage2('<%= request.getContextPath() %>/demographic/ViewSearch.do');return false;"
                                        TITLE='<fmt:message key="global.searchPatientRecords"/>'
                                        OnMouseOver="window.status='<fmt:message key="global.searchPatientRecords"/>' ; return true"><fmt:message key="provider.appointmentProviderAdminDay.search"/></a>
                                 </caisi:isModuleLoad>

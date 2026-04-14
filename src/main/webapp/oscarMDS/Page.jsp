@@ -278,7 +278,7 @@
 
                     %>
 
-                    <jsp:include page="/lab/CA/ALL/labDisplayAjax.jsp" flush="true">
+                    <jsp:include page="/lab/CA/ALL/ViewLabDisplayAjax.do" flush="true">
                         <jsp:param name="segmentID" value="<%=segmentID%>"/>
                         <jsp:param name="demoName" value="<%=demoName%>"/>
                         <jsp:param name="providerNo" value="<%=providerNo%>"/>
@@ -322,7 +322,7 @@
                             <a href="javascript:parent.reportWindow('SegmentDisplay.jsp?segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=labRead%><%= Encode.forHtml(result.getPatientName())%>
                             </a>
                             <% } else if (result.isCML()) { %>
-                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/ON/CMLDisplay.jsp?segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=labRead%><%=Encode.forHtml(result.getPatientName())%>
+                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/ON/ViewCMLDisplay.do?segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=labRead%><%=Encode.forHtml(result.getPatientName())%>
                             </a>
                             <% } else if (result.isHL7TEXT()) {
                                 String categoryType = result.getDiscipline();
@@ -334,7 +334,7 @@
                             <%
                             } else {
                             %>
-                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/ALL/labDisplay.jsp?inWindow=true&segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>&showLatest=true')"><%=labRead%><%=Encode.forHtml(result.getPatientName())%>
+                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/ALL/ViewLabDisplay.do?inWindow=true&segmentID=<%=Encode.forUriComponent(segmentID)%>&providerNo=<%=Encode.forUriComponent(providerNo)%>&searchProviderNo=<%=Encode.forUriComponent(searchProviderNo)%>&status=<%=Encode.forUriComponent(status)%>&showLatest=true')"><%=labRead%><%=Encode.forHtml(result.getPatientName())%>
                             </a>
                             <%
                                 }
@@ -368,7 +368,7 @@
                             <a href="javascript:reportWindow('<%=request.getContextPath()%>/hospitalReportManager/Display.do?id=<%=segmentID%>&segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>&demoName=<%=demoName%>&duplicateLabIds=<%=duplicateLabIds.toString()%>&isListView=<%=isListView%>',850,1020)"><%=labRead%><%=result.getPatientName()%>
                             </a>
                             <% } else {%>
-                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/BC/labDisplay.jsp?segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=labRead%><%=Encode.forJavaScript(result.getPatientName())%>
+                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/BC/ViewLabDisplay.do?segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=labRead%><%=Encode.forJavaScript(result.getPatientName())%>
                             </a>
                             <% }%>
                         </td>

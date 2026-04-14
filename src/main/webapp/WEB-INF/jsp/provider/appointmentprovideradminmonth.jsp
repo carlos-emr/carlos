@@ -1028,7 +1028,7 @@
                         return false;
                     }
                     case <fmt:message key="global.searchShortcut"/> :
-                        popupOscarRx(550, 687, '<%= request.getContextPath() %>/demographic/search.jsp');
+                        popupOscarRx(550, 687, '<%= request.getContextPath() %>/demographic/ViewSearch.do');
                         return false;  //run code for 'S'earch
                     case <fmt:message key="global.dayShortcut"/> :
                         window.open("<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=day&dboperation=searchappointmentday", "_self");

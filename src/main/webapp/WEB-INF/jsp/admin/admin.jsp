@@ -393,11 +393,11 @@
         <div class="adminBox">
             <h3>&nbsp;<fmt:message key="admin.admin.LabsInbox"/></h3>
             <ul>
-                <li><a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/lab/CA/ALL/testUploader.jsp");return false;'><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
+                <li><a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/lab/CA/ALL/insideLabUpload.do");return false;'><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
                 <oscar:oscarPropertiesCheck property="OLD_LAB_UPLOAD" value="yes"
                                             defaultVal="false">
                     <li><a href="#"
-                           onclick='popupPage(800,1000,"${pageContext.request.contextPath}/lab/CA/BC/LabUpload.jsp");return false;'><fmt:message key="admin.admin.oldLabUpload"/></a></li>
+                           onclick='popupPage(800,1000,"${pageContext.request.contextPath}/lab/labUpload.do");return false;'><fmt:message key="admin.admin.oldLabUpload"/></a></li>
                 </oscar:oscarPropertiesCheck>
                 <li><a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/admin/labForwardingRules.do");return false;'><fmt:message key="admin.admin.labFwdRules"/></a></li>
                 <li><a href="javascript:void(0);" onclick='popupPage(550,800,"${pageContext.request.contextPath}/admin/ViewAddQueue.do");return false;'><fmt:message key="admin.admin.AddNewQueue"/></a></li>
@@ -831,9 +831,9 @@
                            onclick='popupPage(500,600, "${pageContext.request.contextPath}/admin/ViewAdminBackupDownload.do"); return false;'><fmt:message key="admin.admin.btnAdminBackupDownload"/></a></li>
 
                     <li><a href="#"
-                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/demographic/demographicExport.jsp");return false;'><fmt:message key="admin.admin.DemoExport"/></a></li>
+                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/demographic/DemographicExport.do");return false;'><fmt:message key="admin.admin.DemoExport"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/demographic/demographicImport.jsp");return false;'><fmt:message key="admin.admin.DemoImport"/></a></li>
+                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/form/importUpload.do");return false;'><fmt:message key="admin.admin.DemoImport"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/DemographicMergeRecord.do");return false;'><fmt:message key="admin.admin.mergeRec"/></a></li>
                     <li><a href="#"

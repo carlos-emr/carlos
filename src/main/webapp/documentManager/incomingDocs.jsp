@@ -1142,7 +1142,7 @@
                             <tr>
                                 <td colspan="2"><input type="button" id="createNewDemo"
                                                        value="<fmt:message key="dms.incomingDocs.createNewDemographic"/>"
-                                                       onclick="popupPage(700,960,'<%= request.getContextPath() %>/demographic/demographicaddarecordhtm.jsp','demographic')"/>
+                                                       onclick="popupPage(700,960,'<%= request.getContextPath() %>/demographic/ViewDemographicAddARecordHtm.do','demographic')"/>
                                 </td>
                             </tr>
                             <tr>

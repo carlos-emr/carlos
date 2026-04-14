@@ -1,0 +1,66 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.lab.gate;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+
+/**
+ * Conditional-POST gate for {@code lab/LinkReq.jsp}. The JSP's scriptlet
+ * performs DB mutations (linkDao.merge/persist or LabRequestReportLink save/update/delete) when a submit/action parameter is present. Enforces
+ * {@code _lab} w privilege always, plus POST-only when the mutation
+ * trigger is supplied (CSRF hardening). GET without trigger params is
+ * allowed so the initial form renders via popup/navigation.
+ *
+ * @since 2026-04-13
+ */
+public final class ViewLinkReq2Action extends ActionSupport {
+
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    @Override
+    public String execute() throws Exception {
+        HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
+            throw new SecurityException("missing required sec object (_lab)");
+        }
+
+        // Require POST when mutation-trigger params are present. LinkReq.jsp runs
+        // LabRequestReportLink.save/update/delete whenever linkReqId is non-empty,
+        // so linkReqId is the true mutation trigger — gate it alongside the
+        // conventional submit/action names.
+        String linkReqId = request.getParameter("linkReqId");
+        boolean hasMutationTrigger = request.getParameter("submit") != null
+                || request.getParameter("action") != null
+                || request.getParameter("method") != null
+                || request.getParameter("linkChoice") != null
+                || request.getParameter("buttonAction") != null
+                || (linkReqId != null && !linkReqId.isEmpty());
+        if (hasMutationTrigger && !"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
+        return SUCCESS;
+    }
+}
