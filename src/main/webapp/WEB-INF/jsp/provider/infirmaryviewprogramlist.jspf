@@ -7,6 +7,7 @@
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi"%>
 <%@ page import="io.github.carlos_emr.carlos.utility.*"%>
 <%@ page import="io.github.carlos_emr.carlos.caisi.CaisiUtil" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
 String questr=(String)session.getAttribute("infirmaryView_OscarQue"); 
@@ -32,13 +33,13 @@ session.setAttribute("infirmaryView_OscarQue",questr);
 
 <script>
 function submitProgram(ctrl,isOscar) {
-	var url = "<%=providerurlString%>"+"&infirmaryView_programId="+ctrl.value+"&GoToCaisiViewFromOscarView=true";
+	var url = "<%= Encode.forJavaScript(providerurlString) %>"+"&infirmaryView_programId="+encodeURIComponent(ctrl.value)+"&GoToCaisiViewFromOscarView=true";
 	url = url.replace('infirmaryView_isOscar='+(!isOscar),'infirmaryView_isOscar='+isOscar);
 	document.location.href = url;
 }
 function submitStatus(ctrl) {// only place other than infirmaction.java to set infirmaryView_clientStatusId
 	var programCtrl = document.getElementById("bedprogram_no");
-	document.location.href = "<%=providerurlString%>"+"&infirmaryView_programId="+programCtrl.value+"&infirmaryView_clientStatusId="+ctrl.value+"&GoToCaisiViewFromOscarView=true";
+	document.location.href = "<%= Encode.forJavaScript(providerurlString) %>"+"&infirmaryView_programId="+encodeURIComponent(programCtrl.value)+"&infirmaryView_clientStatusId="+encodeURIComponent(ctrl.value)+"&GoToCaisiViewFromOscarView=true";
 }
 </script>
 
@@ -115,7 +116,7 @@ function submitStatus(ctrl) {// only place other than infirmaction.java to set i
 	</select>
 	<caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
 		<caisi:ProgramExclusiveView providerNo="<%=((LoggedInInfo)LoggedInInfo.getLoggedInInfoFromSession(request)).getLoggedInProviderNo()%>" value="no">
-			<a href='<%= request.getContextPath() %>/provider/providercontrol.do?infirmaryView_isOscar=true&GoToCaisiViewFromOscarView=false&<%=session.getAttribute("infirmaryView_OscarQue") %>'>|
+			<a href='<%= request.getContextPath() %>/provider/providercontrol.do?infirmaryView_isOscar=true&GoToCaisiViewFromOscarView=false&<%= Encode.forHtmlAttribute((String) session.getAttribute("infirmaryView_OscarQue")) %>'>|
 			Oscar View</a>
 		</caisi:ProgramExclusiveView>
 	</caisi:isModuleLoad>
@@ -124,7 +125,7 @@ function submitStatus(ctrl) {// only place other than infirmaction.java to set i
 <c:if test="${infirmaryView_isOscar == 'true'}">
 	<caisi:ProgramExclusiveView providerNo="<%=((LoggedInInfo)LoggedInInfo.getLoggedInInfoFromSession(request)).getLoggedInProviderNo()%>" value="no">
 		<div align="right"><a
-			href='<%= request.getContextPath() %>/provider/providercontrol.do?infirmaryView_isOscar=false&GoToCaisiViewFromOscarView=true&<%=session.getAttribute("infirmaryView_OscarQue") %>'>|
+			href='<%= request.getContextPath() %>/provider/providercontrol.do?infirmaryView_isOscar=false&GoToCaisiViewFromOscarView=true&<%= Encode.forHtmlAttribute((String) session.getAttribute("infirmaryView_OscarQue")) %>'>|
 		Case Management View</a></div>
 	</caisi:ProgramExclusiveView>
 </c:if>
