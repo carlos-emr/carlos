@@ -459,7 +459,7 @@
                            onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/RptByExample.do");return false;'><fmt:message key="admin.admin.btnQueryByExample"/></a></li>
 
                     <li>
-                        <a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/homePage.jsp">
+                        <a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/ViewHomePage.do">
                             <fmt:message key="admin.admin.rptbyTemplate"/>
                         </a>
                     </li>
@@ -468,11 +468,11 @@
                         <form id="ageSexForm" method="post" action="${pageContext.request.contextPath}/oscarReport/DbReportAgeSex.do" target="groupno" style="display:none"></form>
                     </li>
                     <li><a href="#"
-                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/oscarReportVisitControl.jsp");return false;'><fmt:message key="admin.admin.btnVisitReport"/></a></li>
+                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/ViewOscarReportVisitControl.do");return false;'><fmt:message key="admin.admin.btnVisitReport"/></a></li>
                         <%-- This links doesnt make sense on Brazil. Hide then --%>
 
                     <li><a href="#"
-                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/oscarReportCatchment.jsp");return false;'><fmt:message key="admin.admin.btnPCNCatchmentReport"/></a></li>
+                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/ViewOscarReportCatchment.do");return false;'><fmt:message key="admin.admin.btnPCNCatchmentReport"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/FluBilling.do?orderby=");return false;'><fmt:message key="admin.admin.btnFluBillingReport"/></a></li>
                     <li><a href="#"
@@ -480,16 +480,16 @@
 
 
                     <li><a href="#"
-                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/patientlist.jsp")'><fmt:message key="admin.admin.exportPatientbyAppt"/></a></li>
+                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/ViewPatientlist.do")'><fmt:message key="admin.admin.exportPatientbyAppt"/></a></li>
                     <caisi:isModuleLoad moduleName="caisi">
                         <li><a href="${pageContext.request.contextPath}/PMmodule/reports/activity_report_form.jsp"><fmt:message key="admin.admin.activityRpt"/></a></li>
                     </caisi:isModuleLoad>
-                    <li><a href="${pageContext.request.contextPath}/oscarReport/provider_service_report_form.jsp"><fmt:message key="admin.admin.providerServiceRpt"/></a></li>
+                    <li><a href="${pageContext.request.contextPath}/oscarReport/ViewProviderServiceReportForm.do"><fmt:message key="admin.admin.providerServiceRpt"/></a></li>
                     <caisi:isModuleLoad moduleName="caisi">
                         <li><a href="${pageContext.request.contextPath}/PopulationReport.do"><fmt:message key="admin.admin.popRpt"/></a></li>
                     </caisi:isModuleLoad>
-                    <li><a href="${pageContext.request.contextPath}/oscarReport/cds_4_report_form.jsp"><fmt:message key="admin.admin.cdsRpt"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/oscarReport/mis_report_form.jsp"><fmt:message key="admin.admin.misRpt"/></a></li>
+                    <li><a href="${pageContext.request.contextPath}/oscarReport/ViewCds4ReportForm.do"><fmt:message key="admin.admin.cdsRpt"/></a></li>
+                    <li><a href="${pageContext.request.contextPath}/oscarReport/ViewMisReportForm.do"><fmt:message key="admin.admin.misRpt"/></a></li>
                     <li><a href="${pageContext.request.contextPath}/oscarReport/cbi_submit_form.jsp"><fmt:message key="admin.admin.cbiSubmit"/></a></li>
                     <li><a href="${pageContext.request.contextPath}/admin/cbiAdmin.jsp"><fmt:message key="admin.admin.cbi.reportlink"/></a></li>
                     <li><a href="${pageContext.request.contextPath}/oscarReport/cbi_report_form.jsp"><fmt:message key="admin.admin.cbiRpt"/></a></li>
@@ -504,9 +504,9 @@
                         if (oscarVariables.getProperty("billregion", "").equals("ON")) {
                     %>
                     <li><a href="#"
-                           onclick='popupPage(660,1000, "${pageContext.request.contextPath}/report/reportonbilledphcp.jsp");return false;'><fmt:message key="admin.admin.PHCP"/></a>
+                           onclick='popupPage(660,1000, "${pageContext.request.contextPath}/report/ViewReportonbilledphcp.do");return false;'><fmt:message key="admin.admin.PHCP"/></a>
                         <span style="font-size: x-small;"> (Setting: <a href="#"
-                                                                        onclick='popupPage(660,1000, "${pageContext.request.contextPath}/report/reportonbilledvisitprovider.jsp");return false;'><fmt:message key="admin.admin.provider"/></a>,
+                                                                        onclick='popupPage(660,1000, "${pageContext.request.contextPath}/report/ViewReportonbilledvisitprovider.do");return false;'><fmt:message key="admin.admin.provider"/></a>,
 			        ) </span></li>
                     <%
                         }

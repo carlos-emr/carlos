@@ -140,7 +140,7 @@
         vec.add(prop);
     }
 %>
-<form name="myform" action="reportonbilledvisitprovider.jsp"
+<form name="myform" action="<%= request.getContextPath() %>/report/ViewReportonbilledvisitprovider.do"
       method="POST">
     <table width="100%" border="0" bgcolor="ivory" cellspacing="1"
            cellpadding="1">
@@ -265,7 +265,7 @@
 %>
 
     <tr bgcolor="<%=k%2==0?"white":color%>">
-        <form name="mySecform<%=i%>" action="reportonbilledvisitprovider.jsp"
+        <form name="mySecform<%=i%>" action="<%= request.getContextPath() %>/report/ViewReportonbilledvisitprovider.do"
               method="POST">
             <td><%= Encode.forHtml(oldRoleList.get(i + 3).toString()) %>
             </td>

@@ -161,7 +161,7 @@
                 var y = document.getElementsByName("sTime")[0].value;
                 var z = document.getElementsByName("eTime")[0].value;
                 var ro = document.getElementById("rosteredOnly").checked;
-                var x = 'reportdaysheet.jsp?dsmode=' + encodeURIComponent(r) + '&provider_no=' + encodeURIComponent(s) + '&sdate=' + encodeURIComponent(u) + '&edate=' + encodeURIComponent(v) + '&sTime=' + encodeURIComponent(y) + '&eTime=' + encodeURIComponent(z);
+                var x = '<%= request.getContextPath() %>/report/ViewReportdaysheet.do?dsmode=' + encodeURIComponent(r) + '&provider_no=' + encodeURIComponent(s) + '&sdate=' + encodeURIComponent(u) + '&edate=' + encodeURIComponent(v) + '&sTime=' + encodeURIComponent(y) + '&eTime=' + encodeURIComponent(z);
                 var x2 = x + '&rosteredStatus=true';
 
                 if (ro == true) {

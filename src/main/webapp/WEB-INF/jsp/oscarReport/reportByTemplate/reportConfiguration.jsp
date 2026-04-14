@@ -128,7 +128,7 @@
         <%@ include file="rbtTopNav.jspf" %>
 
             <%if (templateid == null) { %>
-        <jsp:forward page="homePage.jsp"/>
+        <jsp:forward page="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewHomePage.do"/>
             <%}%>
 
     <h3>
@@ -245,8 +245,8 @@
     </div>
 
     <div id="optionsDiv" class="form-actions">
-        <a href="viewTemplate.jsp?templateid=<%=Encode.forUriComponent(curreport.getTemplateId())%>" class="link">View Template XML</a>
-        <a href="addEditTemplate.jsp?templateid=<%=Encode.forUriComponent(curreport.getTemplateId())%>&amp;opentext=1" class="link">Edit
+        <a href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewViewTemplate.do?templateid=<%=Encode.forUriComponent(curreport.getTemplateId())%>" class="link">View Template XML</a>
+        <a href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate.do?templateid=<%=Encode.forUriComponent(curreport.getTemplateId())%>&amp;opentext=1" class="link">Edit
             Template</a>
         <a href="javascript:void(0);" onclick="deleteTemplate('<%=Encode.forJavaScriptAttribute(curreport.getTemplateId())%>');" class="link">
             Delete Template

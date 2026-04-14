@@ -190,7 +190,7 @@
                     </c:if>
                     <c:if test="${ action ne 'edit' }">
                         <input type="button" class="btn float-end" name="cancel" value="Cancel"
-                               onclick="document.location='homePage.jsp'">
+                               onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewHomePage.do'">
                     </c:if>
                 </div>
             </div>

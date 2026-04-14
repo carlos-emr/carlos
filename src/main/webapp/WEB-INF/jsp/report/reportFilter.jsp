@@ -42,7 +42,7 @@
 
 // search the list
     int n = bDeletedList ? 0 : 1;
-    String link = bDeletedList ? "<a href='reportFormRecord.jsp'>Report list</a>" : "<a href='reportFormRecord.jsp?undelete=true'>Deleted report list</a>";
+    String link = bDeletedList ? "<a href='<%= request.getContextPath() %>/report/ViewReportFormRecord.do'>Report list</a>" : "<a href='<%= request.getContextPath() %>/report/ViewReportFormRecord.do?undelete=true'>Deleted report list</a>";
     Vector vec = reportFilter.getNameList(reportId, n);
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -92,7 +92,7 @@
             }
 
             function goPage(id) {
-                self.location.href = "reportFilter.jsp?id=" + id;
+                self.location.href = "<%= request.getContextPath() %>/report/ViewReportFilter.do?id=" + id;
             }
 
             //-->
@@ -120,12 +120,12 @@
             <td><%=msg%>
             </td>
             <td width="10%" align="right" nowrap><a
-                    href="reportFormRecord.jsp">Back to Report List</a> | <a
-                    href="reportFormConfig.jsp?id=<%= Encode.forUriComponent(reportId) %>">Configuration</a></td>
+                    href="<%= request.getContextPath() %>/report/ViewReportFormRecord.do">Back to Report List</a> | <a
+                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig.do?id=<%= Encode.forUriComponent(reportId) %>">Configuration</a></td>
         </tr>
     </table>
     <table width="100%" border="0" cellspacing="2" cellpadding="2">
-        <form method="post" name="baseurl" action="reportResult.jsp">
+        <form method="post" name="baseurl" action="<%= request.getContextPath() %>/report/ViewReportResult.do">
             <%
                 Vector vecJS = new Vector();
                 for (int i = 0; i < vec.size(); i++) {

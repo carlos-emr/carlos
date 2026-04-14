@@ -78,7 +78,7 @@
     <h4>CDS Reports</h4>
 </div>
 
-<form class="card card-body bg-body-tertiary" action="cds_4_report_results.jsp"
+<form class="card card-body bg-body-tertiary" action="<%= request.getContextPath() %>/oscarReport/ViewCds4ReportResults.do"
       id="cdsForm">
     <fieldset>
 

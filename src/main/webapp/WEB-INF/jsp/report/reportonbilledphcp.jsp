@@ -125,7 +125,7 @@
                                                  color="#FFFFFF"> PHCP Encounter Report </font></th>
         </tr>
     </table>
-    <form name="myform" action="reportonbilledphcp.jsp" method="POST"
+    <form name="myform" action="<%= request.getContextPath() %>/report/ViewReportonbilledphcp.do" method="POST"
           onsubmit="return onSub();">
         <table width="100%" border="0" bgcolor="ivory" cellspacing="1"
                cellpadding="1">

@@ -143,7 +143,7 @@
     </table>
 
     <table width="100%" border="0" bgcolor="#EEEEFF">
-        <form name="serviceform" method="get" action="oscarReportAgeSex.jsp">
+        <form name="serviceform" method="get" action="<%= request.getContextPath() %>/oscarReport/ViewOscarReportAgeSex.do">
             <tr>
                 <td colspan="3">
                     <div align="center"><font face="Arial, Helvetica, sans-serif"

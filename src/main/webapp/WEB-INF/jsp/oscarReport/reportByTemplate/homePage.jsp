@@ -129,7 +129,7 @@
                 <td align="center"><%=String.valueOf(i + 1)%>
                 </td>
                 <td><a style="display:block;outline:none;"
-                       href="reportConfiguration.jsp?templateid=<%=curReport.getTemplateId()%>"><%=curReport.getTitle()%>
+                       href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewReportConfiguration.do?templateid=<%=curReport.getTemplateId()%>"><%=curReport.getTitle()%>
                 </a></td>
                 <td><%=curReport.getDescription()%>
                 </td>

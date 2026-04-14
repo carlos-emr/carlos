@@ -80,11 +80,11 @@
             }
 
             function goCaption() {
-                //self.location.href = "reportFormCaption.jsp?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>";
+                //self.location.href = "<%= request.getContextPath() %>/report/ViewReportFormCaption.do?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>";
             }
 
             function goPage(id) {
-                self.location.href = "reportFilter.jsp?id=" + id;
+                self.location.href = "<%= request.getContextPath() %>/report/ViewReportFilter.do?id=" + id;
             }
 
             //-->
@@ -99,9 +99,9 @@
             <td><%=Encode.forHtml(reportName)%> Caption</td>
             <td width="10%" align="right" nowrap>
                 <% if ("demographic".equals(tableName)) {%> <a
-                    href="reportFormDemoConfig.jsp?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>&formTableName=<%= Encode.forUriComponent(formTableName) %>&configTableName=<%= Encode.forUriComponent(configTableName) %>">Back
+                    href="<%= request.getContextPath() %>/report/ViewReportFormDemoConfig.do?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>&formTableName=<%= Encode.forUriComponent(formTableName) %>&configTableName=<%= Encode.forUriComponent(configTableName) %>">Back
                 to the Configuration</a> <% } else {%> <a
-                    href="reportFormConfig.jsp?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>">Back
+                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig.do?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>">Back
                 to the Configuration</a> <% }%>
             </td>
         </tr>
@@ -130,7 +130,7 @@
                             }
                     %>
                     <form method="post" name="baseurl<%=i%>"
-                          action="reportFormCaption.jsp">
+                          action="<%= request.getContextPath() %>/report/ViewReportFormCaption.do">
                         <tr bgcolor="<%=color%>">
                             <td width="50%"><input type="text" name="caption"
                                                    value="<%=fieldCaption%>" size="36"/></td>

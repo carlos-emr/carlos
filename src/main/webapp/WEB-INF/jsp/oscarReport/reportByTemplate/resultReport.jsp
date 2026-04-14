@@ -67,7 +67,7 @@
 
         <script>
             function clearSession() {
-                navigator.sendBeacon('clearSession.jsp');
+                navigator.sendBeacon('<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewClearSession.do');
             }
 
             jQuery(document).ready(function () {
@@ -144,7 +144,7 @@
 
         <div style="margin-bottom:15px;" class="d-flex gap-2">
             <input type="button" class="btn btn-primary" value="Back"
-                   onclick="document.location='reportConfiguration.jsp?templateid=${ reportobject.templateId }'">
+                   onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewReportConfiguration.do?templateid=${ reportobject.templateId }'">
             <input type="button" class="btn btn-primary" value="Print" onclick="window.print();">
 
             <%
@@ -169,7 +169,7 @@
             </a>
             <a href="javascript:void(0)" class="edit result-btn"
                style="padding-left: 5px;border-left:#0088cc 2px solid;"
-               onclick="document.location='addEditTemplate.jsp?templateid=${ reportobject.templateId }&opentext=1'">
+               onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate.do?templateid=${ reportobject.templateId }&opentext=1'">
                 Edit Template
             </a>
             <div class="sqlBorderDiv" id="sqlDiv" style="display:none;background-color:white;padding:5px;">

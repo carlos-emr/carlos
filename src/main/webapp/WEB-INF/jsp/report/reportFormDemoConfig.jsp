@@ -101,11 +101,11 @@
             }
 
             function goCaption() {
-                //self.location.href = "reportFormCaption.jsp?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>";
+                //self.location.href = "<%= request.getContextPath() %>/report/ViewReportFormCaption.do?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>";
             }
 
             function goPage(id) {
-                self.location.href = "reportFilter.jsp?id=" + id;
+                self.location.href = "<%= request.getContextPath() %>/report/ViewReportFilter.do?id=" + id;
             }
 
             //-->
@@ -119,15 +119,15 @@
         <tr BGCOLOR="#CCCCFF">
             <td><%=Encode.forHtml(reportName)%> Configuration</td>
             <td width="10%" align="right" nowrap><a
-                    href="reportFilter.jsp?id=<%= Encode.forUriComponent(reportId) %>">Back to the Report</a></td>
+                    href="<%= request.getContextPath() %>/report/ViewReportFilter.do?id=<%= Encode.forUriComponent(reportId) %>">Back to the Report</a></td>
         </tr>
     </table>
 
     <table width="100%" border="1" cellspacing="0" cellpadding="2">
-        <form method="post" name="baseurl0" action="reportFormDemoConfig.jsp">
+        <form method="post" name="baseurl0" action="<%= request.getContextPath() %>/report/ViewReportFormDemoConfig.do">
             <tr bgcolor="<%="#EEEEFF"%>">
                 <td align="center" width="45%"><a
-                        href="reportFormConfig.jsp?id=<%= Encode.forUriComponent(reportId) %>">Form</a> | Patient
+                        href="<%= request.getContextPath() %>/report/ViewReportFormConfig.do?id=<%= Encode.forUriComponent(reportId) %>">Form</a> | Patient
                     Profile <br/>
                     <select size=28 name="selField" ondblclick="javascript:onSelField();">
                         <%
@@ -147,7 +147,7 @@
                         <% } %>
                     </select> <br>
                     <a
-                            href="reportFormCaption.jsp?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>&formTableName=<%= Encode.forUriComponent(formTableName) %>&configTableName=<%= Encode.forUriComponent(configTableName) %>">Add
+                            href="<%= request.getContextPath() %>/report/ViewReportFormCaption.do?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>&formTableName=<%= Encode.forUriComponent(formTableName) %>&configTableName=<%= Encode.forUriComponent(configTableName) %>">Add
                         Caption</a></td>
 
                 <td align="center" width="20%" nowrap valign="top">

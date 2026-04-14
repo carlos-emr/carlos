@@ -108,11 +108,11 @@
             }
 
             function goCaption() {
-                //self.location.href = "reportFormCaption.jsp?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>";
+                //self.location.href = "<%= request.getContextPath() %>/report/ViewReportFormCaption.do?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>";
             }
 
             function goPage(id) {
-                self.location.href = "reportFilter.jsp?id=" + id;
+                self.location.href = "<%= request.getContextPath() %>/report/ViewReportFilter.do?id=" + id;
             }
 
             //-->
@@ -126,12 +126,12 @@
         <tr BGCOLOR="#CCCCFF">
             <td><%=Encode.forHtml(reportName)%> Configuration</td>
             <td width="10%" align="right" nowrap><a
-                    href="reportFilter.jsp?id=<%= Encode.forUriComponent(reportId) %>">Back to the Report</a></td>
+                    href="<%= request.getContextPath() %>/report/ViewReportFilter.do?id=<%= Encode.forUriComponent(reportId) %>">Back to the Report</a></td>
         </tr>
     </table>
 
     <table width="100%" border="1" cellspacing="0" cellpadding="2">
-        <form method="post" name="baseurl0" action="reportFormConfig.jsp">
+        <form method="post" name="baseurl0" action="<%= request.getContextPath() %>/report/ViewReportFormConfig.do">
             <% if (vecFormTable.size() > 0) { %>
 
             <tr>
@@ -150,7 +150,7 @@
             <% } %>
             <tr bgcolor="<%="#EEEEFF"%>">
                 <td align="center" width="45%">Form | <a
-                        href="reportFormDemoConfig.jsp?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%="demographic"%>&formTableName=<%= Encode.forUriComponent(tableName) %>&configTableName=<%= Encode.forUriComponent(tableName) %>">Patient
+                        href="<%= request.getContextPath() %>/report/ViewReportFormDemoConfig.do?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%="demographic"%>&formTableName=<%= Encode.forUriComponent(tableName) %>&configTableName=<%= Encode.forUriComponent(tableName) %>">Patient
                     Profile</a> <br/>
                     <select size=28 name="selField" ondblclick="javascript:onSelField();">
                         <%
@@ -170,7 +170,7 @@
                         <% } %>
                     </select> <br>
                     <a
-                            href="reportFormCaption.jsp?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>">Add
+                            href="<%= request.getContextPath() %>/report/ViewReportFormCaption.do?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>">Add
                         Caption</a></td>
 
                 <td align="center" width="20%" nowrap valign="top">
@@ -197,7 +197,7 @@
                     <% } %>
                 </select> <br>
                     <a
-                            href="reportFormOrder.jsp?id=<%= Encode.forUriComponent(reportId) %>&save=<%=SAVE_AS%>&tableName=<%= Encode.forUriComponent(tableName) %>">Change
+                            href="<%= request.getContextPath() %>/report/ViewReportFormOrder.do?id=<%= Encode.forUriComponent(reportId) %>&save=<%=SAVE_AS%>&tableName=<%= Encode.forUriComponent(tableName) %>">Change
                         Order</a> <input type="hidden" name="id" value="<%= Encode.forHtmlAttribute(reportId) %>"> <input
                             type="hidden" name="tableName" value="<%= Encode.forHtmlAttribute(tableName) %>"> <input
                             type="hidden" name="configTableName" value="<%= Encode.forHtmlAttribute(tableName) %>">

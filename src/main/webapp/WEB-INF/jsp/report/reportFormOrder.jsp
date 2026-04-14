@@ -90,7 +90,7 @@
             }
 
             function goPage(id) {
-                self.location.href = "reportFilter.jsp?id=" + id;
+                self.location.href = "<%= request.getContextPath() %>/report/ViewReportFilter.do?id=" + id;
             }
 
             //-->
@@ -104,7 +104,7 @@
         <tr BGCOLOR="#CCCCFF">
             <td><%=Encode.forHtml(reportName)%> Order</td>
             <td width="10%" align="right" nowrap><a
-                    href="reportFormConfig.jsp?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%=Encode.forUriComponent(tableName)%>">Back
+                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig.do?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%=Encode.forUriComponent(tableName)%>">Back
                 to the Configuration</a></td>
         </tr>
     </table>
@@ -114,7 +114,7 @@
             <td width="70%">
 
                 <table width="100%" border="0" cellspacing="1" cellpadding="2">
-                    <form method="post" name="baseurl" action="reportFormOrder.jsp"
+                    <form method="post" name="baseurl" action="<%= request.getContextPath() %>/report/ViewReportFormOrder.do"
                           onsubmit="return checkscript()">
                         <%
                             for (int i = 0; i < vecConfigObj.size(); i++) {

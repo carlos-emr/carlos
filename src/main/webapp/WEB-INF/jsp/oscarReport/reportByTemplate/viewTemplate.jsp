@@ -81,7 +81,7 @@
 
 
     <%if (templateid == null) { %>
-    <jsp:forward page="homePage.jsp"/>
+    <jsp:forward page="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewHomePage.do"/>
     <%}%>
 
     <div class="xmlBorderDiv">
@@ -92,7 +92,7 @@
         <input type="button" class="btn btn-secondary" value="Back" onclick="javascript: window.history.back();return false;"/>
         <input type="button" class="btn btn-secondary" value="Print" onclick="javascript: window.print();"/>
         <input type="button" class="btn btn-primary" value="Edit"
-               onclick="document.location='addEditTemplate.jsp?templateid=<%=Encode.forJavaScriptAttribute(templateid)%>&opentext=1'"/>
+               onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate.do?templateid=<%=Encode.forJavaScriptAttribute(templateid)%>&opentext=1'"/>
     </div>
 
 </html>

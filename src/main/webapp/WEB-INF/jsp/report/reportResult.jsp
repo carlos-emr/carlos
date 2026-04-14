@@ -85,7 +85,7 @@
             }
 
             function goPage(id) {
-                self.location.href = "reportFilter.jsp?id=" + id;
+                self.location.href = "<%= request.getContextPath() %>/report/ViewReportFilter.do?id=" + id;
             }
 
             //-->
@@ -112,7 +112,7 @@
         <tr BGCOLOR="#CCCCFF">
             <td></td>
             <td width="10%" align="right" nowrap><a
-                    href="reportFilter.jsp?id=<%= Encode.forUriComponent(reportId) %>">Back to Report Filter</a></td>
+                    href="<%= request.getContextPath() %>/report/ViewReportFilter.do?id=<%= Encode.forUriComponent(reportId) %>">Back to Report Filter</a></td>
         </tr>
     </table>
 

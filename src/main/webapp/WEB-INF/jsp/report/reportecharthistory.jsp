@@ -162,12 +162,12 @@
         nLastPage = Integer.parseInt(strLimit1) - intLimit2;
         if (nLastPage >= 0) {
     %> <a
-        href="reportecharthistory.jsp?demographic_no=<%= Encode.forUriComponent(demographic_no) %>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>">Last
+        href="<%= request.getContextPath() %>/report/ViewReportecharthistory.do?demographic_no=<%= Encode.forUriComponent(demographic_no) %>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>">Last
     Page</a> | <%
     }
     if (nItems == intLimit2) {
 %> <a
-        href="reportecharthistory.jsp?demographic_no=<%= Encode.forUriComponent(demographic_no) %>&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>&splitectsize=<%= Encode.forUriComponent(splitectsize) %>">
+        href="<%= request.getContextPath() %>/report/ViewReportecharthistory.do?demographic_no=<%= Encode.forUriComponent(demographic_no) %>&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>&splitectsize=<%= Encode.forUriComponent(splitectsize) %>">
     Next Page</a> <%
     }
 %>

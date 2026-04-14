@@ -57,7 +57,7 @@
 
 // search the list
     int n = bDeletedList ? 0 : 1;
-    String link = bDeletedList ? "<a href='reportFormRecord.jsp'>Report list</a>" : "<a href='reportFormRecord.jsp?undelete=true'>Deleted report list</a>";
+    String link = bDeletedList ? "<a href='<%= request.getContextPath() %>/report/ViewReportFormRecord.do'>Report list</a>" : "<a href='<%= request.getContextPath() %>/report/ViewReportFormRecord.do?undelete=true'>Deleted report list</a>";
     Vector vec = reportItem.getNameList(n);
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -95,7 +95,7 @@
             }
 
             function goPage(id) {
-                self.location.href = "reportFilter.jsp?id=" + id;
+                self.location.href = "<%= request.getContextPath() %>/report/ViewReportFilter.do?id=" + id;
             }
 
             //-->
@@ -131,7 +131,7 @@
             String itemId = prop.getProperty("id");
         %>
         <form method="post" name="baseurl<%=i+1%>"
-              action="reportFormRecord.jsp">
+              action="<%= request.getContextPath() %>/report/ViewReportFormRecord.do">
             <tr bgcolor="<%=color%>">
                 <td align="right"><b><%=i + 1%>
                 </b></td>
@@ -159,7 +159,7 @@
         </tr>
         <tr>
             <td align="center">
-                <form method="post" name="baseurl" action="reportFormRecord.jsp">
+                <form method="post" name="baseurl" action="<%= request.getContextPath() %>/report/ViewReportFormRecord.do">
                     <input type="text" name="name" value="" size="60"/> <input
                         type="submit" name="submit" value="Add"
                         onclick="javascript:return onAdd();"/></form>

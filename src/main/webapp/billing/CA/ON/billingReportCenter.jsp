@@ -109,7 +109,7 @@
             &nbsp;Billing Report Center
         </h4>
         <span style="float:right;">
-            <a href="#" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport'); return false;" class="btn btn-sm btn-secondary">Manage Provider List</a>
+            <a href="#" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider.do?action=billingreport'); return false;" class="btn btn-sm btn-secondary">Manage Provider List</a>
         </span>
     </div>
 
