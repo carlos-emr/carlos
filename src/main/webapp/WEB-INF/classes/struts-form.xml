@@ -29,17 +29,20 @@
     <package name="form" namespace="/" extends="struts-default">
 
         <action name="web/dashboard/display/DashboardDisplay" class="io.github.carlos_emr.carlos.dashboard.display.DisplayDashboard2Action">
-            <result name="success">/web/dashboard/display/DashboardDisplay.jsp</result>
+            <result name="success">/WEB-INF/jsp/web/dashboard/display/DashboardDisplay.jsp</result>
             <result name="unauthorized">/securityError.jsp</result>
             <result name="error">/failure.jsp</result>
         </action>
+        <action name="web/dashboard/display/sharedOutcomesDashboard" class="io.github.carlos_emr.carlos.dashboard.display.gate.ViewSharedOutcomesDashboard2Action">
+            <result name="success">/WEB-INF/jsp/web/dashboard/display/sharedOutcomesDashboard.jsp</result>
+        </action>
         <action name="web/dashboard/display/DrilldownDisplay" class="io.github.carlos_emr.carlos.dashboard.display.DisplayDrilldown2Action">
-            <result name="success">/web/dashboard/display/DrilldownDisplay.jsp</result>
+            <result name="success">/WEB-INF/jsp/web/dashboard/display/DrilldownDisplay.jsp</result>
             <result name="unauthorized">/securityError.jsp</result>
             <result name="error">/failure.jsp</result>
         </action>
         <action name="web/dashboard/display/AssignTickler" class="io.github.carlos_emr.carlos.dashboard.admin.AssignTickler2Action">
-            <result name="success">/web/dashboard/display/AssignTickler.jsp</result>
+            <result name="success">/WEB-INF/jsp/web/dashboard/display/AssignTickler.jsp</result>
             <result name="unauthorized">/securityError.jsp</result>
             <result name="error">/failure.jsp</result>
         </action>
@@ -48,7 +51,7 @@
             <result name="error">/failure.jsp</result>
         </action>
         <action name="web/dashboard/display/DisplayIndicator" class="io.github.carlos_emr.carlos.dashboard.display.DisplayIndicator2Action">
-            <result name="success">/web/dashboard/display/IndicatorPanel.jsp</result>
+            <result name="success">/WEB-INF/jsp/web/dashboard/display/IndicatorPanel.jsp</result>
             <result name="unauthorized">/securityError.jsp</result>
             <result name="error">/failure.jsp</result>
         </action>

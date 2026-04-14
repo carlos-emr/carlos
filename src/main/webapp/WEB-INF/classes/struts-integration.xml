@@ -100,5 +100,42 @@
             <result name="testresult">/WEB-INF/jsp/prevention/test_case.jsp</result>
         </action>
 
+        <!--
+            ===== Tail-interactive view gates + signature mutation ==========
+            Short-tail JSPs relocated behind /WEB-INF/jsp/ (administration,
+            common, calendar, oscarWorkflow, signature_pad, library/eforms).
+            Each view gate enforces the per-page privilege and is GET/HEAD
+            only. The signature save endpoint is POST-only and enforces
+            _con w — replaces the scriptlet in the deleted uploadSignature.jsp
+            which previously ran FileOutputStream writes and DB persistence
+            under only an in-JSP <security:oscarSec> check.
+        -->
+        <action name="administration/index" class="io.github.carlos_emr.carlos.administration.gate.ViewAdministrationIndex2Action">
+            <result name="success">/WEB-INF/jsp/administration/index.jsp</result>
+        </action>
+        <action name="common/OntarioMDRedirect" class="io.github.carlos_emr.carlos.common.gate.ViewOntarioMDRedirect2Action">
+            <result name="success">/WEB-INF/jsp/common/OntarioMDRedirect.jsp</result>
+        </action>
+        <action name="common/omdDiseaseList" class="io.github.carlos_emr.carlos.common.gate.ViewOmdDiseaseList2Action">
+            <result name="success">/WEB-INF/jsp/common/omdDiseaseList.jsp</result>
+        </action>
+        <action name="calendar/oscarCalendarPopup" class="io.github.carlos_emr.carlos.calendar.gate.ViewOscarCalendarPopup2Action">
+            <result name="success">/WEB-INF/jsp/calendar/oscarCalendarPopup.jsp</result>
+        </action>
+        <action name="oscarWorkflow/WorkFlowList" class="io.github.carlos_emr.carlos.oscarWorkflow.gate.ViewWorkFlowList2Action">
+            <result name="success">/WEB-INF/jsp/oscarWorkflow/WorkFlowList.jsp</result>
+        </action>
+        <action name="signature_pad/tabletSignature" class="io.github.carlos_emr.carlos.signature.gate.ViewTabletSignature2Action">
+            <result name="success">/WEB-INF/jsp/signature_pad/tabletSignature.jsp</result>
+        </action>
+        <action name="library/eforms/signatureControl" class="io.github.carlos_emr.carlos.library.eforms.gate.ViewSignatureControl2Action">
+            <result name="success">/WEB-INF/jsp/library/eforms/signatureControl.jsp</result>
+        </action>
+        <action name="signature_pad/SaveSignatureUpload" class="io.github.carlos_emr.carlos.signature.action.SaveSignatureUpload2Action">
+            <result name="methodNotAllowed" type="httpheader">
+                <param name="status">405</param>
+            </result>
+        </action>
+
     </package>
 </struts>

@@ -184,9 +184,9 @@
         </action>
         <action name="CodeSearch" class="io.github.carlos_emr.carlos.commn.web.CodeSearchService2Action"/>
         <action name="Episode" class="io.github.carlos_emr.carlos.commn.web.Episode2Action">
-            <result name="list">/episode/episodeList.jsp</result>
-            <result name="form">/episode/episodeForm.jsp</result>
-            <result name="success">/episode/success.jsp</result>
+            <result name="list">/WEB-INF/jsp/episode/episodeList.jsp</result>
+            <result name="form">/WEB-INF/jsp/episode/episodeForm.jsp</result>
+            <result name="success">/WEB-INF/jsp/episode/success.jsp</result>
         </action>
         <action name="PageMonitoringService" class="io.github.carlos_emr.carlos.commn.web.PageMonitoring2Action"/>
         <action name="BillingInvoice" class="io.github.carlos_emr.carlos.commn.web.BillingInvoice2Action">
