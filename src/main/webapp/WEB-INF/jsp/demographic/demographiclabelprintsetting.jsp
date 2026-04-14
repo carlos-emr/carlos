@@ -163,7 +163,7 @@
             : (Encode.forHtml(phone2Raw) + "&nbsp;");
     %>
 
-    <form method="post" class="" name="labelprint" action="demographicprintdemographic.jsp">
+    <form method="post" class="" name="labelprint" action="<%= request.getContextPath() %>/demographic/ViewDemographicPrintDemographic.do">
         <div class="card card-body bg-body-tertiary">
             <table style="width:100%">
                 <tr style="text-align:center">

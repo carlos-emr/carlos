@@ -147,7 +147,7 @@
                         <input
                                 type="hidden" name="search_mode" value="<%= Encode.forHtmlAttribute(searchMode) %>"/> <input
                                 type="hidden" name="originalpage"
-                                value="<%= request.getContextPath() %>/demographic/AddAlternateContact.jsp"/> <input
+                                value="<%= request.getContextPath() %>/demographic/AddRelation.do"/> <input
                                 type="hidden" name="limit1" value="0"/> <input type="hidden"
                                                                                name="limit2" value="5"/> <input
                                 type="hidden" name="displaymode"

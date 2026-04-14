@@ -1,5 +1,5 @@
 <%--
-    Redirect stub — the add patient form is now behind WEB-INF/jsp/demographic/add.jsp
+    Redirect stub — the add patient form is now behind WEB-INF/jsp/demographic/DemographicAdd.do
     served by DemographicAdd2Action. This stub preserves the old URL for all callers.
 --%>
 <%

@@ -531,7 +531,7 @@
             %>
             <br>
             <div class="createNew">
-                <a href="demographicaddarecordhtm.jsp?search_mode=<%=Encode.forUriComponent(StringUtils.noNull(searchMode))%>&keyword=<%=Encode.forUriComponent(StringUtils.noNull(keyWord))%>"
+                <a href="<%= request.getContextPath() %>/demographic/ViewDemographicAddARecordHtm.do?search_mode=<%=Encode.forUriComponent(StringUtils.noNull(searchMode))%>&keyword=<%=Encode.forUriComponent(StringUtils.noNull(keyWord))%>"
                    title="<fmt:message key="demographic.search.btnCreateNewTitle"/>">
                     <fmt:message key="demographic.search.btnCreateNew"/>
                 </a>

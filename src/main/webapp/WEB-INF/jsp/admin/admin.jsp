@@ -831,9 +831,9 @@
                            onclick='popupPage(500,600, "${pageContext.request.contextPath}/admin/ViewAdminBackupDownload.do"); return false;'><fmt:message key="admin.admin.btnAdminBackupDownload"/></a></li>
 
                     <li><a href="#"
-                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/demographic/demographicExport.jsp");return false;'><fmt:message key="admin.admin.DemoExport"/></a></li>
+                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/demographic/DemographicExport.do");return false;'><fmt:message key="admin.admin.DemoExport"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/demographic/demographicImport.jsp");return false;'><fmt:message key="admin.admin.DemoImport"/></a></li>
+                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/form/importUpload.do");return false;'><fmt:message key="admin.admin.DemoImport"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/DemographicMergeRecord.do");return false;'><fmt:message key="admin.admin.mergeRec"/></a></li>
                     <li><a href="#"
