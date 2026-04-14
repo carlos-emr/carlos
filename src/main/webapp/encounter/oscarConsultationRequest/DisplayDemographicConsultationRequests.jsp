@@ -113,7 +113,7 @@
     <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script>
 
     <style>
-        /* DataTables — CARLOS design overrides (matching ticklerMain.jsp pattern) */
+        /* DataTables — CARLOS design overrides (matching WEB-INF/jsp/tickler/ticklerMain.jsp pattern) */
         table.dataTable thead th {
             background-color: #f5f5f5 !important;
             border-bottom: 2px solid #337ab7 !important;

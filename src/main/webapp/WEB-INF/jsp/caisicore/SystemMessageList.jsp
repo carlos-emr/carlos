@@ -104,7 +104,7 @@
 <table>
     <tr>
         <td><input type="button" value="Back"
-                   onclick="location.href='<%=request.getContextPath()%>/admin/admin.jsp'"/></td>
+                   onclick="location.href='<%=request.getContextPath()%>/admin/ViewAdmin.do'"/></td>
         <td><input type="button" value="Create New Message"
                    onclick="location.href='SystemMessage.do?method=edit'"/></td>
     </tr>

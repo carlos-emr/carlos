@@ -1334,7 +1334,7 @@
                 <a href="<%=request.getContextPath()%>/provider/CppPreferences.do" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-columns"></i> <fmt:message key="provider.providerpreference.link.configureEChartCpp"/>
                 </a>
-                <a href="<%= request.getContextPath() %>/provider/ViewClients.do" class="pref-link" target="_blank" rel="noopener noreferrer">
+                <a href="<%= request.getContextPath() %>/admin/ViewApiClients.do" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-plug"></i> <fmt:message key="provider.providerpreference.link.manageApiClients"/>
                 </a>
                 <a href="<%= request.getContextPath() %>/admin/DisplayDocumentDescriptionTemplate.do"

@@ -133,7 +133,7 @@
             <strong>Success!</strong> record(s) have been deleted.
         </div>
 
-        <a href="${pageContext.request.contextPath}/admin/admindisplaymygroup.jsp" class="btn btn-primary">View Group List</a>
+        <a href="${pageContext.request.contextPath}/admin/ViewAdminDisplayMyGroup.do" class="btn btn-primary">View Group List</a>
 
         <a href="${pageContext.request.contextPath}/admin/AdminNewGroup.do" class="btn btn-secondary"><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
         <%} else {%>
@@ -187,7 +187,7 @@
         <input type="submit" name="Submit" class="btn btn-primary"
                value="<fmt:message key="admin.adminnewgroup.btnSubmit"/>">
 
-        <a href="${pageContext.request.contextPath}/admin/admindisplaymygroup.jsp" class="btn btn-secondary">Cancel</a>
+        <a href="${pageContext.request.contextPath}/admin/ViewAdminDisplayMyGroup.do" class="btn btn-secondary">Cancel</a>
 
     </FORM>
 

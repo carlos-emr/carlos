@@ -973,7 +973,7 @@
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
                                 <li>
                                     <a HREF="#"
-                                       ONCLICK="popupPage2('<%= request.getContextPath() %>/tickler/ticklerMain.jsp','${e:forJavaScript(ticklerTitle)}');return false;"
+                                       ONCLICK="popupPage2('<%= request.getContextPath() %>/tickler/ViewTicklerMain.do','${e:forJavaScript(ticklerTitle)}');return false;"
                                        TITLE='${e:forHtmlAttribute(ticklerTitle)}'>
                                         <span id="oscar_new_tickler"><fmt:message key="global.btntickler"/></span></a>
                                 </li>
@@ -2042,7 +2042,7 @@
 
                                                         <% if (tickler_no.compareTo("") != 0) {%>
                                                             <a href="#"
-                                                               onClick="popupPage(700,1024, '<%= request.getContextPath() %>/tickler/ticklerMain.jsp?demoview=0');return false;"
+                                                               onClick="popupPage(700,1024, '<%= request.getContextPath() %>/tickler/ViewTicklerMain.do?demoview=0');return false;"
                                                                title="<fmt:message key="provider.appointmentProviderAdminDay.ticklerMsg"/>: <%=Encode.forHtmlAttribute(tickler_note)%>">
                                                                 <span color="red">!</span></a>
                                                         <%} %>
@@ -2103,7 +2103,7 @@
                                                         } else {
                                                         %> <% if (tickler_no.compareTo("") != 0) {%>
                                                             <a href="#"
-                                                               onClick="popupPage(700,1024, '<%= request.getContextPath() %>/tickler/ticklerMain.jsp?demoview=<%=demographic_no%>');return false;"
+                                                               onClick="popupPage(700,1024, '<%= request.getContextPath() %>/tickler/ViewTicklerMain.do?demoview=<%=demographic_no%>');return false;"
                                                                title="<fmt:message key="provider.appointmentProviderAdminDay.ticklerMsg"/>: <%=UtilMisc.htmlEscape(tickler_note)%>"><span
                                                                     color="red">!</span></a>
                                                         <%} %>
@@ -2278,7 +2278,7 @@
 
                                                         <c:if test="${doctorLinkRights}">
                                                             &#124; <a href=#
-                                                                      onClick="popupWithApptNo(700,1027,'<%=request.getContextPath()%>/oscarRx/choosePatient.do?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&demographicNo=<%=demographic_no%>','rx',<%=appointment.getId()%>)"
+                                                                      onClick="popupWithApptNo(700,1027,'<%=request.getContextPath()%>/rx/choosePatient.do?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&demographicNo=<%=demographic_no%>','rx',<%=appointment.getId()%>)"
                                                                       title="<fmt:message key="global.prescriptions"/>"><fmt:message key="global.rx"/>
                                                         </a>
 
@@ -2434,7 +2434,7 @@
                         popupOscarRx(600, 750, '<%=resourcebaseurl%>');
                         return false;  //run code for 'H'elp
                     case <fmt:message key="global.ticklerShortcut"/> : {
-                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/tickler/ticklerMain.jsp', '${e:forJavaScript(ticklerTitle)}'); //run code for t'I'ckler
+                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/tickler/ViewTicklerMain.do', '${e:forJavaScript(ticklerTitle)}'); //run code for t'I'ckler
                         return false;
                     }
                     case <fmt:message key="global.labShortcut"/> :
@@ -2736,7 +2736,7 @@
             }));
             badgesDiv.appendChild(makeBadge('Rx', 'qs-badge-rx', msgs.badgePrescriptions, function(e) {
                 e.stopPropagation();
-                popupPage(700, 1027, ctx + '/oscarRx/choosePatient.do'
+                popupPage(700, 1027, ctx + '/rx/choosePatient.do'
                     + '?providerNo=' + encodeURIComponent(scheduleProviderNo)
                     + '&demographicNo=' + encodeURIComponent(item.demographicNo));
                 hideDropdown();

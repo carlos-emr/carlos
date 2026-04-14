@@ -353,13 +353,13 @@
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin,_admin.provider"
                                    rights="r" reverse="<%=false%>">
                     <div class="card card-body bg-body-tertiary quick-links">
-                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/provideraddarecordhtm.jsp"><i
+                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewProviderAddARecordHtm.do"><i
                                 class="fa-solid fa-user fa-4x"></i>
                             <h5><fmt:message key="admin.admin.btnAddProvider"/></h5></a>
                     </div>
 
                     <div class="card card-body bg-body-tertiary quick-links">
-                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/securityaddarecord.jsp"><i
+                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewSecurityAddARecord.do"><i
                                 class="fa-solid fa-user fa-4x"></i>
                             <h5><fmt:message key="admin.admin.btnAddLogin"/></h5></a>
                     </div>
@@ -384,7 +384,7 @@
                     </div>
 
                     <div class="card card-body bg-body-tertiary quick-links">
-                        <a href="javascript:void(0);" class="xlink" rel="${ctx}/admin/admindisplaymygroup.jsp"><i
+                        <a href="javascript:void(0);" class="xlink" rel="${ctx}/admin/ViewAdminDisplayMyGroup.do"><i
                                 class="fa-solid fa-calendar fa-4x"></i>
                             <h5><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></h5></a>
                     </div>

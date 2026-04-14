@@ -30,6 +30,7 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportCreator" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
 <%@ page import="io.github.carlos_emr.carlos.report.pageUtil.RptFormQuery" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.ParameterizedSql" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%
     String VALUE = "value_";
@@ -40,13 +41,13 @@
     String reportName = (new RptReportItem()).getReportName(reportId);
 
     RptFormQuery formQuery = new RptFormQuery();
-    String reportSql = formQuery.getQueryStr(reportId, request);
+    ParameterizedSql psql = formQuery.getQueryStr(reportId, request);
 
     RptReportConfigData formConfig = new RptReportConfigData();
     Vector[] vecField = formConfig.getAllFieldNameValue(SAVE_AS, reportId);
     Vector vecFieldCaption = vecField[1];
     Vector vecFieldName = vecField[0];
-    Vector vecFieldValue = (new RptReportCreator()).query(reportSql, vecFieldCaption); // deepcode ignore SqlInjection: admin-configured report template SQL; templates managed via secure admin interface
+    Vector vecFieldValue = (new RptReportCreator()).query(psql.getSql(), vecFieldCaption, psql.getParamsArray());
 
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
