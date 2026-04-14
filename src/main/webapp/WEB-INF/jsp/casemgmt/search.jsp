@@ -30,7 +30,7 @@
 
 
 <%-- Updated by Eugene Petruhin on 27 jan 2009 while fixing #2510693 --%>
-<%@ include file="/casemgmt/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;

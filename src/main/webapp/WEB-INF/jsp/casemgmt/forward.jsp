@@ -29,7 +29,7 @@
 --%>
 
 
-<%@ include file="/casemgmt/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ page import="java.net.URLEncoder" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 

@@ -29,7 +29,7 @@
 --%>
 
 
-<%@ include file="/casemgmt/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 
 
 <h3 style="color: red">Access Denied</h3>

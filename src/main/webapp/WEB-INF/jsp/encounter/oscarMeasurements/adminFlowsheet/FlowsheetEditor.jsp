@@ -81,7 +81,7 @@
             });
 
             function editItem(flowsheetId, measurementType) {
-                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/FlowsheetItemEditor.jsp?flowsheetId=' + flowsheetId + '&measurementType=' + measurementType;
+                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetItemEditor.do?flowsheetId=' + flowsheetId + '&measurementType=' + measurementType;
             }
 
             function removeItem(id) {

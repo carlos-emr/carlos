@@ -132,11 +132,11 @@
             }
 
             function addNewFlowsheet(scope) {
-                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/FlowsheetAdd.jsp?scope=' + scope;
+                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetAdd.do?scope=' + scope;
             }
 
             function editFlowsheet(id) {
-                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/FlowsheetEditor.jsp?id=' + id;
+                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetEditor.do?id=' + id;
             }
 
             function deleteFlowsheet(id) {

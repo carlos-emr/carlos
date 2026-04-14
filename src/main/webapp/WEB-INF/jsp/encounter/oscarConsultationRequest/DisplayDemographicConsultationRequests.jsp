@@ -216,7 +216,7 @@
         <div>
             <%
                 String newConsultUrl = request.getContextPath()
-                    + "/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp"
+                    + "/encounter/oscarConsultationRequest/ViewConsultationFormRequest.do"
                     + "?de=" + Encode.forUriComponent(demo)
                     + "&teamVar=" + Encode.forUriComponent(team);
             %>

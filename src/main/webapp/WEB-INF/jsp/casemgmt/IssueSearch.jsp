@@ -33,7 +33,7 @@
 <%-- Updated by Eugene Petruhin on 08 jan 2009 while fixing #2482832 & #2494061 --%>
 
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
-<%@ include file="/casemgmt/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -64,7 +64,7 @@
 
 <body>
 <form action="<%= request.getContextPath() %>/CaseManagementEntry.do" method="post">
-    <c:url value="/casemgmt/CaseManagementEntry.jsp?demographicNo=${param.demographicNo}&providerNo=${param.providerNo}&demoName=${requestScope.demoName}&demoAge=${requestScope.demoAge}&demoDOB=${requestScope.demoDOB}"
+    <c:url value="/casemgmt/ViewCaseManagementEntry.do?demographicNo=${param.demographicNo}&providerNo=${param.providerNo}&demoName=${requestScope.demoName}&demoAge=${requestScope.demoAge}&demoDOB=${requestScope.demoDOB}"
            var="url"/>
     <script type="text/javascript">
         function backToNote(from) {

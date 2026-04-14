@@ -31,7 +31,7 @@
 
 <%@page import="io.github.carlos_emr.Misc" %>
 <%@page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
-<%@include file="/casemgmt/taglibs.jsp" %>
+<%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@page import="java.util.Enumeration" %>
 <%@page import="io.github.carlos_emr.carlos.encounter.pageUtil.NavBarDisplayDAO" %>

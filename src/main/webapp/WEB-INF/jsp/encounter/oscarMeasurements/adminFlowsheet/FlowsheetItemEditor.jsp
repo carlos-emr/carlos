@@ -161,16 +161,16 @@
                 jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=saveFlowsheetItem',
                     jQuery('#theForm').serialize(),
                     function (data) {
-                        location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/FlowsheetEditor.jsp?id=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>';
+                        location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetEditor.do?id=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>';
                     });
             }
 
             function addNewWarning() {
-                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/FlowsheetAddWarning.jsp?flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>';
+                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetAddWarning.do?flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>';
             }
 
             function addNewTarget() {
-                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/FlowsheetAddTarget.jsp?flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>';
+                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetAddTarget.do?flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>';
             }
 
             function updateDetails() {

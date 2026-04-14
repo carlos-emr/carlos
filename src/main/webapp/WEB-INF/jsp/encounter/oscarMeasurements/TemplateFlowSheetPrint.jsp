@@ -483,7 +483,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
             <div class="module-block DoNotPrint">
                 <%if (!printView) {%>
-                <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&template=<%=Encode.forUriComponent(temp)%>"
+                <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheet.do?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&template=<%=Encode.forUriComponent(temp)%>"
                    title="go back to <%=Encode.forHtmlAttribute(temp)%>">&lt;&lt; <%=Encode.forHtml(flowSheet)%>
                 </a> <br/>
                 <a href="JavaScript:void(0);" class="back" title="go back to <%=Encode.forHtmlAttribute(flowSheet)%>"></a>

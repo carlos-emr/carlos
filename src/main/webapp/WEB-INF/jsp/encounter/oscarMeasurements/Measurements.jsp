@@ -218,7 +218,7 @@
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(150,200,'<%=request.getContextPath()%>/encounter/calculators.jsp?demo=<%=Encode.forUriComponent(demo)%>'); return false;"><fmt:message key="encounter.Index.calculators"/></a></td>
+                                    onClick="popupPage(150,200,'<%=request.getContextPath()%>/encounter/ViewCalculators.do?demo=<%=Encode.forUriComponent(demo)%>'); return false;"><fmt:message key="encounter.Index.calculators"/></a></td>
                         </tr>
                     </table>
                 </td>

@@ -135,7 +135,7 @@
                 jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=addNewFlowsheet',
                     jQuery('#theForm').serialize(),
                     function (data) {
-                        location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/FlowsheetManager.jsp';
+                        location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetManager.do';
                     });
             }
 

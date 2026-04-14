@@ -30,7 +30,7 @@
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 
-<%@ include file="/casemgmt/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@page import="java.util.Enumeration" %>
@@ -97,7 +97,7 @@
              takes final precedence for automatic CSRF token injection -->
         <script src="<c:out value="${ctx}/csrfguard"/>"></script>
 
-        <script type="text/javascript" src="<c:out value="${ctx}"/>/casemgmt/newEncounterLayout.js.jsp?v=<%= System.currentTimeMillis() %>"></script>
+        <script type="text/javascript" src="<c:out value="${ctx}"/>/casemgmt/ViewNewEncounterLayoutJs.do?v=<%= System.currentTimeMillis() %>"></script>
 
             <%-- for popup menu of forms --%>
         <script src="<c:out value="${ctx}"/>/share/javascript/popupmenu.js" type="text/javascript"></script>

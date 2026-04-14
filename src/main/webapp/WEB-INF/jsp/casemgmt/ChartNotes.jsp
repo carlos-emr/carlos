@@ -49,7 +49,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.Misc" %>
 <%@page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
-<%@include file="/casemgmt/taglibs.jsp" %>
+<%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@page import="java.util.Enumeration" %>

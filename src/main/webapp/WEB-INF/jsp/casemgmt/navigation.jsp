@@ -34,7 +34,7 @@
 <%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <% long loadPage = System.currentTimeMillis(); %>
-<%@ include file="/casemgmt/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -256,7 +256,7 @@
                 <!-- Consultations -->
                 <tr>
                     <td><a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/encounter/oscarConsultationRequest/DisplayDemographicConsultationRequests.jsp?de=<%=bean.demographicNo%>');return false;">Consultations</a>
+                           onClick="popupPage('<%=bsurl%>/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests.do?de=<%=bean.demographicNo%>');return false;">Consultations</a>
                     </td>
                 </tr>
 
@@ -375,7 +375,7 @@
                 <tr>
                     <td>
                         <a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/encounter/formlist.jsp?demographic_no=<%=bean.demographicNo%>'); return false;">-old
+                           onClick="popupPage('<%=bsurl%>/encounter/ViewFormlist.do?demographic_no=<%=bean.demographicNo%>'); return false;">-old
                             forms-</a>
                     </td>
                 </tr>
@@ -442,7 +442,7 @@
                             %>* <% }
                         %>
                             <a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=<%=bean.demographicNo%>&template=<%=flowsheet%>','flowsheet')"><%=MeasurementTemplateFlowSheetConfig.getInstance().getDisplayName(flowsheet)%>
+                               onClick="popupPage('<%=bsurl%>/encounter/oscarMeasurements/ViewTemplateFlowSheet.do?demographic_no=<%=bean.demographicNo%>&template=<%=flowsheet%>','flowsheet')"><%=MeasurementTemplateFlowSheetConfig.getInstance().getDisplayName(flowsheet)%>
                             </a><br/>
                             <%}%>
                         </td>
@@ -465,7 +465,7 @@
                                 for (String flowsheet : flowsheets) {
                             %>
                             <a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=<%=bean.demographicNo%>&template=<%=flowsheet%>','flowsheet')"><%=MeasurementTemplateFlowSheetConfig.getInstance().getDisplayName(flowsheet)%>
+                               onClick="popupPage('<%=bsurl%>/encounter/oscarMeasurements/ViewTemplateFlowSheet.do?demographic_no=<%=bean.demographicNo%>&template=<%=flowsheet%>','flowsheet')"><%=MeasurementTemplateFlowSheetConfig.getInstance().getDisplayName(flowsheet)%>
                             </a>
                             <%}%>
 
@@ -548,7 +548,7 @@
                 <tr>
                     <td>
                         <a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/encounter/calculators.jsp?sex=<%=bean.patientSex%>&age=<%=pAge%>'); return false;">calculators</a><br>
+                           onClick="popupPage('<%=bsurl%>/encounter/ViewCalculators.do?sex=<%=bean.patientSex%>&age=<%=pAge%>'); return false;">calculators</a><br>
                     </td>
                 </tr>
 

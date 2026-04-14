@@ -29,7 +29,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
-<%@ include file="/casemgmt/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

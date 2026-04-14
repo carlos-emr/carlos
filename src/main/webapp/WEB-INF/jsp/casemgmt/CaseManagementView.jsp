@@ -33,7 +33,7 @@
 <%-- Updated by Eugene Petruhin on 15 jan 2009 while fixing #2510692 --%>
 <%-- Updated by Eugene Petruhin on 27 jan 2009 while fixing #2510693 --%>
 
-<%@ include file="/casemgmt/taglibs.jsp" %>
+<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
@@ -319,13 +319,13 @@
                         <img id="ci"
                             src="${pageContext.request.contextPath}/imageRenderingServlet?source=local_client&amp;clientId=${demographicNo}" alt="id_photo"
                             height="100" title="Click to upload a new photo."
-                        onClick="popupUploadPage('${pageContext.request.contextPath}/casemgmt/uploadimage.jsp', ${demographicNo}); return false;" />
+                        onClick="popupUploadPage('${pageContext.request.contextPath}/casemgmt/ViewUploadimage.do', ${demographicNo}); return false;" />
                     </c:when>
                     <c:otherwise>
                         <svg xmlns="http://www.w3.org/2000/svg" width="80" height="100" viewBox="0 0 80 100"
                              style="cursor: pointer; background: #e9ecef; border-radius: 4px;"
                              title="Click to upload a new photo."
-                             onclick="popupUploadPage('${pageContext.request.contextPath}/casemgmt/uploadimage.jsp', ${demographicNo}); return false;">
+                             onclick="popupUploadPage('${pageContext.request.contextPath}/casemgmt/ViewUploadimage.do', ${demographicNo}); return false;">
                             <circle cx="40" cy="32" r="16" fill="#adb5bd"/>
                             <ellipse cx="40" cy="82" rx="28" ry="22" fill="#adb5bd"/>
                         </svg>

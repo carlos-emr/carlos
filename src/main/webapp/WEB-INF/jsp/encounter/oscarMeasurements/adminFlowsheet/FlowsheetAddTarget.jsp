@@ -104,7 +104,7 @@
                 jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=saveFlowsheetItemTarget',
                     jQuery('#theForm').serialize(),
                     function (data) {
-                        location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/FlowsheetItemEditor.jsp?flowsheetId=<%=Encode.forJavaScript(Encode.forUriComponent(flowsheetId))%>&measurementType=<%=Encode.forJavaScript(Encode.forUriComponent(measurementType))%>';
+                        location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetItemEditor.do?flowsheetId=<%=Encode.forJavaScript(Encode.forUriComponent(flowsheetId))%>&measurementType=<%=Encode.forJavaScript(Encode.forUriComponent(measurementType))%>';
                     });
             }
 

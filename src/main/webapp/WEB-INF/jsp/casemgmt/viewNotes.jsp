@@ -32,7 +32,7 @@
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils"%>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay"%>
 <%  long start = System.currentTimeMillis(); %>
-<%@include file="/casemgmt/taglibs.jsp"%>
+<%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp"%>
 <fmt:setBundle basename="oscarResources"/>
 <%@page
 	import="java.util.List, java.util.Set, java.util.Iterator, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote"%>
