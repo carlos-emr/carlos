@@ -238,7 +238,8 @@
     GregorianCalendar now = new GregorianCalendar();
     java.text.SimpleDateFormat simpleDateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd");
     String dateString = simpleDateFormat.format(now.getTime());
-
+%>
+<%!
     public String getOrDefault(ResourceBundle bundle, String key) {
         try {
             if (bundle != null && bundle.containsKey(key)) {
@@ -253,7 +254,8 @@
                 ? "?" + key.substring(lastDot + 1) + "?"
                 : "?" + key + "?";
     }
-
+  %>
+  <%
     java.util.ResourceBundle oscarResources = ResourceBundle.getBundle("oscarResources", request.getLocale());
     String noteReason = getOrDefault(oscarResources, "encounter.noteReason.TelProgress");
 
@@ -318,7 +320,7 @@
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
         <oscar:oscarPropertiesCheck property="DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM" value="true">
-            <link rel="stylesheet" type="text/css" href=<%=ctx%>/css/healthCareTeam.css"/>
+            <link rel="stylesheet" type="text/css" href="<%=ctx%>/css/healthCareTeam.css"/>
         </oscar:oscarPropertiesCheck>
 
         <!-- calendar stylesheet -->
@@ -1237,7 +1239,7 @@
                             <tr>
                                 <td><a
                                         href="javascript: function myFunction() {return false; }"
-                                        onClick="popupPage(700,960,<%=ctx%>/prevention/ViewPreventionIndex.do?demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>');return false;">
+                                        onClick="popupPage(700,960,'<%=ctx%>/prevention/ViewPreventionIndex.do?demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>');return false;">
                                     <fmt:message key="encounter.LeftNavBar.Prevent"/></a></td>
                             </tr>
                         </security:oscarSec>
