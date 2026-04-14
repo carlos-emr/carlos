@@ -669,7 +669,7 @@
         <form name="ADDAPPT" method="post" action="<%= request.getContextPath() %>/appointment/appointmentcontrol.jsp">
             <input type="hidden" name="orderby" value="last_name">
             <input type="hidden" name="search_mode" value="<%=Encode.forHtmlAttribute(searchMode)%>">
-            <input type="hidden" name="originalpage" value="<%= request.getContextPath() %>/tickler/ticklerAdd.jsp">
+            <input type="hidden" name="originalpage" value="<%=Encode.forHtmlAttribute(request.getContextPath() + "/tickler/ViewAddTickler.do")%>">
             <input type="hidden" name="limit1" value="0">
             <input type="hidden" name="limit2" value="5">
             <input type="hidden" name="displaymode" value="Search ">
@@ -900,7 +900,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="tickler-label"><a href="#" onclick="openBrWindow('./ticklerSuggestedText.jsp','','width=680,height=400')" style="font-weight:bold"><fmt:message key="tickler.ticklerEdit.suggestedText"/></a>:</td>
+                    <td class="tickler-label"><a href="#" onclick="openBrWindow('<%= request.getContextPath() %>/tickler/ViewTicklerSuggestedText.do','','width=680,height=400')" style="font-weight:bold"><fmt:message key="tickler.ticklerEdit.suggestedText"/></a>:</td>
                     <td>
                         <select name="suggestedText" class="form-select" onchange="pasteMessageText()">
                             <option value="">---</option>

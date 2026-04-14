@@ -531,7 +531,7 @@
                         <div class="d-flex align-items-center gap-2 mb-2">
                             <label for="suggestedText" class="mb-0" style="white-space: nowrap; font-size: 13px;">
                                 <a href="javascript:void(0)"
-                                   onclick="openBrWindow('./ticklerSuggestedText.jsp','tickler_suggested_text','width=680,height=400')"
+                                   onclick="openBrWindow('<%= request.getContextPath() %>/tickler/ViewTicklerSuggestedText.do','tickler_suggested_text','width=680,height=400')"
                                    style="font-weight:bold"><fmt:message key="tickler.ticklerEdit.suggestedText"/></a>:
                             </label>
                             <select class="form-select form-select-sm" name="suggestedText" id="suggestedText" style="flex:1;">

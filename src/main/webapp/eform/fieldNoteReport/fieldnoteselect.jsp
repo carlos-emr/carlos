@@ -33,6 +33,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.EForm, io.github.carlos_emr.carlos.commn.dao.EFormDao" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -106,12 +107,12 @@
             <tr>
                 <td width="25%" style="padding-left: 4px;">
                     <a href="<%= request.getContextPath() %>/efmshowform_data.jsp?fid=<%=fieldNoteEform.getId()%>"
-                       target="_blank"><%=fieldNoteEform.getFormName()%>
+                       target="_blank"><%= Encode.forHtml(fieldNoteEform.getFormName()) %>
                     </a>
                 </td>
-                <td width="30%" style="padding-left: 4px"><%=fieldNoteEform.getSubject()%>
+                <td width="30%" style="padding-left: 4px"><%= Encode.forHtml(fieldNoteEform.getSubject()) %>
                 </td>
-                <td width="25%" style="padding-left: 4px"><%=fieldNoteEform.getFileName()%>
+                <td width="25%" style="padding-left: 4px"><%= Encode.forHtml(fieldNoteEform.getFileName()) %>
                 </td>
                 <td nowrap align='center' width="10%"><%=fieldNoteEform.getFormDate()%>
                 </td>
@@ -139,12 +140,12 @@
             <tr style="background-color: #F2F2F2;">
                 <td width="25%" style="padding-left: 4px;">
                     <a href="<%= request.getContextPath() %>/efmshowform_data.jsp?fid=<%=fieldNoteEform.getId()%>"
-                       target="_blank"><%=fieldNoteEform.getFormName()%>
+                       target="_blank"><%= Encode.forHtml(fieldNoteEform.getFormName()) %>
                     </a>
                 </td>
-                <td width="30%" style="padding-left: 4px"><%=fieldNoteEform.getSubject()%>
+                <td width="30%" style="padding-left: 4px"><%= Encode.forHtml(fieldNoteEform.getSubject()) %>
                 </td>
-                <td width="25%" style="padding-left: 4px"><%=fieldNoteEform.getFileName()%>
+                <td width="25%" style="padding-left: 4px"><%= Encode.forHtml(fieldNoteEform.getFileName()) %>
                 </td>
                 <td nowrap align='center' width="10%"><%=fieldNoteEform.getFormDate()%>
                 </td>
