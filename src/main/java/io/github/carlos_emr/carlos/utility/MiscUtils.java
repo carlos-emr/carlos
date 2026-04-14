@@ -214,10 +214,16 @@ public final class MiscUtils {
         return baos.toByteArray();
     }
 
-    public static Serializable deserialize(byte[] b) throws IOException, ClassNotFoundException {
+    // FP for deserialization scanners (CodeQL java/UnsafeDeserialization, Semgrep
+    // object-deserialization): DESERIALIZATION_FILTER blocks JDK gadget packages
+    // (java.net.*, com.sun.*, javax.naming.*, Spring, CommonsCollections) and restricts
+    // to java.lang/util/io/math + the project's own namespace. No project class defines
+    // a side-effecting readObject/readResolve (verified via grep). Filter set BEFORE
+    // readObject is called. Callers pass internally-serialized Integrator payloads.
+    public static Serializable deserialize(byte[] b) throws IOException, ClassNotFoundException { // lgtm[java/unsafe-deserialization]
         try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(b))) {
             ois.setObjectInputFilter(DESERIALIZATION_FILTER);
-            return (Serializable) ois.readObject();
+            return (Serializable) ois.readObject(); // nosemgrep: java.lang.security.audit.object-deserialization.object-deserialization
         }
     }
 
@@ -230,7 +236,10 @@ public final class MiscUtils {
         }
     }
 
-    public static Serializable deserializeFromFile(String filename) throws IOException, ClassNotFoundException {
+    // FP for deserialization scanners: same DESERIALIZATION_FILTER as deserialize(byte[])
+    // above; callers pass filenames that resolve to internal classpath resources or files
+    // written by the application itself (not user-uploaded bytes).
+    public static Serializable deserializeFromFile(String filename) throws IOException, ClassNotFoundException { // lgtm[java/unsafe-deserialization]
         InputStream rawIs = MiscUtils.class.getResourceAsStream(filename);
         if (rawIs == null) {
             rawIs = new FileInputStream(filename);
@@ -240,7 +249,7 @@ public final class MiscUtils {
         try (InputStream is = rawIs;
              ObjectInputStream ois = new ObjectInputStream(is)) {
             ois.setObjectInputFilter(DESERIALIZATION_FILTER);
-            return (Serializable) ois.readObject();
+            return (Serializable) ois.readObject(); // nosemgrep: java.lang.security.audit.object-deserialization.object-deserialization
         }
     }
 

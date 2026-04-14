@@ -322,7 +322,7 @@
         <span class="d-flex align-items-center gap-1">
             <i class="fa-solid fa-circle-info"></i>
             <a href="javascript:void(0)"
-               onClick="window.open('<%=request.getContextPath()%>/encounter/About.jsp','About CARLOS EMR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')"><fmt:message key="global.about"/></a>
+               onClick="window.open('<%=request.getContextPath()%>/encounter/ViewAbout.do','About CARLOS EMR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')"><fmt:message key="global.about"/></a>
         </span>
     </div>
 
@@ -353,13 +353,13 @@
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin,_admin.provider"
                                    rights="r" reverse="<%=false%>">
                     <div class="card card-body bg-body-tertiary quick-links">
-                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/provideraddarecordhtm.jsp"><i
+                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewProviderAddARecordHtm.do"><i
                                 class="fa-solid fa-user fa-4x"></i>
                             <h5><fmt:message key="admin.admin.btnAddProvider"/></h5></a>
                     </div>
 
                     <div class="card card-body bg-body-tertiary quick-links">
-                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/securityaddarecord.jsp"><i
+                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewSecurityAddARecord.do"><i
                                 class="fa-solid fa-user fa-4x"></i>
                             <h5><fmt:message key="admin.admin.btnAddLogin"/></h5></a>
                     </div>
@@ -377,14 +377,14 @@
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.schedule" rights="r"
                                    reverse="<%=false%>">
                     <div class="card card-body bg-body-tertiary quick-links">
-                        <a href="javascript:void(0);" class="xlink" rel="${ctx}/schedule/scheduletemplatesetting.jsp"
+                        <a href="javascript:void(0);" class="xlink" rel="${ctx}/schedule/TemplateSetting.do"
                            title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><i
                                 class="fa-solid fa-calendar fa-4x"></i>
                             <h5><fmt:message key="admin.admin.scheduleSetting"/></h5></a>
                     </div>
 
                     <div class="card card-body bg-body-tertiary quick-links">
-                        <a href="javascript:void(0);" class="xlink" rel="${ctx}/admin/admindisplaymygroup.jsp"><i
+                        <a href="javascript:void(0);" class="xlink" rel="${ctx}/admin/ViewAdminDisplayMyGroup.do"><i
                                 class="fa-solid fa-calendar fa-4x"></i>
                             <h5><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></h5></a>
                     </div>

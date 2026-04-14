@@ -607,7 +607,7 @@ public final class RxWriteScript2Action extends ActionSupport {
 					}
 
 					if (! strength.contains("/")) {
-						strength = strength.toLowerCase().replaceAll(unit.toLowerCase(), "");
+						strength = strength.toLowerCase().replace(unit.toLowerCase(), "");
 						strength += unit.toLowerCase();
 					}
 
@@ -684,7 +684,7 @@ public final class RxWriteScript2Action extends ActionSupport {
 
 				// covers all cases when unit is missing -or- included with the strength.
 				if (! strength.contains("/")) {
-					strength = strength.toLowerCase().trim().replaceAll(unit.toLowerCase().trim(), "");
+					strength = strength.toLowerCase().trim().replace(unit.toLowerCase().trim(), "");
 					strength += unit.toLowerCase().trim();
 				}
 

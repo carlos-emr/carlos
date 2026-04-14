@@ -85,7 +85,7 @@
         <!-- Empty default so @{argLine} in surefire resolves even if JaCoCo prepare-agent hasn't run -->
         <argLine></argLine>
         <!-- Log4j Version -->
-        <log4j2.version>2.25.3</log4j2.version>
+        <log4j2.version>2.25.4</log4j2.version>
         <!-- Slf4j Version -->
         <slf4j.version>2.0.17</slf4j.version>
         <!-- Hapi Fhir Version -->
@@ -1605,6 +1605,22 @@
                 <configuration>
                     <!-- Can be overridden with -Ddependency.lock.filename=xxx -->
                     <filename>${dependency.lock.filename}</filename>
+                    <!-- Skip integrity/version checks for JitPack-served artifacts.
+                         JitPack builds from source on demand and can serve different
+                         bytes (and thus different SHA512 hashes) between environments,
+                         causing spurious lock-file failures. Tracked for long-term
+                         fix (publish to a stable repo). See issue: JitPack exclusion. -->
+                    <dependencySets>
+                        <dependencySet>
+                            <includes>
+                                <include>com.github.openosp:ultrabuk-htmltopdf-java</include>
+                            </includes>
+                            <version>ignore</version>
+                            <integrity>ignore</integrity>
+                            <allowMissing>true</allowMissing>
+                            <allowExtraneous>true</allowExtraneous>
+                        </dependencySet>
+                    </dependencySets>
                 </configuration>
                 <executions>
                     <execution>
@@ -1745,7 +1761,7 @@
                                 <plugin>
                                     <groupId>com.h3xstream.findsecbugs</groupId>
                                     <artifactId>findsecbugs-plugin</artifactId>
-                                    <version>1.13.0</version>
+                                    <version>1.14.0</version>
                                 </plugin>
                             </plugins>
                         </configuration>

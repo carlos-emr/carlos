@@ -628,7 +628,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                         class="<%=thisResult.resultStatus.startsWith("Corrected")?"CorrectedRes":AbnFlag.compareTo("HI")==0?"AbnormalRes":AbnFlag.compareTo("LO")==0?"HiLoRes":"NormalRes"%>">
                         <!--td valign="top" align="right"><%=thisResult.name %></td-->
                         <td valign="top" align="left"><a
-                                href="<%= request.getContextPath() %>/lab/CA/ON/labValues.jsp?testName=<%=Encode.forUriComponent(thisResult.name)%>&demo=<%= Encode.forUriComponent(demoNo) %>&labType=MDS"><%=Encode.forHtml(thisResult.name)%>
+                                href="<%= request.getContextPath() %>/lab/CA/ON/ViewLabValues.do?testName=<%=Encode.forUriComponent(thisResult.name)%>&demo=<%= Encode.forUriComponent(demoNo) %>&labType=MDS"><%=Encode.forHtml(thisResult.name)%>
                         </a></td>
                         <% if (thisResult.observationValue.equals("") && thisResult.notes != null) {
                             lineContinued = true;
@@ -742,7 +742,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                         class="<%=thisResult.resultStatus.startsWith("Corrected")?"CorrectedRes":AbnFlag.startsWith("HI", AbnFlag.indexOf("~") + 1)?"AbnormalRes":AbnFlag.startsWith("LO", AbnFlag.indexOf("~") + 1)?"HiLoRes":"NormalRes"%>">
                         <!--td valign="top" align="left"><%=thisResult.name %></td-->
                         <td valign="top" align="left"><a
-                                href="<%= request.getContextPath() %>/lab/CA/ON/labValues.jsp?testName=<%=Encode.forUriComponent(thisResult.name)%>&demo=<%= Encode.forUriComponent(demoNo) %>&labType=MDS"><%=Encode.forHtml(thisResult.name)%>
+                                href="<%= request.getContextPath() %>/lab/CA/ON/ViewLabValues.do?testName=<%=Encode.forUriComponent(thisResult.name)%>&demo=<%= Encode.forUriComponent(demoNo) %>&labType=MDS"><%=Encode.forHtml(thisResult.name)%>
                         </a></td>
                         <% if (thisResult.observationValue.equals("") && thisResult.notes != null) {
                             lineContinued = true;

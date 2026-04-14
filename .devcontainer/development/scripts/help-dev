@@ -34,6 +34,9 @@ MAIL MANAGEMENT:
 
 AI CODING ASSISTANTS:
   claude                  Claude Code CLI (Anthropic)
+  copilot                 GitHub Copilot CLI
+  codex                   OpenAI Codex CLI
+  gemini                  Google Gemini CLI
   aider                   AI pair programming assistant
   aider --model claude-3-5-sonnet-20241022
   aider --model gpt-4-turbo

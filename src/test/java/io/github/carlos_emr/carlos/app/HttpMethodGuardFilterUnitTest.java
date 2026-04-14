@@ -147,6 +147,22 @@ class HttpMethodGuardFilterUnitTest {
         }
 
         @Test
+        @DisplayName("should pass through GET to CreateDate.do (dual-purpose schedule action)")
+        void shouldPassThrough_forGetToCreateDateAction() throws Exception {
+            // CreateDate starts with "create" (a mutator prefix) but serves month-
+            // navigation reloads on GET (bFirstDisp=0). ScheduleCreateDate2Action
+            // enforces POST internally for real mutations (bFirstDisp=null|"1").
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/schedule/CreateDate.do");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @Test
         @DisplayName("should pass through GET to report JSP")
         void shouldPassThrough_forGetToReportJsp() throws Exception {
             when(request.getMethod()).thenReturn("GET");
@@ -400,7 +416,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block GET to PreventionManager.jsp with formAction=update")
         void shouldBlock_forGetToPreventionManagerWithUpdate() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/oscarPrevention/PreventionManager.jsp");
+            when(request.getRequestURI()).thenReturn("/carlos/prevention/PreventionManager.jsp");
             when(request.getParameter("formAction")).thenReturn("update");
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(Collections.singletonList("formAction")));
@@ -415,7 +431,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should pass through GET to PreventionManager.jsp without formAction")
         void shouldPassThrough_forGetToPreventionManagerWithoutFormAction() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/oscarPrevention/PreventionManager.jsp");
+            when(request.getRequestURI()).thenReturn("/carlos/prevention/PreventionManager.jsp");
             when(request.getParameter("formAction")).thenReturn(null);
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(Collections.emptyList()));

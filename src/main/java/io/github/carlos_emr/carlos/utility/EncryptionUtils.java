@@ -108,55 +108,6 @@ public final class EncryptionUtils {
     }
 
     /**
-     * uses Javax.crypto utils to generate a random AES key.
-     * Considered a weak method.
-     */
-    public static SecretKey generateEncryptionKey() throws NoSuchAlgorithmException {
-        KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
-        keyGenerator.init(128);
-        return keyGenerator.generateKey();
-    }
-
-    /**
-     * uses Javax.crypto utils to generate a secret key spec
-     * Considered a weak method.
-     */
-    public static SecretKeySpec generateEncryptionKey(String seed) {
-        byte[] sha1 = getSha1(seed);
-        return new SecretKeySpec(sha1, 0, 16, "AES");
-    }
-
-    /**
-     * Use only to store encrypted data.
-     * Do NOT use for authentication.
-     * Considered a weak encryption.
-     */
-    public static byte[] encrypt(SecretKey secretKey, byte[] plainData) throws IllegalBlockSizeException, BadPaddingException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException {
-        if (secretKey == null) {
-            return plainData;
-        } else {
-            Cipher cipher = Cipher.getInstance("AES");
-            cipher.init(1, secretKey);
-            return cipher.doFinal(plainData);
-        }
-    }
-
-    /**
-     * Use only to store encrypted data.
-     * Do NOT use for authentication.
-     * Considered a weak encryption.
-     */
-    public static byte[] decrypt(SecretKey secretKey, byte[] encryptedData) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
-        if (secretKey == null) {
-            return encryptedData;
-        } else {
-            Cipher cipher = Cipher.getInstance("AES");
-            cipher.init(2, secretKey);
-            return cipher.doFinal(encryptedData);
-        }
-    }
-
-    /**
      * Encrypts the given byte array using AES/GCM/NoPadding.
      * <p>
      * This method encrypts the provided `input` byte array using AES encryption in GCM mode with no padding.

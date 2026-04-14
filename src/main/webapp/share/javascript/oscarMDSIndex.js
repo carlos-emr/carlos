@@ -812,7 +812,7 @@ function showDocLab(childId, docNo, providerNo, searchProviderNo, status, demoNa
     else if (type == 'MDS')
         url = "";
     else if (type == 'HL7')
-        url = "../lab/CA/ALL/labDisplayAjax.jsp";
+        url = "../lab/CA/ALL/ViewLabDisplayAjax.do";
     else if (type == 'CML')
         url = "";
     else

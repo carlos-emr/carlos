@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.commn.model.Groups;
 import io.github.carlos_emr.carlos.managers.MessengerGroupManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.messenger.data.ContactIdentifier;
 import io.github.carlos_emr.carlos.messenger.data.MsgAddressBookMaker;
@@ -48,6 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
 
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -82,6 +84,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    private static final Logger logger = MiscUtils.getLogger();
 
     private MessengerGroupManager messengerGroupManager = SpringUtils.getBean(MessengerGroupManager.class);
     private GroupsDao groupsDao = SpringUtils.getBean(GroupsDao.class);
@@ -94,12 +97,48 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * <p>This method implements a method-based routing pattern common in Struts2 actions,
      * allowing multiple related operations to be handled by a single action class.</p>
      * 
-     * @return Result string for Struts navigation:
-     *         - SUCCESS for successful operations
-     *         - "failure" if operation fails (e.g., attempting to delete a group with children)
+     * @return Struts navigation result:
+     *         {@link #SUCCESS} for successful operations;
+     *         {@code "failure"} if an operation fails (e.g. deleting a group with children);
+     *         {@link #NONE} when the request is rejected with HTTP 405 (non-POST mutation)
+     *         or when a mutating branch writes its response directly
+     * @throws java.io.IOException if the 405 error response cannot be written
+     * @throws SecurityException if the current user lacks the required
+     *         {@code _admin} read (view/fetch) or write (mutating method) privilege
      */
-    public String execute() {
+    @Override
+    public String execute() throws java.io.IOException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String method = request.getParameter("method");
+
+        // Mutating endpoints: require _admin write + POST. Read endpoints
+        // (fetchGroups / view): require _admin read. Without these checks an
+        // authenticated non-admin could enumerate or alter messenger groups.
+        boolean isMutation = "add".equals(method) || "remove".equals(method)
+                || "create".equals(method) || "delete".equals(method) || "update".equals(method);
+
+        String providerNo = loggedInInfo == null ? "anon" : loggedInInfo.getLoggedInProviderNo();
+        if (isMutation) {
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
+                logger.warn("MsgMessengerAdmin denied: provider={} method={} lacks _admin write",
+                        providerNo, method);
+                throw new SecurityException("missing required sec object (_admin)");
+            }
+            if (!"POST".equalsIgnoreCase(request.getMethod())) {
+                logger.warn("MsgMessengerAdmin method not allowed: provider={} method={} httpMethod={}",
+                        providerNo, method, request.getMethod());
+                response.setHeader("Allow", "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
+        } else {
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
+                logger.warn("MsgMessengerAdmin denied: provider={} lacks _admin read (method={})",
+                        providerNo, method);
+                throw new SecurityException("missing required sec object (_admin)");
+            }
+        }
+
         if ("add".equals(method)) {
             return add();
         } else if ("remove".equals(method)) {

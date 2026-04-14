@@ -61,7 +61,7 @@ public class EctDisplayAllergy2Action extends EctDisplayAction {
 
             // set lefthand module heading and link
             String winName = "Allergy" + bean.demographicNo;
-            String allergyPath = request.getContextPath() + "/oscarRx/showAllergy.do?demographicNo=" + bean.demographicNo;
+            String allergyPath = request.getContextPath() + "/rx/showAllergy.do?demographicNo=" + bean.demographicNo;
             Dao.setLeftHeading(getText("encounter.NavBar.Allergy"));
             Dao.setLeftPopup(580, 900, winName, allergyPath);
 

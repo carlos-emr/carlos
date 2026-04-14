@@ -169,7 +169,7 @@
         %>
         <tr>
             <td>
-                <a href='${pageContext.request.contextPath}/admin/securityupdatesecurity.jsp?keyword=<%=securityRecord.getId()%>'><%= Encode.forHtmlContent(securityRecord.getUserName()) %>
+                <a href='${pageContext.request.contextPath}/admin/ViewSecurityUpdateSecurity.do?keyword=<%=securityRecord.getId()%>'><%= Encode.forHtmlContent(securityRecord.getUserName()) %>
                 </a></td>
             <td style="text-align:center">*********</td>
             <td style="text-align:center"><%= securityRecord.getProviderNo() %>
