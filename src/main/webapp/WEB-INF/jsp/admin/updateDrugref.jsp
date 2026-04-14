@@ -70,7 +70,7 @@
             }
 
             function getUpdateTime() {
-                const url = "<c:out value='${ctx}'/>" + "/oscarRx/updateDrugrefDB.do";
+                const url = "<c:out value='${ctx}'/>" + "/rx/updateDrugrefDB.do";
                 const formData = new URLSearchParams();
                 formData.append('method', 'verify');
                 formData.append('CSRF-TOKEN', getCsrfToken());
@@ -118,7 +118,7 @@
             }
 
             function updateDB() {
-                const url = "<c:out value='${ctx}'/>" + "/oscarRx/updateDrugrefDB.do";
+                const url = "<c:out value='${ctx}'/>" + "/rx/updateDrugrefDB.do";
                 const formData = new URLSearchParams();
                 formData.append('method', 'updateDB');
                 formData.append('CSRF-TOKEN', getCsrfToken());

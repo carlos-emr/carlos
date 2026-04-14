@@ -146,7 +146,7 @@ public class RecordUxService extends AbstractServiceImpl {
         //}
 
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.prescriptions", "r", null)) {
-            menulist.add(new MenuItemTo1(idCounter++, "Rx", "../oscarRx/choosePatient.do?demographicNo=" + demographicNo));
+            menulist.add(new MenuItemTo1(idCounter++, "Rx", "../rx/choosePatient.do?demographicNo=" + demographicNo));
         }
 
 
