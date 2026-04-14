@@ -35,7 +35,7 @@
 <%@ page import="java.util.*, java.sql.*, java.io.*, io.github.carlos_emr.*"
          errorPage="/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page import="javax.xml.parsers.SAXParser" %>
 <%@ page import="javax.xml.parsers.ParserConfigurationException" %>
 <%@ page import="org.xml.sax.InputSource" %>
@@ -92,6 +92,9 @@
                 }
             }
         }
+        if (saveError != null) {
+            request.setAttribute("saveError", saveError);
+        }
     %>
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
         <tr bgcolor="#486ebd">
@@ -111,7 +114,7 @@
         </tr>
         <% if (saveError != null) { %>
         <tr>
-            <td colspan="2" style="color: red; padding: 4px;"><%= Encode.forHtml(saveError) %></td>
+            <td colspan="2" style="color: red; padding: 4px;">${e:forHtml(saveError)}</td>
         </tr>
         <% } %>
         <tr>

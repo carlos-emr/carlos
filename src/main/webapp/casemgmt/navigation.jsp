@@ -402,7 +402,7 @@
                 <tr>
                     <td>
                         <a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/messenger/SendDemoMessage.do?orderby=date&boxType=3&demographic_no=<%=bean.demographicNo%>&providerNo=<%=bean.providerNo%>&userName=<%=Encode.forJavaScript(bean.userName)%>'); return false;">New
+                           onClick="popupPage('<%=bsurl%>/messenger/SendDemoMessage.do?orderby=date&boxType=3&demographic_no=<%=bean.demographicNo%>&providerNo=<%=bean.providerNo%>&userName=<%=Encode.forJavaScript(Encode.forUriComponent(bean.userName))%>'); return false;">New
                             Messages</a>
                     </td>
                 </tr>
@@ -411,7 +411,7 @@
                 <tr>
                     <td>
                         <a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/messenger/DisplayDemographicMessages.do?orderby=date&boxType=3&demographic_no=<%=bean.demographicNo%>&providerNo=<%=bean.providerNo%>&userName=<%=Encode.forJavaScript(bean.userName)%>'); return false;">-All
+                           onClick="popupPage('<%=bsurl%>/messenger/DisplayDemographicMessages.do?orderby=date&boxType=3&demographic_no=<%=bean.demographicNo%>&providerNo=<%=bean.providerNo%>&userName=<%=Encode.forJavaScript(Encode.forUriComponent(bean.userName))%>'); return false;">-All
                             Messages-</a>
                     </td>
                 </tr>

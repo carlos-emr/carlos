@@ -112,18 +112,25 @@
     <div class="container-fluid">
         <h3><fmt:message key="admin.admin.btnUpdatePatientProvider"/></h3>
         <%
-            // Bound regex input length to prevent ReDoS attacks (Fix 6)
+            // Bound regex input length to prevent ReDoS attacks without altering regex semantics.
             String regexp = request.getParameter("regexp");
+            String regexpValidationError = null;
             if (regexp != null) {
                 regexp = regexp.trim();
                 if (regexp.isEmpty()) {
                     regexp = null;
                 } else if (regexp.length() > 100) {
-                    regexp = regexp.substring(0, 100);
+                    regexpValidationError = "Regular expression must be 100 characters or fewer.";
+                    regexp = null;
                 }
             }
-
-            if (request.getParameter("update") != null
+        %>
+        <% if (regexpValidationError != null) { %>
+            <div class="alert alert-danger" role="alert"><%= org.owasp.encoder.Encode.forHtml(regexpValidationError) %></div>
+        <% } %>
+        <%
+            if (regexpValidationError == null
+                    && request.getParameter("update") != null
                     && request.getParameter("update").equals("UpdateResident")) {
                 // find demographicNos for records with last name starting with and have a resident assigned
                 List<Integer> noList = demographicManager.getDemographicNumbersByResidentNumberAndDemographicLastNameRegex(
