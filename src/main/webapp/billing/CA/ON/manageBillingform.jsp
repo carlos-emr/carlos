@@ -36,7 +36,7 @@
 
 
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" %>
-<%@ include file="/admin/dbconnection.jsp" %>
+<%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.CtlBillingService" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>

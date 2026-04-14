@@ -156,7 +156,7 @@
             <a class="btn btn-secondary float-start" title="${e:forHtmlAttribute(btnBackTitle)}"
                href="#" onclick="window.history.back();" role="button"><fmt:message key="global.btnBack"/></a>
             <a class="btn btn-secondary float-end" title="${e:forHtmlAttribute(btnExitTitle)}"
-               href="${e:forUri(pageContext.request.contextPath)}/provider/providercontrol.jsp" role="button"><fmt:message key="global.btnExit"/></a>
+               href="${e:forUri(pageContext.request.contextPath)}/provider/providercontrol.do" role="button"><fmt:message key="global.btnExit"/></a>
         </div>
     </div>
 

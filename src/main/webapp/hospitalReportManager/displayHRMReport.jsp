@@ -520,7 +520,7 @@
             } else {
 
             %>
-            <%=hrmReport.getFirstReportTextContent().replaceAll("\n", "<br />") %>
+            <%= Encode.forHtml(hrmReport.getFirstReportTextContent()).replaceAll("\n", "<br />") %>
 
             <% } %>
 

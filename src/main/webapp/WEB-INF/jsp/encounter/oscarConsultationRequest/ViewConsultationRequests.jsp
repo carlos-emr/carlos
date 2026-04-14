@@ -675,7 +675,7 @@
                     <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgAddTicklerConfirm" var="addTicklerConfirmVar"/>
                     <%  String addTicklerConfirmJs = Encode.forJavaScript((String)pageContext.getAttribute("addTicklerConfirmVar")); %>
                     <a class="btn btn-link btn-sm" target="_blank"
-                       href="<%= Encode.forHtmlAttribute(request.getContextPath() + "/tickler/AddTickler.do?" + queryStr + "&message=" + java.net.URLEncoder.encode("Patient has Consultation Letter with a status of 'Nothing Done' for over one week","UTF-8")) %>"
+                       href="<%= Encode.forHtmlAttribute(request.getContextPath() + "/tickler/ViewAddTickler.do?" + queryStr + "&message=" + java.net.URLEncoder.encode("Patient has Consultation Letter with a status of 'Nothing Done' for over one week","UTF-8")) %>"
                        onclick="return confirm('<%=addTicklerConfirmJs%>');">
                         <i class="fas fa-bell me-1"></i><fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgAddTicklerBtn"/>
                     </a>

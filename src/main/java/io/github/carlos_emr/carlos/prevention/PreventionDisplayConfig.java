@@ -116,7 +116,7 @@ public class PreventionDisplayConfig {
                     is = new FileInputStream(filename);
                 }
             } else {
-                is = this.getClass().getClassLoader().getResourceAsStream("oscar/oscarPrevention/PreventionItems.xml");
+                is = this.getClass().getClassLoader().getResourceAsStream("oscar/prevention/PreventionItems.xml");
             }
 
             List<String> addedSnomeds = new ArrayList<String>();
@@ -212,7 +212,7 @@ public class PreventionDisplayConfig {
                     is = new FileInputStream(filename);
                 }
             } else {
-                is = this.getClass().getClassLoader().getResourceAsStream("oscar/oscarPrevention/PreventionConfigSets.xml");
+                is = this.getClass().getClassLoader().getResourceAsStream("oscar/prevention/PreventionConfigSets.xml");
             }
 
             SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
