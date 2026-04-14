@@ -48,8 +48,12 @@
     // associate each operation with an output action — displaymode
     // Post-migration: all sibling appointment JSPs live behind /WEB-INF/jsp/
     // so every dispatch target is now an absolute .do URL (view gate or
-    // mutation action). The dead "Search" entry was removed — its former
-    // target appointmentsearchrecords.jsp does not exist in the repo.
+    // mutation action). The dead "Search" entry (WITHOUT trailing space)
+    // was removed — its former target appointmentsearchrecords.jsp does
+    // not exist in the repo. The live "Search " operation (WITH trailing
+    // space — mind the difference) is still active: addappointment.jsp
+    // submits exactly "Search " as the displaymode value, so do not merge
+    // the two entries in a later cleanup.
     String[][] opToFile = new String[][]{
             {"Add Appointment", "/appointment/AddRecord.do"},
             {"Group Appt", "/appointment/appointmentgrouprecords.do"},
