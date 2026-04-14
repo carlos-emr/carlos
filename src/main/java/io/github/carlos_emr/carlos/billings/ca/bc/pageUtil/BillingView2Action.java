@@ -75,10 +75,7 @@ public final class BillingView2Action
         Properties oscarVars = CarlosProperties.getInstance();
 
         if (oscarVars.getProperty("billregion").equals("ON")) {
-            String newURL = "/billing/CA/ON/billingOB2.jsp";
-            newURL = newURL + "?" + request.getQueryString();
-            response.sendRedirect(newURL);
-            return NONE;
+            return "ON";
         } else {
             BillingViewBean bean = new BillingViewBean();
             String billingNoParam = request.getParameter("billing_no");

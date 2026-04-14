@@ -162,11 +162,11 @@ String curProvider_no = (String)session.getAttribute("user");
 			
 					<oscar:oscarPropertiesCheck property="billregion" value="ON">
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/ScheduleOfBenefitsUpload.jsp"><fmt:message key="admin.admin.scheduleOfBenefits"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/benefitScheduleUpload.do"><fmt:message key="admin.admin.scheduleOfBenefits"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/addEditServiceCode.jsp"><fmt:message key="admin.admin.manageBillingServiceCode"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/AddEditServiceCode.do"><fmt:message key="admin.admin.manageBillingServiceCode"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/billingONEditPrivateCode.jsp"><fmt:message key="admin.admin.managePrivBillingCode"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/ViewBillingONEditPrivateCode.do"><fmt:message key="admin.admin.managePrivBillingCode"/></a></li>
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/admin/manageCSSStyles.do"><fmt:message key="admin.admin.manageCodeStyles"/></a></li>
 					<li><a href='#'
@@ -174,26 +174,26 @@ String curProvider_no = (String)session.getAttribute("user");
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/admin/GstReport.do"><fmt:message key="admin.admin.gstReport"/></a></li>
 					<li><a href='#'
-						class="xlink" rel="${ctx}/billing/CA/ON/manageBillingLocation.jsp"><fmt:message key="admin.admin.btnAddBillingLocation"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/ManageBillingLocation.do"><fmt:message key="admin.admin.btnAddBillingLocation"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/manageBillingform.jsp"><fmt:message key="admin.admin.btnManageBillingForm"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/ManageBillingform.do"><fmt:message key="admin.admin.btnManageBillingForm"/></a></li>
 
-					<li><a href="${ctx}/billing/CA/ON/billingOHIPsimulation.jsp?html=" class="contentLink"><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></a></li>
+					<li><a href="${ctx}/billing/CA/ON/ViewBillingOHIPsimulation.do?html=" class="contentLink"><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></a></li>
 
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/billingOHIPreport.jsp"><fmt:message key="admin.admin.btnGenerateOHIPDiskette"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/ViewBillingOHIPreport.do"><fmt:message key="admin.admin.btnGenerateOHIPDiskette"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/billingCorrection.jsp?admin&billing_no="><fmt:message key="admin.admin.btnBillingCorrection"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/ViewBillingCorrection.do?admin&billing_no="><fmt:message key="admin.admin.btnBillingCorrection"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/batchBilling.jsp?service_code=all"><fmt:message key="admin.admin.btnBatchBilling"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/BatchBill.do?service_code=all"><fmt:message key="admin.admin.btnBatchBilling"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/inr/reportINR.jsp?provider_no=all"><fmt:message key="admin.admin.btnINRBatchBilling"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/ViewInrReportINR.do?provider_no=all"><fmt:message key="admin.admin.btnINRBatchBilling"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/billingONUpload.jsp"><fmt:message key="admin.admin.uploadMOHFile"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/BillingONUpload.do"><fmt:message key="admin.admin.uploadMOHFile"/></a></li>
 					
 						
 					<oscar:oscarPropertiesCheck property="moh_file_management_enabled" value="true" defaultVal="false">
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/billing/CA/ON/viewMOHFiles.jsp"><fmt:message key="admin.admin.viewMOHFiles"/></a></li>
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/billing/CA/ON/moveMOHFiles.do"><fmt:message key="admin.admin.viewMOHFiles"/></a></li>
 					</oscar:oscarPropertiesCheck>
 					
 					<oscar:oscarPropertiesCheck property="mcedt.mailbox.enabled" value="false" defaultVal="false">
@@ -212,10 +212,10 @@ String curProvider_no = (String)session.getAttribute("user");
 					</li>
 					</oscar:oscarPropertiesCheck>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}<%= oscarVariables.getProperty("RA_FORWORD", "/billing/CA/ON/genRA.jsp") %>"><fmt:message key="admin.admin.btnBillingReconciliation"/></a></li>
+						class="xlink" rel="${ctx}<%= oscarVariables.getProperty("RA_FORWORD", "/billing/CA/ON/ViewGenRA.do") %>"><fmt:message key="admin.admin.btnBillingReconciliation"/></a></li>
 					<!--  li><a href='javascript:void(0);' onclick ='popupPage(600,1000,"${ctx}/billing/CA/ON/billingOBECEA.jsp");return false;'><fmt:message key="admin.admin.btnEDTBillingReportGenerator"/></a></li-->
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/billStatus.jsp"><fmt:message key="admin.admin.invoiceRpts"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/ViewBillStatus.do"><fmt:message key="admin.admin.invoiceRpts"/></a></li>
 		                        <li><a href='javascript:void(0);'
 		                                class="xlink" rel="${ctx}/billing/CA/ON/endYearStatement.do"><fmt:message key="admin.admin.endYearStatement"/></a></li>
 					
@@ -230,7 +230,7 @@ String curProvider_no = (String)session.getAttribute("user");
 		                        
 		               
 		                <oscar:oscarPropertiesCheck property="billregion" value="ON">             	
-		                        <li><a href='javascript:void(0);' class="xlink" rel='${ctx}/billing/CA/ON/billingONPayment.jsp'><fmt:message key="admin.admin.paymentReceived"/></a></li>
+		                        <li><a href='javascript:void(0);' class="xlink" rel='${ctx}/billing/CA/ON/BillingONPayment.do'><fmt:message key="admin.admin.paymentReceived"/></a></li>
 		                        <li><a href='javascript:void(0);' class="xlink" rel='${ctx}/billing/CA/ON/managePaymentType.do'><fmt:message key="admin.admin.managePaymentType"/></a></li>
 		                </oscar:oscarPropertiesCheck>
 

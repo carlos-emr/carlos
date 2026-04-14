@@ -1595,7 +1595,7 @@ function isValidAutoSaveResponse(status, body) {
 document.getElementById('dxSearchModal').addEventListener('show.bs.modal', function() {
     var code = document.getElementById('dxCode').value;
     var frame = document.getElementById('dxSearchFrame');
-    frame.src = '<%= request.getContextPath() %>/billing/CA/ON/billingDigSearch.jsp?name='
+    frame.src = '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch.do?name='
         + encodeURIComponent(code) + '&search=';
     frame.onload = function() {
         try {
