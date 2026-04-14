@@ -38,7 +38,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ include file="/common/webAppContextAndSuperMgr.jsp" %>
+<%@ include file="/WEB-INF/jsp/common/webAppContextAndSuperMgr.jsp" %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
 <p>&nbsp;</p>

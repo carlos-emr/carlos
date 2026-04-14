@@ -1043,7 +1043,7 @@
                         <% } %>
                     }
                     case <fmt:message key="global.workflowShortcut"/> :
-                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList.jsp', '<fmt:message key="global.workflow"/>');
+                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList.do', '<fmt:message key="global.workflow"/>');
                         return false; //code for 'W'orkflow
                     default :
                         return;

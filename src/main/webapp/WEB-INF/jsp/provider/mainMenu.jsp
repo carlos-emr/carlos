@@ -246,7 +246,7 @@
 
                         <oscar:oscarPropertiesCheck property="WORKFLOW" value="yes">
                             <li><a href="javascript:void(0)"
-                                   onClick="popup(700,1024,'<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList.jsp','<fmt:message key="global.workflow"/>')"><fmt:message key="global.btnworkflow"/>
+                                   onClick="popup(700,1024,'<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList.do','<fmt:message key="global.workflow"/>')"><fmt:message key="global.btnworkflow"/>
                             </a></li>
                         </oscar:oscarPropertiesCheck>
 
@@ -288,7 +288,7 @@
                                                                objectName="_dashboardCommonLink" rights="r">
                                                 <li>
                                                     <a href="javascript:void(0)"
-                                                       onclick="newWindow('<%=request.getContextPath()%>/web/dashboard/display/sharedOutcomesDashboard.jsp','shared_dashboard')">
+                                                       onclick="newWindow('<%=request.getContextPath()%>/web/dashboard/display/sharedOutcomesDashboard.do','shared_dashboard')">
                                                         Common Provider Dashboard
                                                     </a>
                                                 </li>
@@ -337,7 +337,7 @@
             <ul id="userSettingsMenu">
                 <li>
                     <a title="Scratch Pad" href="javascript: function myFunction() {return false; }"
-                       onClick="popup(700,1024,'<%= request.getContextPath() %>/scratch/index.jsp','scratch')"><span
+                       onClick="popup(700,1024,'<%= request.getContextPath() %>/Scratch.do','scratch')"><span
                             class="fa-solid fa-rectangle-list"></span></a>
                 </li>
                 <li>
