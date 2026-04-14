@@ -180,14 +180,14 @@ public class RecordUxService extends AbstractServiceImpl {
         List<MenuItemTo1> morelist = new ArrayList<MenuItemTo1>();
 		
 		/*if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.preventions", "r", null)) {
-			morelist.add(new MenuItemTo1(idCounter++, "Preventions", "../oscarPrevention/index.jsp?demographic_no="+demographicNo));
+			morelist.add(new MenuItemTo1(idCounter++, "Preventions", "../prevention/ViewPreventionIndex.do?demographic_no="+demographicNo));
 		}*/
 		
 		/*if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.viewTickler", "r", null)) {
 			if ( org.oscarehr.commons.IsPropertiesOn.isTicklerPlusEnable()) {
 				morelist.add(new MenuItemTo1(idCounter++, "Tickler", "../Tickler.do?filter.demographicNo="+demographicNo));
 			}else {
-				morelist.add(new MenuItemTo1(idCounter++, "Tickler", "..//tickler/ticklerDemoMain.jsp?demoview="+demographicNo));
+				morelist.add(new MenuItemTo1(idCounter++, "Tickler", "..//tickler/ViewTicklerDemoMain.do?demoview="+demographicNo));
 			}
 		}*/
 

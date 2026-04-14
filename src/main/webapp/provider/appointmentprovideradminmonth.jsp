@@ -987,7 +987,7 @@
                 //use if (evt.altKey || evt.metaKey) Alt+A (and)/or for Mac when the browser supports it, Command+A
                 switch (evt.keyCode) {
                     case <fmt:message key="global.adminShortcut"/> :
-                        popupOscarRx(700, 687, '<%= request.getContextPath() %>/admin/admin.jsp');
+                        popupOscarRx(700, 687, '<%= request.getContextPath() %>/admin/ViewAdmin.do');
                         return false;  //run code for 'A'dmin
                     case <fmt:message key="global.billingShortcut"/> :
                         popupOscarRx(600, 1024, '<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&providerview=<%=curUser_no%>');
@@ -1005,7 +1005,7 @@
                         popupOscarRx(600, 750, '<%=Encode.forJavaScript(resourcebaseurl)%>');
                         return false;  //run code for 'H'elp
                     case <fmt:message key="global.ticklerShortcut"/> : {
-                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/tickler/ticklerMain.jsp', '<fmt:message key="global.tickler"/>') //run code for t'I'ckler
+                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/tickler/ViewTicklerMain.do', '<fmt:message key="global.tickler"/>') //run code for t'I'ckler
                         return false;
                     }
                     case <fmt:message key="global.labShortcut"/> :

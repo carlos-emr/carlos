@@ -33,7 +33,9 @@ package io.github.carlos_emr.carlos.appointment.web;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -190,7 +192,14 @@ public class NextAppointmentSearchHelper {
             }
         }
 
-        //logger.info("startHour="+startHour + ",endHour="+endHour);
+        // Load all appointments for this provider on this day ONCE (instead of per-slot)
+        List<Appointment> dayAppointments = oscarAppointmentDao.getByProviderAndDay(day, providerNo);
+
+        // Cache the provider lookup (same provider for all slots on this day)
+        Provider provider = null;
+
+        // Cache schedule template code lookups by slot character
+        Map<Character, ScheduleTemplateCode> templateCodeCache = new HashMap<>();
 
         for (int x = 0; x < timecode.length(); x++) {
             char slot = timecode.charAt(x);
@@ -200,7 +209,6 @@ public class NextAppointmentSearchHelper {
                 if (hour == startHour && min < startMin) {
                     continue;
                 }
-                //logger.info("currently at position " + x + " which is hour " + hour + " and min " + min);
                 if (slot != '_') {
                     //filter by code
                     if (searchBean.getCode().length() > 0) {
@@ -214,7 +222,10 @@ public class NextAppointmentSearchHelper {
                     // (e.g. 'A' = 30 min). This gives the correct appointment length even when
                     // not filtering by code. Falls back to slotSize when no template code is defined.
                     int duration = slotSize;
-                    ScheduleTemplateCode stc = scheduleTemplateCodeDao.getByCode(slot);
+                    if (!templateCodeCache.containsKey(slot)) {
+                        templateCodeCache.put(slot, scheduleTemplateCodeDao.getByCode(slot));
+                    }
+                    ScheduleTemplateCode stc = templateCodeCache.get(slot);
                     if (stc != null && stc.getDuration() != null && !stc.getDuration().isEmpty()) {
                         try {
                             duration = Integer.parseInt(stc.getDuration());
@@ -223,20 +234,19 @@ public class NextAppointmentSearchHelper {
                         }
                     }
 
-                    //ready to check appointments
-                    //logger.info("schedule availability found at hour " + hour + ", min = " + min + " duration = " + duration);
-
                     Calendar cal2 = Calendar.getInstance();
                     cal2.setTime(day);
                     cal2.set(Calendar.HOUR_OF_DAY, hour);
                     cal2.set(Calendar.MINUTE, min);
                     cal2.set(Calendar.SECOND, 0);
                     cal2.set(Calendar.MILLISECOND, 0);
-                    if (checkAvailability(cal2.getTime(), duration, providerNo)) {
-                        //logger.info("spot available at " + cal2.getTime() + " for " + duration + " mins with providers " + providerNo);
+                    if (checkAvailability(cal2.getTime(), duration, dayAppointments)) {
                         NextAppointmentSearchResult result = new NextAppointmentSearchResult();
                         result.setProviderNo(providerNo);
-                        result.setProvider(providerDao.getProvider(providerNo));
+                        if (provider == null) {
+                            provider = providerDao.getProvider(providerNo);
+                        }
+                        result.setProvider(provider);
                         result.setDate(cal2.getTime());
                         result.setDuration(duration);
                         results.add(result);
@@ -247,22 +257,24 @@ public class NextAppointmentSearchHelper {
         return results;
     }
 
-    private static boolean checkAvailability(Date date, int duration, String providerNo) {
-        List<Appointment> rs = oscarAppointmentDao.getByProviderAndDay(date, providerNo);
+    /**
+     * Checks whether a time slot is available by comparing against existing appointments.
+     *
+     * @param date          the proposed appointment start date/time
+     * @param duration      the appointment duration in minutes
+     * @param appointments  pre-loaded list of existing appointments for this provider/day
+     * @return true if the slot is available (no overlapping appointments)
+     */
+    private static boolean checkAvailability(Date date, int duration, List<Appointment> appointments) {
         Calendar cal = Calendar.getInstance();
         cal.setTime(date);
         Date startTime = cal.getTime();
         cal.add(Calendar.MINUTE, (duration - 1));
         Date endTime = cal.getTime();
 
-        //MiscUtils.getLogger().info("checking availability - startTime:"+startTime + ",endTime="+endTime);
-        //startTime + duration = endTime
-        //we are wanting to make sure no appointments have overlapping time
-        boolean booked = false;
-        for (Appointment a : rs) {
+        for (Appointment a : appointments) {
             Date apptStartDate = fixDate(date, a.getStartTime());
             Date apptEndDate = fixDate(date, a.getEndTime());
-            //MiscUtils.getLogger().info("\tappt found @ startTime:"+apptStartDate + ",endTime="+apptEndDate);
 
             if (endTime.before(apptStartDate)) {
                 continue;
@@ -270,13 +282,9 @@ public class NextAppointmentSearchHelper {
             if (startTime.after(apptEndDate)) {
                 continue;
             }
-            booked = true;
-        }
-        if (booked) {
             return false;
         }
 
-        //available
         return true;
     }
 

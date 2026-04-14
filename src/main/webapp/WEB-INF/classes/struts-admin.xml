@@ -146,5 +146,106 @@
             <result name="success">/WEB-INF/jsp/admin/updatedemographicprovider.jsp</result>
         </action>
 
+
+        <!-- ===== admin JSP gating actions (migration slice) ===== -->
+        <action name="admin/ViewUsageReport" class="io.github.carlos_emr.carlos.admin.gate.ViewUsageReport2Action">
+            <result name="success">/WEB-INF/jsp/admin/UsageReport.jsp</result>
+        </action>
+        <action name="admin/ViewAddQueue" class="io.github.carlos_emr.carlos.admin.gate.ViewAddQueue2Action">
+            <result name="success">/WEB-INF/jsp/admin/addQueue.jsp</result>
+        </action>
+        <action name="admin/ViewAdmin" class="io.github.carlos_emr.carlos.admin.gate.ViewAdmin2Action">
+            <result name="success">/WEB-INF/jsp/admin/admin.jsp</result>
+        </action>
+        <action name="admin/ViewAdminBackupDownload" class="io.github.carlos_emr.carlos.admin.gate.ViewAdminBackupDownload2Action">
+            <result name="success">/WEB-INF/jsp/admin/adminbackupdownload.jsp</result>
+        </action>
+        <action name="admin/ViewAdminDisplayMyGroup" class="io.github.carlos_emr.carlos.admin.gate.ViewAdminDisplayMyGroup2Action">
+            <result name="success">/WEB-INF/jsp/admin/admindisplaymygroup.jsp</result>
+        </action>
+        <action name="admin/ViewApiClients" class="io.github.carlos_emr.carlos.admin.gate.ViewApiClients2Action">
+            <result name="success">/WEB-INF/jsp/admin/api/clients.jsp</result>
+        </action>
+        <action name="admin/ViewClinicNbrManage" class="io.github.carlos_emr.carlos.admin.gate.ViewClinicNbrManage2Action">
+            <result name="success">/WEB-INF/jsp/admin/clinicNbrManage.jsp</result>
+        </action>
+        <action name="admin/ViewConfigureEmail" class="io.github.carlos_emr.carlos.admin.gate.ViewConfigureEmail2Action">
+            <result name="success">/WEB-INF/jsp/admin/configureEmail.jsp</result>
+        </action>
+        <action name="admin/ViewConfigureFax" class="io.github.carlos_emr.carlos.admin.gate.ViewConfigureFax2Action">
+            <result name="success">/WEB-INF/jsp/admin/configureFax.jsp</result>
+        </action>
+        <action name="admin/ViewDbConnection" class="io.github.carlos_emr.carlos.admin.gate.ViewDbConnection2Action">
+            <result name="success">/WEB-INF/jsp/admin/dbconnection.jsp</result>
+        </action>
+        <action name="admin/ViewEformReportTool" class="io.github.carlos_emr.carlos.admin.gate.ViewEformReportTool2Action">
+            <result name="success">/WEB-INF/jsp/admin/eformReportTool/eformReportTool.jsp</result>
+        </action>
+        <action name="admin/ViewJobTypes" class="io.github.carlos_emr.carlos.admin.gate.ViewJobTypes2Action">
+            <result name="success">/WEB-INF/jsp/admin/jobTypes.jsp</result>
+        </action>
+        <action name="admin/ViewJobs" class="io.github.carlos_emr.carlos.admin.gate.ViewJobs2Action">
+            <result name="success">/WEB-INF/jsp/admin/jobs.jsp</result>
+        </action>
+        <action name="admin/ViewKeygenCreateKey" class="io.github.carlos_emr.carlos.admin.gate.ViewKeygenCreateKey2Action">
+            <result name="success">/WEB-INF/jsp/admin/keygen/createKey.jsp</result>
+        </action>
+        <action name="admin/ViewKeygenKeyManager" class="io.github.carlos_emr.carlos.admin.gate.ViewKeygenKeyManager2Action">
+            <result name="success">/WEB-INF/jsp/admin/keygen/keyManager.jsp</result>
+        </action>
+        <action name="admin/ViewKeygenUpdateMatchingProfessionalSpecialist" class="io.github.carlos_emr.carlos.admin.gate.ViewKeygenUpdateMatchingProfessionalSpecialist2Action">
+            <result name="success">/WEB-INF/jsp/admin/keygen/updateMatchingProfessionalSpecialist.jsp</result>
+        </action>
+        <action name="admin/ViewLookupListsIndex" class="io.github.carlos_emr.carlos.admin.gate.ViewLookupListsIndex2Action">
+            <result name="success">/WEB-INF/jsp/admin/lookUpLists/index.jsp</result>
+        </action>
+        <action name="admin/ViewLookupListsLookupList" class="io.github.carlos_emr.carlos.admin.gate.ViewLookupListsLookupList2Action">
+            <result name="success">/WEB-INF/jsp/admin/lookUpLists/lookupList.jsp</result>
+        </action>
+        <action name="admin/ViewLookupListsManageLookupLists" class="io.github.carlos_emr.carlos.admin.gate.ViewLookupListsManageLookupLists2Action">
+            <result name="success">/WEB-INF/jsp/admin/lookUpLists/manageLookUpLists.jsp</result>
+        </action>
+        <action name="admin/ViewLotNrAddRecordHtm" class="io.github.carlos_emr.carlos.admin.gate.ViewLotNrAddRecordHtm2Action">
+            <result name="success">/WEB-INF/jsp/admin/lotnraddrecordhtm.jsp</result>
+        </action>
+        <action name="admin/ViewLotNrDeleteRecordHtm" class="io.github.carlos_emr.carlos.admin.gate.ViewLotNrDeleteRecordHtm2Action">
+            <result name="success">/WEB-INF/jsp/admin/lotnrdeleterecordhtm.jsp</result>
+        </action>
+        <action name="admin/ViewLotNrSearchRecordsHtm" class="io.github.carlos_emr.carlos.admin.gate.ViewLotNrSearchRecordsHtm2Action">
+            <result name="success">/WEB-INF/jsp/admin/lotnrsearchrecordshtm.jsp</result>
+        </action>
+        <action name="admin/ViewManageFaxes" class="io.github.carlos_emr.carlos.admin.gate.ViewManageFaxes2Action">
+            <result name="success">/WEB-INF/jsp/admin/manageFaxes.jsp</result>
+        </action>
+        <action name="admin/ViewOscarLogging" class="io.github.carlos_emr.carlos.admin.gate.ViewOscarLogging2Action">
+            <result name="success">/WEB-INF/jsp/admin/oscarLogging.jsp</result>
+        </action>
+        <action name="admin/ViewProviderAddARecordHtm" class="io.github.carlos_emr.carlos.admin.gate.ViewProviderAddARecordHtm2Action">
+            <result name="success">/WEB-INF/jsp/admin/provideraddarecordhtm.jsp</result>
+        </action>
+        <action name="admin/ViewProviderSearchRecordsHtm" class="io.github.carlos_emr.carlos.admin.gate.ViewProviderSearchRecordsHtm2Action">
+            <result name="success">/WEB-INF/jsp/admin/providersearchrecordshtm.jsp</result>
+        </action>
+        <action name="admin/ViewProviderSearchResults" class="io.github.carlos_emr.carlos.admin.gate.ViewProviderSearchResults2Action">
+            <result name="success">/WEB-INF/jsp/admin/providersearchresults.jsp</result>
+        </action>
+        <action name="admin/ViewProviderUpdateProvider" class="io.github.carlos_emr.carlos.admin.gate.ViewProviderUpdateProvider2Action">
+            <result name="success">/WEB-INF/jsp/admin/providerupdateprovider.jsp</result>
+        </action>
+        <action name="admin/ViewSecurityAddARecord" class="io.github.carlos_emr.carlos.admin.gate.ViewSecurityAddARecord2Action">
+            <result name="success">/WEB-INF/jsp/admin/securityaddarecord.jsp</result>
+        </action>
+        <action name="admin/ViewSecuritySearchRecordsHtm" class="io.github.carlos_emr.carlos.admin.gate.ViewSecuritySearchRecordsHtm2Action">
+            <result name="success">/WEB-INF/jsp/admin/securitysearchrecordshtm.jsp</result>
+        </action>
+        <action name="admin/ViewSecurityUpdateSecurity" class="io.github.carlos_emr.carlos.admin.gate.ViewSecurityUpdateSecurity2Action">
+            <result name="success">/WEB-INF/jsp/admin/securityupdatesecurity.jsp</result>
+        </action>
+        <action name="admin/ViewTraceReport" class="io.github.carlos_emr.carlos.admin.gate.ViewTraceReport2Action">
+            <result name="success">/WEB-INF/jsp/admin/traceReport.jsp</result>
+        </action>
+        <action name="admin/ViewUpdateDrugref" class="io.github.carlos_emr.carlos.admin.gate.ViewUpdateDrugref2Action">
+            <result name="success">/WEB-INF/jsp/admin/updateDrugref.jsp</result>
+        </action>
     </package>
 </struts>

@@ -253,7 +253,7 @@
                     }%>
             popupPage(350, 750, 'printappointment.jsp?appointment_no=<%=apptId%>');
             <%}%>
-            self.opener.refresh();
+            try { self.opener.refresh(); } catch (e) { /* opener may be closed or cross-origin */ }
             self.close();
         </script>
 
