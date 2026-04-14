@@ -204,7 +204,7 @@
                                                     </option>
                                                 </c:forEach>
                                             </select>
-                                            <a href="#" onClick="popupPage(${ctr.index}, '${e:forJavaScript(waitingListBean.patientName)}', '${e:forJavaScript(waitingListBean.demographicNo)}', '${e:forJavaScript(today)}', 400, 780, '<%= request.getContextPath() %>/schedule/FlipView.do?originalpage=<%= request.getContextPath() %>/waitinglist/DisplayWaitingList.jsp'); return false;">
+                                            <a href="#" onClick="popupPage(${ctr.index}, '${e:forJavaScript(waitingListBean.patientName)}', '${e:forJavaScript(waitingListBean.demographicNo)}', '${e:forJavaScript(today)}', 400, 780, '<%= request.getContextPath() %>/schedule/FlipView.do?originalpage=<%= request.getContextPath() %>/waitinglist/SetupDisplayWaitingList.do'); return false;">
                                                 make_appt
                                             </a>
                                         </td>

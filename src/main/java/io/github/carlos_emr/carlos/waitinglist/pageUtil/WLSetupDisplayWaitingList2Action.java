@@ -30,8 +30,10 @@
 
 package io.github.carlos_emr.carlos.waitinglist.pageUtil;
 
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
@@ -61,6 +63,9 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
 
     private Logger log = MiscUtils.getLogger();
 
+    private final SecurityInfoManager securityInfoManager =
+            SpringUtils.getBean(SecurityInfoManager.class);
+
     public String execute()
             throws Exception {
 
@@ -68,9 +73,23 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
         log.debug("WLSetupDisplayWaitingList2Action/execute(): just entering.");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic r)");
+        }
 
         String update = request.getParameter("update");
         String remove = request.getParameter("remove"); //actually not used for now, may in future?
+
+        // Mutation path (update=Y) requires write privilege + POST.
+        if (update != null && update.equalsIgnoreCase("Y")) {
+            if (!"POST".equalsIgnoreCase(request.getMethod())) {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
+                throw new SecurityException("missing required sec object (_demographic w)");
+            }
+        }
 
         String waitingListId = "";
         String demographicNo = "";

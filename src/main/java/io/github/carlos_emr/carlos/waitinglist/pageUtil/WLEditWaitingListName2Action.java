@@ -27,8 +27,11 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBeanHandler;
 import io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListNameUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -45,6 +48,9 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
 
     private String message = "";
 
+    private final SecurityInfoManager securityInfoManager =
+            SpringUtils.getBean(SecurityInfoManager.class);
+
     public String execute()
             throws Exception {
 
@@ -53,6 +59,10 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
         HttpSession session = request.getSession();
         //LazyValidatorForm wlnForm = (LazyValidatorForm) form;
 
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic r)");
+        }
 
         String edit = request.getParameter("edit");
         String actionChosen = request.getParameter("actionChosen");
@@ -72,6 +82,15 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
         MiscUtils.getLogger().debug("WLEditWaitingListName2Action/execute(): selectedWL2 = " + selectedWL2);
 
         if (edit != null && !edit.equals("")) {
+
+            // Name create/change/delete is a mutation — require POST + write.
+            if (!"POST".equalsIgnoreCase(request.getMethod())) {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
+                throw new SecurityException("missing required sec object (_demographic w)");
+            }
 
             if (wlNewName == null || wlNewName.length() <= 0) {
                 wlNewName = wlChangedName;
