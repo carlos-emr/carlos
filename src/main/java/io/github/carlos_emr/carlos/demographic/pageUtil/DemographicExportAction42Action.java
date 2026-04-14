@@ -75,6 +75,10 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.AbstractCodeSystemDao;
 import io.github.carlos_emr.carlos.commn.dao.ContactDao;
+import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
+import io.github.carlos_emr.carlos.commn.dao.Icd10Dao;
+import io.github.carlos_emr.carlos.commn.dao.Icd9Dao;
+import io.github.carlos_emr.carlos.commn.dao.SnomedCoreDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicContactDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
@@ -119,6 +123,7 @@ import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -230,6 +235,20 @@ public class DemographicExportAction42Action extends ActionSupport {
 
     /** Characters unsafe in filenames across common filesystems; used to sanitize patient name components. */
     private static final String UNSAFE_FILENAME_CHARS = "[/\\\\:*?\"<>|]";
+
+    /**
+     * Allowlist of coding system names to their {@link AbstractCodeSystemDao} classes.
+     *
+     * <p>Replaces the previous {@code Class.forName()} reflection lookup (CWE-470) with
+     * a static, compile-time-safe map. Keys are lowercase coding system identifiers
+     * matching values stored in {@code dxresearch.coding_system}.</p>
+     */
+    static final Map<String, Class<? extends AbstractCodeSystemDao>> ALLOWED_CODE_SYSTEM_DAOS = Map.of(
+            "icd9", Icd9Dao.class,
+            "icd10", Icd10Dao.class,
+            "snomedcore", SnomedCoreDao.class,
+            "msp", DiagnosticCodeDao.class
+    );
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -1297,11 +1316,13 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     String code = dx.getCodingSystem().equalsIgnoreCase("icd9") ? Util.formatIcd9(dx.getDxresearchCode()) : dx.getDxresearchCode();
                                     diagnosis.setStandardCode(code);
 
-                                    AbstractCodeSystemDao dao = null;
-                                    try {
-                                        dao = (AbstractCodeSystemDao) SpringUtils.getBean(Class.forName("io.github.carlos_emr.carlos.commn.dao." + org.apache.commons.lang3.StringUtils.capitalize(dx.getCodingSystem()) + "Dao"));
-                                    } catch (ClassNotFoundException e) {
-                                        logger.warn("DAO class not found for coding system: " + dx.getCodingSystem(), e);
+                                    String codingSystem = dx.getCodingSystem();
+                                    Class<? extends AbstractCodeSystemDao> daoClass =
+                                            codingSystem == null ? null
+                                                    : ALLOWED_CODE_SYSTEM_DAOS.get(codingSystem.toLowerCase());
+                                    AbstractCodeSystemDao dao = (daoClass == null) ? null : SpringUtils.getBean(daoClass);
+                                    if (dao == null) {
+                                        logger.warn("Unknown coding system: {}", LogSanitizer.sanitize(codingSystem));
                                     }
                                     if (dao != null) {
                                         AbstractCodeSystemModel result = dao.findByCode(dx.getDxresearchCode());
