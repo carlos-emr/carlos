@@ -411,18 +411,18 @@ public class ManageDocument2Action extends ActionSupport {
 
         // Defense-in-depth: validate that both parameters are numeric
         if (documentId == null || !documentId.matches("\\d+")) {
-            log.warn("Invalid documentId parameter for refile: {}", LogSanitizer.sanitize(documentId)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.warn("Invalid documentId parameter for refile: {}", LogSanitizer.sanitize(documentId)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs -- sanitized via LogSanitizer
             return null;
         }
         if (queueId == null || !queueId.matches("\\d+")) {
-            log.warn("Invalid queueId parameter for refile: {}", LogSanitizer.sanitize(queueId)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.warn("Invalid queueId parameter for refile: {}", LogSanitizer.sanitize(queueId)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs -- sanitized via LogSanitizer
             return null;
         }
 
         try {
             EDocUtil.refileDocument(documentId, queueId);
         } catch (Exception e) {
-            log.error("Failed to refile document {} to queue {}", LogSanitizer.sanitize(documentId), LogSanitizer.sanitize(queueId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Failed to refile document {} to queue {}", LogSanitizer.sanitize(documentId), LogSanitizer.sanitize(queueId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs -- sanitized via LogSanitizer
         }
         return null;
     }

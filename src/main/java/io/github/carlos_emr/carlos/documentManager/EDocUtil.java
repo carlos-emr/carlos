@@ -929,8 +929,8 @@ public final class EDocUtil {
                 FileUtils.copyFile(sourceFile, destFile);
             }
         } catch (IOException e) {
-            logger.error("Error", e);
-            throw new Exception(e);
+            logger.error("Error refiling document #{} to queue {}", documentNo, queueId, e);
+            throw new Exception("Failed to refile document #" + documentNo);
         }
     }
 
