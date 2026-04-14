@@ -214,12 +214,12 @@
                                             <tr>
                                                 <td width=20% valign="top">
                                                     <a <%= styleColor%>
-                                                            href="<%= request.getContextPath() %>/rx/addFavoriteStaticScript.do?regionalIdentifier=<%=Encode.forUriComponent(drug.getRegionalIdentifier())%>&cn=<%=Encode.forUriComponent(drug.getCustomName())%>&bn=<%=Encode.forUriComponent(drug.getBrandName())%>"><%=drug.getRxDate()%>
+                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2.do?regionalIdentifier=<%=Encode.forUriComponent(drug.getRegionalIdentifier())%>&cn=<%=Encode.forUriComponent(drug.getCustomName())%>&bn=<%=Encode.forUriComponent(drug.getBrandName())%>"><%=drug.getRxDate()%>
                                                     </a>
                                                 </td>
                                                 <td width=100%>
                                                     <a <%= styleColor%>
-                                                            href="<%= request.getContextPath() %>/rx/addFavoriteStaticScript.do?regionalIdentifier=<%= Encode.forUriComponent(drug.getRegionalIdentifier())%>&cn=<%= Encode.forUriComponent(drug.getCustomName())%>&bn=<%=Encode.forUriComponent(drug.getBrandName())%>"><%= Encode.forHtml(drug.getFullOutLine().replaceAll(";", " "))%>
+                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2.do?regionalIdentifier=<%= Encode.forUriComponent(drug.getRegionalIdentifier())%>&cn=<%= Encode.forUriComponent(drug.getCustomName())%>&bn=<%=Encode.forUriComponent(drug.getBrandName())%>"><%= Encode.forHtml(drug.getFullOutLine().replaceAll(";", " "))%>
                                                     </a>
                                                 </td>
                                             </tr>

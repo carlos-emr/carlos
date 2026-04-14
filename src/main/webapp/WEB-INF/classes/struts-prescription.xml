@@ -66,6 +66,9 @@
         <action name="rx/addFavoriteStaticScript" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddFavorite2Action">
             <result name="success">/WEB-INF/jsp/rx/StaticScript2.jsp</result>
         </action>
+        <action name="rx/ViewStaticScript2" class="io.github.carlos_emr.carlos.prescript.gate.ViewStaticScript2Action">
+            <result name="success">/WEB-INF/jsp/rx/StaticScript2.jsp</result>
+        </action>
 
 
         <action name="rx/addFavoriteWriteScript" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddFavorite2Action">
