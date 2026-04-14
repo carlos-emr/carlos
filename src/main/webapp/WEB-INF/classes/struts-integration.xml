@@ -93,6 +93,9 @@
             <result name="success">/mcedt/mailbox/index.jsp?tab=sent</result>
         </action>
         <action name="dhir/submit" class="io.github.carlos_emr.carlos.integration.dhir.SubmitImmunization2Action">
+            <interceptor-ref name="httpMethod">
+                <param name="allowedMethods">POST</param>
+            </interceptor-ref>
             <result name="success">/WEB-INF/jsp/oscarPrevention/dhirSubmission.jsp</result>
             <result name="testresult">/WEB-INF/jsp/oscarPrevention/test_case.jsp</result>
         </action>
