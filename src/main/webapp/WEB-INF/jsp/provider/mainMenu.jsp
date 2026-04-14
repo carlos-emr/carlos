@@ -156,7 +156,7 @@
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r">
                                 <li>
                                     <a HREF="#"
-                                       ONCLICK="popupPage2('<%= request.getContextPath() %>/report/reportindex.jsp','reportPage');return false;"
+                                       ONCLICK="popupPage2('<%= request.getContextPath() %>/report/ViewReportindex.do','reportPage');return false;"
                                        TITLE='<fmt:message key="global.genReport"/>'
                                        OnMouseOver="window.status='<fmt:message key="global.genReport"/>' ; return true"><fmt:message key="global.report"/></a>
                                 </li>

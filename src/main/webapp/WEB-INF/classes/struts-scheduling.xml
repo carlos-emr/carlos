@@ -93,8 +93,8 @@
             <result name="list">/WEB-INF/jsp/admin/billingreferralAdmin.jsp</result>
         </action>
         <action name="report/DxresearchReport" class="io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action" method="execute">
-            <result name="success">/oscarReport/oscarReportDxReg.jsp</result>
-            <result name="editdesc">/oscarReport/editCodeDesc.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarReport/oscarReportDxReg.jsp</result>
+            <result name="editdesc">/WEB-INF/jsp/oscarReport/editCodeDesc.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/adminFlowsheet/FlowSheetCustomAction" class="io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp</result>
