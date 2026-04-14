@@ -1,0 +1,4 @@
+## 2025-05-18 - Command-Line Credential Exposure
+**Vulnerability:** A database password (`db_password`) was passed directly as a command-line argument (`--password=...`) to an external process (`mysqldump`) using `Runtime.getRuntime().exec()`.
+**Learning:** Command-line arguments of running processes are visible to any user on the system via process monitoring tools like `ps` or `top`. Passing sensitive information like database passwords or API keys as command-line arguments introduces a severe local credential exposure risk.
+**Prevention:** Never pass secrets as command-line arguments. Instead, use `ProcessBuilder` and inject secrets securely into the process via environment variables (e.g., `pb.environment().put("MYSQL_PWD", password)` for `mysql` or `mysqldump`). Additionally, use lists instead of arrays for command arguments to cleanly separate flags and values, and use `StringBuilder` for dynamic arguments to avoid false positives in SAST tools.
