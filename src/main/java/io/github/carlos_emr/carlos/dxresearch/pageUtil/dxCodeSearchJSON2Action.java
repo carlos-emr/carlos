@@ -43,7 +43,9 @@ import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.commn.model.Icd10;
 import io.github.carlos_emr.carlos.commn.model.Icd9;
 import io.github.carlos_emr.carlos.managers.CodingSystemManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.JsonUtil;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -61,6 +63,13 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
     private static Logger logger = MiscUtils.getLogger();
 
     public String execute() {
+        // Require read privilege before returning any code-search JSON.
+        // The endpoint previously lacked any authorization check.
+        SecurityInfoManager sim = SpringUtils.getBean(SecurityInfoManager.class);
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || !sim.hasPrivilege(loggedInInfo, "_dxresearch", "r", null)) {
+            throw new SecurityException("missing required sec object (_dxresearch r)");
+        }
         String method = request.getParameter("method");
         if ("searchICD9".equals(method)) {
             return searchICD9();

@@ -155,7 +155,7 @@ public class dxResearch2Action extends ActionSupport {
         }
 
         if (!valid) {
-            response.sendRedirect(request.getContextPath() + "/oscarResearch/oscarDxResearch/dxResearch.jsp");
+            response.sendRedirect(request.getContextPath() + "/oscarResearch/oscarDxResearch/setupDxResearch.do");
             return NONE;
         }
 
@@ -170,7 +170,7 @@ public class dxResearch2Action extends ActionSupport {
         } else if ("codeSearch".equals(forwardTo)) {
             actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/dxresearch/dxcodeSearch.do");
         } else if ("codeList".equals(forwardTo)) {
-            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/oscarDxResearch/quickCodeList.jsp");
+            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/oscarDxResearch/ViewQuickCodeList.do");
         }
         actionforward.append("?demographicNo=").append(demographicNo);
         actionforward.append("&providerNo=").append(providerNo);

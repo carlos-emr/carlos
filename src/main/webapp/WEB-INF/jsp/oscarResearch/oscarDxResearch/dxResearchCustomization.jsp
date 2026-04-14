@@ -84,13 +84,13 @@
 
         <div class="d-flex flex-wrap gap-2 mt-3">
             <input type="button" class="btn btn-primary"
-                   onclick="popupPage(230,600,'oscarResearch/oscarDxResearch/dxResearchNewQuickList.jsp')"
+                   onclick="popupPage(230,600,'oscarResearch/oscarDxResearch/ViewDxResearchNewQuickList.do')"
                    value="<fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.addNewQuickList"/>"/>
             <input type="button" class="btn btn-primary"
                    onclick="popupPage(230,600,'oscarResearch/oscarDxResearch/dxResearchLoadQuickList.do')"
                    value="<fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.editQuickList"/>"/>
             <input type="button" class="btn btn-primary"
-                   onclick="popupPage(230,600,'oscarResearch/oscarDxResearch/dxResearchSelectAssociations.jsp')"
+                   onclick="popupPage(230,600,'oscarResearch/oscarDxResearch/dxResearchLoadAssociations.do')"
                    value="<fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.editAssociations"/>"/>
         </div>
 

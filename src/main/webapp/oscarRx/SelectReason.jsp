@@ -195,7 +195,7 @@
                             <c:if test="${showQuicklist}">
                             <tr>
                                 <td>
-                                <jsp:include page="dxQuickList.jsp" >
+                                <jsp:include page="/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxQuickList.jsp" >
                                     <jsp:param value="false" name="disable"/>
                                     <jsp:param value="${ param.quickList }" name="quickList" />
                                     <jsp:param value="${ demographicNo }" name="demographicNo"/>
@@ -226,7 +226,7 @@
                         <legend>Assign Indication</legend>
 
                         <input type="hidden" name="code" id="codeTxt"/>
-                        <jsp:include page="/oscarResearch/oscarDxResearch/dxJSONCodeSearch.jsp">
+                        <jsp:include page="/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxJSONCodeSearch.jsp">
                             <jsp:param value="true" name="enableCodeSystemSelect"/>
                         </jsp:include>
 
