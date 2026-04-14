@@ -70,10 +70,14 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *   <li>400 — malformed {@code data:} URI or non-Base64 {@code signatureImage}
  *       on the IPAD branch</li>
  *   <li>413 — raw-stream upload exceeds {@value #MAX_UPLOAD_BYTES} bytes</li>
- *   <li>500 — generic "Upload failed" (full exception logged server-side)</li>
+ *   <li>500 "Upload failed" — I/O error writing the temp file</li>
+ *   <li>500 "Save failed" — DB persistence failed after a successful upload
+ *       (null return or propagated exception from
+ *       {@link DigitalSignatureManager#processAndSaveDigitalSignature})</li>
  *   <li>200 — HTML fragment with hidden {@code signatureId} input</li>
  * </ul>
- * Partial temp files from rejected uploads are deleted before returning.
+ * Partial temp files from rejected uploads and orphaned temp files from
+ * failed persistence are deleted before returning.
  */
 public final class SaveSignatureUpload2Action extends ActionSupport {
 
@@ -85,16 +89,21 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            MiscUtils.getLogger().warn("Denied SaveSignatureUpload: no session");
+            throw new SecurityException("missing required sec object (_con w)");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", "w", null)) {
+            MiscUtils.getLogger().warn("Denied SaveSignatureUpload: provider={} lacks _con w",
+                    loggedInInfo.getLoggedInProviderNo());
+            throw new SecurityException("missing required sec object (_con w)");
+        }
+
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
-        }
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null
-                || !securityInfoManager.hasPrivilege(loggedInInfo, "_con", "w", null)) {
-            throw new SecurityException("missing required sec object (_con w)");
         }
 
         String signatureId = "";
@@ -132,9 +141,22 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             return NONE;
         }
 
-        if ("IPAD".equalsIgnoreCase(uploadSource) && imageString != null && !imageString.isEmpty()) {
+        if ("IPAD".equalsIgnoreCase(uploadSource)) {
+            if (imageString == null || imageString.isEmpty()) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing signatureImage");
+                return NONE;
+            }
             int comma = imageString.indexOf(",");
             String encoded = comma >= 0 ? imageString.substring(comma + 1) : imageString;
+            // Cap the encoded length so a large signatureImage form field cannot
+            // allocate an unbounded byte[] during decode. Base64 expands 3 bytes
+            // to 4 characters, so MAX_UPLOAD_BYTES decoded ≈ MAX_BASE64_CHARS
+            // encoded. Reject before decode.
+            if (encoded.length() > MAX_BASE64_CHARS) {
+                MiscUtils.getLogger().warn("IPAD signatureImage exceeded {} base64 chars; rejecting", MAX_BASE64_CHARS);
+                response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, "Upload too large");
+                return NONE;
+            }
             byte[] imageData;
             try {
                 imageData = new Base64().decode(encoded.getBytes(StandardCharsets.US_ASCII));
@@ -145,6 +167,13 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             }
             if (imageData == null || imageData.length == 0) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid image data");
+                return NONE;
+            }
+            // Belt-and-suspenders: Base64 decoders that strip non-alphabet chars
+            // can still produce more than MAX_UPLOAD_BYTES on pathological input.
+            if (imageData.length > MAX_UPLOAD_BYTES) {
+                MiscUtils.getLogger().warn("IPAD signature decoded to {} bytes; rejecting", imageData.length);
+                response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, "Upload too large");
                 return NONE;
             }
             try (FileOutputStream fos = new FileOutputStream(safeTarget)) {
@@ -183,6 +212,10 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
                     deleteQuietly(safeTarget);
                 }
             }
+        } else {
+            MiscUtils.getLogger().warn("Unknown signature upload source: {}", LogSanitizer.sanitize(uploadSource));
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Unknown source");
+            return NONE;
         }
 
         if (saveToDB) {
@@ -197,14 +230,36 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
                 }
             }
             DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
-            DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(
-                    loggedInInfo,
-                    signatureKey,
-                    demographicNo,
-                    moduleType);
-            if (signature != null) {
-                signatureId = String.valueOf(signature.getId());
+            DigitalSignature signature;
+            try {
+                signature = digitalSignatureManager.processAndSaveDigitalSignature(
+                        loggedInInfo,
+                        signatureKey,
+                        demographicNo,
+                        moduleType);
+            } catch (RuntimeException e) {
+                // Manager documents null-return on expected failures; any propagated
+                // RuntimeException is an unexpected failure mode (e.g. encryption,
+                // DB connectivity). Delete the orphan temp file before surfacing 500.
+                MiscUtils.getLogger().error("Digital signature persist failed for key {}",
+                        LogSanitizer.sanitize(signatureKey), e);
+                deleteQuietly(safeTarget);
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Save failed");
+                return NONE;
             }
+            if (signature == null) {
+                // Manager returns null for: digital signatures disabled, temp file
+                // missing/empty, path-validation failure, or any internally-caught
+                // exception. The file upload succeeded but persistence did not —
+                // surface 500 rather than returning an empty signatureId that the
+                // caller has no way to distinguish from a successful save.
+                MiscUtils.getLogger().warn("Digital signature persist returned null for key {}",
+                        LogSanitizer.sanitize(signatureKey));
+                deleteQuietly(safeTarget);
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Save failed");
+                return NONE;
+            }
+            signatureId = String.valueOf(signature.getId());
         }
 
         response.setStatus(HttpServletResponse.SC_OK);
@@ -231,4 +286,6 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
     }
 
     private static final int MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+    // Ceil(MAX_UPLOAD_BYTES / 3) * 4 — max base64 encoded length that decodes to MAX_UPLOAD_BYTES.
+    private static final int MAX_BASE64_CHARS = ((MAX_UPLOAD_BYTES + 2) / 3) * 4;
 }

@@ -27,22 +27,37 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * View gate for calendar/oscarCalendarPopup.jsp — generic date-picker popup. Authenticated-session only (no specific privilege; it is a pure client-side calendar widget). GET/HEAD only.
+ * View gate for {@code calendar/oscarCalendarPopup.jsp} — generic date-picker
+ * popup. Authenticated-session only (no specific privilege; it is a pure
+ * client-side calendar widget). GET/HEAD only.
+ *
+ * @since 2026-04-14
  */
 public final class ViewOscarCalendarPopup2Action extends ActionSupport {
 
-    private final SecurityInfoManager securityInfoManager =
-            SpringUtils.getBean(SecurityInfoManager.class);
-
+    /**
+     * Validates the caller has an authenticated session, then serves the
+     * calendar-popup JSP for GET/HEAD only.
+     *
+     * @return {@link #SUCCESS} when authorized and the method is GET/HEAD;
+     *         {@link #NONE} after sending a 405 for unsupported methods
+     * @throws SecurityException when the session is missing
+     * @throws Exception propagated from Struts I/O
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            MiscUtils.getLogger().warn("Denied oscarCalendarPopup: no session");
+            throw new SecurityException("missing session");
+        }
 
         String method = request.getMethod();
         if (!"GET".equalsIgnoreCase(method) && !"HEAD".equalsIgnoreCase(method)) {
@@ -50,12 +65,6 @@ public final class ViewOscarCalendarPopup2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("missing session");
-        }
-        // no privilege check — authenticated-only popup
         return SUCCESS;
     }
 }

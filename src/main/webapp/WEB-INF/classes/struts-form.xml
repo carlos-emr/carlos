@@ -33,6 +33,9 @@
             <result name="unauthorized">/securityError.jsp</result>
             <result name="error">/failure.jsp</result>
         </action>
+        <action name="web/dashboard/display/sharedOutcomesDashboard" class="io.github.carlos_emr.carlos.dashboard.display.gate.ViewSharedOutcomesDashboard2Action">
+            <result name="success">/WEB-INF/jsp/web/dashboard/display/sharedOutcomesDashboard.jsp</result>
+        </action>
         <action name="web/dashboard/display/DrilldownDisplay" class="io.github.carlos_emr.carlos.dashboard.display.DisplayDrilldown2Action">
             <result name="success">/WEB-INF/jsp/web/dashboard/display/DrilldownDisplay.jsp</result>
             <result name="unauthorized">/securityError.jsp</result>

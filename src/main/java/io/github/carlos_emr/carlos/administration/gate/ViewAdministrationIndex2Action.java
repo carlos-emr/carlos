@@ -29,6 +29,7 @@ import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -58,22 +59,30 @@ public final class ViewAdministrationIndex2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            MiscUtils.getLogger().warn("Denied administration index: no session");
+            throw new SecurityException("missing session");
+        }
+        boolean authorized = false;
+        for (String p : ADMIN_PRIVS) {
+            if (securityInfoManager.hasPrivilege(loggedInInfo, p, "r", null)) {
+                authorized = true;
+                break;
+            }
+        }
+        if (!authorized) {
+            MiscUtils.getLogger().warn("Denied administration index: provider={} holds none of {}",
+                    loggedInInfo.getLoggedInProviderNo(), String.join(",", ADMIN_PRIVS));
+            throw new SecurityException("missing required sec object (any of _admin*)");
+        }
+
         String method = request.getMethod();
         if (!"GET".equalsIgnoreCase(method) && !"HEAD".equalsIgnoreCase(method)) {
             response.setHeader("Allow", "GET, HEAD");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("missing session");
-        }
-        for (String p : ADMIN_PRIVS) {
-            if (securityInfoManager.hasPrivilege(loggedInInfo, p, "r", null)) {
-                return SUCCESS;
-            }
-        }
-        throw new SecurityException("missing required sec object (any of _admin*)");
+        return SUCCESS;
     }
 }

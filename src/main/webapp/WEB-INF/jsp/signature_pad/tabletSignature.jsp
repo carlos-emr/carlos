@@ -81,7 +81,7 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
     </div>
 </div>
 
-<form onsubmit="return submitSignature();" action="<%=request.getContextPath() %>/signature_pad/uploadSignature.jsp"
+<form onsubmit="return submitSignature();" action="<%=request.getContextPath() %>/signature_pad/SaveSignatureUpload.do"
       id="signatureForm" method="POST">
     <input type="hidden" id="signatureImage" name="signatureImage" value=""/>
     <input type="hidden" name="source" value="IPAD"/>

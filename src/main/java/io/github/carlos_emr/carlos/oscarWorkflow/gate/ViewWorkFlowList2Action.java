@@ -29,6 +29,7 @@ import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -44,19 +45,22 @@ public final class ViewWorkFlowList2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            MiscUtils.getLogger().warn("Denied workFlowList: no session");
+            throw new SecurityException("missing session");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
+            MiscUtils.getLogger().warn("Denied workFlowList: provider={} lacks _rx r",
+                    loggedInInfo.getLoggedInProviderNo());
+            throw new SecurityException("missing required sec object (_rx r)");
+        }
+
         String method = request.getMethod();
         if (!"GET".equalsIgnoreCase(method) && !"HEAD".equalsIgnoreCase(method)) {
             response.setHeader("Allow", "GET, HEAD");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
-        }
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("missing session");
-        }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
-            throw new SecurityException("missing required sec object (_rx r)");
         }
         return SUCCESS;
     }

@@ -73,10 +73,10 @@
                             </div>
                         </c:when>
                         <c:when test="${requestScope.mfaRegistrationRequired eq true}">
-                            <jsp:include page="/mfa/mfa_registration.jsp"/>
+                            <jsp:include page="/WEB-INF/jsp/mfa/mfa_registration.jsp"/>
                         </c:when>
                         <c:otherwise>
-                            <jsp:include page="/mfa/mfa_otp_handler.jsp"/>
+                            <jsp:include page="/WEB-INF/jsp/mfa/mfa_otp_handler.jsp"/>
                         </c:otherwise>
                     </c:choose>
                 </div>

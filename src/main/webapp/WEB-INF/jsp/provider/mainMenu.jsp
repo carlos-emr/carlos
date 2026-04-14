@@ -288,7 +288,7 @@
                                                                objectName="_dashboardCommonLink" rights="r">
                                                 <li>
                                                     <a href="javascript:void(0)"
-                                                       onclick="newWindow('<%=request.getContextPath()%>/web/dashboard/display/sharedOutcomesDashboard.jsp','shared_dashboard')">
+                                                       onclick="newWindow('<%=request.getContextPath()%>/web/dashboard/display/sharedOutcomesDashboard.do','shared_dashboard')">
                                                         Common Provider Dashboard
                                                     </a>
                                                 </li>

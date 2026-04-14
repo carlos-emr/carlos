@@ -19,7 +19,7 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.common.gate;
+package io.github.carlos_emr.carlos.dashboard.display.gate;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -33,13 +33,26 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * View gate for common/omdDiseaseList.jsp — Ontario MD disease-list picker popup. Requires _eChart r. GET/HEAD only.
+ * View gate for {@code web/dashboard/display/sharedOutcomesDashboard.jsp} —
+ * the shared-outcomes dashboard launcher. Requires {@code _dashboardDisplay r},
+ * matching {@code DisplayDashboard2Action}. GET/HEAD only.
+ *
+ * @since 2026-04-14
  */
-public final class ViewOmdDiseaseList2Action extends ActionSupport {
+public final class ViewSharedOutcomesDashboard2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Validates authorization then forwards to the shared-outcomes dashboard JSP.
+     *
+     * @return {@link #SUCCESS} when authorized and the HTTP method is GET/HEAD;
+     *         {@link #NONE} after sending 405 for unsupported methods
+     * @throws SecurityException when the session is missing or the caller lacks
+     *         {@code _dashboardDisplay r}
+     * @throws Exception propagated from Struts I/O
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -47,13 +60,13 @@ public final class ViewOmdDiseaseList2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
-            MiscUtils.getLogger().warn("Denied omdDiseaseList: no session");
+            MiscUtils.getLogger().warn("Denied sharedOutcomesDashboard: no session");
             throw new SecurityException("missing session");
         }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", null)) {
-            MiscUtils.getLogger().warn("Denied omdDiseaseList: provider={} lacks _eChart r",
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardDisplay", "r", null)) {
+            MiscUtils.getLogger().warn("Denied sharedOutcomesDashboard: provider={} lacks _dashboardDisplay r",
                     loggedInInfo.getLoggedInProviderNo());
-            throw new SecurityException("missing required sec object (_eChart r)");
+            throw new SecurityException("missing required sec object (_dashboardDisplay r)");
         }
 
         String method = request.getMethod();

@@ -53,7 +53,7 @@
             <img src="${requestScope.qrData}" alt="QR Code for Multi-Factor Authentication Setup" class="img-fluid">
         </div>
         <div class="row">
-            <jsp:include page="/mfa/mfa_otp_handler.jsp"/>
+            <jsp:include page="/WEB-INF/jsp/mfa/mfa_otp_handler.jsp"/>
         </div>
     </div>
 </div>
