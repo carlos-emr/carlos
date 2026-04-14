@@ -1,0 +1,4 @@
+## 2024-04-14 - Fix SQL injection in DrugDaoImpl.findByParameter
+**Vulnerability:** The `findByParameter` method in `DrugDaoImpl` concatenated the `parameter` and `value` arguments directly into a SQL query string to be executed via `createNativeQuery`. The parameter name could not be safely parameterized in JPA native queries, while the value was susceptible to SQL injection.
+**Learning:** In JPA/Hibernate native queries (`createNativeQuery`), dynamically injected column names cannot be parameterized. To prevent SQL injection, dynamic column names must be validated against a strict allowlist or regex pattern (e.g., `^[a-zA-Z0-9_]+$`) before string concatenation, while values must be safely parameterized using placeholders (like `?1`).
+**Prevention:** Always validate dynamic column names with regex or allowlists and use parameter placeholders for values when constructing native queries.
