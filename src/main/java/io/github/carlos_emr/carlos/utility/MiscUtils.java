@@ -161,6 +161,8 @@ public final class MiscUtils {
 
             String resolvedLocation = configLocation.replace("${contextName}", contextPath);
             getLogger().info("loading additional override logging configuration from : " + resolvedLocation);
+            // Auto-reload on file change requires monitorInterval="N" on the
+            // <Configuration> root element of the override XML.
             LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
             ctx.setConfigLocation(new File(resolvedLocation).toURI());
         }
