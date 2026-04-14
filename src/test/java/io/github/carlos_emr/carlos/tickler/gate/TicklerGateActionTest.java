@@ -12,7 +12,6 @@
  */
 package io.github.carlos_emr.carlos.tickler.gate;
 
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -21,6 +20,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -45,13 +45,13 @@ class TicklerGateActionTest extends CarlosWebTestBase {
 
     @BeforeEach
     void setUpGate() {
-        replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
-        // Flip base-class default (allow-all) to deny-all so allow-tests must
-        // explicitly stub the privilege they rely on.
+        // CarlosTestBase handles openMocks(); CarlosWebTestBase registers the
+        // SecurityInfoManager mock and seeds the LoggedInInfo session key.
+        // Only the deny-all stub override is specific to this test — flip the
+        // base-class permissive default so allow-tests must explicitly stub
+        // the privilege they rely on.
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any()))
                 .thenReturn(false);
-        String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
-        setSessionAttribute(key, mockLoggedInInfo);
     }
 
     @Test
