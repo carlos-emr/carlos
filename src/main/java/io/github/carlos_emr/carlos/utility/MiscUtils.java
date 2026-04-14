@@ -160,11 +160,18 @@ public final class MiscUtils {
             }
 
             String resolvedLocation = configLocation.replace("${contextName}", contextPath);
+
+            File configFile = new File(resolvedLocation);
+            if (!configFile.isFile() || !configFile.canRead()) {
+                getLogger().warn("log4j.override.configuration points to a missing or unreadable file: " + resolvedLocation);
+                return;
+            }
+
             getLogger().info("loading additional override logging configuration from : " + resolvedLocation);
             // Auto-reload on file change requires monitorInterval="N" on the
             // <Configuration> root element of the override XML.
             LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
-            ctx.setConfigLocation(new File(resolvedLocation).toURI());
+            ctx.setConfigLocation(configFile.toURI());
         }
 
     }
