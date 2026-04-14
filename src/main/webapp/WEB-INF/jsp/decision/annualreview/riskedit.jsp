@@ -59,7 +59,7 @@
 </head>
 <body onLoad="setfocus()" bgcolor="#c4e9f6" bgproperties="fixed"
       topmargin="0" leftmargin="1" rightmargin="1">
-<form name="checklistedit" action="riskedit.jsp" method="POST">
+<form name="checklistedit" action="<%= request.getContextPath() %>/decision/annualreview/riskedit.do" method="POST">
     <%
     try {
         String str = null;

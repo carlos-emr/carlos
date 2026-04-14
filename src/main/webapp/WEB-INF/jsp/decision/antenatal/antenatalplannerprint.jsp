@@ -65,7 +65,6 @@
     </script>
 </head>
 <body bgproperties="fixed" topmargin="0" leftmargin="1" rightmargin="1">
-<%-- @ include file="zgetarriskdata.jsp" --%>
 <%
     //get the risk data from formAR1
     String finalEDB = null, wt = null, ht = null;

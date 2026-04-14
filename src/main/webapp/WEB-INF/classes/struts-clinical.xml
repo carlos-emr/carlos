@@ -42,6 +42,41 @@
             <result name="guidelineList">/WEB-INF/jsp/encounter/decisionSupport/guidelineList.jsp</result>
             <result name="guidelineDetail">/WEB-INF/jsp/encounter/decisionSupport/guidelineDetail.jsp</result>
         </action>
+
+        <!--
+            Decision-support JSPs (annual review + antenatal planner/checklist/risk)
+            all live under /WEB-INF/jsp/decision/ and route through
+            ViewDecision2Action, which enforces _forms r on GET and _forms w +
+            POST when the request carries a "Save*" submit parameter. The save
+            logic remains embedded in the JSPs (scriptlet persistence to
+            DesAnnualReviewPlan / Desaprisk / XML config files) and is now
+            unreachable without POST + _forms w.
+        -->
+        <action name="decision/annualreview/annualreviewplanner" class="io.github.carlos_emr.carlos.decision.gate.ViewDecision2Action">
+            <result name="success">/WEB-INF/jsp/decision/annualreview/annualreviewplanner.jsp</result>
+        </action>
+        <action name="decision/annualreview/annualreviewplannerprint" class="io.github.carlos_emr.carlos.decision.gate.ViewDecision2Action">
+            <result name="success">/WEB-INF/jsp/decision/annualreview/annualreviewplannerprint.jsp</result>
+        </action>
+        <action name="decision/annualreview/checklistedit" class="io.github.carlos_emr.carlos.decision.gate.ViewDecision2Action">
+            <result name="success">/WEB-INF/jsp/decision/annualreview/checklistedit.jsp</result>
+        </action>
+        <action name="decision/annualreview/riskedit" class="io.github.carlos_emr.carlos.decision.gate.ViewDecision2Action">
+            <result name="success">/WEB-INF/jsp/decision/annualreview/riskedit.jsp</result>
+        </action>
+        <action name="decision/antenatal/antenatalplanner" class="io.github.carlos_emr.carlos.decision.gate.ViewDecision2Action">
+            <result name="success">/WEB-INF/jsp/decision/antenatal/antenatalplanner.jsp</result>
+        </action>
+        <action name="decision/antenatal/antenatalplannerprint" class="io.github.carlos_emr.carlos.decision.gate.ViewDecision2Action">
+            <result name="success">/WEB-INF/jsp/decision/antenatal/antenatalplannerprint.jsp</result>
+        </action>
+        <action name="decision/antenatal/obarchecklistedit_99_12" class="io.github.carlos_emr.carlos.decision.gate.ViewDecision2Action">
+            <result name="success">/WEB-INF/jsp/decision/antenatal/obarchecklistedit_99_12.jsp</result>
+        </action>
+        <action name="decision/antenatal/obarriskedit_99_12" class="io.github.carlos_emr.carlos.decision.gate.ViewDecision2Action">
+            <result name="success">/WEB-INF/jsp/decision/antenatal/obarriskedit_99_12.jsp</result>
+        </action>
+
         <action name="encounter/MeasurementData" class="io.github.carlos_emr.carlos.measurements.web.MeasurementData2Action"/>
         <action name="oscarResearch/oscarDxResearch/setupDxResearch" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxSetupResearch2Action">
             <result name="success">/oscarResearch/oscarDxResearch/dxResearch.jsp</result>
