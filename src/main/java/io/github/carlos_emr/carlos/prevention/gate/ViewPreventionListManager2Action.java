@@ -13,7 +13,7 @@
 package io.github.carlos_emr.carlos.prevention.gate;
 
 /**
- * Conditional-POST gate for {@code oscarPrevention/PreventionListManager.jsp}. The JSP
+ * Conditional-POST gate for {@code prevention/PreventionListManager.jsp}. The JSP
  * is self-posting: initial GET renders the admin list; form submits to itself
  * with {@code formAction=update} which triggers scriptlet mutations. Requires
  * POST when {@code formAction} is present so the mutation path cannot be

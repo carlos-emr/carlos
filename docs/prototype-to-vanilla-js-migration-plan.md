@@ -333,7 +333,7 @@ Fix: Add `'X-Requested-With': 'XMLHttpRequest'` header, `credentials: 'same-orig
 | `oscarMDS/documentsInQueues.jsp` | Prototype + effects + controls, 4 `.evalJSON()` → `JSON.parse()`, `evalScripts` |
 | `oscarMDS/SelectProviderAltView.jsp` | Prototype + Scriptaculous + effects + controls (Autocompleter) |
 | `hospitalReportManager/displayHRMReport.jsp` | Prototype + effects + controls |
-| `oscarPrevention/PreventionReporting.jsp` | Prototype + sortable.js |
+| `prevention/PreventionReporting.jsp` | Prototype + sortable.js |
 | `oscarResearch/oscarDxResearch/dxResearch.jsp` | Prototype include |
 | `billing/CA/BC/billingBC.jsp` | Prototype + Ajax.Updater |
 | `billing/CA/BC/adjustBill.jsp` | Prototype + Ajax.Updater |

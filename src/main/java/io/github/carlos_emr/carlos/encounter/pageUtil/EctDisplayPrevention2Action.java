@@ -69,7 +69,7 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
             //set lefthand module heading and link
             String winName = "prevention" + bean.demographicNo;
             int demographicNumber = Integer.valueOf(bean.demographicNo);
-            String preventionPath = request.getContextPath() + "/oscarPrevention/ViewPreventionIndex.do?demographic_no=" + bean.demographicNo;
+            String preventionPath = request.getContextPath() + "/prevention/ViewPreventionIndex.do?demographic_no=" + bean.demographicNo;
             Dao.setLeftHeading(getText("encounter.LeftNavBar.Prevent"));
             Dao.setLeftPopup(700, 960, winName, preventionPath);
 

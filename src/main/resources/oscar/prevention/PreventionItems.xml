@@ -2,7 +2,7 @@
 
 <!--
     Document   : PreventionItems.xml
-    Source     : src/main/resources/oscar/oscarPrevention/PreventionItems.xml
+    Source     : src/main/resources/oscar/prevention/PreventionItems.xml
     Updated on : Mar 8, 2026
     Description:
         XML configuration for the Prevention Module. Defines all prevention types

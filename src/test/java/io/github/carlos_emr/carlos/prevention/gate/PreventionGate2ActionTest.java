@@ -22,7 +22,7 @@ import org.junit.jupiter.api.*;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Unit tests for the four oscarPrevention gate actions:
+ * Unit tests for the four prevention gate actions:
  * {@link ViewPreventionIndex2Action} (read),
  * {@link ViewAddPreventionDataDisambiguate2Action} (read),
  * {@link ViewPreventionManager2Action} (conditional-POST write),
@@ -35,7 +35,7 @@ import static org.assertj.core.api.Assertions.*;
  *
  * @since 2026-04-13
  */
-@DisplayName("oscarPrevention Gate 2Actions")
+@DisplayName("prevention Gate 2Actions")
 @Tag("unit")
 @Tag("prevention")
 class PreventionGate2ActionTest extends CarlosWebTestBase {
@@ -126,7 +126,7 @@ class PreventionGate2ActionTest extends CarlosWebTestBase {
             denyPrivilege("_prevention", "w");
             assertThatThrownBy(() -> executeAction(new ViewPreventionManager2Action()))
                     .isInstanceOf(SecurityException.class)
-                    .hasMessageContaining("ViewPreventionManager2Action");
+                    .hasMessageContaining("_prevention");
         }
 
         @Test

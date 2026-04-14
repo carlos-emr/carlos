@@ -807,7 +807,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                             //////PREV END
                     %>
                     <div class="preventionProcedure" <%=hider%>
-                         onclick="javascript:popup(465,635,'<%= request.getContextPath() %>/oscarPrevention/AddPrevention.do?id=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(String.valueOf(hdata.get("id"))))%>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no)) %>','addPreventionData')">
+                         onclick="javascript:popup(465,635,'<%= request.getContextPath() %>/prevention/AddPrevention.do?id=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(String.valueOf(hdata.get("id"))))%>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no)) %>','addPreventionData')">
                         <p <%=r(hdata.get("refused"))%>
                                 title="fade=[on] header=[<%=Encode.forHtmlAttribute(String.valueOf(hdata.get("age")))%> -- Date:<%=Encode.forHtmlAttribute(String.valueOf(hdata.get("prevention_date")))%>] body=[<%=Encode.forHtmlAttribute(com)%>]">
                             Age: <%=Encode.forHtml(String.valueOf(hdata.get("age")))%> <br/>

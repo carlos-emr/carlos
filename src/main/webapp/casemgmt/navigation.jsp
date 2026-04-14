@@ -287,7 +287,7 @@
                     <oscar:oscarPropertiesCheck property="PREVENTION" value="yes">
                         <tr>
                             <td><a href="javascript:void(0)"
-                                   onClick="popupPage('<%=bsurl%>/oscarPrevention/ViewPreventionIndex.do?demographic_no=<%=bean.demographicNo%>');return false;">
+                                   onClick="popupPage('<%=bsurl%>/prevention/ViewPreventionIndex.do?demographic_no=<%=bean.demographicNo%>');return false;">
                                 <oscar:preventionWarnings
                                         demographicNo="<%=bean.demographicNo%>">prevention</oscar:preventionWarnings></a>
                             </td>

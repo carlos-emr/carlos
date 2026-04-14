@@ -59,7 +59,7 @@ class PreventionItemsXmlUnitTest {
     @DisplayName("should parse PreventionItems XML and extract item descriptions")
     void shouldParsePreventionItemsXml_andExtractDescriptions() throws Exception {
         try (InputStream is = getClass().getClassLoader()
-                .getResourceAsStream("oscar/oscarPrevention/PreventionItems.xml")) {
+                .getResourceAsStream("oscar/prevention/PreventionItems.xml")) {
             assertThat(is).as("PreventionItems.xml should be available on classpath").isNotNull();
 
             SAXBuilder parser = new SAXBuilder();

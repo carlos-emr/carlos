@@ -69,7 +69,7 @@ public class PreventionsSummary implements Summary {
     @SuppressWarnings("unchecked")
     private void preventionsList(LoggedInInfo loggedInInfo, List<SummaryItemTo1> list, Integer demographicNo) {
 
-        String url = "../oscarPrevention/ViewPreventionIndex.do?demographic_no=" + demographicNo;
+        String url = "../prevention/ViewPreventionIndex.do?demographic_no=" + demographicNo;
 
         //saved preventions for demographicNo
         List<Prevention> preventions = preventionManager.getPreventionsByDemographicNo(loggedInInfo, demographicNo);

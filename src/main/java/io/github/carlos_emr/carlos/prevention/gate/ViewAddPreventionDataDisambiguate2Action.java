@@ -13,9 +13,9 @@
 package io.github.carlos_emr.carlos.prevention.gate;
 
 /**
- * View gate for {@code oscarPrevention/AddPreventionDataDisambiguate.jsp}. Enforces
+ * View gate for {@code prevention/AddPreventionDataDisambiguate.jsp}. Enforces
  * {@code _prevention r} before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/} location. Part of the oscarPrevention security-
+ * {@code /WEB-INF/jsp/} location. Part of the prevention security-
  * hardening migration (2Action gate pattern from #1109, #1629, #1632, etc.).
  *
  * @since 2026-04-13

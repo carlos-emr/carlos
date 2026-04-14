@@ -13,15 +13,15 @@
 package io.github.carlos_emr.carlos.prevention.gate;
 
 /**
- * View gate for {@code oscarPrevention/index.jsp}, the prevention-module
+ * View gate for {@code prevention/index.jsp}, the prevention-module
  * landing page launched from the encounter left-nav popup and the demographic
  * "prevention" link. Enforces {@code _prevention r} before forwarding to the
  * JSP at its {@code /WEB-INF/jsp/} location.
  *
  * <p>Replaces the previous direct JSP access
- * ({@code /oscarPrevention/index.jsp?demographic_no=...}) that was removed
+ * ({@code /prevention/index.jsp?demographic_no=...}) that was removed
  * when the JSP was moved behind {@code /WEB-INF/jsp/}. Callers must now
- * target {@code /oscarPrevention/ViewPreventionIndex.do?demographic_no=...}
+ * target {@code /prevention/ViewPreventionIndex.do?demographic_no=...}
  * instead of {@code /encounter/displayPrevention.do}, which is the encounter
  * left-nav sub-dispatcher and does not render the prevention dashboard.
  *

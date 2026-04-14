@@ -96,8 +96,8 @@
             <interceptor-ref name="httpMethod">
                 <param name="allowedMethods">POST</param>
             </interceptor-ref>
-            <result name="success">/WEB-INF/jsp/oscarPrevention/dhirSubmission.jsp</result>
-            <result name="testresult">/WEB-INF/jsp/oscarPrevention/test_case.jsp</result>
+            <result name="success">/WEB-INF/jsp/prevention/dhirSubmission.jsp</result>
+            <result name="testresult">/WEB-INF/jsp/prevention/test_case.jsp</result>
         </action>
 
     </package>

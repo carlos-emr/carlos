@@ -40,7 +40,7 @@ import org.apache.struts2.ServletActionContext;
  *       vector for self-posting admin JSPs whose scriptlets mutate state
  *       when {@code formAction} is present.</li>
  *   <li>Return {@code SUCCESS}, which the Struts2 result mapping forwards
- *       to the gated JSP under {@code /WEB-INF/jsp/oscarPrevention/}.</li>
+ *       to the gated JSP under {@code /WEB-INF/jsp/prevention/}.</li>
  * </ol>
  *
  * <p>Pattern reference: see the 2Action-gate series (#1109, #1629, #1632,
