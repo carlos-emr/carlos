@@ -18,12 +18,10 @@ package io.github.carlos_emr.carlos.prevention.gate;
  * "prevention" link. Enforces {@code _prevention r} before forwarding to the
  * JSP at its {@code /WEB-INF/jsp/} location.
  *
- * <p>Replaces the previous direct JSP access
- * ({@code /prevention/index.jsp?demographic_no=...}) that was removed
- * when the JSP was moved behind {@code /WEB-INF/jsp/}. Callers must now
- * target {@code /prevention/ViewPreventionIndex.do?demographic_no=...}
- * instead of {@code /encounter/displayPrevention.do}, which is the encounter
- * left-nav sub-dispatcher and does not render the prevention dashboard.
+ * <p>Callers must target {@code /prevention/ViewPreventionIndex.do?demographic_no=...}
+ * rather than {@code /encounter/displayPrevention.do}, which is the encounter
+ * left-nav sub-dispatcher and does not render the prevention dashboard when
+ * invoked as a standalone popup target.
  *
  * @since 2026-04-13
  */
