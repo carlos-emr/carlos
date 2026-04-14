@@ -37,6 +37,8 @@ import java.util.regex.Pattern;
  *   <li>Backslash-based bypasses — literal backslash and percent-encoded
  *       variants ({@code %5c}/{@code %5C}), since some browsers normalise
  *       {@code /\evil.com} to {@code //evil.com} after a redirect</li>
+ *   <li>Percent-encoded control characters ({@code %00}–{@code %1F}) — defense
+ *       in depth against null-byte and CRLF injection vectors</li>
  *   <li>Path-traversal sequences — {@code ..} segments that escape the
  *       application root (e.g. {@code /../evil})</li>
  *   <li>Syntactically invalid URIs</li>
@@ -63,14 +65,24 @@ public final class RedirectValidationUtils {
     /** Pre-compiled pattern matching a {@code ..} path segment (any position). */
     private static final Pattern DOT_SEGMENT_PATTERN = Pattern.compile("(^|/)\\.\\.($|/)");
 
+    /** Matches percent-encoded control characters ({@code %00}–{@code %1F}). */
+    private static final Pattern ENCODED_CONTROL_CHAR_PATTERN =
+            Pattern.compile("%[01][0-9a-f]", Pattern.CASE_INSENSITIVE);
+
     /**
      * Returns {@code true} when {@code url} is a safe relative redirect target.
      *
      * <p>A URL is considered safe when it:</p>
      * <ol>
      *   <li>is not {@code null} or empty</li>
+     *   <li>does not start with {@code //} (blocks protocol-relative URLs and
+     *       triple-slash variants where {@link URI#getAuthority()} returns
+     *       {@code null})</li>
      *   <li>does not contain a backslash ({@code \}) or percent-encoded
      *       backslash ({@code %5c}/{@code %5C})</li>
+     *   <li>does not contain percent-encoded control characters
+     *       ({@code %00}–{@code %1F}) — defense in depth against null-byte
+     *       and CRLF injection</li>
      *   <li>is parseable as a {@link URI}</li>
      *   <li>has no scheme (not absolute)</li>
      *   <li>has no authority component (no {@code //host} prefix)</li>
@@ -88,9 +100,23 @@ public final class RedirectValidationUtils {
             return false;
         }
 
+        // Block URLs starting with // — catches protocol-relative (//evil.com)
+        // and triple-slash (///evil.com) variants.  Java URI.getAuthority() returns
+        // null for ///evil.com despite the // prefix, so a raw-string check is needed.
+        if (url.startsWith("//")) {
+            return false;
+        }
+
         // Block literal backslash and percent-encoded variants (%5c / %5C).
         // Browsers normalise /\evil.com to //evil.com, so both forms must be blocked.
         if (url.contains("\\") || url.toLowerCase(java.util.Locale.ROOT).contains("%5c")) {
+            return false;
+        }
+
+        // Defense-in-depth: block percent-encoded control characters (%00–%1F).
+        // These have no legitimate use in redirect URLs and could enable
+        // null-byte or CRLF injection in some HTTP stacks.
+        if (ENCODED_CONTROL_CHAR_PATTERN.matcher(url).find()) {
             return false;
         }
 
