@@ -162,8 +162,8 @@ class RedirectValidationUtilsUnitTest {
         void shouldRejectRedirect_whenNullByteInjection() {
             // %00 in path is syntactically valid but browsers do not split on it;
             // the result is a plain relative path, not a scheme change.
-            // Java URI treats this as a path — no scheme, no authority — so the
-            // validator currently accepts it.  Blocking it as defense-in-depth:
+            // Java URI alone would treat this as a path — no scheme, no authority.
+            // The validator now rejects it as defense-in-depth because encoded
             // control characters (%00-%1F) have no legitimate use in redirect paths.
             assertThat(RedirectValidationUtils.isValidRelativeRedirect("/path%00javascript:alert(1)")).isFalse();
         }
