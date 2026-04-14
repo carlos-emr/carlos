@@ -1470,7 +1470,7 @@
                                                                                 property="FIRST_NATIONS_MODULE">
                                                         <tr>
                                                             <td colspan="8">
-                                                                <jsp:include page="/demographic/manageFirstNationsModule.jsp">
+                                                                <jsp:include page="/WEB-INF/jsp/demographic/manageFirstNationsModule.jsp">
                                                                     <jsp:param name="demo"
                                                                                value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
                                                                 </jsp:include>

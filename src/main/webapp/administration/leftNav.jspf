@@ -253,9 +253,9 @@ String curProvider_no = (String)session.getAttribute("user");
 			<div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#adminNav">
 			<div class="accordion-body">
 			<ul>
-				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/lab/CA/ALL/testUploader.jsp" ><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/lab/CA/ALL/insideLabUpload.do" ><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
 				<oscar:oscarPropertiesCheck property="OLD_LAB_UPLOAD" value="yes" defaultVal="false">
-					<li><a href="${ctx}/lab/CA/BC/LabUpload.jsp" class="contentLink"><fmt:message key="admin.admin.oldLabUpload"/></a></li>
+					<li><a href="${ctx}/lab/labUpload.do" class="contentLink"><fmt:message key="admin.admin.oldLabUpload"/></a></li>
 				</oscar:oscarPropertiesCheck>
 				<li><a href="${ctx}/admin/labForwardingRules.do" class="contentLink"><fmt:message key="admin.admin.labFwdRules"/></a></li>
 

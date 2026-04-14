@@ -82,7 +82,7 @@
         keyword = ConversionUtils.fromIntString(keyword);
     }
 
-    String url = "demo_select.jsp?keyword=" + URLEncoder.encode(String.valueOf(keyword), StandardCharsets.UTF_8) + "&postTo=" + URLEncoder.encode(postTo, StandardCharsets.UTF_8) + (column.equals("") ? "" : "&column=" + URLEncoder.encode(column, StandardCharsets.UTF_8));
+    String url = request.getContextPath() + "/lab/CA/BC/ViewDemoSelect.do?keyword=" + URLEncoder.encode(String.valueOf(keyword), StandardCharsets.UTF_8) + "&postTo=" + URLEncoder.encode(postTo, StandardCharsets.UTF_8) + (column.equals("") ? "" : "&column=" + URLEncoder.encode(column, StandardCharsets.UTF_8));
 
     DemographicDao dao = SpringUtils.getBean(DemographicDao.class);
 
@@ -104,7 +104,7 @@
     </SCRIPT>
 </head>
 <body>
-<form method="post" action="demo_select.jsp">
+<form method="post" action="<%= request.getContextPath() %>/lab/CA/BC/ViewDemoSelect.do">
     <table width="100%" class="DarkBG">
         <tr>
             <td height="40" width="25"></td>

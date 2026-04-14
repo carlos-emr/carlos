@@ -162,7 +162,7 @@
 <%
     MsgSessionBean bean = (MsgSessionBean) session.getAttribute("msgSessionBean");
     if (bean == null) {
-        response.sendRedirect(request.getContextPath() + "/messenger/index.jsp");
+        response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.do");
         return;
     }
 %>

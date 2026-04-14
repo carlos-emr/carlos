@@ -63,7 +63,7 @@
 
     String command = Misc.check(request.getParameter("cmd_search"), "");
 
-    String url = "searchreports.jsp?cmd_search=search&provider_no=" + provider_no;
+    String url = "/lab/CA/BC/ViewSearchReports.do?cmd_search=search&provider_no=" + provider_no;
 %>
 <html>
 <head>
@@ -74,20 +74,20 @@
         var labReport;
 
         function PopupLab(pid) {
-            labReport = window.opener.open('report.jsp?pid=' + pid, 'LabSearchReport', 'height=500,width=900,scrollbars=1,toolbar=0,status=1,menubar=0,location=0,directories=0,resizable=1');
+            labReport = window.opener.open('<%= request.getContextPath() %>/lab/CA/BC/ViewReport.do?pid=' + pid, 'LabSearchReport', 'height=500,width=900,scrollbars=1,toolbar=0,status=1,menubar=0,location=0,directories=0,resizable=1');
             labReport.focus();
         }
     </script>
 </head>
 <body>
-<form action="searchreports.jsp" method="post">
+<form action="<%= request.getContextPath() %>/lab/CA/BC/ViewSearchReports.do" method="post">
     <table width="100%" class="DarkBG">
         <tr>
             <td height="40" width="25"></td>
             <td width="50%" align="left"><font color="#4D4D4D"><b><font
                     size="4">oscar<font size="3">PathNET - Search Lab
                 Reports</font></font></b></font></td>
-            <td class="Text" align="right"><a href="index.jsp">Patient
+            <td class="Text" align="right"><a href="<%= request.getContextPath() %>/lab/CA/BC/ViewIndex.do">Patient
                 Linking</a>&nbsp;
             </td>
         </tr>
@@ -167,7 +167,7 @@
                 String date_time = String.valueOf(o[8]);
     %>
     <tr class="<%=(other? "LightBG" : "WhiteBG")%>">
-        <td class="Text"><a href="searchreports.jsp"
+        <td class="Text"><a href="<%= request.getContextPath() %>/lab/CA/BC/ViewSearchReports.do"
                             onclick="PopupLab('<%=Encode.forJavaScriptAttribute(pid_id)%>'); return false;"><%=Encode.forHtml(pid_id)%>
         </a></td>
         <td class="Text" nowrap><%=Encode.forHtml(Misc.check(patient_name, ""))%>

@@ -151,17 +151,17 @@ public class LabDataController {
      * <p>Supported result types and their display destinations:</p>
      * <ul>
      *   <li><b>MDS</b>: Routed to /SegmentDisplay.jsp for Medical Data Systems results</li>
-     *   <li><b>CML</b>: Routed to /lab/CA/ON/CMLDisplay.jsp for Ontario CML lab results</li>
+     *   <li><b>CML</b>: Routed to /lab/CA/ON/ViewCMLDisplay.do for Ontario CML lab results</li>
      *   <li><b>HL7 TEXT</b>: Routes based on discipline/category:
      *     <ul>
      *       <li>REF_I12: Consultation/referral display via /encounter/ViewRequest.do</li>
      *       <li>ORU_R01: Observation results via generic HL7 display</li>
-     *       <li>Other: Generic HL7 display via /lab/CA/ALL/labDisplay.jsp</li>
+     *       <li>Other: Generic HL7 display via /lab/CA/ALL/ViewLabDisplay.do</li>
      *     </ul>
      *   </li>
      *   <li><b>Document</b>: Routed to /documentManager/showDocument.jsp for medical documents</li>
      *   <li><b>HRM</b>: Hospital Report Manager display via /hospitalReportManager/Display.do with duplicate handling</li>
-     *   <li><b>Other</b>: Default BC lab display via /lab/CA/BC/labDisplay.jsp</li>
+     *   <li><b>Other</b>: Default BC lab display via /lab/CA/BC/ViewLabDisplay.do</li>
      * </ul>
      *
      * <p>All URLs include properly encoded parameters for segment ID, provider numbers, result status,
@@ -184,7 +184,7 @@ public class LabDataController {
                 url.append("/SegmentDisplay.jsp?");
             }
             else if (labResult.isCML()) {
-                url.append("/lab/CA/ON/CMLDisplay.jsp?");
+                url.append("/lab/CA/ON/ViewCMLDisplay.do?");
             }
             else if (labResult.isHL7TEXT()) {
                 String categoryType = labResult.getDiscipline();
@@ -192,7 +192,7 @@ public class LabDataController {
                     url.append("/encounter/ViewRequest.do?");
                 }
                 else {
-                    url.append("/lab/CA/ALL/labDisplay.jsp?inWindow=true");
+                    url.append("/lab/CA/ALL/ViewLabDisplay.do?inWindow=true");
                     url.append("&showLatest=true");
                 }
             }
@@ -213,7 +213,7 @@ public class LabDataController {
                 url.append(encodeURL(labResult.getSegmentID()));
             }
             else {
-                url.append("/lab/CA/BC/labDisplay.jsp?");
+                url.append("/lab/CA/BC/ViewLabDisplay.do?");
             }
             url.append("&segmentID=");
             url.append(encodeURL(labResult.getSegmentID()));

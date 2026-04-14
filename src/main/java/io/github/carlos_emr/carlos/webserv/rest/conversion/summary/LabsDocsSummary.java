@@ -103,15 +103,15 @@ public class LabsDocsSummary implements Summary {
             } else if (result.isCML()) {
                 if (label == null || label.equals("")) labDisplayName = result.getDiscipline();
                 else labDisplayName = label;
-                url = "../lab/CA/ON/CMLDisplay.jsp?providerNo=" + loggedInInfo.getLoggedInProvider().getProviderNo() + "&segmentID=" + result.segmentID;
+                url = "../lab/CA/ON/ViewCMLDisplay.do?providerNo=" + loggedInInfo.getLoggedInProvider().getProviderNo() + "&segmentID=" + result.segmentID;
             } else if (result.isHL7TEXT()) {
                 if (label == null || label.equals("")) labDisplayName = result.getDiscipline();
                 else labDisplayName = label;
-                url = "../lab/CA/ALL/labDisplay.jsp?providerNo=" + loggedInInfo.getLoggedInProvider().getProviderNo() + "&segmentID=" + result.segmentID;
+                url = "../lab/CA/ALL/ViewLabDisplay.do?providerNo=" + loggedInInfo.getLoggedInProvider().getProviderNo() + "&segmentID=" + result.segmentID;
             } else {
                 if (label == null || label.equals("")) labDisplayName = result.getDiscipline();
                 else labDisplayName = label;
-                url = "../lab/CA/BC/labDisplay.jsp?segmentID=" + result.segmentID + "&providerNo=" + loggedInInfo.getLoggedInProvider().getProviderNo();
+                url = "../lab/CA/BC/ViewLabDisplay.do?segmentID=" + result.segmentID + "&providerNo=" + loggedInInfo.getLoggedInProvider().getProviderNo();
             }
 
             SummaryItemTo1 summaryItem = new SummaryItemTo1(Integer.parseInt(result.segmentID), labDisplayName, "action", "lab"); //+result.labType);

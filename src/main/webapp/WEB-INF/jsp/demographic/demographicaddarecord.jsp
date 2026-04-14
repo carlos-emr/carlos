@@ -144,7 +144,7 @@
     </p>
     <% } %>
 
-    <%@ include file="/demographic/footer.jsp" %>
+    <%@ include file="/WEB-INF/jsp/demographic/footer.jsp" %>
 </div>
 </body>
 </html>
