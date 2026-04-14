@@ -1303,22 +1303,22 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         String hourOfEncounterTime = request.getParameter("hourOfEncounterTime");
-        if (hourOfEncounterTime != null && hourOfEncounterTime != "") {
+        if (StringUtils.isNotEmpty(hourOfEncounterTime)) {
             note.setHourOfEncounterTime(Integer.valueOf(hourOfEncounterTime));
         }
 
         String minuteOfEncounterTime = request.getParameter("minuteOfEncounterTime");
-        if (minuteOfEncounterTime != null && minuteOfEncounterTime != "") {
+        if (StringUtils.isNotEmpty(minuteOfEncounterTime)) {
             note.setMinuteOfEncounterTime(Integer.valueOf(minuteOfEncounterTime));
         }
 
         String hourOfEncTransportationTime = request.getParameter("hourOfEncTransportationTime");
-        if (hourOfEncTransportationTime != null && hourOfEncTransportationTime != "") {
+        if (StringUtils.isNotEmpty(hourOfEncTransportationTime)) {
             note.setHourOfEncTransportationTime(Integer.valueOf(hourOfEncTransportationTime));
         }
 
         String minuteOfEncTransportationTime = request.getParameter("minuteOfEncTransportationTime");
-        if (minuteOfEncTransportationTime != null && minuteOfEncTransportationTime != "") {
+        if (StringUtils.isNotEmpty(minuteOfEncTransportationTime)) {
             note.setMinuteOfEncTransportationTime(Integer.valueOf(minuteOfEncTransportationTime));
         }
 
@@ -2025,9 +2025,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String chain = request.getParameter("chain");
 
         if (chain != null && !chain.equals("")) {
-            // Validate the redirect URL to prevent open redirect vulnerability
+            // FP for open-redirect scanners (CodeQL java/OR): isValidInternalRedirect enforces
+            // relative-only OR same-scheme+host+port match; rejects protocol-relative (//evil),
+            // backslash, userinfo (@evil), and suffix (host.evil) bypasses.
             if (isValidInternalRedirect(chain, request)) {
-                response.sendRedirect(chain);
+                response.sendRedirect(chain); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by isValidInternalRedirect // lgtm[java/unvalidated-url-redirection]
             } else {
                 logger.warn("Attempted redirect to invalid URL: {}", LogSanitizer.sanitize(chain));
                 // Fall through to return "windowClose" without redirect

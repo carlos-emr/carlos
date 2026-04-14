@@ -708,7 +708,7 @@ jQuery(document).ready(function(){
 	if (demographicNo == "") { demographicNo = gup("efmdemographic_no", jQuery("form").attr('action')); }
 	if (typeof signatureControl != "undefined") {
 		signatureControl.initialize({
-			sigHTML:"../signature_pad/tabletSignature.jsp?inWindow=true&saveToDB=true&demographicNo=",
+			sigHTML:"../signature_pad/tabletSignature.do?inWindow=true&saveToDB=true&demographicNo=",
 			demographicNo:demographicNo,
 			refreshImage: function (e) {
 				var html = "<img src='"+e.storedImageUrl+"&r="+ Math.floor(Math.random()*1001) +"'></img>";

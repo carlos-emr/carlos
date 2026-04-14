@@ -513,7 +513,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             if (attachedDocumentList != null) {
                 for (EDoc documentItem : attachedDocumentList) {
                     String description = documentItem.getDescription();
-                    if (description == null || description == "") {
+                    if (StringUtils.isEmpty(description)) {
                         description = documentItem.getFileName();
                     }
                     documents.add(description);
@@ -562,7 +562,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 		}
 
         String contextPath = request.getContextPath();
-        String forward = contextPath + "/encounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp?de=" + demographicNo;
+        String forward = contextPath + "/encounter/oscarConsultationRequest/ViewConfirmConsultationRequest.do?de=" + demographicNo;
         response.sendRedirect(forward);
         return NONE;
     }

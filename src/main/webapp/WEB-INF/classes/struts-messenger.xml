@@ -33,26 +33,29 @@
         </action>
 
         <action name="messenger/CreateMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgCreateMessage2Action">
-            <result name="success">/messenger/SentMessage.jsp</result>
-            <result name="error">/messenger/CreateMessage.jsp</result>
+            <result name="success">/WEB-INF/jsp/messenger/SentMessage.jsp</result>
+            <result name="error">/WEB-INF/jsp/messenger/CreateMessage.jsp</result>
+        </action>
+        <action name="messenger/ViewCreateMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewCreateMessage2Action">
+            <result name="success">/WEB-INF/jsp/messenger/CreateMessage.jsp</result>
         </action>
         <action name="messenger/DisplayMessages" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgDisplayMessages2Action">
-            <result name="success">/messenger/DisplayMessages.jsp</result>
+            <result name="success">/WEB-INF/jsp/messenger/DisplayMessages.jsp</result>
             <result name="demoMsg">/WEB-INF/jsp/messenger/DisplayDemographicMessages.jsp</result>
         </action>
         <action name="messenger/SendDemoMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSendDemographicMessage2Action">
-            <result name="success">/messenger/CreateMessage.jsp</result>
+            <result name="success">/WEB-INF/jsp/messenger/CreateMessage.jsp</result>
         </action>
         <action name="messenger/DisplayDemographicMessages" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgDisplayDemographicMessages2Action">
             <result name="demoMsg">/WEB-INF/jsp/messenger/DisplayDemographicMessages.jsp</result>
             <result name="error">/errorpage.jsp</result>
         </action>
         <action name="messenger/ReDisplayMessages" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgReDisplayMessages2Action">
-            <result name="success">/messenger/DisplayMessages.jsp</result>
+            <result name="success">/WEB-INF/jsp/messenger/DisplayMessages.jsp</result>
         </action>
         <action name="messenger/ViewMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewMessage2Action">
-            <result name="noRights">/messenger/DisplayMessages.jsp</result>
-            <result name="success">/messenger/ViewMessage.jsp</result>
+            <result name="noRights">/WEB-INF/jsp/messenger/DisplayMessages.jsp</result>
+            <result name="success">/WEB-INF/jsp/messenger/ViewMessage.jsp</result>
         </action>
         <!-- DEPRECATED: This action is used by the legacy encounter page (encounter/Index.jsp) -->
         <action name="messenger/ViewMessageByPosition" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewMessageByPosition2Action">
@@ -60,23 +63,31 @@
         </action>
         <action name="messenger/Doc2PDF" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachPDF2Action">
             <result name="success">/messenger/selfCloseAndRefreshOpener.jsp</result>
-            <result name="attaching">/messenger/generatePreviewPDF.jsp</result>
+            <result name="attaching">/WEB-INF/jsp/messenger/generatePreviewPDF.jsp</result>
+        </action>
+        <action name="messenger/PreviewPDF" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgPreviewPDF2Action">
+            <result name="success">/WEB-INF/jsp/messenger/generatePreviewPDF.jsp</result>
         </action>
 
+        <action name="messenger/AdjustAttachments" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAdjustAttachments2Action"/>
+        <action name="messenger/Transfer/SelectItems" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgTransferSelectItems2Action">
+            <result name="success">/WEB-INF/jsp/messenger/Transfer/SelectItems.jsp</result>
+        </action>
+        <action name="messenger/Transfer/PostItems" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgTransferPostItems2Action"/>
 
         <action name="messenger/HandleMessages" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgHandleMessages2Action">
-            <result name="success">/messenger/DisplayMessages.jsp</result>
-            <result name="reply">/messenger/CreateMessage.jsp</result>
+            <result name="success">/WEB-INF/jsp/messenger/DisplayMessages.jsp</result>
+            <result name="reply">/WEB-INF/jsp/messenger/CreateMessage.jsp</result>
         </action>
         <action name="messenger" class="io.github.carlos_emr.carlos.messenger.config.pageUtil.MsgMessengerAdmin2Action">
-            <result name="success">/messenger/config/MessengerAdmin.jsp</result>
-            <result name="failure">/messenger/config/MessengerAdmin.jsp</result>
+            <result name="success">/WEB-INF/jsp/messenger/config/MessengerAdmin.jsp</result>
+            <result name="failure">/WEB-INF/jsp/messenger/config/MessengerAdmin.jsp</result>
         </action>
         <action name="messenger/AddGroup" class="io.github.carlos_emr.carlos.messenger.config.pageUtil.MsgMessengerCreateGroup2Action">
-            <result name="success">/messenger/config/MessengerAdmin.jsp</result>
+            <result name="success">/WEB-INF/jsp/messenger/config/MessengerAdmin.jsp</result>
         </action>
         <action name="messenger/ViewAttach" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewAttachment2Action">
-            <result name="success">/messenger/ViewAttachment.jsp</result>
+            <result name="success">/WEB-INF/jsp/messenger/ViewAttachment.jsp</result>
         </action>
         <action name="messenger/ViewPDFAttach" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewPDFAttachment2Action">
             <result name="success">/WEB-INF/jsp/messenger/ViewPDFAttachment.jsp</result>
@@ -86,7 +97,7 @@
         </action>
 
         <action name="messenger/ClearMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgClearMessage2Action">
-            <result name="success">/messenger/CreateMessage.jsp</result>
+            <result name="success">/WEB-INF/jsp/messenger/CreateMessage.jsp</result>
         </action>
         <action name="messenger/WriteToEncounter" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgWriteToEncounter2Action">
             <result name="success">/encounter/IncomingEncounter.do</result>

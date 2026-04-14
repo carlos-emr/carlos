@@ -590,7 +590,7 @@
 
         <div id="injectionInfo"></div>
 
-        <form action="${pageContext.request.contextPath}/oscarPrevention/AddPrevention.do" id="deleteForm"
+        <form action="${pageContext.request.contextPath}/prevention/AddPrevention.do" id="deleteForm"
                 method="post" target="_blank">
 
         <input type="hidden" name="id" id="deleteId"/>
@@ -644,7 +644,7 @@
 
 
             function deleteCall() {
-                var url = "<%=request.getContextPath()%>/oscarPrevention/AddPrevention.do";
+                var url = "<%=request.getContextPath()%>/prevention/AddPrevention.do";
                 var data = new URLSearchParams(new FormData(document.getElementById('deleteForm'))).toString();
                 console.log("deleteCall " + data);
                 var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');

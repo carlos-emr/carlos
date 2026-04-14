@@ -152,7 +152,6 @@ public class LoginFilter implements Filter {
             "/signature_pad/",
             "/lab/CMLlabUpload.do",
             "/lab/newLabUpload.do",
-            "/lab/CA/ON/uploadComplete.jsp",
             "/login.do",
             "/logout.jsp",
             "/index.jsp",
@@ -175,7 +174,7 @@ public class LoginFilter implements Filter {
 		"/mfa/",
 		// Heartbeat endpoint must be reachable without an active session so windows
 		// can detect server-side logout/timeout even after the session has been destroyed
-		"/status/sessionHeartbeat.jsp"
+		"/status/SessionHeartbeat.do"
     };
 
     /**
@@ -208,9 +207,9 @@ public class LoginFilter implements Filter {
             "/EFormViewForPdfGenerationServlet",
             "/EFormSignatureViewForPdfGenerationServlet",
             "/EFormImageViewForPdfGenerationServlet",
-            "/provider/providercontrol.jsp",
+            "/provider/providercontrol.do",
             "/js",
-            "/provider/tabAlertsRefresh.jsp",
+            "/provider/ViewTabAlertsRefresh.do",
             "/SystemMessage.do",
             "/FacilityMessage.do",
             "/js/bootstrap",
@@ -220,7 +219,7 @@ public class LoginFilter implements Filter {
             "/css/font/Roboto",
             // Heartbeat polling must not extend the inactivity timer, otherwise
             // background heartbeats would prevent legitimate session timeouts
-            "/status/sessionHeartbeat.jsp"
+            "/status/SessionHeartbeat.do"
     };
 
     /**

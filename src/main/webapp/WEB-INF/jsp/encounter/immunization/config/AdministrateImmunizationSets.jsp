@@ -153,7 +153,7 @@
                         </td>
                         <td align="right"><input type="button" name="Button"
                                                  value="<fmt:message key="encounter.immunization.config.administrativeImmunizationSets.btnAddNew"/>"
-                                                 onClick="javascript:goURL('encounter/immunization/config/CreateImmunizationSetInit.jsp');">
+                                                 onClick="javascript:goURL('encounter/immunization/config/ViewCreateImmunizationSetInit.do');">
                             <% if (deletedList == true) { %> <input type="button" name="action"
                                                                     value="<fmt:message key="encounter.immunization.config.administrativeImmunizationSets.btnSetlist"/>"
                                                                     onClick="goURL('encounter/immunization/config/initConfig.do');"> <% } else { %>

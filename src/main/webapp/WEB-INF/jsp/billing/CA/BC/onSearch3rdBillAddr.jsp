@@ -95,7 +95,10 @@
             params.add(keyword + "%");
         }
         String sql = "select * from billing_on_3rdPartyAddress where " + where + " order by " + orderBy;
-        ResultSet rs = dbObj.queryResults_paged(sql, params.toArray(new String[0]), Integer.parseInt(strLimit1)); // deepcode ignore SqlInjection: orderBy and search_mode are validated against VALID_COLUMNS allowlist; keyword is bound via ? placeholder through queryResults_paged PreparedStatement
+        // FP for java/Sqli scanners: orderBy and search_mode are validated against the
+        // VALID_COLUMNS allowlist above (fallback to "company_name" on mismatch); keyword is
+        // bound via ? placeholder in the PreparedStatement inside queryResults_paged.
+        ResultSet rs = dbObj.queryResults_paged(sql, params.toArray(new String[0]), Integer.parseInt(strLimit1)); // deepcode ignore SqlInjection: allowlisted + PreparedStatement // lgtm[java/sql-injection]
         int idx = 0;
         while (rs.next() && idx < Integer.parseInt(strLimit2)) {
             prop = new Properties();

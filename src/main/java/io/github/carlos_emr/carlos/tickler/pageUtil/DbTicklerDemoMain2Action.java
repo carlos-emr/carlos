@@ -98,7 +98,7 @@ public final class DbTicklerDemoMain2Action extends ActionSupport {
         String parentAjaxId = request.getParameter("parentAjaxId") == null ? "" : request.getParameter("parentAjaxId");
         String updateParent = request.getParameter("updateParent") == null ? "false" : request.getParameter("updateParent");
 
-        String redirectUrl = request.getContextPath() + "/tickler/ticklerMain.jsp"
+        String redirectUrl = request.getContextPath() + "/tickler/ViewTicklerMain.do"
                 + "?demoview=" + Encode.forUriComponent(demoview)
                 + "&parentAjaxId=" + Encode.forUriComponent(parentAjaxId)
                 + "&updateParent=" + Encode.forUriComponent(updateParent);

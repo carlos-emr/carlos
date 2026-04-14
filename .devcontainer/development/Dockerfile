@@ -72,6 +72,10 @@ RUN npm install -g @google/gemini-cli \
 RUN npm install -g @github/copilot && \
     echo "✅ GitHub Copilot CLI installed: $(copilot --version)"
 
+# Install OpenAI Codex CLI (standalone coding agent)
+RUN npm install -g @openai/codex && \
+    echo "✅ OpenAI Codex CLI installed: $(codex --version)"
+
 # Install Playwright globally first to ensure it's available
 # Version 1.56.0 has correct Ubuntu 24.04 t64 package names in its dependency list
 RUN npm install -g playwright@1.56.0 && \

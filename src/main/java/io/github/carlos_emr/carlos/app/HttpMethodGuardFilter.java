@@ -133,13 +133,30 @@ public class HttpMethodGuardFilter implements Filter {
      * generates PDF/CSV file downloads (read-only) despite starting with "create".
      */
     private static final Set<String> READ_ONLY_ACTION_NAMES = Set.of(
-            "createbillingreportaction"   // PDF/CSV download — GET is correct for file downloads
+            "createbillingreportaction",  // PDF/CSV download — GET is correct for file downloads
+            "createdate"                  // ScheduleCreateDate2Action (schedule bulk-date editor):
+                                          // GET serves month-navigation reloads (bFirstDisp=0);
+                                          // ScheduleCreateDate2Action.execute() enforces POST for
+                                          // real mutations (bFirstDisp null or "1") internally.
+                                          // Pre-migration, the JSP form (schedulecreatedate.jsp)
+                                          // was handled under DUAL_PURPOSE_JSP_NAMES where GET was
+                                          // permitted because nav links omit the mutator parameters
+                                          // (dboperation/submit/submitFrm/formAction). The .do
+                                          // action name 'createdate' matches the unconditional
+                                          // "create" mutator prefix, so we exempt it here and rely
+                                          // on the action's own POST check for mutations.
     );
 
     /**
      * JSP filenames (without path, lowercased) that are POST-only mutator targets.
      * GET requests to these JSPs are always blocked — they have no form display
      * function and should never be accessed directly via GET.
+     *
+     * <p>Some entries are retained for defense-in-depth even though the
+     * underlying JSPs have been migrated behind {@code /WEB-INF/jsp/}: filename
+     * matching still protects against any future misconfiguration that exposes
+     * a JSP with one of these names at a public path. Schedule-specific
+     * entries that the reviewer flagged as WEB-INF-gated have been removed.</p>
      */
     private static final Set<String> PURE_MUTATOR_JSP_NAMES = Set.of(
             // Admin mutators (POST-only handlers)
@@ -155,8 +172,6 @@ public class HttpMethodGuardFilter implements Filter {
             "manageflowsheetsupload.jsp",
             "dbmanageprovider.jsp",
             "adminsavemygroup.jsp",
-            // Appointment mutators
-            "appointmentdeletearecord.jsp",
             // Demographic mutators
             "demographicaddarecord.jsp",
             // Billing mutators (POST-only)
@@ -167,9 +182,6 @@ public class HttpMethodGuardFilter implements Filter {
             "deleteprivatecode.jsp",
             "deleteservices.jsp",
             "ongenreport.jsp",
-            // Schedule mutators (POST-only)
-            "scheduledatesave.jsp",
-            "scheduledatefinal.jsp",
             // Messenger mutators
             "postitems.jsp",
             "adjustattachments.jsp",
@@ -206,6 +218,9 @@ public class HttpMethodGuardFilter implements Filter {
      *   <li>{@code submitFrm=Save|Add Service Code} — billing service codes</li>
      *   <li>{@code formAction=update|custom} — prevention manager</li>
      * </ul>
+     *
+     * <p>Schedule-specific entries that the reviewer flagged as WEB-INF-gated
+     * have been removed; other entries are retained for defense-in-depth.</p>
      */
     private static final Set<String> DUAL_PURPOSE_JSP_NAMES = Set.of(
             // Admin forms (GET loads form, POST saves)
@@ -229,10 +244,6 @@ public class HttpMethodGuardFilter implements Filter {
             "billingdeletewithoutno.jsp",
             "billingondisplay.jsp",
             "billingoneditprivatecode.jsp",
-            // Schedule forms
-            "scheduleholidaysetting.jsp",
-            "scheduletemplatecodesetting.jsp",
-            "schedulecreatedate.jsp",
             // Prevention forms
             "preventionmanager.jsp",
             "preventionlistmanager.jsp",

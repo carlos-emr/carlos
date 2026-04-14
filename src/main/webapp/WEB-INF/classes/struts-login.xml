@@ -32,13 +32,13 @@
             <result name="success">/index.jsp</result>
         </action>
         <action name="login" class="io.github.carlos_emr.carlos.login.Login2Action">
-            <result name="provider" type="redirect">/provider/providercontrol.jsp</result>
+            <result name="provider" type="redirect">/provider/providercontrol.do</result>
             <result name="failure">/logout.jsp</result>
             <result name="error">/loginfailed.jsp</result>
             <result name="caisiPMM">/PMmodule/ProviderInfo.do</result>
             <result name="forcepasswordreset">/forcepasswordreset.jsp</result>
             <result name="programLocation">/location.jsp</result>
-            <result name="mfaHandler">/mfa/mfa_handler.jsp</result>
+            <result name="mfaHandler">/WEB-INF/jsp/mfa/mfa_handler.jsp</result>
         </action>
         <action name="securityRecord/mfa" class="io.github.carlos_emr.carlos.security.MfaActions2Action"/>
 
@@ -49,6 +49,15 @@
             <result name="list">/WEB-INF/jsp/admin/facility/ListFacilities.jsp</result>
             <result name="edit">/WEB-INF/jsp/admin/facility/EditFacility.jsp</result>
         </action>
+
+        <!--
+            Lightweight session-heartbeat endpoint. Pure Java (no <result>)
+            — writes {"valid": true|false} JSON directly. Replaces the
+            deleted /status/sessionHeartbeat.jsp and is whitelisted in
+            LoginFilter so stale browser tabs can discover an expired
+            session without being force-redirected to the login page.
+        -->
+        <action name="status/SessionHeartbeat" class="io.github.carlos_emr.carlos.status.action.SessionHeartbeat2Action"/>
 
     </package>
 </struts>
