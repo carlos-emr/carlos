@@ -256,7 +256,12 @@
     }
   %>
   <%
-    java.util.ResourceBundle oscarResources = ResourceBundle.getBundle("oscarResources", request.getLocale());
+    java.util.ResourceBundle oscarResources;
+    try {
+        oscarResources = ResourceBundle.getBundle("oscarResources", request.getLocale());
+    } catch (java.util.MissingResourceException e) {
+        oscarResources = ResourceBundle.getBundle("oscarResources", java.util.Locale.ENGLISH);
+    }
     String noteReason = getOrDefault(oscarResources, "encounter.noteReason.TelProgress");
 
     if (oscarProps.getProperty("disableTelProgressNoteTitleInEncouterNotes") != null
@@ -1123,7 +1128,7 @@
                                         case "O":  genderI18nKey = "global.gender.other";       break;
                                         default:   genderI18nKey = "global.gender.undisclosed"; break;
                                     }
-                                    String genderDisplayText = oscarResources.getString(genderI18nKey);
+                                    String genderDisplayText = getOrDefault(oscarResources, genderI18nKey);
                                 %>
                                 <span class="patient-header-details"><%= Encode.forHtml(genderDisplayText) %> &middot; <%= Encode.forHtml(demographic.getAgeAsOf(new Date())) %> &middot; <fmt:message key="demographic.demographiceditdemographic.formDOB"/>: <%= Encode.forHtml(birthYear) %>-<%= Encode.forHtml(birthMonth) %>-<%= Encode.forHtml(birthDate) %></span>
                                 <% if (demographic.getHin() != null && !demographic.getHin().isEmpty()) { %>
@@ -1578,7 +1583,7 @@
                                                                                 case "O":  viewGenderKey = "global.gender.other";       break;
                                                                                 default:   viewGenderKey = "global.gender.undisclosed"; break;
                                                                             }
-                                                                        %><%= Encode.forHtml(oscarResources.getString(viewGenderKey)) %></span>
+                                                                        %><%= Encode.forHtml(getOrDefault(oscarResources, viewGenderKey)) %></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:message key="demographic.demographicaddrecordhtm.formGender"/>:</span>
                                                                         <span class="info"><%=Encode.forHtmlContent(StringUtils.trimToEmpty(demographic.getGender()))%></span>
@@ -3481,7 +3486,7 @@
                                                                     default:   gnI18nKey = "global.gender.undisclosed"; break;
                                                                 }
                                                             %>
-                                                            <option value="<%= Encode.forHtmlAttribute(gn.name()) %>" <%=(StringUtils.equalsIgnoreCase(demographic.getSex(), gn.name()) ? " selected=\"selected\" " : "") %>><%= Encode.forHtml(oscarResources.getString(gnI18nKey)) %>
+                                                            <option value="<%= Encode.forHtmlAttribute(gn.name()) %>" <%=(StringUtils.equalsIgnoreCase(demographic.getSex(), gn.name()) ? " selected=\"selected\" " : "") %>><%= Encode.forHtml(getOrDefault(oscarResources, gnI18nKey)) %>
                                                             </option>
                                                             <% } %>
                                                         </select>
