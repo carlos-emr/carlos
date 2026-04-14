@@ -33,19 +33,9 @@
 
     String user_no = (String) session.getAttribute("user");
 %>
-<%@ page import="java.util.*, java.sql.*, java.io.*, io.github.carlos_emr.*"
-         errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, java.io.*, io.github.carlos_emr.*" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="javax.xml.parsers.SAXParser" %>
-<%@ page import="javax.xml.parsers.ParserConfigurationException" %>
-<%@ page import="org.xml.sax.InputSource" %>
-<%@ page import="org.xml.sax.SAXException" %>
-<%@ page import="org.xml.sax.helpers.DefaultHandler" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.XmlUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <html>
@@ -66,42 +56,26 @@
 </head>
 <body onLoad="setfocus()" bgcolor="#c4e9f6" bgproperties="fixed"
       topmargin="0" leftmargin="1" rightmargin="1">
-<form name="checklistedit" action="obarchecklistedit_99_12.jsp"
-      method="POST">
+<form name="checklistedit" action="<%= request.getContextPath() %>/decision/antenatal/obarriskedit_99_12.do" method="POST">
     <%
         char sep = oscarVariables.getProperty("file_separator").toCharArray()[0];
-        String saveError = null;
+        String str = null;
         if (request.getParameter("submit") != null && request.getParameter("submit").compareTo(" Save ") == 0) {
-            // Security check — only admins may overwrite the shared checklist template
-            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-            SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
-                throw new SecurityException("missing required sec object: _admin (write access required)");
-            }
-
-            String checklist = request.getParameter("checklist");
-            if (checklist != null) {
-                // Validate submitted XML with a hardened SAX parser.
-                // Parsing ensures the document is well-formed before it is written to disk
-                // and later consumed by DesAntenatalPlannerChecklist_99_12.
-                try {
-                    SAXParser saxParser = XmlUtils.createSecureSAXParserFactory().newSAXParser();
-                    saxParser.parse(new InputSource(new StringReader(checklist)), new DefaultHandler());
-
-                    // XML is well-formed and safe — write the raw (un-encoded) document to disk
-                    try (FileWriter inf = new FileWriter(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerchecklist_99_12.xml")) {
-                        inf.write(checklist);
-                    }
-                } catch (SAXException | ParserConfigurationException e) {
-                    saveError = "Save failed: submitted content is not valid XML or contains unsafe constructs. Please correct the XML and try again.";
-                }
-            }
+            //FileWriter inf = new FileWriter(".."+sep+"webapps"+sep+oscarVariables.getProperty("project_home")+sep+"decision"+sep+"antenatal"+sep+"desantenatalplannerrisks_99_12.xml");
+            FileWriter inf = new FileWriter(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerrisks_99_12.xml");
+            str = request.getParameter("checklist");
+            if (str == null) str = "";
+            str = SxmlMisc.replaceString(str, " & ", " &amp; ");
+            str = SxmlMisc.replaceString(str, " > ", " &gt; ");
+            str = SxmlMisc.replaceString(str, " < ", " &lt; ");
+            inf.write(str);
+            inf.close();
         }
     %>
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
         <tr bgcolor="#486ebd">
             <th align=CENTER><font face="Arial, Helvetica, sans-serif"
-                                   color="#FFFFFF">Antenatal Check List</font></th>
+                                   color="#FFFFFF">Antenatal Add-On Risk List</font></th>
             <th width="25%" nowrap>
                 <div align="right"><a href=#
                                       onClick="popupPage(450,900,'ar1risk_99_12.htm')"><font
@@ -114,20 +88,15 @@
                 </div>
             </th>
         </tr>
-        <% if (saveError != null) { %>
-        <tr>
-            <td colspan="2" style="color: red; padding: 4px;"><%= Encode.forHtml(saveError) %></td>
-        </tr>
-        <% } %>
         <tr>
             <td align=CENTER colspan="2"><font
                     face="Times New Roman, Times, serif"> <textarea
                     name="checklist" cols="100" rows="38" style="width: 100%">
 <%
     boolean fileFound = true;
-    File file = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerchecklist_99_12.xml");
+    File file = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerrisks_99_12.xml");
     if (!file.isFile() || !file.canRead()) {
-        file = new File(".." + sep + "webapps" + sep + oscarVariables.getProperty("project_home") + sep + "decision" + sep + "antenatal" + sep + "desantenatalplannerchecklist_99_12.xml");
+        file = new File(".." + sep + "webapps" + sep + oscarVariables.getProperty("project_home") + sep + "decision" + sep + "antenatal" + sep + "desantenatalplannerrisks_99_12.xml");
         if (!file.isFile() || !file.canRead()) {
             fileFound = false; //throw new IOException();
         }
@@ -135,12 +104,11 @@
 
     if (fileFound) {
         RandomAccessFile raf = new RandomAccessFile(file, "r");
-        String aline = "";
+        String aline = ""; //, temp="";
         while (true) {
             aline = raf.readLine();
             if (aline != null) {
-                // Encode for HTML context to prevent textarea-breakout XSS
-                out.println(Encode.forHtml(aline));
+                out.println(aline);
             } else {
                 break;
             }
@@ -151,7 +119,9 @@
 </textarea> </font></td>
         </tr>
         <TR>
-            <td><b>Note:</b> The XML document is validated on save. Malformed XML or documents containing DOCTYPE declarations will be rejected.
+            <td><b>*</b> The Symbols ("&", "<", or ">") should be written as
+                " & ", " < ", or " > " in the content. Or use ("&amp;amp;","&amp;lt;",
+                or "&amp;gt;") instead.
             </td>
         </tr>
     </table>
