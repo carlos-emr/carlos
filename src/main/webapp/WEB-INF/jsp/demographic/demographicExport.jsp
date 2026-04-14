@@ -206,7 +206,12 @@
              */
             function getCsrfToken() {
                 var el = document.querySelector('input[name="CSRF-TOKEN"]');
-                return el ? el.value : '';
+                if (!el) {
+                    console.warn('CSRF-TOKEN hidden input not found in DOM. '
+                        + 'POST requests may be rejected by the server.');
+                    return '';
+                }
+                return el.value;
             }
 
             /**
@@ -216,7 +221,7 @@
              */
             async function submitExport() {
                 var form = document.getElementById('DemographicExportForm');
-                var formData = new FormData(form);
+                var formData = new URLSearchParams(new FormData(form));
 
                 // Show loading overlay
                 document.getElementById('exportSuccessMessage').style.display = 'none';
@@ -242,7 +247,7 @@
                         if (contentDisposition) {
                             var match = contentDisposition.match(/filename[^;=\n]*=["']?([^"';\n]+)/);
                             if (match) {
-                                filename = match[1];
+                                filename = match[1].replace(/[/\\]/g, '_');
                             }
                         }
                         var url = URL.createObjectURL(blob);
@@ -259,6 +264,7 @@
                         document.getElementById('exportErrorMessage').style.display = 'block';
                     }
                 } catch (e) {
+                    console.error('Export request failed:', e);
                     document.getElementById('exportLoadingOverlay').style.display = 'none';
                     document.getElementById('exportErrorMessage').style.display = 'block';
                 }
