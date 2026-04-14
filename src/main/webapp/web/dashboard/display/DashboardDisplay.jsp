@@ -105,15 +105,15 @@
                 <div class="col-md-6">
                     Last loaded:
                     <c:out value="${ dashboard.lastChecked }"/>
-                    <a href="javascript:void(0)" title="refresh" class="reloadDashboardBtn"
+                    <a href="javascript:void(0)" title="refresh" aria-label="Refresh Dashboard" class="reloadDashboardBtn"
                        id="getDashboard_${ dashboard.id }">
-                        <span class="fa-solid fa-arrows-rotate"></span>
+                        <span class="fa-solid fa-arrows-rotate" aria-hidden="true"></span>
                     </a>
                 </div>
                 <div class="col-md-6">
-                    <a href="javascript:void(0)" title="Dashboard Manager" class="float-end dashboardManagerBtn"
+                    <a href="javascript:void(0)" title="Dashboard Manager" aria-label="Dashboard Manager" class="float-end dashboardManagerBtn"
                        id="${ dashboard.id }">
-                        <span class="fa-solid fa-gear"></span>
+                        <span class="fa-solid fa-gear" aria-hidden="true"></span>
                     </a>
                 </div>
             </div>
@@ -146,7 +146,7 @@
                                         <c:forEach items="${ indicatorPanel.indicatorIdList }" var="indicatorId">
                                             <div class="col-md-3 indicatorWrapper" id="indicatorId_${ indicatorId }">
                                                 <div>
-                                                    <span class="fa-solid fa-arrows-rotate fa-spin"></span>
+                                                    <span class="fa-solid fa-arrows-rotate fa-spin" aria-hidden="true"></span>
                                                     Loading...
                                                 </div>
                                             </div>
