@@ -229,21 +229,26 @@ public class FrmForm2Action extends ActionSupport {
 
                 // Write to Measurement Table
 
+                // Write to Measurement Table
+
                 if (inputValue != null) {
-                    if (submit.equalsIgnoreCase("exit") && !inputValue.equalsIgnoreCase(""))
+                    if (submit.equalsIgnoreCase("exit") && !inputValue.equalsIgnoreCase("")) {
                         write2MeasurementTable(demographicNo, providerNo, mt, inputValue, observationDate, comments);
+                    }
                 }
 
                 // Store all input value as properties for saving to form table
-                if (lastData != null)
+                if (lastData != null) {
                     props.setProperty(type + "LastData", lastData);
-                if (lastDataEnteredDate != null)
+                }
+                if (lastDataEnteredDate != null) {
                     props.setProperty(type + "LastDataEnteredDate", lastDataEnteredDate);
+                }
 
-                props.setProperty(type + "Date", observationDate == null ? dateEntered : observationDate);
+                props.setProperty(type + "Date", observationDate);
                 props.setProperty(type + "Comments", comments == null ? "" : comments);
 
-                if (!GenericValidator.isBlankOrNull(inputValue)) {
+                if (inputValue != null && !GenericValidator.isBlankOrNull(inputValue)) {
                     props.setProperty(type + "Value", inputValue);
 
                     if (type.equalsIgnoreCase("BP")) {
