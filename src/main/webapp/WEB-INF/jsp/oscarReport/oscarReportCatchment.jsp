@@ -166,13 +166,13 @@
 <nav>
 <ul class="pagination justify-content-between">
     <li class="page-item <%=nLastPage >= 0 ? "" : "disabled"%>"><a
-            href="${ctx}/oscarReport/oscarReportCatchment.jsp?limit1=<%=nLastPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>"
+            href="${ctx}/oscarReport/ViewOscarReportCatchment.do?limit1=<%=nLastPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>"
             class="page-link contentLink"> &larr; Previous Page
     </a></li>
     <li
             class="page-item <%=nItems == Integer.parseInt(strLimit2) ? "" : "disabled"%>">
         <a
-                href="${ctx}/oscarReport/oscarReportCatchment.jsp?limit1=<%=nNextPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>"
+                href="${ctx}/oscarReport/ViewOscarReportCatchment.do?limit1=<%=nNextPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>"
                 class="page-link contentLink"> <fmt:message key="oscarReport.oscarReportCatchment.msgNextPage"/> &rarr;
         </a>
     </li>

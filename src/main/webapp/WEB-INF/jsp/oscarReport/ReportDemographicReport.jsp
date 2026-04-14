@@ -186,7 +186,7 @@
                     <%}%>
                 </select>
                 <input type="submit" value="Load Query" name="query" class="btn btn-sm btn-secondary"/>
-                <a href="<%= request.getContextPath() %>/oscarReport/ManageDemographicQueryFavourites.jsp">manage</a>
+                <a href="<%= request.getContextPath() %>/oscarReport/ViewManageDemographicQueryFavourites.do">manage</a>
             </div>
 
             <div class="row">

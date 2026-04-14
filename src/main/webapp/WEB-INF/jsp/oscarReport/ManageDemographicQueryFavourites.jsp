@@ -90,7 +90,7 @@
             </table>
             <div style="padding:5px 0;">
                 <input type="submit" value="Delete Selected" class="btn btn-sm btn-danger"/>
-                <a href="<%= request.getContextPath() %>/oscarReport/ReportDemographicReport.jsp" class="btn btn-sm btn-secondary">Cancel</a>
+                <a href="<%= request.getContextPath() %>/oscarReport/ViewReportDemographicReport.do" class="btn btn-sm btn-secondary">Cancel</a>
             </div>
         </form>
 

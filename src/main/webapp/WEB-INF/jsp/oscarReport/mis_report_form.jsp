@@ -79,7 +79,7 @@
 
 <h3><fmt:message key="admin.admin.misRpt"/></h3>
 
-<form action="${ctx}/oscarReport/mis_report_form.jsp" class="card card-body bg-body-tertiary" id="misForm">
+<form action="${ctx}/oscarReport/ViewMisReportForm.do" class="card card-body bg-body-tertiary" id="misForm">
 
     <div class="mb-3">
         <label class="form-label">Report By</label>

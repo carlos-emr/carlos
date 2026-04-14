@@ -175,7 +175,7 @@
 
                                                     <c:if test="${ template ne '0'}">
                                                         <td title="">
-                                                            <a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/reportConfiguration.jsp?templateid=${ template }"
+                                                            <a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/ViewReportConfiguration.do?templateid=${ template }"
                                                                class="contentLink"> <c:out
                                                                     value="${ templates[template].title }"/> </a>
                                                         </td>

@@ -8,9 +8,9 @@ Top navigation bar for Report by Template
     <div class="container-fluid">
 	    <a class="navbar-brand" href="#">Report By Template</a> <!-- oscarreport.reportbytemplate=Report By Template -->
 	    <ul class="nav">
-		    <li><a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/homePage.jsp" class="contentLink">Template Library</a></li>
+		    <li><a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/ViewHomePage.do" class="contentLink">Template Library</a></li>
 		    <li><a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/rbtGroup.do" class="contentLink">Template Groups</a></li>
-			<li><a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/addEditTemplate.jsp" class="contentLink">Add Template</a></li>    		
+			<li><a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/ViewAddEditTemplate.do" class="contentLink">Add Template</a></li>
 	    </ul>
    	</div>
 </div>

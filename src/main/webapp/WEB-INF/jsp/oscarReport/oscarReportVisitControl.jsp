@@ -115,7 +115,7 @@
 <body>
 <div class="d-print-none" style="float:right;">
     <a style="font-size:10px" href="#"
-       onclick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=visitreport')">Manage Visit Report
+       onclick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider.do?action=visitreport')">Manage Visit Report
         Providers</a>
 </div>
 
@@ -131,7 +131,7 @@
     </h3>
 </div>
 
-<form action="${ctx}/oscarReport/oscarReportVisitControl.jsp"
+<form action="${ctx}/oscarReport/ViewOscarReportVisitControl.do"
       class="card card-body bg-body-tertiary d-print-none" id="visitForm">
     <fieldset>
         <h4>

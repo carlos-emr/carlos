@@ -71,7 +71,7 @@
     <h4>Provider Service Report Form</h4>
 </div>
 
-<form action="${ctx}/oscarReport/provider_service_report_export.jsp"
+<form action="${ctx}/oscarReport/ViewProviderServiceReportExport.do"
       class="card card-body bg-body-tertiary" id="psrForm">
 
     <fieldset>
