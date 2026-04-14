@@ -45,6 +45,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ServiceClient" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ServiceRequestToken" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ServiceAccessToken" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
@@ -153,11 +154,11 @@
                             ServiceClient client = clientMap.get(srt.getClientId());
                             if (client != null) {
                         %>
-                        <td><%= client.getName() %>
+                        <td><%= Encode.forHtml(client.getName()) %>
                         </td>
                         <td><%=dateFormatter.format(srt.getDateCreated()) %>
                         </td>
-                        <td><%=srt.getVerifier()%>
+                        <td><%= Encode.forHtml(srt.getVerifier()) %>
                         </td>
                         <td><a href="javascript:void(0);" onclick="deleteRequestToken('<%=srt.getId()%>');"><img
                                 border="0" title="delete" src="<%=request.getContextPath() %>/images/Delete16.gif"/></a>
