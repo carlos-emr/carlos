@@ -27,7 +27,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
-import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
@@ -101,22 +100,19 @@ public class DocumentUndelete2Action extends ActionSupport {
             undeleteDocument(undelDocumentNo);
         }
 
-        StringBuilder url = new StringBuilder(request.getContextPath());
-        if ("browser".equalsIgnoreCase(source)) {
-            url.append("/documentManager/ViewDocumentBrowser.do");
-        } else {
-            url.append("/documentManager/ViewDocumentReport.do");
-        }
-        String sep = "?";
-        if (function != null) { url.append(sep).append("function=").append(Encode.forUriComponent(function)); sep = "&"; }
-        if (doctype != null) { url.append(sep).append("doctype=").append(Encode.forUriComponent(doctype)); sep = "&"; }
-        if (functionid != null) { url.append(sep).append("functionid=").append(Encode.forUriComponent(functionid)); sep = "&"; }
-        if (curUser != null) { url.append(sep).append("curUser=").append(Encode.forUriComponent(curUser)); sep = "&"; }
-        if (view != null) { url.append(sep).append("view=").append(Encode.forUriComponent(view)); sep = "&"; }
-        if (viewstatus != null) { url.append(sep).append("viewstatus=").append(Encode.forUriComponent(viewstatus)); sep = "&"; }
-        if (categorykey != null) { url.append(sep).append("categorykey=").append(Encode.forUriComponent(categorykey)); }
-
-        response.sendRedirect(url.toString());
+        String target = "browser".equalsIgnoreCase(source)
+                ? "/documentManager/ViewDocumentBrowser.do"
+                : "/documentManager/ViewDocumentReport.do";
+        String redirect = new RedirectUrlBuilder(request.getContextPath() + target)
+                .param("function", function)
+                .param("doctype", doctype)
+                .param("functionid", functionid)
+                .param("curUser", curUser)
+                .param("view", view)
+                .param("viewstatus", viewstatus)
+                .param("categorykey", categorykey)
+                .toString();
+        response.sendRedirect(redirect);
         return NONE;
     }
 

@@ -27,7 +27,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
-import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -96,18 +95,17 @@ public class DocumentRefile2Action extends ActionSupport {
             }
         }
 
-        StringBuilder url = new StringBuilder(request.getContextPath())
-                .append("/documentManager/ViewDocumentBrowser.do");
-        String sep = "?";
-        if (demographicID != null) { url.append(sep).append("demographicID=").append(Encode.forUriComponent(demographicID)); sep = "&"; }
-        if (function != null) { url.append(sep).append("function=").append(Encode.forUriComponent(function)); sep = "&"; }
-        if (doctype != null) { url.append(sep).append("doctype=").append(Encode.forUriComponent(doctype)); sep = "&"; }
-        if (functionid != null) { url.append(sep).append("functionid=").append(Encode.forUriComponent(functionid)); sep = "&"; }
-        if (categorykey != null) { url.append(sep).append("categorykey=").append(Encode.forUriComponent(categorykey)); sep = "&"; }
-        if (viewstatus != null) { url.append(sep).append("viewstatus=").append(Encode.forUriComponent(viewstatus)); sep = "&"; }
-        if (errorMessage != null) { url.append(sep).append("errorMessage=").append(Encode.forUriComponent(errorMessage)); }
-
-        response.sendRedirect(url.toString());
+        String redirect = new RedirectUrlBuilder(
+                    request.getContextPath() + "/documentManager/ViewDocumentBrowser.do")
+                .param("demographicID", demographicID)
+                .param("function", function)
+                .param("doctype", doctype)
+                .param("functionid", functionid)
+                .param("categorykey", categorykey)
+                .param("viewstatus", viewstatus)
+                .param("errorMessage", errorMessage)
+                .toString();
+        response.sendRedirect(redirect);
         return NONE;
     }
 
