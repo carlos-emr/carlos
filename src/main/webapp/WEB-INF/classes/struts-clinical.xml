@@ -138,6 +138,9 @@
 
 
         <!-- ===== oscarPrevention JSP gating actions (migration slice) ===== -->
+        <action name="oscarPrevention/ViewPreventionIndex" class="io.github.carlos_emr.carlos.prevention.gate.ViewPreventionIndex2Action">
+            <result name="success">/WEB-INF/jsp/oscarPrevention/index.jsp</result>
+        </action>
         <action name="oscarPrevention/ViewAddPreventionDataDisambiguate" class="io.github.carlos_emr.carlos.prevention.gate.ViewAddPreventionDataDisambiguate2Action">
             <result name="success">/WEB-INF/jsp/oscarPrevention/AddPreventionDataDisambiguate.jsp</result>
         </action>

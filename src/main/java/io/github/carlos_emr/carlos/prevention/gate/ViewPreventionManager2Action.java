@@ -12,47 +12,26 @@
  */
 package io.github.carlos_emr.carlos.prevention.gate;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-
-import org.apache.struts2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
-
 /**
  * Conditional-POST gate for {@code oscarPrevention/PreventionManager.jsp}. The JSP is
  * self-posting: initial GET renders the admin form; form submits to itself
  * with {@code formAction=update} or {@code formAction=custom} which triggers
- * scriptlet mutations (propDao merge/persist or similar). Requires POST when
- * {@code formAction} is present so the mutation path cannot be triggered
- * via GET (CSRF hardening). Pattern mirrors ViewSettleBG2Action from #1632.
+ * scriptlet mutations ({@code propDao.merge(p)} / {@code propDao.persist(x)}).
+ * Requires POST when {@code formAction} is present so the mutation path
+ * cannot be triggered via GET (CSRF hardening). Pattern mirrors
+ * ViewSettleBG2Action from #1632.
  *
  * @since 2026-04-13
  */
-public final class ViewPreventionManager2Action extends ActionSupport {
-
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+public final class ViewPreventionManager2Action extends AbstractPreventionGate2Action {
 
     @Override
-    public String execute() throws Exception {
-        HttpServletRequest request = ServletActionContext.getRequest();
-        HttpServletResponse response = ServletActionContext.getResponse();
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    protected String privilegeType() {
+        return "w";
+    }
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", "w", null)) {
-            throw new SecurityException("missing required sec object (_prevention)");
-        }
-
-        String formAction = request.getParameter("formAction");
-        if (formAction != null && !formAction.isEmpty()
-                && !"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
-        }
-
-        return SUCCESS;
+    @Override
+    protected boolean requireConditionalPost() {
+        return true;
     }
 }
