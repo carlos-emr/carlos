@@ -797,7 +797,7 @@
                         <input type="hidden" name="selectedProviders" value=""/>
                         <input type="hidden" name="labType" value="DOC"/>
                         <input type="hidden" name="labType<%=Encode.forHtmlAttribute(docId)%>DOC" value="imNotNull"/>
-                        <input type="hidden" name="providerNo" value="<%=providerNo%>"/>
+                        <input type="hidden" name="providerNo" value="<%=Encode.forHtmlAttribute(providerNo)%>"/>
                         <input type="hidden" name="favorites" value=""/>
                         <input type="hidden" name="ajax" value="yes"/>
                     </form>
@@ -816,7 +816,7 @@
                                             <td align="left" class="" width="100%">
                                                 <input type="hidden" name="segmentID" value="<%= Encode.forHtmlAttribute(docId)%>"/>
                                                 <input type="hidden" name="multiID" value="<%= Encode.forHtmlAttribute(docId)%>"/>
-                                                <input type="hidden" name="providerNo" value="<%= providerNo%>"/>
+                                                <input type="hidden" name="providerNo" value="<%= Encode.forHtmlAttribute(providerNo)%>"/>
                                                 <input type="hidden" name="status" value="A" id="ackStatus"/>
                                                 <input type="hidden" name="labType" value="DOC"/>
                                                 <input type="hidden" name="ajaxcall" value="yes"/>
@@ -836,7 +836,7 @@
                                                        onClick="ForwardSelectedRows(<%=Encode.forJavaScriptAttribute(docId)%> + ':DOC', null, null);">
                                                 <input type="button" tabindex="<%=tabindex++%>" class="smallButton"
                                                        value="<fmt:message key="oscarMDS.index.btnFile"/>"
-                                                       onclick="fileDoc('<%=documentNo%>');">
+                                                       onclick="fileDoc('<%=Encode.forJavaScriptAttribute(documentNo)%>');">
                                                 <input type="button" tabindex="<%=tabindex++%>"
                                                        value=" <fmt:message key="global.btnClose"/> "
                                                        onClick="window.close()">
@@ -844,14 +844,14 @@
                                                        value=" <fmt:message key="global.btnPrint"/> "
                                                        onClick="popup(700,960,'<%=url2%>','file download')">
                                                 <% if (demographicID != null && !demographicID.equals("") && !demographicID.equalsIgnoreCase("null") && !demographicID.equals("-1")) {
-                                                    String eURL = request.getContextPath() + "/encounter/IncomingEncounter.do?providerNo=" + providerNo + "&appointmentNo=&demographicNo=" + demographicID + "&curProviderNo=&reason=" + java.net.URLEncoder.encode("Document Notes", "UTF-8") + "&encType=" + java.net.URLEncoder.encode("encounter without client", "UTF-8") + "&userName=" + java.net.URLEncoder.encode(provider.getFullName(), StandardCharsets.UTF_8) + "&curDate=" + UtilDateUtilities.getToday("yyyy-MM-dd") + "&appointmentDate=&startTime=&status=";
+                                                    String eURL = request.getContextPath() + "/encounter/IncomingEncounter.do?providerNo=" + Encode.forUriComponent(providerNo) + "&appointmentNo=&demographicNo=" + Encode.forUriComponent(demographicID) + "&curProviderNo=&reason=" + java.net.URLEncoder.encode("Document Notes", "UTF-8") + "&encType=" + java.net.URLEncoder.encode("encounter without client", "UTF-8") + "&userName=" + java.net.URLEncoder.encode(provider.getFullName(), StandardCharsets.UTF_8) + "&curDate=" + UtilDateUtilities.getToday("yyyy-MM-dd") + "&appointmentDate=&startTime=&status=";
                                                 %>
                                                 <input type="button" tabindex="<%=tabindex++%>" value="Msg"
                                                        onclick="popup(700,960,'<%=request.getContextPath()%>/messenger/SendDemoMessage.do?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographicID))%>','msg')"/>
                                                 <input type="button" tabindex="<%=tabindex++%>" value="Tickler"
                                                        onclick="popup(450,600,'<%=request.getContextPath()%>/tickler/ForwardDemographicTickler.do?docType=DOC&docId=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(docId))%>&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographicID))%>&providerNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(providerNo))%>','tickler')"/>
                                                 <input type="button" tabindex="<%=tabindex++%>" value="eChart"
-                                                       onclick="popup(710,1024,'<%=eURL%>','encounter')"/>
+                                                       onclick="popup(710,1024,'<%=Encode.forJavaScriptAttribute(eURL)%>','encounter')"/>
                                                 <%
                                                     if (curdoc.getCreatorId().equals(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo())) {
                                                 %>
