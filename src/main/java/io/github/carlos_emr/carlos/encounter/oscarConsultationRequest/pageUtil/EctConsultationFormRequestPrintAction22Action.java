@@ -232,7 +232,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
             for (EctFormData.PatientForm formItem : forms) {
                 FormTransportContainer formTransportContainer = new FormTransportContainer(
-                        response, request, "/form/forwardshortcutname.jsp"
+                        response, request, "/form/forwardshortcutname.do"
                         + "?method=fetch&formname="
                         + formItem.getFormName()
                         + "&demographic_no="

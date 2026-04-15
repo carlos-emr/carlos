@@ -61,49 +61,51 @@
         </action>
         <action name="formBPMH" class="io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web.BpmhFormRetrieve2Action">
             <result name="saved">/formBPMH.do?method=fetch</result>
-            <result name="success">/form/pharmaForms/formBPMH.jsp</result>
+            <result name="success">/WEB-INF/jsp/form/pharmaForms/formBPMH.jsp</result>
         </action>
         <action name="formeCARES" class="io.github.carlos_emr.carlos.form.eCARES.EcaresForm2Action">
-            <result name="success">/form/eCARES/formeCARES.jsp</result>
+            <result name="success">/WEB-INF/jsp/form/eCARES/formeCARES.jsp</result>
             <result name="tickler">/WEB-INF/jsp/tickler/ticklerAddWidget.jsp</result>
         </action>
         <action name="form/setupSelect" class="io.github.carlos_emr.carlos.form.pageUtil.FrmSetupSelect2Action">
-            <result name="continue">/form/formselect.jsp</result>
+            <result name="continue">/WEB-INF/jsp/form/formselect.jsp</result>
         </action>
         <action name="form/select" class="io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action">
             <result name="success">/form/setupSelect.do</result>
         </action>
         <action name="form/xmlUpload" class="io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action">
-            <result name="success">/form/formXmlUpload.jsp</result>
+            <result name="success">/WEB-INF/jsp/form/formXmlUpload.jsp</result>
         </action>
         <action name="form/formname" class="io.github.carlos_emr.carlos.form.Frm2Action">
             <result name="exit">/WEB-INF/jsp/encounter/close.jsp</result>
             <result name="printAll">/form/createpdf</result>
             <result name="printAllJasperReport">/form/formPdfJasperReport.do</result>
-            <result name="printLabReq">/form/formlabreqprint.jsp</result>
+            <result name="printLabReq">/WEB-INF/jsp/form/formlabreqprint.jsp</result>
             <result name="print">/errorpage.jsp</result>
-            <result name="save">/form/forwardname.jsp</result>
+            <result name="save">/form/forwardname.do</result>
             <result name="graph">/form/createpdf</result>
             <result name="failure">/errorpage.jsp</result>
         </action>
         <action name="form/forwardshortcutname" class="io.github.carlos_emr.carlos.form.pageUtil.FormForward2Action"/>
+        <action name="form/forwardname" class="io.github.carlos_emr.carlos.form.pageUtil.FormForwardNamed2Action"/>
         <action name="form/SetupForm" class="io.github.carlos_emr.carlos.form.pageUtil.FrmSetupForm2Action"/>
         <action name="form/SubmitForm" class="io.github.carlos_emr.carlos.form.pageUtil.FrmForm2Action"/>
         <action name="form/RHPrevention" class="io.github.carlos_emr.carlos.form.pageUtil.FrmFormRHPrevention2Action">
-            <result name="success">/form/formRhImmuneGlobulin.jsp</result>
+            <result name="success">/WEB-INF/jsp/form/formRhImmuneGlobulin.jsp</result>
         </action>
         <action name="form/AddRHWorkFlow" class="io.github.carlos_emr.carlos.form.pageUtil.FrmFormAddRHWorkFlow2Action">
             <result name="success">/form/RHPrevention.do</result>
         </action>
         <action name="form/BCAR2020" class="io.github.carlos_emr.carlos.form.FrmBCAR20202Action">
-            <result name="pg1">/form/formBCAR2020pg1.jsp</result>
-            <result name="pg2">/form/formBCAR2020pg2.jsp</result>
-            <result name="pg3">/form/formBCAR2020pg3.jsp</result>
-            <result name="pg4">/form/formBCAR2020pg4.jsp</result>
-            <result name="pg5">/form/formBCAR2020pg5.jsp</result>
-            <result name="pg6">/form/formBCAR2020Attachments.jsp</result>
+            <result name="pg1">/WEB-INF/jsp/form/formBCAR2020pg1.jsp</result>
+            <result name="pg2">/WEB-INF/jsp/form/formBCAR2020pg2.jsp</result>
+            <result name="pg3">/WEB-INF/jsp/form/formBCAR2020pg3.jsp</result>
+            <result name="pg4">/WEB-INF/jsp/form/formBCAR2020pg4.jsp</result>
+            <result name="pg5">/WEB-INF/jsp/form/formBCAR2020pg5.jsp</result>
+            <result name="pg6">/WEB-INF/jsp/form/formBCAR2020Attachments.jsp</result>
             <result name="exit">/WEB-INF/jsp/encounter/close.jsp</result>
         </action>
+        <action name="form/*" class="io.github.carlos_emr.carlos.form.gate.ViewForm2Action"/>
         <action name="admin/Flowsheet" class="io.github.carlos_emr.carlos.flowsheet.Flowsheet2Action"/>
 
     </package>

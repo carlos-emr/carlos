@@ -208,7 +208,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
             MiscUtils.getLogger().error("Error", e);
         }
         // formName already validated above, safe to use in redirect URL
-        response.sendRedirect(contextPath + "/form/form" + formName + ".jsp");
+        response.sendRedirect(contextPath + "/form/form" + formName + ".do");
         return NONE;
     }
 

@@ -289,7 +289,7 @@ public class FrmForm2Action extends ActionSupport {
         logger.debug("submit value: " + submit);
         if (submit.equalsIgnoreCase("exit")) {
             request.setAttribute("diagnosisVT", "See Vascular Tracker Template");
-            return "/form/formSaveAndExit.jsp";
+            return "/WEB-INF/jsp/form/formSaveAndExit.jsp";
         }
         logger.debug("formName from Frm ForamAction" + formName);
         EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);

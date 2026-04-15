@@ -263,7 +263,7 @@ public final class Frm2Action extends ActionSupport {
                 actionForward = strAction;
                 actionForward = rec.createActionURL(actionForward, strAction, demographicNo+"", "" + newID);
                 if (actionForward.startsWith("save?")) {
-                    response.sendRedirect(request.getContextPath() + "/form/forwardname.jsp?form_link=" 
+                    response.sendRedirect(request.getContextPath() + "/form/forwardname.do?form_link="
                         + request.getParameter("form_link") + "&" + actionForward.substring(5));
                     return null;
                 }

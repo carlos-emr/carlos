@@ -425,12 +425,12 @@
         </action>
         <action name="encounter/oscarConsultationRequest/printPdf2" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestPrintAction22Action">
             <result name="error">/encounter/ViewRequest.do?error=true</result>
-            <result name="attachform">/form/forwardshortcutname.jsp</result>
+            <result name="attachform">/form/forwardshortcutname.do</result>
         </action>
         <action name="encounter/oscarConsultationRequest/ConsultationFormFax" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp</result>
             <result name="error">/encounter/ViewRequest.do?error=true</result>
-            <result name="attachform">/form/forwardshortcutname.jsp</result>
+            <result name="attachform">/form/forwardshortcutname.do</result>
             <result name="cancel">/encounter/ViewRequest.do</result>
         </action>
 
