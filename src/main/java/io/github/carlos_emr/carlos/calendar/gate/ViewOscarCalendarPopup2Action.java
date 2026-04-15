@@ -33,7 +33,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 /**
  * View gate for {@code calendar/oscarCalendarPopup.jsp} — generic date-picker
  * popup. Authenticated-session only (no specific privilege; it is a pure
- * client-side calendar widget). GET/HEAD only.
+ * client-side calendar widget used by many unrelated modules). GET/HEAD only.
  *
  * @since 2026-04-14
  */

@@ -33,6 +33,8 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.SupServiceCodeAssocDAO;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -58,6 +60,8 @@ import java.io.IOException;
  * @since 2006-04-20
  */
 public class SupServiceCodeAssoc2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -86,6 +90,11 @@ public class SupServiceCodeAssoc2Action extends ActionSupport {
      * @throws RuntimeException if redirect fails
      */
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         SupServiceCodeAssocDAO dao = SpringUtils.getBean(SupServiceCodeAssocDAO.class);
         if (!MODE_VIEW.equals(this.getActionMode())) {
             if (validateForm()) {

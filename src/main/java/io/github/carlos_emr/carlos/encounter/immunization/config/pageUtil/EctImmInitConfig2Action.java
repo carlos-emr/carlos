@@ -31,9 +31,20 @@
 package io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil;
 
 import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public final class EctImmInitConfig2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     public String execute() {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(ServletActionContext.getRequest());
+        if (!securityInfoManager.hasPrivilege(__li, "_prevention", "w", null)) {
+            throw new SecurityException("missing required sec object (_prevention)");
+        }
+
         return SUCCESS;
     }
 }

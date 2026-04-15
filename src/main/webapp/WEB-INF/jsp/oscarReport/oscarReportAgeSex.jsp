@@ -206,7 +206,7 @@
                         <font color="#333333"><fmt:message key="oscarReport.oscarReportAgeSex.msgServiceDate"/></font></b></font></font> &nbsp;
                         &nbsp; <font
                                 size="1" face="Arial, Helvetica, sans-serif"><a href="#"
-                                                                                onClick="openBrWindow('<%= request.getContextPath() %>/billing/billingCalendarPopup.jsp?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="oscarReport.oscarReportAgeSex.btnBegin"/>:</a></font> <input type="text"
+                                                                                onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup.do?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="oscarReport.oscarReportAgeSex.btnBegin"/>:</a></font> <input type="text"
                                                                                                   name="xml_vdate"
                                                                                                   value="<%= Encode.forHtmlAttribute(xml_vdate) %>">
                     </div>
@@ -214,7 +214,7 @@
                 <td colspan='2'>
                     <div align="left"><font size="1"
                                             face="Arial, Helvetica, sans-serif"><a href="#"
-                                                                                   onClick="openBrWindow('<%= request.getContextPath() %>/billing/billingCalendarPopup.jsp?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="oscarReport.oscarReportAgeSex.btnEnd"/>:</a></font> <input type="text"
+                                                                                   onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup.do?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="oscarReport.oscarReportAgeSex.btnEnd"/>:</a></font> <input type="text"
                                                                                             name="xml_appointment_date"
                                                                                             value="<%= Encode.forHtmlAttribute(xml_appointment_date) %>">
                     </div>

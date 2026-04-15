@@ -271,8 +271,10 @@
                     <%
                         if (oscarVariables.getProperty("billregion", "").equals("BC")) {
                     %>
+                    <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing" rights="w" reverse="<%=false%>">
                     <li><a href="#"
-                           onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/manageBillingform.jsp");return false;'><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
+                           onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/ON/ManageBillingform.do");return false;'><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
+                    </security:oscarSec>
                     <li><a href="#"
                            onclick='popupPage(600,900,"${pageContext.request.contextPath}/billing/CA/BC/billingAddCode.do");return false;'><fmt:message key="admin.admin.ManagePrivFrm"/></a></li>
                     <oscar:oscarPropertiesCheck property="BC_BILLING_CODE_MANAGEMENT"
@@ -337,8 +339,10 @@
                     <li><a href="${pageContext.request.contextPath}/admin/GstReport.do"><fmt:message key="admin.admin.gstReport"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/ManageBillingLocation.do");return false;'><fmt:message key="admin.admin.btnAddBillingLocation"/></a></li>
+                    <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing" rights="w" reverse="<%=false%>">
                     <li><a href="#"
                            onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/ManageBillingform.do");return false;'><fmt:message key="admin.admin.btnManageBillingForm"/></a></li>
+                    </security:oscarSec>
                     <li><a href="#"
                            onclick='popupPage(700,700, "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingOHIPsimulation.do");return false;'><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></a></li>
                     <li><a href="#"
@@ -490,9 +494,6 @@
                     </caisi:isModuleLoad>
                     <li><a href="${pageContext.request.contextPath}/oscarReport/ViewCds4ReportForm.do"><fmt:message key="admin.admin.cdsRpt"/></a></li>
                     <li><a href="${pageContext.request.contextPath}/oscarReport/ViewMisReportForm.do"><fmt:message key="admin.admin.misRpt"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/oscarReport/cbi_submit_form.jsp"><fmt:message key="admin.admin.cbiSubmit"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/admin/cbiAdmin.jsp"><fmt:message key="admin.admin.cbi.reportlink"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/oscarReport/cbi_report_form.jsp"><fmt:message key="admin.admin.cbiRpt"/></a></li>
                     <li><a href="${pageContext.request.contextPath}/admin/ViewUsageReport.do"><fmt:message key="admin.admin.usageRpt"/></a></li>
                     <oscar:oscarPropertiesCheck property="SERVERLOGGING" value="yes">
                         <li><a href="#"
