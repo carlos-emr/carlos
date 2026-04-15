@@ -33,7 +33,11 @@ import io.github.carlos_emr.carlos.PMmodule.service.ClientRestrictionManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ClientManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramQueueManager;
+import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
+import io.github.carlos_emr.carlos.PMmodule.service.VacancyTemplateManager;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
 import io.github.carlos_emr.carlos.commn.dao.FacilityDao;
 import io.github.carlos_emr.carlos.commn.dao.FunctionalCentreDao;
@@ -66,7 +70,11 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
     private ProgramQueueManager programQueueManager;
     private AdmissionManager admissionManager;
     private ClientRestrictionManager clientRestrictionManager;
+    private ProviderManager providerManager;
+    private VacancyTemplateManager vacancyTemplateManager;
     private FacilityDao facilityDao;
+    private AdmissionDao admissionDao;
+    private DemographicDao demographicDao;
     private FunctionalCentreDao functionalCentreDao;
     private RolesManager rolesManager;
     private CaseManagementManager caseManagementManager;
@@ -81,7 +89,11 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
         programQueueManager = mock(ProgramQueueManager.class);
         admissionManager = mock(AdmissionManager.class);
         clientRestrictionManager = mock(ClientRestrictionManager.class);
+        providerManager = mock(ProviderManager.class);
+        vacancyTemplateManager = mock(VacancyTemplateManager.class);
         facilityDao = mock(FacilityDao.class);
+        admissionDao = mock(AdmissionDao.class);
+        demographicDao = mock(DemographicDao.class);
         functionalCentreDao = mock(FunctionalCentreDao.class);
         rolesManager = mock(RolesManager.class);
         caseManagementManager = mock(CaseManagementManager.class);
@@ -94,6 +106,8 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
         replaceSpringUtilsBean(ProgramQueueManager.class, programQueueManager);
         replaceSpringUtilsBean(AdmissionManager.class, admissionManager);
         replaceSpringUtilsBean(ClientRestrictionManager.class, clientRestrictionManager);
+        replaceSpringUtilsBean(ProviderManager.class, providerManager);
+        replaceSpringUtilsBean(VacancyTemplateManager.class, vacancyTemplateManager);
         replaceSpringUtilsBean(FacilityDao.class, facilityDao);
         replaceSpringUtilsBean(FunctionalCentreDao.class, functionalCentreDao);
         replaceSpringUtilsBean(RolesManager.class, rolesManager);
@@ -132,6 +146,30 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
         setSessionAttribute("user", "999998");
     }
 
+    private ProgramManager2Action newProgramManagerAction() {
+        ProgramManager2Action action = new ProgramManager2Action();
+        action.setProgramManager(programManager);
+        action.setProgramQueueManager(programQueueManager);
+        action.setAdmissionManager(admissionManager);
+        action.setClientRestrictionManager(clientRestrictionManager);
+        action.setProviderManager(providerManager);
+        action.setVacancyTemplateManager(vacancyTemplateManager);
+        action.setFacilityDao(facilityDao);
+        action.setFunctionalCentreDao(functionalCentreDao);
+        action.setRolesManager(rolesManager);
+        return action;
+    }
+
+    private FacilityManager2Action newFacilityManagerAction() {
+        FacilityManager2Action action = new FacilityManager2Action();
+        action.setFacilityDao(facilityDao);
+        action.setProgramManager(programManager);
+        action.setLookupManager(lookupManager);
+        action.setAdmissionDao(admissionDao);
+        action.setDemographicDao(demographicDao);
+        return action;
+    }
+
     @Test
     @DisplayName("ProgramManager should keep the clients tab inside the parent edit result")
     void shouldRouteProgramManagerClientsTabToConcreteJsp() throws Exception {
@@ -146,7 +184,7 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
         addRequestParameter("id", "17");
         addRequestParameter("view.tab", "Clients");
 
-        ProgramManager2Action action = new ProgramManager2Action();
+        ProgramManager2Action action = newProgramManagerAction();
 
         String result = executeAction(action);
 
@@ -158,7 +196,7 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
     @Test
     @DisplayName("ProgramManager should keep the program list reachable through the live action")
     void shouldRouteProgramManagerListThroughLiveAction() throws Exception {
-        ProgramManager2Action action = new ProgramManager2Action();
+        ProgramManager2Action action = newProgramManagerAction();
 
         String result = executeAction(action);
 
@@ -181,7 +219,7 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
         addRequestParameter("method", "edit");
         addRequestParameter("id", "17");
 
-        ProgramManager2Action action = new ProgramManager2Action();
+        ProgramManager2Action action = newProgramManagerAction();
 
         String result = executeAction(action);
 
@@ -204,7 +242,7 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
         addRequestParameter("id", "17");
         addRequestParameter("view.tab", "vacancies");
 
-        ProgramManager2Action action = new ProgramManager2Action();
+        ProgramManager2Action action = newProgramManagerAction();
 
         String result = executeAction(action);
 
@@ -319,12 +357,12 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
         facility.setOrgId(7);
         facility.setSectorId(8);
 
-        when(facilityDao.find(5)).thenReturn(facility);
+        when(facilityDao.find(any())).thenReturn(facility);
 
         addRequestParameter("method", "edit");
         addRequestParameter("id", "5");
 
-        FacilityManager2Action action = new FacilityManager2Action();
+        FacilityManager2Action action = newFacilityManagerAction();
 
         String result = executeAction(action);
 
@@ -341,13 +379,13 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
         facility.setId(5);
         facility.setName("Main Facility");
 
-        when(facilityDao.find(5)).thenReturn(facility);
+        when(facilityDao.find(any())).thenReturn(facility);
         when(programManager.getPrograms(5)).thenReturn(Collections.emptyList());
 
         addRequestParameter("method", "view");
         addRequestParameter("id", "5");
 
-        FacilityManager2Action action = new FacilityManager2Action();
+        FacilityManager2Action action = newFacilityManagerAction();
 
         String result = executeAction(action);
 
@@ -362,12 +400,12 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
         Facility facility = new Facility("", "");
         facility.setId(5);
 
-        when(facilityDao.find(5)).thenReturn(facility);
+        when(facilityDao.find(any())).thenReturn(facility);
 
         addRequestParameter("method", "delete");
         addRequestParameter("id", "5");
 
-        FacilityManager2Action action = new FacilityManager2Action();
+        FacilityManager2Action action = newFacilityManagerAction();
 
         String result = executeAction(action);
 
@@ -382,13 +420,13 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
         Facility facility = new Facility("", "");
         facility.setId(5);
 
-        when(facilityDao.find(5)).thenReturn(facility);
+        when(facilityDao.find(any())).thenReturn(facility);
         denyPrivilege("_admin", "w");
 
         addRequestParameter("method", "delete");
         addRequestParameter("id", "5");
 
-        FacilityManager2Action action = new FacilityManager2Action();
+        FacilityManager2Action action = newFacilityManagerAction();
 
         assertThatThrownBy(() -> executeAction(action))
             .isInstanceOf(SecurityException.class)
