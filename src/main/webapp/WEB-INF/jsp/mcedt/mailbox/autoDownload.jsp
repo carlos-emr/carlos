@@ -49,7 +49,7 @@
 
 <html>
     <head>
-        <jsp:include page="/mcedt/mailbox/head-includes.jsp"/>
+        <jsp:include page="/WEB-INF/jsp/mcedt/mailbox/head-includes.jsp"/>
         <link href="mailbox/css/mcedt.css" rel="stylesheet" type="text/css">
 
         <style type="text/css">

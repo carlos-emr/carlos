@@ -105,13 +105,13 @@
 
 
 <c:if test="${empty sessionScope.msgSessionBean}">
-    <% response.sendRedirect(request.getContextPath() + "/messenger/index.jsp"); %>
+    <% response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.do"); %>
 </c:if>
 <c:choose>
     <c:when test="${not empty sessionScope.msgSessionBean}">
         <c:set var="bean" value="${sessionScope.msgSessionBean}" scope="page"/>
         <c:if test="${bean.valid == false}">
-            <% response.sendRedirect(request.getContextPath() + "/messenger/index.jsp"); %>
+            <% response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.do"); %>
         </c:if>
     </c:when>
 </c:choose>

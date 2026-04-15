@@ -63,7 +63,7 @@
         <%-- Waiting list removal prompt --%>
         <c:if test="${not empty waitingListName}">
             <form name="updateWLFrm" method="post"
-                  action="${pageContext.request.contextPath}/waitinglist/RemoveFromWaitingList.jsp">
+                  action="${pageContext.request.contextPath}/waitinglist/RemoveFromWaitingList.do">
                 <input type="hidden" name="listId" value="${e:forHtmlAttribute(waitingListId)}"/>
                 <input type="hidden" name="demographicNo" value="${e:forHtmlAttribute(waitingListDemographicNo)}"/>
                 <script language="JavaScript">

@@ -320,7 +320,7 @@
                 <fmt:message key="ectViewConsultationRequests.title"/>
             </h4>
             <div>
-                <a href="javascript:popupOscarConsultationConfig(700,960,'<%=request.getContextPath()%>/encounter/oscarConsultationRequest/config/ShowAllServices.jsp')"
+                <a href="javascript:popupOscarConsultationConfig(700,960,'<%=request.getContextPath()%>/encounter/oscarConsultationRequest/config/ViewShowAllServices.do')"
                    class="btn btn-secondary btn-sm">
                     <i class="fas fa-cog me-1"></i>
                     <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgEditSpecialists"/>

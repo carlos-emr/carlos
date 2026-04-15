@@ -41,6 +41,9 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  * Struts2 action for clearing message attachments from the session.
@@ -70,6 +73,8 @@ import org.apache.struts2.ServletActionContext;
  * @see MsgAttachPDF2Action
  */
 public final class MsgClearMessage2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     /**
      * HTTP request object used to access the session containing the message bean.
      */
@@ -101,6 +106,11 @@ public final class MsgClearMessage2Action extends ActionSupport {
      */
     public String execute()
             throws IOException, ServletException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
+            throw new SecurityException("missing required sec object (_msg)");
+        }
+
         // Retrieve the message session bean from the HTTP session
         MsgSessionBean bean;
         bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");

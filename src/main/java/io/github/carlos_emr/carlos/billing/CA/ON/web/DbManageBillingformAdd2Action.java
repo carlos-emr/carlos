@@ -146,7 +146,7 @@ public class DbManageBillingformAdd2Action extends ActionSupport {
             return NONE;
         }
 
-        response.sendRedirect(request.getContextPath() + "/billing/CA/ON/manageBillingform.jsp");
+        response.sendRedirect(request.getContextPath() + "/billing/CA/ON/ManageBillingform.do");
         return NONE;
     }
 
@@ -164,7 +164,7 @@ public class DbManageBillingformAdd2Action extends ActionSupport {
      */
     private void redirectWithError(String errMessage, String typeid, String type,
                                    String group1, String group2, String group3) throws Exception {
-        String url = request.getContextPath() + "/billing/CA/ON/manageBillingform.jsp"
+        String url = request.getContextPath() + "/billing/CA/ON/ManageBillingform.do"
                 + "?errorMessage=" + URLEncoder.encode(errMessage, StandardCharsets.UTF_8)
                 + "&type=" + URLEncoder.encode(type, StandardCharsets.UTF_8)
                 + "&typeid=" + URLEncoder.encode(typeid, StandardCharsets.UTF_8)

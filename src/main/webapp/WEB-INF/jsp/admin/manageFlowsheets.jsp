@@ -149,7 +149,7 @@
 							<td><%=Encode.forHtmlContent(type) %></td>
 							<td><%=enabled%></td>
 							<td>
-								<a href="<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp?flowsheet=<%=flowSheet.getName()%>&displayName=<%=flowSheet.getDisplayName()%>">Edit</a>&nbsp;
+								<a href="<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet.do?flowsheet=<%=Encode.forUriComponent(flowSheet.getName())%>&displayName=<%=Encode.forUriComponent(flowSheet.getDisplayName())%>">Edit</a>&nbsp;
 								<%if(enabled) { %>
 									<a href="javascript:void(0);" onclick="submitFlowsheetAction('disable','<%=Encode.forJavaScript(flowSheet.getName())%>');">Disable</a>
 								<% } else { %>
