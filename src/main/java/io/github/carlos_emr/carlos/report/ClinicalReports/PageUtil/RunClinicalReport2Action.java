@@ -237,9 +237,9 @@ public class RunClinicalReport2Action extends ActionSupport {
         return SUCCESS;
     }
 
-    static void trimClinicalReportHistory(ArrayList clinicalReports) {
-        while (clinicalReports.size() >= MAX_CLINICAL_REPORT_HISTORY) {
-            clinicalReports.remove(0);
+    static void trimClinicalReportHistory(ArrayList<?> clinicalReports) {
+        if (clinicalReports.size() >= MAX_CLINICAL_REPORT_HISTORY) {
+            clinicalReports.subList(0, clinicalReports.size() - MAX_CLINICAL_REPORT_HISTORY + 1).clear();
         }
     }
 }

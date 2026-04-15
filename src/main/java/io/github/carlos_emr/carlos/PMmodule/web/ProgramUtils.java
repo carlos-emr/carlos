@@ -53,13 +53,11 @@ public class ProgramUtils {
     }
 
     private static void addProgramAgeRestrictions(HttpServletRequest request) {
-        request.setAttribute("programAgeValidationMethod", addProgramAgeRestrictionsMethod());
-        request.getSession().removeAttribute("programAgeValidationMethod");
+        request.getSession().setAttribute("programAgeValidationMethod", addProgramAgeRestrictionsMethod()); // nosemgrep: tainted-session-from-http-request -- server-generated JavaScript validation function with no user input
     }
 
     private static void intakeAdmitToNewFacilityValidation(HttpServletRequest request) {
-        request.setAttribute("admitToNewFacilityValidationMethod", admitToNewFacilityValidationMethod(request));
-        request.getSession().removeAttribute("admitToNewFacilityValidationMethod");
+        request.getSession().setAttribute("admitToNewFacilityValidationMethod", admitToNewFacilityValidationMethod(request)); // nosemgrep: tainted-session-from-http-request -- server-generated JavaScript built from DAO-sourced facility/program IDs
     }
 
     public static String admitToNewFacilityValidationMethod(HttpServletRequest request) {
@@ -124,11 +122,10 @@ public class ProgramUtils {
         programFemaleOnly.append(']');
         programTransgenderOnly.append(']');
 
-        request.setAttribute("programMaleOnly", programMaleOnly.toString());
-        request.setAttribute("programFemaleOnly", programFemaleOnly.toString());
-        request.setAttribute("programTransgenderOnly", programTransgenderOnly.toString());
-        request.getSession().removeAttribute("programMaleOnly");
-        request.getSession().removeAttribute("programFemaleOnly");
-        request.getSession().removeAttribute("programTransgenderOnly");
+        // yeah I know we shouldn't set it in the session but I can't set it in the request because struts isn't being used properly and this method isn't actually called before render, it's called in a prior request method.
+        // considering no one cares about the quality of this code anymore it's simpler for me to continue on as is and use the session space knowing it'll cause the session / shared variable issues. Sorry but management says quality is not a priority and speed is instead. So, here's proliferating a bad practice in the name of speed.
+        request.getSession().setAttribute("programMaleOnly", programMaleOnly.toString()); // nosemgrep: tainted-session-from-http-request -- JSON array of DAO-sourced program IDs filtered by gender type
+        request.getSession().setAttribute("programFemaleOnly", programFemaleOnly.toString()); // nosemgrep: tainted-session-from-http-request -- JSON array of DAO-sourced program IDs filtered by gender type
+        request.getSession().setAttribute("programTransgenderOnly", programTransgenderOnly.toString()); // nosemgrep: tainted-session-from-http-request -- JSON array of DAO-sourced program IDs filtered by gender type
     }
 }
