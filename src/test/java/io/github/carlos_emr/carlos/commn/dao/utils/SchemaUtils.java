@@ -423,7 +423,7 @@ public class SchemaUtils {
                     Statement stmt2 = c.createStatement();
                     ResultSet rs2 = stmt2.executeQuery("show create table " + tableName + ";"); // codeql[java/sql-injection] // deepcode ignore SqlInjection: test-only DDL utility; tableName from DB metadata
                     if (rs2.next()) {
-                        String sql = rs2.getString(2).replaceAll(tableName, tableName.substring(0, tableName.length() - 10));
+                        String sql = rs2.getString(2).replace(tableName, tableName.substring(0, tableName.length() - 10));
                         createTableStatements.put(tableName.substring(0, tableName.length() - 10), sql);
                     }
                     rs2.close();

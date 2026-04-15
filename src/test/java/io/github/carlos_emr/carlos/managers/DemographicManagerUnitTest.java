@@ -1329,6 +1329,24 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             assertThat(result).hasSize(1);
             assertThat(result.get(0).getLastName()).isEqualTo("ADAMS");
         }
+
+        @Test
+        @DisplayName("should filter demographics by single lastname initial regex")
+        void shouldFilterDemographics_bySingleLastnameInitialRegex() {
+            Provider provider = createTestProvider();
+            Demographic matchingDemo = createTestDemographic();
+            matchingDemo.setLastName("ADAMS");
+            Demographic nonMatchingDemo = createTestDemographic();
+            nonMatchingDemo.setLastName("BAKER");
+
+            List<Demographic> allDemos = List.of(matchingDemo, nonMatchingDemo);
+            when(mockDemographicDao.getDemographicByProvider(TEST_PROVIDER)).thenReturn(allDemos);
+
+            List<Demographic> result = manager.getDemographicsNameRangeByProvider(mockLoggedInInfo, provider, "^[A]");
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getLastName()).isEqualTo("ADAMS");
+        }
     }
 
     // ==================== MERGE OPERATIONS ====================

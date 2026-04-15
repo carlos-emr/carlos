@@ -63,7 +63,8 @@ var css = {
             return false;
         }
 
-        var regex = new RegExp('\\b' + classString + '\\b'); // nosemgrep: detect-non-literal-regexp -- classString is a CSS class name from developer code, not user input
+        var escapedClass = classString.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        var regex = new RegExp('\\b' + escapedClass + '\\b');
         if (el.className.match(regex)) {
             return true;
         }

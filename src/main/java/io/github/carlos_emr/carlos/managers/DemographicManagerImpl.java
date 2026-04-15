@@ -367,11 +367,12 @@ public class DemographicManagerImpl implements DemographicManager {
 
     /**
      * Regex allowlist for {@link #getDemographicsNameRangeByProvider}: accepts only
-     * simple character-range expressions of the form {@code ^[X-Y]} where X and Y
-     * are single ASCII letters (e.g. {@code ^[A-M]}). This prevents ReDoS from
-     * a caller supplying an unbounded or catastrophic regex pattern.
+     * simple character-range expressions of the form {@code ^[X]} or {@code ^[X-Y]}
+     * where X and Y are single ASCII letters (e.g. {@code ^[A]} or {@code ^[A-M]}).
+     * This prevents ReDoS from a caller supplying an unbounded or catastrophic
+     * regex pattern.
      */
-    private static final Pattern SAFE_NAME_RANGE_REGEX = Pattern.compile("^\\^\\[[A-Za-z]-[A-Za-z]\\]$");
+    private static final Pattern SAFE_NAME_RANGE_REGEX = Pattern.compile("^\\^\\[[A-Za-z](?:-[A-Za-z])?\\]$");
 
     @Override
     public List<Demographic> getDemographicsNameRangeByProvider(LoggedInInfo loggedInInfo, Provider provider,
@@ -382,7 +383,7 @@ public class DemographicManagerImpl implements DemographicManager {
             return new ArrayList<>(); // Return an empty list if provider or regex is null
         }
 
-        // Reject any regex that is not a simple letter-range expression (e.g. "^[A-M]").
+        // Reject any regex that is not a simple letter or letter-range expression (e.g. "^[A]" or "^[A-M]").
         // This prevents ReDoS: an attacker cannot supply patterns like "^(a+)+$".
         if (!SAFE_NAME_RANGE_REGEX.matcher(regex).matches()) {
             logger.warn("getDemographicsNameRangeByProvider: rejected unsafe regex pattern");
@@ -391,11 +392,13 @@ public class DemographicManagerImpl implements DemographicManager {
 
         // Validate that the character range is not reversed (e.g. "^[Z-A]" would pass the
         // allowlist but throw PatternSyntaxException in Pattern.compile).
-        char rangeStart = Character.toUpperCase(regex.charAt(2));
-        char rangeEnd = Character.toUpperCase(regex.charAt(4));
-        if (rangeStart > rangeEnd) {
-            logger.warn("getDemographicsNameRangeByProvider: rejected reversed character range");
-            return new ArrayList<>();
+        if (regex.indexOf('-') > -1) {
+            char rangeStart = Character.toUpperCase(regex.charAt(2));
+            char rangeEnd = Character.toUpperCase(regex.charAt(4));
+            if (rangeStart > rangeEnd) {
+                logger.warn("getDemographicsNameRangeByProvider: rejected reversed character range");
+                return new ArrayList<>();
+            }
         }
 
         List<Demographic> demographicList = demographicDao.getDemographicByProvider(provider.getProviderNo());

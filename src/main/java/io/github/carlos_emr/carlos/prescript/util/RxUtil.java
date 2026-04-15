@@ -53,6 +53,41 @@ public class RxUtil {
     private static String defaultQuantity = "30";
     private static final Logger logger = MiscUtils.getLogger();
     private static String[] zeroToTen = {"(?i)zero", "(?i)one", "(?i)two", "(?i)three", "(?i)four", "(?i)five", "(?i)six", "(?i)seven", "(?i)eight", "(?i)nine", "(?i)ten"};
+    private static final Pattern WHOLE_NUMBER_PATTERN = Pattern.compile("[0-9]++");
+    private static final String DECIMAL_NUMBER_REGEX = "(?:[0-9]++(?:\\.[0-9]++)?+|\\.[0-9]++)";
+    private static final String DOSAGE_RANGE_REGEX = DECIMAL_NUMBER_REGEX + "-\\s*+" + DECIMAL_NUMBER_REGEX;
+    private static final Pattern DOSAGE_NUMBER_PATTERN = Pattern.compile(DECIMAL_NUMBER_REGEX);
+    private static final Pattern DOSAGE_RANGE_PATTERN = Pattern.compile(DOSAGE_RANGE_REGEX);
+    private static final Pattern[] QUANTITY_DURATION_PATTERNS = compileAll(
+            "[0-9]++\\s++(?i)days\\s", "[0-9]++\\s++(?i)weeks\\s", "[0-9]++\\s++(?i)months\\s", "[0-9]++\\s++(?i)day\\s", "[0-9]++\\s++(?i)week\\s", "[0-9]++\\s++(?i)month\\s", "[0-9]++\\s++(?i)d\\s", "[0-9]++\\s++(?i)w\\s", "[0-9]++\\s++(?i)m\\s", "[0-9]++\\s++(?i)mo\\s",
+            "[0-9]++\\s++(?i)days$", "[0-9]++\\s++(?i)weeks$", "[0-9]++\\s++(?i)months$", "[0-9]++\\s++(?i)day$", "[0-9]++\\s++(?i)week$", "[0-9]++\\s++(?i)month$", "[0-9]++\\s++(?i)d$", "[0-9]++\\s++(?i)w$", "[0-9]++\\s++(?i)m$", "[0-9]++\\s++(?i)mo$",
+            "\\s[0-9]++(?i)days\\s", "\\s[0-9]++(?i)weeks\\s", "\\s[0-9]++(?i)months\\s", "\\s[0-9]++(?i)day\\s", "\\s[0-9]++(?i)week\\s", "\\s[0-9]++(?i)month\\s", "\\s[0-9]++(?i)d\\s", "\\s[0-9]++(?i)w\\s", "\\s[0-9]++(?i)m\\s", "\\s[0-9]++(?i)mo\\s",
+            "\\s[0-9]++(?i)days$", "\\s[0-9]++(?i)weeks$", "\\s[0-9]++(?i)months$", "\\s[0-9]++(?i)day$", "\\s[0-9]++(?i)week$", "\\s[0-9]++(?i)month$", "\\s[0-9]++(?i)d$", "\\s[0-9]++(?i)w$", "\\s[0-9]++(?i)m$", "\\s[0-9]++(?i)mo$",
+            "^[0-9]++(?i)days$", "^[0-9]++(?i)weeks$", "^[0-9]++(?i)months$", "^[0-9]++(?i)day$", "^[0-9]++(?i)week$", "^[0-9]++(?i)month$", "^[0-9]++(?i)d$", "^[0-9]++(?i)w$", "^[0-9]++(?i)m$", "^[0-9]++(?i)mo$",
+            "^[0-9]++\\s++(?i)days$", "^[0-9]++\\s++(?i)weeks$", "^[0-9]++\\s++(?i)months$", "^[0-9]++\\s++(?i)day$", "^[0-9]++\\s++(?i)week$", "^[0-9]++\\s++(?i)month$", "^[0-9]++\\s++(?i)d$", "^[0-9]++\\s++(?i)w$", "^[0-9]++\\s++(?i)m$", "^[0-9]++\\s++(?i)mo$"
+    );
+    private static final Pattern[] DURATION_UNIT_PATTERNS = compileAll(
+            "\\s++(?i)days\\s", "\\s++(?i)weeks\\s", "\\s++(?i)months\\s", "\\s++(?i)day\\s", "\\s++(?i)week\\s", "\\s++(?i)month\\s", "\\s++(?i)d\\s", "\\s++(?i)w\\s", "\\s++(?i)m\\s", "\\s++(?i)mo\\s",
+            "\\s++(?i)days$", "\\s++(?i)weeks$", "\\s++(?i)months$", "\\s++(?i)day$", "\\s++(?i)week$", "\\s++(?i)month$", "\\s++(?i)d$", "\\s++(?i)w$", "\\s++(?i)m$", "\\s++(?i)mo$"
+    );
+    private static final Pattern[] NO_SPACE_DURATION_PATTERNS = compileAll(
+            "\\s[0-9]++(?i)days\\s", "\\s[0-9]++(?i)weeks\\s", "\\s[0-9]++(?i)months\\s", "\\s[0-9]++(?i)day\\s", "\\s[0-9]++(?i)week\\s", "\\s[0-9]++(?i)month\\s", "\\s[0-9]++(?i)d\\s", "\\s[0-9]++(?i)w\\s", "\\s[0-9]++(?i)m\\s", "\\s[0-9]++(?i)mo\\s",
+            "\\s[0-9]++(?i)days$", "\\s[0-9]++(?i)weeks$", "\\s[0-9]++(?i)months$", "\\s[0-9]++(?i)day$", "\\s[0-9]++(?i)week$", "\\s[0-9]++(?i)month$", "\\s[0-9]++(?i)d$", "\\s[0-9]++(?i)w$", "\\s[0-9]++(?i)m$", "\\s[0-9]++(?i)mo$"
+    );
+    private static final Pattern[] PRN_PATTERNS = compileAll("\\s(?i)prn$", "^(?i)prn\\s++", "\\s++(?i)prn\\s++");
+    private static final Pattern[] DAILY_FREQUENCY_PATTERNS = compileAll(
+            "\\s*+(?i)OD\\s*+", "\\s*+(?i)BID\\s*+", "\\s*+(?i)TID\\s*+", "\\s*+(?i)QID\\s*+", "\\s*+(?i)Q1H\\s*+", "\\s*+(?i)Q2H\\s*+", "\\s*+(?i)Q1-2H\\s*+", "\\s*+(?i)Q3-4H\\s*+", "\\s*+(?i)Q4H\\s*+", "\\s*+(?i)Q4-6H\\s*+", "\\s*+(?i)Q6H\\s*+", "\\s*+(?i)Q8H\\s*+", "\\s*+(?i)Q12H\\s*+", "\\s*+(?i)QAM\\s*+", "\\s*+(?i)QPM\\s*+", "\\s*+(?i)QHS\\s*+", "\\s*+(?i)once daily\\s*+", "\\s*+(?i)twice daily\\s*+", "\\s*+(?i)3x day\\s*+", "\\s*+(?i)4x day\\s*+", "\\s*+(?i)3x daily\\s*+", "\\s*+(?i)4x daily\\s*+", "\\s*+(?i)daily\\s*+"
+    );
+    private static final Pattern[] WEEKLY_FREQUENCY_PATTERNS = compileAll("\\s*+(?i)Q1Week\\s*+", "\\s*+(?i)Q2Week\\s*+");
+    private static final Pattern[] MONTHLY_FREQUENCY_PATTERNS = compileAll("\\s*+(?i)Q1Month\\s*+", "\\s*+(?i)Q3Month\\s*+");
+
+    private static Pattern[] compileAll(String... regexes) {
+        Pattern[] patterns = new Pattern[regexes.length];
+        for (int i = 0; i < regexes.length; i++) {
+            patterns[i] = Pattern.compile(regexes[i]);
+        }
+        return patterns;
+    }
 
     public static void setDefaultQuantity(String quantity) {
         defaultQuantity = quantity;
@@ -293,11 +328,7 @@ public class RxUtil {
 
     public static boolean isMitte(String qStr) {
         boolean isMitte = false;
-        String[] durationUnits = {"[0-9]+\\s+(?i)days\\s", "[0-9]+\\s+(?i)weeks\\s", "[0-9]+\\s+(?i)months\\s", "[0-9]+\\s+(?i)day\\s", "[0-9]+\\s+(?i)week\\s", "[0-9]+\\s+(?i)month\\s", "[0-9]+\\s+(?i)d\\s", "[0-9]+\\s+(?i)w\\s", "[0-9]+\\s+(?i)m\\s", "[0-9]+\\s+(?i)mo\\s", "[0-9]+\\s+(?i)days$", "[0-9]+\\s+(?i)weeks$", "[0-9]+\\s+(?i)months$", "[0-9]+\\s+(?i)day$", "[0-9]+\\s+(?i)week$", "[0-9]+\\s+(?i)month$", "[0-9]+\\s+(?i)d$", "[0-9]+\\s+(?i)w$", "[0-9]+\\s+(?i)m$", "[0-9]+\\s+(?i)mo$",
-                "\\s[0-9]+(?i)days\\s", "\\s[0-9]+(?i)weeks\\s", "\\s[0-9]+(?i)months\\s", "\\s[0-9]+(?i)day\\s", "\\s[0-9]+(?i)week\\s", "\\s[0-9]+(?i)month\\s", "\\s[0-9]+(?i)d\\s", "\\s[0-9]+(?i)w\\s", "\\s[0-9]+(?i)m\\s", "\\s[0-9]+(?i)mo\\s", "\\s[0-9]+(?i)days$", "\\s[0-9]+(?i)weeks$", "\\s[0-9]+(?i)months$", "\\s[0-9]+(?i)day$", "\\s[0-9]+(?i)week$", "\\s[0-9]+(?i)month$", "\\s[0-9]+(?i)d$", "\\s[0-9]+(?i)w$", "\\s[0-9]+(?i)m$", "\\s[0-9]+(?i)mo$", "^[0-9]+(?i)days$", "^[0-9]+(?i)weeks$",
-                "^[0-9]+(?i)months$", "^[0-9]+(?i)day$", "^[0-9]+(?i)week$", "^[0-9]+(?i)month$", "^[0-9]+(?i)d$", "^[0-9]+(?i)w$", "^[0-9]+(?i)m$", "^[0-9]+(?i)mo$", "^[0-9]+\\s+(?i)days$", "^[0-9]+\\s+(?i)weeks$", "^[0-9]+\\s+(?i)months$", "^[0-9]+\\s+(?i)day$", "^[0-9]+\\s+(?i)week$", "^[0-9]+\\s+(?i)month$", "^[0-9]+\\s+(?i)d$", "^[0-9]+\\s+(?i)w$", "^[0-9]+\\s+(?i)m$", "^[0-9]+\\s+(?i)mo$"};
-        for (String s : durationUnits) {
-            Pattern p = Pattern.compile(s);
+        for (Pattern p : QUANTITY_DURATION_PATTERNS) {
             Matcher m = p.matcher(qStr);
             if (m.find()) {
                 String foundStr = (qStr.substring(m.start(), m.end())).trim();
@@ -314,15 +345,11 @@ public class RxUtil {
 
     public static String getDurationFromQuantityText(String qStr) {
         String retStr = "";
-        String[] durationUnits = {"[0-9]+\\s+(?i)days\\s", "[0-9]+\\s+(?i)weeks\\s", "[0-9]+\\s+(?i)months\\s", "[0-9]+\\s+(?i)day\\s", "[0-9]+\\s+(?i)week\\s", "[0-9]+\\s+(?i)month\\s", "[0-9]+\\s+(?i)d\\s", "[0-9]+\\s+(?i)w\\s", "[0-9]+\\s+(?i)m\\s", "[0-9]+\\s+(?i)mo\\s", "[0-9]+\\s+(?i)days$", "[0-9]+\\s+(?i)weeks$", "[0-9]+\\s+(?i)months$", "[0-9]+\\s+(?i)day$", "[0-9]+\\s+(?i)week$", "[0-9]+\\s+(?i)month$", "[0-9]+\\s+(?i)d$", "[0-9]+\\s+(?i)w$", "[0-9]+\\s+(?i)m$", "[0-9]+\\s+(?i)mo$",
-                "\\s[0-9]+(?i)days\\s", "\\s[0-9]+(?i)weeks\\s", "\\s[0-9]+(?i)months\\s", "\\s[0-9]+(?i)day\\s", "\\s[0-9]+(?i)week\\s", "\\s[0-9]+(?i)month\\s", "\\s[0-9]+(?i)d\\s", "\\s[0-9]+(?i)w\\s", "\\s[0-9]+(?i)m\\s", "\\s[0-9]+(?i)mo\\s", "\\s[0-9]+(?i)days$", "\\s[0-9]+(?i)weeks$", "\\s[0-9]+(?i)months$", "\\s[0-9]+(?i)day$", "\\s[0-9]+(?i)week$", "\\s[0-9]+(?i)month$", "\\s[0-9]+(?i)d$", "\\s[0-9]+(?i)w$", "\\s[0-9]+(?i)m$", "\\s[0-9]+(?i)mo$", };
-        for (String s : durationUnits) {
-            Pattern p = Pattern.compile(s);
+        for (Pattern p : QUANTITY_DURATION_PATTERNS) {
             Matcher m = p.matcher(qStr);
             if (m.find()) {
                 String foundStr = (qStr.substring(m.start(), m.end())).trim();
-                Pattern p2 = Pattern.compile("[0-9]+");
-                Matcher m2 = p2.matcher(foundStr);
+                Matcher m2 = WHOLE_NUMBER_PATTERN.matcher(foundStr);
                 if (m2.find()) {
                     String duration = (foundStr.substring(m2.start(), m2.end())).trim();
                     retStr = duration;
@@ -335,15 +362,11 @@ public class RxUtil {
 
     public static String getDurationUnitFromQuantityText(String qStr) {
         String retStr = "";
-        String[] durationUnits = {"[0-9]+\\s+(?i)days\\s", "[0-9]+\\s+(?i)weeks\\s", "[0-9]+\\s+(?i)months\\s", "[0-9]+\\s+(?i)day\\s", "[0-9]+\\s+(?i)week\\s", "[0-9]+\\s+(?i)month\\s", "[0-9]+\\s+(?i)d\\s", "[0-9]+\\s+(?i)w\\s", "[0-9]+\\s+(?i)m\\s", "[0-9]+\\s+(?i)mo\\s", "[0-9]+\\s+(?i)days$", "[0-9]+\\s+(?i)weeks$", "[0-9]+\\s+(?i)months$", "[0-9]+\\s+(?i)day$", "[0-9]+\\s+(?i)week$", "[0-9]+\\s+(?i)month$", "[0-9]+\\s+(?i)d$", "[0-9]+\\s+(?i)w$", "[0-9]+\\s+(?i)m$", "[0-9]+\\s+(?i)mo$",
-                "\\s[0-9]+(?i)days\\s", "\\s[0-9]+(?i)weeks\\s", "\\s[0-9]+(?i)months\\s", "\\s[0-9]+(?i)day\\s", "\\s[0-9]+(?i)week\\s", "\\s[0-9]+(?i)month\\s", "\\s[0-9]+(?i)d\\s", "\\s[0-9]+(?i)w\\s", "\\s[0-9]+(?i)m\\s", "\\s[0-9]+(?i)mo\\s", "\\s[0-9]+(?i)days$", "\\s[0-9]+(?i)weeks$", "\\s[0-9]+(?i)months$", "\\s[0-9]+(?i)day$", "\\s[0-9]+(?i)week$", "\\s[0-9]+(?i)month$", "\\s[0-9]+(?i)d$", "\\s[0-9]+(?i)w$", "\\s[0-9]+(?i)m$", "\\s[0-9]+(?i)mo$", };
-        for (String s : durationUnits) {
-            Pattern p = Pattern.compile(s);
+        for (Pattern p : QUANTITY_DURATION_PATTERNS) {
             Matcher m = p.matcher(qStr);
             if (m.find()) {
                 String foundStr = (qStr.substring(m.start(), m.end())).trim();
-                Pattern p2 = Pattern.compile("[0-9]+");
-                Matcher m2 = p2.matcher(foundStr);
+                Matcher m2 = WHOLE_NUMBER_PATTERN.matcher(foundStr);
                 if (m2.find()) {
                     String duration = (foundStr.substring(m2.start(), m2.end())).trim();
                     String durationUnit = foundStr.replace(duration, "").trim();
@@ -515,10 +538,8 @@ public class RxUtil {
         //do we have some policies/restrictions we want to run?
         List<String> policyViolations = RxInstructionPolicy.checkInstructions(instructions.trim());
 
-        String[] prns = {"\\s(?i)prn$", "^(?i)prn\\s+", "\\s+(?i)prn\\s+"};
-        for (String s : prns) {
-            Pattern prnP = Pattern.compile(s);
-            Matcher prnM = prnP.matcher(instructions);
+        for (Pattern prnPattern : PRN_PATTERNS) {
+            Matcher prnM = prnPattern.matcher(instructions);
             if (prnM.find()) {
                 prn = true;
             }
@@ -530,9 +551,6 @@ public class RxUtil {
                 "\\s(?i)4x day$", "\\s(?i)3x daily$", "\\s(?i)4x daily$", "\\s(?i)daily\\s", "\\s(?i)daily$", // put at last because if frequency is 'twice daily', it will first be detected as 'daily'
         };
         String[] methods = {"(?i)Take", "(?i)Apply", "(?i)Rub well in"};
-        String[] durationUnits = {"\\s+(?i)days\\s", "\\s+(?i)weeks\\s", "\\s+(?i)months\\s", "\\s+(?i)day\\s", "\\s+(?i)week\\s", "\\s+(?i)month\\s", "\\s+(?i)d\\s", "\\s+(?i)w\\s", "\\s+(?i)m\\s", "\\s+(?i)mo\\s", "\\s+(?i)days$", "\\s+(?i)weeks$", "\\s+(?i)months$", "\\s+(?i)day$", "\\s+(?i)week$", "\\s+(?i)month$", "\\s+(?i)d$", "\\s+(?i)w$", "\\s+(?i)m$", "\\s+(?i)mo$"};
-        String[] durUnits2 = {"\\s[0-9]+(?i)days\\s", "\\s[0-9]+(?i)weeks\\s", "\\s[0-9]+(?i)months\\s", "\\s[0-9]+(?i)day\\s", "\\s[0-9]+(?i)week\\s", "\\s[0-9]+(?i)month\\s", "\\s[0-9]+(?i)d\\s", "\\s[0-9]+(?i)w\\s", "\\s[0-9]+(?i)m\\s", "\\s[0-9]+(?i)mo\\s", "\\s[0-9]+(?i)days$", "\\s[0-9]+(?i)weeks$", "\\s[0-9]+(?i)months$", "\\s[0-9]+(?i)day$", "\\s[0-9]+(?i)week$", "\\s[0-9]+(?i)month$", "\\s[0-9]+(?i)d$", "\\s[0-9]+(?i)w$", "\\s[0-9]+(?i)m$", "\\s[0-9]+(?i)mo$", };
-
         for (String s : routes) {
             Pattern p = Pattern.compile(s);
             Matcher matcher = p.matcher(instructions);
@@ -582,17 +600,16 @@ public class RxUtil {
                 frequency = changeToStandardFrequencyCode(frequency);
                 String origFrequency = (instructions.substring(matcher.start(), matcher.end())).trim();
 
-                Pattern p2 = Pattern.compile("\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)\\s+" + Pattern.quote(origFrequency)); //allow to detect decimal number.
+                Pattern p2 = Pattern.compile("\\s*+" + DECIMAL_NUMBER_REGEX + "\\s++" + Pattern.quote(origFrequency)); //allow to detect decimal number.
                 Matcher m2 = p2.matcher(instructions);
 
-                Pattern p4 = Pattern.compile("\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)-\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)\\s+" + Pattern.quote(frequency)); //use * after the first \s because "1 OD", 1 doesn't have a space in front.
+                Pattern p4 = Pattern.compile("\\s*+" + DOSAGE_RANGE_REGEX + "\\s++" + Pattern.quote(frequency)); //use * after the first \s because "1 OD", 1 doesn't have a space in front.
                 Matcher m4 = p4.matcher(instructions);
                 //     p("here11", instructions);
                 //since "\\s+[0-9]+-[0-9]+\\s+" is a case in "\\s+[0-9]+\\s+", check the latter regex first.
                 if (m4.find()) {
                     String str2 = instructions.substring(m4.start(), m4.end());
-                    Pattern p5 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)-\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
-                    Matcher m5 = p5.matcher(str2);
+                    Matcher m5 = DOSAGE_RANGE_PATTERN.matcher(str2);
                     if (m5.find()) {
                         String str3 = str2.substring(m5.start(), m5.end());
                         //       p("here str3", str3);
@@ -601,8 +618,7 @@ public class RxUtil {
                     }
                 } else if (m2.find()) {
                     String str = instructions.substring(m2.start(), m2.end());
-                    Pattern p3 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
-                    Matcher m3 = p3.matcher(str);
+                    Matcher m3 = DOSAGE_NUMBER_PATTERN.matcher(str);
                     //     p("here22", str);
                     if (m3.find()) {
                         amountFrequency = str.substring(m3.start(), m3.end());
@@ -696,21 +712,20 @@ public class RxUtil {
         //calculate the number of pills to have per frequency which is used to calculate the duration later on.
         //from frequency code we can deduce a duration unit.
         //check if a durationunit is already specified, if not, use that, if yes, check if they are equal, if not output an warning and use specified.
-        for (String s : durationUnits) {
+        for (Pattern durationPattern : DURATION_UNIT_PATTERNS) {
             // p(instructions);
             // p(s);
             String instructionToCheck = checkInstructionStr(instructions);
-            Pattern p = Pattern.compile(s);
-            Matcher m = p.matcher(instructionToCheck);
+            Matcher m = durationPattern.matcher(instructionToCheck);
 
             if (m.find()) {
                 p("FOUND");
                 p("instructionToCheck==", instructionToCheck);
-                p(s);
+                p(durationPattern.pattern());
                 durationUnitSpec = (instructionToCheck.substring(m.start(), m.end())).trim();
                 p("durationUnitSpec", durationUnitSpec);
                 //get the number before durationUnit
-                Pattern p1 = Pattern.compile("[0-9]+" + s);
+                Pattern p1 = Pattern.compile("[0-9]++" + durationPattern.pattern());
                 Matcher m1 = p1.matcher(instructionToCheck);
                 if (m1.find()) {
                     p("" + m1.start(), "" + m.start());
@@ -725,20 +740,18 @@ public class RxUtil {
         //match the pattern when there is no space between number and durationUnit.
         if (durationUnitSpec.equals("")) {
             MiscUtils.getLogger().debug("no space between duration and duration unit.");
-            for (String s : durUnits2) {
+            for (Pattern durationPattern : NO_SPACE_DURATION_PATTERNS) {
                 String instructionToCheck = checkInstructionStr(instructions);
-                Pattern p = Pattern.compile(s);
-                Matcher m = p.matcher(instructionToCheck);
+                Matcher m = durationPattern.matcher(instructionToCheck);
 
                 if (m.find()) {
                     p("FOUND");
                     p("instructionToCheck=" + instructionToCheck);
-                    p(s);
+                    p(durationPattern.pattern());
                     String str1 = instructionToCheck.substring(m.start(), m.end());
                     MiscUtils.getLogger().debug("str1=" + str1);
                     //get numUnit out
-                    Pattern p1 = Pattern.compile("[0-9]+");
-                    Matcher m1 = p1.matcher(str1);
+                    Matcher m1 = WHOLE_NUMBER_PATTERN.matcher(str1);
                     if (m1.find()) {
                         duration = str1.substring(m1.start(), m1.end());
                         durationUnitSpec = (str1.substring(m1.end())).trim();
@@ -753,14 +766,9 @@ public class RxUtil {
         //if durationUnit is not specified, deduce it
         if (durationUnitSpec.equals("")) {
             //    p("here?? if");
-            String[] freq1 = {"\\s*(?i)OD\\s*", "\\s*(?i)BID\\s*", "\\s*(?i)TID\\s*", "\\s*(?i)QID\\s*", "\\s*(?i)Q1H\\s*", "\\s*(?i)Q2H\\s*", "\\s*(?i)Q1-2H\\s*", "\\s*(?i)Q3-4H\\s*", "\\s*(?i)Q4H\\s*", "\\s*(?i)Q4-6H\\s*", "\\s*(?i)Q6H\\s*", "\\s*(?i)Q8H\\s*", "\\s*(?i)Q12H\\s*", "\\s*(?i)QAM\\s*", "\\s*(?i)QPM\\s*", "\\s*(?i)QHS\\s*", "\\s*(?i)once daily\\s*", "\\s*(?i)twice daily\\s*", "\\s*(?i)3x day\\s*", "\\s*(?i)4x day\\s*", "\\s*(?i)3x daily\\s*", "\\s*(?i)4x daily\\s*", "\\s*(?i)daily\\s*"// put at last because if frequency is 'twice daily', it will first be detected as 'daily'
-            }; //QPM is once a day in the evening, qhs once a day at night.
-            String[] freq2 = {"\\s*(?i)Q1Week\\s*", "\\s*(?i)Q2Week\\s*"};
-            String[] freq3 = {"\\s*(?i)Q1Month\\s*", "\\s*(?i)Q3Month\\s*"};
             boolean found = false;
-            for (String f1 : freq1) {
-                Pattern p = Pattern.compile(f1);
-                Matcher m = p.matcher(frequency);
+            for (Pattern frequencyPattern : DAILY_FREQUENCY_PATTERNS) {
+                Matcher m = frequencyPattern.matcher(frequency);
                 // p(f1);
                 // p(frequency);
                 if (m.find()) {
@@ -771,9 +779,8 @@ public class RxUtil {
             }
 
             if (!found) {
-                for (String f2 : freq2) {
-                    Pattern p2 = Pattern.compile(f2);
-                    Matcher m2 = p2.matcher(frequency);
+                for (Pattern frequencyPattern : WEEKLY_FREQUENCY_PATTERNS) {
+                    Matcher m2 = frequencyPattern.matcher(frequency);
                     if (m2.find()) {
                         durationUnit = "W";
                         found = true;
@@ -782,9 +789,8 @@ public class RxUtil {
             }
 
             if (!found) {
-                for (String f3 : freq3) {
-                    Pattern p3 = Pattern.compile(f3);
-                    Matcher m3 = p3.matcher(frequency);
+                for (Pattern frequencyPattern : MONTHLY_FREQUENCY_PATTERNS) {
+                    Matcher m3 = frequencyPattern.matcher(frequency);
                     if (m3.find()) {
                         durationUnit = "M";
                         found = true;
@@ -904,8 +910,7 @@ public class RxUtil {
 
     public static boolean isStringToNumber(String s) {//see if string contains decimal or integer
         boolean retBool = false;
-        Pattern p1 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
-        Matcher m1 = p1.matcher(s);
+        Matcher m1 = DOSAGE_NUMBER_PATTERN.matcher(s);
         if (m1.find()) {
             String numStr = s.substring(m1.start(), m1.end());
             String restStr = s.replace(numStr, "").trim();
@@ -950,21 +955,20 @@ public class RxUtil {
 		String amountMethod = null;
 		String amountFrequency = null;
 
-		Pattern p2 = Pattern.compile(Pattern.quote(method) + "\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)\\s+");
+		Pattern p2 = Pattern.compile(Pattern.quote(method) + "\\s*+" + DECIMAL_NUMBER_REGEX + "\\s++");
 		Matcher m2 = p2.matcher(instructions);
 
 		Pattern pF1 = Pattern.compile(Pattern.quote(method) + "\\s*[0-9]+(?:\\/[0-9]+)?\\s+");
 		Matcher mF1 = pF1.matcher(instructions);
 
-		Pattern p4 = Pattern.compile(Pattern.quote(method) + "\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)-\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)\\s+");
+		Pattern p4 = Pattern.compile(Pattern.quote(method) + "\\s*+" + DOSAGE_RANGE_REGEX + "\\s++");
 		Matcher m4 = p4.matcher(instructions);
 
 		//since "\\s+[0-9]+-[0-9]+\\s+" is a case in "\\s+[0-9]+\\s+", check the latter regex first.
 		if (m4.find()) {
 			p("else if 1");
 			String str2 = instructions.substring(m4.start(), m4.end());
-			Pattern p5 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)-\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
-			Matcher m5 = p5.matcher(str2);
+			Matcher m5 = DOSAGE_RANGE_PATTERN.matcher(str2);
 			if (m5.find()) {
 				String str3 = str2.substring(m5.start(), m5.end());
 				//           p("str3", str3);
@@ -975,8 +979,7 @@ public class RxUtil {
 			p("if 1");
 			String str = instructions.substring(m2.start(), m2.end());
 			p("str1 ", str);
-			Pattern p3 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
-			Matcher m3 = p3.matcher(str);
+			Matcher m3 = DOSAGE_NUMBER_PATTERN.matcher(str);
 			if (m3.find()) {
 				p("found1");
 				amountMethod = str.substring(m3.start(), m3.end());

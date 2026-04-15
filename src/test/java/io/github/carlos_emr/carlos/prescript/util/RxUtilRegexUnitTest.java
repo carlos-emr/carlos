@@ -212,6 +212,58 @@ class RxUtilRegexUnitTest {
         }
     }
 
+    @Nested
+    @DisplayName("quantity duration parsing")
+    class QuantityDurationParsing {
+
+        @Test
+        @DisplayName("should detect mitte for valid duration inputs")
+        void shouldDetectMitte_forValidDurationInputs() {
+            assertThat(RxUtil.isMitte("30 days")).isTrue();
+            assertThat(RxUtil.isMitte("4 weeks")).isTrue();
+            assertThat(RxUtil.isMitte("3 months")).isTrue();
+            assertThat(RxUtil.isMitte("30 d")).isTrue();
+        }
+
+        @Test
+        @DisplayName("should extract duration from valid inputs")
+        void shouldExtractDuration_fromValidInputs() {
+            assertThat(RxUtil.getDurationFromQuantityText("30 days ")).isEqualTo("30");
+            assertThat(RxUtil.getDurationFromQuantityText("4 weeks ")).isEqualTo("4");
+        }
+
+        @Test
+        @DisplayName("should extract duration unit from valid inputs")
+        void shouldExtractDurationUnit_fromValidInputs() {
+            assertThat(RxUtil.getDurationUnitFromQuantityText("30 days ")).isEqualTo("D");
+            assertThat(RxUtil.getDurationUnitFromQuantityText("4 weeks ")).isEqualTo("W");
+        }
+
+        @Test
+        @DisplayName("should complete quickly when isMitte receives adversarial input")
+        void shouldCompleteQuickly_whenIsMitteReceivesAdversarialInput() {
+            String adversarial = "1" + " ".repeat(100) + "notaunit";
+            boolean result = assertTimeoutPreemptively(Duration.ofMillis(500), () -> RxUtil.isMitte(adversarial));
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        @DisplayName("should complete quickly when getDurationFromQuantityText receives adversarial input")
+        void shouldCompleteQuickly_whenGetDurationFromQuantityTextReceivesAdversarialInput() {
+            String adversarial = "9".repeat(100) + " ".repeat(100) + "x";
+            String result = assertTimeoutPreemptively(Duration.ofMillis(500), () -> RxUtil.getDurationFromQuantityText(adversarial));
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should complete quickly when getDurationUnitFromQuantityText receives adversarial input")
+        void shouldCompleteQuickly_whenGetDurationUnitFromQuantityTextReceivesAdversarialInput() {
+            String adversarial = "9".repeat(100) + " ".repeat(100) + "x";
+            String result = assertTimeoutPreemptively(Duration.ofMillis(500), () -> RxUtil.getDurationUnitFromQuantityText(adversarial));
+            assertThat(result).isEmpty();
+        }
+    }
+
     // -----------------------------------------------------------------------
     // applyStJoesPolicy — correctness
     // -----------------------------------------------------------------------
