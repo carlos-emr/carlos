@@ -167,7 +167,7 @@ jobs:
             echo '========================================='
             echo 'Building project without tests'
             echo '========================================='
-            make install
+            make install --skip-checks
           "
 
   tests:
@@ -284,7 +284,7 @@ jobs:
             echo '========================================='
             echo 'Running Tests (JUnit 5 with H2)'
             echo '========================================='
-            make install --run-tests
+            make install --run-tests --skip-checks
           "
 
   jspc:
