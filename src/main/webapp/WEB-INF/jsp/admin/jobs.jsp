@@ -207,10 +207,10 @@
                                 var job = arr[i];
                                 var extraClass = (job.cronExpression != undefined) ? "blue" : "red";
                                 var html = '<tr>';
-                                html += '<td><a onclick="scheduleJob(' + job.id + ');"><i class="fa-solid fa-calendar ' + extraClass + '"></i></a></td>';
-                                html += '<td><u><a href="javascript:void();" onclick="editJob(' + job.id + ');">' + job.name + '</a></u></td>';
-                                html += '<td><a onclick="cancelJob(' + job.id + ');">Cancel</a></td>';
-                                html += '<td>' + ((job.enabled == true) ? "Enabled (<a onclick='updateJobStatus(" + job.id + ",false)'>Disable</a>)" : "<span color='red'>Disabled</span> (<a onclick='updateJobStatus(" + job.id + ",true)'>Enable</a>)") + '</td>';
+                                html += '<td><a href="javascript:void(0);" onclick="scheduleJob(' + job.id + ');" aria-label="Schedule Job"><i class="fa-solid fa-calendar ' + extraClass + '" aria-hidden="true"></i></a></td>';
+                                html += '<td><u><a href="javascript:void(0);" onclick="editJob(' + job.id + ');">' + job.name + '</a></u></td>';
+                                html += '<td><a href="javascript:void(0);" onclick="cancelJob(' + job.id + ');">Cancel</a></td>';
+                                html += '<td>' + ((job.enabled == true) ? "Enabled (<a href=\"javascript:void(0);\" onclick='updateJobStatus(" + job.id + ",false)'>Disable</a>)" : "<span color='red'>Disabled</span> (<a href=\"javascript:void(0);\" onclick='updateJobStatus(" + job.id + ",true)'>Enable</a>)") + '</td>';
                                 html += '<td>N/A</td>';
                                 html += '<td>' + ((job.nextPlannedExecutionDate == null) ? 'N/A' : new Date(job.nextPlannedExecutionDate)) + '</td>';
                                 html += '</tr>';
