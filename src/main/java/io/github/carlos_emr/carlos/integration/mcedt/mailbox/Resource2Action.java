@@ -30,8 +30,6 @@ package io.github.carlos_emr.carlos.integration.mcedt.mailbox;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Date;
-
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -70,36 +68,6 @@ public class Resource2Action extends ActionSupport {
             return loadSentList();
         } else if ("changeDisplay".equals(method)) {
             return changeDisplay();
-        }
-        //functions needed for the upload page
-        ActionUtils.removeSuccessfulUploads(request);
-        ActionUtils.removeUploadResponseResults(request);
-        ActionUtils.removeSubmitResponseResults(request);
-        Date startDate = ActionUtils.getOutboxTimestamp();
-        Date endDate = new Date();
-        if (startDate != null && endDate != null) {
-            ActionUtils.moveOhipToOutBox(startDate, endDate);
-            
-            /*
-             * The method ActionUtils.moveObecToOutBox is slow with many files in 'OscarDocument/oscar/document/'.
-             * To optimize, we will move OBEC files during generation rather than during MCEDT mailbox opening.
-             * See ObecData.writeFile() for details on the updated process.
-             */
-            // ActionUtils.moveObecToOutBox(startDate,endDate);
-
-            ActionUtils.setOutboxTimestamp(endDate);
-        }
-        ActionUtils.setUploadResourceId(request, new BigInteger("-1"));
-
-
-        if (request.getSession().getAttribute("resourceList") != null) {
-            request.getSession().removeAttribute("resourceList");
-        }
-        if (request.getSession().getAttribute("resourceID") != null) {
-            request.getSession().removeAttribute("resourceID");
-        }
-        if (request.getSession().getAttribute("info") != null) {
-            request.getSession().removeAttribute("info");
         }
         return SUCCESS;
     }

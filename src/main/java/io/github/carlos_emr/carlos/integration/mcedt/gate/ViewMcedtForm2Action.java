@@ -31,8 +31,8 @@ import io.github.carlos_emr.carlos.integration.mcedt.McedtSecurity;
 /**
  * Read-only view gate for MCEDT form JSPs that previously rendered by direct
  * JSP URL (e.g. {@code updateUpload.jsp}, {@code mailbox/addUpload.jsp}) but
- * now live under {@code /WEB-INF/jsp/}. Enforces the shared {@code _admin r}
- * privilege check before the container forwards to the JSP result.
+ * now live under {@code /WEB-INF/jsp/}. Enforces the shared MCEDT privilege
+ * check before the container forwards to the JSP result.
  *
  * @since 2026-03-20
  */

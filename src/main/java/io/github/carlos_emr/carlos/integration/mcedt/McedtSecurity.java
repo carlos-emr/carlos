@@ -31,32 +31,33 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * Shared privilege + HTTP-method guards for MCEDT actions.
  *
  * MCEDT endpoints access the Ontario MOH EDT service (file upload, download,
- * update, resubmit) and change passwords on behalf of the clinic. All entry
- * points require the {@code _admin} privilege and all state-changing methods
- * must be POST to prevent CSRF-style GET triggering of MOH transactions.
+ * update, resubmit) and change passwords on behalf of the clinic. Preserve the
+ * legacy {@code _admin.billing} write gate across all MCEDT entry points, and
+ * require POST for state-changing methods to prevent CSRF-style triggering of
+ * MOH transactions.
  *
  * @since 2026-03-20
  */
 public final class McedtSecurity {
 
-    /** MCEDT is a clinic-wide integration: gated behind the generic admin privilege. */
-    public static final String PRIVILEGE = "_admin";
+    /** Preserve the historical billing-admin write gate used by MCEDT actions. */
+    public static final String PRIVILEGE = "_admin.billing";
 
     private McedtSecurity() {
     }
 
     /**
-     * Assert the session holds {@code _admin} read.
+     * Assert the session holds legacy MCEDT access.
      *
      * @param request HttpServletRequest the servlet request
      * @throws SecurityException if the privilege is missing
      */
     public static void requireRead(HttpServletRequest request) {
-        assertPrivilege(request, "r");
+        assertPrivilege(request, "w");
     }
 
     /**
-     * Assert the session holds {@code _admin} write.
+     * Assert the session holds legacy MCEDT mutation access.
      *
      * @param request HttpServletRequest the servlet request
      * @throws SecurityException if the privilege is missing
