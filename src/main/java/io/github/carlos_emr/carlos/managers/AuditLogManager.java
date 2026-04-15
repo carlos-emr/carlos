@@ -117,9 +117,8 @@ public class AuditLogManager {
 
         vars.add("-t");
 
-        StringBuilder resultFile = new StringBuilder();
-        resultFile.append("--result-file=").append(filename);
-        vars.add(resultFile.toString());
+        vars.add("--result-file");
+        vars.add(filename);
 
         vars.add(dbName);
         vars.add("log");
@@ -130,7 +129,7 @@ public class AuditLogManager {
         try {
             String s = null;
 
-            ProcessBuilder pb = new ProcessBuilder(vars);
+            ProcessBuilder pb = new ProcessBuilder(vars.toArray(new String[0]));
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
             }
