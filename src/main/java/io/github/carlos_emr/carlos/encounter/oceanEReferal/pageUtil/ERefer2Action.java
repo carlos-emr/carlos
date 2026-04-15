@@ -87,8 +87,8 @@ public class ERefer2Action extends ActionSupport {
      * @return String always returns {@link ActionSupport#SUCCESS} regardless of routing or execution outcome
      */
     public String execute() {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_con", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", "w", null)) {
             throw new SecurityException("missing required sec object (_con)");
         }
 

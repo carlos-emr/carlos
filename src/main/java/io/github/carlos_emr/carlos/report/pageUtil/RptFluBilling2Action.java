@@ -53,8 +53,8 @@ public class RptFluBilling2Action extends ActionSupport {
 
     public String execute()
             throws ServletException, IOException {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_report", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
             throw new SecurityException("missing required sec object (_report)");
         }
 

@@ -90,12 +90,10 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
 
     @Override
     public String execute() {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_lab", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
             throw new SecurityException("missing required sec object (_lab)");
         }
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         String signature = request.getParameter("signature");
         String key = request.getParameter("key");

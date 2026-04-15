@@ -56,8 +56,8 @@ public class RemoveClinicalReportFromHistory2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     public String execute() {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_report", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
             throw new SecurityException("missing required sec object (_report)");
         }
 

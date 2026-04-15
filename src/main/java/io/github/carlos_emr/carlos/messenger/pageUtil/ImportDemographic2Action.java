@@ -81,8 +81,8 @@ public class ImportDemographic2Action extends ActionSupport {
      * @return SUCCESS constant indicating successful execution and forward to DisplayMessages.jsp
      */
     public String execute() {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_msg", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
             throw new SecurityException("missing required sec object (_msg)");
         }
 

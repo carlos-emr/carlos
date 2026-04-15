@@ -109,8 +109,10 @@ String curProvider_no = (String)session.getAttribute("user");
 		            
 		            <oscar:oscarPropertiesCheck property="billregion" value="BC">
 
+					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing" rights="w" reverse="<%=false%>">
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/billing/CA/ON/ManageBillingform.do"><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
+					</security:oscarSec>
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/billing/CA/BC/billingAddCode.do"><fmt:message key="admin.admin.ManagePrivFrm"/></a></li>
 					<oscar:oscarPropertiesCheck property="BC_BILLING_CODE_MANAGEMENT"
@@ -175,8 +177,10 @@ String curProvider_no = (String)session.getAttribute("user");
 						class="xlink" rel="${ctx}/admin/GstReport.do"><fmt:message key="admin.admin.gstReport"/></a></li>
 					<li><a href='#'
 						class="xlink" rel="${ctx}/billing/CA/ON/ManageBillingLocation.do"><fmt:message key="admin.admin.btnAddBillingLocation"/></a></li>
+					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing" rights="w" reverse="<%=false%>">
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/billing/CA/ON/ManageBillingform.do"><fmt:message key="admin.admin.btnManageBillingForm"/></a></li>
+					</security:oscarSec>
 
 					<li><a href="${ctx}/billing/CA/ON/ViewBillingOHIPsimulation.do?html=" class="contentLink"><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></a></li>
 

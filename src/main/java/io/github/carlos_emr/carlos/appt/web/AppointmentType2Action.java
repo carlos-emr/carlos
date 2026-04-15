@@ -55,8 +55,8 @@ public class AppointmentType2Action extends ActionSupport {
 
     @Override
     public String execute() throws IOException, ServletException {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_appointment", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {
             throw new SecurityException("missing required sec object (_appointment)");
         }
 

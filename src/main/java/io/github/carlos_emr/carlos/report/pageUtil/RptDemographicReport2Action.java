@@ -66,12 +66,10 @@ public class RptDemographicReport2Action extends ActionSupport implements ModelD
     }
 
     public String execute() throws IOException, ServletException {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_report", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
             throw new SecurityException("missing required sec object (_report)");
         }
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         String query = form.getQuery();
         String[] select = form.getSelect();

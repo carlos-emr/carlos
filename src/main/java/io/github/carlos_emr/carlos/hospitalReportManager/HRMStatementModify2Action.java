@@ -35,12 +35,11 @@ public class HRMStatementModify2Action extends ActionSupport {
     HRMProviderConfidentialityStatementDao hrmProviderConfidentialityStatementDao = (HRMProviderConfidentialityStatementDao) SpringUtils.getBean(HRMProviderConfidentialityStatementDao.class);
 
     public String execute() {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_hrm", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "w", null)) {
             throw new SecurityException("missing required sec object (_hrm)");
         }
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         String statement = request.getParameter("statement");
 

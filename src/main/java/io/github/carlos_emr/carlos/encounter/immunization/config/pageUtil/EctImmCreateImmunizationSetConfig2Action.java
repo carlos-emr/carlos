@@ -67,8 +67,8 @@ public class EctImmCreateImmunizationSetConfig2Action extends ActionSupport {
 
     public String execute()
             throws ServletException, IOException {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_prevention", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", "w", null)) {
             throw new SecurityException("missing required sec object (_prevention)");
         }
 

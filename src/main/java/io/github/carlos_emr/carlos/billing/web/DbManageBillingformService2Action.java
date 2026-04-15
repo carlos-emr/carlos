@@ -49,7 +49,7 @@ import java.util.Objects;
  * {@link CtlBillingService} rows for the given service type, then iterates over the
  * three groups ({@code Group1}–{@code Group3}) and up to 20 service entries per group,
  * persisting a new row for each non-empty {@code group{j}_service{i}} parameter.
- * Redirects to {@code manageBillingform.jsp} on success.
+ * Redirects to {@code ManageBillingform.do} on success.
  *
  * @since 2026-04-05
  */

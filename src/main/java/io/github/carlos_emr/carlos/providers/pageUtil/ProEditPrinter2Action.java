@@ -46,13 +46,12 @@ public class ProEditPrinter2Action extends ActionSupport {
     private UserPropertyDAO propertyDao = SpringUtils.getBean(UserPropertyDAO.class);
 
     public String execute() throws Exception {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_pref", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
             throw new SecurityException("missing required sec object (_pref)");
         }
 
         String forward;
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         createOrUpdateProperty(providerNo, UserProperty.DEFAULT_PRINTER_APPOINTMENT_RECEIPT, defaultPrinterNameAppointmentReceipt);

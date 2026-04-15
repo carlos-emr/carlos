@@ -47,7 +47,7 @@ import java.util.Objects;
  * <p>Replaces {@code billing/dbManageBillingform_dx.jsp}. Deletes all existing
  * {@link CtlDiagCode} rows for the given service type, then iterates over the 45
  * {@code diagcode0}–{@code diagcode44} request parameters and persists a new entry
- * for each non-empty value. Redirects to {@code manageBillingform.jsp} on success.
+ * for each non-empty value. Redirects to {@code ManageBillingform.do} on success.
  *
  * @since 2026-04-05
  */

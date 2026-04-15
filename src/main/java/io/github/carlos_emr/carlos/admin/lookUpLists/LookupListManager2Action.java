@@ -58,8 +58,8 @@ public class LookupListManager2Action extends ActionSupport {
     }
 
     public String execute() {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_admin", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }
 

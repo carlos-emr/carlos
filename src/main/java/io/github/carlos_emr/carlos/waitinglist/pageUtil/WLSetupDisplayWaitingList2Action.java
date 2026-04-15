@@ -67,16 +67,14 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
 
     public String execute()
             throws Exception {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_demographic", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
 
 
         log.debug("WLSetupDisplayWaitingList2Action/execute(): just entering.");
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         String update = request.getParameter("update");
         String remove = request.getParameter("remove"); //actually not used for now, may in future?

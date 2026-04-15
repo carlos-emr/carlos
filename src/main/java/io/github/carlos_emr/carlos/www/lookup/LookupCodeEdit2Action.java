@@ -57,8 +57,8 @@ public class LookupCodeEdit2Action extends ActionSupport {
     private LookupManager lookupManager = SpringUtils.getBean(LookupManager.class);
 
     public String execute() throws Exception {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_admin", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }
 

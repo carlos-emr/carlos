@@ -105,8 +105,8 @@ public class EmailCompose2Action extends ActionSupport {
      * @see #prepareComposeEFormMailer()
      */
     public String execute() {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_email", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", "w", null)) {
             throw new SecurityException("missing required sec object (_email)");
         }
 

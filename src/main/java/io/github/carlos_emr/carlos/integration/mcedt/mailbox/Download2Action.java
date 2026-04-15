@@ -82,8 +82,8 @@ public class Download2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_admin.billing", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 

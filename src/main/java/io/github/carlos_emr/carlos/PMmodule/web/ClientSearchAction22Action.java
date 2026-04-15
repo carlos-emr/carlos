@@ -68,8 +68,8 @@ public class ClientSearchAction22Action extends ActionSupport {
     private CaseManagementNoteDAO caseManagementNoteDao = SpringUtils.getBean(CaseManagementNoteDAO.class);
 
     public String execute() {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_pmm_management", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "r", null)) {
             throw new SecurityException("missing required sec object (_pmm_management)");
         }
 

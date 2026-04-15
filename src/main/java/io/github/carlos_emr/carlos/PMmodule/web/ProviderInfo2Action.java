@@ -56,8 +56,8 @@ public class ProviderInfo2Action extends ActionSupport {
     private ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 
     public String execute() {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_pmm_management", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "r", null)) {
             throw new SecurityException("missing required sec object (_pmm_management)");
         }
 

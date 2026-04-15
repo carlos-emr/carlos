@@ -77,8 +77,8 @@ public class SplitDocument2Action extends ActionSupport {
     private static final Set<PosixFilePermission> OWNER_RW_ONLY = PosixFilePermissions.fromString("rw-------");
 
     public String execute() throws Exception {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_edoc", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 

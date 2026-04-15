@@ -65,8 +65,8 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
     private static Logger logger = MiscUtils.getLogger();
 
     public String execute() {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_dxresearch", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dxresearch", "r", null)) {
             throw new SecurityException("missing required sec object (_dxresearch)");
         }
 

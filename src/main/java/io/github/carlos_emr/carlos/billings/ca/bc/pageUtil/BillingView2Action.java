@@ -74,8 +74,8 @@ public final class BillingView2Action
 
     public String execute() throws IOException,
             ServletException {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_billing", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
 

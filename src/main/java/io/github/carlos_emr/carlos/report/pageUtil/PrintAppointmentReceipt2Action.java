@@ -75,8 +75,8 @@ public class PrintAppointmentReceipt2Action extends ActionSupport {
     }
 
     public String execute() {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_report", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
             throw new SecurityException("missing required sec object (_report)");
         }
 
@@ -87,7 +87,6 @@ public class PrintAppointmentReceipt2Action extends ActionSupport {
         }
 
         System.setProperty("jasper.reports.compile.class.path", classpath);
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String curUser_no = loggedInInfo.getLoggedInProviderNo();
         OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
         DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);

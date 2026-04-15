@@ -53,7 +53,7 @@ import java.util.Objects;
  * group) and a seed {@link CtlDiagCode} entry. Unlike the Ontario-specific variant, this
  * root version performs no duplicate-ID check and does not persist a
  * {@code CtlBillingType} record. On validation failure the browser is redirected back
- * to {@code manageBillingform.jsp} with error details in the query string.
+ * to {@code ManageBillingform.do} with error details in the query string.
  *
  * @since 2026-04-05
  */
@@ -132,7 +132,7 @@ public class DbManageBillingformAdd2Action extends ActionSupport {
     }
 
     /**
-     * Redirects back to {@code manageBillingform.jsp} with the error message and current
+     * Redirects back to {@code ManageBillingform.do} with the error message and current
      * field values encoded as query parameters so the UI can repopulate the form.
      *
      * @param errMessage human-readable validation error

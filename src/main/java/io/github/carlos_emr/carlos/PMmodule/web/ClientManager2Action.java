@@ -124,8 +124,8 @@ public class ClientManager2Action extends ActionSupport {
     }
 
     public String execute() {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_pmm_management", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "w", null)) {
             throw new SecurityException("missing required sec object (_pmm_management)");
         }
 

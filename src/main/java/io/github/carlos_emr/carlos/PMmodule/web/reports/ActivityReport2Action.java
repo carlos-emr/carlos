@@ -67,8 +67,8 @@ public class ActivityReport2Action extends ActionSupport {
     private ClientManager clientManager = SpringUtils.getBean(ClientManager.class);
 
     public String execute() {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_pmm_management", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "r", null)) {
             throw new SecurityException("missing required sec object (_pmm_management)");
         }
 

@@ -88,8 +88,8 @@ public class DocumentPreview2Action extends ActionSupport {
      * @return String result name for Struts2 result mapping, or null for direct response rendering
      */
     public String execute() {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_edoc", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 

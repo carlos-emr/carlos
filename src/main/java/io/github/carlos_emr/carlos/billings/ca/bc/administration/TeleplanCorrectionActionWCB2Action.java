@@ -87,8 +87,8 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
 
     public String execute()
             throws IOException, ServletException {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_admin.billing", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 

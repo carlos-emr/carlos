@@ -106,8 +106,8 @@ public final class MsgClearMessage2Action extends ActionSupport {
      */
     public String execute()
             throws IOException, ServletException {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_msg", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
             throw new SecurityException("missing required sec object (_msg)");
         }
 

@@ -90,8 +90,8 @@ public class ProEditColour2Action extends ActionSupport {
      */
     public String execute()
             throws Exception {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_pref", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
             throw new SecurityException("missing required sec object (_pref)");
         }
 

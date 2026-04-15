@@ -74,8 +74,8 @@ public class PrinterList2Action extends ActionSupport {
      * @throws IOException if PDF generation or response writing fails
      */
     public String execute() throws IOException {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_admin", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }
 

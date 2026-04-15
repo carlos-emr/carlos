@@ -81,8 +81,8 @@ public class ForwardingRules2Action extends ActionSupport {
 
     public String execute()
             throws ServletException, IOException {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_lab", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
             throw new SecurityException("missing required sec object (_lab)");
         }
 

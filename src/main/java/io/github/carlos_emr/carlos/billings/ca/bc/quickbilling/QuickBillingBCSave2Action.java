@@ -74,8 +74,8 @@ public class QuickBillingBCSave2Action extends ActionSupport {
         }
 
 
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_billing", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
 

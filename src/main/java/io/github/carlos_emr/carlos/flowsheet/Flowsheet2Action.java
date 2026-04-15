@@ -104,8 +104,8 @@ public class Flowsheet2Action extends ActionSupport {
     private SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 
     public String execute() throws Exception {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_demographic", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 

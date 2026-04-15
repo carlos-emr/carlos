@@ -62,8 +62,8 @@ public class ProfessionalSpecialist2Action extends ActionSupport {
      * @return String always returns null as this action writes directly to the response stream
      */
     public String execute() {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_admin", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }
 

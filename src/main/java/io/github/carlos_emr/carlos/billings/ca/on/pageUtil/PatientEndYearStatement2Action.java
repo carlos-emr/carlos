@@ -76,16 +76,14 @@ public class PatientEndYearStatement2Action extends ActionSupport {
 
 
     public String execute() {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_billing", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
 
         List<PatientEndYearStatementInvoiceBean> result = null;
         PatientEndYearStatementBean summary = new PatientEndYearStatementBean("", "", 0, "", "", "", new Date(), new Date(), "", "");
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
         if (request.getParameter("search") != null || request.getParameter("pdf") != null) {
 
             request.setAttribute("fromDateParam", this.getFromDateParam());
