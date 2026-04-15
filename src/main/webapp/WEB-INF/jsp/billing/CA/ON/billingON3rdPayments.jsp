@@ -78,10 +78,10 @@
     String datetime = new SimpleDateFormat("yyyy-MM-dd").format(Calendar.getInstance().getTime());
 
     boolean bMultisites = IsPropertiesOn.isMultisitesEnable();
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
     String providerNo = (String) session.getAttribute("user");
 
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 
     boolean isTeamBillingOnly = false;

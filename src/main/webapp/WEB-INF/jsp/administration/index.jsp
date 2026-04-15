@@ -79,7 +79,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
 <%
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
 
     UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
 

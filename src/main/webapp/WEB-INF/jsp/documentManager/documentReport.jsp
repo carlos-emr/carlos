@@ -39,7 +39,7 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     if (session.getAttribute("user") == null) response.sendRedirect("${ pageContext.request.contextPath }/logout.htm");
     if (session.getAttribute("userrole") == null)
-        response.sendRedirect("${ pageContext.request.contextPath }/logout.jsp");
+        response.sendRedirect("${ pageContext.request.contextPath }/login/viewLogout.do");
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     String user_no = (String) session.getAttribute("user");
     String demographicNo = (String) session.getAttribute("casemgmt_DemoNo");

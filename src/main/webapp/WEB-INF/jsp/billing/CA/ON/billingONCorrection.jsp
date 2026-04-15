@@ -81,10 +81,10 @@
 
 
     if (userProvider == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
 
     if (session.getAttribute("userrole") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
 
     String roleName$ = (String) session.getAttribute("userrole") + "," + userProviderNo;
 

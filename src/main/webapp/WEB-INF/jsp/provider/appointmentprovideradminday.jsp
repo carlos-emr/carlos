@@ -79,7 +79,7 @@
     LoggedInInfo loggedInInfo1 = LoggedInInfo.getLoggedInInfoFromSession(request);
 
     if (session.getAttribute("userrole") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
         return;
     }
 
@@ -97,7 +97,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment" rights="r" reverse="<%=true%>">
     <%
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
     %>
 </security:oscarSec>
 
@@ -1147,7 +1147,7 @@
                     </li>
                 </ul>
                 <div>
-                    <a id="logoutButton" title="<fmt:message key="global.btnLogout"/>" href="<%= request.getContextPath() %>/logout.jsp">
+                    <a id="logoutButton" title="<fmt:message key="global.btnLogout"/>" href="<%= request.getContextPath() %>/login/viewLogout.do">
                         <span class="fa-solid fa-power-off"></span>
                     </a>
                 </div>
@@ -2481,7 +2481,7 @@
             if (evt.ctrlKey) {
                 switch (evt.keyCode || evt.charCode) {
                     case <fmt:message key="global.btnLogoutShortcut"/> :
-                        window.open('<%= request.getContextPath() %>/logout.jsp', '_self');
+                        window.open('<%= request.getContextPath() %>/login/viewLogout.do', '_self');
                         return false;  // 'Q'uit/log out
                     default :
                         return;

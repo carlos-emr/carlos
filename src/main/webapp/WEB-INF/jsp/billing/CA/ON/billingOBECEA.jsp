@@ -28,7 +28,7 @@
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
 
     String user_no;
     user_no = (String) session.getAttribute("user");

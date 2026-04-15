@@ -33,7 +33,7 @@
     //Make sure user has logged in first and username is in the session
 
     if (session.getAttribute("userName") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
     }
     String errormsg = "";
     if (request.getParameter("errormsg") != null) {

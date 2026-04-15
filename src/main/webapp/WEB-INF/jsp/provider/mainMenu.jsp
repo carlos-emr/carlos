@@ -359,7 +359,7 @@
             </ul>
         </td>
         <td>
-            <a id="logoutButton" title="<fmt:message key="global.btnLogout"/>" href="<%= request.getContextPath() %>/logout.jsp">
+            <a id="logoutButton" title="<fmt:message key="global.btnLogout"/>" href="<%= request.getContextPath() %>/login/viewLogout.do">
                 <span class="fa-solid fa-power-off"></span>
             </a>
         </td>

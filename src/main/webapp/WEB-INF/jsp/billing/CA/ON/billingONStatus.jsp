@@ -54,7 +54,7 @@
     --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean isTeamBillingOnly = false;
     boolean isSiteAccessPrivacy = false;

@@ -217,7 +217,7 @@
     <div class="logoutBox">
         <%
             if (roleName$.equals("admin" + "," + curProvider_no)) {
-        %><a href="${pageContext.request.contextPath}/logout.jsp">
+        %><a href="${pageContext.request.contextPath}/login/viewLogout.do">
         <fmt:message key="global.btnLogout"/>
         </a>&nbsp;<%
         }
@@ -855,7 +855,7 @@
         <%
             if (roleName$.equals("admin" + "," + curProvider_no)) {
         %><a
-            href="${pageContext.request.contextPath}/logout.jsp">
+            href="${pageContext.request.contextPath}/login/viewLogout.do">
         <fmt:message key="global.btnLogout"/>
     </a>&nbsp;<%
         }

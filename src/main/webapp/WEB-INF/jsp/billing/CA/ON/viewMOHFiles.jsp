@@ -24,14 +24,14 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean bodd = false;
     EDTFolder folder = EDTFolder.getFolder(request.getParameter("folder"));
     String folderPath = folder.getPath();
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.backup,_admin.billing" rights="r" reverse="<%=true%>">
-    <% response.sendRedirect(request.getContextPath() + "/logout.jsp"); %>
+    <% response.sendRedirect(request.getContextPath() + "/login/viewLogout.do"); %>
 </security:oscarSec>
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
 <html>

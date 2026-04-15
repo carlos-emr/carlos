@@ -25,7 +25,7 @@
 --%>
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
     }
 %>
 <%@ page errorPage="/errorpage.jsp"

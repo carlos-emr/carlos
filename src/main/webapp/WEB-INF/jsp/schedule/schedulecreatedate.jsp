@@ -83,7 +83,7 @@
     String provider_name = StringUtils.noNull(request.getParameter("provider_name"));
     String provider_no = request.getParameter("provider_no");
     if (provider_no == null || provider_no.isEmpty()) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
         return;
     }
 

@@ -226,9 +226,25 @@ class LoginFilterUnitTest {
         @Test
         @DisplayName("should return false for completely unrelated URL")
         void shouldReturnFalse_forCompletelyUnrelatedUrl() {
-            String[] exemptUrls = {"/login.do", "/logout.jsp"};
+            String[] exemptUrls = {"/login.do", "/login/viewLogout.do"};
             assertThat(filter.inListOfExemptions(
                     CONTEXT_PATH + "/provider/dashboard.do", CONTEXT_PATH, exemptUrls)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should not match removed logout JSP path")
+        void shouldNotMatchRemovedLogoutJspPath() {
+            String[] exemptUrls = {"/login.do", "/login/viewLogout.do"};
+            assertThat(filter.inListOfExemptions(
+                    CONTEXT_PATH + "/logout.jsp", CONTEXT_PATH, exemptUrls)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should match new logout view action path")
+        void shouldMatchNewLogoutViewActionPath() {
+            String[] exemptUrls = {"/login.do", "/login/viewLogout.do"};
+            assertThat(filter.inListOfExemptions(
+                    CONTEXT_PATH + "/login/viewLogout.do", CONTEXT_PATH, exemptUrls)).isTrue();
         }
     }
 

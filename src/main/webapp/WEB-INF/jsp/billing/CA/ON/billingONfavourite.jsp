@@ -25,7 +25,7 @@
 <!DOCTYPE html>
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect("${pageContext.request.contextPath}/logout.jsp");
+        response.sendRedirect("${pageContext.request.contextPath}/login/viewLogout.do");
     }
     String user_no = (String) session.getAttribute("user");
 

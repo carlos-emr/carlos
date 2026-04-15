@@ -86,7 +86,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *     &lt;filter-class&gt;io.github.carlos_emr.carlos.app.LogoutBroadcastFilter&lt;/filter-class&gt;
  *     &lt;init-param&gt;
  *         &lt;param-name&gt;exclusions&lt;/param-name&gt;
- *         &lt;param-value&gt;/logout.jsp,/status/SessionHeartbeat.do&lt;/param-value&gt;
+ *         &lt;param-value&gt;/login/viewLogout.do,/status/SessionHeartbeat.do&lt;/param-value&gt;
  *     &lt;/init-param&gt;
  * &lt;/filter&gt;
  * </pre>

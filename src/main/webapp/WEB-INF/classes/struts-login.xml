@@ -28,12 +28,15 @@
 <struts>
     <package name="login" namespace="/" extends="struts-default">
 
+        <action name="login/viewLogout" class="io.github.carlos_emr.carlos.login.ViewLogout2Action">
+            <result name="success">/WEB-INF/jsp/login/logout.jsp</result>
+        </action>
         <action name="logout" class="io.github.carlos_emr.carlos.login.Logout2Action">
             <result name="success">/index.jsp</result>
         </action>
         <action name="login" class="io.github.carlos_emr.carlos.login.Login2Action">
             <result name="provider" type="redirect">/provider/providercontrol.do</result>
-            <result name="failure">/logout.jsp</result>
+            <result name="failure" type="redirect">/login/viewLogout.do</result>
             <result name="error">/loginfailed.jsp</result>
             <result name="caisiPMM">/PMmodule/ProviderInfo.do</result>
             <result name="forcepasswordreset">/forcepasswordreset.jsp</result>

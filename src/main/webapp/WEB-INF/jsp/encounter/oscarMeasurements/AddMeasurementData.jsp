@@ -51,7 +51,7 @@
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
     String demographic_no = request.getParameter("demographic_no");
     String id = request.getParameter("id");
     String measurement = request.getParameter("measurement");

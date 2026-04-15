@@ -89,7 +89,7 @@
         <%
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
             if (loggedInInfo == null) {
-                response.sendRedirect(request.getContextPath() + "/logout.jsp");
+                response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
                 return;
             }
 

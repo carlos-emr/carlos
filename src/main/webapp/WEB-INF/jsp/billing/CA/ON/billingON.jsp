@@ -88,7 +88,7 @@
              scope="session"/>
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect("${ pageContext.request.contextPath }/logout.jsp");
+        response.sendRedirect("${ pageContext.request.contextPath }/login/viewLogout.do");
     }
     CarlosProperties oscarVariables = CarlosProperties.getInstance();
 

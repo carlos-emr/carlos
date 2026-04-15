@@ -27,7 +27,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.DateRange" %>
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
 %>
 
 <%@ page import="java.util.*" errorPage="/errorpage.jsp" %>

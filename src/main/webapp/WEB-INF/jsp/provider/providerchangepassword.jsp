@@ -35,7 +35,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
 
     String errormsg = "";
     if (request.getParameter("errormsg") != null) {

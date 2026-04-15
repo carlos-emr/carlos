@@ -54,7 +54,7 @@
     @SuppressWarnings("unchecked")
     java.util.List<NoteDisplay> noteList = (java.util.List<NoteDisplay>) request.getAttribute("Notes");
 
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 

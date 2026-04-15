@@ -44,11 +44,12 @@
 
 --%>
 <%@ page session="false" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
 <html><head>
-<meta http-equiv="refresh" content="1;url=logout.do">
+<meta http-equiv="refresh" content="1;url=${e:forHtmlAttribute(pageContext.request.contextPath)}/logout.do">
 <style>
 body{margin:0;display:flex;align-items:center;justify-content:center;
 height:100vh;font-family:sans-serif;font-size:1.5em;color:#333;background:#fff;}
@@ -57,10 +58,11 @@ height:100vh;font-family:sans-serif;font-size:1.5em;color:#333;background:#fff;}
 <span><fmt:message key="logoutBroadcast.loggedOut"/></span>
 <script>
 (function(){
+    var logoutUrl = '${e:forJavaScript(pageContext.request.contextPath)}/logout.do';
     try { var bc = new BroadcastChannel('carlos_logout'); bc.postMessage('logout'); bc.close(); } catch(e) {}
     try { localStorage.setItem('carlos_logout_signal', '' + Date.now()); } catch(e) {}
     try { localStorage.removeItem('carlos_logout_signal'); } catch(e) {}
-    setTimeout(function(){ window.location.href = 'logout.do'; }, 500);
+    setTimeout(function(){ window.location.href = logoutUrl; }, 500);
 })();
 </script>
 </body></html>

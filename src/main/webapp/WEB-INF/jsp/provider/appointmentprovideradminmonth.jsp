@@ -1052,7 +1052,7 @@
             if (evt.ctrlKey) {
                 switch (evt.keyCode || evt.charCode) {
                     case <fmt:message key="global.btnLogoutShortcut"/> :
-                        window.open('<%= request.getContextPath() %>/logout.jsp', '_self');
+                        window.open('<%= request.getContextPath() %>/login/viewLogout.do', '_self');
                         return false;  // 'Q'uit/log out
                     default :
                         return;

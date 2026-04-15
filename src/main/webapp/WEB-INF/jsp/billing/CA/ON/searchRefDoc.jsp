@@ -37,7 +37,7 @@
 %>
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
     }
     String strLimit1 = "0";
     String strLimit2 = "10";

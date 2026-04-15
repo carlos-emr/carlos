@@ -34,7 +34,7 @@
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObject" %>
 <%
 
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 
     ArrayList templates = (new ReportManager()).getReportTemplatesNoParam();
@@ -45,7 +45,7 @@
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_report" rights="r" reverse="<%=true%>">
     <%
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
     %>
 </security:oscarSec>
 

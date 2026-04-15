@@ -53,7 +53,7 @@
 <%
     if (session.getAttribute("userrole") == null) {
         MiscUtils.getLogger().error("userrole is null? logging user out");
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
         return;
     }
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -73,7 +73,7 @@
     <%
         if (true) {
             MiscUtils.getLogger().error("wrong role? logging user out");
-            response.sendRedirect(request.getContextPath() + "/logout.jsp");
+            response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
             return;
         }
     %>
@@ -82,7 +82,7 @@
 <%
     if (session.getAttribute("user") == null) {
         MiscUtils.getLogger().error("missing session user? logging user out");
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
         return;
     }
 

@@ -30,7 +30,7 @@
 
         <global-results>
             <result name="securityError">/securityError.jsp</result>
-            <result name="logout" type="redirect">/logout.jsp</result>
+            <result name="logout" type="redirect">/login/viewLogout.do</result>
             <result name="error">/errorpage.jsp</result>
         </global-results>
 

@@ -30,7 +30,7 @@
 --%>
 <!DOCTYPE html>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
 %>
 <%@page import="java.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>

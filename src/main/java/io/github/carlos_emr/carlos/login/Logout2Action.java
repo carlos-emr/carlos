@@ -76,7 +76,7 @@ import org.apache.struts2.ServletActionContext;
  * <p>Struts configuration (struts.xml):
  * <pre>
  * &lt;action name="logout" class="io.github.carlos_emr.carlos.login.Logout2Action"&gt;
- *     &lt;result name="success"&gt;/logout.jsp&lt;/result&gt;
+ *     &lt;result name="success"&gt;/index.jsp&lt;/result&gt;
  * &lt;/action&gt;
  * </pre>
  *
@@ -106,7 +106,7 @@ public class Logout2Action extends ActionSupport {
      * but are kept separate to allow for future differentiation (e.g., different
      * redirect targets or additional cleanup steps).
      *
-     * @return String Struts2 result name (always SUCCESS, redirects to logout.jsp)
+     * @return String Struts2 result name (always SUCCESS, redirects to index.jsp)
      */
     public String execute() {
         String method = request.getParameter("method");
@@ -176,7 +176,7 @@ public class Logout2Action extends ActionSupport {
      *   <li>Provides PHI-compliant audit trail for security and compliance</li>
      * </ul>
      *
-     * @return String Struts2 result name (always SUCCESS, redirects to logout.jsp)
+     * @return String Struts2 result name (always SUCCESS, redirects to index.jsp)
      * @see HttpSession#invalidate() for session cleanup
      * @see Cookie#setMaxAge(int) for cookie expiration
      * @see LogAction#addLog for audit logging

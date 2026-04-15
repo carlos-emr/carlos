@@ -31,7 +31,7 @@
 
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/login/viewLogout.do");
     String curUser_no = (String) session.getAttribute("user");
   MessageDigest md = MessageDigest.getInstance("SHA");
 %>

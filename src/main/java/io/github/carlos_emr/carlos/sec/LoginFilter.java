@@ -133,7 +133,7 @@ public class LoginFilter implements Filter {
      * <p>Requests to these URLs bypass session validation and are allowed
      * without an authenticated session. This includes:
      * <ul>
-     *   <li>Login/logout pages (index.jsp, logout.jsp, login.do)</li>
+     *   <li>Login/logout pages (index.jsp, login/viewLogout.do, login.do)</li>
      *   <li>Public static resources (images, CSS, JavaScript, fonts)</li>
      *   <li>Lab upload endpoints (for external lab system integration)</li>
      *   <li>PDF generation servlets (for external document generation)</li>
@@ -153,7 +153,7 @@ public class LoginFilter implements Filter {
             "/lab/CMLlabUpload.do",
             "/lab/newLabUpload.do",
             "/login.do",
-            "/logout.jsp",
+            "/login/viewLogout.do",
             "/index.jsp",
             "/forcepasswordreset.jsp",
             "/loginfailed.jsp",
@@ -196,7 +196,7 @@ public class LoginFilter implements Filter {
             "/images/Oscar.ico",
             "/images/Logo.png",
             "/login.do",
-            "/logout.jsp",
+            "/login/viewLogout.do",
             "/index.jsp",
             "/loginfailed.jsp",
             "/index.html",
@@ -226,11 +226,11 @@ public class LoginFilter implements Filter {
      * URLs exempt from inactivity timeout redirect.
      *
      * <p>If inactivity timeout is exceeded, users are normally redirected to
-     * logout.jsp. However, if the user is already on one of these pages,
+     * login/viewLogout.do. However, if the user is already on one of these pages,
      * the redirect is skipped to avoid infinite redirect loops.
      */
     private static final String[] EXEMPT_URLS_FOR_REQUEST_TIMEOUT_REDIRECT = {
-            "/logout.jsp",
+            "/login/viewLogout.do",
             "/index.jsp",
             "/loginfailed.jsp",
             "/index.html"
@@ -333,7 +333,7 @@ public class LoginFilter implements Filter {
             // SECURITY: Root directory auto-exemption was removed to prevent
             // accidental exposure of resources. All exemptions must be explicit.
             if (!inListOfExemptions(requestURI, contextPath, EXEMPT_URLS)) {
-                httpResponse.sendRedirect(contextPath + "/logout.jsp");
+                httpResponse.sendRedirect(contextPath + "/login/viewLogout.do");
                 return;
             }
         }
@@ -354,7 +354,7 @@ public class LoginFilter implements Filter {
                     logger.debug("lastRequestDate.getTime() " + lastRequestDate.getTime() + " thisRequestDate.getTime() " + thisRequestDate.getTime() + " -- " + timeSinceLastRequest);
                     // Redirect to logout if inactivity limit exceeded (unless already on logout/login page)
                     if (timeSinceLastRequest > timeBeforeExpire && !inListOfExemptions(requestURI, contextPath, EXEMPT_URLS_FOR_REQUEST_TIMEOUT_REDIRECT)) {
-                        httpResponse.sendRedirect(contextPath + "/logout.jsp");
+                        httpResponse.sendRedirect(contextPath + "/login/viewLogout.do");
                         return;
                     }
                 }

@@ -51,9 +51,9 @@ CARLOS has three independent session timeout mechanisms:
 - Location: `src/main/java/io/github/carlos_emr/carlos/app/LogoutBroadcastFilter.java`
 - Servlet filter registered in `web.xml` after `PrivacyStatementAppendingFilter`
 - Injects ~1KB inline JavaScript into all authenticated HTML responses
-- Exclusions configured via init-param (excludes `/logout.jsp` to prevent self-listening)
+- Exclusions configured via init-param (excludes `/login/viewLogout.do` to prevent self-listening)
 
-#### `logout.jsp`
+#### `/login/viewLogout.do` → `WEB-INF/jsp/login/logout.jsp`
 - Modified to broadcast logout signal before redirecting to `logout.do`
 - Uses `session="false"` to prevent orphan session creation
 - Includes `<meta http-equiv="refresh">` as no-JavaScript fallback
@@ -88,14 +88,14 @@ The script sets `window.__carlosLogoutActive = true` at the start. If the script
 ## Scenarios
 
 ### Manual Logout
-1. User clicks logout -> browser loads `/logout.jsp`
-2. `logout.jsp` broadcasts `'logout'` via BroadcastChannel + localStorage
+1. User clicks logout -> browser loads `/login/viewLogout.do`
+2. The logout broadcast page broadcasts `'logout'` via BroadcastChannel + localStorage
 3. All other windows receive signal -> popups close, tabs redirect to login
-4. `logout.jsp` redirects to `logout.do` -> session invalidated -> login page shown
+4. The logout broadcast page redirects to `logout.do` -> session invalidated -> login page shown
 
 ### Inactivity Timeout (Server-Detected)
 1. User idle for configured period. Next real request from any window hits LoginFilter.
-2. LoginFilter detects `last_request_time` exceeded -> redirects that window to `/logout.jsp`
+2. LoginFilter detects `last_request_time` exceeded -> redirects that window to `/login/viewLogout.do`
 3. Same as manual logout from step 2 onward
 
 ### Inactivity Timeout (Heartbeat-Detected)
