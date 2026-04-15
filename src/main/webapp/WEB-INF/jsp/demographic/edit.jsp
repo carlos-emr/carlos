@@ -147,20 +147,20 @@
     String demoPath = rootContextPath + "/demographic/";
     String printEnvelope, printLbl, printAddressLbl, printChartLbl, printSexHealthLbl, printHtmlLbl, printLabLbl;
     if (oscarProps != null && "true".equals(oscarProps.getProperty("new_label_print"))) {
-        printEnvelope = demoPath + "printEnvelope.jsp?demos=";
-        printLbl = demoPath + "printDemoLabel.jsp?demographic_no=";
-        printAddressLbl = demoPath + "printAddressLabel.jsp?demographic_no=";
-        printChartLbl = demoPath + "printDemoChartLabel.jsp?demographic_no=";
-        printSexHealthLbl = demoPath + "printDemoChartLabel.jsp?labelName=SexualHealthClinicLabel&demographic_no=";
-        printHtmlLbl = demoPath + "demographiclabelprintsetting.jsp?demographic_no=";
-        printLabLbl = demoPath + "printClientLabLabel.jsp?demographic_no=";
+        printEnvelope = demoPath + "ViewPrintEnvelope.do?demos=";
+        printLbl = demoPath + "ViewPrintDemoLabel.do?demographic_no=";
+        printAddressLbl = demoPath + "ViewPrintAddressLabel.do?demographic_no=";
+        printChartLbl = demoPath + "ViewPrintDemoChartLabel.do?demographic_no=";
+        printSexHealthLbl = demoPath + "ViewPrintDemoChartLabel.do?labelName=SexualHealthClinicLabel&demographic_no=";
+        printHtmlLbl = demoPath + "ViewDemographicLabelPrintSetting.do?demographic_no=";
+        printLabLbl = demoPath + "ViewPrintClientLabLabel.do?demographic_no=";
     } else {
         printEnvelope = rootContextPath + "/report/GenerateEnvelopes.do?demos=";
         printLbl = demoPath + "printDemoLabelAction.do?demographic_no=";
         printAddressLbl = demoPath + "printDemoAddressLabelAction.do?demographic_no=";
         printChartLbl = demoPath + "printDemoChartLabelAction.do?demographic_no=";
         printSexHealthLbl = demoPath + "printDemoChartLabelAction.do?labelName=SexualHealthClinicLabel&demographic_no=";
-        printHtmlLbl = demoPath + "demographiclabelprintsetting.jsp?demographic_no=";
+        printHtmlLbl = demoPath + "ViewDemographicLabelPrintSetting.do?demographic_no=";
         printLabLbl = demoPath + "printClientLabLabelAction.do?demographic_no=";
     }
 
@@ -290,7 +290,7 @@
                 type="text/javascript"></script>
 
         <script type="text/javascript"
-                src="<%=request.getContextPath() %>/demographic/demographiceditdemographic.js.jsp"></script>
+                src="<%=request.getContextPath() %>/demographic/ViewDemographicEditDemographicJs.do"></script>
 
         <!-- Pre-computed i18n strings, safely encoded for JavaScript embedding -->
         <script>
@@ -761,7 +761,7 @@
                 if (patientSet == "-") return;
                 var form = document.createElement('form');
                 form.method = 'post';
-                form.action = 'addDemoToPatientSet.jsp';
+                form.action = '<%= request.getContextPath() %>/demographic/ViewAddDemoToPatientSet.do';
                 form.target = 'addpsetwin';
                 var fields = {demoNo: demoNo, patientSet: patientSet};
                 for (var key in fields) {
@@ -1048,13 +1048,13 @@
                                         if ("ON".equals(prov)) {
                                     %>
                                     <a href="javascript: function myFunction() {return false; }"
-                                       onClick="popupPage(500,800,'<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/billing/CA/ON/billingONHistory.jsp?demographic_no=" + Encode.forUriComponent(String.valueOf(demographic.getDemographicNo()))) %>')">
+                                       onClick="popupPage(500,800,'<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/billing/CA/ON/ViewBillingONHistory.do?demographic_no=" + Encode.forUriComponent(String.valueOf(demographic.getDemographicNo()))) %>')">
                                         <fmt:message key="demographic.demographiceditdemographic.msgBillHistory"/></a>
                                     <%
                                     } else {
                                     %>
                                     <a href="#"
-                                       onclick="popupPage(800,1000,'<%= request.getContextPath() %>/billing/CA/BC/billStatus.jsp?lastName=<%=URLEncoder.encode(demographic.getLastName(), StandardCharsets.UTF_8)%>&firstName=<%=URLEncoder.encode(demographic.getFirstName(), StandardCharsets.UTF_8)%>&filterPatient=true&demographicNo=<%=demographic.getDemographicNo()%>');return false;">
+                                       onclick="popupPage(800,1000,'<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/billing/CA/BC/reprocessBill.do?lastName=" + Encode.forUriComponent(StringUtils.defaultString(demographic.getLastName())) + "&firstName=" + Encode.forUriComponent(StringUtils.defaultString(demographic.getFirstName())) + "&filterPatient=true&demographicNo=" + Encode.forUriComponent(String.valueOf(demographic.getDemographicNo()))) %>');return false;">
                                         <fmt:message key="demographic.demographiceditdemographic.msgInvoiceList"/></a>
 
 
@@ -1089,13 +1089,13 @@
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(700,960,'<%= request.getContextPath() %>/encounter/oscarConsultationRequest/DisplayDemographicConsultationRequests.jsp?de=<%=demographic.getDemographicNo()%>&proNo=<%=demographic.getProviderNo()%>')"><fmt:message key="demographic.demographiceditdemographic.btnConsultation"/></a></td>
+                                    onClick="popupPage(700,960,'<%= request.getContextPath() %>/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests.do?de=<%=demographic.getDemographicNo()%>&proNo=<%=demographic.getProviderNo()%>')"><fmt:message key="demographic.demographiceditdemographic.btnConsultation"/></a></td>
                         </tr>
 
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupOscarRx(700,1027,'<%= request.getContextPath() %>/oscarRx/choosePatient.do?providerNo=<%= Encode.forJavaScriptAttribute(curProvider_no) %>&demographicNo=<%= Encode.forJavaScriptAttribute(demographic_no) %>')"><fmt:message key="global.prescriptions"/></a>
+                                    onClick="popupOscarRx(700,1027,'<%= request.getContextPath() %>/rx/choosePatient.do?providerNo=<%= Encode.forJavaScriptAttribute(curProvider_no) %>&demographicNo=<%= Encode.forJavaScriptAttribute(demographic_no) %>')"><fmt:message key="global.prescriptions"/></a>
                             </td>
                         </tr>
 
@@ -1113,7 +1113,7 @@
                                 <td><a
                                         href="javascript: function myFunction() {return false; }"
                                         onClick="popupPage(700,960,'<c:out
-                                                value="${ctx}"/>/oscarPrevention/index.jsp?demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>');return false;">
+                                                value="${ctx}"/>/prevention/ViewPreventionIndex.do?demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>');return false;">
                                     <fmt:message key="encounter.LeftNavBar.Prevent"/></a></td>
                             </tr>
                         </security:oscarSec>
@@ -1121,7 +1121,7 @@
                             <td>
                                 <a
                                         href="javascript: function myFunction() {return false; }"
-                                        onClick="popupPage(700,1000,'<%= request.getContextPath() %>/tickler/ticklerMain.jsp?demoview=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>');return false;">
+                                        onClick="popupPage(700,1000,'<%= request.getContextPath() %>/tickler/ViewTicklerMain.do?demoview=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>');return false;">
                                     <fmt:message key="global.tickler"/></a>
                             </td>
                         </tr>
@@ -1159,7 +1159,7 @@
                             <tr>
                                 <td>
                                     <a href="javascript: function myFunction() {return false; }"
-                                       onClick="popupPage(710,970,'<%= request.getContextPath() %>/documentManager/documentReport.jsp?function=demographic&doctype=lab&functionid=<%=demographic.getDemographicNo()%>&curUser=<%=curProvider_no%>')"><fmt:message key="demographic.demographiceditdemographic.msgDocuments"/></a></td>
+                                       onClick="popupPage(710,970,'<%= request.getContextPath() %>/documentManager/ViewDocumentReport.do?function=demographic&doctype=lab&functionid=<%=demographic.getDemographicNo()%>&curUser=<%=curProvider_no%>')"><fmt:message key="demographic.demographiceditdemographic.msgDocuments"/></a></td>
                             </tr>
                             <%
                                 UserProperty upDocumentBrowserLink = pref.getProp(curProvider_no, UserProperty.EDOC_BROWSER_IN_MASTER_FILE);
@@ -1167,7 +1167,7 @@
                             <tr>
                                 <td>
                                     <a href="javascript: function myFunction() {return false; }"
-                                       onClick="popupPage(710,970,'<%= request.getContextPath() %>/documentManager/documentBrowser.jsp?function=demographic&doctype=lab&functionid=<%=demographic.getDemographicNo()%>&categorykey=Private Documents')"><fmt:message key="demographic.demographiceditdemographic.msgDocumentBrowser"/></a></td>
+                                       onClick="popupPage(710,970,'<%= request.getContextPath() %>/documentManager/ViewDocumentBrowser.do?function=demographic&doctype=lab&functionid=<%=demographic.getDemographicNo()%>&categorykey=Private Documents')"><fmt:message key="demographic.demographiceditdemographic.msgDocumentBrowser"/></a></td>
                             </tr>
                             <%}%>
                         </special:SpecialPlugin>
@@ -1208,7 +1208,7 @@
                         </tr>
                         <tr id="searchTable">
                             <td>
-                                <jsp:include page="/demographic/zdemographicfulltitlesearch.jsp"/>
+                                <jsp:include page="/demographic/ViewZdemographicFullTitleSearch.do"/>
                             </td>
                         </tr>
                         <tr>
@@ -1275,14 +1275,14 @@
                                                                                rights="r" reverse="<%=false%>">
                                                                 <input type="button"
                                                                        value="<fmt:message key="demographic.demographiceditdemographic.msgExport"/>"
-                                                                       onclick="window.open('<%= request.getContextPath() %>/demographic/demographicExport.jsp?demographicNo=<%=demographic.getDemographicNo()%>');">
+                                                                       onclick="window.open('<%= request.getContextPath() %>/demographic/DemographicExport.do?demographicNo=<%=demographic.getDemographicNo()%>');">
                                                             </security:oscarSec>
                                                         </td>
                                                         <td width="30%" align='center' valign="top">
                                                             <span id="swipeButton" style="display: inline;">
                                     <input type="button" name="Button"
                                            value="<fmt:message key="demographic.demographiceditdemographic.btnSwipeCard"/>"
-                                           onclick="window.open('demographic/zdemographicswipe.jsp','', 'scrollbars=yes,resizable=yes,width=600,height=300, top=360, left=0')">
+                                           onclick="window.open('<%= request.getContextPath() %>/demographic/ViewZdemographicSwipe.do','', 'scrollbars=yes,resizable=yes,width=600,height=300, top=360, left=0')">
                                 </span>
                                                             <!--input type="button" name="Button" value="<fmt:message key="demographic.demographiceditdemographic.btnSwipeCard"/>" onclick="javascript:window.alert('Health Card Number Already Inuse');"-->
                                                         </td>

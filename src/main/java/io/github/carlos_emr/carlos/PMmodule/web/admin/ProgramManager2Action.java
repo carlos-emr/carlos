@@ -119,6 +119,8 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @since 2005-10-01
  */
 public class ProgramManager2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -142,7 +144,6 @@ public class ProgramManager2Action extends ActionSupport {
     //private static CriteriaSelectionOptionDao criteriaSelectionOptionDAO = (CriteriaSelectionOptionDao) SpringUtils.getBean(CriteriaSelectionOptionDao.class);
 
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private IMatchManager matchManager = new MatchManager();
 
@@ -321,8 +322,8 @@ public class ProgramManager2Action extends ActionSupport {
                         || "inactiveTmplStatus".equals(method)
                         || "saveVacancyStatus".equals(method);
         String privilege = mutatingMethod ? "w" : "r";
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", privilege, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", privilege, null)) {
+            throw new SecurityException("missing required sec object (_pmm_management)");
         }
 
         if ("edit".equals(method)) {

@@ -29,17 +29,20 @@
     <package name="form" namespace="/" extends="struts-default">
 
         <action name="web/dashboard/display/DashboardDisplay" class="io.github.carlos_emr.carlos.dashboard.display.DisplayDashboard2Action">
-            <result name="success">/web/dashboard/display/DashboardDisplay.jsp</result>
+            <result name="success">/WEB-INF/jsp/web/dashboard/display/DashboardDisplay.jsp</result>
             <result name="unauthorized">/securityError.jsp</result>
             <result name="error">/failure.jsp</result>
         </action>
+        <action name="web/dashboard/display/sharedOutcomesDashboard" class="io.github.carlos_emr.carlos.dashboard.display.gate.ViewSharedOutcomesDashboard2Action">
+            <result name="success">/WEB-INF/jsp/web/dashboard/display/sharedOutcomesDashboard.jsp</result>
+        </action>
         <action name="web/dashboard/display/DrilldownDisplay" class="io.github.carlos_emr.carlos.dashboard.display.DisplayDrilldown2Action">
-            <result name="success">/web/dashboard/display/DrilldownDisplay.jsp</result>
+            <result name="success">/WEB-INF/jsp/web/dashboard/display/DrilldownDisplay.jsp</result>
             <result name="unauthorized">/securityError.jsp</result>
             <result name="error">/failure.jsp</result>
         </action>
         <action name="web/dashboard/display/AssignTickler" class="io.github.carlos_emr.carlos.dashboard.admin.AssignTickler2Action">
-            <result name="success">/web/dashboard/display/AssignTickler.jsp</result>
+            <result name="success">/WEB-INF/jsp/web/dashboard/display/AssignTickler.jsp</result>
             <result name="unauthorized">/securityError.jsp</result>
             <result name="error">/failure.jsp</result>
         </action>
@@ -48,7 +51,7 @@
             <result name="error">/failure.jsp</result>
         </action>
         <action name="web/dashboard/display/DisplayIndicator" class="io.github.carlos_emr.carlos.dashboard.display.DisplayIndicator2Action">
-            <result name="success">/web/dashboard/display/IndicatorPanel.jsp</result>
+            <result name="success">/WEB-INF/jsp/web/dashboard/display/IndicatorPanel.jsp</result>
             <result name="unauthorized">/securityError.jsp</result>
             <result name="error">/failure.jsp</result>
         </action>
@@ -60,9 +63,9 @@
             <result name="saved">/formBPMH.do?method=fetch</result>
             <result name="success">/form/pharmaForms/formBPMH.jsp</result>
         </action>
-        <action name="formeCARES" class="io.github.carlos_emr.carlos.form.ecares.EcaresForm2Action">
+        <action name="formeCARES" class="io.github.carlos_emr.carlos.form.eCARES.EcaresForm2Action">
             <result name="success">/form/eCARES/formeCARES.jsp</result>
-            <result name="tickler">/tickler/ticklerAddWidget.jsp</result>
+            <result name="tickler">/WEB-INF/jsp/tickler/ticklerAddWidget.jsp</result>
         </action>
         <action name="form/setupSelect" class="io.github.carlos_emr.carlos.form.pageUtil.FrmSetupSelect2Action">
             <result name="continue">/form/formselect.jsp</result>
@@ -74,7 +77,7 @@
             <result name="success">/form/formXmlUpload.jsp</result>
         </action>
         <action name="form/formname" class="io.github.carlos_emr.carlos.form.Frm2Action">
-            <result name="exit">/encounter/close.jsp</result>
+            <result name="exit">/WEB-INF/jsp/encounter/close.jsp</result>
             <result name="printAll">/form/createpdf</result>
             <result name="printAllJasperReport">/form/formPdfJasperReport.do</result>
             <result name="printLabReq">/form/formlabreqprint.jsp</result>
@@ -99,7 +102,7 @@
             <result name="pg4">/form/formBCAR2020pg4.jsp</result>
             <result name="pg5">/form/formBCAR2020pg5.jsp</result>
             <result name="pg6">/form/formBCAR2020Attachments.jsp</result>
-            <result name="exit">/encounter/close.jsp</result>
+            <result name="exit">/WEB-INF/jsp/encounter/close.jsp</result>
         </action>
         <action name="admin/Flowsheet" class="io.github.carlos_emr.carlos.flowsheet.Flowsheet2Action"/>
 

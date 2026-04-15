@@ -77,7 +77,7 @@
 
 <br/>
 
-<%@ include file="/caisicore/messages.jsp" %>
+<%@ include file="/WEB-INF/jsp/caisicore/messages.jsp" %>
 
 <br/>
 <table width="100%" border="0" cellpadding="0" cellspacing="1"
@@ -146,7 +146,7 @@
 <table>
     <tr>
         <td><input type="button" value="Back"
-                   onclick="location.href='<%=request.getContextPath()%>/admin/admin.jsp'"/></td>
+                   onclick="location.href='<%=request.getContextPath()%>/admin/ViewAdmin.do'"/></td>
         <td><input type="button" value="Assign default issues"
                    onclick="location.href='<%=request.getContextPath()%>/DefaultEncounterIssue.do?method=edit'"/></td>
         <%

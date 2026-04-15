@@ -145,7 +145,7 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
 
         assertThat(result).isEqualTo("editClients");
         assertThat(getMockRequest().getAttribute("admissions")).isNotNull();
-        verifySecurityCheck("_admin", "r");
+        verifySecurityCheck("_pmm_management", "r");
     }
 
     @Test

@@ -672,12 +672,12 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
             String url = null;
             if (lab.isMDS())
-                url = "oscarMDS/SegmentDisplay.jsp?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
+                url = "oscarMDS/ViewSegmentDisplay.do?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
             else if (lab.isCML())
-                url = "lab/CA/ON/CMLDisplay.jsp?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
+                url = "lab/CA/ON/ViewCMLDisplay.do?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
             else if (lab.isHL7TEXT())
-                url = "lab/CA/ALL/labDisplay.jsp?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
-            else url = "lab/CA/BC/labDisplay.jsp?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
+                url = "lab/CA/ALL/ViewLabDisplay.do?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
+            else url = "lab/CA/BC/ViewLabDisplay.do?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
 
             attachments.add(new ConsultationAttachmentTo1(ConversionUtils.fromIntString(lab.getLabPatientId()), ConsultationAttachmentTo1.TYPE_LAB, attached, displayName, url));
         }

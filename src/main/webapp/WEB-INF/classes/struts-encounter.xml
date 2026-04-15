@@ -40,8 +40,8 @@
 
         <action name="encounter/IncomingEncounter" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctIncomingEncounter2Action">
             <result name="failure">/errorpage.jsp</result>
-            <result name="success2">/encounter/Index2.jsp</result>
-            <result name="domain-error">/casemgmt/domain-error.jsp</result>
+            <result name="success2">/WEB-INF/jsp/encounter/Index2.jsp</result>
+            <result name="domain-error">/WEB-INF/jsp/casemgmt/domain-error.jsp</result>
         </action>
         <action name="encounter/displayLabs" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayLabAction22Action">
             <result name="labs">/encounter/displayLabs.do</result>
@@ -58,8 +58,8 @@
             <result name="unresolvedIssues">/encounter/displayIssues.do</result>
             <result name="resolvedIssues">/encounter/displayIssues.do</result>
             <result name="Rx">/encounter/displayRx.do</result>
-            <result name="success">/encounter/LeftNavBarDisplay.jsp</result>
-            <result name="error">/encounter/LeftNavBarError.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
             <result name="HRM">/encounter/displayHRM.do</result>
             <result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
@@ -78,8 +78,8 @@
             <result name="unresolvedIssues">/encounter/displayIssues.do</result>
             <result name="resolvedIssues">/encounter/displayIssues.do</result>
             <result name="Rx">/encounter/displayRx.do</result>
-            <result name="success">/encounter/LeftNavBarDisplay.jsp</result>
-            <result name="error">/encounter/LeftNavBarError.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
             <result name="HRM">/encounter/displayHRM.do</result>
             <result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
@@ -98,8 +98,8 @@
             <result name="unresolvedIssues">/encounter/displayIssues.do</result>
             <result name="resolvedIssues">/encounter/displayIssues.do</result>
             <result name="Rx">/encounter/displayRx.do</result>
-            <result name="success">/encounter/LeftNavBarDisplay.jsp</result>
-            <result name="error">/encounter/LeftNavBarError.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
             <result name="HRM">/encounter/displayHRM.do</result>
             <result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
@@ -118,8 +118,8 @@
             <result name="unresolvedIssues">/encounter/displayIssues.do</result>
             <result name="resolvedIssues">/encounter/displayIssues.do</result>
             <result name="Rx">/encounter/displayRx.do</result>
-            <result name="success">/encounter/LeftNavBarDisplay.jsp</result>
-            <result name="error">/encounter/LeftNavBarError.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
             <result name="HRM">/encounter/displayHRM.do</result>
             <result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
@@ -139,8 +139,8 @@
             <result name="unresolvedIssues">/encounter/displayIssues.do</result>
             <result name="resolvedIssues">/encounter/displayIssues.do</result>
             <result name="Rx">/encounter/displayRx.do</result>
-            <result name="success">/encounter/LeftNavBarDisplay.jsp</result>
-            <result name="error">/encounter/LeftNavBarError.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
             <result name="HRM">/encounter/displayHRM.do</result>
             <result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
@@ -160,8 +160,8 @@
             <result name="unresolvedIssues">/encounter/displayIssues.do</result>
             <result name="resolvedIssues">/encounter/displayIssues.do</result>
             <result name="Rx">/encounter/displayRx.do</result>
-            <result name="success">/encounter/LeftNavBarDisplay.jsp</result>
-            <result name="error">/encounter/LeftNavBarError.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
             <result name="HRM">/encounter/displayHRM.do</result>
             <result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
@@ -180,8 +180,8 @@
             <result name="unresolvedIssues">/encounter/displayIssues.do</result>
             <result name="resolvedIssues">/encounter/displayIssues.do</result>
             <result name="Rx">/encounter/displayRx.do</result>
-            <result name="success">/encounter/LeftNavBarDisplay.jsp</result>
-            <result name="error">/encounter/LeftNavBarError.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
             <result name="HRM">/encounter/displayHRM.do</result>
             <result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
@@ -200,8 +200,8 @@
             <result name="unresolvedIssues">/encounter/displayIssues.do</result>
             <result name="resolvedIssues">/encounter/displayIssues.do</result>
             <result name="Rx">/encounter/displayRx.do</result>
-            <result name="success">/encounter/LeftNavBarDisplay.jsp</result>
-            <result name="error">/encounter/LeftNavBarError.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
             <result name="HRM">/encounter/displayHRM.do</result>
             <result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
@@ -220,8 +220,8 @@
             <result name="unresolvedIssues">/encounter/displayIssues.do</result>
             <result name="resolvedIssues">/encounter/displayIssues.do</result>
             <result name="Rx">/encounter/displayRx.do</result>
-            <result name="success">/encounter/LeftNavBarDisplay.jsp</result>
-            <result name="error">/encounter/LeftNavBarError.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
             <result name="HRM">/encounter/displayHRM.do</result>
             <result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
@@ -241,8 +241,8 @@
             <result name="unresolvedIssues">/encounter/displayIssues.do</result>
             <result name="resolvedIssues">/encounter/displayIssues.do</result>
             <result name="Rx">/encounter/displayRx.do</result>
-            <result name="success">/encounter/LeftNavBarDisplay.jsp</result>
-            <result name="error">/encounter/LeftNavBarError.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
             <result name="HRM">/encounter/displayHRM.do</result>
             <result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
@@ -261,8 +261,8 @@
             <result name="unresolvedIssues">/encounter/displayIssues.do</result>
             <result name="resolvedIssues">/encounter/displayIssues.do</result>
             <result name="Rx">/encounter/displayRx.do</result>
-            <result name="success">/encounter/LeftNavBarDisplay.jsp</result>
-            <result name="error">/encounter/LeftNavBarError.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
             <result name="HRM">/encounter/displayHRM.do</result>
             <result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
@@ -282,8 +282,8 @@
             <result name="unresolvedIssues">/encounter/displayIssues.do</result>
             <result name="resolvedIssues">/encounter/displayIssues.do</result>
             <result name="Rx">/encounter/displayRx.do</result>
-            <result name="success">/encounter/LeftNavBarDisplay.jsp</result>
-            <result name="error">/encounter/LeftNavBarError.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
             <result name="HRM">/encounter/displayHRM.do</result>
             <result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
@@ -302,8 +302,8 @@
             <result name="unresolvedIssues">/encounter/displayIssues.do</result>
             <result name="resolvedIssues">/encounter/displayIssues.do</result>
             <result name="Rx">/encounter/displayRx.do</result>
-            <result name="success">/encounter/LeftNavBarDisplay.jsp</result>
-            <result name="error">/encounter/LeftNavBarError.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
             <result name="HRM">/encounter/displayHRM.do</result>
             <result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
@@ -322,8 +322,8 @@
             <result name="unresolvedIssues">/encounter/displayIssues.do</result>
             <result name="resolvedIssues">/encounter/displayIssues.do</result>
             <result name="Rx">/encounter/displayRx.do</result>
-            <result name="success">/encounter/LeftNavBarDisplay.jsp</result>
-            <result name="error">/encounter/LeftNavBarError.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
             <result name="HRM">/encounter/displayHRM.do</result>
             <result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
@@ -342,8 +342,8 @@
             <result name="unresolvedIssues">/encounter/displayIssues.do</result>
             <result name="resolvedIssues">/encounter/displayIssues.do</result>
             <result name="Rx">/encounter/displayRx.do</result>
-            <result name="success">/encounter/LeftNavBarDisplay.jsp</result>
-            <result name="error">/encounter/LeftNavBarError.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
             <result name="HRM">/encounter/displayHRM.do</result>
             <result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
@@ -362,8 +362,8 @@
             <result name="unresolvedIssues">/encounter/displayIssues.do</result>
             <result name="resolvedIssues">/encounter/displayIssues.do</result>
             <result name="Rx">/encounter/displayRx.do</result>
-            <result name="success">/encounter/LeftNavBarDisplay.jsp</result>
-            <result name="error">/encounter/LeftNavBarError.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
             <result name="HRM">/encounter/displayHRM.do</result>
             <result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
@@ -383,23 +383,23 @@
             <result name="unresolvedIssues">/encounter/displayIssues.do</result>
             <result name="resolvedIssues">/encounter/displayIssues.do</result>
             <result name="Rx">/encounter/displayRx.do</result>
-            <result name="success">/encounter/LeftNavBarDisplay.jsp</result>
-            <result name="error">/encounter/LeftNavBarError.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
             <result name="HRM">/encounter/displayHRM.do</result>
             <result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
 
         <action name="encounter/SaveEncounter2" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctSaveEncounter2Action">
-            <result name="saveAndStay">/encounter/Index2.jsp?saved=true</result>
+            <result name="saveAndStay">/WEB-INF/jsp/encounter/Index2.jsp?saved=true</result>
             <result name="failure">/errorpage.jsp</result>
-            <result name="success">/encounter/TimeOut.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/TimeOut.jsp</result>
             <result name="bill">/billing.do</result>
-            <result name="splitchart">/encounter/Index2.jsp?saved=true&amp;splitchart=true</result>
-            <result name="close">/encounter/close.jsp</result>
-            <result name="concurrencyError">/encounter/concurrencyError.jsp</result>
+            <result name="splitchart">/WEB-INF/jsp/encounter/Index2.jsp?saved=true&amp;splitchart=true</result>
+            <result name="close">/WEB-INF/jsp/encounter/close.jsp</result>
+            <result name="concurrencyError">/WEB-INF/jsp/encounter/concurrencyError.jsp</result>
         </action>
         <action name="oscarConsultationRequest/consultationClinicalData" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationClinicalData2Action">
-            <result name="success">/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp</result>
         </action>
         <action name="econsult" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EConsult2Action"/>
         <action name="encounter/IncomingConsultation" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctIncomingConsultation2Action">
@@ -411,99 +411,99 @@
         </action>
         <action name="encounter/ViewRequest" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewRequest2Action">
             <result name="failESend">/encounter/ViewRequest.do</result>
-            <result name="success">/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp</result>
         </action>
         <action name="encounter/eRefer" class="io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.ERefer2Action">
         </action>
         <action name="encounter/RequestConsultation" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action">
-            <result name="success">/encounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp</result>
             <result name="error">/encounter/ViewRequest.do?error=true</result>
             <result name="failESend">/encounter/ViewRequest.do</result>
             <result name="printpdf">/encounter/oscarConsultationRequest/printPdf.do</result>
             <result name="printIndivica">/encounter/oscarConsultationRequest/printPdf2.do</result>
-            <result name="fax">/fax/CoverPage.jsp</result>
+            <result name="fax">/WEB-INF/jsp/fax/CoverPage.jsp</result>
         </action>
         <action name="encounter/oscarConsultationRequest/printPdf2" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestPrintAction22Action">
             <result name="error">/encounter/ViewRequest.do?error=true</result>
             <result name="attachform">/form/forwardshortcutname.jsp</result>
         </action>
         <action name="encounter/oscarConsultationRequest/ConsultationFormFax" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action">
-            <result name="success">/encounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp</result>
             <result name="error">/encounter/ViewRequest.do?error=true</result>
             <result name="attachform">/form/forwardshortcutname.jsp</result>
             <result name="cancel">/encounter/ViewRequest.do</result>
         </action>
 
         <action name="encounter/EnableConRequestResponse" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConEnableReqResp2Action">
-            <result name="success">/encounter/oscarConsultationRequest/config/EnableRequestResponse.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/EnableRequestResponse.jsp</result>
         </action>
         <action name="encounter/ConsultationLookup2Action" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.ConsultationLookup2Action"/>
         <action name="encounter/AddService" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddService2Action">
-            <result name="success">/encounter/oscarConsultationRequest/config/AddService.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/AddService.jsp</result>
         </action>
         <action name="encounter/ShowAllServices" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllServices2Action">
-            <result name="success">/encounter/oscarConsultationRequest/config/DisplayService.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/DisplayService.jsp</result>
         </action>
         <action name="encounter/ShowAllInstitutions" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllInstitutions2Action">
-            <result name="success">/encounter/oscarConsultationRequest/config/DisplayInstitution.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/DisplayInstitution.jsp</result>
         </action>
         <action name="encounter/CpsoSearch" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.CpsoSearch2Action">
         </action>
         <action name="encounter/AddSpecialist" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddSpecialist2Action">
-            <result name="success">/encounter/oscarConsultationRequest/config/AddSpecialist.jsp</result>
-            <result name="edited">/encounter/oscarConsultationRequest/config/EditSpecialists.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/AddSpecialist.jsp</result>
+            <result name="edited">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/EditSpecialists.jsp</result>
         </action>
         <action name="encounter/AddInstitution" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddInstitution2Action">
-            <result name="success">/encounter/oscarConsultationRequest/config/AddInstitution.jsp</result>
-            <result name="edited">/encounter/oscarConsultationRequest/config/EditInstitutions.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/AddInstitution.jsp</result>
+            <result name="edited">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/EditInstitutions.jsp</result>
         </action>
         <action name="encounter/AddDepartment" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddDepartment2Action">
-            <result name="success">/encounter/oscarConsultationRequest/config/AddDepartment.jsp</result>
-            <result name="edited">/encounter/oscarConsultationRequest/config/EditDepartments.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/AddDepartment.jsp</result>
+            <result name="edited">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/EditDepartments.jsp</result>
         </action>
         <action name="encounter/UpdateServiceSpecialists" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConDisplayService2Action">
-            <result name="success">/encounter/oscarConsultationRequest/config/ShowAllServices.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/ShowAllServices.jsp</result>
         </action>
         <action name="encounter/UpdateInstitutionDepartment" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConDisplayInstitution2Action">
-            <result name="success">/encounter/oscarConsultationRequest/config/ShowAllInstitutions.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/ShowAllInstitutions.jsp</result>
         </action>
         <action name="encounter/EditSpecialists" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConEditSpecialists2Action">
-            <result name="success">/encounter/oscarConsultationRequest/config/AddSpecialist.jsp</result>
-            <result name="delete">/encounter/oscarConsultationRequest/config/EditSpecialists.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/AddSpecialist.jsp</result>
+            <result name="delete">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/EditSpecialists.jsp</result>
         </action>
         <action name="encounter/EditInstitutions" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConEditInstitutions2Action">
-            <result name="success">/encounter/oscarConsultationRequest/config/AddInstitution.jsp</result>
-            <result name="delete">/encounter/oscarConsultationRequest/config/EditInstitutions.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/AddInstitution.jsp</result>
+            <result name="delete">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/EditInstitutions.jsp</result>
         </action>
         <action name="encounter/EditDepartments" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConEditDepartments2Action">
-            <result name="success">/encounter/oscarConsultationRequest/config/AddDepartment.jsp</result>
-            <result name="delete">/encounter/oscarConsultationRequest/config/EditDepartments.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/AddDepartment.jsp</result>
+            <result name="delete">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/EditDepartments.jsp</result>
         </action>
         <action name="encounter/DelService" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConDeleteServices2Action">
-            <result name="success">/encounter/oscarConsultationRequest/config/DeleteServices.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/DeleteServices.jsp</result>
         </action>
         <action name="encounter/InsertTemplate" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctInsertTemplate2Action">
-            <result name="success">/encounter/InsertTemplate.jsp</result>
-            <result name="success2">/encounter/InsertTemplate2.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/InsertTemplate.jsp</result>
+            <result name="success2">/WEB-INF/jsp/encounter/InsertTemplate2.jsp</result>
         </action>
         <action name="encounter/immunization/deleteSchedule" class="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmDeleteImmSchedule2Action">
-            <result name="success">/encounter/immunization/Schedule.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/immunization/Schedule.jsp</result>
         </action>
         <action name="encounter/immunization/initSchedule" class="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmInitSchedule2Action">
-            <result name="success">/encounter/immunization/Schedule.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/immunization/Schedule.jsp</result>
         </action>
         <action name="encounter/immunization/loadSchedule" class="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmLoadSchedule2Action">
-            <result name="success">/encounter/immunization/Schedule.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/immunization/Schedule.jsp</result>
         </action>
         <action name="encounter/immunization/saveSchedule" class="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmSaveSchedule2Action">
-            <result name="reload">/encounter/immunization/Schedule.jsp</result>
+            <result name="reload">/WEB-INF/jsp/encounter/immunization/Schedule.jsp</result>
             <result name="configure">/encounter/immunization/loadConfig.do</result>
         </action>
         <action name="encounter/immunization/loadConfig" class="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmLoadConfig2Action">
-            <result name="success">/encounter/immunization/ScheduleConfig.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/immunization/ScheduleConfig.jsp</result>
         </action>
         <action name="encounter/immunization/saveConfig" class="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmSaveConfig2Action">
-            <result name="success">/encounter/immunization/Schedule.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/immunization/Schedule.jsp</result>
         </action>
         <action name="encounter/immunization/config/initConfig" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfig2Action">
             <result name="success">/WEB-INF/jsp/encounter/immunization/config/AdministrateImmunizationSets.jsp</result>
@@ -521,19 +521,19 @@
 
 
         <action name="encounter/immunization/config/ImmunizationSetDisplay" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmImmunizationSetDisplay2Action">
-            <result name="success">/encounter/immunization/config/ImmunizationSetDisplay.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/immunization/config/ImmunizationSetDisplay.jsp</result>
         </action>
         <action name="encounter/GraphMeasurements" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementGraphAction22Action">
-            <result name="success">/encounter/oscarMeasurements/ProcessMeasurementsSubmission.jsp</result>
-            <result name="failure">/encounter/oscarMeasurements/Measurements.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/ProcessMeasurementsSubmission.jsp</result>
+            <result name="failure">/WEB-INF/jsp/encounter/oscarMeasurements/Measurements.jsp</result>
         </action>
         <action name="encounter/Measurements" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action">
-            <result name="success">/encounter/oscarMeasurements/ProcessMeasurementsSubmission.jsp</result>
-            <result name="failure">/encounter/oscarMeasurements/Measurements.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/ProcessMeasurementsSubmission.jsp</result>
+            <result name="failure">/WEB-INF/jsp/encounter/oscarMeasurements/Measurements.jsp</result>
         </action>
         <action name="encounter/Measurements2" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action">
-            <result name="success">/encounter/oscarMeasurements/close.jsp</result>
-            <result name="failure">/encounter/oscarMeasurements/AddMeasurementData.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/close.jsp</result>
+            <result name="failure">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementData.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/SetupAddMeasurementType" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasurementType2Action">
             <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementType.jsp</result>
@@ -543,26 +543,26 @@
             <result name="failure">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementType.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/SetupDisplayMeasurementTypes" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupDisplayMeasurementTypes2Action">
-            <result name="continue">/encounter/oscarMeasurements/DisplayMeasurementTypes.jsp</result>
+            <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/DisplayMeasurementTypes.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/DeleteMeasurementTypes" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteMeasurementTypes2Action">
             <result name="success">/encounter/oscarMeasurements/SetupDisplayMeasurementTypes.do</result>
         </action>
         <action name="encounter/oscarMeasurements/SetupMeasurements" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupMeasurements2Action">
-            <result name="continue">/encounter/oscarMeasurements/Measurements.jsp</result>
+            <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/Measurements.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/SetupDisplayHistory" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupDisplayHistory2Action">
-            <result name="continue">/encounter/oscarMeasurements/DisplayHistory.jsp</result>
+            <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/DisplayHistory.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/SetupHistoryIndex" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupHistoryIndex2Action">
-            <result name="continue">/encounter/oscarMeasurements/HistoryIndex.jsp</result>
-            <result name="newcontinue">/encounter/oscarMeasurements/newHistoryIndex.jsp</result>
+            <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/HistoryIndex.jsp</result>
+            <result name="newcontinue">/WEB-INF/jsp/encounter/oscarMeasurements/newHistoryIndex.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/DeleteData" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteData2Action">
             <result name="success">/encounter/oscarMeasurements/SetupDisplayHistory.do</result>
         </action>
         <action name="encounter/oscarMeasurements/DeleteData2" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteData2Action">
-            <result name="success">/encounter/oscarMeasurements/close.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/close.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/SetupAddMeasuringInstruction" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasuringInstruction2Action">
             <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasuringInstruction.jsp</result>
@@ -572,29 +572,30 @@
             <result name="failure">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasuringInstruction.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/SetupStyleSheetList" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupStyleSheetList2Action">
-            <result name="continue">/encounter/oscarMeasurements/DefineNewMeasurementGroup.jsp</result>
+            <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/DefineNewMeasurementGroup.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/SetupGroupList" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupGroupList2Action">
-            <result name="continue">/encounter/oscarMeasurements/SelectMeasurementGroup.jsp</result>
+            <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/SelectMeasurementGroup.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/SelectMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSelectMeasurementGroup2Action">
             <result name="type">/WEB-INF/jsp/encounter/oscarMeasurements/ProcessEditMeasurementGroupAction.jsp</result>
-            <result name="style">/encounter/oscarMeasurements/EditMeasurementGroupStyle.jsp</result>
+            <result name="style">/WEB-INF/jsp/encounter/oscarMeasurements/EditMeasurementGroupStyle.jsp</result>
             <result name="delete">/encounter/oscarMeasurements/SetupGroupList.do</result>
-            <result name="addDSHTML">/encounter/oscarMeasurements/MeasurementGroupDSadd.jsp</result>
-            <result name="removeDSHTML">/encounter/oscarMeasurements/MeasurementGroupDSremove.jsp</result>
+            <result name="addDSHTML">/WEB-INF/jsp/encounter/oscarMeasurements/MeasurementGroupDSadd.jsp</result>
+            <result name="removeDSHTML">/WEB-INF/jsp/encounter/oscarMeasurements/MeasurementGroupDSremove.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/SetupEditMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupEditMeasurementGroup2Action">
-            <result name="continue">/encounter/oscarMeasurements/EditMeasurementGroup.jsp</result>
+            <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/EditMeasurementGroup.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/EditMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctEditMeasurementGroup2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/ProcessEditMeasurementGroupAction.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/DefineNewMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDefineNewMeasurementGroup2Action">
-            <result name="continue">/encounter/oscarMeasurements/ProcessAddMeasurementGroupAction.jsp</result>
+            <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/ProcessAddMeasurementGroupAction.jsp</result>
+            <result name="error">/encounter/oscarMeasurements/SetupStyleSheetList.do</result>
         </action>
         <action name="encounter/oscarMeasurements/SetupAddMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasurementGroup2Action">
-            <result name="continue">/encounter/oscarMeasurements/AddMeasurementGroup.jsp</result>
+            <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementGroup.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/EditMeasurementStyle" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctEditMeasurementStyle2Action">
             <result name="continue">/encounter/oscarMeasurements/SetupGroupList.do</result>
@@ -604,9 +605,10 @@
         </action>
         <action name="encounter/oscarMeasurements/DeleteMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteMeasurementStyleSheet2Action">
             <result name="success">/encounter/oscarMeasurements/SetupDisplayMeasurementStyleSheet.do</result>
+            <result name="error">/encounter/oscarMeasurements/SetupDisplayMeasurementStyleSheet.do</result>
         </action>
         <action name="encounter/oscarMeasurements/SetupDisplayMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupDisplayMeasurementStyleSheet2Action">
-            <result name="continue">/encounter/oscarMeasurements/DisplayMeasurementStyleSheet.jsp</result>
+            <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/DisplayMeasurementStyleSheet.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/SetupAddMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasurementStyleSheet2Action">
             <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementStyleSheet.jsp</result>
@@ -617,26 +619,26 @@
             <result name="input">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementStyleSheet.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/AddMeasurementMap" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementMap2Action">
-            <result name="continue">/encounter/oscarMeasurements/addMeasurementMap.jsp</result>
-            <result name="success">/encounter/oscarMeasurements/addMeasurementMap.jsp?outcome=success</result>
-            <result name="failure">/encounter/oscarMeasurements/addMeasurementMap.jsp?outcome=failure</result>
-            <result name="failedcheck">/encounter/oscarMeasurements/addMeasurementMap.jsp?outcome=failedcheck</result>
+            <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/addMeasurementMap.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/addMeasurementMap.jsp?outcome=success</result>
+            <result name="failure">/WEB-INF/jsp/encounter/oscarMeasurements/addMeasurementMap.jsp?outcome=failure</result>
+            <result name="failedcheck">/WEB-INF/jsp/encounter/oscarMeasurements/addMeasurementMap.jsp?outcome=failedcheck</result>
         </action>
         <action name="encounter/oscarMeasurements/NewMeasurementMap" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementMap2Action">
-            <result name="success">/encounter/oscarMeasurements/newMeasurementMap.jsp?outcome=success</result>
-            <result name="failure">/encounter/oscarMeasurements/newMeasurementMap.jsp?outcome=failure</result>
-            <result name="failedcheck">/encounter/oscarMeasurements/newMeasurementMap.jsp?outcome=failedcheck</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/newMeasurementMap.jsp?outcome=success</result>
+            <result name="failure">/WEB-INF/jsp/encounter/oscarMeasurements/newMeasurementMap.jsp?outcome=failure</result>
+            <result name="failedcheck">/WEB-INF/jsp/encounter/oscarMeasurements/newMeasurementMap.jsp?outcome=failedcheck</result>
         </action>
         <action name="encounter/oscarMeasurements/RemoveMeasurementMap" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctRemoveMeasurementMap2Action">
-            <result name="continue">/encounter/oscarMeasurements/removeMeasurementMap.jsp</result>
-            <result name="success">/encounter/oscarMeasurements/removeMeasurementMap.jsp?outcome=success</result>
-            <result name="failure">/encounter/oscarMeasurements/removeMeasurementMap.jsp?outcome=failure</result>
+            <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/removeMeasurementMap.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/removeMeasurementMap.jsp?outcome=success</result>
+            <result name="failure">/WEB-INF/jsp/encounter/oscarMeasurements/removeMeasurementMap.jsp?outcome=failure</result>
         </action>
         <action name="encounter/oscarMeasurements/RemapMeasurementMap" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctRemoveMeasurementMap2Action">
-            <result name="continue">/encounter/oscarMeasurements/remapMeasurementMap.jsp</result>
-            <result name="success">/encounter/oscarMeasurements/remapMeasurementMap.jsp?outcome=success</result>
-            <result name="failure">/encounter/oscarMeasurements/remapMeasurementMap.jsp?outcome=failure</result>
-            <result name="failedcheck">/encounter/oscarMeasurements/remapMeasurementMap.jsp?outcome=failedcheck</result>
+            <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/remapMeasurementMap.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/remapMeasurementMap.jsp?outcome=success</result>
+            <result name="failure">/WEB-INF/jsp/encounter/oscarMeasurements/remapMeasurementMap.jsp?outcome=failure</result>
+            <result name="failedcheck">/WEB-INF/jsp/encounter/oscarMeasurements/remapMeasurementMap.jsp?outcome=failedcheck</result>
         </action>
         <action name="oscarMeasurement/AddShortMeasurement" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddShortMeasurement2Action"/>
 
@@ -655,8 +657,8 @@
             <result name="unresolvedIssues">/encounter/displayIssues.do</result>
             <result name="resolvedIssues">/encounter/displayIssues.do</result>
             <result name="Rx">/encounter/displayRx.do</result>
-            <result name="success">/encounter/LeftNavBarDisplay.jsp</result>
-            <result name="error">/encounter/LeftNavBarError.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
             <result name="HRM">/encounter/displayHRM.do</result>
             <result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
@@ -675,8 +677,8 @@
             <result name="unresolvedIssues">/encounter/displayIssues.do</result>
             <result name="resolvedIssues">/encounter/displayIssues.do</result>
             <result name="Rx">/encounter/displayRx.do</result>
-            <result name="success">/encounter/LeftNavBarDisplay.jsp</result>
-            <result name="error">/encounter/LeftNavBarError.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
             <result name="HRM">/encounter/displayHRM.do</result>
             <result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
@@ -695,8 +697,8 @@
             <result name="unresolvedIssues">/encounter/displayIssues.do</result>
             <result name="resolvedIssues">/encounter/displayIssues.do</result>
             <result name="Rx">/encounter/displayRx.do</result>
-            <result name="success">/encounter/LeftNavBarDisplay.jsp</result>
-            <result name="error">/encounter/LeftNavBarError.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
             <result name="HRM">/encounter/displayHRM.do</result>
             <result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>

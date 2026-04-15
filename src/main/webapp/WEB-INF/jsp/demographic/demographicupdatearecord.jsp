@@ -80,7 +80,7 @@
     <% } else if (Boolean.TRUE.equals(addToWl)) { %>
 
     <%-- Waiting list form: rendered when the action determined an add-to-WL is needed --%>
-    <form name="add2WLFrm" action="<%= request.getContextPath() %>/waitinglist/Add2WaitingList.jsp" method="post">
+    <form name="add2WLFrm" action="<%= request.getContextPath() %>/waitinglist/Add2WaitingList.do" method="post">
         <input type="hidden" name="listId" value="<%= Encode.forHtmlAttribute(wlListId) %>"/>
         <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(wlDemoNo) %>"/>
         <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(wlDemoNo) %>"/>
@@ -93,7 +93,7 @@
         <script language="JavaScript">
             var add2List = confirm("The patient already has an appointment, do you still want to add him/her to the waiting list?");
             if (add2List) {
-                document.add2WLFrm.action = "<%= request.getContextPath() %>/waitinglist/Add2WaitingList.jsp?demographicNo=<%= Encode.forJavaScript(Encode.forUriComponent(wlDemoNo)) %>&listId=<%= Encode.forJavaScript(Encode.forUriComponent(wlListId)) %>&waitingListNote=<%= Encode.forJavaScript(Encode.forUriComponent(wlNote)) %>&onListSince=<%= Encode.forJavaScript(Encode.forUriComponent(wlReferralDate)) %>";
+                document.add2WLFrm.action = "<%= request.getContextPath() %>/waitinglist/Add2WaitingList.do";
             } else {
                 document.add2WLFrm.action = "DemographicEdit.do?demographic_no=<%= Encode.forJavaScript(Encode.forUriComponent(wlDemoNo)) %>";
             }
@@ -101,7 +101,7 @@
         </script>
         <% } else { %>
         <script language="JavaScript">
-            document.add2WLFrm.action = "<%= request.getContextPath() %>/waitinglist/Add2WaitingList.jsp?demographicNo=<%= Encode.forJavaScript(Encode.forUriComponent(wlDemoNo)) %>&listId=<%= Encode.forJavaScript(Encode.forUriComponent(wlListId)) %>&waitingListNote=<%= Encode.forJavaScript(Encode.forUriComponent(wlNote)) %>&onListSince=<%= Encode.forJavaScript(Encode.forUriComponent(wlReferralDate)) %>";
+            document.add2WLFrm.action = "<%= request.getContextPath() %>/waitinglist/Add2WaitingList.do";
             document.add2WLFrm.submit();
         </script>
         <% } %>

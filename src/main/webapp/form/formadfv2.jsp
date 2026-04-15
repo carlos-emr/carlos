@@ -335,7 +335,7 @@
                     if (!bView) {
                 %>
                 <td align="right"><a
-                        href="javascript: popupFixedPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>');">Planner</a>
+                        href="javascript: popupFixedPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner.do?demographic_no=<%=demoNo%>&formId=<%=formId%>');">Planner</a>
                 </td>
                 <%
                     }
@@ -780,7 +780,7 @@
                     if (!bView) {
                 %>
                 <td align="right"><a
-                        href="javascript: popupFixedPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>');">Planner</a>
+                        href="javascript: popupFixedPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner.do?demographic_no=<%=demoNo%>&formId=<%=formId%>');">Planner</a>
                 </td>
                 <%
                     }

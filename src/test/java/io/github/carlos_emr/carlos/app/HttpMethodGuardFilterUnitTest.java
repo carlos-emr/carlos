@@ -397,26 +397,19 @@ class HttpMethodGuardFilterUnitTest {
             verify(chain, never()).doFilter(request, response);
         }
 
-        // TODO: appointmentcontrol.jsp is a mutator dispatcher but is not yet in
-        //       PURE_MUTATOR_JSP_NAMES — add it to HttpMethodGuardFilter and restore
-        //       the blocking assertion (see production issue backlog).
-        @Test
-        @DisplayName("should pass through GET to appointmentcontrol.jsp (not yet in mutator list)")
-        void shouldPassThrough_forGetToAppointmentControlJsp() throws Exception {
-            when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/appointment/appointmentcontrol.jsp");
-
-            filter.doFilter(request, response, chain);
-
-            verify(chain).doFilter(request, response);
-            verify(response, never()).sendError(anyInt(), anyString());
-        }
+        // Note: the former test that targeted /appointment/appointmentcontrol.jsp
+        // has been removed. That JSP is now at /WEB-INF/jsp/appointment/appointmentcontrol.jsp
+        // and is reachable only via /appointment/appointmentcontrol.do
+        // (ViewAppointment2Action gate). The public JSP path returns 404 at the
+        // servlet layer before this filter ever sees it, so the prior test was
+        // exercising a dead URL. End-to-end coverage of the .do path lives in
+        // ViewAppointment2ActionTest.
 
         @Test
         @DisplayName("should block GET to PreventionManager.jsp with formAction=update")
         void shouldBlock_forGetToPreventionManagerWithUpdate() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/oscarPrevention/PreventionManager.jsp");
+            when(request.getRequestURI()).thenReturn("/carlos/prevention/PreventionManager.jsp");
             when(request.getParameter("formAction")).thenReturn("update");
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(Collections.singletonList("formAction")));
@@ -431,7 +424,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should pass through GET to PreventionManager.jsp without formAction")
         void shouldPassThrough_forGetToPreventionManagerWithoutFormAction() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/oscarPrevention/PreventionManager.jsp");
+            when(request.getRequestURI()).thenReturn("/carlos/prevention/PreventionManager.jsp");
             when(request.getParameter("formAction")).thenReturn(null);
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(Collections.emptyList()));

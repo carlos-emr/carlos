@@ -520,7 +520,7 @@
             } else {
 
             %>
-            <%=hrmReport.getFirstReportTextContent().replaceAll("\n", "<br />") %>
+            <%= Encode.forHtml(hrmReport.getFirstReportTextContent()).replaceAll("\n", "<br />") %>
 
             <% } %>
 
@@ -766,7 +766,16 @@
                     <td colspan=2>
                         <form action="<%=request.getContextPath() %>/hospitalReportManager/PrintHRMReport.do">
                             <input type="hidden" value="<%=hrmReportId %>" name="hrmReportId"/>
-                            <% if (request.getRequestURI().contains("oscarMDS/Page.jsp")) {%>
+                            <%
+                                // When included from oscarMDS/Page.jsp (the inbox view) via <jsp:include>,
+                                // the Servlet spec exposes the included path in the jakarta.servlet.include.servlet_path
+                                // request attribute. Page.jsp is now under /WEB-INF/jsp/oscarMDS/ (gated), so the
+                                // browser-visible request URI is /documentManager/inboxManage.do rather than the
+                                // old /oscarMDS/Page.jsp — we must check the include-path attribute instead.
+                                String hrmIncludePath = (String) request.getAttribute("jakarta.servlet.include.servlet_path");
+                                boolean hrmFromInboxPage = hrmIncludePath != null && hrmIncludePath.contains("oscarMDS/Page.jsp");
+                            %>
+                            <% if (hrmFromInboxPage) {%>
                             <input type="button" value="Print" onclick="printHrm('<%=hrmReportId%>')"/>
                             <%} else { %>
                             <input type="submit" value="Print"/>

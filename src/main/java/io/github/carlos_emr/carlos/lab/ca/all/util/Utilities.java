@@ -55,6 +55,7 @@ import java.util.ArrayList;
 import java.util.Date;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
@@ -139,7 +140,9 @@ public class Utilities {
             // Construct retVal using the validated targetFile path
             retVal = targetFile.getParent() + File.separator + "LabUpload." + targetFile.getName().replaceAll(".enc", "") + "." + (new Date()).getTime();
 
-            logger.debug("saveFile place=" + place + ", retVal=" + retVal);
+            logger.debug("saveFile place={}, retVal={}",
+                    LogSanitizer.sanitize(place, 1024),
+                    LogSanitizer.sanitize(retVal, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 
             try (OutputStream os = Files.newOutputStream(Paths.get(retVal));
                 BufferedInputStream bis = new BufferedInputStream(stream)) {
@@ -151,9 +154,9 @@ public class Utilities {
                 }
             }
         } catch (FileNotFoundException fnfe) {
-            logger.error("Unable to create or write to file: " + filename, fnfe);
+            logger.error("Unable to create or write to file: {}", LogSanitizer.sanitize(filename), fnfe); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         } catch (IOException ioe) {
-            logger.error("Error processing file: " + filename, ioe);
+            logger.error("Error processing file: {}", LogSanitizer.sanitize(filename), ioe); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         }
         return retVal;
     }
@@ -232,7 +235,7 @@ public class Utilities {
             logger.error("Error", ioe);
             return retVal;
         } catch (IllegalArgumentException iae) {
-            logger.error("Invalid filename: " + filename, iae);
+            logger.error("Invalid filename: {}", LogSanitizer.sanitize(filename), iae); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return null;
         }
 
