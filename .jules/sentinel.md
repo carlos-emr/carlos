@@ -1,0 +1,4 @@
+## 2026-04-15 - ProcessBuilder Environment Variable Injection
+**Vulnerability:** Use of `Runtime.getRuntime().exec()` string arrays passed secrets in command-line arguments (e.g. `--password`), making them visible to process monitors (`ps`) and triggering command injection vulnerability flags due to inline string concatenations.
+**Learning:** `ProcessBuilder` should be preferred over `Runtime.getRuntime().exec()` because it safely separates the command from its arguments, mitigating command injection if arguments are properly separated, and allows passing secrets via environment variables.
+**Prevention:** Never pass secrets directly as command arguments or concatenate variable arrays in `exec()`. Use `ProcessBuilder` with separated list arguments and pass sensitive information like database passwords using `pb.environment().put("MYSQL_PWD", password)`.
