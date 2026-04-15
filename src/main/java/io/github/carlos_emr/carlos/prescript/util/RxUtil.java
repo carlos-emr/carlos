@@ -68,28 +68,17 @@ public class RxUtil {
     private static final String DOSAGE_RANGE_REGEX = DECIMAL_NUMBER_REGEX + "-\\s*+" + DECIMAL_NUMBER_REGEX;
     private static final Pattern DOSAGE_NUMBER_PATTERN = Pattern.compile(DECIMAL_NUMBER_REGEX);
     private static final Pattern DOSAGE_RANGE_PATTERN = Pattern.compile(DOSAGE_RANGE_REGEX);
+    private static final String[] DURATION_UNIT_TOKENS = {"days", "weeks", "months", "day", "week", "month", "d", "w", "m", "mo"};
 
     /**
      * Precompiled quantity-duration patterns such as {@code 30 days} and
      * {@code 4 weeks}. These shared patterns replace repeated runtime compilation
      * and use possessive quantifiers to prevent ReDoS.
      */
-    private static final Pattern[] QUANTITY_DURATION_PATTERNS = compileAll(
-            "[0-9]++\\s++(?i)days\\s", "[0-9]++\\s++(?i)weeks\\s", "[0-9]++\\s++(?i)months\\s", "[0-9]++\\s++(?i)day\\s", "[0-9]++\\s++(?i)week\\s", "[0-9]++\\s++(?i)month\\s", "[0-9]++\\s++(?i)d\\s", "[0-9]++\\s++(?i)w\\s", "[0-9]++\\s++(?i)m\\s", "[0-9]++\\s++(?i)mo\\s",
-            "[0-9]++\\s++(?i)days$", "[0-9]++\\s++(?i)weeks$", "[0-9]++\\s++(?i)months$", "[0-9]++\\s++(?i)day$", "[0-9]++\\s++(?i)week$", "[0-9]++\\s++(?i)month$", "[0-9]++\\s++(?i)d$", "[0-9]++\\s++(?i)w$", "[0-9]++\\s++(?i)m$", "[0-9]++\\s++(?i)mo$",
-            "\\s[0-9]++(?i)days\\s", "\\s[0-9]++(?i)weeks\\s", "\\s[0-9]++(?i)months\\s", "\\s[0-9]++(?i)day\\s", "\\s[0-9]++(?i)week\\s", "\\s[0-9]++(?i)month\\s", "\\s[0-9]++(?i)d\\s", "\\s[0-9]++(?i)w\\s", "\\s[0-9]++(?i)m\\s", "\\s[0-9]++(?i)mo\\s",
-            "\\s[0-9]++(?i)days$", "\\s[0-9]++(?i)weeks$", "\\s[0-9]++(?i)months$", "\\s[0-9]++(?i)day$", "\\s[0-9]++(?i)week$", "\\s[0-9]++(?i)month$", "\\s[0-9]++(?i)d$", "\\s[0-9]++(?i)w$", "\\s[0-9]++(?i)m$", "\\s[0-9]++(?i)mo$",
-            "^[0-9]++(?i)days$", "^[0-9]++(?i)weeks$", "^[0-9]++(?i)months$", "^[0-9]++(?i)day$", "^[0-9]++(?i)week$", "^[0-9]++(?i)month$", "^[0-9]++(?i)d$", "^[0-9]++(?i)w$", "^[0-9]++(?i)m$", "^[0-9]++(?i)mo$",
-            "^[0-9]++\\s++(?i)days$", "^[0-9]++\\s++(?i)weeks$", "^[0-9]++\\s++(?i)months$", "^[0-9]++\\s++(?i)day$", "^[0-9]++\\s++(?i)week$", "^[0-9]++\\s++(?i)month$", "^[0-9]++\\s++(?i)d$", "^[0-9]++\\s++(?i)w$", "^[0-9]++\\s++(?i)m$", "^[0-9]++\\s++(?i)mo$"
-    );
-    private static final Pattern[] DURATION_UNIT_PATTERNS = compileAll(
-            "\\s++(?i)days\\s", "\\s++(?i)weeks\\s", "\\s++(?i)months\\s", "\\s++(?i)day\\s", "\\s++(?i)week\\s", "\\s++(?i)month\\s", "\\s++(?i)d\\s", "\\s++(?i)w\\s", "\\s++(?i)m\\s", "\\s++(?i)mo\\s",
-            "\\s++(?i)days$", "\\s++(?i)weeks$", "\\s++(?i)months$", "\\s++(?i)day$", "\\s++(?i)week$", "\\s++(?i)month$", "\\s++(?i)d$", "\\s++(?i)w$", "\\s++(?i)m$", "\\s++(?i)mo$"
-    );
-    private static final Pattern[] NO_SPACE_DURATION_PATTERNS = compileAll(
-            "\\s[0-9]++(?i)days\\s", "\\s[0-9]++(?i)weeks\\s", "\\s[0-9]++(?i)months\\s", "\\s[0-9]++(?i)day\\s", "\\s[0-9]++(?i)week\\s", "\\s[0-9]++(?i)month\\s", "\\s[0-9]++(?i)d\\s", "\\s[0-9]++(?i)w\\s", "\\s[0-9]++(?i)m\\s", "\\s[0-9]++(?i)mo\\s",
-            "\\s[0-9]++(?i)days$", "\\s[0-9]++(?i)weeks$", "\\s[0-9]++(?i)months$", "\\s[0-9]++(?i)day$", "\\s[0-9]++(?i)week$", "\\s[0-9]++(?i)month$", "\\s[0-9]++(?i)d$", "\\s[0-9]++(?i)w$", "\\s[0-9]++(?i)m$", "\\s[0-9]++(?i)mo$"
-    );
+    private static final Pattern[] QUANTITY_DURATION_PATTERNS = buildQuantityDurationPatterns();
+    private static final Pattern[] DURATION_UNIT_PATTERNS = buildDurationUnitPatterns("\\s++");
+    private static final Pattern[] NUMBERED_DURATION_UNIT_PATTERNS = buildDurationUnitPatterns("[0-9]++\\s++");
+    private static final Pattern[] NO_SPACE_DURATION_PATTERNS = buildDurationUnitPatterns("\\s[0-9]++");
     private static final Pattern[] PRN_PATTERNS = compileAll("\\s(?i)prn$", "^(?i)prn\\s++", "\\s++(?i)prn\\s++");
     private static final Pattern[] DAILY_FREQUENCY_PATTERNS = compileAll(
             "\\s*+(?i)OD\\s*+", "\\s*+(?i)BID\\s*+", "\\s*+(?i)TID\\s*+", "\\s*+(?i)QID\\s*+", "\\s*+(?i)Q1H\\s*+", "\\s*+(?i)Q2H\\s*+", "\\s*+(?i)Q1-2H\\s*+", "\\s*+(?i)Q3-4H\\s*+", "\\s*+(?i)Q4H\\s*+", "\\s*+(?i)Q4-6H\\s*+", "\\s*+(?i)Q6H\\s*+", "\\s*+(?i)Q8H\\s*+", "\\s*+(?i)Q12H\\s*+", "\\s*+(?i)QAM\\s*+", "\\s*+(?i)QPM\\s*+", "\\s*+(?i)QHS\\s*+", "\\s*+(?i)once daily\\s*+", "\\s*+(?i)twice daily\\s*+", "\\s*+(?i)3x day\\s*+", "\\s*+(?i)4x day\\s*+", "\\s*+(?i)3x daily\\s*+", "\\s*+(?i)4x daily\\s*+", "\\s*+(?i)daily\\s*+"
@@ -110,6 +99,41 @@ public class RxUtil {
             patterns[i] = Pattern.compile(regexes[i]);
         }
         return patterns;
+    }
+
+    /**
+     * Builds the full set of quantity-duration patterns used by prescription
+     * helpers such as {@link #isMitte(String)}.
+     *
+     * @return Pattern[] precompiled quantity-duration patterns
+     */
+    private static Pattern[] buildQuantityDurationPatterns() {
+        List<String> regexes = new ArrayList<>();
+        for (String unit : DURATION_UNIT_TOKENS) {
+            regexes.add("[0-9]++\\s++(?i)" + unit + "\\s");
+            regexes.add("[0-9]++\\s++(?i)" + unit + "$");
+            regexes.add("\\s[0-9]++(?i)" + unit + "\\s");
+            regexes.add("\\s[0-9]++(?i)" + unit + "$");
+            regexes.add("^[0-9]++(?i)" + unit + "$");
+            regexes.add("^[0-9]++\\s++(?i)" + unit + "$");
+        }
+        return compileAll(regexes.toArray(new String[0]));
+    }
+
+    /**
+     * Builds duration-unit patterns that share the same unit tokens but vary by
+     * leading prefix (for example, whitespace-only or number-plus-whitespace).
+     *
+     * @param prefix String the regex prefix to place before each duration token
+     * @return Pattern[] precompiled duration-unit patterns
+     */
+    private static Pattern[] buildDurationUnitPatterns(String prefix) {
+        List<String> regexes = new ArrayList<>();
+        for (String unit : DURATION_UNIT_TOKENS) {
+            regexes.add(prefix + "(?i)" + unit + "\\s");
+            regexes.add(prefix + "(?i)" + unit + "$");
+        }
+        return compileAll(regexes.toArray(new String[0]));
     }
 
     public static void setDefaultQuantity(String quantity) {
@@ -735,10 +759,11 @@ public class RxUtil {
         //calculate the number of pills to have per frequency which is used to calculate the duration later on.
         //from frequency code we can deduce a duration unit.
         //check if a durationunit is already specified, if not, use that, if yes, check if they are equal, if not output an warning and use specified.
-        for (Pattern durationPattern : DURATION_UNIT_PATTERNS) {
+        for (int i = 0; i < DURATION_UNIT_PATTERNS.length; i++) {
             // p(instructions);
             // p(s);
             String instructionToCheck = checkInstructionStr(instructions);
+            Pattern durationPattern = DURATION_UNIT_PATTERNS[i];
             Matcher m = durationPattern.matcher(instructionToCheck);
 
             if (m.find()) {
@@ -748,8 +773,7 @@ public class RxUtil {
                 durationUnitSpec = (instructionToCheck.substring(m.start(), m.end())).trim();
                 p("durationUnitSpec", durationUnitSpec);
                 //get the number before durationUnit
-                Pattern p1 = Pattern.compile("[0-9]++" + durationPattern.pattern());
-                Matcher m1 = p1.matcher(instructionToCheck);
+                Matcher m1 = NUMBERED_DURATION_UNIT_PATTERNS[i].matcher(instructionToCheck);
                 if (m1.find()) {
                     p("" + m1.start(), "" + m.start());
                     durationSpec = instructionToCheck.substring(m1.start(), m.start());
