@@ -57,19 +57,29 @@ public class RxUtil {
     /**
      * Matches one or more whole-number digits with a possessive quantifier to avoid
      * backtracking when parsing duration text. The possessive quantifier {@code ++}
-     * prevents the regex engine from giving characters back during a failed match.
+     * prevents the regex engine from giving characters back during a failed match,
+     * so malformed input such as a long run of digits followed by an invalid suffix
+     * fails immediately instead of triggering ReDoS-style backtracking.
      */
     private static final Pattern WHOLE_NUMBER_PATTERN = Pattern.compile("[0-9]++");
 
     /**
      * Matches integer or decimal dosage values using possessive quantifiers so
-     * malformed user input fails quickly without polynomial backtracking.
+     * malformed user input fails quickly without polynomial backtracking. It accepts
+     * whole numbers such as {@code 2}, decimal numbers such as {@code 1.5}, and
+     * leading-dot decimals such as {@code .5}.
      */
     private static final String DECIMAL_NUMBER_REGEX = "(?:[0-9]++(?:\\.[0-9]++)?+|\\.[0-9]++)";
     // integer.decimal or .decimal dosage range components
     private static final String DOSAGE_RANGE_REGEX = DECIMAL_NUMBER_REGEX + "-\\s*+" + DECIMAL_NUMBER_REGEX;
     private static final Pattern DOSAGE_NUMBER_PATTERN = Pattern.compile(DECIMAL_NUMBER_REGEX);
     private static final Pattern DOSAGE_RANGE_PATTERN = Pattern.compile(DOSAGE_RANGE_REGEX);
+
+    /**
+     * Recognized duration unit tokens used during prescription parsing. Plural and
+     * long-form values appear before singular and abbreviated variants for easier
+     * review of the supported vocabulary.
+     */
     private static final String[] DURATION_UNIT_TOKENS = {"days", "weeks", "months", "day", "week", "month", "d", "w", "m", "mo"};
 
     /**
