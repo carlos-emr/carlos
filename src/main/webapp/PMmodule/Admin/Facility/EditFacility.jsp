@@ -28,7 +28,7 @@
 
 --%>
 <%@ include file="/taglibs.jsp" %>
-<%@ include file="/common/messages.jsp" %>
+<%@ include file="/WEB-INF/jsp/common/messages.jsp" %>
 <script type="text/javascript" src="<%=request.getContextPath()%>/js/validation.js"></script>
 <script type="text/javascript">
 

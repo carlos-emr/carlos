@@ -77,7 +77,7 @@
 
 <br/>
 
-<%@ include file="/caisicore/messages.jsp" %>
+<%@ include file="/WEB-INF/jsp/caisicore/messages.jsp" %>
 
 <br/>
 <table width="100%" border="0" cellpadding="0" cellspacing="1"

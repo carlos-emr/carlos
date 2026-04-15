@@ -30,18 +30,14 @@
 
 package io.github.carlos_emr.carlos.waitinglist.pageUtil;
 
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.apache.struts2.ActionSupport;
-import org.apache.logging.log4j.Logger;
-import org.apache.struts2.ServletActionContext;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.providers.bean.ProviderNameBean;
 import io.github.carlos_emr.carlos.providers.bean.ProviderNameBeanHandler;
 import io.github.carlos_emr.carlos.providers.data.ProviderData;
@@ -49,13 +45,16 @@ import io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListBeanHandler;
 import io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBeanHandler;
 import io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import org.apache.logging.log4j.Logger;
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.util.Collection;
 import java.util.Date;
-
 public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -68,15 +67,11 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
 
     public String execute()
             throws Exception {
-
-
         log.debug("WLSetupDisplayWaitingList2Action/execute(): just entering.");
-
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic r)");
         }
-
         String update = request.getParameter("update");
         String remove = request.getParameter("remove"); //actually not used for now, may in future?
 

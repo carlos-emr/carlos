@@ -2025,9 +2025,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String chain = request.getParameter("chain");
 
         if (chain != null && !chain.equals("")) {
-            // Validate the redirect URL to prevent open redirect vulnerability
+            // FP for open-redirect scanners (CodeQL java/OR): isValidInternalRedirect enforces
+            // relative-only OR same-scheme+host+port match; rejects protocol-relative (//evil),
+            // backslash, userinfo (@evil), and suffix (host.evil) bypasses.
             if (isValidInternalRedirect(chain, request)) {
-                response.sendRedirect(chain);
+                response.sendRedirect(chain); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by isValidInternalRedirect // lgtm[java/unvalidated-url-redirection]
             } else {
                 logger.warn("Attempted redirect to invalid URL: {}", LogSanitizer.sanitize(chain));
                 // Fall through to return "windowClose" without redirect

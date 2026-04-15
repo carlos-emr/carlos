@@ -37,7 +37,7 @@
         return false;
     }
 </script>
-<%@ include file="/common/messages.jsp" %>
+<%@ include file="/WEB-INF/jsp/common/messages.jsp" %>
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>

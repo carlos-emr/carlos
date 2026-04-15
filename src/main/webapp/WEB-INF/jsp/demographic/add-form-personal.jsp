@@ -1167,7 +1167,7 @@
                         <tr valign="top">
                                 <%-- TOGGLE FIRST NATIONS MODULE --%>
                             <oscar:oscarPropertiesCheck value="true" defaultVal="false" property="FIRST_NATIONS_MODULE">
-                                <jsp:include page="/demographic/manageFirstNationsModule.jsp" flush="true">
+                                <jsp:include page="/WEB-INF/jsp/demographic/manageFirstNationsModule.jsp" flush="true">
                                     <jsp:param name="demo" value="0"/>
                                 </jsp:include>
                             </oscar:oscarPropertiesCheck>
