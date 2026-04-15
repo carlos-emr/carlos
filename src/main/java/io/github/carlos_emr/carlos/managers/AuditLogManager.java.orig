@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -129,7 +129,7 @@ public class AuditLogManager {
         try {
             String s = null;
 
-            ProcessBuilder pb = new ProcessBuilder(vars.toArray(new String[vars.size()]));
+            ProcessBuilder pb = new ProcessBuilder(vars.toArray(new String[0]));
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
             }
