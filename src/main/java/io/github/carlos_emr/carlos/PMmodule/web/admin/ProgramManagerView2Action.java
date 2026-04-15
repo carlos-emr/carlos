@@ -82,6 +82,7 @@ public class ProgramManagerView2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private ClientRestrictionManager clientRestrictionManager = SpringUtils.getBean(ClientRestrictionManager.class);
     private FacilityDao facilityDao = SpringUtils.getBean(FacilityDao.class);
+    private VacancyDao vacancyDao = SpringUtils.getBean(VacancyDao.class);
     private CaseManagementManager caseManagementManager = SpringUtils.getBean(CaseManagementManager.class);
     private AdmissionManager admissionManager = SpringUtils.getBean(AdmissionManager.class);
     private ClientManager clientManager = SpringUtils.getBean(ClientManager.class);
@@ -92,6 +93,10 @@ public class ProgramManagerView2Action extends ActionSupport {
 
     public void setFacilityDao(FacilityDao facilityDao) {
         this.facilityDao = facilityDao;
+    }
+
+    public void setVacancyDao(VacancyDao vacancyDao) {
+        this.vacancyDao = vacancyDao;
     }
 
     public String execute() {
@@ -279,6 +284,9 @@ public class ProgramManagerView2Action extends ActionSupport {
             request.setAttribute("allowBatchDischarge", program.isAllowBatchDischarge());
             request.setAttribute("servicePrograms", batchAdmissionServicePrograms);
         }
+        if (this.getTab().equals("Vacancies")) {
+            request.setAttribute("vacancies", vacancyDao.getVacanciesByWlProgramId(Integer.valueOf(programId)));
+        }
 
         if (this.getTab().equals("Access")) {
             request.setAttribute("accesses", programManager.getProgramAccesses(programId));
@@ -293,6 +301,12 @@ public class ProgramManagerView2Action extends ActionSupport {
 
         request.setAttribute("id", programId);
 
+        if (this.getTab().equals("Clients")) {
+            return "viewClients";
+        }
+        if (this.getTab().equals("Vacancies")) {
+            return "viewVacancies";
+        }
         return "view";
     }
 

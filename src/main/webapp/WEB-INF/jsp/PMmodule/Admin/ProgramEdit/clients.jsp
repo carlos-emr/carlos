@@ -36,7 +36,7 @@
         var team_id = selectBox.options[selectBox.selectedIndex].value;
         document.programManagerForm.elements['admission.teamId'].value = team_id;
         document.programManagerForm.elements['admission.id'].value = id;
-        document.programManagerForm.method.value = 'assign_team_client';
+        document.programManagerForm.elements['method'].value = 'assign_team_client';
         document.programManagerForm.submit();
     }
 
@@ -44,13 +44,17 @@
         var status_id = selectBox.options[selectBox.selectedIndex].value;
         document.programManagerForm.elements['admission.clientStatusId'].value = status_id;
         document.programManagerForm.elements['admission.id'].value = id;
-        document.programManagerForm.method.value = 'assign_status_client';
+        document.programManagerForm.elements['method'].value = 'assign_status_client';
         document.programManagerForm.submit();
     }
 </script>
-<input type="hidden" name="id" id="id"/>
-<input type="hidden" name="teamId" id="teamId"/>
-<input type="hidden" name="clientStatusId" id="clientStatusId"/>
+<form name="programManagerForm" action="${pageContext.request.contextPath}/PMmodule/ProgramManager.do" method="post">
+<input type="hidden" name="method" value="edit"/>
+<input type="hidden" name="program.id" value="<c:out value="${requestScope.id}"/>"/>
+<input type="hidden" name="view.tab" value="Clients"/>
+<input type="hidden" name="admission.id" id="admissionId"/>
+<input type="hidden" name="admission.teamId" id="teamId"/>
+<input type="hidden" name="admission.clientStatusId" id="clientStatusId"/>
 <div class="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
@@ -106,3 +110,4 @@
         </select>
     </display:column>
 </display:table>
+</form>

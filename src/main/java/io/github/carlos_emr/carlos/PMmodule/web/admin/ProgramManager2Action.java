@@ -289,7 +289,42 @@ public class ProgramManager2Action extends ActionSupport {
      * @return String result name for Struts 2 result mapping
      */
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String method = request.getParameter("method");
+        boolean mutatingMethod =
+                "assign_role".equals(method)
+                        || "assign_team".equals(method)
+                        || "assign_team_client".equals(method)
+                        || "delete".equals(method)
+                        || "delete_access".equals(method)
+                        || "delete_function".equals(method)
+                        || "delete_provider".equals(method)
+                        || "delete_team".equals(method)
+                        || "remove_queue".equals(method)
+                        || "remove_team".equals(method)
+                        || "save_restriction_settings".equals(method)
+                        || "save".equals(method)
+                        || "chooseTemplate".equals(method)
+                        || "save_vacancy".equals(method)
+                        || "save_vacancy_template".equals(method)
+                        || "save_access".equals(method)
+                        || "save_function".equals(method)
+                        || "save_provider".equals(method)
+                        || "save_team".equals(method)
+                        || "delete_status".equals(method)
+                        || "edit_status".equals(method)
+                        || "save_status".equals(method)
+                        || "assign_status_client".equals(method)
+                        || "disable_restriction".equals(method)
+                        || "enable_restriction".equals(method)
+                        || "activeTmplStatus".equals(method)
+                        || "inactiveTmplStatus".equals(method)
+                        || "saveVacancyStatus".equals(method);
+        String privilege = mutatingMethod ? "w" : "r";
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", privilege, null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+
         if ("edit".equals(method)) {
             return edit();
         } else if ("programSignatures".equals(method)) {
@@ -442,7 +477,15 @@ public class ProgramManager2Action extends ActionSupport {
             request.setAttribute("service_restrictions", clientRestrictionManager.getActiveRestrictionsForProgram(Integer.valueOf(id), new Date()));
             request.setAttribute("disabled_service_restrictions", clientRestrictionManager.getDisabledRestrictionsForProgram(Integer.valueOf(id), new Date()));
         }
-        return "edit";
+        return editResult();
+    }
+
+    private String editResult() {
+        Object viewTab = request.getAttribute("view.tab");
+        if (viewTab == null) {
+            viewTab = request.getParameter("view.tab");
+        }
+        return Objects.equals(viewTab, "Clients") ? "editClients" : "edit";
     }
 
     /**
@@ -460,11 +503,6 @@ public class ProgramManager2Action extends ActionSupport {
      * @return String "programSignatures" to forward to signatures view
      */
     public String programSignatures() {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
-        }
-
         String programId = request.getParameter("programId");
         if (programId != null) {
             // List<ProgramSignature> pss = programManager.getProgramSignatures(Integer.valueOf(programId));
@@ -479,7 +517,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, null);
 
-        return "edit";
+        return editResult();
     }
 
 
@@ -500,7 +538,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String assign_team() {
@@ -523,7 +561,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String assign_team_client() {
@@ -541,7 +579,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String delete() {
@@ -665,7 +703,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         ProgramAccessCache.setAccessMap(program.getId());
 
-        return "edit";
+        return editResult();
     }
 
     public String edit_function() {
@@ -685,7 +723,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String edit_provider() {
@@ -706,7 +744,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String edit_team() {
@@ -723,7 +761,7 @@ public class ProgramManager2Action extends ActionSupport {
         this.setTeam(pt);
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
 
@@ -740,7 +778,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String remove_team() {
@@ -772,7 +810,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String save_restriction_settings() {
@@ -863,13 +901,13 @@ public class ProgramManager2Action extends ActionSupport {
                 if (admissions.size() > 0) {
                     addActionMessage(getText("program.client_in_the_program", program.getName()));
                     setEditAttributes(request, String.valueOf(program.getId()));
-                    return "edit";
+                    return editResult();
                 }
                 int numQueue = programQueueManager.getActiveProgramQueuesByProgramId((long) program.getId()).size();
                 if (numQueue > 0) {
                     addActionMessage(getText("program.client_in_the_queue", program.getName(), String.valueOf(numQueue)));
                     setEditAttributes(request, String.valueOf(program.getId()));
-                    return "edit";
+                    return editResult();
                 }
             }
         }
@@ -877,7 +915,7 @@ public class ProgramManager2Action extends ActionSupport {
         if (program.isHoldingTank()) {
             addActionMessage(getText("program.invalid_holding_tank"));
             setEditAttributes(request, String.valueOf(program.getId()));
-            return "edit";
+            return editResult();
         }
 
         saveProgram(request, program);
@@ -950,7 +988,7 @@ public class ProgramManager2Action extends ActionSupport {
         List<Criteria> criterias = criteriaDAO.getCriteriaByTemplateId(Integer.valueOf(templateId));
         request.setAttribute("criterias", criterias);
 
-        return "edit";
+        return editResult();
     }
 
     public String chooseTemplate() {
@@ -969,7 +1007,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String save_vacancy() {
@@ -1219,7 +1257,7 @@ public class ProgramManager2Action extends ActionSupport {
             addActionMessage(getText("program.duplicate_access", program.getName()));
             this.setAccess(new ProgramAccess());
             setEditAttributes(request, String.valueOf(program.getId()));
-            return "edit";
+            return editResult();
         }
 
         String roles[] = request.getParameterValues("checked_role");
@@ -1242,7 +1280,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         ProgramAccessCache.setAccessMap(program.getId());
 
-        return "edit";
+        return editResult();
     }
 
     public String save_function() {
@@ -1256,7 +1294,7 @@ public class ProgramManager2Action extends ActionSupport {
             addActionMessage(getText("program_function.duplicate", program.getName()));
             this.setFunction(new ProgramFunctionalUser());
             setEditAttributes(request, String.valueOf(program.getId()));
-            return "edit";
+            return editResult();
         }
         programManager.saveFunctionalUser(function);
         addActionMessage(getText("program.saved", program.getName()));
@@ -1266,7 +1304,7 @@ public class ProgramManager2Action extends ActionSupport {
         this.setFunction(new ProgramFunctionalUser());
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String save_provider() {
@@ -1279,7 +1317,7 @@ public class ProgramManager2Action extends ActionSupport {
             addActionMessage(getText("program.provider.exists"));
             this.setProvider(new ProgramProvider());
             setEditAttributes(request, String.valueOf(program.getId()));
-            return "edit";
+            return editResult();
         }
 
         programManager.saveProgramProvider(provider);
@@ -1289,7 +1327,7 @@ public class ProgramManager2Action extends ActionSupport {
         this.setProvider(new ProgramProvider());
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String save_team() {
@@ -1302,7 +1340,7 @@ public class ProgramManager2Action extends ActionSupport {
             addActionMessage(getText("program_team.duplicate", team.getName()));
             this.setTeam(new ProgramTeam());
             setEditAttributes(request, String.valueOf(program.getId()));
-            return "edit";
+            return editResult();
         }
 
         programManager.saveProgramTeam(team);
@@ -1312,7 +1350,7 @@ public class ProgramManager2Action extends ActionSupport {
         this.setTeam(new ProgramTeam());
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     private void setEditAttributes(HttpServletRequest request, String programId) {
@@ -1388,7 +1426,7 @@ public class ProgramManager2Action extends ActionSupport {
         this.setClient_status(pt);
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String save_status() {
@@ -1401,7 +1439,7 @@ public class ProgramManager2Action extends ActionSupport {
             addActionMessage(getText("program_status.duplicate", status.getName()));
             this.setClient_status(new ProgramClientStatus());
             setEditAttributes(request, String.valueOf(program.getId()));
-            return "edit";
+            return editResult();
         }
 
         programManager.saveProgramClientStatus(status);
@@ -1412,7 +1450,7 @@ public class ProgramManager2Action extends ActionSupport {
         this.setClient_status(new ProgramClientStatus());
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String assign_status_client() {
@@ -1430,7 +1468,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String disable_restriction() {

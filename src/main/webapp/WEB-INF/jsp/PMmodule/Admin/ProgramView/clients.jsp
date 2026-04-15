@@ -37,7 +37,7 @@
         var team_id = selectBox.options[selectBox.selectedIndex].value;
         document.programManagerViewForm.elements['teamId'].value = team_id;
         document.programManagerViewForm.elements['admissionId'].value = id;
-        document.programManagerViewForm.method.value = 'assign_team_client';
+        document.programManagerViewForm.elements['method'].value = 'assign_team_client';
         document.programManagerViewForm.submit();
     }
 
@@ -45,7 +45,7 @@
         var status_id = selectBox.options[selectBox.selectedIndex].value;
         document.programManagerViewForm.elements['clientStatusId'].value = status_id;
         document.programManagerViewForm.elements['admissionId'].value = id;
-        document.programManagerViewForm.method.value = 'assign_status_client';
+        document.programManagerViewForm.elements['method'].value = 'assign_status_client';
         document.programManagerViewForm.submit();
     }
 
@@ -53,7 +53,7 @@
         var com = selectBox.options[selectBox.selectedIndex].value;
         document.programManagerViewForm.community.value = com;
         document.programManagerViewForm.elements['admissionId'].value = id;
-        document.programManagerViewForm.method.value = 'discharge_To_Community';
+        document.programManagerViewForm.elements['method'].value = 'discharge_To_Community';
         document.programManagerViewForm.submit();
     }
 
@@ -103,11 +103,15 @@
         msg += '.\nAre you sure you would like to continue?';
 
         if (confirm(msg)) {
-            document.programManagerViewForm.method.value = 'batch_discharge';
+            document.programManagerViewForm.elements['method'].value = 'batch_discharge';
             document.programManagerViewForm.submit();
         }
     }
 </script>
+<form name="programManagerViewForm" action="${pageContext.request.contextPath}/PMmodule/ProgramManagerView.do" method="post">
+<input type="hidden" name="id" value="<c:out value="${requestScope.id}"/>"/>
+<input type="hidden" name="tab" value="Clients"/>
+<input type="hidden" name="method" value=""/>
 <input type="hidden" name="teamId" value=""/>
 <input type="hidden" name="admissionId" value=""/>
 <input type="hidden" name="community" value=""/>
@@ -216,3 +220,4 @@
     </select>
     -->
 </c:if>
+</form>
