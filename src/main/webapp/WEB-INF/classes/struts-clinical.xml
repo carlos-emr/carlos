@@ -90,6 +90,7 @@
             <result name="codeSearch">/oscarResearch/oscarDxResearch/dxcodeSearch.do</result>
             <result name="success">/oscarResearch/oscarDxResearch/setupDxResearch.do</result>
             <result name="codeList">/WEB-INF/jsp/oscarResearch/oscarDxResearch/quickCodeList.jsp</result>
+            <result name="failure">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearch.jsp</result>
         </action>
         <action name="oscarResearch/oscarDxResearch/dxResearchCodeSearch" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchCodeSearch2Action">
             <result name="success">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearchCodeSearch.jsp</result>

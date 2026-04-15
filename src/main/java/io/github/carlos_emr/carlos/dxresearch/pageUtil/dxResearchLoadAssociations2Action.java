@@ -81,6 +81,11 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
     public String execute() throws Exception {
         String method = request.getParameter("method");
 
+        if (method == null || method.isBlank()) {
+            checkPrivilege(request, PRIVILEGE_READ);
+            return SUCCESS;
+        }
+
         // Mutation methods require POST: any path that writes to
         // dx_associations (clear, add, uploadFile, autoPopulate) must not
         // be triggerable by a GET request.
