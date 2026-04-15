@@ -47,13 +47,8 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class Resource2Action extends ActionSupport {
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -61,12 +56,12 @@ public class Resource2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.billing)");
-        }
-
+        McedtSecurity.requireRead(request);
         String method = request.getParameter("method");
+        if ("delete".equals(method) || "submit".equals(method) || "download".equals(method)) {
+            McedtSecurity.requireWrite(request);
+            McedtSecurity.requirePost(request);
+        }
         if ("changeDisplay".equals(method)) {
             return changeDisplay();
         } else if ("reset".equals(method)) {

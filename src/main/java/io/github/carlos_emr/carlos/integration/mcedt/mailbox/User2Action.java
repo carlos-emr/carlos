@@ -37,15 +37,12 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.integration.mcedt.McedtSecurity;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class User2Action extends ActionSupport {
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -54,12 +51,10 @@ public class User2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.billing)");
-        }
-
+        McedtSecurity.requireRead(request);
         if ("changePassword".equals(request.getParameter("method"))) {
+            McedtSecurity.requireWrite(request);
+            McedtSecurity.requirePost(request);
             return changePassword();
         }
         if ("cancel".equals(request.getParameter("method"))) {

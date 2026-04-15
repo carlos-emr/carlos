@@ -45,13 +45,8 @@ import ca.ontario.health.edt.UploadData;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class Upload2Action extends ActionSupport {
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -60,12 +55,12 @@ public class Upload2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.billing)");
-        }
-
+        McedtSecurity.requireRead(request);
         String method = request.getParameter("method");
+        if ("cancelUpload".equals(method) || "removeSelected".equals(method) || "uploadToMcedt".equals(method)) {
+            McedtSecurity.requireWrite(request);
+            McedtSecurity.requirePost(request);
+        }
         if ("cancelUpload".equals(method)) {
             return cancelUpload();
         } else if ("addNew".equals(method)) {
@@ -74,7 +69,7 @@ public class Upload2Action extends ActionSupport {
             return removeSelected();
         } else if ("uploadToMcedt".equals(method)) {
             return uploadToMcedt();
-        } 
+        }
         return SUCCESS;
     }
 

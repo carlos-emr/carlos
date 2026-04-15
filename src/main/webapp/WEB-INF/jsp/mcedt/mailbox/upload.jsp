@@ -124,7 +124,7 @@
             if (control) {
                 control.disabled = true;
             }
-            window.location.href = '<%= request.getContextPath() %>/mcedt/mailbox/addUpload.jsp';
+            window.location.href = '<%= request.getContextPath() %>/mcedt/openAddUploadMailbox.do';
             return false;
         }
 
@@ -132,7 +132,7 @@
 </head>
 <body>
 <form action="${pageContext.request.contextPath}/mcedt/upload.do" method="post" id="formUpload">
-    <jsp:include page="/mcedt/messages.jsp"/>
+    <jsp:include page="/WEB-INF/jsp/mcedt/messages.jsp"/>
 
     <input id="methodUpload" name="method" type="hidden" value=""/>
     <input type="hidden" id="description" name="description" value=""/>

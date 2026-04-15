@@ -50,7 +50,7 @@
             }
 
             function modifyResource(resourceId) {
-                window.location.href = "updateUpload.jsp?resourceId=" + resourceId;
+                window.location.href = "<%= request.getContextPath() %>/mcedt/openUpdateUpload.do?resourceId=" + resourceId;
                 return false;
             }
 
