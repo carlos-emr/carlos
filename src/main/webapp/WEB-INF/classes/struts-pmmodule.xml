@@ -28,6 +28,15 @@
 <struts>
     <package name="pmmodule" namespace="/" extends="struts-default">
 
+        <global-results>
+            <result name="securityError">/securityError.jsp</result>
+            <result name="error">/errorpage.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+            <exception-mapping exception="java.lang.Exception" result="error"/>
+        </global-exception-mappings>
 
         <action name="EnterSignature" class="io.github.carlos_emr.carlos.providers.pageUtil.ProEditSignature2Action">
             <result name="success">/WEB-INF/jsp/provider/providerSignature.jsp</result>

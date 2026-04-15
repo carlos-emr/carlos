@@ -78,6 +78,7 @@ import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.FunctionalCentre;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.match.IMatchManager;
 import io.github.carlos_emr.carlos.match.MatchManager;
 import io.github.carlos_emr.carlos.match.MatchManagerException;
@@ -141,6 +142,7 @@ public class ProgramManager2Action extends ActionSupport {
     //private static CriteriaSelectionOptionDao criteriaSelectionOptionDAO = (CriteriaSelectionOptionDao) SpringUtils.getBean(CriteriaSelectionOptionDao.class);
 
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private IMatchManager matchManager = new MatchManager();
 
@@ -458,6 +460,11 @@ public class ProgramManager2Action extends ActionSupport {
      * @return String "programSignatures" to forward to signatures view
      */
     public String programSignatures() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+
         String programId = request.getParameter("programId");
         if (programId != null) {
             // List<ProgramSignature> pss = programManager.getProgramSignatures(Integer.valueOf(programId));
