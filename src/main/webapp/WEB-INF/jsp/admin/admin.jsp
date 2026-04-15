@@ -799,7 +799,7 @@
                 <ul>
 
                     <li>&nbsp;<a href="#" onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/ViewApiClients.do");return false;'>REST Clients</a></li>
-                    <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/hospitalReportManager.jsp");return false;'>Hospital
+                    <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/Statement.do");return false;'>Hospital
                         Report Manager (HRM) Status</a></li>
 
                     <li><a href="javascript:void(0);" onclick="popupPage(550,800, '${pageContext.request.contextPath}/admin/ViewUpdateDrugref.do');return false;"><fmt:message key="admin.admin.UpdateDrugref"/></a></li>
