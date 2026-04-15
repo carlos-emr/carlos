@@ -272,7 +272,7 @@
                         if (oscarVariables.getProperty("billregion", "").equals("BC")) {
                     %>
                     <li><a href="#"
-                           onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/manageBillingform.jsp");return false;'><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
+                           onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/ON/ManageBillingform.do");return false;'><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(600,900,"${pageContext.request.contextPath}/billing/CA/BC/billingAddCode.do");return false;'><fmt:message key="admin.admin.ManagePrivFrm"/></a></li>
                     <oscar:oscarPropertiesCheck property="BC_BILLING_CODE_MANAGEMENT"

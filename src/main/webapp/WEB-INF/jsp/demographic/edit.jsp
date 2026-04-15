@@ -1282,7 +1282,7 @@
                                                             <span id="swipeButton" style="display: inline;">
                                     <input type="button" name="Button"
                                            value="<fmt:message key="demographic.demographiceditdemographic.btnSwipeCard"/>"
-                                           onclick="window.open('demographic/zdemographicswipe.jsp','', 'scrollbars=yes,resizable=yes,width=600,height=300, top=360, left=0')">
+                                           onclick="window.open('<%= request.getContextPath() %>/demographic/ViewZdemographicSwipe.do','', 'scrollbars=yes,resizable=yes,width=600,height=300, top=360, left=0')">
                                 </span>
                                                             <!--input type="button" name="Button" value="<fmt:message key="demographic.demographiceditdemographic.btnSwipeCard"/>" onclick="javascript:window.alert('Health Card Number Already Inuse');"-->
                                                         </td>

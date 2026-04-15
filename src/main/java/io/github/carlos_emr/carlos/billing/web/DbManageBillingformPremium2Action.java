@@ -102,7 +102,7 @@ public class DbManageBillingformPremium2Action extends ActionSupport {
             return NONE;
         }
 
-        response.sendRedirect(request.getContextPath() + "/billing/manageBillingform.jsp");
+        response.sendRedirect(request.getContextPath() + "/billing/CA/ON/ManageBillingform.do");
         return NONE;
     }
 }

@@ -110,7 +110,7 @@ String curProvider_no = (String)session.getAttribute("user");
 		            <oscar:oscarPropertiesCheck property="billregion" value="BC">
 
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/manageBillingform.jsp"><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/ManageBillingform.do"><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/billing/CA/BC/billingAddCode.do"><fmt:message key="admin.admin.ManagePrivFrm"/></a></li>
 					<oscar:oscarPropertiesCheck property="BC_BILLING_CODE_MANAGEMENT"
