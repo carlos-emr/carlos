@@ -101,11 +101,18 @@ public class AuditLogManager {
         SimpleDateFormat formatter2 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         SimpleDateFormat formatter3 = new SimpleDateFormat("yyyyMMddHHmmss");
 
-        StringBuilder filenameBuilder = new StringBuilder();
-        filenameBuilder.append(outputDirectory).append("/OSCAR_AUDIR_LOG_PURGE_FILE_").append(formatter3.format(endDateToPurge)).append(".sql");
-
-        StringBuilder whereClause = new StringBuilder();
-        whereClause.append("dateTime < '").append(formatter2.format(endDateToPurge)).append("'");
+        java.util.List<String> commandList = new java.util.ArrayList<>();
+        commandList.add(mysqldump);
+        commandList.add("--user");
+        commandList.add(user);
+        // Inject password via environment var later
+        commandList.add("-w");
+        commandList.add(new StringBuilder().append("dateTime < '").append(formatter2.format(endDateToPurge)).append("'").toString());
+        commandList.add("-t");
+        commandList.add("--result-file");
+        commandList.add(new StringBuilder().append(outputDirectory).append("/OSCAR_AUDIR_LOG_PURGE_FILE_").append(formatter3.format(endDateToPurge)).append(".sql").toString());
+        commandList.add(dbName);
+        commandList.add("log");
 
         Integer exitValue = null;
 
@@ -113,18 +120,7 @@ public class AuditLogManager {
         try {
             String s = null;
 
-            ProcessBuilder pb = new ProcessBuilder(
-                    mysqldump,
-                    "--user",
-                    user,
-                    "-w",
-                    whereClause.toString(),
-                    "-t",
-                    "--result-file",
-                    filenameBuilder.toString(),
-                    dbName,
-                    "log"
-            );
+            ProcessBuilder pb = new ProcessBuilder(commandList);
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
             }
@@ -158,7 +154,7 @@ public class AuditLogManager {
             throw new Exception("Error running mysqldump command. Received an exit value of " + exitValue);
         }
 
-        logger.info("Backed up audit log which will be purged to " + filenameBuilder.toString());
+        logger.info("Backed up audit log which will be purged to " + new StringBuilder().append(outputDirectory).append("/OSCAR_AUDIR_LOG_PURGE_FILE_").append(formatter3.format(endDateToPurge)).append(".sql").toString());
 
         LogAction.addLogSynchronous(loggedInInfo, "AuditLogManager.purgeAuditLog", formatter2.format(endDateToPurge));
 
