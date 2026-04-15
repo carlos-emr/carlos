@@ -103,7 +103,7 @@ public class AuditLogManager {
 
         StringBuilder filenameBuilder = new StringBuilder();
         filenameBuilder.append(outputDirectory).append("/OSCAR_AUDIR_LOG_PURGE_FILE_").append(formatter3.format(endDateToPurge)).append(".sql");
-        String filename = filenameBuilder.toString();
+        String filename = String.valueOf(filenameBuilder);
 
         java.util.List<String> commandList = new java.util.ArrayList<>();
         commandList.add(mysqldump);
@@ -113,7 +113,7 @@ public class AuditLogManager {
         commandList.add("-w");
         StringBuilder whereClause = new StringBuilder();
         whereClause.append("dateTime < '").append(formatter2.format(endDateToPurge)).append("'");
-        String whereStr = whereClause.toString();
+        String whereStr = String.valueOf(whereClause);
         commandList.add(whereStr);
         commandList.add("-t");
         commandList.add("--result-file");
