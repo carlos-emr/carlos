@@ -16,7 +16,7 @@ var nhpup = (function () {
     var pup = null;
     var minMargin = 15;
     var defaultWidth = 200;
-    var blockedTags = new Set(["SCRIPT", "STYLE", "IFRAME", "OBJECT", "EMBED", "LINK", "META"]);
+    var blockedTags = new Set(["SCRIPT", "STYLE", "IFRAME", "OBJECT", "EMBED", "LINK", "META", "SVG", "MATH", "BASE"]);
 
     function sanitizeFragment(markup) {
         var parser = new DOMParser();
