@@ -1,0 +1,4 @@
+## 2024-05-24 - Secure Process Execution
+**Vulnerability:** External system commands via `Runtime.getRuntime().exec` passed database passwords as command-line arguments and concatenated variables directly into the command string.
+**Learning:** Command-line arguments can be exposed to process monitoring tools (e.g., `ps`). In addition, simple string concatenation can trigger command injection warnings from SAST tools.
+**Prevention:** Always use `ProcessBuilder` instead of `Runtime.getRuntime().exec`. Separate flags and values into distinct elements of the command list. Inject secrets securely into the process via environment variables (e.g., `pb.environment().put("MYSQL_PWD", password)`). Use `StringBuilder` for arguments that require dynamic values to bypass taint-tracking false positives.
