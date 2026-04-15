@@ -63,8 +63,11 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class SplitDocument2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -74,6 +77,11 @@ public class SplitDocument2Action extends ActionSupport {
     private static final Set<PosixFilePermission> OWNER_RW_ONLY = PosixFilePermissions.fromString("rw-------");
 
     public String execute() throws Exception {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_edoc", "w", null)) {
+            throw new SecurityException("missing required sec object (_edoc)");
+        }
+
         String method = request.getParameter("method");
         if ("split".equals(method)) {
             return split();

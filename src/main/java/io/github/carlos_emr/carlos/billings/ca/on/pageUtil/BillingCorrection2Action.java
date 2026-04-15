@@ -67,8 +67,11 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class BillingCorrection2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -79,6 +82,11 @@ public class BillingCorrection2Action extends ActionSupport {
     private final BillingPaymentTypeDao billingPaymentTypeDao = SpringUtils.getBean(BillingPaymentTypeDao.class);
 
     public String execute() {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         if ("add3rdPartyPayment".equals(request.getParameter("method"))) {
             return add3rdPartyPayment();
         }

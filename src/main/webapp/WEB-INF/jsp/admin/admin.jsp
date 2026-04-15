@@ -490,9 +490,6 @@
                     </caisi:isModuleLoad>
                     <li><a href="${pageContext.request.contextPath}/oscarReport/ViewCds4ReportForm.do"><fmt:message key="admin.admin.cdsRpt"/></a></li>
                     <li><a href="${pageContext.request.contextPath}/oscarReport/ViewMisReportForm.do"><fmt:message key="admin.admin.misRpt"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/oscarReport/cbi_submit_form.jsp"><fmt:message key="admin.admin.cbiSubmit"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/admin/cbiAdmin.jsp"><fmt:message key="admin.admin.cbi.reportlink"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/oscarReport/cbi_report_form.jsp"><fmt:message key="admin.admin.cbiRpt"/></a></li>
                     <li><a href="${pageContext.request.contextPath}/admin/ViewUsageReport.do"><fmt:message key="admin.admin.usageRpt"/></a></li>
                     <oscar:oscarPropertiesCheck property="SERVERLOGGING" value="yes">
                         <li><a href="#"

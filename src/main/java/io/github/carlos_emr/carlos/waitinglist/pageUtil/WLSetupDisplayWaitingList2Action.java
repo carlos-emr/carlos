@@ -53,8 +53,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.util.Collection;
 import java.util.Date;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -63,6 +67,11 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
 
     public String execute()
             throws Exception {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_demographic", "w", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
 
 
         log.debug("WLSetupDisplayWaitingList2Action/execute(): just entering.");

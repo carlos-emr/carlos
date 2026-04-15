@@ -47,8 +47,12 @@ import io.github.carlos_emr.carlos.report.bean.RptByExampleQueryBeanHandler;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class RptByExamplesFavorite2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -56,6 +60,11 @@ public class RptByExamplesFavorite2Action extends ActionSupport {
     private ReportByExamplesFavoriteDao dao = SpringUtils.getBean(ReportByExamplesFavoriteDao.class);
 
     public String execute() throws ServletException, IOException {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_report", "r", null)) {
+            throw new SecurityException("missing required sec object (_report)");
+        }
+
         String providerNo = (String) request.getSession().getAttribute("user");
 
         if (!StringUtils.isEmpty(this.getNewQuery())) {

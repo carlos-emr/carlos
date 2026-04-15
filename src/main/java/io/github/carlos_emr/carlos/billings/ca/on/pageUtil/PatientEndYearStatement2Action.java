@@ -60,8 +60,11 @@ import io.github.carlos_emr.OscarDocumentCreator;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class PatientEndYearStatement2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -73,6 +76,11 @@ public class PatientEndYearStatement2Action extends ActionSupport {
 
 
     public String execute() {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_billing", "r", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
 
         List<PatientEndYearStatementInvoiceBean> result = null;
         PatientEndYearStatementBean summary = new PatientEndYearStatementBean("", "", 0, "", "", "", new Date(), new Date(), "", "");

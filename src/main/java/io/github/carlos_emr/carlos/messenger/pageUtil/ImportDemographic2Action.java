@@ -36,6 +36,9 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  * Struts2 action stub for the demographic import page.
@@ -53,6 +56,8 @@ import org.apache.logging.log4j.Logger;
  * @since 2019
  */
 public class ImportDemographic2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     private static final Logger logger = LogManager.getLogger(ImportDemographic2Action.class);
 
     /**
@@ -76,6 +81,11 @@ public class ImportDemographic2Action extends ActionSupport {
      * @return SUCCESS constant indicating successful execution and forward to DisplayMessages.jsp
      */
     public String execute() {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_msg", "w", null)) {
+            throw new SecurityException("missing required sec object (_msg)");
+        }
+
         logger.warn("ImportDemographic2Action invoked but cross-facility demographic import has been removed");
         String messageID = request.getParameter("messageID");
 

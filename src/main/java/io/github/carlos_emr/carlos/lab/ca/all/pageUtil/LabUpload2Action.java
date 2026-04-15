@@ -78,8 +78,11 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.List;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class LabUpload2Action extends ActionSupport implements UploadedFilesAware {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -87,6 +90,11 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
 
     @Override
     public String execute() {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_lab", "w", null)) {
+            throw new SecurityException("missing required sec object (_lab)");
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         String signature = request.getParameter("signature");

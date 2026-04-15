@@ -50,14 +50,24 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeData;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class ScheduleOfBenefitsUpdate2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
 
     public String execute() {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_admin.billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.billing)");
+        }
+
 
         boolean forceUpdate = request.getAttribute("forceUpdate") == null ? "true".equals(request.getParameter("forceUpdate")) : (Boolean) request.getAttribute("forceUpdate");
 

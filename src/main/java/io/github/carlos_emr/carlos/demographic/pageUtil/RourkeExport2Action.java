@@ -60,8 +60,12 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.sql.Timestamp;
 import java.util.*;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class RourkeExport2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -116,6 +120,11 @@ public class RourkeExport2Action extends ActionSupport {
     @SuppressWarnings("rawtypes")
     @Override
     public String execute() throws Exception {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
         CarlosProperties properties = CarlosProperties.getInstance();
         Clinic clinic = clinicDAO.getClinic();
         List<DataExport> dataExportList = dataExportDAO.findAllByType(DataExportDao.ROURKE);

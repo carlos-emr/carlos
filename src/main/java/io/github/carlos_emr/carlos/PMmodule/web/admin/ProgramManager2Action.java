@@ -93,6 +93,7 @@ import io.github.carlos_emr.carlos.services.security.RolesManager;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  * Struts 2 action for comprehensive program management in the PMmodule.
@@ -118,6 +119,8 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @since 2005-10-01
  */
 public class ProgramManager2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -287,6 +290,11 @@ public class ProgramManager2Action extends ActionSupport {
      * @return String result name for Struts 2 result mapping
      */
     public String execute() {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_pmm_management", "w", null)) {
+            throw new SecurityException("missing required sec object (_pmm_management)");
+        }
+
         String method = request.getParameter("method");
         if ("edit".equals(method)) {
             return edit();

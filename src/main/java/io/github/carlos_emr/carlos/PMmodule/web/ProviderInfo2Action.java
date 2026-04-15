@@ -44,8 +44,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class ProviderInfo2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     private HttpServletRequest request = ServletActionContext.getRequest();
     private FacilityDao facilityDao = SpringUtils.getBean(FacilityDao.class);
     private ProgramManager programManager = SpringUtils.getBean(ProgramManager.class);
@@ -53,6 +56,11 @@ public class ProviderInfo2Action extends ActionSupport {
     private ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 
     public String execute() {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_pmm_management", "r", null)) {
+            throw new SecurityException("missing required sec object (_pmm_management)");
+        }
+
         // Default action is to view
         return view();
     }

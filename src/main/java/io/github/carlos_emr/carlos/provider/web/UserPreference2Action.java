@@ -52,8 +52,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import java.util.*;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class UserPreference2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -103,6 +106,11 @@ public class UserPreference2Action extends ActionSupport {
 
     @Override
     public String execute() {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_pref", "w", null)) {
+            throw new SecurityException("missing required sec object (_pref)");
+        }
+
         if ("saveGeneral".equals(request.getParameter("method"))) {
             return saveGeneral();
         }

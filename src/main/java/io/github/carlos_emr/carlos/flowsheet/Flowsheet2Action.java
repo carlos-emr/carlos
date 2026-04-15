@@ -84,8 +84,11 @@ import io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class Flowsheet2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -101,6 +104,11 @@ public class Flowsheet2Action extends ActionSupport {
     private SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 
     public String execute() throws Exception {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
         String method = request.getParameter("method");
         if ("getTemplateDetails".equals(method)) {
             return getTemplateDetails();

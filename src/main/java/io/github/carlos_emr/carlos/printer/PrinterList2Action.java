@@ -43,6 +43,9 @@ import org.openpdf.text.pdf.PdfWriter;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  * Struts2 action that generates a minimal PDF with embedded JavaScript to retrieve the list
@@ -59,6 +62,8 @@ import org.apache.struts2.ServletActionContext;
  * @since 2015-08-12
  */
 public class PrinterList2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -69,6 +74,11 @@ public class PrinterList2Action extends ActionSupport {
      * @throws IOException if PDF generation or response writing fails
      */
     public String execute() throws IOException {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_admin", "r", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+
         return generatePrinterListInPDF();
     }
 

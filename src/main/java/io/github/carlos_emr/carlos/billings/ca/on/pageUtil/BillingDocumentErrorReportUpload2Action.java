@@ -62,8 +62,11 @@ import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class BillingDocumentErrorReportUpload2Action extends ActionSupport implements UploadedFilesAware {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -73,6 +76,11 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
     private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
 
     public String execute() throws ServletException, IOException {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         String filename = request.getParameter("filename");

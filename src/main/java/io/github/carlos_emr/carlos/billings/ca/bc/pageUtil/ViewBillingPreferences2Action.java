@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
@@ -59,12 +60,16 @@ public class ViewBillingPreferences2Action
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final BillingPreferencesDAO dao = SpringUtils.getBean(BillingPreferencesDAO.class);
     private final PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
     private final ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(servletRequest);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
         List<Property> propList = propertyDao.findByNameAndProvider(Property.PROPERTY_KEY.invoice_payee_info, this.getProviderNo());
         Property invoicePayeeInfo = propList.isEmpty() ? null : propList.get(0);
 

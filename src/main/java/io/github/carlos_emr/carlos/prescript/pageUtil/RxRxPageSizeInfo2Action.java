@@ -43,8 +43,13 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public final class RxRxPageSizeInfo2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -52,6 +57,11 @@ public final class RxRxPageSizeInfo2Action extends ActionSupport {
     private static Logger logger = MiscUtils.getLogger();
 
     public String execute() {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_rx", "w", null)) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+
         return view();
     }
 

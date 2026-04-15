@@ -63,8 +63,12 @@ import io.github.carlos_emr.carlos.dxresearch.util.dxResearchCodingSystem;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class DxresearchReport2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -160,6 +164,11 @@ public class DxresearchReport2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_report", "r", null)) {
+            throw new SecurityException("missing required sec object (_report)");
+        }
+
         String method = request.getParameter("method");
         if ("patientRegistedAll".equals(method)) {
             return patientRegistedAll();

@@ -49,8 +49,13 @@ import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class EctImmCreateImmunizationSetConfig2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -62,6 +67,11 @@ public class EctImmCreateImmunizationSetConfig2Action extends ActionSupport {
 
     public String execute()
             throws ServletException, IOException {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_admin.prevention", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.prevention)");
+        }
+
         EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
         String providerNo = bean.providerNo;
         Enumeration e = request.getParameterNames();

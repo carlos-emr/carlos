@@ -90,8 +90,11 @@ import io.github.carlos_emr.carlos.services.LookupManager;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class ClientManager2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -121,6 +124,11 @@ public class ClientManager2Action extends ActionSupport {
     }
 
     public String execute() {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_pmm_management", "w", null)) {
+            throw new SecurityException("missing required sec object (_pmm_management)");
+        }
+
         String method = request.getParameter("method");
         if ("admit".equals(method)) {
             return admit();

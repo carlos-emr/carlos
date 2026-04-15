@@ -40,8 +40,12 @@ import io.github.carlos_emr.CarlosProperties;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class User2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -50,6 +54,11 @@ public class User2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_admin.billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.billing)");
+        }
+
         if ("changePassword".equals(request.getParameter("method"))) {
             return changePassword();
         }

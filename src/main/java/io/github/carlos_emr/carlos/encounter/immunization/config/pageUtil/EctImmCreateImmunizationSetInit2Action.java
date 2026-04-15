@@ -34,8 +34,13 @@ import org.apache.struts2.ServletActionContext;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class EctImmCreateImmunizationSetInit2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     private HttpServletRequest request = ServletActionContext.getRequest();
     private String setName;
     private String numRows;
@@ -43,6 +48,11 @@ public class EctImmCreateImmunizationSetInit2Action extends ActionSupport {
 
     @Override
     public String execute() {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_admin.prevention", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.prevention)");
+        }
+
         if (numCols != null) numCols = numCols.trim();
         if (numRows != null) numRows = numRows.trim();
 

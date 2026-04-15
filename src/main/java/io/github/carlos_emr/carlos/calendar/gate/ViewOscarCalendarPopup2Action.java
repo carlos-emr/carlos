@@ -29,6 +29,8 @@ import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  * View gate for {@code calendar/oscarCalendarPopup.jsp} — generic date-picker
@@ -38,6 +40,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * @since 2026-04-14
  */
 public final class ViewOscarCalendarPopup2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
 
     /**
      * Validates the caller has an authenticated session, then serves the
@@ -57,6 +61,9 @@ public final class ViewOscarCalendarPopup2Action extends ActionSupport {
         if (loggedInInfo == null) {
             MiscUtils.getLogger().warn("Denied oscarCalendarPopup: no session");
             throw new SecurityException("missing session");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
         }
 
         String method = request.getMethod();

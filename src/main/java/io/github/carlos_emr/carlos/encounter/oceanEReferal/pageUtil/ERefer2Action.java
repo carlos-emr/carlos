@@ -21,6 +21,7 @@ import java.util.List;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  * Struts2 action for managing Ocean eReferral consultation attachments.
@@ -61,6 +62,8 @@ import org.apache.struts2.ServletActionContext;
  * @since 2026-01-24
  */
 public class ERefer2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -84,6 +87,11 @@ public class ERefer2Action extends ActionSupport {
      * @return String always returns {@link ActionSupport#SUCCESS} regardless of routing or execution outcome
      */
     public String execute() {
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_con", "w", null)) {
+            throw new SecurityException("missing required sec object (_con)");
+        }
+
         String method = request.getParameter("method");
 
         if (method != null) {
