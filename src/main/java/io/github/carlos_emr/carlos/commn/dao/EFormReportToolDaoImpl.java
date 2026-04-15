@@ -138,7 +138,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         sb.append("now(),");
 
         int paramIndex = 5;
-        for (EFormValue v : values) {
+        for (int i = 0; i < values.size(); i++) {
             sb.append("?").append(paramIndex++).append(",");
         }
         sb.deleteCharAt(sb.length() - 1);
