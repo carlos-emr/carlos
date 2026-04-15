@@ -58,7 +58,7 @@ public final class RxRxPageSizeInfo2Action extends ActionSupport {
 
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
             throw new SecurityException("missing required sec object (_rx)");
         }
 

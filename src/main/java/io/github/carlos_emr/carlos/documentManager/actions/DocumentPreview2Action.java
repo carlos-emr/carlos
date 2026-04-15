@@ -89,7 +89,7 @@ public class DocumentPreview2Action extends ActionSupport {
      */
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 

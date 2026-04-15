@@ -67,7 +67,7 @@ public class ViewBillingPreferences2Action
 
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(servletRequest);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
         List<Property> propList = propertyDao.findByNameAndProvider(Property.PROPERTY_KEY.invoice_payee_info, this.getProviderNo());

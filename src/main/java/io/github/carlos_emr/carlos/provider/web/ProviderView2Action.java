@@ -56,8 +56,8 @@ public class ProviderView2Action extends ActionSupport {
 
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
+            throw new SecurityException("missing required sec object (_pref)");
         }
 
 
