@@ -1,0 +1,3 @@
+## 2025-04-15 - Pre-compile Regex Patterns in utility methods
+**Learning:** Caching `java.util.regex.Pattern.compile()` calls into pre-compiled `private static final Pattern` fields is a key performance win in this codebase. Dynamic pattern compilation inside frequently called utility functions or loops (like `Misc.cleanNumber()`) introduces unnecessary overhead.
+**Action:** When working on Java string manipulation loops or helper methods, always lift `Pattern.compile` out to a static constant to reuse the compiled state across invocations.
