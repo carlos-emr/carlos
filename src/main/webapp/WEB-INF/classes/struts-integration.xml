@@ -28,6 +28,14 @@
 <struts>
     <package name="integration" namespace="/" extends="struts-default">
 
+        <global-results>
+            <result name="securityError">/securityError.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+        </global-exception-mappings>
+
         <action name="web/dashboard/OutcomesDashboard" class="io.github.carlos_emr.carlos.integration.dashboard.OutcomesDashboard2Action"/>
         <action name="demographic/ValidateSwipeCard" class="io.github.carlos_emr.carlos.integration.mchcv.ValidateSwipeCard2Action">
             <result name="success">/WEB-INF/jsp/demographic/demographicswipe.jsp</result>
