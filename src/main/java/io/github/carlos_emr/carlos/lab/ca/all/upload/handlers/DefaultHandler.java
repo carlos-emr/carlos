@@ -132,18 +132,18 @@ public class DefaultHandler implements MessageHandler {
             // Validate the file path using PathValidationUtils
             File file = new File(fileName);
 
-            // Ensure the file exists and is a regular file
-            if (!file.exists() || !file.isFile()) {
-                logger.error("File does not exist or is not a regular file: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-                return null;
-            }
-
             // Validate the file is within the expected document directory
             CarlosProperties props = CarlosProperties.getInstance();
             String documentDir = props.getProperty("DOCUMENT_DIR");
             if (documentDir != null && !documentDir.isEmpty()) {
                 File docDir = new File(documentDir).getCanonicalFile();
                 file = PathValidationUtils.validateExistingPath(file, docDir);
+            }
+
+            // Ensure the file exists and is a regular file
+            if (!file.exists() || !file.isFile()) {
+                logger.error("File does not exist or is not a regular file: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                return null;
             }
 
             DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
