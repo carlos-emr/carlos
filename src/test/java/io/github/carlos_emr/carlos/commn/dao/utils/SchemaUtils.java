@@ -314,9 +314,7 @@ public class SchemaUtils {
         commandList.add("--host");
         commandList.add(ConfigUtils.getProperty("db_host"));
         commandList.add("-e");
-        StringBuilder sourceCommand = new StringBuilder();
-        sourceCommand.append("source ").append(filename);
-        commandList.add(sourceCommand.toString());
+        commandList.add("source " + filename);
         commandList.add(ConfigUtils.getProperty("db_schema"));
 
         logger.debug("ProcessBuilder command list : " + commandList);
