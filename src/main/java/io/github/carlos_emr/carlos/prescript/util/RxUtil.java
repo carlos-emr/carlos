@@ -53,11 +53,27 @@ public class RxUtil {
     private static String defaultQuantity = "30";
     private static final Logger logger = MiscUtils.getLogger();
     private static String[] zeroToTen = {"(?i)zero", "(?i)one", "(?i)two", "(?i)three", "(?i)four", "(?i)five", "(?i)six", "(?i)seven", "(?i)eight", "(?i)nine", "(?i)ten"};
+
+    /**
+     * Matches one or more whole-number digits with a possessive quantifier to avoid
+     * backtracking when parsing duration text.
+     */
     private static final Pattern WHOLE_NUMBER_PATTERN = Pattern.compile("[0-9]++");
+
+    /**
+     * Matches integer or decimal dosage values using possessive quantifiers so
+     * malformed user input fails quickly without polynomial backtracking.
+     */
     private static final String DECIMAL_NUMBER_REGEX = "(?:[0-9]++(?:\\.[0-9]++)?+|\\.[0-9]++)";
     private static final String DOSAGE_RANGE_REGEX = DECIMAL_NUMBER_REGEX + "-\\s*+" + DECIMAL_NUMBER_REGEX;
     private static final Pattern DOSAGE_NUMBER_PATTERN = Pattern.compile(DECIMAL_NUMBER_REGEX);
     private static final Pattern DOSAGE_RANGE_PATTERN = Pattern.compile(DOSAGE_RANGE_REGEX);
+
+    /**
+     * Precompiled quantity-duration patterns such as {@code 30 days} and
+     * {@code 4 weeks}. These shared patterns replace repeated runtime compilation
+     * and use possessive quantifiers to prevent ReDoS.
+     */
     private static final Pattern[] QUANTITY_DURATION_PATTERNS = compileAll(
             "[0-9]++\\s++(?i)days\\s", "[0-9]++\\s++(?i)weeks\\s", "[0-9]++\\s++(?i)months\\s", "[0-9]++\\s++(?i)day\\s", "[0-9]++\\s++(?i)week\\s", "[0-9]++\\s++(?i)month\\s", "[0-9]++\\s++(?i)d\\s", "[0-9]++\\s++(?i)w\\s", "[0-9]++\\s++(?i)m\\s", "[0-9]++\\s++(?i)mo\\s",
             "[0-9]++\\s++(?i)days$", "[0-9]++\\s++(?i)weeks$", "[0-9]++\\s++(?i)months$", "[0-9]++\\s++(?i)day$", "[0-9]++\\s++(?i)week$", "[0-9]++\\s++(?i)month$", "[0-9]++\\s++(?i)d$", "[0-9]++\\s++(?i)w$", "[0-9]++\\s++(?i)m$", "[0-9]++\\s++(?i)mo$",
@@ -81,6 +97,13 @@ public class RxUtil {
     private static final Pattern[] WEEKLY_FREQUENCY_PATTERNS = compileAll("\\s*+(?i)Q1Week\\s*+", "\\s*+(?i)Q2Week\\s*+");
     private static final Pattern[] MONTHLY_FREQUENCY_PATTERNS = compileAll("\\s*+(?i)Q1Month\\s*+", "\\s*+(?i)Q3Month\\s*+");
 
+    /**
+     * Compiles a list of regex strings into shared {@link Pattern} instances so the
+     * parser reuses hardened expressions instead of recompiling them on each call.
+     *
+     * @param regexes String... the regexes to compile
+     * @return Pattern[] compiled patterns in input order
+     */
     private static Pattern[] compileAll(String... regexes) {
         Pattern[] patterns = new Pattern[regexes.length];
         for (int i = 0; i < regexes.length; i++) {
