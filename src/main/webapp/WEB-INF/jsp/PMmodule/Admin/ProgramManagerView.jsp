@@ -52,6 +52,9 @@
             <td <c:if test="${selectedTab == 'Staff'}">style="background-color: #555;"</c:if>>
                 <a href="${pageContext.request.contextPath}/PMmodule/ProgramManagerView.do?id=<c:out value="${requestScope.id}"/>&amp;tab=Staff">Staff</a>
             </td>
+            <td <c:if test="${selectedTab == 'Function User'}">style="background-color: #555;"</c:if>>
+                <a href="${pageContext.request.contextPath}/PMmodule/ProgramManagerView.do?id=<c:out value="${requestScope.id}"/>&amp;tab=Function%20User">Function User</a>
+            </td>
             <td <c:if test="${selectedTab == 'Teams'}">style="background-color: #555;"</c:if>>
                 <a href="${pageContext.request.contextPath}/PMmodule/ProgramManagerView.do?id=<c:out value="${requestScope.id}"/>&amp;tab=Teams">Teams</a>
             </td>
@@ -86,6 +89,9 @@
     <c:choose>
         <c:when test="${selectedTab == 'Staff'}">
             <jsp:include page="/WEB-INF/jsp/PMmodule/Admin/ProgramView/staff.jsp"/>
+        </c:when>
+        <c:when test="${selectedTab == 'Function User'}">
+            <jsp:include page="/WEB-INF/jsp/PMmodule/Admin/ProgramView/function_user.jsp"/>
         </c:when>
         <c:when test="${selectedTab == 'Teams'}">
             <jsp:include page="/WEB-INF/jsp/PMmodule/Admin/ProgramView/teams.jsp"/>

@@ -53,11 +53,17 @@
                 <td <c:if test="${selectedTab == 'Staff'}">style="background-color: #555;"</c:if>>
                     <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager.do?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Staff">Staff</a>
                 </td>
+                <td <c:if test="${selectedTab == 'Function User'}">style="background-color: #555;"</c:if>>
+                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager.do?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Function%20User">Function User</a>
+                </td>
                 <td <c:if test="${selectedTab == 'Teams'}">style="background-color: #555;"</c:if>>
                     <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager.do?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Teams">Teams</a>
                 </td>
                 <td <c:if test="${selectedTab == 'Clients'}">style="background-color: #555;"</c:if>>
                     <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager.do?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Clients">Clients</a>
+                </td>
+                <td <c:if test="${selectedTab == 'vacancies' or selectedTab == 'vacancy_add'}">style="background-color: #555;"</c:if>>
+                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager.do?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=vacancies">Vacancies</a>
                 </td>
                 <td <c:if test="${selectedTab == 'Queue'}">style="background-color: #555;"</c:if>>
                     <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager.do?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Queue">Queue</a>
@@ -83,16 +89,27 @@
     <input type="hidden" name="id" value="<c:out value="${requestScope.id}"/>"/>
     <input type="hidden" name="program.id" value="<c:out value="${requestScope.id}"/>"/>
     <input type="hidden" name="view.tab" value="<c:out value="${selectedTab}"/>"/>
+    <input type="hidden" name="view.subtab" value="<c:out value="${param['view.subtab']}"/>"/>
+    <input type="hidden" name="vacancyOrTemplateId" value="<c:out value="${requestScope.vacancyOrTemplateId}"/>"/>
 
     <c:choose>
         <c:when test="${selectedTab == 'Staff' && not empty requestScope.id}">
             <jsp:include page="/WEB-INF/jsp/PMmodule/Admin/ProgramEdit/staff.jsp"/>
+        </c:when>
+        <c:when test="${selectedTab == 'Function User' && not empty requestScope.id}">
+            <jsp:include page="/WEB-INF/jsp/PMmodule/Admin/ProgramEdit/function_user.jsp"/>
         </c:when>
         <c:when test="${selectedTab == 'Teams' && not empty requestScope.id}">
             <jsp:include page="/WEB-INF/jsp/PMmodule/Admin/ProgramEdit/teams.jsp"/>
         </c:when>
         <c:when test="${selectedTab == 'Clients' && not empty requestScope.id}">
             <jsp:include page="/WEB-INF/jsp/PMmodule/Admin/ProgramEdit/clients.jsp"/>
+        </c:when>
+        <c:when test="${selectedTab == 'vacancy_add' && not empty requestScope.id}">
+            <jsp:include page="/WEB-INF/jsp/PMmodule/Admin/ProgramEdit/vacancy_add.jsp"/>
+        </c:when>
+        <c:when test="${selectedTab == 'vacancies' && not empty requestScope.id}">
+            <jsp:include page="/WEB-INF/jsp/PMmodule/Admin/ProgramEdit/vacancies.jsp"/>
         </c:when>
         <c:when test="${selectedTab == 'Queue' && not empty requestScope.id}">
             <jsp:include page="/WEB-INF/jsp/PMmodule/Admin/ProgramEdit/queue.jsp"/>

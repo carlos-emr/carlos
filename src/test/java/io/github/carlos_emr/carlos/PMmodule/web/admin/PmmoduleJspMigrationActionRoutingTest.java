@@ -48,6 +48,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -190,6 +191,30 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
     }
 
     @Test
+    @DisplayName("ProgramManager should keep the vacancies tab reachable through the live action")
+    void shouldRouteProgramManagerVacanciesTabThroughLiveAction() throws Exception {
+        Program program = new Program();
+        program.setId(17);
+        program.setName("Shelter");
+
+        when(programManager.getProgram("17")).thenReturn(program);
+        when(programManager.getProgramFirstSignature(17)).thenReturn(null);
+
+        addRequestParameter("method", "edit");
+        addRequestParameter("id", "17");
+        addRequestParameter("view.tab", "vacancies");
+
+        ProgramManager2Action action = new ProgramManager2Action();
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo("edit");
+        assertThat(getMockRequest().getAttribute("view.tab")).isEqualTo("vacancies");
+        assertThat(getMockRequest().getAttribute("vacancyOrTemplateId")).isNull();
+        verifySecurityCheck("_pmm_management", "w");
+    }
+
+    @Test
     @DisplayName("ProgramManagerView should keep the clients tab inside the parent view result")
     void shouldRouteProgramManagerViewClientsTabToConcreteJsp() throws Exception {
         Program program = new Program();
@@ -271,6 +296,22 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
     }
 
     @Test
+    @DisplayName("ProgramManager wrappers should keep Function User and vacancy edit fragments behind WEB-INF")
+    void shouldKeepFunctionUserAndVacancyFragmentsBehindWebInf() throws IOException {
+        String editWrapper = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/PMmodule/Admin/ProgramManagerForm.jsp"));
+        String viewWrapper = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/PMmodule/Admin/ProgramManagerView.jsp"));
+
+        assertThat(editWrapper).contains("Function User");
+        assertThat(editWrapper).contains("view.tab=vacancies");
+        assertThat(editWrapper).contains("/WEB-INF/jsp/PMmodule/Admin/ProgramEdit/function_user.jsp");
+        assertThat(editWrapper).contains("/WEB-INF/jsp/PMmodule/Admin/ProgramEdit/vacancy_add.jsp");
+        assertThat(editWrapper).contains("/WEB-INF/jsp/PMmodule/Admin/ProgramEdit/vacancies.jsp");
+
+        assertThat(viewWrapper).contains("Function User");
+        assertThat(viewWrapper).contains("/WEB-INF/jsp/PMmodule/Admin/ProgramView/function_user.jsp");
+    }
+
+    @Test
     @DisplayName("FacilityManager should serve the moved edit JSP through the live action")
     void shouldRouteFacilityEditThroughLiveAction() throws Exception {
         Facility facility = new Facility("", "");
@@ -313,6 +354,47 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
         assertThat(result).isEqualTo("view");
         assertThat(getMockRequest().getAttribute("facility")).isEqualTo(facility);
         verifySecurityCheck("_admin", "r");
+    }
+
+    @Test
+    @DisplayName("FacilityManager should require admin write privilege for delete")
+    void shouldRequireFacilityWritePrivilegeForDelete() throws Exception {
+        Facility facility = new Facility("", "");
+        facility.setId(5);
+
+        when(facilityDao.find(5)).thenReturn(facility);
+
+        addRequestParameter("method", "delete");
+        addRequestParameter("id", "5");
+
+        FacilityManager2Action action = new FacilityManager2Action();
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo("list");
+        assertThat(facility.isDisabled()).isTrue();
+        verifySecurityCheck("_admin", "w");
+    }
+
+    @Test
+    @DisplayName("FacilityManager should reject delete for read-only admin access")
+    void shouldRejectFacilityDeleteWithoutWritePrivilege() {
+        Facility facility = new Facility("", "");
+        facility.setId(5);
+
+        when(facilityDao.find(5)).thenReturn(facility);
+        denyPrivilege("_admin", "w");
+
+        addRequestParameter("method", "delete");
+        addRequestParameter("id", "5");
+
+        FacilityManager2Action action = new FacilityManager2Action();
+
+        assertThatThrownBy(() -> executeAction(action))
+            .isInstanceOf(SecurityException.class)
+            .hasMessageContaining("_admin");
+        assertThat(facility.isDisabled()).isFalse();
+        verifySecurityCheck("_admin", "w");
     }
 
     @Test
