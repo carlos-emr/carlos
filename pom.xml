@@ -83,7 +83,7 @@
         <sonar.issue.ignore.multicriteria.pvuDocS6549.ruleKey>javasecurity:S6549</sonar.issue.ignore.multicriteria.pvuDocS6549.ruleKey>
         <sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>**/documentManager/**/DocumentUpload2Action.java</sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>
         <!-- Empty default so @{argLine} in surefire resolves even if JaCoCo prepare-agent hasn't run -->
-        <argLine></argLine>
+        <argLine/>
         <!-- Log4j Version -->
         <log4j2.version>2.25.4</log4j2.version>
         <!-- Slf4j Version -->
@@ -102,7 +102,7 @@
         <!-- Struts -->
         <struts.version>7.1.1</struts.version>
         <!-- Jackson -->
-        <jackson.version>2.21.1</jackson.version>
+        <jackson.version>2.21.2</jackson.version>
         <!-- JasperReports -->
         <jasperreports.version>7.0.6</jasperreports.version>
         <!-- OpenPDF -->
