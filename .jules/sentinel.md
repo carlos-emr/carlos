@@ -1,0 +1,4 @@
+## 2024-05-15 - [Secure command execution using ProcessBuilder and env vars]
+**Vulnerability:** Found a command execution vulnerability in `AuditLogManager.java` where `mysqldump` command is executed with `--password=password` directly as argument. This makes the password visible to all users on the system using `ps` and can be a command injection risk since parameters are concatenated.
+**Learning:** Never pass sensitive data as a command-line argument to system commands (especially db passwords).
+**Prevention:** Use `ProcessBuilder`, and set the `MYSQL_PWD` environment variable to securely provide the MySQL password without exposing it in process tables. Avoid using `Runtime.getRuntime().exec` directly, as array arguments can still be insecurely handled, and secrets are exposed to `ps` command.
