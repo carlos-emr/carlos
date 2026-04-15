@@ -1,0 +1,12 @@
+--- src/main/java/io/github/carlos_emr/carlos/managers/AuditLogManager.java
++++ src/main/java/io/github/carlos_emr/carlos/managers/AuditLogManager.java
+@@ -131,7 +131,7 @@
+         try {
+             String s = null;
+
+-            ProcessBuilder pb = new ProcessBuilder(vars.toArray(new String[vars.size()]));
++            ProcessBuilder pb = new ProcessBuilder();
++            pb.command(vars);
+             if (password != null) {
+                 pb.environment().put("MYSQL_PWD", password);
+             }

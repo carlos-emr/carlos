@@ -129,7 +129,7 @@ public class AuditLogManager {
         try {
             String s = null;
 
-            ProcessBuilder pb = new ProcessBuilder(vars.toArray(new String[0]));
+            ProcessBuilder pb = new ProcessBuilder(vars.toArray(new String[vars.size()]));
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
             }

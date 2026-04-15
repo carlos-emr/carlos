@@ -103,7 +103,8 @@ public class AuditLogManager {
         SimpleDateFormat formatter2 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         SimpleDateFormat formatter3 = new SimpleDateFormat("yyyyMMddHHmmss");
 
-        String filename = outputDirectory + "/OSCAR_AUDIR_LOG_PURGE_FILE_" + formatter3.format(endDateToPurge) + ".sql";
+        StringBuilder filename = new StringBuilder(outputDirectory);
+        filename.append("/OSCAR_AUDIR_LOG_PURGE_FILE_").append(formatter3.format(endDateToPurge)).append(".sql");
 
         List<String> vars = new ArrayList<>();
         vars.add(mysqldump);
@@ -118,7 +119,7 @@ public class AuditLogManager {
         vars.add("-t");
 
         vars.add("--result-file");
-        vars.add(filename);
+        vars.add(filename.toString());
 
         vars.add(dbName);
         vars.add("log");
@@ -129,7 +130,7 @@ public class AuditLogManager {
         try {
             String s = null;
 
-            ProcessBuilder pb = new ProcessBuilder(vars.toArray(new String[vars.size()]));
+            ProcessBuilder pb = new ProcessBuilder(vars);
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
             }
@@ -163,7 +164,7 @@ public class AuditLogManager {
             throw new Exception("Error running mysqldump command. Received an exit value of " + exitValue);
         }
 
-        logger.info("Backed up audit log which will be purged to " + filename);
+        logger.info("Backed up audit log which will be purged to " + filename.toString());
 
         LogAction.addLogSynchronous(loggedInInfo, "AuditLogManager.purgeAuditLog", formatter2.format(endDateToPurge));
 
