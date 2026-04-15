@@ -83,28 +83,28 @@
         <tr class="b">
             <td width="20%">Name: *</td>
             <td><input type="text" name="facility.name" size="32" maxlength="32"
-                           id="facilityName"/></td>
+                           id="facilityName" value="<c:out value="${facility.name}"/>"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Description: *</td>
             <td><input type="text" name="facility.description" size="70"
-                           maxlength="70" id="facilityDesc"/></td>
+                           maxlength="70" id="facilityDesc" value="<c:out value="${facility.description}"/>"/></td>
         </tr>
         <tr class="b">
             <td width="20%">HIC:</td>
-            <td><input type="checkbox" name="facility.hic"/></td>
+            <td><input type="checkbox" name="facility.hic" <c:if test="${facility.hic}">checked</c:if>/></td>
         </tr>
         <tr class="b">
             <td width="20%">Primary Contact Name:</td>
-            <td><input type="text" name="facility.contactName" id="facility.contactName" /></td>
+            <td><input type="text" name="facility.contactName" id="facility.contactName" value="<c:out value="${facility.contactName}"/>"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Primary Contact Email:</td>
-            <td><input type="text" name="facility.contactEmail" id="facility.contactEmail" /></td>
+            <td><input type="text" name="facility.contactEmail" id="facility.contactEmail" value="<c:out value="${facility.contactEmail}"/>"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Primary Contact Phone:</td>
-            <td><input type="text" name="facility.contactPhone" id="facility.contactPhone" /></td>
+            <td><input type="text" name="facility.contactPhone" id="facility.contactPhone" value="<c:out value="${facility.contactPhone}"/>"/></td>
         </tr>
         <%
             Integer orgId = (Integer) request.getAttribute("orgId");
@@ -149,23 +149,23 @@
         </tr>
         <tr class="b">
             <td width="20%">Enable Digital Signatures:</td>
-            <td><input type="checkbox" name="facility.enableDigitalSignatures"/></td>
+            <td><input type="checkbox" name="facility.enableDigitalSignatures" <c:if test="${facility.enableDigitalSignatures}">checked</c:if>/></td>
         </tr>
         <tr class="b">
             <td width="20%">Enable Health Number Registry:</td>
-            <td><input type="checkbox" name="facility.enableHealthNumberRegistry"/></td>
+            <td><input type="checkbox" name="facility.enableHealthNumberRegistry" <c:if test="${facility.enableHealthNumberRegistry}">checked</c:if>/></td>
         </tr>
         <tr class="b">
             <td width="20%">Enable Anonymous Clients:</td>
-            <td><input type="checkbox" name="facility.enableAnonymous"/></td>
+            <td><input type="checkbox" name="facility.enableAnonymous" <c:if test="${facility.enableAnonymous}">checked</c:if>/></td>
         </tr>
         <tr class="b">
             <td width="20%">Enable Phone Encounter Clients:</td>
-            <td><input type="checkbox" name="facility.enablePhoneEncounter"/></td>
+            <td><input type="checkbox" name="facility.enablePhoneEncounter" <c:if test="${facility.enablePhoneEncounter}">checked</c:if>/></td>
         </tr>
         <tr class="b">
             <td width="20%">Enable Group Notes:</td>
-            <td><input type="checkbox" name="facility.enableGroupNotes"/></td>
+            <td><input type="checkbox" name="facility.enableGroupNotes" <c:if test="${facility.enableGroupNotes}">checked</c:if>/></td>
         </tr>
 
         <tr class="b">
@@ -174,12 +174,12 @@
                 <select name="facility.vacancyWithdrawnTicklerProvider" id="facility.vacancyWithdrawnTicklerProvider">
                     <option value="">Select Below</option>
                     <%for (Provider p : providerDao.getActiveProviders()) { %>
-                    <option value="<%=p.getProviderNo() %>"><%=p.getFormattedName() %>
+                    <option value="<%=p.getProviderNo() %>" <%= java.util.Objects.equals(p.getProviderNo(), String.valueOf(request.getAttribute("facility") != null ? ((io.github.carlos_emr.carlos.commn.model.Facility) request.getAttribute("facility")).getVacancyWithdrawnTicklerProvider() : null)) ? "selected" : "" %>><%=p.getFormattedName() %>
                     </option>
                     <% } %>
                 </select>
                 &nbsp;Default client ID:&nbsp;
-                <input type="text" name="facility.vacancyWithdrawnTicklerDemographic" id="facility.vacancyWithdrawnTicklerDemographic" />
+                <input type="text" name="facility.vacancyWithdrawnTicklerDemographic" id="facility.vacancyWithdrawnTicklerDemographic" value="<c:out value="${facility.vacancyWithdrawnTicklerDemographic}"/>" />
             </td>
         </tr>
 
@@ -189,12 +189,12 @@
                 <select name="facility.assignNewVacancyTicklerProvider" id="facility.assignNewVacancyTicklerProvider">
                     <option value="">Select Below</option>
                     <%for (Provider p : providerDao.getActiveProviders()) { %>
-                    <option value="<%=p.getProviderNo() %>"><%=p.getFormattedName() %>
+                    <option value="<%=p.getProviderNo() %>" <%= java.util.Objects.equals(p.getProviderNo(), String.valueOf(request.getAttribute("facility") != null ? ((io.github.carlos_emr.carlos.commn.model.Facility) request.getAttribute("facility")).getAssignNewVacancyTicklerProvider() : null)) ? "selected" : "" %>><%=p.getFormattedName() %>
                     </option>
                     <% } %>
                 </select>
                 &nbsp;Default client ID:&nbsp;
-                <input type="text" name="facility.assignNewVacancyTicklerDemographic" id="facility.assignNewVacancyTicklerDemographic" />
+                <input type="text" name="facility.assignNewVacancyTicklerDemographic" id="facility.assignNewVacancyTicklerDemographic" value="<c:out value="${facility.assignNewVacancyTicklerDemographic}"/>" />
             </td>
         </tr>
 
@@ -204,7 +204,7 @@
                 <select name="facility.assignRejectedVacancyApplicant" id="facility.assignRejectedVacancyApplicant">
                     <option value="">Select Below</option>
                     <%for (Provider p : providerDao.getActiveProviders()) { %>
-                    <option value="<%=p.getProviderNo() %>"><%=p.getFormattedName() %>
+                    <option value="<%=p.getProviderNo() %>" <%= java.util.Objects.equals(p.getProviderNo(), String.valueOf(request.getAttribute("facility") != null ? ((io.github.carlos_emr.carlos.commn.model.Facility) request.getAttribute("facility")).getAssignRejectedVacancyApplicant() : null)) ? "selected" : "" %>><%=p.getFormattedName() %>
                     </option>
                     <% } %>
                 </select>
@@ -217,7 +217,11 @@
             <td>
                 <select name="facility.registrationIntake" id="facility.registrationIntake">
                     <option value="-1">Null</option>
-                    <optionsCollection property="registrationIntakeForms" label="formName" value="id"/>
+                    <c:forEach var="registrationIntakeForm" items="${registrationIntakeForms}">
+                        <option value="<c:out value="${registrationIntakeForm.id}"/>" <c:if test="${facility.registrationIntake == registrationIntakeForm.id}">selected</c:if>>
+                            <c:out value="${registrationIntakeForm.formName}"/>
+                        </option>
+                    </c:forEach>
                 </select>
             </td>
         </tr>
@@ -225,30 +229,30 @@
             <td width="20%">Display All vacancies</td>
             <td>
                 <select name="facility.displayAllVacancies" id="facility.displayAllVacancies">
-                    <option value="1">All vacancies in all facilities</option>
-                    <option value="0">All vacancies in users facility program domain</option>
+                    <option value="1" <c:if test="${facility.displayAllVacancies == 1}">selected</c:if>>All vacancies in all facilities</option>
+                    <option value="0" <c:if test="${facility.displayAllVacancies == 0}">selected</c:if>>All vacancies in users facility program domain</option>
                 </select>
             </td>
         </tr>
 
         <tr class="b">
             <td width="20%">Enable Mandatory Encounter Time in Encounter:</td>
-            <td><input type="checkbox" name="facility.enableEncounterTime"/></td>
+            <td><input type="checkbox" name="facility.enableEncounterTime" <c:if test="${facility.enableEncounterTime}">checked</c:if>/></td>
         </tr>
         <tr class="b">
             <td width="20%">Enable Mandatory Transportation Time in Encounter:</td>
-            <td><input type="checkbox" name="facility.enableEncounterTransportationTime"/></td>
+            <td><input type="checkbox" name="facility.enableEncounterTransportationTime" <c:if test="${facility.enableEncounterTransportationTime}">checked</c:if>/></td>
         </tr>
 
         <tr class="b">
             <td width="20%">Rx Interaction Warning Level:</td>
             <td>
                 <select name="facility.rxInteractionWarningLevel" id="facility.rxInteractionWarningLevel">
-                    <option value="0">Not Specified</option>
-                    <option value="1">Low</option>
-                    <option value="2">Medium</option>
-                    <option value="3">High</option>
-                    <option value="4">None</option>
+                    <option value="0" <c:if test="${facility.rxInteractionWarningLevel == 0}">selected</c:if>>Not Specified</option>
+                    <option value="1" <c:if test="${facility.rxInteractionWarningLevel == 1}">selected</c:if>>Low</option>
+                    <option value="2" <c:if test="${facility.rxInteractionWarningLevel == 2}">selected</c:if>>Medium</option>
+                    <option value="3" <c:if test="${facility.rxInteractionWarningLevel == 3}">selected</c:if>>High</option>
+                    <option value="4" <c:if test="${facility.rxInteractionWarningLevel == 4}">selected</c:if>>None</option>
                 </select>
 
             </td>

@@ -78,6 +78,7 @@ import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.FunctionalCentre;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.match.IMatchManager;
 import io.github.carlos_emr.carlos.match.MatchManager;
 import io.github.carlos_emr.carlos.match.MatchManagerException;
@@ -93,7 +94,6 @@ import io.github.carlos_emr.carlos.services.security.RolesManager;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  * Struts 2 action for comprehensive program management in the PMmodule.
@@ -291,11 +291,11 @@ public class ProgramManager2Action extends ActionSupport {
      */
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String method = request.getParameter("method");
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "w", null)) {
             throw new SecurityException("missing required sec object (_pmm_management)");
         }
 
-        String method = request.getParameter("method");
         if ("edit".equals(method)) {
             return edit();
         } else if ("programSignatures".equals(method)) {
@@ -376,12 +376,24 @@ public class ProgramManager2Action extends ActionSupport {
         String searchStatus = this.getSearchStatus();
         String searchType = this.getSearchType();
         String searchFacilityId = this.getSearchFacilityId();
+        if (searchStatus == null) {
+            searchStatus = "";
+        }
+        if (searchType == null) {
+            searchType = "Any";
+        }
+        if (searchFacilityId == null || searchFacilityId.isBlank()) {
+            searchFacilityId = "0";
+        }
 
         String providerNo = (String) request.getSession().getAttribute("user");
         String userrole = (String) request.getSession().getAttribute("userrole");
+        if (userrole == null) {
+            userrole = "";
+        }
 
         List<Program> list = null;
-        if ("".equals(searchStatus)) {
+        if ("".equals(searchStatus) || "Any".equals(searchStatus)) {
             // what is 'any' used for? Temporarily commented them out.
             // when click 'program list' on PMM, it will not display community programs, only display bed and service programs.
             // searchStatus = "Any";
@@ -427,6 +439,7 @@ public class ProgramManager2Action extends ActionSupport {
             }
 
             this.setProgram(program);
+            request.setAttribute("program", program);
             request.setAttribute("oldProgram", program);
 
             List<FunctionalCentre> functionalCentres = functionalCentreDao.findAll();
@@ -448,6 +461,10 @@ public class ProgramManager2Action extends ActionSupport {
             request.setAttribute("service_restrictions", clientRestrictionManager.getActiveRestrictionsForProgram(Integer.valueOf(id), new Date()));
             request.setAttribute("disabled_service_restrictions", clientRestrictionManager.getDisabledRestrictionsForProgram(Integer.valueOf(id), new Date()));
         }
+        return editResult();
+    }
+
+    private String editResult() {
         return "edit";
     }
 
@@ -477,10 +494,11 @@ public class ProgramManager2Action extends ActionSupport {
 
     public String add() {
         this.setProgram(new Program());
+        request.setAttribute("program", this.getProgram());
 
         setEditAttributes(request, null);
 
-        return "edit";
+        return editResult();
     }
 
 
@@ -501,7 +519,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String assign_team() {
@@ -524,7 +542,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String assign_team_client() {
@@ -542,7 +560,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String delete() {
@@ -666,7 +684,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         ProgramAccessCache.setAccessMap(program.getId());
 
-        return "edit";
+        return editResult();
     }
 
     public String edit_function() {
@@ -686,7 +704,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String edit_provider() {
@@ -707,7 +725,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String edit_team() {
@@ -724,7 +742,7 @@ public class ProgramManager2Action extends ActionSupport {
         this.setTeam(pt);
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
 
@@ -741,7 +759,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String remove_team() {
@@ -773,7 +791,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String save_restriction_settings() {
@@ -864,13 +882,13 @@ public class ProgramManager2Action extends ActionSupport {
                 if (admissions.size() > 0) {
                     addActionMessage(getText("program.client_in_the_program", program.getName()));
                     setEditAttributes(request, String.valueOf(program.getId()));
-                    return "edit";
+                    return editResult();
                 }
                 int numQueue = programQueueManager.getActiveProgramQueuesByProgramId((long) program.getId()).size();
                 if (numQueue > 0) {
                     addActionMessage(getText("program.client_in_the_queue", program.getName(), String.valueOf(numQueue)));
                     setEditAttributes(request, String.valueOf(program.getId()));
-                    return "edit";
+                    return editResult();
                 }
             }
         }
@@ -878,7 +896,7 @@ public class ProgramManager2Action extends ActionSupport {
         if (program.isHoldingTank()) {
             addActionMessage(getText("program.invalid_holding_tank"));
             setEditAttributes(request, String.valueOf(program.getId()));
-            return "edit";
+            return editResult();
         }
 
         saveProgram(request, program);
@@ -951,7 +969,7 @@ public class ProgramManager2Action extends ActionSupport {
         List<Criteria> criterias = criteriaDAO.getCriteriaByTemplateId(Integer.valueOf(templateId));
         request.setAttribute("criterias", criterias);
 
-        return "edit";
+        return editResult();
     }
 
     public String chooseTemplate() {
@@ -970,7 +988,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String save_vacancy() {
@@ -1220,7 +1238,7 @@ public class ProgramManager2Action extends ActionSupport {
             addActionMessage(getText("program.duplicate_access", program.getName()));
             this.setAccess(new ProgramAccess());
             setEditAttributes(request, String.valueOf(program.getId()));
-            return "edit";
+            return editResult();
         }
 
         String roles[] = request.getParameterValues("checked_role");
@@ -1243,7 +1261,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         ProgramAccessCache.setAccessMap(program.getId());
 
-        return "edit";
+        return editResult();
     }
 
     public String save_function() {
@@ -1257,7 +1275,7 @@ public class ProgramManager2Action extends ActionSupport {
             addActionMessage(getText("program_function.duplicate", program.getName()));
             this.setFunction(new ProgramFunctionalUser());
             setEditAttributes(request, String.valueOf(program.getId()));
-            return "edit";
+            return editResult();
         }
         programManager.saveFunctionalUser(function);
         addActionMessage(getText("program.saved", program.getName()));
@@ -1267,7 +1285,7 @@ public class ProgramManager2Action extends ActionSupport {
         this.setFunction(new ProgramFunctionalUser());
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String save_provider() {
@@ -1280,7 +1298,7 @@ public class ProgramManager2Action extends ActionSupport {
             addActionMessage(getText("program.provider.exists"));
             this.setProvider(new ProgramProvider());
             setEditAttributes(request, String.valueOf(program.getId()));
-            return "edit";
+            return editResult();
         }
 
         programManager.saveProgramProvider(provider);
@@ -1290,7 +1308,7 @@ public class ProgramManager2Action extends ActionSupport {
         this.setProvider(new ProgramProvider());
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String save_team() {
@@ -1303,7 +1321,7 @@ public class ProgramManager2Action extends ActionSupport {
             addActionMessage(getText("program_team.duplicate", team.getName()));
             this.setTeam(new ProgramTeam());
             setEditAttributes(request, String.valueOf(program.getId()));
-            return "edit";
+            return editResult();
         }
 
         programManager.saveProgramTeam(team);
@@ -1313,7 +1331,7 @@ public class ProgramManager2Action extends ActionSupport {
         this.setTeam(new ProgramTeam());
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     private void setEditAttributes(HttpServletRequest request, String programId) {
@@ -1389,7 +1407,7 @@ public class ProgramManager2Action extends ActionSupport {
         this.setClient_status(pt);
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String save_status() {
@@ -1402,7 +1420,7 @@ public class ProgramManager2Action extends ActionSupport {
             addActionMessage(getText("program_status.duplicate", status.getName()));
             this.setClient_status(new ProgramClientStatus());
             setEditAttributes(request, String.valueOf(program.getId()));
-            return "edit";
+            return editResult();
         }
 
         programManager.saveProgramClientStatus(status);
@@ -1413,7 +1431,7 @@ public class ProgramManager2Action extends ActionSupport {
         this.setClient_status(new ProgramClientStatus());
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String assign_status_client() {
@@ -1431,7 +1449,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String disable_restriction() {
@@ -1612,7 +1630,7 @@ public class ProgramManager2Action extends ActionSupport {
 
     protected Integer getParameterAsInteger(HttpServletRequest request, String name, Integer defaultVal) {
         String param = request.getParameter(name);
-        if (!(param == null || param.equals("null") || param.equals(""))) {
+        if (param != null && !"null".equals(param) && !param.isEmpty()) {
             return Integer.valueOf(param);
         }
         return defaultVal;

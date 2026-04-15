@@ -31,13 +31,17 @@
 
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+<c:url var="programManagerViewClientsUri" value="/PMmodule/ProgramManagerView.do">
+    <c:param name="id" value="${requestScope.id}"/>
+    <c:param name="tab" value="Clients"/>
+</c:url>
 
 <script>
     function assignTeam(id, selectBox) {
         var team_id = selectBox.options[selectBox.selectedIndex].value;
         document.programManagerViewForm.elements['teamId'].value = team_id;
         document.programManagerViewForm.elements['admissionId'].value = id;
-        document.programManagerViewForm.method.value = 'assign_team_client';
+        document.programManagerViewForm.elements['method'].value = 'assign_team_client';
         document.programManagerViewForm.submit();
     }
 
@@ -45,7 +49,7 @@
         var status_id = selectBox.options[selectBox.selectedIndex].value;
         document.programManagerViewForm.elements['clientStatusId'].value = status_id;
         document.programManagerViewForm.elements['admissionId'].value = id;
-        document.programManagerViewForm.method.value = 'assign_status_client';
+        document.programManagerViewForm.elements['method'].value = 'assign_status_client';
         document.programManagerViewForm.submit();
     }
 
@@ -53,7 +57,7 @@
         var com = selectBox.options[selectBox.selectedIndex].value;
         document.programManagerViewForm.community.value = com;
         document.programManagerViewForm.elements['admissionId'].value = id;
-        document.programManagerViewForm.method.value = 'discharge_To_Community';
+        document.programManagerViewForm.elements['method'].value = 'discharge_To_Community';
         document.programManagerViewForm.submit();
     }
 
@@ -103,7 +107,7 @@
         msg += '.\nAre you sure you would like to continue?';
 
         if (confirm(msg)) {
-            document.programManagerViewForm.method.value = 'batch_discharge';
+            document.programManagerViewForm.elements['method'].value = 'batch_discharge';
             document.programManagerViewForm.submit();
         }
     }
@@ -126,7 +130,7 @@
 <!-- show current clients -->
 <display:table class="simple" cellspacing="2" cellpadding="3"
                id="admission" name="admissions" export="false" pagesize="0"
-               requestURI="/PMmodule/ProgramManagerView.do">
+               requestURI="${programManagerViewClientsUri}">
     <display:setProperty name="paging.banner.placement" value="bottom"/>
     <display:setProperty name="basic.msg.empty_list"
                          value="No clients currently admitted to this program."/>

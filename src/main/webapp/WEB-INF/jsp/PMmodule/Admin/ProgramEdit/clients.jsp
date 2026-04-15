@@ -31,12 +31,17 @@
 
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+<c:url var="programManagerClientsUri" value="/PMmodule/ProgramManager.do">
+    <c:param name="method" value="edit"/>
+    <c:param name="id" value="${requestScope.id}"/>
+    <c:param name="view.tab" value="Clients"/>
+</c:url>
 <script>
     function assignTeam(id, selectBox) {
         var team_id = selectBox.options[selectBox.selectedIndex].value;
         document.programManagerForm.elements['admission.teamId'].value = team_id;
         document.programManagerForm.elements['admission.id'].value = id;
-        document.programManagerForm.method.value = 'assign_team_client';
+        document.programManagerForm.elements['method'].value = 'assign_team_client';
         document.programManagerForm.submit();
     }
 
@@ -44,13 +49,14 @@
         var status_id = selectBox.options[selectBox.selectedIndex].value;
         document.programManagerForm.elements['admission.clientStatusId'].value = status_id;
         document.programManagerForm.elements['admission.id'].value = id;
-        document.programManagerForm.method.value = 'assign_status_client';
+        document.programManagerForm.elements['method'].value = 'assign_status_client';
         document.programManagerForm.submit();
     }
 </script>
-<input type="hidden" name="id" id="id"/>
-<input type="hidden" name="teamId" id="teamId"/>
-<input type="hidden" name="clientStatusId" id="clientStatusId"/>
+<input type="hidden" name="view.tab" value="Clients"/>
+<input type="hidden" name="admission.id" id="admissionId"/>
+<input type="hidden" name="admission.teamId" id="teamId"/>
+<input type="hidden" name="admission.clientStatusId" id="clientStatusId"/>
 <div class="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
@@ -60,7 +66,7 @@
 </div>
 <!-- show current clients -->
 <display:table class="simple" cellspacing="2" cellpadding="3" id="admission" name="admissions" export="false"
-               pagesize="0" requestURI="/PMmodule/ProgramManager.do">
+               pagesize="0" requestURI="${programManagerClientsUri}">
     <display:setProperty name="paging.banner.placement" value="bottom"/>
     <display:setProperty name="basic.msg.empty_list" value="No clients currently admitted to this program."/>
 

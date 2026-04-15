@@ -29,6 +29,10 @@
 --%>
 <%@ include file="/taglibs.jsp" %>
 <%@ page import="java.util.List" %>
+<c:url var="programSignaturesUri" value="/PMmodule/ProgramManager.do">
+    <c:param name="method" value="programSignatures"/>
+    <c:param name="programId" value="${param.programId}"/>
+</c:url>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
     <head>
@@ -40,7 +44,7 @@
 
     <display:table cellspacing="2" cellpadding="9" id="ps"
                    name="programSignatures" export="false" pagesize="0"
-                   requestURI="/PMmodule/ProgramManager.do">
+                   requestURI="${programSignaturesUri}">
 
         <display:column property="providerName" style="white-space: nowrap;"
                         sortable="true" title="Provider Name"></display:column>
