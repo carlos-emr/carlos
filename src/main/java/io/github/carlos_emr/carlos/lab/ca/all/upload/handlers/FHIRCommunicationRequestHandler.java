@@ -55,6 +55,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -126,11 +127,11 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             try {
                 targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDir);
             } catch (SecurityException e) {
-                logger.error("Path traversal attempt detected: " + fileName);
+                logger.error("Path traversal attempt detected: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 return null;
             }
             if (!targetFile.exists() || !targetFile.isFile()) {
-                logger.error("File does not exist or is not a regular file: " + fileName);
+                logger.error("File does not exist or is not a regular file: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 return null;
             }
             

@@ -68,7 +68,7 @@ public class DefaultHandler implements MessageHandler {
     }
 
     String getHl7Type() {
-        logger.warn("DefaultHandler.getHl7Type: Returning hl7Type = " + hl7Type);
+        logger.warn("DefaultHandler.getHl7Type: Returning hl7Type = {}", LogSanitizer.sanitize(hl7Type));
         return hl7Type;
     }
 
@@ -90,7 +90,7 @@ public class DefaultHandler implements MessageHandler {
 
                     if (hl7Body != null && hl7Body.indexOf("\nPID|") > 0) {
                         msgCount++;
-                        logger.debug("using xml HL7 Type " + getHl7Type());
+                        logger.debug("using xml HL7 Type {}", LogSanitizer.sanitize(getHl7Type()));
                         MessageUploader.routeReport(loggedInInfo, serviceName, getHl7Type(), hl7Body, fileId);
                     }
                 }
@@ -106,7 +106,10 @@ public class DefaultHandler implements MessageHandler {
                 for (i = 0; i < messages.size(); i++) {
                     String msg = messages.get(i);
                     String typeToUse = getHl7Type() != null ? getHl7Type() : serviceName;
-                    logger.info("using HL7 Type " + typeToUse + " (original: " + getHl7Type() + ", serviceName: " + serviceName + ")");
+                    logger.info("using HL7 Type {} (original: {}, serviceName: {})",
+                            LogSanitizer.sanitize(typeToUse),
+                            LogSanitizer.sanitize(getHl7Type()),
+                            LogSanitizer.sanitize(serviceName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     MessageUploader.routeReport(loggedInInfo, serviceName, typeToUse, msg, fileId);
                 }
             } catch (Exception e) {
@@ -129,7 +132,7 @@ public class DefaultHandler implements MessageHandler {
 
             // Ensure the file exists and is a regular file
             if (!file.exists() || !file.isFile()) {
-                logger.error("File does not exist or is not a regular file: " + fileName);
+                logger.error("File does not exist or is not a regular file: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 return null;
             }
 
@@ -150,7 +153,7 @@ public class DefaultHandler implements MessageHandler {
         } catch (SecurityException e) {
             throw e;
         } catch (Exception e) {
-            logger.error("Error parsing XML file: " + fileName, e);
+            logger.error("Error parsing XML file: {}", LogSanitizer.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return (null);
         }
     }
