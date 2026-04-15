@@ -103,23 +103,9 @@ public class AuditLogManager {
 
         StringBuilder filenameBuilder = new StringBuilder();
         filenameBuilder.append(outputDirectory).append("/OSCAR_AUDIR_LOG_PURGE_FILE_").append(formatter3.format(endDateToPurge)).append(".sql");
-        String filename = String.valueOf(filenameBuilder);
 
-        java.util.List<String> commandList = new java.util.ArrayList<>();
-        commandList.add(mysqldump);
-        commandList.add("--user");
-        commandList.add(user);
-        // Inject password via environment var later
-        commandList.add("-w");
         StringBuilder whereClause = new StringBuilder();
         whereClause.append("dateTime < '").append(formatter2.format(endDateToPurge)).append("'");
-        String whereStr = String.valueOf(whereClause);
-        commandList.add(whereStr);
-        commandList.add("-t");
-        commandList.add("--result-file");
-        commandList.add(filename);
-        commandList.add(dbName);
-        commandList.add("log");
 
         Integer exitValue = null;
 
@@ -127,7 +113,18 @@ public class AuditLogManager {
         try {
             String s = null;
 
-            ProcessBuilder pb = new ProcessBuilder(commandList);
+            ProcessBuilder pb = new ProcessBuilder(
+                    mysqldump,
+                    "--user",
+                    user,
+                    "-w",
+                    whereClause.toString(),
+                    "-t",
+                    "--result-file",
+                    filenameBuilder.toString(),
+                    dbName,
+                    "log"
+            );
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
             }
@@ -161,7 +158,7 @@ public class AuditLogManager {
             throw new Exception("Error running mysqldump command. Received an exit value of " + exitValue);
         }
 
-        logger.info("Backed up audit log which will be purged to " + filename);
+        logger.info("Backed up audit log which will be purged to " + filenameBuilder.toString());
 
         LogAction.addLogSynchronous(loggedInInfo, "AuditLogManager.purgeAuditLog", formatter2.format(endDateToPurge));
 
