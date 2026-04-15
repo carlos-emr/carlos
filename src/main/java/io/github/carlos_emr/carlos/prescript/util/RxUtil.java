@@ -56,7 +56,8 @@ public class RxUtil {
 
     /**
      * Matches one or more whole-number digits with a possessive quantifier to avoid
-     * backtracking when parsing duration text.
+     * backtracking when parsing duration text. The possessive quantifier {@code ++}
+     * prevents the regex engine from giving characters back during a failed match.
      */
     private static final Pattern WHOLE_NUMBER_PATTERN = Pattern.compile("[0-9]++");
 
@@ -65,6 +66,7 @@ public class RxUtil {
      * malformed user input fails quickly without polynomial backtracking.
      */
     private static final String DECIMAL_NUMBER_REGEX = "(?:[0-9]++(?:\\.[0-9]++)?+|\\.[0-9]++)";
+    // integer.decimal or .decimal dosage range components
     private static final String DOSAGE_RANGE_REGEX = DECIMAL_NUMBER_REGEX + "-\\s*+" + DECIMAL_NUMBER_REGEX;
     private static final Pattern DOSAGE_NUMBER_PATTERN = Pattern.compile(DECIMAL_NUMBER_REGEX);
     private static final Pattern DOSAGE_RANGE_PATTERN = Pattern.compile(DOSAGE_RANGE_REGEX);

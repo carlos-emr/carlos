@@ -392,7 +392,7 @@ public class DemographicManagerImpl implements DemographicManager {
 
         // Validate that the character range is not reversed (e.g. "^[Z-A]" would pass the
         // allowlist but throw PatternSyntaxException in Pattern.compile).
-        if (regex.indexOf('-') > -1) {
+        if (regex.contains("-")) {
             char rangeStart = Character.toUpperCase(regex.charAt(2));
             char rangeEnd = Character.toUpperCase(regex.charAt(4));
             if (rangeStart > rangeEnd) {
