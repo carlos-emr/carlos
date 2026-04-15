@@ -1,0 +1,1554 @@
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+<!DOCTYPE html>
+
+<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%
+    String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
+    boolean authed = true;
+%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_appointment" rights="w" reverse="<%=true%>">
+    <%authed = false; %>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_appointment");%>
+</security:oscarSec>
+<%
+    if (!authed) {
+        return;
+    }
+%>
+
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
+<%@page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
+
+<%@page import="io.github.carlos_emr.carlos.appt.status.service.impl.AppointmentStatusMgrImpl" %>
+<%
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+
+%>
+
+
+<%@ page import="java.util.*" %>
+
+<%@ page import="java.math.*" %>
+<%@ page import="java.time.LocalDateTime" %>
+<%@ page import="java.time.format.DateTimeFormatter" %>
+<%@ page import="java.time.format.FormatStyle" %>
+<%@ page import="java.time.ZoneId" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusMgr" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.OtherIdManager" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicCustDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.EncounterFormDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingONExtDao" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProviderManager" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.ApptData" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+
+
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+
+<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
+<%
+
+    String curProvider_no = request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "";
+    String appointment_no = request.getParameter("appointment_no") != null ? request.getParameter("appointment_no") : "";
+    String curUser_no = (String) session.getAttribute("user");
+    String userfirstname = (String) session.getAttribute("userfirstname");
+    String userlastname = (String) session.getAttribute("userlastname");
+    String deepcolor = "#CCCCFF", weakcolor = "#EEEEFF";
+    String origDate = null;
+
+    boolean bFirstDisp = true; //this is the first time to display the window
+    if (request.getParameter("bFirstDisp") != null) bFirstDisp = ("true".equals(request.getParameter("bFirstDisp")));
+
+    String mrpName = "";
+    DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
+    EncounterFormDao encounterFormDao = SpringUtils.getBean(EncounterFormDao.class);
+    ProviderPreference providerPreference = (ProviderPreference) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE);
+    DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
+    OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
+    ProviderDataDao providerDao = SpringUtils.getBean(ProviderDataDao.class);
+    SiteDao siteDao = SpringUtils.getBean(SiteDao.class);
+    ProviderDao pDao = SpringUtils.getBean(ProviderDao.class);
+    BillingONCHeader1Dao cheader1Dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
+
+    ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
+    ProgramManager programManager = SpringUtils.getBean(ProgramManager.class);
+    //String demographic_nox = (String)session.getAttribute("demographic_nox");
+    String demographic_nox = request.getParameter("demographic_no");
+    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    Demographic demographicTmp = demographicManager.getDemographic(loggedInInfo, demographic_nox);
+    String proNoTmp = demographicTmp == null ? null : demographicTmp.getProviderNo();
+    if (demographicTmp != null && proNoTmp != null && proNoTmp.length() > 0) {
+        Provider providerTmp = pDao.getProvider(demographicTmp.getProviderNo());
+        if (providerTmp != null) {
+            mrpName = providerTmp.getFormattedName();
+        }
+    }
+
+    String providerNo = loggedInInfo.getLoggedInProviderNo();
+    Facility facility = loggedInInfo.getCurrentFacility();
+
+    List<Program> programs = programManager.getActiveProgramByFacility(providerNo, facility.getId());
+
+    LookupListManager lookupListManager = SpringUtils.getBean(LookupListManager.class);
+    LookupList reasonCodes = lookupListManager.findLookupListByName(loggedInInfo, "reasonCode");
+    pageContext.setAttribute("reasonCodes", reasonCodes);
+
+    ApptData apptObj = ApptUtil.getAppointmentFromSession(request);
+
+    List<BillingONCHeader1> cheader1s = null;
+    if ("ON".equals(CarlosProperties.getInstance().getProperty("billregion", "ON"))) {
+        cheader1s = cheader1Dao.getBillCheader1ByDemographicNo(Integer.parseInt(demographic_nox));
+    }
+
+    BillingONExtDao billingOnExtDao = (BillingONExtDao) SpringUtils.getBean(BillingONExtDao.class);
+    CarlosProperties pros = CarlosProperties.getInstance();
+    String strEditable = pros.getProperty("ENABLE_EDIT_APPT_STATUS");
+    String apptStatusHere = pros.getProperty("appt_status_here");
+
+    AppointmentStatusMgr apptStatusMgr = new AppointmentStatusMgrImpl();
+    List allStatus = apptStatusMgr.getAllActiveStatus();
+
+    String useProgramLocation = CarlosProperties.getInstance().getProperty("useProgramLocation");
+    String moduleNames = CarlosProperties.getInstance().getProperty("ModuleNames");
+    boolean caisiEnabled = moduleNames != null && org.apache.commons.lang3.StringUtils.containsIgnoreCase(moduleNames, "Caisi");
+    boolean locationEnabled = caisiEnabled && (useProgramLocation != null && useProgramLocation.equals("true"));
+
+    CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
+
+
+    boolean isSiteSelected = false;
+    boolean bMultisites = IsPropertiesOn.isMultisitesEnable();
+    List<Site> sites = siteDao.getActiveSitesByProviderNo((String) session.getAttribute("user"));
+
+
+    Appointment appt = null;
+    String demono = "", chartno = "", phone = "", rosterstatus = "", patientStatus = "", alert = "", doctorNo = "";
+    String strApptDate = bFirstDisp ? "" : request.getParameter("appointment_date");
+
+    if (bFirstDisp) {
+        appt = appointmentDao.find(Integer.parseInt(appointment_no));
+        pageContext.setAttribute("appointment", appt);
+    }
+
+    String statusCode = request.getParameter("status");
+    String importedStatus = null;
+    if (bFirstDisp) {
+        statusCode = appt.getStatus();
+        importedStatus = appt.getImportedStatus();
+    }
+
+    int curSelect = -1;
+    String signOrVerify = "";
+    if (statusCode.length() >= 2) {
+        signOrVerify = statusCode.substring(1, 2);
+        statusCode = statusCode.substring(0, 1);
+    }
+    if (bFirstDisp) {
+        demono = String.valueOf(appt.getDemographicNo());
+    } else if (request.getParameter("demographic_no") != null && !request.getParameter("demographic_no").equals("")) {
+        demono = request.getParameter("demographic_no");
+    }
+
+    //get chart_no from demographic table if it exists
+    if (!demono.equals("0") && !demono.equals("")) {
+        Demographic d = demographicManager.getDemographic(loggedInInfo, demono);
+        if (d != null) {
+            chartno = d.getChartNo();
+            phone = d.getPhone();
+            rosterstatus = d.getRosterStatus();
+            patientStatus = StringUtils.defaultString(d.getPatientStatus());
+        }
+
+        DemographicCust demographicCust = demographicCustDao.find(Integer.parseInt(demono));
+        if (demographicCust != null) {
+            alert = StringUtils.defaultString(demographicCust.getAlert());
+        }
+
+    }
+
+    CarlosProperties props = CarlosProperties.getInstance();
+    String displayStyle = "display:none";
+    String myGroupNo = providerPreference.getMyGroupNo();
+    boolean bMultipleSameDayGroupAppt = false;
+%>
+
+<html>
+    <head>
+        <title><fmt:message key="appointment.editappointment.title"/></title>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <script src="${pageContext.request.contextPath}/js/checkDate.js"></script>
+        <script src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
+
+        <style>
+
+    :root *:not(h2):not(h4):not(.input-group > .btn) {
+        font-size: 12px;
+        overscroll-behavior: none;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        line-height: 1 !important;
+    }
+
+    .form-wrapper {
+        display:flex;
+    }
+
+    * table tr td, * table {
+        border:none !important;
+    }
+
+    .card {
+       margin: 0 !important;
+    }
+
+    .card-body {
+        padding: 10px !important;
+    }
+
+    .ui-selectmenu-button.ui-button {
+        width: 100% !important;
+    }
+
+    .ui-button {
+        padding:10px !important;
+    }
+
+    .ui-icon {
+        width: 12px !important;
+        height: 12px !important;
+    }
+
+    textarea {
+        width: 100%;
+    }
+
+            body, html {
+                --color: #945;
+                --size: 2rem;
+                --border: calc(var(--size) * 0.125);
+                --borderRadius: calc(var(--size) * 0.5);
+                --labelSize: calc(var(--size) * 0.75);
+                --margin: calc(var(--size) * 0.25);
+                --marginLeft: calc(var(--size) + calc(var(--size) * 0.5));
+            }
+
+            .time {
+                background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><circle cx='20' cy='20' r='18.5' fill='none' stroke='%23222' stroke-width='3' /><path d='M20,4 20,8 M4,20 8,20 M36,20 32,20 M20,36 20,32' stroke='%23bbb' stroke-width='1' /><circle cx='20' cy='20' r='2' fill='%23222' stroke='%23222' stroke-width='2' /></svg>");
+                background-position: var(--margin) 50%;
+                background-repeat: no-repeat;
+                background-size: var(--size) var(--size);
+                border: var(--border);
+                border-radius: var(--borderRadius);
+                color: #222;
+                font-size: var(--size);
+                padding: var(--margin) var(--margin) var(--margin) var(--marginLeft);
+                transition: backgroundImage 0.25s;
+            }
+        </style>
+
+        <% if (bMultisites) { %>
+        <style>
+            <% for (Site s:sites) { %>
+            .<%=s.getShortName()%> {
+                background-color: <%=s.getBgColor()%>;
+            }
+
+            <% } %>
+        </style>
+        <% } %>
+        <% if (strEditable != null && strEditable.equalsIgnoreCase("yes")) { %>
+        <style>
+            <% for (int i = 0; i < allStatus.size(); i++) {
+                if (((AppointmentStatus)allStatus.get(i)).getStatus().equals(statusCode)) { curSelect=i;}
+
+%>
+            .<%=((AppointmentStatus)allStatus.get(i)).getStatus()%> {
+                background-color: <%=((AppointmentStatus)allStatus.get(i)).getColor()%>;
+            }
+
+            <% } %>
+        </style>
+        <% } %>
+        <script>
+            function updateTime() {
+                const reTime = /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/;
+                const time = document.EDITAPPT.start_time.value;
+                console.log("time=" + time);
+                if (reTime.exec(time)) {
+                    const minute = Number(time.substring(3, 5));
+                    const minuteDeg = Number(time.substring(3, 5)) * 360 / 60;
+                    const hourDeg = (Number(time.substring(0, 2)) % 12 + (minute / 60)) * 360 / 12;
+                    console.log("minute=" + minute + " minDeg =" + minuteDeg);
+                    document.getElementById("header").style.backgroundImage = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><circle cx='20' cy='20' r='18.5' fill='none' stroke='%23222' stroke-width='3' /><path d='M20,4 20,8 M4,20 8,20 M36,20 32,20 M20,36 20,32' stroke='%23bbb' stroke-width='1' /><circle cx='20' cy='20' r='2' fill='%23222' stroke='%23222' stroke-width='2' /></svg>"), url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><path d='M18.5,24.5 19.5,4 20.5,4 21.5,24.5 Z' fill='%23222' style='transform:rotate(` + minuteDeg + `deg); transform-origin: 50% 50%;' /></svg>"), url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><path d='M18.5,24.5 19.5,8.5 20.5,8.5 21.5,24.5 Z' style='transform:rotate(` + hourDeg + `deg); transform-origin: 50% 50%;' /></svg>")`;
+                }
+            }
+
+
+            function toggleView() {
+                showHideItem('editAppointment');
+                showHideItem('viewAppointment');
+            }
+
+            function demographicdetail(vheight, vwidth) {
+                if (document.forms['EDITAPPT'].demographic_no.value === "") return;
+                self.close();
+                var page = "<%=request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=" + document.forms['EDITAPPT'].demographic_no.value + "";
+                //windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=600,screenY=200,top=0,left=0";
+                var popup = window.open(page, "demographic")//, windowprops);
+            }
+
+            function onButRepeat() {
+                if (calculateEndTime()) {
+                    document.forms[0].action = "appointmenteditrepeatbooking.jsp";
+                    document.forms[0].submit();
+                }
+            }
+
+            var saveTemp = 0;
+
+            function setfocus() {
+                this.focus();
+                document.EDITAPPT.keyword.focus();
+                document.EDITAPPT.keyword.select();
+            }
+
+            function showJSAlert(msg) {
+                var el = document.getElementById('jsAlertBanner');
+                el.querySelector('#jsAlertText').textContent = msg;
+                el.style.display = '';
+            }
+
+            function onBlockFieldFocus(obj) {
+                obj.blur();
+                document.EDITAPPT.keyword.focus();
+                document.EDITAPPT.keyword.select();
+                showJSAlert("<fmt:message key="Appointment.msgFillNameField"/>");
+            }
+
+            function labelprint(vheight, vwidth, varpage) {
+                var page = "" + varpage;
+                windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=600,screenY=200,top=0,left=0";
+                var popup = window.open(page, "encounterhist", windowprops);
+            }
+
+            function onButDelete() {
+                saveTemp = 1;
+            }
+
+            function onButUpdate() {
+                saveTemp = 2;
+            }
+
+            function onButCancel() {
+                var aptStat = document.EDITAPPT.status.value;
+                if (aptStat.indexOf('B') === 0) {
+                    var agree = confirm("<fmt:message key="appointment.editappointment.msgCanceledBilledConfirmation"/>");
+                    if (!agree) {
+                        return;
+                    }
+                }
+                document.EDITAPPT.displaymode.value = 'Update Appt';
+                document.EDITAPPT.buttoncancel.value = 'Cancel Appt';
+                document.EDITAPPT.submit();
+            }
+
+            function upCaseCtrl(ctrl) {
+                ctrl.value = ctrl.value.toUpperCase();
+            }
+
+            function onSub() {
+                if (saveTemp === 1) {
+                    var aptStat = document.EDITAPPT.status.value;
+                    if (aptStat.indexOf('B') === 0) {
+                        return (confirm("<fmt:message key="appointment.editappointment.msgDeleteBilledConfirmation"/>"));
+                    } else {
+                        return (confirm("<fmt:message key="appointment.editappointment.msgDeleteConfirmation"/>"));
+                    }
+                }
+                if (saveTemp === 2) {
+                    return calculateEndTime();
+                } else
+                    return true;
+            }
+
+            function calculateEndTime() {
+                var stime = document.EDITAPPT.start_time.value;
+                var vlen = stime.indexOf(':') === -1 ? 1 : 2;
+
+                if (vlen === 1 && stime.length === 4) {
+                    document.EDITAPPT.start_time.value = stime.substring(0, 2) + ":" + stime.substring(2);
+                    stime = document.EDITAPPT.start_time.value;
+                }
+
+                if (stime.length != 5) {
+                    showJSAlert("<fmt:message key="Appointment.msgInvalidDateFormat"/>");
+                    return false;
+                }
+
+                var shour = stime.substring(0, 2);
+                var smin = stime.substring(stime.length - vlen);
+                var duration = document.EDITAPPT.duration.value;
+
+                if (isNaN(duration)) {
+                    showJSAlert("<fmt:message key="Appointment.msgFillTimeField"/>");
+                    return false;
+                }
+
+                if (parseInt(duration, 10) === 0) {
+                    duration = 1;
+                }
+                if (parseInt(duration, 10) < 0) {
+                    duration = Math.abs(parseInt(duration, 10));
+                }
+
+                var lmin = parseInt(smin, 10) + parseInt(duration, 10) - 1;
+                var lhour = parseInt(lmin / 60);
+
+                if ((lmin) > 59) {
+                    shour = parseInt(shour, 10) + lhour;
+                    shour = shour < 10 ? ("0" + shour) : shour;
+                    smin = lmin - 60 * lhour;
+                } else {
+                    smin = lmin;
+                }
+                smin = smin < 10 ? ("0" + smin) : smin;
+                document.EDITAPPT.end_time.value = shour + ":" + smin;
+                if (shour > 23) {
+                    showJSAlert("<fmt:message key="Appointment.msgCheckDuration"/>");
+                    return false;
+                }
+                return true;
+            }
+
+            function checkTypeNum(typeIn) {
+                var typeInOK = true;
+                var i = 0;
+                var length = typeIn.length;
+                var ch;
+
+                // walk through a string and find a number
+                if (length >= 1) {
+                    while (i < length) {
+                        ch = typeIn.substring(i, i + 1);
+                        if (ch === ":") {
+                            i++;
+                            continue;
+                        }
+                        if ((ch < "0") || (ch > "9")) {
+                            typeInOK = false;
+                            break;
+                        }
+                        i++;
+                    }
+                } else typeInOK = false;
+                return typeInOK;
+            }
+
+            function checkTimeTypeIn(obj) {
+                var colonIdx;
+                if (!checkTypeNum(obj.value)) {
+                    showJSAlert("<fmt:message key="Appointment.msgFillTimeField"/>");
+                } else {
+                    colonIdx = obj.value.indexOf(':');
+                    if (colonIdx === -1) {
+                        if (obj.value.length < 3) showJSAlert("<fmt:message key="Appointment.msgFillValidTimeField"/>");
+                        obj.value = obj.value.substring(0, obj.value.length - 2) + ":" + obj.value.substring(obj.value.length - 2);
+                    }
+                }
+
+                var hours = "";
+                var minutes = "";
+
+                colonIdx = obj.value.indexOf(':');
+                if (colonIdx < 1)
+                    hours = "00";
+                else if (colonIdx === 1)
+                    hours = "0" + obj.value.substring(0, 1);
+                else
+                    hours = obj.value.substring(0, 2);
+
+                minutes = obj.value.substring(colonIdx + 1, colonIdx + 3);
+                if (minutes.length === 0)
+                    minutes = "00";
+                else if (minutes.length === 1)
+                    minutes = "0" + minutes;
+                else if (minutes > 59)
+                    minutes = "00";
+
+                obj.value = hours + ":" + minutes;
+            }
+
+            <% if (apptObj!=null) { %>
+
+            function pasteAppt(multipleSameDayGroupAppt) {
+
+                var warnMsgId = document.getElementById("tooManySameDayGroupApptWarning");
+
+                if (multipleSameDayGroupAppt) {
+                    warnMsgId.style.display = "block";
+                    if (document.EDITAPPT.updateButton) {
+                        document.EDITAPPT.updateButton.style.display = "none";
+                    }
+                    if (document.EDITAPPT.groupButton) {
+                        document.EDITAPPT.groupButton.style.display = "none";
+                    }
+                    if (document.EDITAPPT.deleteButton) {
+                        document.EDITAPPT.deleteButton.style.display = "none";
+                    }
+                    if (document.EDITAPPT.cancelButton) {
+                        document.EDITAPPT.cancelButton.style.display = "none";
+                    }
+                    if (document.EDITAPPT.noShowButton) {
+                        document.EDITAPPT.noShowButton.style.display = "none";
+                    }
+                    if (document.EDITAPPT.labelButton) {
+                        document.EDITAPPT.labelButton.style.display = "none";
+                    }
+                    if (document.EDITAPPT.repeatButton) {
+                        document.EDITAPPT.repeatButton.style.display = "none";
+                    }
+                }
+                //else {
+                //   warnMsgId.style.display = "none";
+                //}
+                document.EDITAPPT.status.value = "<%=Encode.forJavaScriptBlock(apptObj.getStatus())%>";
+                document.EDITAPPT.duration.value = "<%=Encode.forJavaScriptBlock(apptObj.getDuration())%>";
+                document.EDITAPPT.chart_no.value = "<%=Encode.forJavaScriptBlock(apptObj.getChart_no())%>";
+                document.EDITAPPT.keyword.value = "<%=Encode.forJavaScriptBlock(apptObj.getName())%>";
+                document.EDITAPPT.demographic_no.value = "<%=Encode.forJavaScriptBlock(apptObj.getDemographic_no())%>";
+                document.forms[0].reason.value = "<%= Encode.forJavaScriptBlock(apptObj.getReason()) %>";
+                document.forms[0].notes.value = "<%= Encode.forJavaScriptBlock(apptObj.getNotes()) %>";
+                document.EDITAPPT.location.value = "<%=Encode.forJavaScriptBlock(apptObj.getLocation())%>";
+                document.EDITAPPT.resources.value = "<%=Encode.forJavaScriptBlock(apptObj.getResources())%>";
+                document.EDITAPPT.type.value = "<%=Encode.forJavaScriptBlock(apptObj.getType())%>";
+                if ('<%=apptObj.getUrgency()%>' === 'critical') {
+                    document.EDITAPPT.urgency.checked = "checked";
+                }
+            }
+
+            <% } %>
+
+            function onCut() {
+                document.EDITAPPT.submit();
+            }
+
+
+            function openTypePopup() {
+                windowprops = "height=250,width=500,location=no,scrollbars=no,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=100,left=100";
+                var popup = window.open("appointmentTypeAction.do?type=" + document.forms['EDITAPPT'].type.value, "Appointment Type", windowprops);
+                if (popup != null) {
+                    if (popup.opener === null) {
+                        popup.opener = self;
+                    }
+                    popup.focus();
+                }
+            }
+
+            function setType(typeSel, reasonSel, locSel, durSel, notesSel, resSel) {
+                document.forms['EDITAPPT'].type.value = typeSel;
+                document.forms['EDITAPPT'].reason.value = reasonSel;
+                document.forms['EDITAPPT'].duration.value = durSel;
+                document.forms['EDITAPPT'].notes.value = notesSel;
+                document.forms['EDITAPPT'].duration.value = durSel;
+                document.forms['EDITAPPT'].resources.value = resSel;
+                var loc = document.forms['EDITAPPT'].location;
+                if (loc.nodeName.toUpperCase() === 'SELECT') {
+                    for (c = 0; c < loc.length; c++) {
+                        if (loc.options[c].innerHTML === locSel) {
+                            loc.selectedIndex = c;
+                            loc.style.backgroundColor = loc.options[loc.selectedIndex].style.backgroundColor;
+                            break;
+                        }
+                    }
+                } else if (loc.nodeName.toUpperCase() === "INPUT") {
+                    document.forms['EDITAPPT'].location.value = locSel;
+                }
+            }
+
+            function parseSearch() {
+                // sane defaults
+                document.getElementById("search_mode").value = 'search_name';
+
+                var keyObj = document.forms['EDITAPPT'].keyword;
+                var keyVal = keyObj.value;
+                console.log(keyVal);
+
+                // start with the loosest pattern
+                // address pattern 293 Meridian
+                const reAddr = /^\d{1,9}[\s]\w*/;
+                if (reAddr.exec(keyVal)) {
+                    document.getElementById("search_mode").value = "search_address";
+                }
+
+                //Ontario hin 10 didgits  MSP 9 didgits Regie 4 alpha + 8 digits
+                const reHIN = /^\d{9,10}$/;
+                if (reHIN.exec(keyVal)) {
+                    document.getElementById("search_mode").value = "search_hin";
+                }
+                const reRegie = /^[A-Z]{4}\d{8}$/;
+                if (reRegie.exec(keyVal)) {
+                    document.getElementById("search_mode").value = "search_hin";
+                }
+
+                //phone xxx-xxx-xxxx with varying delimiters
+                const rePhone = /^\d{3}[-\s.]\d{3}[-\s.]\d{4}$/;
+                if (rePhone.exec(keyVal)) {
+                    const area = keyVal.substring(0, 3);
+                    const p1 = keyVal.substring(4, 7);
+                    const p2 = keyVal.substring(8);
+                    const phone = area + "-" + p1 + "-" + p2;
+                    keyObj.value = phone;
+                    document.getElementById("search_mode").value = "search_phone";
+                }
+
+                // DOB yyyy-mm-dd with varying delimiters
+                const reDOB = /^(19|20)\d\d([\/.-\s])(0[1-9]|1[012])[\/.-\s](0[1-9]|[12]\d|3[01])$/;
+                if (reDOB.exec(keyVal)) {
+                    const yyyy = keyVal.substring(0, 4);
+                    const mm = keyVal.substring(5, 7);
+                    const dd = keyVal.substring(8);
+                    const dob = yyyy + "-" + mm + "-" + dd;
+                    keyObj.value = dob;
+                    document.getElementById("search_mode").value = "search_dob";
+                }
+
+                //swipe pattern
+                if (keyVal.indexOf('%b610054') === 0 && keyVal.length > 18) {
+                    keyObj.value = keyVal.substring(8, 18);
+                    document.getElementById("search_mode").value = "search_hin";
+                }
+            }
+
+            jQuery(document).ready(function () {
+                var belowTbl = jQuery("#belowTbl");
+                if (belowTbl != null && belowTbl.length > 0 && belowTbl.find("tr").length === 2) {
+                    jQuery(belowTbl.find("tr")[1]).remove();
+                }
+            });
+            jQuery(document).ready(function () {
+
+                var searchDemoUrl = "<%= request.getContextPath() %>/demographic/SearchDemographic.do";
+
+                jQuery("#keyword").autocomplete({
+                    source: function (req, res) {
+                        jQuery.ajax({
+                            url: searchDemoUrl,
+                            type: 'POST',
+                            data: { jqueryJSON: 'true', activeOnly: 'true', term: req.term },
+                            success: function (data) { res(data); },
+                            error: function () { res([]); }
+                        });
+                    },
+                    minLength: 2,
+
+                    focus: function (event, ui) {
+                        jQuery("#keyword").val(ui.item.formattedName);
+                        return false;
+                    },
+                    select: function (event, ui) {
+                        jQuery("#demographic_no").val(ui.item.value);
+                        jQuery("#mrp").val(ui.item.provider);
+                        jQuery("#keyword").val(ui.item.formattedName);
+
+                        // Update patient alert banner
+                        var patientAlert = ui.item.alert || "";
+                        var alertBanner = document.getElementById('patientAlertBanner');
+                        if (alertBanner) {
+                            document.getElementById('patientAlertText').textContent = patientAlert;
+                            alertBanner.style.display = patientAlert ? '' : 'none';
+                        }
+
+                        // Update patient status banner
+                        var rawStatus = ui.item.status || "";
+                        var rawRoster = ui.item.rosterStatus || "";
+                        var displayStatus = (!rawStatus || rawStatus === "AC") ? "" : rawStatus;
+                        var displayRoster = (!rawRoster || rawRoster === "RO") ? "" : rawRoster;
+                        var statusBanner = document.getElementById('patientStatusBanner');
+                        if (statusBanner) {
+                            var statusTextEl = document.getElementById('patientStatusText');
+                            if (displayStatus || displayRoster) {
+                                var rosterLabel = statusBanner.getAttribute('data-roster-label') || 'Roster Status';
+                                var parts = [];
+                                if (displayStatus) parts.push(displayStatus);
+                                if (displayRoster) parts.push(rosterLabel + ":\u00a0" + displayRoster);
+                                statusTextEl.textContent = parts.join("\u00a0");
+                                statusBanner.style.display = '';
+                            } else {
+                                statusBanner.style.display = 'none';
+                            }
+                        }
+
+                        return false;
+                    }
+                })
+                    .autocomplete("instance")._renderItem = function (ul, item) {
+                    var $b = jQuery("<b>").text(item.label || "");
+                    var $div = jQuery("<div>").append($b).append("<br>").append(document.createTextNode(item.provider || ""));
+                    return jQuery("<li>").append($div).appendTo(ul);
+                };
+
+
+                jQuery.widget('custom.myselectmenu', jQuery.ui.selectmenu, {
+
+                    /**
+                     * @see {@link https://api.jqueryui.com/selectmenu/#method-_renderItem}
+                     */
+                    _renderItem: function (ul, item) {
+                        var $div = jQuery("<div>");
+                        var $header = jQuery("<b>").text(item.label || "");
+                        $div.append($header);
+                        var dur = item.element.attr("data-dur");
+                        if (dur && dur.length > 0) {
+                            $div.append(document.createTextNode("\u00a0" + dur + "\u00a0"));
+                            $div.append(jQuery("<span>").html("<fmt:message key='provider.preference.min'/>"));
+                        }
+                        var notesVal = item.element.attr("data-notes");
+                        if (notesVal && notesVal.length > 0) {
+                            $div.append(jQuery("<span>").html("&nbsp;&nbsp;"));
+                            var $notesIcon = jQuery("<span>").css("color", "gray").append(
+                                jQuery("<i>").addClass("fa-solid fa-pencil").attr("title", "<fmt:message key="Appointment.formNotes"/>:\u00a0" + notesVal)
+                            );
+                            $div.append($notesIcon);
+                        }
+                        $div.append(jQuery("<br>"));
+                        var reasonVal = item.element.attr("data-reason");
+                        if (reasonVal && reasonVal.length > 0) {
+                            var $reasonIcon = jQuery("<span>").css("color", "gray").append(
+                                jQuery("<i>").addClass("fa-solid fa-tags").attr("title", "<fmt:message key="Appointment.formReason"/>")
+                            );
+                            $div.append($reasonIcon).append(jQuery("<span>").html("&nbsp;&nbsp;")).append(document.createTextNode(reasonVal));
+                        }
+                        var resourcesVal = item.element.attr("data-resources");
+                        if (resourcesVal && resourcesVal.length > 0) {
+                            $div.append(jQuery("<br>"));
+                            var $resourcesIcon = jQuery("<span>").css("color", "gray").append(
+                                jQuery("<i>").addClass("fa-solid fa-gear").attr("title", "<fmt:message key="Appointment.formResources"/>")
+                            );
+                            $div.append($resourcesIcon).append(jQuery("<span>").html("&nbsp;&nbsp;")).append(document.createTextNode(resourcesVal));
+                        }
+                        var locVal = item.element.attr("data-loc");
+                        if (locVal && locVal.length > 1) {
+                            $div.append(jQuery("<br>"));
+                            var $locIcon = jQuery("<span>").css("color", "gray").append(
+                                jQuery("<i>").addClass("fa-solid fa-house").attr("title", "<fmt:message key="Appointment.formLocation"/>")
+                            );
+                            $div.append($locIcon).append(jQuery("<span>").html("&nbsp;&nbsp;")).append(document.createTextNode(locVal));
+                        }
+                        return jQuery("<li>").append($div).appendTo(ul);
+                    }
+                });
+
+                // render custom selectmenu
+                jQuery('#type').myselectmenu({
+                    change: function (event, data) {
+                        label = data.item.value;
+                        origReason = jQuery("textarea[name='reason']").val();
+                        reason = data.item.element.attr("data-reason");
+                        if (origReason.length > 0) {
+                            reason = reason.concat(" -- ".concat(origReason));
+                        }
+                        loc = data.item.element.attr("data-loc");
+                        dur = data.item.element.attr("data-dur");
+                        notes = data.item.element.attr("data-notes");
+                        resources = data.item.element.attr("data-resources");
+                        setType(label, reason, loc, dur, notes, resources);
+                    }
+
+                });
+
+
+            });
+
+            function locale() {
+                // add style for multisites location
+                var loc = document.forms['EDITAPPT'].location;
+                if (loc.nodeName.toUpperCase() == 'SELECT') loc.style.backgroundColor = loc.options[loc.selectedIndex].style.backgroundColor;
+            }
+        </script>
+    </head>
+    <body onload="setfocus();updateTime();locale()">
+
+<div id="editAppointment" >
+    <div class="container" >
+<form name="EDITAPPT" METHOD="post" ACTION="appointmentcontrol.jsp" onSubmit="return(onSub())">
+    <input type="hidden" name="displaymode" value="">
+    <input type="hidden" name="buttoncancel" value="">
+    <%-- jsAlertBanner is always rendered unconditionally so showJSAlert() can always find it in the DOM --%>
+    <div id="jsAlertBanner" class="alert alert-danger alert-dismissible" style="display:none" role="alert">
+        <span id="jsAlertText"></span>
+        <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
+    </div>
+    <%-- patientStatusBanner is always rendered so JavaScript can show/hide it when patient changes via autocomplete --%>
+    <%
+        String editRosterStatus = StringUtils.defaultString(rosterstatus);
+        boolean editDisplayRoster = !editRosterStatus.isEmpty() && !editRosterStatus.equalsIgnoreCase("RO");
+        String editPatientStatus = (patientStatus == null || patientStatus.isEmpty() || patientStatus.equalsIgnoreCase("AC")) ? "" : patientStatus;
+        boolean editShowStatus = editDisplayRoster || !editPatientStatus.isEmpty();
+    %>
+    <fmt:message key="Appointment.msgRosterStatus" var="rosterStatusLabel"/>
+    <div id="patientStatusBanner" class="alert alert-info alert-dismissible"
+         data-roster-label="${e:forHtmlAttribute(rosterStatusLabel)}"
+         style="<%= editShowStatus ? "" : "display:none" %>" role="alert">
+        <span id="patientStatusText"><%=editShowStatus ? Encode.forHtmlContent((editPatientStatus.isEmpty() ? "" : editPatientStatus + "\u00a0") + (editDisplayRoster ? editRosterStatus : "")) : ""%></span>
+        <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
+    </div>
+    <%-- patientAlertBanner is always rendered so JavaScript can show/hide it when patient changes via autocomplete --%>
+    <div id="patientAlertBanner" class="alert alert-warning alert-dismissible"<%= (alert == null || alert.isEmpty()) ? " style=\"display:none\"" : "" %> role="alert">
+        <span id="patientAlertText"><%=Encode.forHtmlContent(alert != null ? alert : "")%></span>
+        <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
+    </div>
+    <div class="page-header-bar time" id="header">
+        <h4 class="page-header-title">
+                    <!-- We display a shortened title for the mobile version -->
+                    <fmt:message key="appointment.editappointment.msgMainLabel"/>
+
+                    <%
+
+                        if (bFirstDisp) {
+
+                            if (appt != null && !StringUtils.isEmpty(appt.getProviderNo())) {
+                                ProviderData prov = providerDao.find(appt.getProviderNo());
+                                if (prov != null) {
+                                    String providerName = prov.getLastName() + ", " + prov.getFirstName();
+                    %>
+
+                    <%="".equals(providerName) ? "" : "(" + Encode.forHtmlContent(providerName) + ")"%>
+
+                    <% }
+                    }
+                    %>
+                </h4>
+            </div>
+                    <%
+		if (appt == null) {
+%>              <div class="alert alert-danger" role="alert">
+                <fmt:message key="appointment.editappointment.msgNoSuchAppointment"/>
+                </div>
+                    <%
+			return;
+		}
+	} else {
+
+%>
+</h4>
+    </div>
+
+
+    <%
+        }
+    %>
+
+    <%
+
+        if (props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {
+
+            if (!bFirstDisp && !demono.equals("0") && !demono.equals("")) {
+                String[] sqlParam = new String[3];
+                sqlParam[0] = myGroupNo; //schedule group
+                sqlParam[1] = demono;
+                sqlParam[2] = strApptDate;
+
+                List<Appointment> aa = appointmentDao.search_group_day_appt(myGroupNo, Integer.parseInt(demono), ConversionUtils.fromDateString(strApptDate));
+
+                long numSameDayGroupAppts = aa.size() > 0 ? new Long(aa.size()) : 0;
+                bMultipleSameDayGroupAppt = (numSameDayGroupAppts > 0);
+            }
+
+            if (bMultipleSameDayGroupAppt) {
+                displayStyle = "display:block";
+            }
+    %>
+    <div id="tooManySameDayGroupApptWarning" style="<%=displayStyle%>">
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            <h4><fmt:message key='appointment.addappointment.titleMultipleGroupDayBooking'/></h4>
+            <fmt:message key='appointment.addappointment.MultipleGroupDayBooking'/>
+            <button type="button" class="btn-close" onclick="document.getElementById('tooManySameDayGroupApptWarning').style.display='none'" aria-label="Close"></button>
+        </div>
+    </div>
+    <%
+        }
+
+        //RJ 07/12/2006
+        //If page is loaded first time hit db for patient's family doctor
+        //Else if we are coming back from search this has been done for us
+        //Else how did we get here?
+        if (bFirstDisp) {
+            DemographicData dd = new DemographicData();
+            Demographic demo = dd.getDemographic(loggedInInfo, String.valueOf(appt.getDemographicNo()));
+            doctorNo = demo != null ? (demo.getProviderNo()) : "";
+        } else if (!request.getParameter("doctor_no").equals("")) {
+            doctorNo = request.getParameter("doctor_no");
+        }
+
+	/* null check because demo.getProvider and/or request.getParameter("doctor_no") can
+     * BOTH return a null value that will cause the entire page to crash
+     */
+	if (doctorNo == null) {
+		doctorNo = "";
+    }
+    %>
+            <div class="bg-light border rounded p-2">
+        <div class="form-wrapper">
+    <div class="table-responsive">
+    <table class="table table-sm">
+                <tr>
+                    <td>
+                        <label for="date"><fmt:message key="Appointment.formDate"/>:</label>
+                    </td>
+                    <td>
+                <input type="date" class="form-control" name="appointment_date" id="date"
+                               value="<%=Encode.forHtmlAttribute(bFirstDisp?ConversionUtils.toDateString(appt.getAppointmentDate()):strApptDate)%>"
+                        >
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label><fmt:message key="Appointment.formStartTime"/>:</label>
+                    </td>
+                    <td>
+                <input type="time" name="start_time" class="form-control"
+                               value="<%=bFirstDisp?ConversionUtils.toTimeStringNoSeconds(appt.getStartTime()):Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")))%>"
+                               onChange="checkTimeTypeIn(this);updateTime();">
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label><fmt:message key="Appointment.formDuration"/>:</label>
+                    </td>
+                    <td>
+                        <%
+                            int everyMin = 1;
+                            StringBuilder nameSb = new StringBuilder();
+                            if (bFirstDisp) {
+                                Calendar startCal = Calendar.getInstance();
+                                startCal.setTime(appt.getStartTime());
+                                Calendar endCal = Calendar.getInstance();
+                                endCal.setTime(appt.getEndTime());
+
+                                int endtime = (endCal.get(Calendar.HOUR_OF_DAY)) * 60 + (endCal.get(Calendar.MINUTE));
+                                int starttime = (startCal.get(Calendar.HOUR_OF_DAY)) * 60 + (startCal.get(Calendar.MINUTE));
+                                everyMin = endtime - starttime + 1;
+
+                                if (!demono.equals("0") && !demono.equals("") && (demographicManager != null)) {
+                                    Demographic demo = demographicManager.getDemographic(loggedInInfo, demono);
+                                    nameSb.append(demo.getLastName())
+                                            .append(",")
+                                            .append(demo.getFirstName());
+                                } else {
+                                    nameSb.append(appt.getName());
+                                }
+                            }
+                        %> <input type="hidden" name="end_time"
+                                  value="<%=bFirstDisp?ConversionUtils.toTimeStringNoSeconds(appt.getEndTime()):Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("end_time")))%>"
+                    >
+
+				<input type="number" name="duration" id="duration" class="form-control"
+                               value="<%=request.getParameter("duration")!=null?(request.getParameter("duration").equals(" ")||request.getParameter("duration").equals("")||request.getParameter("duration").equals("null")?(""+everyMin) :Encode.forHtmlAttribute(request.getParameter("duration"))):(""+everyMin)%>"
+                               onblur="calculateEndTime();">
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <%
+                            String searchMode = request.getParameter("search_mode");
+                            if (searchMode == null || searchMode.isEmpty()) {
+                                searchMode = CarlosProperties.getInstance().getProperty("default_search_mode", "search_name");
+                            }
+                        %>
+                        <input type="hidden" name="orderby" value="last_name, first_name">
+                        <input type="hidden" name="search_mode" id="search_mode" value="<%= Encode.forHtmlAttribute(searchMode) %>">
+                        <input type="hidden" name="originalpage"
+                               value="<%=request.getContextPath() %>/appointment/editappointment.do">
+                        <input type="hidden" name="limit1" value="0">
+                        <input type="hidden" name="limit2" value="5">
+                        <input type="hidden" name="ptstatus" value="active">
+                        <input type="submit" name="searchBtn" id="searchBtn" class="btn btn-primary" style="margin-bottom:10px;"
+                               onclick="parseSearch();document.forms['EDITAPPT'].displaymode.value='Search '"
+                               value="<fmt:message key="appointment.editappointment.btnSearch"/>">
+                    </td>
+                    <td>
+            	<input type="text" name="keyword" id="keyword" class="form-control"
+                               value="<%=Encode.forHtmlAttribute(bFirstDisp?nameSb.toString():(request.getParameter("name") != null ? request.getParameter("name") : ""))%>"
+                               placeholder="<fmt:message key="Appointment.formName"/>">
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label><fmt:message key="Appointment.formReason"/>:</label>
+                    </td>
+                    <td>
+				<select name="reasonCode" class="form-select">
+                            <%
+                                String rCode = bFirstDisp && appt.getReasonCode() != null ? appt.getReasonCode().toString() : request.getParameter("reasonCode");
+                                pageContext.setAttribute("rCode", rCode);
+
+                            %>
+                            <c:choose>
+                                <c:when test="${ not empty reasonCodes  }">
+                                    <c:forEach items="${ reasonCodes.items }" var="reason">
+                                        <c:if test="${ reason.active }">
+                                            <option value="${ reason.id }"
+                                                    id="${ reason.value }" ${ rCode eq reason.id ? 'selected="selected"' : '' } >
+                                                ${e:forHtml(reason.label)}
+                                            </option>
+                                        </c:if>
+                                    </c:forEach>
+                                </c:when>
+                                <c:otherwise>
+                                    <option value="-1">Other</option>
+                                </c:otherwise>
+                            </c:choose>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+            <td></td><td>
+				<textarea id="reason" class="form-control" name="reason" maxlength="80" rows="2" style="resize:none;"><%=Encode.forHtmlContent(StringUtils.defaultString(bFirstDisp?appt.getReason():request.getParameter("reason")))%></textarea>
+
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label><fmt:message key="Appointment.formLocation"/>:</label>
+                    </td>
+                    <td>
+                        <%
+
+
+                            boolean bMoreAddr = bMultisites ? true : props.getProperty("scheduleSiteID", "").equals("") ? false : true;
+
+                            String loc = bFirstDisp ? (appt.getLocation()) : request.getParameter("location");
+                            String colo = bMultisites
+                                    ? ApptUtil.getColorFromLocation(sites, loc)
+                                    : bMoreAddr ? ApptUtil.getColorFromLocation(props.getProperty("scheduleSiteID", ""), props.getProperty("scheduleSiteColor", ""), loc) : "white";
+
+                            if (bMultisites) { %>
+				        <select tabindex="4" name="location" class="form-select" style="background-color: <%=colo%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
+                            <%
+                                StringBuilder sb = new StringBuilder();
+                                for (Site s : sites) {
+                                    if (s.getName().equals(loc)) isSiteSelected = true;
+                                    sb.append("<option value=\"").append(Encode.forHtmlAttribute(s.getName())).append("\" class=\"").append(Encode.forHtmlAttribute(s.getShortName())).append("\" style=\"background-color: ").append(Encode.forCssString(s.getBgColor())).append("\" ").append(s.getName().equals(loc) ? "selected" : "").append(">").append(Encode.forHtml(s.getName())).append("</option>");
+                                }
+                                if (isSiteSelected) {
+                                    out.println(sb.toString());
+                                } else {
+                                    out.println("<option value='" + Encode.forHtmlAttribute(loc) + "'>" + Encode.forHtml(loc) + "</option>");
+                                }
+                            %>
+
+                        </select>
+                        <% } else {
+                            isSiteSelected = true;
+                            if (locationEnabled) {
+                        %>
+		<select name="location" class="form-select">
+                            <%
+                                String location = Encode.forJava(bFirstDisp ? (appt.getLocation()) : (request.getParameter("location") != null ? request.getParameter("location") : ""));
+                                if (programs != null && !programs.isEmpty()) {
+                                    for (Program program : programs) {
+                                        String description = StringUtils.isBlank(program.getLocation()) ? program.getName() : program.getLocation();
+                            %>
+                            <option value="<%=program.getId()%>" <%=(program.getId().toString().equals(location) ? "selected='selected'" : "") %>><%=Encode.forHtmlContent(description)%>
+                            </option>
+
+                            <% }
+                            }
+                            %>
+                        </select>
+                        <% } else { %>
+		        <input type="text" class="form-control" name="location" tabindex="4"
+                       value="<%=Encode.forHtmlAttribute(bFirstDisp?appt.getLocation():(request.getParameter("location") != null ? request.getParameter("location") : ""))%>" >
+                        <% } %>
+                        <% } %>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label><fmt:message key="Appointment.formCreator"/>:</label>
+                    </td>
+                    <td>
+                        <% String lastCreatorNo = bFirstDisp ? (appt.getCreator()) : request.getParameter("user_id"); %>
+                <input type="text" class="form-control" name="user_id" value="<%=Encode.forHtmlAttribute(lastCreatorNo)%>" readonly >
+                    </td>
+                </tr>
+                <%
+                    origDate = bFirstDisp ? ConversionUtils.toTimestampString(appt.getCreateDateTime()) : request.getParameter("createDate");
+                    String lastDateTime = bFirstDisp ? ConversionUtils.toTimestampString(appt.getUpdateDateTime()) : request.getParameter("updatedatetime");
+                    if (lastDateTime == null) {
+                        lastDateTime = bFirstDisp ? ConversionUtils.toTimestampString(appt.getCreateDateTime()) : request.getParameter("createdatetime");
+                    }
+
+                    GregorianCalendar now = new GregorianCalendar();
+                    String strDateTime = now.get(Calendar.YEAR) + "-" + (now.get(Calendar.MONTH) + 1) + "-" + now.get(Calendar.DAY_OF_MONTH) + " "
+                            + now.get(Calendar.HOUR_OF_DAY) + ":" + now.get(Calendar.MINUTE) + ":" + now.get(Calendar.SECOND);
+
+                    String remarks = "";
+                    if (bFirstDisp && appt.getRemarks() != null) {
+                        remarks = appt.getRemarks();
+                    }
+                    // Convert String to Java LocalDateTime
+                    DateTimeFormatter pattern1 = DateTimeFormatter.ofPattern("yyyy-M-d H:m:s");
+                    LocalDateTime origDT = LocalDateTime.parse(origDate, pattern1);
+                    LocalDateTime lastDT = LocalDateTime.parse(lastDateTime, pattern1);
+                    //LocalDateTime strDT = LocalDateTime.parse(strDateTime,pattern1);
+                    // Get localized pattern for UI
+                    DateTimeFormatter pattern2 = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(request.getLocale()).withZone(ZoneId.systemDefault());
+                    String dateString1 = pattern2.format(origDT);
+                    String dateString2 = pattern2.format(lastDT);
+                    //String dateString3 = pattern2.format(strDT); watch for non padded seconds etc
+
+                %>
+                <tr>
+                    <td>
+                        <label><fmt:message key="Appointment.CreateDate"/>:</label>
+                    </td>
+                    <td>
+                <div class="card">
+                    <div class="card-body">
+                        <input type="hidden" class="form-control" name="createDate" value="<%=Encode.forHtmlAttribute(origDate)%>">
+                        <%=Encode.forHtml(dateString1)%>
+                    </div>
+                </div>
+                    </td>
+                </tr>
+                <% if (pros.isPropertyActive("mc_number")) {
+                    String mcNumber = OtherIdManager.getApptOtherId(appointment_no, "appt_mc_number"); %>
+                <tr>
+                    <td>
+                        <label for="appt_mc_number"><fmt:message key="Appointment.formMC"/>:</label>
+                    </td>
+                    <td>
+                <input type="text" class="form-control" name="appt_mc_number" id="appt_mc_number" value="<%=bFirstDisp?mcNumber:Encode.forHtmlAttribute(request.getParameter("appt_mc_number") != null ? request.getParameter("appt_mc_number") : "")%>" />
+                    </td>
+                </tr>
+                <% } %>
+
+            </table>
+    </div>
+
+    <div class="table-responsive">
+    <table class="table table-sm">
+                <tr>
+                    <td>
+                        <label><fmt:message key="Appointment.formStatus"/>:</label>
+                    </td>
+                    <td>
+                        <%
+
+                            if (strEditable != null && strEditable.equalsIgnoreCase("yes")) { %>
+
+                <select name="status" class="form-select" style="background-color:<%=Encode.forCssString(((AppointmentStatus)allStatus.get(curSelect)).getColor())%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor' >
+                            <% for (int i = 0; i < allStatus.size(); i++) { %>
+                            <option class="<%=Encode.forHtmlAttribute(((AppointmentStatus)allStatus.get(i)).getStatus())%>"
+                                    style="background-color:<%=Encode.forCssString(((AppointmentStatus)allStatus.get(i)).getColor())%>"
+                                    value="<%=Encode.forHtmlAttribute(((AppointmentStatus)allStatus.get(i)).getStatus()+signOrVerify)%>"
+                                    <%=((AppointmentStatus) allStatus.get(i)).getStatus().equals(statusCode) ? "SELECTED" : ""%>><%=Encode.forHtml(((AppointmentStatus) allStatus.get(i)).getDescription())%>
+                            </option>
+                            <% } %>
+                        </select> <%
+                    } else {
+                        if (importedStatus == null || importedStatus.trim().equals("")) { %>
+              	<input type="text" class="form-control" name="status" value="<%= Encode.forHtmlAttribute(statusCode) %>" > <%
+                    } else { %>
+                <input type="text" class="form-control" name="status" value="<%= Encode.forHtmlAttribute(statusCode) %>" >
+                <input type="text"  class="form-control" TITLE="Imported Status" value="<%=Encode.forHtmlAttribute(importedStatus)%>" readonly> <%
+                            }
+                        }
+                    %>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label><fmt:message key="Appointment.formType"/>:</label>
+                    </td>
+                    <td>
+                        <select name="type" class="form-select" id="type"
+                                title="<fmt:message key="billing.billingCorrection.msgSelectVisitType"/>">
+                        <option data-dur="" data-reason=""></option><!-- important leave a blank top entry  -->
+
+        <% AppointmentTypeDao appDao = SpringUtils.getBean(AppointmentTypeDao.class);
+                                List<AppointmentType> types = appDao.listAll();
+                                String currentType = (bFirstDisp && appt != null) ? appt.getType() : StringUtils.trimToEmpty(request.getParameter("type"));
+                for(AppointmentType type : types) {
+                            %>
+                    <option data-dur="<%= type.getDuration() %>"
+                            data-reason="<%= Encode.forHtmlAttribute(type.getReason()) %>"
+                            data-loc="<%= Encode.forHtmlAttribute(type.getLocation()) %>"
+                            data-notes="<%= Encode.forHtmlAttribute(type.getNotes()) %>"
+                            data-resources="<%= Encode.forHtmlAttribute(type.getResources()) %>"
+                            <%= type.getName().equalsIgnoreCase(currentType) ? "selected" : ""%>>
+                        <%=Encode.forHtml(type.getName())%>
+                            </option>
+                            <% } %>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label><fmt:message key="Appointment.formDoctor"/>:</label>
+                    </td>
+                    <td>
+                <input type="text" readonly name="doctorNo" id="mrp" class="form-control"
+                               value="<%=Encode.forHtmlAttribute(providerBean.getProperty(doctorNo,""))%>">
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label><a href="#" onclick="demographicdetail(550,700)" class="btn btn-link"
+                                  style="padding-left:0px;">
+                            <fmt:message key="global.master"/></a></label>
+                    </td>
+                    <td>
+                <input type="text" name="demographic_no" id="demographic_no" class="form-control"
+                               ONFOCUS="onBlockFieldFocus(this)" readonly
+                               value="<%=bFirstDisp?( (appt.getDemographicNo())==0?"":(""+appt.getDemographicNo()) ):Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))%>">
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label><fmt:message key="Appointment.formChartNo"/>:</label>
+                    </td>
+                    <td>
+                <input type="text" name="chart_no" class="form-control"
+                    readonly value="<%=Encode.forHtmlAttribute(bFirstDisp?StringUtils.trimToEmpty(chartno):io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("chart_no")))%>"
+                        >
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label><fmt:message key="Appointment.formNotes"/>:</label>
+                    </td>
+                    <td>
+				<textarea name="notes" class="form-control" maxlength="255" rows="2" style="resize:none;"><%=Encode.forHtmlContent(StringUtils.defaultString(bFirstDisp?appt.getNotes():request.getParameter("notes")))%></textarea>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label><fmt:message key="Appointment.formResources"/>:</label>
+                    </td>
+                    <td>
+                <input type="text" name="resources" tabindex="5" class="form-control"
+                               value="<%=Encode.forHtmlAttribute(bFirstDisp?appt.getResources():(request.getParameter("resources") != null ? request.getParameter("resources") : ""))%>">
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label><fmt:message key="Appointment.formLastCreator"/>:</label>
+                    </td>
+                    <td>
+                        <% lastCreatorNo = request.getParameter("user_id");
+                            if (bFirstDisp) {
+                                if (appt.getLastUpdateUser() != null) {
+                                    ProviderData provider = providerDao.findByProviderNo(appt.getLastUpdateUser());
+                                    if (provider != null) {
+                                        lastCreatorNo = provider.getLastName() + ", " + provider.getFirstName();
+                                    }
+                                } else {
+                                    lastCreatorNo = appt.getCreator();
+                                }
+                            }
+                        %>
+                <input type="text" readonly class="form-control" value="<%= Encode.forHtmlAttribute(lastCreatorNo) %>" >
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label><fmt:message key="Appointment.formLastTime"/>:</label>
+                    </td>
+                    <td>
+                <div class="card">
+                    <div class="card-body">
+                        <input type="hidden" name="lastcreatedatetime"
+                               value="<%=Encode.forHtmlAttribute(bFirstDisp?lastDateTime:(request.getParameter("lastcreatedatetime") != null ? request.getParameter("lastcreatedatetime") : ""))%>"
+                        > <%=Encode.forHtmlContent(dateString2)%>
+                        <input type="hidden" name="createdatetime" value="<%=strDateTime%>">
+                        <input type="hidden" name="provider_no" value="<%=Encode.forHtmlAttribute(curProvider_no)%>">
+                        <input type="hidden" name="dboperation" value="">
+                        <input type="hidden" name="creator"
+                               value="<%=Encode.forHtmlAttribute(userlastname+", "+userfirstname)%>">
+                        <input type="hidden" name="remarks" value="<%=Encode.forHtmlAttribute(remarks)%>">
+                        <input type="hidden" name="appointment_no" value="<%=Encode.forHtmlAttribute(appointment_no)%>">
+                    </div>
+                </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label for="urgency"><fmt:message key="Appointment.formCritical"/> <i
+                                class="fa-solid fa-triangle-exclamation"></i>:</label>
+                    </td>
+                    <td>
+                        <%
+                            String urgencyChecked = new String();
+                            if (bFirstDisp) {
+                                if (appt.getUrgency() != null && appt.getUrgency().equals("critical")) {
+                                    urgencyChecked = " checked=\"checked\" ";
+                                }
+                            } else {
+                                if (request.getParameter("urgency") != null) {
+                                    if (request.getParameter("urgency").equals("critical")) {
+                                        urgencyChecked = " checked=\"checked\" ";
+                                    }
+                                }
+                            }
+                        %>
+            	<input type="checkbox" class="form-check-input" name="urgency" id="urgency" value="critical" <%=urgencyChecked%> >
+                    </td>
+                </tr>
+                <% String emailReminder = pros.getProperty("emailApptReminder");
+                    if ((emailReminder != null) && emailReminder.equalsIgnoreCase("yes")) { %>
+                <tr>
+                    <td>
+                        <label><fmt:message key="Appointment.formEmailReminder"/>:</label>
+                    </td>
+                    <td>
+                <input type="checkbox" class="form-check-input" name="emailPt" value="email reminder">
+                    </td>
+                </tr>
+                <% } else { %>
+                <tr>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <% }%>
+            </table>
+    </div>
+        </div>
+        <% if (isSiteSelected) { %>
+        <table class="buttonBar deep">
+            <tr>
+                <% if (!bMultipleSameDayGroupAppt) { %>
+                <td style="text-align: left;"><input type="submit" class="btn btn-primary" id="updateButton"
+                                                     onclick="document.forms['EDITAPPT'].displaymode.value='Update Appt'; onButUpdate();"
+                                                     value="<fmt:message key="appointment.editappointment.btnUpdateAppointment"/>">
+                    <% if (!props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {%>
+                    <input type="submit" id="groupButton" class="btn btn-secondary"
+                           onclick="document.forms['EDITAPPT'].displaymode.value='Group Action'; onButUpdate();"
+                           value="<fmt:message key="appointment.editappointment.btnGroupAction"/>">
+                    <% }%>
+                    <input type="submit" id="printReceiptButton" class="btn btn-secondary"
+                           onclick="document.forms['EDITAPPT'].displaymode.value='Update Appt';document.forms['EDITAPPT'].printReceipt.value='1';"
+                           value="<fmt:message key='appointment.editappointment.btnPrintReceipt'/>">
+                    <input type="hidden" name="printReceipt" value="">
+                    <input type="submit" class="btn btn-danger" id="deleteButton"
+                           onclick="document.forms['EDITAPPT'].displaymode.value='Delete Appt'; onButDelete();"
+                           value="<fmt:message key="appointment.editappointment.btnDeleteAppointment"/>">
+                    <input type="button" id="cancelButton" class="btn btn-dark"
+                           value="<fmt:message key="appointment.editappointment.btnCancelAppointment"/>"
+                           onClick="onButCancel();">
+                    <input type="button"
+                           name="noShowButton" id="noShowButton" class="btn btn-secondary"
+                           value="<fmt:message key="appointment.editappointment.btnNoShow"/>"
+                           onClick="document.EDITAPPT.displaymode.value='Update Appt';document.EDITAPPT.buttoncancel.value='No Show';document.EDITAPPT.submit();">
+                    <br>
+                    <a class="btn"
+                       onClick="window.location='appointmentcontrol.jsp?displaymode=PrintCard&appointment_no=' + encodeURIComponent(document.forms['EDITAPPT'].appointment_no.value)">
+                        <i class="fa-solid fa-print"></i>&nbsp;<fmt:message key="appointment.editappointment.btnPrintCard"/></a>
+                    <a class="btn"
+                       onClick="window.open('<%=request.getContextPath() %>/demographic/ViewDemographicLabelPrintSetting.do?demographic_no=' + encodeURIComponent(document.EDITAPPT.demographic_no.value), 'labelprint','height=550,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no')">
+                        <i class="fa-solid fa-print"></i>&nbsp;<fmt:message key="appointment.editappointment.btnLabelPrint"/></a>
+                    <a class="btn"
+                       onclick="document.forms['EDITAPPT'].displaymode.value='Cut';localStorage.setItem('copyPaste','1');document.forms['EDITAPPT'].submit();">
+                        <i class="fa-solid fa-scissors"></i>&nbsp;<fmt:message key="appointment.appointmentedit.cut"/></a>
+                    <a class="btn"
+                       onclick="document.forms['EDITAPPT'].displaymode.value='Copy';localStorage.setItem('copyPaste','1');document.forms['EDITAPPT'].submit();">
+                        <i class="fa-solid fa-copy"></i>&nbsp;<fmt:message key="appointment.appointmentedit.copy"/> </a>
+                    <% if (!props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {%>
+                    <input type="button" id="repeatButton" class="btn"
+                           value="<fmt:message key="appointment.addappointment.btnRepeat"/>"
+                           onclick="onButRepeat()">
+                    <% }%>
+                    <input type="button" name="Button" class="btn btn-link" value="<fmt:message key="global.btnExit"/>"
+                           onClick="self.close()"></td>
+                <% }%>
+
+            </tr>
+        </table>
+        <% } %>
+
+
+    </div>
+
+    <div id="bottomInfo">
+        <table style="width:95%;">
+            <tr>
+                <td style="padding-left:10px;"><label><fmt:message key="Appointment.msgTelephone"/>:</label> <%= Encode.forHtmlContent(StringUtils.trimToEmpty(phone))%>
+                    <br>
+                    <label><fmt:message key="Appointment.msgRosterStatus"/>:</label> <%=Encode.forHtmlContent(StringUtils.trimToEmpty(rosterstatus))%>
+                </td>
+            </tr>
+        </table>
+
+        <% if (isSiteSelected) { %>
+        <table style="width:95%; padding:3px;" id="belowTbl">
+            <tr>
+                <td colspan="4">
+                    <%
+                        if (bFirstDisp && apptObj != null) {
+
+                            long numSameDayGroupApptsPaste = 0;
+
+                            if (props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {
+
+                                List<Appointment> aa = appointmentDao.search_group_day_appt(myGroupNo, Integer.parseInt(demono), appt.getAppointmentDate());
+
+                                numSameDayGroupApptsPaste = aa.size() > 0 ? new Long(aa.size()) : 0;
+                            }
+                    %><a href=#
+                         onclick="pasteAppt(<%=(numSameDayGroupApptsPaste > 0)%>);">Paste</a>
+                    <% } %>
+                </td>
+            </tr>
+            <%if (cheader1s != null && cheader1s.size() > 0) {%>
+            <tr>
+                <th style="color:red;">Outstanding 3rd Invoices</th>
+                <th style="color:red;">Invoice Date</th>
+                <th style="color:red;">Amount</th>
+                <th style="color:red;">Balance</th>
+            </tr>
+            <%
+                java.text.SimpleDateFormat fm = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                for (int i = 0; i < cheader1s.size(); i++) {
+                    if (cheader1s.get(i).getPayProgram().matches(BillingDataHlp.BILLINGMATCHSTRING_3RDPARTY)) {
+                        BigDecimal payment = billingOnExtDao.getAccountVal(cheader1s.get(i).getId(), billingOnExtDao.KEY_PAYMENT);
+                        BigDecimal discount = billingOnExtDao.getAccountVal(cheader1s.get(i).getId(), billingOnExtDao.KEY_DISCOUNT);
+                        BigDecimal credit = billingOnExtDao.getAccountVal(cheader1s.get(i).getId(), billingOnExtDao.KEY_CREDIT);
+                        BigDecimal total = cheader1s.get(i).getTotal();
+                        BigDecimal balance = total.subtract(payment).subtract(discount).add(credit);
+
+                        if (balance.compareTo(BigDecimal.ZERO) != 0) { %>
+            <tr>
+                <td style="text-align: center; color:red;"><a href="javascript:void(0)"
+                                                              onclick="popupPage(600,800, '<%=request.getContextPath() %>/billing/CA/ON/BillingONCorrection.do?billing_no=<%=cheader1s.get(i).getId()%>')">Inv
+                    #<%=cheader1s.get(i).getId() %>
+                </a></td>
+                <td style="text-align: center; color:red;"><%=fm.format(cheader1s.get(i).getTimestamp()) %>
+                </td>
+                <td style="text-align: center; color:red;">$<%=cheader1s.get(i).getTotal() %>
+                </td>
+                <td style="text-align: center; color:red;">$<%=balance %>
+                </td>
+            </tr>
+            <%
+                            }
+                        }
+                    }
+                }
+            %>
+        </table>
+        <% } %>
+
+
+    </div>
+
+
+    <%
+        String formTblProp = props.getProperty("appt_formTbl");
+        String[] formTblNames = formTblProp.split(";");
+
+        int numForms = 0;
+        for (String formTblName : formTblNames) {
+            if ((formTblName != null) && !formTblName.equals("")) {
+                //form table name defined
+                for (EncounterForm ef : encounterFormDao.findByFormTable(formTblName)) {
+                    String formName = ef.getFormName();
+                    pageContext.setAttribute("formName", formName);
+                    boolean formComplete = false;
+                    EctFormData.PatientForm[] ptForms = EctFormData.getPatientFormsFromLocalAndRemote(loggedInInfo, demono, formTblName);
+
+                    if (ptForms.length > 0) {
+                        formComplete = true;
+                    }
+                    numForms++;
+                    if (numForms == 1) {
+
+    %>
+    <table style="background-color: #e8e8e8; margin-left:auto; vertical-align: top; padding:3px">
+        <tr style="background-color:#f3f6f9">
+            <th colspan="2">
+                <fmt:message key="appointment.addappointment.msgFormsSaved"/>
+            </th>
+        </tr>
+        <% } %>
+
+        <tr style="background-color:#c0c0c0; text-align:left">
+            <th style="padding-right: 20px">${e:forHtml(formName)}:</th>
+            <% if (formComplete) { %>
+            <td><fmt:message key="appointment.addappointment.msgFormCompleted"/></td>
+            <% } else { %>
+            <td><fmt:message key="appointment.addappointment.msgFormNotCompleted"/></td>
+            <% } %>
+        </tr>
+        <%
+                    }
+                }
+            }
+
+            if (numForms > 0) { %>
+    </table>
+    <% } %>
+
+</div> <!-- end of edit appointment screen -->
+</form>
+    </body>
+
+</html>

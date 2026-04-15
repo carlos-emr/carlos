@@ -200,92 +200,87 @@
                 }
             }
 
-            let exportCheckInterval = null;
-            let exportStartTime = null;
-            const MAX_EXPORT_WAIT_MS = 300000; // 5 minutes timeout
+            /**
+             * Returns the CSRF token value from the hidden input injected by CSRFGuard.
+             * CSRFGuard 4.5 does NOT intercept fetch() — token must be included manually.
+             */
+            function getCsrfToken() {
+                var el = document.querySelector('input[name="CSRF-TOKEN"]');
+                if (!el) {
+                    console.warn('CSRF-TOKEN hidden input not found in DOM. '
+                        + 'POST requests may be rejected by the server.');
+                    return '';
+                }
+                return el.value;
+            }
 
             /**
-             * Clears the export status cookie.
+             * Submits the export form via fetch(), reads the X-Export-Status response
+             * header, and triggers a file download on success. Replaces the former
+             * cookie-polling + hidden-iframe approach.
              */
-            function clearExportStatusCookie() {
-                document.cookie = 'exportStatus=; path=/; max-age=0;';
+            async function submitExport() {
+                var form = document.getElementById('DemographicExportForm');
+                var formData = new URLSearchParams(new FormData(form));
+
+                // Show loading overlay
+                document.getElementById('exportSuccessMessage').style.display = 'none';
+                document.getElementById('exportErrorMessage').style.display = 'none';
+                document.getElementById('exportLoadingOverlay').style.display = 'block';
+
+                try {
+                    var response = await fetch(form.action, {
+                        method: 'POST',
+                        body: formData,
+                        credentials: 'same-origin',
+                        headers: { 'CSRF-TOKEN': getCsrfToken() }
+                    });
+
+                    var exportStatus = response.headers.get('X-Export-Status');
+
+                    if (exportStatus === 'success' && response.ok) {
+                        var blob = await response.blob();
+                        var contentDisposition = response.headers.get('Content-Disposition');
+                        var filename = 'export.zip';
+                        if (contentDisposition) {
+                            var match = contentDisposition.match(/filename[^;=\n]*=["']?([^"';\n]+)/);
+                            if (match) {
+                                filename = match[1].replace(/[/\\]/g, '_');
+                            }
+                        }
+                        var url = URL.createObjectURL(blob);
+                        var a = document.createElement('a');
+                        a.href = url;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+
+                        document.getElementById('exportLoadingOverlay').style.display = 'none';
+                        document.getElementById('exportSuccessMessage').style.display = 'block';
+                    } else {
+                        document.getElementById('exportLoadingOverlay').style.display = 'none';
+                        document.getElementById('exportErrorMessage').style.display = 'block';
+                    }
+                } catch (e) {
+                    console.error('Export request failed:', e);
+                    document.getElementById('exportLoadingOverlay').style.display = 'none';
+                    document.getElementById('exportErrorMessage').style.display = 'block';
+                }
             }
 
             /**
              * Handles the export form submission.
-             * Shows loading overlay, submits to hidden iframe, polls for status cookie.
+             * Validates options, then submits via fetch() to read status from response header.
              */
             function handleExportSubmit() {
                 if (!checkValidOptions()) {
                     return false;
                 }
 
-                // Hide any previous messages
-                document.getElementById('exportSuccessMessage').style.display = 'none';
-                document.getElementById('exportErrorMessage').style.display = 'none';
-
-                // Clear any existing export status cookie
-                clearExportStatusCookie();
-
-                // Show loading overlay
-                document.getElementById('exportLoadingOverlay').style.display = 'block';
-
-                // Clear any existing polling interval to prevent multiple loops
-                if (exportCheckInterval) {
-                    clearInterval(exportCheckInterval);
-                }
-
-                // Start polling for the status cookie set by the server
-                exportStartTime = Date.now();
-                exportCheckInterval = setInterval(checkExportStatus, 500);
-
-                return true;
-            }
-
-            /**
-             * Checks for the export status cookie set by the server.
-             * The server sets this cookie right before starting the file download.
-             */
-            function checkExportStatus() {
-                // Timeout check to prevent infinite polling
-                if (Date.now() - exportStartTime > MAX_EXPORT_WAIT_MS) {
-                    clearInterval(exportCheckInterval);
-                    exportCheckInterval = null;
-                    document.getElementById('exportLoadingOverlay').style.display = 'none';
-                    document.getElementById('exportErrorMessage').style.display = 'block';
-                    return;
-                }
-
-                const status = getCookie('exportStatus');
-
-                if (status === 'success') {
-                    clearInterval(exportCheckInterval);
-                    exportCheckInterval = null;
-                    document.getElementById('exportLoadingOverlay').style.display = 'none';
-                    document.getElementById('exportSuccessMessage').style.display = 'block';
-                    clearExportStatusCookie();
-                } else if (status === 'error') {
-                    clearInterval(exportCheckInterval);
-                    exportCheckInterval = null;
-                    document.getElementById('exportLoadingOverlay').style.display = 'none';
-                    document.getElementById('exportErrorMessage').style.display = 'block';
-                    clearExportStatusCookie();
-                }
-                // If no cookie yet, keep polling
-            }
-
-            /**
-             * Gets a cookie value by name.
-             */
-            function getCookie(name) {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.indexOf(name + '=') === 0) {
-                        return cookie.substring(name.length + 1);
-                    }
-                }
-                return null;
+                submitExport();
+                return false;
             }
 
             /**
@@ -295,23 +290,7 @@
                 document.getElementById('exportErrorMessage').style.display = 'none';
                 document.getElementById('exportSuccessMessage').style.display = 'none';
 
-                // Clear any existing export status cookie
-                clearExportStatusCookie();
-
-                // Show loading overlay
-                document.getElementById('exportLoadingOverlay').style.display = 'block';
-
-                // Clear any existing polling interval to prevent multiple loops
-                if (exportCheckInterval) {
-                    clearInterval(exportCheckInterval);
-                }
-
-                // Start polling for the status cookie
-                exportStartTime = Date.now();
-                exportCheckInterval = setInterval(checkExportStatus, 500);
-
-                // Submit the form
-                document.getElementById('DemographicExportForm').submit();
+                submitExport();
             }
         </SCRIPT>
 
@@ -368,8 +347,6 @@
     </head>
 
     <body>
-    <!-- Hidden iframe for form submission -->
-    <iframe id="exportDownloadFrame" name="exportDownloadFrame" style="display:none;"></iframe>
 
     <%
         if (!userRole.toLowerCase().contains("admin")) { %>
@@ -419,7 +396,7 @@
                 <button type="button" class="btn btn-secondary" onclick="retryExport()"><fmt:message key="demographic.demographicexport.retry"/></button>
             </div>
 
-            <form id="DemographicExportForm" name="DemographicExportForm" action="${pageContext.request.contextPath}/demographic/DemographicExport.do" method="post" target="exportDownloadFrame" onsubmit="return handleExportSubmit();">
+            <form id="DemographicExportForm" name="DemographicExportForm" action="${pageContext.request.contextPath}/demographic/DemographicExport.do" method="post" onsubmit="return handleExportSubmit();">
 
                 <% if (demographicNo != null) { %>
                 <input type="hidden" name="demographicNo" id="demographicNo" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>

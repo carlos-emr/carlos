@@ -108,7 +108,7 @@
     // caught by startsWith("//"). Backslash bypass (/\) is also rejected explicitly.
     String originalpage = request.getParameter("originalpage");
     if (originalpage == null || originalpage.isEmpty() || !originalpage.startsWith("/") || originalpage.startsWith("//") || originalpage.startsWith("/\\")) {
-        originalpage = request.getContextPath() + "/appointment/addappointment.jsp";
+        originalpage = request.getContextPath() + "/appointment/addappointment.do";
     }
     // Choose ? or & depending on whether originalpage already has a query string
     String originalPageSeparator = originalpage.contains("?") ? "&" : "?";
@@ -372,7 +372,7 @@
         </script>
 
 
-        <form method="post" name="addform" action="<%= request.getContextPath() %>/appointment/addappointment.jsp">
+        <form method="post" name="addform" action="<%= request.getContextPath() %>/appointment/addappointment.do">
             <div class="table-responsive">
             <table class="table table-sm table-striped">
                 <tr class="tableHeadings deep">

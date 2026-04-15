@@ -158,7 +158,7 @@ public class NoteDisplayNonNote implements NoteDisplay {
 
         note = tmpNote.toString();
         noteId = h1.getId();
-        linkInfo = "/billing/CA/ON/billingONCorrection.jsp?billing_no=" + noteId.toString();
+        linkInfo = "/billing/CA/ON/BillingONCorrection.do?billing_no=" + noteId.toString();
         isInvoice = true;
     }
 

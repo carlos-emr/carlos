@@ -50,8 +50,11 @@ import io.github.carlos_emr.carlos.services.LookupManager;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class ClientSearchAction22Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     private static final Logger logger = MiscUtils.getLogger();
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -65,6 +68,11 @@ public class ClientSearchAction22Action extends ActionSupport {
     private CaseManagementNoteDAO caseManagementNoteDao = SpringUtils.getBean(CaseManagementNoteDAO.class);
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "r", null)) {
+            throw new SecurityException("missing required sec object (_pmm_management)");
+        }
+
         String method = request.getParameter("method");
         if ("attachForm".equals(method)) {
             return attachForm();

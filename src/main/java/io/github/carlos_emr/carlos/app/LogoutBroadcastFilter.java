@@ -59,7 +59,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *   <li><b>Logout broadcast:</b> When any window detects a logout (manual or timeout),
  *       it broadcasts via BroadcastChannel and localStorage to all other open windows,
  *       causing popups to close and tabs to redirect to the login page.</li>
- *   <li><b>Session heartbeat:</b> Each window polls {@code /status/sessionHeartbeat.jsp}
+ *   <li><b>Session heartbeat:</b> Each window polls {@code /status/SessionHeartbeat.do}
  *       every 60 seconds to detect server-side session loss (restart, timeout, invalidation).
  *       On detection, the window broadcasts logout to all others.</li>
  * </ol>
@@ -86,7 +86,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *     &lt;filter-class&gt;io.github.carlos_emr.carlos.app.LogoutBroadcastFilter&lt;/filter-class&gt;
  *     &lt;init-param&gt;
  *         &lt;param-name&gt;exclusions&lt;/param-name&gt;
- *         &lt;param-value&gt;/logout.jsp,/status/sessionHeartbeat.jsp&lt;/param-value&gt;
+ *         &lt;param-value&gt;/logout.jsp,/status/SessionHeartbeat.do&lt;/param-value&gt;
  *     &lt;/init-param&gt;
  * &lt;/filter&gt;
  * </pre>
@@ -147,7 +147,7 @@ public class LogoutBroadcastFilter implements Filter {
      * Filters HTML responses to append the logout broadcast and session heartbeat script.
      *
      * <p>Excluded URLs are short-circuited before response wrapping to avoid unnecessary
-     * buffer allocation (e.g., for the lightweight sessionHeartbeat.jsp endpoint).
+     * buffer allocation (e.g., for the lightweight SessionHeartbeat.do endpoint).
      *
      * <p>The script is appended only to authenticated, non-AJAX, HTML responses
      * that are not in the exclusion list.
@@ -315,7 +315,7 @@ public class LogoutBroadcastFilter implements Filter {
                 "setInterval(function(){" +
                 "if(done)return;" +
                 "if(Date.now()-lastOk>ilMs){bL();return}" +
-                "fetch(cp+'/status/sessionHeartbeat.jsp?autoRefresh=true')" +
+                "fetch(cp+'/status/SessionHeartbeat.do?autoRefresh=true')" +
                 ".then(function(r){" +
                 "if(r.ok)return r.json();" +
                 "if(r.status===401||r.status===403){bL();return null}" +

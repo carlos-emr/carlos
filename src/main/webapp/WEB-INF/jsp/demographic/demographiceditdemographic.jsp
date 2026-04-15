@@ -1157,13 +1157,13 @@
                                         if ("ON".equals(prov)) {
                                     %>
                                     <a href="javascript: function myFunction() {return false; }"
-                                       onClick="popupPage(500,800,'<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/billing/CA/ON/billingONHistory.jsp?demographic_no=" + Encode.forUriComponent(String.valueOf(demographic.getDemographicNo()))) %>')">
+                                       onClick="popupPage(500,800,'<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/billing/CA/ON/ViewBillingONHistory.do?demographic_no=" + Encode.forUriComponent(String.valueOf(demographic.getDemographicNo()))) %>')">
                                         <fmt:message key="demographic.demographiceditdemographic.msgBillHistory"/></a>
                                     <%
                                     } else {
                                     %>
                                     <a href="#"
-                                       onclick="popupPage(800,1000,'<%= request.getContextPath() %>/billing/CA/BC/billStatus.jsp?lastName=<%=URLEncoder.encode(demographic.getLastName(), StandardCharsets.UTF_8)%>&firstName=<%=URLEncoder.encode(demographic.getFirstName(), StandardCharsets.UTF_8)%>&filterPatient=true&demographicNo=<%=demographic.getDemographicNo()%>');return false;">
+                                       onclick="popupPage(800,1000,'<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/billing/CA/BC/reprocessBill.do?lastName=" + Encode.forUriComponent(StringUtils.defaultString(demographic.getLastName())) + "&firstName=" + Encode.forUriComponent(StringUtils.defaultString(demographic.getFirstName())) + "&filterPatient=true&demographicNo=" + Encode.forUriComponent(String.valueOf(demographic.getDemographicNo()))) %>');return false;">
                                         <fmt:message key="demographic.demographiceditdemographic.msgInvoiceList"/></a>
 
 
@@ -1416,7 +1416,7 @@
                                                             <span id="swipeButton" style="display: inline;">
                                     <input type="button" name="Button"
                                            value="<fmt:message key="demographic.demographiceditdemographic.btnSwipeCard"/>"
-                                           onclick="window.open('demographic/zdemographicswipe.jsp','', 'scrollbars=yes,resizable=yes,width=600,height=300, top=360, left=0')">
+                                           onclick="window.open('<%= request.getContextPath() %>/demographic/ViewZdemographicSwipe.do','', 'scrollbars=yes,resizable=yes,width=600,height=300, top=360, left=0')">
                                 </span>
                                                             <!--input type="button" name="Button" value="<fmt:message key="demographic.demographiceditdemographic.btnSwipeCard"/>" onclick="javascript:window.alert('Health Card Number Already Inuse');"-->
                                                         </td>
@@ -2274,7 +2274,7 @@
                                                                                                         startTimeStr = String.format("%02d", startHour) + ":" + String.format("%02d", startMin);
                                                                                                         endTimeStr = String.format("%02d", startHour) + ":" + String.format("%02d", startMin + timecodeInterval - 1);
 
-                                                                                                        provMap.get(thisProv).get(sortDateStr + "," + qApptWkDay + " " + qApptMonth + "-" + qApptDay).put(startTimeStr + "," + timecodeChar, request.getContextPath() + "/appointment/addappointment.jsp?demographic_no=" + demographic.getDemographicNo() + "&name=" + URLEncoder.encode(demographic.getLastName() + "," + demographic.getFirstName(), "UTF-8") + "&provider_no=" + thisProvNo + "&bFirstDisp=true&year=" + qApptYear + "&month=" + qApptMonth + "&day=" + qApptDay + "&start_time=" + startTimeStr + "&end_time=" + endTimeStr + "&duration=" + templateDuration + "&search=true");
+                                                                                                        provMap.get(thisProv).get(sortDateStr + "," + qApptWkDay + " " + qApptMonth + "-" + qApptDay).put(startTimeStr + "," + timecodeChar, request.getContextPath() + "/appointment/addappointment.do?demographic_no=" + demographic.getDemographicNo() + "&name=" + URLEncoder.encode(demographic.getLastName() + "," + demographic.getFirstName(), "UTF-8") + "&provider_no=" + thisProvNo + "&bFirstDisp=true&year=" + qApptYear + "&month=" + qApptMonth + "&day=" + qApptDay + "&start_time=" + startTimeStr + "&end_time=" + endTimeStr + "&duration=" + templateDuration + "&search=true");
                                                                                                     }
                                                                                                 }
                                                                                             }
@@ -4974,7 +4974,7 @@
                                                         <span id="swipeButtonBottom" style="display: none;">
                                                             <input type="button" name="Button" class="btn-toolbar-secondary"
                                                                    value="<fmt:message key="demographic.demographiceditdemographic.btnSwipeCard"/>"
-                                                                   onclick="window.open('demographic/zdemographicswipe.jsp','', 'scrollbars=yes,resizable=yes,width=600,height=300, top=360, left=0')">
+                                                                   onclick="window.open('<%= request.getContextPath() %>/demographic/ViewZdemographicSwipe.do','', 'scrollbars=yes,resizable=yes,width=600,height=300, top=360, left=0')">
                                                         </span>
                                                         <div class="dropdown">
                                                             <button class="btn-toolbar-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">

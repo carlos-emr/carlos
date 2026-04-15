@@ -52,7 +52,7 @@
         ff = eval("document.forms[0].elements['" + name2 + "']");
         f0 = ff.value;
         f1 = escape("document.forms[0].elements[\'" + name2 + "\'].value");
-        awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/billingDigSearch.jsp?name=' + f0 + '&search=&name2=' + f1, 600, 600, 1);
+        awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch.do?name=' + f0 + '&search=&name2=' + f1, 600, 600, 1);
         awnd.focus();
     }
 </script>

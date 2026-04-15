@@ -39,12 +39,16 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  *
  * @author toby
  */
 public class CopyFavorites2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -54,6 +58,11 @@ public class CopyFavorites2Action extends ActionSupport {
     FavoritesDao favoritesDao = SpringUtils.getBean(FavoritesDao.class);
     
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+
         String method = request.getParameter("dispatch");
         if ("update".equals(method)) {
             return update();

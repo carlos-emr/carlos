@@ -52,6 +52,7 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billactivity;
@@ -73,6 +74,8 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class ManageTeleplan2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -86,6 +89,11 @@ public class ManageTeleplan2Action extends ActionSupport {
     }
 
     public String execute() throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         //log.debug("UNSPECIFIED ACTION!");
         String method = request.getParameter("method");
         if ("setUserName".equals(method)) {

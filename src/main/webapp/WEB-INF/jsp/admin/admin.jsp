@@ -271,49 +271,51 @@
                     <%
                         if (oscarVariables.getProperty("billregion", "").equals("BC")) {
                     %>
+                    <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing" rights="w" reverse="<%=false%>">
                     <li><a href="#"
-                           onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/manageBillingform.jsp");return false;'><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
+                           onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/ON/ManageBillingform.do");return false;'><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
+                    </security:oscarSec>
                     <li><a href="#"
-                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/billing/CA/BC/billingPrivateCodeAdjust.jsp");return false;'><fmt:message key="admin.admin.ManagePrivFrm"/></a></li>
+                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/billing/CA/BC/billingAddCode.do");return false;'><fmt:message key="admin.admin.ManagePrivFrm"/></a></li>
                     <oscar:oscarPropertiesCheck property="BC_BILLING_CODE_MANAGEMENT"
                                                 value="yes">
                         <li><a href="#"
-                               onclick='popupPage(600,900,"${pageContext.request.contextPath}/billing/CA/BC/billingCodeAdjust.jsp");return false;'><fmt:message key="admin.admin.ManageBillCodes"/></a></li>
+                               onclick='popupPage(600,900,"${pageContext.request.contextPath}/billing/CA/BC/billingAddCode.do");return false;'><fmt:message key="admin.admin.ManageBillCodes"/></a></li>
                     </oscar:oscarPropertiesCheck>
                     <li><a href="#"
                            onclick='popupPage(600,600,"${pageContext.request.contextPath}/billing/CA/BC/showServiceCodeAssocs.do");return false;'><fmt:message key="admin.admin.ManageServiceDiagnosticCodeAssoc"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(600,500,"${pageContext.request.contextPath}/billing/CA/BC/supServiceCodeAssocAction.do");return false;'><fmt:message key="admin.admin.ManageProcedureFeeCodeAssoc"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/billingManageReferralDoc.jsp");return false;'><fmt:message key="admin.admin.ManageReferralDoc"/></a></li>
+                           onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/AddReferralDoc.do");return false;'><fmt:message key="admin.admin.ManageReferralDoc"/></a></li>
                     <oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="no"
                                                 defaultVal="true">
                         <li><a href="#"
-                               onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/billingSim.jsp");return false;'><fmt:message key="admin.admin.SimulateSubFile"/></a></li>
+                               onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/ViewBillingSim.do");return false;'><fmt:message key="admin.admin.SimulateSubFile"/></a></li>
                         <li><a href="#"
-                               onclick='popupPage(800,720,"${pageContext.request.contextPath}/billing/CA/BC/billingTeleplanGroupReport.jsp");return false;'><fmt:message key="admin.admin.genTeleplanFile"/></a></li>
+                               onclick='popupPage(800,720,"${pageContext.request.contextPath}/billing/CA/BC/ViewBillingTeleplanGroupReport.do");return false;'><fmt:message key="admin.admin.genTeleplanFile"/></a></li>
                     </oscar:oscarPropertiesCheck>
                     <oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="yes">
                         <li><a href="#"
-                               onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/TeleplanSimulation.jsp");return false;'><fmt:message key="admin.admin.simulateSubFile2"/></a></li>
+                               onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/GenerateTeleplanFile.do");return false;'><fmt:message key="admin.admin.simulateSubFile2"/></a></li>
                         <li><a href="#"
-                               onclick='popupPage(800,720,"${pageContext.request.contextPath}/billing/CA/BC/TeleplanSubmission.jsp");return false;'><fmt:message key="admin.admin.genTeleplanFile2"/></a></li>
+                               onclick='popupPage(800,720,"${pageContext.request.contextPath}/billing/CA/BC/SimulateTeleplanFile.do");return false;'><fmt:message key="admin.admin.genTeleplanFile2"/></a></li>
                         <li><a href="#"
-                               onclick='popupPage(800,1000,"${pageContext.request.contextPath}/billing/CA/BC/teleplan/ManageTeleplan.jsp");return false;'><fmt:message key="admin.admin.manageTeleplan"/></a></li>
+                               onclick='popupPage(800,1000,"${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan.do");return false;'><fmt:message key="admin.admin.manageTeleplan"/></a></li>
                     </oscar:oscarPropertiesCheck>
                     <oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="no"
                                                 defaultVal="true">
                         <li><a href="#"
-                               onclick='popupPage(600,800,"${pageContext.request.contextPath}/billing/CA/BC/billingTA.jsp");return false;'><fmt:message key="admin.admin.uploadRemittance"/></a></li>
+                               onclick='popupPage(600,800,"${pageContext.request.contextPath}/billing/CA/BC/ViewBillingTA.do");return false;'><fmt:message key="admin.admin.uploadRemittance"/></a></li>
                     </oscar:oscarPropertiesCheck>
                     <li><a href="#"
-                           onclick='popupPage(600,800,"${pageContext.request.contextPath}/billing/CA/BC/viewReconcileReports.jsp");return false;'><fmt:message key="admin.admin.reconciliationReports"/></a></li>
+                           onclick='popupPage(600,800,"${pageContext.request.contextPath}/billing/CA/BC/ProcessRemittance.do");return false;'><fmt:message key="admin.admin.reconciliationReports"/></a></li>
                     <li><a href="#"
-                           onclick='popUpBillStatus(375,425,"${pageContext.request.contextPath}/billing/CA/BC/billingAccountReports.jsp");return false;'><fmt:message key="admin.admin.AccountingRpts"/></a></li>
+                           onclick='popUpBillStatus(375,425,"${pageContext.request.contextPath}/billing/CA/BC/ViewBillingAccountReports.do");return false;'><fmt:message key="admin.admin.AccountingRpts"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(800,1000,"${pageContext.request.contextPath}/billing/CA/BC/billStatus.jsp");return false;'><fmt:message key="admin.admin.editInvoices"/></a></li>
+                           onclick='popupPage(800,1000,"${pageContext.request.contextPath}/billing/CA/BC/reprocessBill.do");return false;'><fmt:message key="admin.admin.editInvoices"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(200,300,"${pageContext.request.contextPath}/billing/CA/BC/settleBG.jsp");return false;'><fmt:message key="admin.admin.settlePaidClaims"/></a></li>
+                           onclick='popupPage(200,300,"${pageContext.request.contextPath}/billing/CA/BC/ViewSettleBG.do");return false;'><fmt:message key="admin.admin.settlePaidClaims"/></a></li>
 
                     <%-- Addition of BC MSP Quick Billing by Dennis Warren - December 2011 --%>
                     <li>
@@ -326,43 +328,45 @@
                     } else if (oscarVariables.getProperty("billregion", "").equals("ON")) {
                     %>
                     <li><a href="#"
-                           onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/ScheduleOfBenefitsUpload.jsp");return false;'><fmt:message key="admin.admin.scheduleOfBenefits"/></a></li>
+                           onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/benefitScheduleUpload.do");return false;'><fmt:message key="admin.admin.scheduleOfBenefits"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(300,600, "${pageContext.request.contextPath}/billing/CA/ON/addEditServiceCode.jsp");return false;'><fmt:message key="admin.admin.manageBillingServiceCode"/></a></li>
+                           onclick='popupPage(300,600, "${pageContext.request.contextPath}/billing/CA/ON/AddEditServiceCode.do");return false;'><fmt:message key="admin.admin.manageBillingServiceCode"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(300,600, "${pageContext.request.contextPath}/billing/CA/ON/billingONEditPrivateCode.jsp");return false;'><fmt:message key="admin.admin.managePrivBillingCode"/></a></li>
+                           onclick='popupPage(300,600, "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingONEditPrivateCode.do");return false;'><fmt:message key="admin.admin.managePrivBillingCode"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(700,1000, "${pageContext.request.contextPath}/admin/manageCSSStyles.do");return false;'><fmt:message key="admin.admin.manageCodeStyles"/></a></li>
                     <li><a href="${pageContext.request.contextPath}/admin/GstControl.do"><fmt:message key="admin.admin.manageGSTControl"/></a></li>
                     <li><a href="${pageContext.request.contextPath}/admin/GstReport.do"><fmt:message key="admin.admin.gstReport"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/manageBillingLocation.jsp");return false;'><fmt:message key="admin.admin.btnAddBillingLocation"/></a></li>
+                           onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/ManageBillingLocation.do");return false;'><fmt:message key="admin.admin.btnAddBillingLocation"/></a></li>
+                    <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing" rights="w" reverse="<%=false%>">
                     <li><a href="#"
-                           onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/manageBillingform.jsp");return false;'><fmt:message key="admin.admin.btnManageBillingForm"/></a></li>
+                           onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/ManageBillingform.do");return false;'><fmt:message key="admin.admin.btnManageBillingForm"/></a></li>
+                    </security:oscarSec>
                     <li><a href="#"
-                           onclick='popupPage(700,700, "${pageContext.request.contextPath}/billing/CA/ON/billingOHIPsimulation.jsp");return false;'><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></a></li>
+                           onclick='popupPage(700,700, "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingOHIPsimulation.do");return false;'><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(700,720, "${pageContext.request.contextPath}/billing/CA/ON/billingOHIPreport.jsp");return false;'><fmt:message key="admin.admin.btnGenerateOHIPDiskette"/></a></li>
+                           onclick='popupPage(700,720, "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingOHIPreport.do");return false;'><fmt:message key="admin.admin.btnGenerateOHIPDiskette"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(700,640, "${pageContext.request.contextPath}/billing/CA/ON/billingCorrection.jsp?billing_no=");return false;'><fmt:message key="admin.admin.btnBillingCorrection"/></a></li>
+                           onclick='popupPage(700,640, "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingCorrection.do?billing_no=");return false;'><fmt:message key="admin.admin.btnBillingCorrection"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(700,820, "${pageContext.request.contextPath}/billing/CA/ON/batchBilling.jsp?service_code=all");return false;'><fmt:message key="admin.admin.btnBatchBilling"/></a></li>
+                           onclick='popupPage(700,820, "${pageContext.request.contextPath}/billing/CA/ON/BatchBill.do?service_code=all");return false;'><fmt:message key="admin.admin.btnBatchBilling"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(700,640, "${pageContext.request.contextPath}/billing/CA/ON/inr/reportINR.jsp?provider_no=all");return false;'><fmt:message key="admin.admin.btnINRBatchBilling"/></a></li>
+                           onclick='popupPage(700,640, "${pageContext.request.contextPath}/billing/CA/ON/ViewInrReportINR.do?provider_no=all");return false;'><fmt:message key="admin.admin.btnINRBatchBilling"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(600,900, "${pageContext.request.contextPath}/billing/CA/ON/billingONUpload.jsp");return false;'><fmt:message key="admin.admin.uploadMOHFile"/></a></li>
+                           onclick='popupPage(600,900, "${pageContext.request.contextPath}/billing/CA/ON/BillingONUpload.do");return false;'><fmt:message key="admin.admin.uploadMOHFile"/></a></li>
                     <% if (CarlosProperties.getInstance().isPropertyActive("moh_file_management_enabled")) { %>
-                    <li><a href="#" onclick='popupPage(600,900, "${pageContext.request.contextPath}/billing/CA/ON/viewMOHFiles.jsp");return false;'><fmt:message key="admin.admin.viewMOHFiles"/></a></li>
+                    <li><a href="#" onclick='popupPage(600,900, "${pageContext.request.contextPath}/billing/CA/ON/moveMOHFiles.do");return false;'><fmt:message key="admin.admin.viewMOHFiles"/></a></li>
                     <% } %>
                     <li><a href="#"
-                           onclick='popupPage(600,900, "${pageContext.request.contextPath}<%= oscarVariables.getProperty("RA_FORWORD", "/billing/CA/ON/genRA.jsp") %>");return false;'><fmt:message key="admin.admin.btnBillingReconciliation"/></a></li>
+                           onclick='popupPage(600,900, "${pageContext.request.contextPath}<%= oscarVariables.getProperty("RA_FORWORD", "/billing/CA/ON/ViewGenRA.do") %>");return false;'><fmt:message key="admin.admin.btnBillingReconciliation"/></a></li>
                     <!-- li><a href="#" onclick ='popupPage(600,1000,"${pageContext.request.contextPath}/billing/CA/ON/billingOBECEA.jsp");return false;'><fmt:message key="admin.admin.btnEDTBillingReportGenerator"/></a></li-->
                     <li>
                         <a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/mcedt/mcedt.do");return false;'><fmt:message key="admin.admin.mcedt"/></a>
                     </li>
                     </li>
                     <li><a href="#"
-                           onclick='popupPage(800,1000,"${pageContext.request.contextPath}/billing/CA/ON/billStatus.jsp");return false;'><fmt:message key="admin.admin.invoiceRpts"/></a></li>
+                           onclick='popupPage(800,1000,"${pageContext.request.contextPath}/billing/CA/ON/ViewBillStatus.do");return false;'><fmt:message key="admin.admin.invoiceRpts"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/ON/endYearStatement.do");return false;'><fmt:message key="admin.admin.endYearStatement"/></a></li>
                     <%if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
@@ -380,7 +384,7 @@
                 </security:oscarSec>
 
                 <% if (oscarVariables.getProperty("billregion", "").equals("ON")) { %>
-                <li><a href="#" onclick="popupPage(800,1000,'/billing/CA/ON/billingONPayment.jsp');return false;"><fmt:message key="admin.admin.paymentReceived"/></a></li>
+                <li><a href="#" onclick="popupPage(800,1000,'/billing/CA/ON/BillingONPayment.do');return false;"><fmt:message key="admin.admin.paymentReceived"/></a></li>
                 <% } %>
             </ul>
         </div>
@@ -459,7 +463,7 @@
                            onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/RptByExample.do");return false;'><fmt:message key="admin.admin.btnQueryByExample"/></a></li>
 
                     <li>
-                        <a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/homePage.jsp">
+                        <a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/ViewHomePage.do">
                             <fmt:message key="admin.admin.rptbyTemplate"/>
                         </a>
                     </li>
@@ -468,11 +472,11 @@
                         <form id="ageSexForm" method="post" action="${pageContext.request.contextPath}/oscarReport/DbReportAgeSex.do" target="groupno" style="display:none"></form>
                     </li>
                     <li><a href="#"
-                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/oscarReportVisitControl.jsp");return false;'><fmt:message key="admin.admin.btnVisitReport"/></a></li>
+                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/ViewOscarReportVisitControl.do");return false;'><fmt:message key="admin.admin.btnVisitReport"/></a></li>
                         <%-- This links doesnt make sense on Brazil. Hide then --%>
 
                     <li><a href="#"
-                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/oscarReportCatchment.jsp");return false;'><fmt:message key="admin.admin.btnPCNCatchmentReport"/></a></li>
+                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/ViewOscarReportCatchment.do");return false;'><fmt:message key="admin.admin.btnPCNCatchmentReport"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/FluBilling.do?orderby=");return false;'><fmt:message key="admin.admin.btnFluBillingReport"/></a></li>
                     <li><a href="#"
@@ -480,19 +484,16 @@
 
 
                     <li><a href="#"
-                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/patientlist.jsp")'><fmt:message key="admin.admin.exportPatientbyAppt"/></a></li>
+                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/ViewPatientlist.do")'><fmt:message key="admin.admin.exportPatientbyAppt"/></a></li>
                     <caisi:isModuleLoad moduleName="caisi">
                         <li><a href="${pageContext.request.contextPath}/PMmodule/reports/activity_report_form.jsp"><fmt:message key="admin.admin.activityRpt"/></a></li>
                     </caisi:isModuleLoad>
-                    <li><a href="${pageContext.request.contextPath}/oscarReport/provider_service_report_form.jsp"><fmt:message key="admin.admin.providerServiceRpt"/></a></li>
+                    <li><a href="${pageContext.request.contextPath}/oscarReport/ViewProviderServiceReportForm.do"><fmt:message key="admin.admin.providerServiceRpt"/></a></li>
                     <caisi:isModuleLoad moduleName="caisi">
                         <li><a href="${pageContext.request.contextPath}/PopulationReport.do"><fmt:message key="admin.admin.popRpt"/></a></li>
                     </caisi:isModuleLoad>
-                    <li><a href="${pageContext.request.contextPath}/oscarReport/cds_4_report_form.jsp"><fmt:message key="admin.admin.cdsRpt"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/oscarReport/mis_report_form.jsp"><fmt:message key="admin.admin.misRpt"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/oscarReport/cbi_submit_form.jsp"><fmt:message key="admin.admin.cbiSubmit"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/admin/cbiAdmin.jsp"><fmt:message key="admin.admin.cbi.reportlink"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/oscarReport/cbi_report_form.jsp"><fmt:message key="admin.admin.cbiRpt"/></a></li>
+                    <li><a href="${pageContext.request.contextPath}/oscarReport/ViewCds4ReportForm.do"><fmt:message key="admin.admin.cdsRpt"/></a></li>
+                    <li><a href="${pageContext.request.contextPath}/oscarReport/ViewMisReportForm.do"><fmt:message key="admin.admin.misRpt"/></a></li>
                     <li><a href="${pageContext.request.contextPath}/admin/ViewUsageReport.do"><fmt:message key="admin.admin.usageRpt"/></a></li>
                     <oscar:oscarPropertiesCheck property="SERVERLOGGING" value="yes">
                         <li><a href="#"
@@ -504,9 +505,9 @@
                         if (oscarVariables.getProperty("billregion", "").equals("ON")) {
                     %>
                     <li><a href="#"
-                           onclick='popupPage(660,1000, "${pageContext.request.contextPath}/report/reportonbilledphcp.jsp");return false;'><fmt:message key="admin.admin.PHCP"/></a>
+                           onclick='popupPage(660,1000, "${pageContext.request.contextPath}/report/ViewReportonbilledphcp.do");return false;'><fmt:message key="admin.admin.PHCP"/></a>
                         <span style="font-size: x-small;"> (Setting: <a href="#"
-                                                                        onclick='popupPage(660,1000, "${pageContext.request.contextPath}/report/reportonbilledvisitprovider.jsp");return false;'><fmt:message key="admin.admin.provider"/></a>,
+                                                                        onclick='popupPage(660,1000, "${pageContext.request.contextPath}/report/ViewReportonbilledvisitprovider.do");return false;'><fmt:message key="admin.admin.provider"/></a>,
 			        ) </span></li>
                     <%
                         }
@@ -698,7 +699,7 @@
                            onclick='popupPage(550,800, "${pageContext.request.contextPath}/encounter/oscarConsultationRequest/config/ViewEditSpecialists.do");return false;'><fmt:message key="admin.admin.professionalSpecialistAdmin"/></a></li>
 
                     <li><a href="#"
-                           onclick='popupPage(400,450, "${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchCustomization.jsp");return false;'><fmt:message key="encounter.Index.btnCustomize"/> <fmt:message key="oscar.admin.diseaseRegistryQuickList"/></a></li>
+                           onclick='popupPage(400,450, "${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/ViewDxResearchCustomization.do");return false;'><fmt:message key="encounter.Index.btnCustomize"/> <fmt:message key="oscar.admin.diseaseRegistryQuickList"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(250,450, "${pageContext.request.contextPath}/encounter/oscarMeasurements/ViewCustomization.do");return false;'><fmt:message key="encounter.Index.btnCustomize"/> <fmt:message key="admin.admin.oscarMeasurements"/></a></li>
                     <li><a href="#"
@@ -798,7 +799,7 @@
                 <ul>
 
                     <li>&nbsp;<a href="#" onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/ViewApiClients.do");return false;'>REST Clients</a></li>
-                    <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/hospitalReportManager.jsp");return false;'>Hospital
+                    <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/Statement.do");return false;'>Hospital
                         Report Manager (HRM) Status</a></li>
 
                     <li><a href="javascript:void(0);" onclick="popupPage(550,800, '${pageContext.request.contextPath}/admin/ViewUpdateDrugref.do');return false;"><fmt:message key="admin.admin.UpdateDrugref"/></a></li>

@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingHistoryDAO;
@@ -73,6 +74,8 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -84,6 +87,11 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
 
     public String execute()
             throws IOException, ServletException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.billing)");
+        }
+
 
         String where = "success";
 
@@ -207,7 +215,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
             log.error("WCB Teleplan Correction Query Error: " + ex.getMessage() + " - ", ex);
         }
 
-        String newURL = "/billing/CA/BC/billingTeleplanCorrectionWCB.jsp";
+        String newURL = "/billing/CA/BC/billingTeleplanCorrectionWCB.do";
         newURL = newURL + "?billing_no=" + this.getId();
         MiscUtils.getLogger().debug(newURL);
 

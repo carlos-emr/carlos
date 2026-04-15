@@ -60,8 +60,12 @@ public class dxResearchUpdate2Action extends ActionSupport {
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() throws ServletException, IOException {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "u", null)) {
-            throw new RuntimeException("missing required sec object (_dxresearch)");
+            throw new SecurityException("missing required sec object (_dxresearch u)");
         }
 
         String status = request.getParameter("status");

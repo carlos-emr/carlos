@@ -54,8 +54,13 @@ import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class ScheduleOfBenefitsUpload2Action extends ActionSupport implements UploadedFilesAware {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -70,6 +75,11 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport implements Up
     }
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.billing)");
+        }
+
         List warnings = new ArrayList();
         String outcome = "";
 

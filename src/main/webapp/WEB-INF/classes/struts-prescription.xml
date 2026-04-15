@@ -160,13 +160,13 @@
         <action name="rx/updateDrugrefDB" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateDrugref2Action"/>
         <action name="rx/copyFavorite" class="io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action" method="execute">
             <result name="success">/WEB-INF/jsp/rx/CopyFavorites2.jsp</result>
-            <result name="edit">/appointment/appointmentstatusedit.jsp</result>
+            <result name="edit">/WEB-INF/jsp/appointment/appointmentstatusedit.jsp</result>
         </action>
         <action name="rx/hideCpp" class="io.github.carlos_emr.carlos.prescript.web.RxHideCpp2Action"/>
         <action name="rx/reorderDrug" class="io.github.carlos_emr.carlos.prescript.web.RxReorder2Action"/>
         <action name="rx/copyFavorite2" class="io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action" method="execute">
             <result name="success">/WEB-INF/jsp/rx/CopyFavorites2.jsp</result>
-            <result name="edit">/appointment/appointmentstatusedit.jsp</result>
+            <result name="edit">/WEB-INF/jsp/appointment/appointmentstatusedit.jsp</result>
         </action>
 
 

@@ -51,6 +51,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.integration.mcedt.DelegateFactory;
 import io.github.carlos_emr.carlos.integration.mcedt.McedtMessageCreator;
+import io.github.carlos_emr.carlos.integration.mcedt.McedtSecurity;
 import io.github.carlos_emr.carlos.integration.mcedt.ResourceForm;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -77,7 +78,12 @@ public class Download2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        McedtSecurity.requireRead(request);
         String method = request.getParameter("method");
+        if ("download".equals(method) || "userDownload".equals(method)) {
+            McedtSecurity.requireWrite(request);
+            McedtSecurity.requirePost(request);
+        }
         if ("download".equals(method)) {
             return download();
         } else if ("getLastDownloadedID".equals(method)) {
