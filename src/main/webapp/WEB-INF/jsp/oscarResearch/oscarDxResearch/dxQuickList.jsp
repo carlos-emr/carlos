@@ -51,7 +51,7 @@ Required Parameters to plug-in:
                 <div class="card-body">
                     <fmt:message key="oscarResearch.oscarDxResearch.quickList"/>
                     <small class="float-end">
-                        <a class="oscar-dialog-link" href="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchCustomization.jsp">
+                        <a class="oscar-dialog-link" href="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/ViewDxResearchCustomization.do">
                             add/edit
                         </a>
                     </small>

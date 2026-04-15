@@ -699,7 +699,7 @@
                            onclick='popupPage(550,800, "${pageContext.request.contextPath}/encounter/oscarConsultationRequest/config/ViewEditSpecialists.do");return false;'><fmt:message key="admin.admin.professionalSpecialistAdmin"/></a></li>
 
                     <li><a href="#"
-                           onclick='popupPage(400,450, "${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchCustomization.jsp");return false;'><fmt:message key="encounter.Index.btnCustomize"/> <fmt:message key="oscar.admin.diseaseRegistryQuickList"/></a></li>
+                           onclick='popupPage(400,450, "${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/ViewDxResearchCustomization.do");return false;'><fmt:message key="encounter.Index.btnCustomize"/> <fmt:message key="oscar.admin.diseaseRegistryQuickList"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(250,450, "${pageContext.request.contextPath}/encounter/oscarMeasurements/ViewCustomization.do");return false;'><fmt:message key="encounter.Index.btnCustomize"/> <fmt:message key="admin.admin.oscarMeasurements"/></a></li>
                     <li><a href="#"

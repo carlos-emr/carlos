@@ -43,7 +43,9 @@ import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.commn.model.Icd10;
 import io.github.carlos_emr.carlos.commn.model.Icd9;
 import io.github.carlos_emr.carlos.managers.CodingSystemManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.JsonUtil;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -52,11 +54,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class dxCodeSearchJSON2Action extends ActionSupport {
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -66,10 +66,9 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
 
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dxresearch", "r", null)) {
-            throw new SecurityException("missing required sec object (_dxresearch)");
+        if (!hasCodeSearchPrivilege(loggedInInfo)) {
+            throw new SecurityException("missing required sec object (_dxresearch/_rx/_billing/_report r)");
         }
-
         String method = request.getParameter("method");
         if ("searchICD9".equals(method)) {
             return searchICD9();
@@ -84,6 +83,23 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
         } 
         return getDescription();
         
+    }
+
+    /**
+     * Shared code-search JSON is used by dxresearch, prescribing, billing,
+     * and reporting workflows. Keep the endpoint protected, but authorize
+     * callers based on the workflow privileges that already gate those UIs.
+     */
+    private boolean hasCodeSearchPrivilege(LoggedInInfo loggedInInfo) {
+        if (loggedInInfo == null) {
+            return false;
+        }
+
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_dxresearch", SecurityInfoManager.READ, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.READ, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_billing", SecurityInfoManager.READ, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.reporting", SecurityInfoManager.READ, null);
     }
 
     @SuppressWarnings("unused")

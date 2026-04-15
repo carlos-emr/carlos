@@ -1360,7 +1360,7 @@
 
     function getNewCurrentDxCodeList(origRequest) {
         //alert("calling get NEW current Dx Code List");
-        var url = "<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/currentCodeList.jsp";
+        var url = "<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/ViewCurrentCodeList.do";
         var ran_number = Math.round(Math.random() * 1000000);
         var params = "demographicNo=<%= Encode.forJavaScript(StringUtils.noNull(demo_no)) %>&rand=" + ran_number;  //hack to get around ie caching the page
         //alert(params);
@@ -1388,7 +1388,7 @@
         <h3>&nbsp;Current Patient Dx List &nbsp;<a href="#" onclick="toggle('dxFullListing'); return false;"
                                                    style="font-size:small;">show/hide</a></h3>
         <div class="wrapper" id="dxFullListing">
-            <jsp:include page="/oscarResearch/oscarDxResearch/currentCodeList.jsp">
+            <jsp:include page="/oscarResearch/oscarDxResearch/ViewCurrentCodeList.do">
                 <jsp:param name="demographicNo" value="<%= StringUtils.noNull(demo_no) %>"/>
             </jsp:include>
         </div>
@@ -1404,7 +1404,7 @@
             <input type="hidden" name="forward" value=""/>
             <input type="hidden" name="forwardTo" value="codeList"/>
             <div class="wrapper" id="dxListing">
-                <jsp:include page="/oscarResearch/oscarDxResearch/quickCodeList.jsp">
+                <jsp:include page="/WEB-INF/jsp/oscarResearch/oscarDxResearch/quickCodeList.jsp">
                     <jsp:param name="demographicNo" value="<%= StringUtils.noNull(demo_no) %>"/>
                 </jsp:include>
             </div>
