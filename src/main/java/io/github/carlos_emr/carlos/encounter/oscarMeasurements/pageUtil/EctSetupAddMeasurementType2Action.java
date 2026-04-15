@@ -63,7 +63,8 @@ public final class EctSetupAddMeasurementType2Action extends ActionSupport {
         EctValidationsBeanHandler hd = new EctValidationsBeanHandler();
         Collection validations = hd.getValidationsVector();
         HttpSession session = request.getSession();
-        session.setAttribute("validations", validations); // nosemgrep: tainted-session-from-http-request -- DAO result list from EctValidationsBeanHandler
+        request.setAttribute("validations", validations);
+        session.removeAttribute("validations");
 
         return "continue";
     }

@@ -136,8 +136,10 @@ public class CaseManagementView2Action extends ActionSupport {
         request.setAttribute("patientCppPrintPreview", "false");
 
         // prevent null pointer errors as both these variables are required in navigation.jsp
-        request.getSession().setAttribute("casemgmt_newFormBeans", new ArrayList<Object>()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("casemgmt_msgBeans", new ArrayList<Object>()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.setAttribute("casemgmt_newFormBeans", new ArrayList<Object>());
+        request.setAttribute("casemgmt_msgBeans", new ArrayList<Object>());
+        request.getSession().removeAttribute("casemgmt_newFormBeans");
+        request.getSession().removeAttribute("casemgmt_msgBeans");
 
         String method = request.getParameter("method") != null ? request.getParameter("method") : (String) request.getAttribute("method");
 
@@ -412,10 +414,12 @@ public class CaseManagementView2Action extends ActionSupport {
 
             /* prepare new form list for patient */
             EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
-            se.setAttribute("casemgmt_newFormBeans", encounterFormDao.findAll());
+            request.setAttribute("casemgmt_newFormBeans", encounterFormDao.findAll());
+            se.removeAttribute("casemgmt_newFormBeans");
 
             /* prepare messenger list */
-            se.setAttribute("casemgmt_msgBeans", this.caseManagementMgr.getMsgBeans(Integer.valueOf(demoNo)));
+            request.setAttribute("casemgmt_msgBeans", this.caseManagementMgr.getMsgBeans(Integer.valueOf(demoNo)));
+            se.removeAttribute("casemgmt_msgBeans");
 
             // readonly access to define creat a new note button in jsp.
             se.setAttribute("readonly", Boolean.valueOf(this.caseManagementMgr.hasAccessRight("note-read-only", "access", loggedInInfo.getLoggedInProviderNo(), demoNo, (String) se.getAttribute("case_program_id"))));

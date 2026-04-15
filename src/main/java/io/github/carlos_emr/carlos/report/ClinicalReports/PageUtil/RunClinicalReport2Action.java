@@ -55,6 +55,8 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class RunClinicalReport2Action extends ActionSupport {
+    static final int MAX_CLINICAL_REPORT_HISTORY = 20;
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -211,6 +213,7 @@ public class RunClinicalReport2Action extends ActionSupport {
         if (arrList == null) {
             arrList = new ArrayList();
         }
+        trimClinicalReportHistory(arrList);
         arrList.add(re);
         request.getSession().setAttribute("ClinicalReports", arrList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- arrList contains ReportEvaluator results computed server-side from DAO queries
 
@@ -232,5 +235,11 @@ public class RunClinicalReport2Action extends ActionSupport {
 
         request.setAttribute("max_numerator", maxNumerator);
         return SUCCESS;
+    }
+
+    static void trimClinicalReportHistory(ArrayList clinicalReports) {
+        while (clinicalReports.size() >= MAX_CLINICAL_REPORT_HISTORY) {
+            clinicalReports.remove(0);
+        }
     }
 }

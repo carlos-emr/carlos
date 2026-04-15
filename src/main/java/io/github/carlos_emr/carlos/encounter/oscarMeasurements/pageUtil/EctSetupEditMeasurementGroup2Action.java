@@ -70,8 +70,10 @@ public class EctSetupEditMeasurementGroup2Action extends ActionSupport {
             Collection allTypeDisplayName = hd.getTypeDisplayNameVector();
 
             HttpSession session = request.getSession();
-            session.setAttribute("existingTypeDisplayNames", existingTypeDisplayName); // nosemgrep: tainted-session-from-http-request -- DAO result list from EctTypeDisplayNameBeanHandler (existing types for group)
-            session.setAttribute("allTypeDisplayNames", allTypeDisplayName); // nosemgrep: tainted-session-from-http-request -- DAO result list from EctTypeDisplayNameBeanHandler (all types)
+            request.setAttribute("existingTypeDisplayNames", existingTypeDisplayName);
+            request.setAttribute("allTypeDisplayNames", allTypeDisplayName);
+            session.removeAttribute("existingTypeDisplayNames");
+            session.removeAttribute("allTypeDisplayNames");
             // nosemgrep: tainted-session-from-http-request -- groupName validated via regex [^\\p{Cntrl}]+, length-capped to 100; admin-only action guarded by _admin/_admin.measurements write privilege
             session.setAttribute("groupName", groupName);
             return "continue";
