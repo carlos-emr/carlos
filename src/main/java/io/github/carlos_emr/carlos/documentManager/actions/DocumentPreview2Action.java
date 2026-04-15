@@ -41,6 +41,7 @@ import java.util.List;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  * Struts2 action for previewing and rendering medical documents as PDFs in the OpenO EMR system.
@@ -60,6 +61,8 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
  * @see PathValidationUtils
  */
 public class DocumentPreview2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -85,6 +88,11 @@ public class DocumentPreview2Action extends ActionSupport {
      * @return String result name for Struts2 result mapping, or null for direct response rendering
      */
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", null)) {
+            throw new SecurityException("missing required sec object (_edoc)");
+        }
+
         String method = request.getParameter("method");
 
         if (method != null) {

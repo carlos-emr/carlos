@@ -50,12 +50,22 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import java.io.IOException;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class AssociateCodes2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         ServiceCodeAssociation svc = this.getSvcAssoc();
         /**
          * Send back to originating screen if there are no associated codes selected
@@ -63,7 +73,7 @@ public class AssociateCodes2Action extends ActionSupport {
          */
         if (!svc.hasDXCodes()) {
             try {
-                response.sendRedirect(request.getContextPath() + "/billing/CA/BC/dxcode_svccode_assoc.jsp");
+                response.sendRedirect(request.getContextPath() + "/billing/CA/BC/showServiceCodeAssocs.do");
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

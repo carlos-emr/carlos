@@ -65,13 +65,13 @@ public class EctDisplayConsult2Action extends EctDisplayAction {
         } else {
             //set lefthand module heading and link
             String winName = "Consultation" + bean.demographicNo;
-            String consultPath = request.getContextPath() + "/encounter/oscarConsultationRequest/DisplayDemographicConsultationRequests.jsp?de=" + bean.demographicNo;
+            String consultPath = request.getContextPath() + "/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests.do?de=" + bean.demographicNo;
             Dao.setLeftHeading(getText("encounter.LeftNavBar.Consult"));
             Dao.setLeftPopup(700, 960, winName, consultPath);
 
             //set the right hand heading link\
             winName = "newConsult" + bean.demographicNo;
-            Dao.setRightPopup(700, 960, winName, request.getContextPath() + "/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp?de=" + bean.demographicNo + "&teamVar=&appNo=" + appointmentNo);
+            Dao.setRightPopup(700, 960, winName, request.getContextPath() + "/encounter/oscarConsultationRequest/ViewConsultationFormRequest.do?de=" + bean.demographicNo + "&teamVar=&appNo=" + appointmentNo);
             Dao.setRightHeadingID(cmd);  //no menu so set div id to unique id for this action 
 
             //grab all consultations for patient and add list item for each

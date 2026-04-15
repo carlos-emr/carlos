@@ -28,8 +28,9 @@
  */
 package io.github.carlos_emr.carlos.event;
 
-import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.logging.log4j.Logger;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 
@@ -45,22 +46,33 @@ public class EventService implements ApplicationEventPublisherAware {
 
 
     /*
-     * Event is fired:
-         src/main/webapp/appointment/appointmentupdatearecord.jsp -- edit appt screen
-         src/main/webapp/provider/provideraddstatus.jsp  -- in appt screen when user clicks on the icon to change the appt status
-     *
+     * Event is fired from:
+     *   /appointment/UpdateRecord.do — edit appt screen (UpdateRecord2Action)
+     *   /provider/AddStatus.do — appt status icon (AddStatus2Action)
      */
     public void appointmentStatusChanged(Object source, String appointment_no, String provider_no, String status) {
-        logger.debug("appointmentStatusChanged thrown by " + source.getClass().getName() + " appt# " + appointment_no + " status " + status);
+        if (logger.isDebugEnabled()) {
+            logger.debug("appointmentStatusChanged thrown by {} appt# {} status {}",
+                    source.getClass().getName(),
+                    LogSanitizer.sanitize(appointment_no),
+                    LogSanitizer.sanitize(status));
+        }
 
         applicationEventPublisher.publishEvent(new AppointmentStatusChangeEvent(source, appointment_no, provider_no, status));
     }
 
     /*
-     * Event is fired:
-        src/main/webapp/appointment/appointmentaddarecord.jsp
-          src/main/webapp/appointment/appointmentaddrecordcard.jsp
-         src/main/webapp/appointment/appointmentaddrecordprint.jsp
+     * Event is fired from:
+     *   /appointment/AddRecord.do — AddRecord2Action
+     *   /appointment/appointmentaddrecordcard.do — forwards to
+     *     /WEB-INF/jsp/appointment/appointmentaddrecordcard.jsp which
+     *     persists via appointmentDao.persist(...) and fires the event
+     *   /appointment/appointmentaddrecordprint.do — forwards to
+     *     /WEB-INF/jsp/appointment/appointmentaddrecordprint.jsp which
+     *     persists via appointmentDao.persist(...) and fires the event
+     * The two *record{card,print}.do endpoints are ViewAppointmentSelfPost2Action
+     * gates whose target JSPs still contain scriptlet mutations (flagged for
+     * scriptlet extraction follow-up).
      */
     public void appointmentCreated(Object source, String appointment_no, String provider_no) {
         applicationEventPublisher.publishEvent(new AppointmentCreatedEvent(source, appointment_no, provider_no));

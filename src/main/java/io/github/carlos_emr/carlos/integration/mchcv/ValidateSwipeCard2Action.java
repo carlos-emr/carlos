@@ -35,6 +35,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  * Struts 2 action for validating health card magnetic stripe data.
@@ -49,6 +52,8 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @since 2006-04-20
  */
 public class ValidateSwipeCard2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -70,6 +75,11 @@ public class ValidateSwipeCard2Action extends ActionSupport {
      */
     @Override
     public String execute() throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
         String magneticStripe = this.getMagneticStripe();
         HCMagneticStripe hcMagneticStripe = new HCMagneticStripe(magneticStripe);
 

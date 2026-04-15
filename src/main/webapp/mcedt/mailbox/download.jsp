@@ -136,7 +136,7 @@
             </button>
         </div>
         * You may select a maximum of 5 files at a time to download from MC-EDT
-        <br/>** to process downloads, click <a href="<%= request.getContextPath() %>/billing/CA/ON/viewMOHFiles.jsp">here
+        <br/>** to process downloads, click <a href="<%= request.getContextPath() %>/billing/CA/ON/moveMOHFiles.do">here
         to view MOH files</a>
         <c:choose>
             <c:when test="${not empty resourceListDL}">

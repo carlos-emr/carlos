@@ -56,6 +56,8 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class dxCodeSearchJSON2Action extends ActionSupport {
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -63,9 +65,8 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
     private static Logger logger = MiscUtils.getLogger();
 
     public String execute() {
-        SecurityInfoManager sim = SpringUtils.getBean(SecurityInfoManager.class);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!hasCodeSearchPrivilege(loggedInInfo, sim)) {
+        if (!hasCodeSearchPrivilege(loggedInInfo)) {
             throw new SecurityException("missing required sec object (_dxresearch/_rx/_billing/_report r)");
         }
         String method = request.getParameter("method");
@@ -89,16 +90,16 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
      * and reporting workflows. Keep the endpoint protected, but authorize
      * callers based on the workflow privileges that already gate those UIs.
      */
-    private boolean hasCodeSearchPrivilege(LoggedInInfo loggedInInfo, SecurityInfoManager sim) {
+    private boolean hasCodeSearchPrivilege(LoggedInInfo loggedInInfo) {
         if (loggedInInfo == null) {
             return false;
         }
 
-        return sim.hasPrivilege(loggedInInfo, "_dxresearch", SecurityInfoManager.READ, null)
-                || sim.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.READ, null)
-                || sim.hasPrivilege(loggedInInfo, "_billing", SecurityInfoManager.READ, null)
-                || sim.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)
-                || sim.hasPrivilege(loggedInInfo, "_admin.reporting", SecurityInfoManager.READ, null);
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_dxresearch", SecurityInfoManager.READ, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.READ, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_billing", SecurityInfoManager.READ, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.reporting", SecurityInfoManager.READ, null);
     }
 
     @SuppressWarnings("unused")

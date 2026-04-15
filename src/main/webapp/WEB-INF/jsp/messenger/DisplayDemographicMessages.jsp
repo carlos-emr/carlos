@@ -200,7 +200,7 @@
                         <td style="text-align: right">
 
                             <a href="javascript:void(0)"
-                               onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/encounter/About.jsp')"><fmt:message key="global.about"/></a>
+                               onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/encounter/ViewAbout.do')"><fmt:message key="global.about"/></a>
                         </td>
                     </tr>
                 </table>

@@ -33,7 +33,7 @@
  *   <li>{@code addappointment.jsp} — appointment booking; needs schedule page context</li>
  *   <li>{@code appointmentcontrol.jsp} — appointment editing; needs schedule page context</li>
  *   <li>{@code appointmentsearch.jsp} — appointment search; needs schedule page context</li>
- *   <li>{@code scratch/index.jsp} — system clipboard; benefits from opener context for copy/paste</li>
+ *   <li>{@code Scratch.do} — system clipboard; benefits from opener context for copy/paste</li>
  *   <li>{@code CalendarPopup.jsp} — date picker; must update {@code window.opener} with selected date</li>
  * </ul>
  *
@@ -46,7 +46,7 @@ function isForceWindowUrl(url) {
         'addappointment.jsp',
         'appointmentcontrol.jsp',
         'appointmentsearch.jsp',
-        'scratch/index.jsp',
+        'Scratch.do',
         'CalendarPopup.jsp'
     ];
     const normalizedUrl = String(url).split('#')[0].split('?')[0];
