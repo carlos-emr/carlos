@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> implements EFormReportToolDao {
 
+    private static final java.util.regex.Pattern NAME_PATTERN = java.util.regex.Pattern.compile("^[a-zA-Z0-9_]+$");
+
     public EFormReportToolDaoImpl() {
         super(EFormReportTool.class);
     }
@@ -117,10 +119,8 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         sb.append("eft_latest,");
         sb.append("dateCreated,");
 
-        java.util.regex.Pattern namePattern = java.util.regex.Pattern.compile("^[a-zA-Z0-9_]+$");
-
         for (EFormValue v : values) {
-            if (v.getVarName() != null && namePattern.matcher(v.getVarName()).matches()) {
+            if (v.getVarName() != null && NAME_PATTERN.matcher(v.getVarName()).matches()) {
                 sb.append("`").append(v.getVarName()).append("`,");
             } else {
                 throw new IllegalArgumentException("Invalid column name: " + v.getVarName());
