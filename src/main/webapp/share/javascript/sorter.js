@@ -202,7 +202,7 @@ $(document).ready(function () {
             dataType: 'json',
             success: function (data) {
                 $("#tool_savecontinue span").html("Save &amp; Continue");
-                popup(screen.height, screen.width, ctx + "/documentManager/showDocument.jsp?segmentID=" + data["newDocNum"] + '&demoName=' + encodeURIComponent(demoName) + "&inWindow=true", "assignDoc");
+                popup(screen.height, screen.width, ctx + "/documentManager/ViewShowDocument.do?segmentID=" + data["newDocNum"] + '&demoName=' + encodeURIComponent(demoName) + "&inWindow=true", "assignDoc");
                 return false;
             }
         });

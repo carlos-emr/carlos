@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasureme
 import io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
+import org.owasp.encoder.Encode;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
@@ -108,7 +109,7 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
 
                     winName = flowsheetName + bean.demographicNo;
                     hash = Math.abs(winName.hashCode());
-                    url = "popupPage(700,1000,'" + hash + "','" + request.getContextPath() + "/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + bean.demographicNo + "&template=" + flowsheetName + "');return false;";
+                    url = "popupPage(700,1000,'" + hash + "','" + request.getContextPath() + "/encounter/oscarMeasurements/ViewTemplateFlowSheet.do?demographic_no=" + Encode.forUriComponent(bean.demographicNo) + "&template=" + Encode.forUriComponent(flowsheetName) + "');return false;";
                     item.setLinkTitle(dispname);
                     dispname = StringUtils.maxLenString(dispname, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
                     item.setTitle(dispname);
@@ -138,7 +139,7 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
 
                     winName = flowsheetName + bean.demographicNo;
                     hash = Math.abs(winName.hashCode());
-                    url = "popupPage(700,1000,'" + hash + "','" + request.getContextPath() + "/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + bean.demographicNo + "&template=" + flowsheetName + "');return false;";
+                    url = "popupPage(700,1000,'" + hash + "','" + request.getContextPath() + "/encounter/oscarMeasurements/ViewTemplateFlowSheet.do?demographic_no=" + Encode.forUriComponent(bean.demographicNo) + "&template=" + Encode.forUriComponent(flowsheetName) + "');return false;";
                     item.setLinkTitle(dispname);
                     dispname = StringUtils.maxLenString(dispname, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
                     item.setTitle(dispname);
@@ -163,7 +164,7 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
 
 					winName = flowsheetName + bean.demographicNo;
 					hash = Math.abs(winName.hashCode());
-					url = "popupPage(700,1000,'" + hash + "','" + request.getContextPath() + "/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + bean.demographicNo + "&name=" + flowsheetName + "');return false;";
+					url = "popupPage(700,1000,'" + hash + "','" + request.getContextPath() + "/encounter/oscarMeasurements/ViewTemplateFlowSheet.do?demographic_no=" + Encode.forUriComponent(bean.demographicNo) + "&name=" + Encode.forUriComponent(flowsheetName) + "');return false;";
 					item.setLinkTitle(dispname);
 					dispname = StringUtils.maxLenString(dispname, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
 					item.setTitle(dispname);
@@ -194,7 +195,7 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
 
                     winName = flowsheetName + bean.demographicNo;
                     hash = Math.abs(winName.hashCode());
-                    url = "popupPage(700,1000,'" + hash + "','" + request.getContextPath() + "/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + bean.demographicNo + "&template=" + flowsheetName + "');return false;";
+                    url = "popupPage(700,1000,'" + hash + "','" + request.getContextPath() + "/encounter/oscarMeasurements/ViewTemplateFlowSheet.do?demographic_no=" + Encode.forUriComponent(bean.demographicNo) + "&template=" + Encode.forUriComponent(flowsheetName) + "');return false;";
                     item.setLinkTitle(dispname);
                     dispname = StringUtils.maxLenString(dispname, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
                     item.setTitle(dispname);

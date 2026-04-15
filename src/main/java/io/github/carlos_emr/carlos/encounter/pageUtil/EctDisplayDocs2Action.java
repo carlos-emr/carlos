@@ -80,7 +80,7 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
                 Dao.setLeftPopup(600, 1024, winName, leftPath);
                 Dao.setLeftHeading(getText("encounter.Index.inboxManager"));
             } else {
-                leftPath = request.getContextPath() + "/documentManager/documentReport.jsp?" + "function=demographic&doctype=lab&functionid=" + bean.demographicNo + "&curUser=" + bean.providerNo;
+                leftPath = request.getContextPath() + "/documentManager/ViewDocumentReport.do?" + "function=demographic&doctype=lab&functionid=" + bean.demographicNo + "&curUser=" + bean.providerNo;
                 Dao.setLeftPopup(500, 1115, winName, leftPath);
             }
 
@@ -90,7 +90,7 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
             if (inboxflag) {
                 Dao.setRightPopup(300, 600, winName, request.getContextPath() + "/mod/docmgmtComp/FileUpload.do?method=newupload&demographic_no=" + bean.demographicNo);
             } else {
-                Dao.setRightPopup(500, 1115, winName, request.getContextPath() + "/documentManager/documentReport.jsp?" + "function=demographic&doctype=lab&functionid=" + bean.demographicNo + "&curUser=" + bean.providerNo + "&mode=add" + "&parentAjaxId=" + cmd);
+                Dao.setRightPopup(500, 1115, winName, request.getContextPath() + "/documentManager/ViewDocumentReport.do?" + "function=demographic&doctype=lab&functionid=" + bean.demographicNo + "&curUser=" + bean.providerNo + "&mode=add" + "&parentAjaxId=" + cmd);
             }
             Dao.setRightHeadingID(cmd); // no menu so set div id to unique id for this action
 
@@ -154,7 +154,7 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
  		    url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/mod/docmgmtComp/FillARForm.do?method=showInboxDocDetails&path=" + Encode.forJavaScript(path) + "&demoNo=" + Encode.forJavaScript(bean.demographicNo) + "&name=" + Encode.forJavaScript(dispFilename) + "'); return false;";
                     isURLjavaScript = true;
                 } else if (curDoc.isPDF()) {
-                    url = "popupPage(window.screen.width,window.screen.height,'" + hash + "','" + request.getContextPath() + "/documentManager/showDocument.jsp?inWindow=true&segmentID=" + Encode.forJavaScript(dispDocNo) + "'); return false;";
+                    url = "popupPage(window.screen.width,window.screen.height,'" + hash + "','" + request.getContextPath() + "/documentManager/ViewShowDocument.do?inWindow=true&segmentID=" + Encode.forJavaScript(dispDocNo) + "'); return false;";
                     isURLjavaScript = true;
                 } else {
                     url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/documentManager/ManageDocument.do?method=display&doc_no=" + Encode.forJavaScript(dispDocNo) + "&providerNo=" + Encode.forJavaScript(user) + "'); return false;";

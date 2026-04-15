@@ -428,8 +428,8 @@
                 t3 = escape("document.forms[0].elements[\'" + toaddress + "\'].value");
                 t5 = escape("document.forms[0].elements[\'" + tophone + "\'].value");
                 t6 = escape("document.forms[0].elements[\'" + tofax + "\'].value");
-                //rs('att',('<%= request.getContextPath() %>/billing/CA/ON/searchRefDoc.jsp?param='+t0+'&toname='+t2),600,600,1);
-                rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/searchRefDoc.jsp?param=' + t0 + '&toname=' + t2 + '&toaddress1=' + t3 + '&tophone=' + t5 + '&tofax=' + t6 + '&submit=Search&keyword=' + document.forms[0].elements[toname].value), 600, 600, 1);
+                //rs('att',('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc.do?param='+t0+'&toname='+t2),600,600,1);
+                rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc.do?param=' + t0 + '&toname=' + t2 + '&toaddress1=' + t3 + '&tophone=' + t5 + '&tofax=' + t6 + '&submit=Search&keyword=' + document.forms[0].elements[toname].value), 600, 600, 1);
             }
 
             function start() {

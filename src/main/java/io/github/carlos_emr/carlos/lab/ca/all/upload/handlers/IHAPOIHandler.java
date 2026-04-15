@@ -48,6 +48,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
@@ -104,10 +105,10 @@ public class IHAPOIHandler implements MessageHandler {
 
         } catch (ExceptionInInitializerError e) {
             result = new StringBuilder(FAILED + messageId + ",");
-            logger.error("There was an unknown internal error with file " + fileName + " message id " + messageId, e);
+            logger.error("There was an unknown internal error with file {} message id {}", LogSanitizer.sanitize(fileName), LogSanitizer.sanitize(messageId), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         } catch (Exception e) {
             result = new StringBuilder(FAILED + messageId + ",");
-            logger.error("Could not upload IHAPOI message " + fileName + " due to an error with message id " + messageId, e);
+            logger.error("Could not upload IHAPOI message {} due to an error with message id {}", LogSanitizer.sanitize(fileName), LogSanitizer.sanitize(messageId), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         } finally {
             if (is != null) {
                 try {
@@ -278,7 +279,7 @@ public class IHAPOIHandler implements MessageHandler {
             isValidPath = PathValidationUtils.isInAllowedTempDirectory(file);
         }
         if (!isValidPath) {
-            logger.error("Path traversal attempt detected: " + fileName);
+            logger.error("Path traversal attempt detected: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             throw new IllegalArgumentException("Invalid file path - access denied");
         }
         

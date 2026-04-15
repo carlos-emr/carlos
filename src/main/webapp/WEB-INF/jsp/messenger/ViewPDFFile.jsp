@@ -90,14 +90,14 @@
 %>
 
 <c:if test="${empty sessionScope.msgSessionBean}">
-    <% response.sendRedirect(request.getContextPath() + "/messenger/index.jsp"); %>
+    <% response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.do"); %>
 </c:if>
 <c:if test="${not empty sessionScope.msgSessionBean}">
     <% 
         // Directly accessing the bean from the session
         MsgSessionBean bean = (MsgSessionBean) session.getAttribute("msgSessionBean");
         if (!bean.isValid()) {
-            response.sendRedirect(request.getContextPath() + "/messenger/index.jsp");
+            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.do");
         }
     %>
 </c:if>

@@ -242,7 +242,7 @@
                 var d = elementName;
                 t0 = escape("document.forms[1].elements[\'" + d + "\'].value");
                 t1 = escape("document.forms[1].elements[\'" + name2 + "\'].value");
-                rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/searchRefDoc.jsp?param=' + t0 + '&param2=' + t1), 600, 600, 1);
+                rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc.do?param=' + t0 + '&param2=' + t1), 600, 600, 1);
             }
 
             function checkName() {
@@ -674,7 +674,7 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
         </tr>
     </table>
 
-    <%@ include file="/demographic/zdemographicfulltitlesearch.jsp" %>
+    <jsp:include page="/demographic/ViewZdemographicFullTitleSearch.do" />
     <table width="100%" bgcolor="#CCCCFF">
         <tr>
             <td class="RowTop" colspan="4">
