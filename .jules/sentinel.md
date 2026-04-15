@@ -1,4 +1,0 @@
-## 2026-04-15 - Dynamic Column Name Validation in Hibernate Native Queries
-**Vulnerability:** SQL Injection in `EFormReportToolDaoImpl.java` via unparameterized dynamic column names and values in an `INSERT` statement. The values were concatenated without parameters.
-**Learning:** While values in native queries can and should be securely parameterized (using `?1` or `:name`), dynamic column names cannot be parameterized. Appending dynamic strings as column names opens up SQL injection vectors if the names come from untrusted user input.
-**Prevention:** Always parameterize values in Hibernate queries (e.g. `q.setParameter()`). When column names must be dynamic, validate the column names against a strict allowlist or regex (such as `^[a-zA-Z0-9_]+$`) to prevent SQL injection before appending them to the query builder.

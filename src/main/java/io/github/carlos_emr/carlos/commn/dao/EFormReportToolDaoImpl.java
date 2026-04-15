@@ -47,8 +47,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> implements EFormReportToolDao {
 
-    private static final java.util.regex.Pattern NAME_PATTERN = java.util.regex.Pattern.compile("^[a-zA-Z0-9_]+$");
-
     public EFormReportToolDaoImpl() {
         super(EFormReportTool.class);
     }
@@ -118,28 +116,23 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         sb.append("providerNo,");
         sb.append("eft_latest,");
         sb.append("dateCreated,");
-
         for (EFormValue v : values) {
-            if (v.getVarName() != null && NAME_PATTERN.matcher(v.getVarName()).matches()) {
-                sb.append("`").append(v.getVarName()).append("`,");
-            } else {
-                throw new IllegalArgumentException("Invalid column name: " + v.getVarName());
-            }
+            sb.append("`" + v.getVarName() + "`");
+            sb.append(",");
         }
 
         sb.deleteCharAt(sb.length() - 1);
 
         sb.append(" ) VALUES (");
-        sb.append("?1,");
-        sb.append("?2,");
-        sb.append("?3,");
-        sb.append("?4,");
+        sb.append(fdid + ",");
+        sb.append(demographicNo + ",");
+        sb.append("\'" + DateFormatUtils.format(dateFormCreated, "yyyy-MM-dd HH:mm:ss") + "\',");
+        sb.append("\'" + providerNo + "\',");
         sb.append("0,");
         sb.append("now(),");
-
-        int paramIndex = 5;
-        for (int i = 0; i < values.size(); i++) {
-            sb.append("?").append(paramIndex++).append(",");
+        for (EFormValue v : values) {
+            sb.append("\'" + v.getVarValue() + "\'");
+            sb.append(",");
         }
         sb.deleteCharAt(sb.length() - 1);
 
@@ -148,16 +141,6 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         //logger.debug("sql=" + sb.toString());
 
         Query q = entityManager.createNativeQuery(sb.toString());
-        q.setParameter(1, fdid);
-        q.setParameter(2, demographicNo);
-        q.setParameter(3, DateFormatUtils.format(dateFormCreated, "yyyy-MM-dd HH:mm:ss"));
-        q.setParameter(4, providerNo);
-
-        paramIndex = 5;
-        for (EFormValue v : values) {
-            q.setParameter(paramIndex++, v.getVarValue());
-        }
-
         q.executeUpdate();
     }
 
