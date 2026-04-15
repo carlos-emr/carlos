@@ -51,7 +51,7 @@
             if (agree) {
                 var form = document.createElement('form');
                 form.method = 'post';
-                form.action = 'RemoveFromWaitingList.jsp';
+                form.action = '<%= request.getContextPath() %>/waitinglist/RemoveFromWaitingList.do';
                 form.target = 'removeWaitingList';
                 var fields = {listId: waitingList, demographicNo: demographicNo};
                 for (var key in fields) {

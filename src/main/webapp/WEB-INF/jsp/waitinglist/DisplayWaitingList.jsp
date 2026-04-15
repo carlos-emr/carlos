@@ -248,7 +248,7 @@
                 document.forms[0].selectedWL.options[document.forms[0].selectedWL.selectedIndex].value;
 
             var redirectPage = "<%=request.getContextPath()%>/waitinglist/WLEditWaitingListNameAction.do?waitingListId=" +
-                document.forms[0].selectedWL.options[document.forms[0].selectedWL.selectedIndex].value + "&edit=Y";
+                document.forms[0].selectedWL.options[document.forms[0].selectedWL.selectedIndex].value;
             popupDemographicPage(redirectPage);
         }
 
@@ -315,7 +315,7 @@
             if (agree) {
                 var form = document.createElement('form');
                 form.method = 'post';
-                form.action = 'RemoveFromWaitingList.jsp';
+                form.action = '<%= request.getContextPath() %>/waitinglist/RemoveFromWaitingList.do';
                 form.target = 'removeWaitingList';
                 var fields = {listId: waitingList, demographicNo: demographicNo, remove: 'Y'};
                 for (var key in fields) {

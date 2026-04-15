@@ -26,6 +26,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -58,15 +59,38 @@ public final class WLAdd2WaitingList2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic w)");
         }
 
-        String listId = request.getParameter("listId");
+        String listId = normalizePositiveId(request.getParameter("listId"));
         String waitingListNote = request.getParameter("waitingListNote");
-        String demographicNo = request.getParameter("demographicNo");
+        String demographicNo = normalizePositiveId(request.getParameter("demographicNo"));
         String onListSince = request.getParameter("onListSince");
+
+        if (listId == null || demographicNo == null) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
 
         WLWaitingListUtil.add2WaitingList(listId, waitingListNote, demographicNo, onListSince);
 
         response.sendRedirect(request.getContextPath()
-                + "/demographic/DemographicEdit.do?demographic_no=" + demographicNo);
+                + "/demographic/DemographicEdit.do?demographic_no=" + Encode.forUriComponent(demographicNo));
         return NONE;
+    }
+
+    private static String normalizePositiveId(String rawValue) {
+        if (rawValue == null) {
+            return null;
+        }
+
+        String trimmedValue = rawValue.trim();
+        if (trimmedValue.isEmpty()) {
+            return null;
+        }
+
+        try {
+            int parsedValue = Integer.parseInt(trimmedValue);
+            return parsedValue > 0 ? Integer.toString(parsedValue) : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }

@@ -85,7 +85,7 @@
     %>
 
 
-    <form action="${pageContext.request.contextPath}/waitinglist/WLEditWaitingListNameAction.do?edit=Y.do" method="post">
+    <form action="${pageContext.request.contextPath}/waitinglist/WLEditWaitingListNameAction.do" method="post">
         <input type="hidden" name="actionChosen" id="actionChosen"/>
 
         <h3>&nbsp;&nbsp;<fmt:message key="oscarwaitinglist.displayPatientWaitingList.waitinglist"/></h3>

@@ -59,11 +59,34 @@ public final class WLRemoveFromWaitingList2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic w)");
         }
 
-        String waitingListId = request.getParameter("listId");
-        String demographicNo = request.getParameter("demographicNo");
+        String waitingListId = normalizePositiveId(request.getParameter("listId"));
+        String demographicNo = normalizePositiveId(request.getParameter("demographicNo"));
+
+        if (waitingListId == null || demographicNo == null) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
 
         WLWaitingListUtil.removeFromWaitingList(waitingListId, demographicNo);
 
         return SUCCESS;
+    }
+
+    private static String normalizePositiveId(String rawValue) {
+        if (rawValue == null) {
+            return null;
+        }
+
+        String trimmedValue = rawValue.trim();
+        if (trimmedValue.isEmpty()) {
+            return null;
+        }
+
+        try {
+            int parsedValue = Integer.parseInt(trimmedValue);
+            return parsedValue > 0 ? Integer.toString(parsedValue) : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }

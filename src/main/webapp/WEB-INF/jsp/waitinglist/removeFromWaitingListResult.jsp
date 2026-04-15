@@ -21,16 +21,26 @@
     https://github.com/carlos-emr/carlos
 
 --%>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%--
-    Rendered after WLRemoveFromWaitingList2Action successfully removes a
-    patient from a waiting list. Reloads the parent window (which shows the
-    waiting list or demographic record) and closes this popup.
+    Purpose:
+        Render the post-remove popup result for waiting-list removals.
+
+    Features:
+        Reloads the opener window so the waiting-list view reflects the removal.
+        Closes the popup after the parent window refresh is triggered.
+
+    Parameters:
+        None.
+
+    @since 2026-04 waiting-list JSP gating hardening
 --%>
 <!DOCTYPE html>
 <html>
 <head>
     <title></title>
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/styles.css">
+    <link rel="stylesheet" type="text/css"
+          href="${e:forHtmlAttribute(pageContext.request.contextPath)}/styles.css">
 </head>
 <body>
 <table>

@@ -64,7 +64,6 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic r)");
         }
 
-        String edit = request.getParameter("edit");
         String actionChosen = request.getParameter("actionChosen");
         String providerNo = (String) session.getAttribute("user");
         String groupNo = "";
@@ -76,12 +75,11 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
         request.setAttribute("message", "");
         setMessage("");
 
-        MiscUtils.getLogger().debug("WLEditWaitingListName2Action/execute(): edit = " + edit);
         MiscUtils.getLogger().debug("WLEditWaitingListName2Action/execute(): actionChosen = " + actionChosen);
         MiscUtils.getLogger().debug("WLEditWaitingListName2Action/execute(): selectedWL = " + selectedWL);
         MiscUtils.getLogger().debug("WLEditWaitingListName2Action/execute(): selectedWL2 = " + selectedWL2);
 
-        if (edit != null && !edit.equals("")) {
+        if (actionChosen != null && !actionChosen.isEmpty()) {
 
             // Name create/change/delete is a mutation — require POST + write.
             if (!"POST".equalsIgnoreCase(request.getMethod())) {
@@ -103,8 +101,7 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
 
 
             try {
-                if (actionChosen != null && actionChosen.length() > 0 &&
-                        providerNo != null && providerNo.length() > 0) {
+                if (providerNo != null && providerNo.length() > 0) {
 
                     if (actionChosen.equalsIgnoreCase("create")) {
                         if (wlNewName != null && wlNewName.length() > 0) {

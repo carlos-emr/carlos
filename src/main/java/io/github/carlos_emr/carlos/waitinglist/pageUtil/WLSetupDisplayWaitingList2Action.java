@@ -157,10 +157,6 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
                     return "failure";
                 }
             }
-        } else if ((update == null || update.equals("")) && remove == null) {
-            if (waitingListId != null && waitingListId.length() > 0) {
-                WLWaitingListUtil.rePositionWaitingList(waitingListId);
-            }
         }//end of if ( !update.equalsIgnoreCase("Y") ) -- could be remove also ???
 
         HttpSession session = request.getSession();
