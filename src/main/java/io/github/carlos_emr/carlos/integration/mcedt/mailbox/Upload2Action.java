@@ -67,7 +67,7 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
     public String execute() throws Exception {
         McedtSecurity.requireRead(request);
         String method = request.getParameter("method");
-        if ("removeSelected".equals(method) || "uploadToMcedt".equals(method)
+        if ("cancelUpload".equals(method) || "removeSelected".equals(method) || "uploadToMcedt".equals(method)
                 || "submitToMcedt".equals(method) || "uploadSubmitToMcedt".equals(method)
                 || "deleteUpload".equals(method) || "addUpload".equals(method)) {
             McedtSecurity.requireWrite(request);

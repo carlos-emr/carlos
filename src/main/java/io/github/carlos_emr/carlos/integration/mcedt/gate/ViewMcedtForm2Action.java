@@ -33,9 +33,17 @@ import io.github.carlos_emr.carlos.integration.mcedt.McedtSecurity;
  * JSP URL (e.g. {@code updateUpload.jsp}, {@code mailbox/addUpload.jsp}) but
  * now live under {@code /WEB-INF/jsp/}. Enforces the shared {@code _admin r}
  * privilege check before the container forwards to the JSP result.
+ *
+ * @since 2026-03-20
  */
 public final class ViewMcedtForm2Action extends ActionSupport {
 
+    /**
+     * Execute the privilege check and return success to forward to the JSP.
+     *
+     * @return String SUCCESS when the request is authorized
+     * @throws Exception if the action fails during execution
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

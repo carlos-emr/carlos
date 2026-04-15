@@ -221,7 +221,7 @@
             <div>
                 <form action="${pageContext.request.contextPath}/mcedt/autoUpload.do" method="post" id="form">
                     <jsp:include page="/WEB-INF/jsp/mcedt/messages.jsp"/>
-                    <jsp:include page="/mcedt/mailbox/spinner.jsp" flush="true"/>
+                    <jsp:include page="/WEB-INF/jsp/mcedt/mailbox/spinner.jsp" flush="true"/>
                     <input id="method" name="method" type="hidden" value=""/>
                     <input type="hidden" id="description" name="description" value=""/>
                     <input type="hidden" id="fileName" name="fileName" value='<%=fileUpload %>'/>

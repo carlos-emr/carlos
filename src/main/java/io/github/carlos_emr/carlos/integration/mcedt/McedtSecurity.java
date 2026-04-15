@@ -34,6 +34,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * update, resubmit) and change passwords on behalf of the clinic. All entry
  * points require the {@code _admin} privilege and all state-changing methods
  * must be POST to prevent CSRF-style GET triggering of MOH transactions.
+ *
+ * @since 2026-03-20
  */
 public final class McedtSecurity {
 
@@ -43,27 +45,44 @@ public final class McedtSecurity {
     private McedtSecurity() {
     }
 
-    /** Assert the session holds {@code _admin} read. */
+    /**
+     * Assert the session holds {@code _admin} read.
+     *
+     * @param request HttpServletRequest the servlet request
+     * @throws SecurityException if the privilege is missing
+     */
     public static void requireRead(HttpServletRequest request) {
         assertPrivilege(request, "r");
     }
 
-    /** Assert the session holds {@code _admin} write. */
+    /**
+     * Assert the session holds {@code _admin} write.
+     *
+     * @param request HttpServletRequest the servlet request
+     * @throws SecurityException if the privilege is missing
+     */
     public static void requireWrite(HttpServletRequest request) {
         assertPrivilege(request, "w");
     }
 
     /**
-     * Reject non-POST requests. State-changing MCEDT methods (upload, download,
-     * delete, submit, change-password, resubmit) must be POST. Returns
-     * {@code true} if the request is POST; throws {@link SecurityException}
-     * otherwise so callers can gate within their method dispatcher.
+     * Check whether the request uses the POST method. State-changing MCEDT
+     * methods (upload, download, delete, submit, change-password, resubmit)
+     * must be POST.
+     *
+     * @param request HttpServletRequest the servlet request
+     * @return boolean true if the request is POST, false otherwise
      */
     public static boolean isPost(HttpServletRequest request) {
         return "POST".equalsIgnoreCase(request.getMethod());
     }
 
-    /** Throw {@link SecurityException} unless the request is POST. */
+    /**
+     * Throw {@link SecurityException} unless the request is POST.
+     *
+     * @param request HttpServletRequest the servlet request
+     * @throws SecurityException if the request is not POST
+     */
     public static void requirePost(HttpServletRequest request) {
         if (!isPost(request)) {
             throw new SecurityException("MCEDT mutation requires POST");
