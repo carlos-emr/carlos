@@ -116,23 +116,30 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         sb.append("providerNo,");
         sb.append("eft_latest,");
         sb.append("dateCreated,");
+
+        java.util.regex.Pattern namePattern = java.util.regex.Pattern.compile("^[a-zA-Z0-9_]+$");
+
         for (EFormValue v : values) {
-            sb.append("`" + v.getVarName() + "`");
-            sb.append(",");
+            if (v.getVarName() != null && namePattern.matcher(v.getVarName()).matches()) {
+                sb.append("`").append(v.getVarName()).append("`,");
+            } else {
+                throw new IllegalArgumentException("Invalid column name: " + v.getVarName());
+            }
         }
 
         sb.deleteCharAt(sb.length() - 1);
 
         sb.append(" ) VALUES (");
-        sb.append(fdid + ",");
-        sb.append(demographicNo + ",");
-        sb.append("\'" + DateFormatUtils.format(dateFormCreated, "yyyy-MM-dd HH:mm:ss") + "\',");
-        sb.append("\'" + providerNo + "\',");
+        sb.append("?1,");
+        sb.append("?2,");
+        sb.append("?3,");
+        sb.append("?4,");
         sb.append("0,");
         sb.append("now(),");
+
+        int paramIndex = 5;
         for (EFormValue v : values) {
-            sb.append("\'" + v.getVarValue() + "\'");
-            sb.append(",");
+            sb.append("?").append(paramIndex++).append(",");
         }
         sb.deleteCharAt(sb.length() - 1);
 
@@ -141,6 +148,16 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         //logger.debug("sql=" + sb.toString());
 
         Query q = entityManager.createNativeQuery(sb.toString());
+        q.setParameter(1, fdid);
+        q.setParameter(2, demographicNo);
+        q.setParameter(3, DateFormatUtils.format(dateFormCreated, "yyyy-MM-dd HH:mm:ss"));
+        q.setParameter(4, providerNo);
+
+        paramIndex = 5;
+        for (EFormValue v : values) {
+            q.setParameter(paramIndex++, v.getVarValue());
+        }
+
         q.executeUpdate();
     }
 
