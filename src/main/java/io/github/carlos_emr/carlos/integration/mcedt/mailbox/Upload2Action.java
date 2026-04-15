@@ -245,6 +245,11 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
             List<String> successSubmits = new ArrayList<String>();
             List<String> failSubmits = new ArrayList<String>();
             List<UploadData> uploads = toUploadMultipe();
+            CarlosProperties props = CarlosProperties.getInstance();
+            File sent = new File(props.getProperty("ONEDT_SENT", ""));
+            File outboxDir = new File(props.getProperty("ONEDT_OUTBOX", ""));
+            if (!sent.exists())
+                FileUtils.mkDir(sent);
             for (UploadData upload : uploads) {
                 List<UploadData> uploadData = new ArrayList<UploadData>();
                 uploadData.add(upload);
@@ -262,14 +267,9 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
                 }
 
                 List<BigInteger> ids = new ArrayList<BigInteger>();
-                CarlosProperties props = CarlosProperties.getInstance();
-                File sent = new File(props.getProperty("ONEDT_SENT", ""));
-                if (!sent.exists())
-                    FileUtils.mkDir(sent);
                 for (ResponseResult edtResponse : result.getResponse()) {
                     if (edtResponse.getResult().getCode().equals("IEDTS0001")) {
                         ids.add(edtResponse.getResourceID());
-                        File outboxDir = new File(props.getProperty("ONEDT_OUTBOX", ""));
                         File file = PathValidationUtils.validatePath(edtResponse.getDescription(), outboxDir);
                         ActionUtils.moveFileToDirectory(file, sent, false, true);
                         successUploads.add(McedtMessageCreator.resourceResultToString(result));
