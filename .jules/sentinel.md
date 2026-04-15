@@ -1,0 +1,4 @@
+## 2024-04-15 - [Prevent Command Injection and Password Exposure in AuditLogManager]
+**Vulnerability:** AuditLogManager `purgeAuditLog` method executed `mysqldump` system commands using `Runtime.getRuntime().exec` with arguments concatenated as strings, including the database password. This risked command injection and exposing the password to process monitors.
+**Learning:** `Runtime.exec` with a string array is susceptible to injection if arguments aren't strictly sanitized. Furthermore, passing passwords as command-line arguments exposes them to `ps` and other system monitoring tools.
+**Prevention:** Use `ProcessBuilder` instead of `Runtime.exec`. Keep flags and values as separate entries in the argument list. Pass sensitive information like passwords through securely injected environment variables (e.g., `MYSQL_PWD`) instead of command-line arguments.
