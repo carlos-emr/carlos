@@ -34,26 +34,35 @@ public class HRMStatementModify2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    private boolean hasAdminMiscPrivilege(LoggedInInfo loggedInInfo, String privilege) {
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_admin", privilege, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", privilege, null);
+    }
+
+    @Override
     public String execute() throws java.io.IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", "r", null)) {
-            throw new SecurityException("missing required sec object (_admin.misc r)");
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing logged in session");
+        }
+        if (!hasAdminMiscPrivilege(loggedInInfo, "r")) {
+            throw new SecurityException("missing required sec object (_admin or _admin.misc r)");
         }
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         String statement = request.getParameter("statement");
 
         // If the request carries a statement param, it is the self-posting
-        // admin form committing an update. Require POST + _admin.misc w so
-        // the confidentiality statement cannot be overwritten by a crafted
+        // admin form committing an update. Require POST + admin write access
+        // so the confidentiality statement cannot be overwritten by a crafted
         // GET link.
         if (statement != null) {
             if (!"POST".equalsIgnoreCase(request.getMethod())) {
                 response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
                 return NONE;
             }
-            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", "w", null)) {
-                throw new SecurityException("missing required sec object (_admin.misc w)");
+            if (!hasAdminMiscPrivilege(loggedInInfo, "w")) {
+                throw new SecurityException("missing required sec object (_admin or _admin.misc w)");
             }
 
             HRMProviderConfidentialityStatement confStatement;

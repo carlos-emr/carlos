@@ -25,8 +25,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 
-<c:url var="hospitalReportUrl" value="/hospitalReportManager/Statement.do"/>
-
 <c:set var="providerNo" value="${sessionScope.user}" />
 <c:set var="contextPath" value="${pageContext.request.contextPath}" />
 

@@ -28,6 +28,16 @@
 <struts>
     <package name="document" namespace="/" extends="struts-default">
 
+        <global-results>
+            <result name="securityError">/securityError.jsp</result>
+            <result name="error">/errorpage.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+            <exception-mapping exception="java.lang.Exception" result="error"/>
+        </global-exception-mappings>
+
         <action name="documentManager/inboxManage" class="io.github.carlos_emr.carlos.documentManager.actions.DmsInboxManage2Action" method="execute">
             <result name="dms_index">/oscarMDS/Index.jsp</result>
             <result name="dms_page">/oscarMDS/Page.jsp</result>

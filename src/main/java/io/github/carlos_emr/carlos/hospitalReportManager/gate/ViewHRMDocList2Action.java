@@ -40,12 +40,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  */
 public final class ViewHRMDocList2Action extends ActionSupport {
 
+    HttpServletRequest request = ServletActionContext.getRequest();
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     @Override
     public String execute() throws Exception {
-        HttpServletRequest request = ServletActionContext.getRequest();
-        SecurityInfoManager sim = SpringUtils.getBean(SecurityInfoManager.class);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null || !sim.hasPrivilege(loggedInInfo, "_hrm", "r", null)) {
+        if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null)) {
             throw new SecurityException("missing required sec object (_hrm r)");
         }
         return SUCCESS;
