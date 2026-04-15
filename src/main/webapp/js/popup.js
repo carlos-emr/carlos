@@ -42,7 +42,7 @@ var nhpup = (function () {
                 var name = attr.name.toLowerCase();
                 var value = attr.value || "";
                 var normalized = value.replace(/[\u0000-\u001f\u007f\s]+/g, "").toLowerCase();
-                if (name.startsWith("on") || name === "srcdoc" || normalized.startsWith("javascript:")) {
+                if (name.startsWith("on") || name === "srcdoc" || normalized.startsWith("javascript:") || normalized.startsWith("data:") || normalized.startsWith("vbscript:")) {
                     el.removeAttribute(attr.name);
                 }
             });
