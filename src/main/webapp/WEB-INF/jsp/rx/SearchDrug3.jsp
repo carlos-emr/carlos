@@ -1900,13 +1900,12 @@ function popForm2(scriptId){
 
 			}
 
+			function escapeRegExp(searchTerm) {
+				return String(searchTerm || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+			}
+
 			function replaceAll(str, keyword) {
-				var matcher;
-				var lastkeyword;
-				if (keyword !== lastkeyword) {
-					matcher = new RegExp("(" + keyword + ")", "ig");
-					lastkeyword = keyword;
-				}
+				var matcher = new RegExp("(" + escapeRegExp(keyword) + ")", "ig");
 				return str.replace(matcher, "<span class='drugKeyword' >$1</span>");
 			}
 

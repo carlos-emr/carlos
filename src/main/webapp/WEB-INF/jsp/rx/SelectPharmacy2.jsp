@@ -244,12 +244,20 @@
                             HideSpin(true);
                         }, "json");
 					}
-                    var pharmacyNameKey = new RegExp($("#pharmacySearch").val(), "i");
-                    var pharmacyCityKey = new RegExp($("#pharmacyCitySearch").val(), "i");
-                    var pharmacyPostalCodeKey = new RegExp($("#pharmacyPostalCodeSearch").val(), "i");
-                    var pharmacyFaxKey = new RegExp($("#pharmacyFaxSearch").val(), "i");
-                    var pharmacyPhoneKey = new RegExp($("#pharmacyPhoneSearch").val(), "i");
-                    var pharmacyAddressKey = new RegExp($("#pharmacyAddressSearch").val(), "i");
+                    function escapeRegExp(searchTerm) {
+                        return String(searchTerm || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                    }
+
+                    function buildSafeSearchRegex(searchTerm) {
+                        return new RegExp(escapeRegExp(searchTerm), "i");
+                    }
+
+                    var pharmacyNameKey = buildSafeSearchRegex($("#pharmacySearch").val());
+                    var pharmacyCityKey = buildSafeSearchRegex($("#pharmacyCitySearch").val());
+                    var pharmacyPostalCodeKey = buildSafeSearchRegex($("#pharmacyPostalCodeSearch").val());
+                    var pharmacyFaxKey = buildSafeSearchRegex($("#pharmacyFaxSearch").val());
+                    var pharmacyPhoneKey = buildSafeSearchRegex($("#pharmacyPhoneSearch").val());
+                    var pharmacyAddressKey = buildSafeSearchRegex($("#pharmacyAddressSearch").val());
 
                     $("#pharmacySearch").keyup(function () {
                         updateSearchKeys();
@@ -405,12 +413,12 @@
 
 
                     function updateSearchKeys() {
-                        pharmacyNameKey = new RegExp($("#pharmacySearch").val(), "i");
-                        pharmacyCityKey = new RegExp($("#pharmacyCitySearch").val(), "i");
-                        pharmacyPostalCodeKey = new RegExp($("#pharmacyPostalCodeSearch").val(), "i");
-                        pharmacyFaxKey = new RegExp($("#pharmacyFaxSearch").val(), "i");
-                        pharmacyPhoneKey = new RegExp($("#pharmacyPhoneSearch").val(), "i");
-                        pharmacyAddressKey = new RegExp($("#pharmacyAddressSearch").val(), "i");
+                        pharmacyNameKey = buildSafeSearchRegex($("#pharmacySearch").val());
+                        pharmacyCityKey = buildSafeSearchRegex($("#pharmacyCitySearch").val());
+                        pharmacyPostalCodeKey = buildSafeSearchRegex($("#pharmacyPostalCodeSearch").val());
+                        pharmacyFaxKey = buildSafeSearchRegex($("#pharmacyFaxSearch").val());
+                        pharmacyPhoneKey = buildSafeSearchRegex($("#pharmacyPhoneSearch").val());
+                        pharmacyAddressKey = buildSafeSearchRegex($("#pharmacyAddressSearch").val());
                     }
                 })
             })(jQuery);
