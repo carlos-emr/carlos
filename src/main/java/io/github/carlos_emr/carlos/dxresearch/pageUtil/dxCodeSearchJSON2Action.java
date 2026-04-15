@@ -63,12 +63,10 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
     private static Logger logger = MiscUtils.getLogger();
 
     public String execute() {
-        // Require read privilege before returning any code-search JSON.
-        // The endpoint previously lacked any authorization check.
         SecurityInfoManager sim = SpringUtils.getBean(SecurityInfoManager.class);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null || !sim.hasPrivilege(loggedInInfo, "_dxresearch", "r", null)) {
-            throw new SecurityException("missing required sec object (_dxresearch r)");
+        if (!hasCodeSearchPrivilege(loggedInInfo, sim)) {
+            throw new SecurityException("missing required sec object (_dxresearch/_rx/_billing/_report r)");
         }
         String method = request.getParameter("method");
         if ("searchICD9".equals(method)) {
@@ -84,6 +82,23 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
         } 
         return getDescription();
         
+    }
+
+    /**
+     * Shared code-search JSON is used by dxresearch, prescribing, billing,
+     * and reporting workflows. Keep the endpoint protected, but authorize
+     * callers based on the workflow privileges that already gate those UIs.
+     */
+    private boolean hasCodeSearchPrivilege(LoggedInInfo loggedInInfo, SecurityInfoManager sim) {
+        if (loggedInInfo == null) {
+            return false;
+        }
+
+        return sim.hasPrivilege(loggedInInfo, "_dxresearch", SecurityInfoManager.READ, null)
+                || sim.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.READ, null)
+                || sim.hasPrivilege(loggedInInfo, "_billing", SecurityInfoManager.READ, null)
+                || sim.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)
+                || sim.hasPrivilege(loggedInInfo, "_admin.reporting", SecurityInfoManager.READ, null);
     }
 
     @SuppressWarnings("unused")
