@@ -1630,7 +1630,7 @@ public class ProgramManager2Action extends ActionSupport {
 
     protected Integer getParameterAsInteger(HttpServletRequest request, String name, Integer defaultVal) {
         String param = request.getParameter(name);
-        if (!(param == null || param.equals("null") || param.equals(""))) {
+        if (param != null && !"null".equals(param) && !param.isEmpty()) {
             return Integer.valueOf(param);
         }
         return defaultVal;
