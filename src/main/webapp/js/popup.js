@@ -7,10 +7,8 @@
  *   <span onmouseover="nhpup.popup(htmlVar, {'width': 350})">hover me</span>
  *   <span onmouseover="nhpup.popup('content'); nhpup.attachHideHandler(event);">hover me</span>
  *
- * Security note: popup() sets innerHTML because callers pass pre-built HTML
- * table markup from same-origin JavaScript variables (e.g., phone/address
- * history tables, healthcare team detail tables). The content originates from
- * server-side OWASP-encoded data, not direct user input.
+ * Security note: popup() sanitizes caller-provided markup before rendering.
+ * Scriptable tags and event-handler attributes are removed to prevent XSS.
  */
 var nhpup = (function () {
     "use strict";
@@ -18,6 +16,40 @@ var nhpup = (function () {
     var pup = null;
     var minMargin = 15;
     var defaultWidth = 200;
+    var blockedTags = new Set(["SCRIPT", "STYLE", "IFRAME", "OBJECT", "EMBED", "LINK", "META"]);
+
+    function sanitizeFragment(markup) {
+        var parser = new DOMParser();
+        var parsed = parser.parseFromString(String(markup == null ? "" : markup), "text/html");
+        var fragment = document.createDocumentFragment();
+        while (parsed.body.firstChild) {
+            fragment.appendChild(parsed.body.firstChild);
+        }
+
+        var walker = document.createTreeWalker(fragment, NodeFilter.SHOW_ELEMENT);
+        var nodes = [];
+        while (walker.nextNode()) {
+            nodes.push(walker.currentNode);
+        }
+
+        nodes.forEach(function (el) {
+            if (blockedTags.has(el.tagName)) {
+                el.remove();
+                return;
+            }
+
+            Array.from(el.attributes).forEach(function (attr) {
+                var name = attr.name.toLowerCase();
+                var value = attr.value || "";
+                var normalized = value.replace(/[\u0000-\u001f\u007f\s]+/g, "").toLowerCase();
+                if (name.startsWith("on") || name === "srcdoc" || normalized.startsWith("javascript:")) {
+                    el.removeAttribute(attr.name);
+                }
+            });
+        });
+
+        return fragment;
+    }
 
     function ensureElement() {
         if (pup) return;
@@ -66,9 +98,8 @@ var nhpup = (function () {
                 if (config.width) pup.style.width = config.width + "px";
             }
 
-            // innerHTML is intentional — callers pass pre-built HTML tables
-            // from same-origin server-rendered data (see security note above)
-            pup.innerHTML = msg;  // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
+            // Render sanitized HTML to prevent script/event-handler injection.
+            pup.replaceChildren(sanitizeFragment(msg));
             pup.style.display = "block";
 
         },

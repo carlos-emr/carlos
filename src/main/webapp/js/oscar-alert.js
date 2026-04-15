@@ -29,24 +29,6 @@
 let oscarAlert;
 
 /**
- * Escapes a string for safe insertion into HTML body text to prevent XSS.
- * Uses a temporary DOM text node so the browser's own escaping is applied,
- * encoding <, >, and & but NOT quotes (" or ').
- *
- * WARNING: The output is NOT safe for HTML attribute contexts.
- *
- * @param {string} text - the raw string to escape
- * @returns {string} HTML-encoded string safe for use as HTML body text content
- */
-function escapeHtml(text) {
-    if (text == null) return '';
-    const node = document.createTextNode(String(text));
-    const div = document.createElement('div');
-    div.appendChild(node);
-    return div.innerHTML;
-}
-
-/**
  * Create and display a Bootstrap alert with the given message, type, and duration
  * @param {string} alertId - unique identifier for the alert div
  * @param {string} message - the message to display inside the alert
@@ -105,9 +87,7 @@ class OscarAlert {
         this.alertDiv.className = `alert alert-${alertType} alert-dismissible fade oscar-alert`;
         this.alertDiv.role = 'alert';
 
-        // Safe: getInnerHTML() escapes message via escapeHtml(); alertType is from trusted string literals
-        this.alertDiv.innerHTML = this.getInnerHTML(message); // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
-
+        this.renderAlert(message);
         this.alertDiv.querySelector('.btn-close').addEventListener('click', () => this.dismissAlert());
     }
 
@@ -172,13 +152,31 @@ class OscarAlert {
         }
     }
 
-    getInnerHTML(message) {
-        const safeMessage = escapeHtml(message);
-        return `
-            <strong>${this.getLabel()}</strong> ${safeMessage}
-            <br> <small>${this.getDismissalMessage()}<span id="countdown-${this.alertDiv.id}">${this.countdown}</span> seconds.</small>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" ></button>
-        `;
+    renderAlert(message) {
+        this.alertDiv.replaceChildren();
+
+        const label = document.createElement('strong');
+        label.textContent = this.getLabel();
+
+        const messageText = document.createTextNode(` ${String(message ?? '')}`);
+        const lineBreak = document.createElement('br');
+
+        const small = document.createElement('small');
+        small.append(document.createTextNode(this.getDismissalMessage()));
+
+        const countdown = document.createElement('span');
+        countdown.id = `countdown-${this.alertDiv.id}`;
+        countdown.textContent = this.countdown.toString();
+        small.append(countdown);
+        small.append(document.createTextNode(' seconds.'));
+
+        const closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.className = 'btn-close';
+        closeButton.setAttribute('data-bs-dismiss', 'alert');
+        closeButton.setAttribute('aria-label', 'Close');
+
+        this.alertDiv.append(label, messageText, lineBreak, document.createTextNode(' '), small, closeButton);
     }
 
     getDismissalMessage() {

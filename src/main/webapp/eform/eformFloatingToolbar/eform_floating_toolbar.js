@@ -677,6 +677,64 @@ function hideElements() {
     }
 }
 
+const TOOLBAR_ALLOWED_TAGS = new Set([
+    "DIV", "NAV", "FORM", "SPAN", "INPUT", "BUTTON", "I", "IMG"
+]);
+
+const TOOLBAR_ALLOWED_ATTRIBUTES = new Set([
+    "id", "class", "name", "type", "value", "title", "placeholder", "required",
+    "disabled", "style", "data-bs-theme", "data-poload", "aria-label", "alt", "src"
+]);
+
+const TOOLBAR_ALLOWED_ONCLICK = new Set([
+    "remoteSave()", "remotePrint()", "remoteDownload()", "remoteFax()", "remoteEdocument()",
+    "remoteEmail()", "remoteClose()", "closeToolbar()", "openToolbar()"
+]);
+
+function isSafeToolbarUri(uri) {
+    const value = String(uri || "").trim().toLowerCase();
+    return !(value.startsWith("javascript:") || value.startsWith("data:") || value.startsWith("vbscript:"));
+}
+
+function sanitizeToolbarFragment(fragment) {
+    const walker = document.createTreeWalker(fragment, NodeFilter.SHOW_ELEMENT);
+    const elements = [];
+    while (walker.nextNode()) {
+        elements.push(walker.currentNode);
+    }
+
+    elements.forEach((element) => {
+        if (!TOOLBAR_ALLOWED_TAGS.has(element.tagName)) {
+            element.remove();
+            return;
+        }
+
+        Array.from(element.attributes).forEach((attr) => {
+            const attrName = attr.name.toLowerCase();
+            const attrValue = attr.value || "";
+
+            if (attrName === "onclick") {
+                if (!TOOLBAR_ALLOWED_ONCLICK.has(attrValue.trim())) {
+                    element.removeAttribute(attr.name);
+                }
+                return;
+            }
+
+            if (attrName.startsWith("on") || !TOOLBAR_ALLOWED_ATTRIBUTES.has(attrName)) {
+                element.removeAttribute(attr.name);
+                return;
+            }
+
+            if ((attrName === "src" || attrName === "href") && !isSafeToolbarUri(attrValue)) {
+                element.removeAttribute(attr.name);
+            }
+        });
+    });
+
+    const rootToolbar = fragment.querySelector("#eform_floating_toolbar");
+    return rootToolbar ? fragment : null;
+}
+
 /**
  * A javascript includes method
  * @returns
@@ -691,9 +749,20 @@ function includeHTML(elmnt) {
                 let toolbarWrapper = document.createElement("div");
                 toolbarWrapper.setAttribute("id", "toolbarWrapper");
                 toolbarWrapper.setAttribute("class", "hidden-print DoNotPrint no-print");
-                // Same-origin JSP fragment (eform_floating_toolbar.jspf) with server-defined
-                // event handlers — innerHTML is required for toolbar functionality.
-                toolbarWrapper.innerHTML = this.responseText; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
+                const parser = new DOMParser();
+                const parsed = parser.parseFromString(this.responseText, "text/html");
+                const fragment = document.createDocumentFragment();
+                while (parsed.body.firstChild) {
+                    fragment.appendChild(parsed.body.firstChild);
+                }
+
+                const sanitizedFragment = sanitizeToolbarFragment(fragment);
+                if (!sanitizedFragment) {
+                    elmnt.append("eForm tool bar rejected by sanitizer.");
+                    return;
+                }
+
+                toolbarWrapper.appendChild(sanitizedFragment);
                 elmnt.append(toolbarWrapper);
 
                 // After adding floating toolbar update number of attachments
