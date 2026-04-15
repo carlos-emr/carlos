@@ -39,18 +39,31 @@
         </global-exception-mappings>
 
         <action name="notification/create" class="io.github.carlos_emr.carlos.commn.web.ProviderNotification2Action"/>
+        <!--
+            Waiting-list actions. All JSPs live under /WEB-INF/jsp/waitinglist/
+            so the container blocks direct GETs. The mutation 2Actions below
+            (Add2WaitingList, RemoveFromWaitingList) replace scriptlet-driven
+            JSPs (Add2WaitingList.jsp, RemoveFromWaitingList.jsp) that
+            previously executed DB writes against any GET request with no
+            privilege check. Mutation paths require POST + _demographic w.
+        -->
         <action name="waitinglist/SetupDisplayPatientWaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2Action">
-            <result name="continue">/waitinglist/DisplayPatientWaitingList.jsp</result>
+            <result name="continue">/WEB-INF/jsp/waitinglist/DisplayPatientWaitingList.jsp</result>
             <result name="error">/errorpage.jsp</result>
         </action>
         <action name="waitinglist/SetupDisplayWaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action">
-            <result name="continue">/waitinglist/DisplayWaitingList.jsp</result>
-            <result name="failure">/waitinglist/DisplayWaitingList.jsp</result>
+            <result name="continue">/WEB-INF/jsp/waitinglist/DisplayWaitingList.jsp</result>
+            <result name="failure">/WEB-INF/jsp/waitinglist/DisplayWaitingList.jsp</result>
         </action>
         <action name="waitinglist/WLEditWaitingListNameAction" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action">
-            <result name="continue">/waitinglist/EditWaitingListName.jsp</result>
+            <result name="continue">/WEB-INF/jsp/waitinglist/EditWaitingListName.jsp</result>
             <result name="editSuccess">/waitinglist/SetupDisplayWaitingList.do</result>
-            <result name="failure">/waitinglist/EditWaitingListName.jsp</result>
+            <result name="failure">/WEB-INF/jsp/waitinglist/EditWaitingListName.jsp</result>
+        </action>
+        <action name="waitinglist/Add2WaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLAdd2WaitingList2Action">
+        </action>
+        <action name="waitinglist/RemoveFromWaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLRemoveFromWaitingList2Action">
+            <result name="success">/WEB-INF/jsp/waitinglist/removeFromWaitingListResult.jsp</result>
         </action>
         <action name="demographic/SearchDemographic" class="io.github.carlos_emr.carlos.commn.web.SearchDemographicAutoComplete2Action">
             <result name="success">/WEB-INF/jsp/demographic/autocomplete.jsp</result>

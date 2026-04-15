@@ -23,48 +23,44 @@
 
 package io.github.carlos_emr.carlos.waitinglist.pageUtil;
 
-import org.apache.struts2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBeanHandler;
 import io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListNameUtil;
-import io.github.carlos_emr.carlos.util.UtilDateUtilities;
-
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.util.Date;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public final class WLEditWaitingListName2Action extends ActionSupport {
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
     private String message = "";
 
+    private final SecurityInfoManager securityInfoManager =
+            SpringUtils.getBean(SecurityInfoManager.class);
+
     public String execute()
             throws Exception {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
-        }
-
-
-
         MiscUtils.getLogger().debug("WLEditWaitingListName2Action/execute(): just entering.");
         HttpSession session = request.getSession();
         //LazyValidatorForm wlnForm = (LazyValidatorForm) form;
 
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic r)");
+        }
 
-        String edit = request.getParameter("edit");
         String actionChosen = request.getParameter("actionChosen");
         String providerNo = (String) session.getAttribute("user");
         String groupNo = "";
@@ -76,12 +72,20 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
         request.setAttribute("message", "");
         setMessage("");
 
-        MiscUtils.getLogger().debug("WLEditWaitingListName2Action/execute(): edit = " + edit);
         MiscUtils.getLogger().debug("WLEditWaitingListName2Action/execute(): actionChosen = " + actionChosen);
         MiscUtils.getLogger().debug("WLEditWaitingListName2Action/execute(): selectedWL = " + selectedWL);
         MiscUtils.getLogger().debug("WLEditWaitingListName2Action/execute(): selectedWL2 = " + selectedWL2);
 
-        if (edit != null && !edit.equals("")) {
+        if (actionChosen != null && !actionChosen.isEmpty()) {
+
+            // Name create/change/delete is a mutation — require POST + write.
+            if (!"POST".equalsIgnoreCase(request.getMethod())) {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
+                throw new SecurityException("missing required sec object (_demographic w)");
+            }
 
             if (wlNewName == null || wlNewName.length() <= 0) {
                 wlNewName = wlChangedName;
@@ -94,8 +98,7 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
 
 
             try {
-                if (actionChosen != null && actionChosen.length() > 0 &&
-                        providerNo != null && providerNo.length() > 0) {
+                if (providerNo != null && providerNo.length() > 0) {
 
                     if (actionChosen.equalsIgnoreCase("create")) {
                         if (wlNewName != null && wlNewName.length() > 0) {

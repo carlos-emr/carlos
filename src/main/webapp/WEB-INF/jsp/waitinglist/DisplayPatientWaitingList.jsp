@@ -46,12 +46,25 @@
 
     </head>
     <script>
+        function appendCsrfToken(form) {
+            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+            if (csrfEl) {
+                var csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'CSRF-TOKEN';
+                csrfInput.value = csrfEl.value;
+                form.appendChild(csrfInput);
+            } else {
+                console.warn('CSRF token not found on page; form submission may be rejected by server.');
+            }
+        }
+
         function removePatient(demographicNo, waitingList) {
             var agree = confirm("Are you sure you want to remove this patient from the waiting list?");
             if (agree) {
                 var form = document.createElement('form');
                 form.method = 'post';
-                form.action = 'RemoveFromWaitingList.jsp';
+                form.action = '<%= request.getContextPath() %>/waitinglist/RemoveFromWaitingList.do';
                 form.target = 'removeWaitingList';
                 var fields = {listId: waitingList, demographicNo: demographicNo};
                 for (var key in fields) {
@@ -61,6 +74,7 @@
                     input.value = fields[key];
                     form.appendChild(input);
                 }
+                appendCsrfToken(form);
                 document.body.appendChild(form);
                 window.open('', 'removeWaitingList', 'height=50,width=50,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0');
                 form.submit();
@@ -71,6 +85,8 @@
         }
     </script>
     <body class="BodyStyle" vlink="#0000FF">
+    <%-- Hidden form required so CSRFGuard can inject the CSRF-TOKEN hidden input --%>
+    <form id="csrfForm" method="post" style="display:none;"></form>
     <!--  -->
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">

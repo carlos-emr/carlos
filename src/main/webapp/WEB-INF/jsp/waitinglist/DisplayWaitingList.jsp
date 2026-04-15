@@ -204,7 +204,7 @@
                                                     </option>
                                                 </c:forEach>
                                             </select>
-                                            <a href="#" onClick="popupPage(${ctr.index}, '${e:forJavaScript(waitingListBean.patientName)}', '${e:forJavaScript(waitingListBean.demographicNo)}', '${e:forJavaScript(today)}', 400, 780, '<%= request.getContextPath() %>/schedule/FlipView.do?originalpage=<%= request.getContextPath() %>/waitinglist/DisplayWaitingList.jsp'); return false;">
+                                            <a href="#" onClick="popupPage(${ctr.index}, '${e:forJavaScript(waitingListBean.patientName)}', '${e:forJavaScript(waitingListBean.demographicNo)}', '${e:forJavaScript(today)}', 400, 780, '<%= request.getContextPath() %>/schedule/FlipView.do?originalpage=<%= request.getContextPath() %>/waitinglist/SetupDisplayWaitingList.do'); return false;">
                                                 make_appt
                                             </a>
                                         </td>
@@ -248,7 +248,7 @@
                 document.forms[0].selectedWL.options[document.forms[0].selectedWL.selectedIndex].value;
 
             var redirectPage = "<%=request.getContextPath()%>/waitinglist/WLEditWaitingListNameAction.do?waitingListId=" +
-                document.forms[0].selectedWL.options[document.forms[0].selectedWL.selectedIndex].value + "&edit=Y";
+                document.forms[0].selectedWL.options[document.forms[0].selectedWL.selectedIndex].value;
             popupDemographicPage(redirectPage);
         }
 
@@ -310,12 +310,25 @@
             document.forms[0].submit();
         }
 
+        function appendCsrfToken(form) {
+            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+            if (csrfEl) {
+                var csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'CSRF-TOKEN';
+                csrfInput.value = csrfEl.value;
+                form.appendChild(csrfInput);
+            } else {
+                console.warn('CSRF token not found on page; form submission may be rejected by server.');
+            }
+        }
+
         function removePatient(demographicNo, waitingList) {
             var agree = confirm("Are you sure you want to remove this patient from the waiting list?");
             if (agree) {
                 var form = document.createElement('form');
                 form.method = 'post';
-                form.action = 'RemoveFromWaitingList.jsp';
+                form.action = '<%= request.getContextPath() %>/waitinglist/RemoveFromWaitingList.do';
                 form.target = 'removeWaitingList';
                 var fields = {listId: waitingList, demographicNo: demographicNo, remove: 'Y'};
                 for (var key in fields) {
@@ -325,6 +338,7 @@
                     input.value = fields[key];
                     form.appendChild(input);
                 }
+                appendCsrfToken(form);
                 document.body.appendChild(form);
                 window.open('', 'removeWaitingList', 'height=50,width=50,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0');
                 form.submit();

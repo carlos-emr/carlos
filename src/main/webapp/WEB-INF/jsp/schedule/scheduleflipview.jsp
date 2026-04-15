@@ -97,7 +97,7 @@
     String originalPagePath = request.getContextPath() + "/provider/providercontrol.do";
 
     if (originalPage.equals("waitingList")) {
-        originalPagePath = request.getContextPath() + "/waitinglist/DisplayWaitingList.jsp";
+        originalPagePath = request.getContextPath() + "/waitinglist/SetupDisplayWaitingList.do";
     }
 %>
 <%@ page
