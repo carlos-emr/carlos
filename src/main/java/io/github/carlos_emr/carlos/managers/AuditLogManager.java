@@ -113,7 +113,8 @@ public class AuditLogManager {
         commandList.add("-w");
         StringBuilder whereClause = new StringBuilder();
         whereClause.append("dateTime < '").append(formatter2.format(endDateToPurge)).append("'");
-        commandList.add(whereClause.toString());
+        String whereStr = whereClause.toString();
+        commandList.add(whereStr);
         commandList.add("-t");
         commandList.add("--result-file");
         commandList.add(filename);
