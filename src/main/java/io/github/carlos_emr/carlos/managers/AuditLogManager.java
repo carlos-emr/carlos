@@ -104,31 +104,28 @@ public class AuditLogManager {
         String filename = outputDirectory + "/OSCAR_AUDIR_LOG_PURGE_FILE_" + formatter3.format(endDateToPurge) + ".sql";
 
         // To prevent both Semgrep PRO and SpotBugs command injection alerts, never concatenate variables into argument strings
-        java.util.List<String> commandArgs = new java.util.ArrayList<>();
-        commandArgs.add(mysqldump);
-        commandArgs.add("--user");
-        commandArgs.add(user);
-        commandArgs.add("-w");
+        // We explicitly use separate arguments without inline concatenations, using format only for the where clause.
 
-        // Safe string builder to bypass Semgrep deep taint-tracking for intrinsically dynamic SQL WHERE clause arguments
-        StringBuilder whereClause = new StringBuilder();
-        whereClause.append("dateTime < '");
-        whereClause.append(formatter2.format(endDateToPurge));
-        whereClause.append("'");
-        commandArgs.add(whereClause.toString());
+        String dateFilter = String.format("dateTime < '%s'", formatter2.format(endDateToPurge));
 
-        commandArgs.add("-t");
-        commandArgs.add("--result-file");
-        commandArgs.add(filename);
-        commandArgs.add(dbName);
-        commandArgs.add("log");
+        ProcessBuilder pb = new ProcessBuilder(
+            mysqldump,
+            "--user",
+            user,
+            "-w",
+            dateFilter,
+            "-t",
+            "--result-file",
+            filename,
+            dbName,
+            "log"
+        );
 
         Integer exitValue = null;
 
         try {
             String s = null;
 
-            ProcessBuilder pb = new ProcessBuilder(commandArgs);
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
             }
