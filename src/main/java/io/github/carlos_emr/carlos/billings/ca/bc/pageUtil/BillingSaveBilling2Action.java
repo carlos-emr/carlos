@@ -73,16 +73,16 @@ public class BillingSaveBilling2Action extends ActionSupport {
 
     private BillingmasterDAO billingmasterDAO = SpringUtils.getBean(BillingmasterDAO.class);
 
-    public String execute() throws IOException, ServletException {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
-        }
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    public String execute() throws IOException, ServletException {        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (request.getSession().getAttribute("user") == null) {
             return "Logout";
+        }
+
+
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
         }
 
         BillingSessionBean bean = (BillingSessionBean) request.getSession().getAttribute("billingSessionBean");

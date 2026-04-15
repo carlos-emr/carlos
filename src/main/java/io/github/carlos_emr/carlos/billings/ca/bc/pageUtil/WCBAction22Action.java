@@ -72,19 +72,19 @@ public class WCBAction22Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    public String execute() throws Exception {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_billing", "r", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
-        }
-
-        return save();
+    public String execute() throws Exception {        return save();
     }
 
     public String save() throws Exception {
         if (request.getSession().getAttribute("user") == null) {
             return "Logout";
         }
+
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         MiscUtils.getLogger().debug("In WCBAction22Action Jackson");
 
         //Get rid of this

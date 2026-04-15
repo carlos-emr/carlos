@@ -104,13 +104,7 @@ public final class BillingEditCode2Action extends ActionSupport {
     }
 
 
-    public String execute() throws IOException, ServletException {
-        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
-        }
-
-        String method = request.getParameter("method");
+    public String execute() throws IOException, ServletException {        String method = request.getParameter("method");
         if ("ajaxCodeUpdate".equals(method)) {
             return ajaxCodeUpdate();
         } else if ("returnToSearch".equals(method)) {
@@ -119,6 +113,12 @@ public final class BillingEditCode2Action extends ActionSupport {
 
         if (request.getSession().getAttribute("user") == null) {
             return "Logout";
+        }
+
+
+        LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(__li, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
         }
 
         MiscUtils.getLogger().debug(submitButton);

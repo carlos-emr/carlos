@@ -69,16 +69,16 @@ public class QuickBillingBCSave2Action extends ActionSupport {
 
 
     public String execute()
-            throws ServletException, IOException {
+            throws ServletException, IOException {        if (request.getSession().getAttribute("user") == null) {
+            return "Logout";
+        }
+
+
         LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(__li, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-
-        if (request.getSession().getAttribute("user") == null) {
-            return "Logout";
-        }
 
         QuickBillingBCHandler quickBillingHandler = new QuickBillingBCHandler();
 

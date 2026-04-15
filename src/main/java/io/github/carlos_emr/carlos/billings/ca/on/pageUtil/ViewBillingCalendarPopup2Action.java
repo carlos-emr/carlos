@@ -22,11 +22,12 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * View gate for {@code billing/CA/ON/billingCalendarPopup.jsp}. Enforces {@code _billing}
- * {@code r} privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/} location. Created as part of the ON billing migration
- * to gate direct-access paths behind Struts2 actions (same pattern as
- * PR #1632 for BC billing).
+ * View gate for {@code billing/CA/ON/billingCalendarPopup.jsp}. This is a
+ * general-purpose date-picker popup used by multiple modules, not only billing:
+ * it is also launched from the oscarReport Age/Sex report and the Tickler
+ * demographic view. The gate therefore accepts any of {@code _billing},
+ * {@code _report}, or {@code _tickler} read privileges — users who can reach
+ * the parent screen must be able to use the date picker on it.
  *
  * @since 2026-04-13
  */
@@ -39,8 +40,12 @@ public final class ViewBillingCalendarPopup2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+        boolean allowed =
+                securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)
+                        || securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)
+                        || securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", null);
+        if (!allowed) {
+            throw new SecurityException("missing required sec object (_billing | _report | _tickler)");
         }
 
         return SUCCESS;

@@ -55,7 +55,7 @@ public class ExtPrintRegistry2Action extends ActionSupport {
 
     public String execute() {
         LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_demographic", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(__li, "_demographic", "w", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
