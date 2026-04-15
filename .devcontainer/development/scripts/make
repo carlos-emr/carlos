@@ -156,19 +156,19 @@ build_and_deploy() {
     mvn $clean_phase -DskipTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag
     echo ""
     echo "Running tests..."
-    mvn test
+    mvn test $checks_flag
   elif [ "$run_tests" = "unit" ]; then
     # Build and run only unit tests
     mvn $clean_phase -DskipTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag
     echo ""
     echo "Running unit tests..."
-    mvn test -Dgroups="unit"
+    mvn test -Dgroups="unit" $checks_flag
   elif [ "$run_tests" = "integration" ]; then
     # Build and run only integration tests
     mvn $clean_phase -DskipTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag
     echo ""
     echo "Running integration tests..."
-    mvn test -Dgroups="integration"
+    mvn test -Dgroups="integration" $checks_flag
   else
     # Regular build without tests
     mvn $clean_phase -DskipTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag
