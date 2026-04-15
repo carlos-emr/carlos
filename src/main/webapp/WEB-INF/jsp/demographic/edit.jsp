@@ -1054,7 +1054,7 @@
                                     } else {
                                     %>
                                     <a href="#"
-                                       onclick="popupPage(800,1000,'<%= request.getContextPath() %>/billing/CA/BC/billStatus.jsp?lastName=<%=URLEncoder.encode(demographic.getLastName(), StandardCharsets.UTF_8)%>&firstName=<%=URLEncoder.encode(demographic.getFirstName(), StandardCharsets.UTF_8)%>&filterPatient=true&demographicNo=<%=demographic.getDemographicNo()%>');return false;">
+                                       onclick="popupPage(800,1000,'<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/billing/CA/BC/reprocessBill.do?lastName=" + Encode.forUriComponent(StringUtils.defaultString(demographic.getLastName())) + "&firstName=" + Encode.forUriComponent(StringUtils.defaultString(demographic.getFirstName())) + "&filterPatient=true&demographicNo=" + Encode.forUriComponent(String.valueOf(demographic.getDemographicNo()))) %>');return false;">
                                         <fmt:message key="demographic.demographiceditdemographic.msgInvoiceList"/></a>
 
 
