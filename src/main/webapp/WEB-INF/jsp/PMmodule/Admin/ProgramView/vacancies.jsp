@@ -65,12 +65,6 @@
     }
 </script>
 
-<form name="programManagerViewForm" action="${pageContext.request.contextPath}/PMmodule/ProgramManagerView.do" method="post">
-    <input type="hidden" name="id" value="<c:out value="${requestScope.id}"/>"/>
-    <input type="hidden" name="tab" value="Vacancies"/>
-    <input type="hidden" name="method" value=""/>
-    <input type="hidden" name="vacancyOrTemplateId" value="<c:out value="${requestScope.vacancyOrTemplateId}"/>"/>
-
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
@@ -108,4 +102,3 @@
 </c:if>
 
 <span id="selectedVacancyName"></span>
-</form>

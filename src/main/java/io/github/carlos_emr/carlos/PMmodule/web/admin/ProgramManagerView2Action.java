@@ -211,6 +211,7 @@ public class ProgramManagerView2Action extends ActionSupport {
                 this.setTab("General");
             }
         }
+        request.setAttribute("tab", this.getTab());
 
         Program program = programManager.getProgram(programId);
         request.setAttribute("program", program);
@@ -301,12 +302,6 @@ public class ProgramManagerView2Action extends ActionSupport {
 
         request.setAttribute("id", programId);
 
-        if (this.getTab().equals("Clients")) {
-            return "viewClients";
-        }
-        if (this.getTab().equals("Vacancies")) {
-            return "viewVacancies";
-        }
         return "view";
     }
 

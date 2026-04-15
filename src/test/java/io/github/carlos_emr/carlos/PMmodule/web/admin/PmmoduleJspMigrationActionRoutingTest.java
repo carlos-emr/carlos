@@ -21,6 +21,9 @@
  */
 package io.github.carlos_emr.carlos.PMmodule.web.admin;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collections;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.VacancyDao;
@@ -111,6 +114,9 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
         when(programManager.getAccessTypes()).thenReturn(Collections.emptyList());
         when(programManager.getServicePrograms()).thenReturn(Collections.emptyList());
         when(programManager.getCommunityPrograms()).thenReturn(new Program[0]);
+        when(programManager.getAllPrograms()).thenReturn(Collections.emptyList());
+        when(programManager.getAllPrograms(anyString(), anyString(), anyInt())).thenReturn(Collections.emptyList());
+        when(programManager.getProgramDomain(anyString())).thenReturn(Collections.emptyList());
         when(programQueueManager.getActiveProgramQueuesByProgramId(anyLong())).thenReturn(Collections.emptyList());
         when(admissionManager.getCurrentAdmissionsByProgramId(anyString())).thenReturn(Collections.emptyList());
         when(facilityDao.findAll(true)).thenReturn(Collections.emptyList());
@@ -126,7 +132,7 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("ProgramManager should route the clients tab to the concrete JSP result")
+    @DisplayName("ProgramManager should keep the clients tab inside the parent edit result")
     void shouldRouteProgramManagerClientsTabToConcreteJsp() throws Exception {
         Program program = new Program();
         program.setId(17);
@@ -143,13 +149,48 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
 
         String result = executeAction(action);
 
-        assertThat(result).isEqualTo("editClients");
+        assertThat(result).isEqualTo("edit");
         assertThat(getMockRequest().getAttribute("admissions")).isNotNull();
-        verifySecurityCheck("_pmm_management", "r");
+        verifySecurityCheck("_pmm_management", "w");
     }
 
     @Test
-    @DisplayName("ProgramManagerView should route the clients tab to the concrete JSP result")
+    @DisplayName("ProgramManager should keep the program list reachable through the live action")
+    void shouldRouteProgramManagerListThroughLiveAction() throws Exception {
+        ProgramManager2Action action = new ProgramManager2Action();
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo("list");
+        assertThat(getMockRequest().getAttribute("programs")).isNotNull();
+        assertThat(getMockRequest().getAttribute("facilities")).isNotNull();
+        verifySecurityCheck("_pmm_management", "w");
+    }
+
+    @Test
+    @DisplayName("ProgramManager should keep the general edit view reachable through the live action")
+    void shouldRouteProgramManagerGeneralEditThroughLiveAction() throws Exception {
+        Program program = new Program();
+        program.setId(17);
+        program.setName("Shelter");
+
+        when(programManager.getProgram("17")).thenReturn(program);
+        when(programManager.getProgramFirstSignature(17)).thenReturn(null);
+
+        addRequestParameter("method", "edit");
+        addRequestParameter("id", "17");
+
+        ProgramManager2Action action = new ProgramManager2Action();
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo("edit");
+        assertThat(getMockRequest().getAttribute("program")).isEqualTo(program);
+        verifySecurityCheck("_pmm_management", "w");
+    }
+
+    @Test
+    @DisplayName("ProgramManagerView should keep the clients tab inside the parent view result")
     void shouldRouteProgramManagerViewClientsTabToConcreteJsp() throws Exception {
         Program program = new Program();
         program.setId(11);
@@ -171,13 +212,13 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
 
         String result = executeAction(action);
 
-        assertThat(result).isEqualTo("viewClients");
+        assertThat(result).isEqualTo("view");
         assertThat(getMockRequest().getAttribute("admissions")).isNotNull();
         verifySecurityCheck("_pmm_management", "r");
     }
 
     @Test
-    @DisplayName("ProgramManagerView should load vacancies through the live controller")
+    @DisplayName("ProgramManagerView should load vacancies through the parent view result")
     void shouldRouteProgramManagerViewVacanciesTabToConcreteJsp() throws Exception {
         Program program = new Program();
         program.setId(11);
@@ -198,8 +239,34 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
 
         String result = executeAction(action);
 
-        assertThat(result).isEqualTo("viewVacancies");
+        assertThat(result).isEqualTo("view");
         assertThat(getMockRequest().getAttribute("vacancies")).isNotNull();
+        verifySecurityCheck("_pmm_management", "r");
+    }
+
+    @Test
+    @DisplayName("ProgramManagerView should keep the general view reachable through the live action")
+    void shouldRouteProgramManagerViewGeneralTabThroughLiveAction() throws Exception {
+        Program program = new Program();
+        program.setId(11);
+        program.setFacilityId(3);
+        program.setName("Program View");
+
+        Facility facility = new Facility("", "");
+        facility.setId(3);
+        facility.setName("Main Facility");
+
+        when(programManager.getProgram("11")).thenReturn(program);
+        when(facilityDao.find(3)).thenReturn(facility);
+
+        addRequestParameter("id", "11");
+
+        ProgramManagerView2Action action = new ProgramManagerView2Action();
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo("view");
+        assertThat(getMockRequest().getAttribute("program")).isEqualTo(program);
         verifySecurityCheck("_pmm_management", "r");
     }
 
@@ -224,5 +291,42 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
         assertThat(getMockRequest().getAttribute("sectorID")).isEqualTo(8);
         assertThat(getMockRequest().getAttribute("orgList")).isNotNull();
         verifySecurityCheck("_admin", "r");
+    }
+
+    @Test
+    @DisplayName("FacilityManager should keep the summary view reachable through the live action")
+    void shouldRouteFacilityViewThroughLiveAction() throws Exception {
+        Facility facility = new Facility("", "");
+        facility.setId(5);
+        facility.setName("Main Facility");
+
+        when(facilityDao.find(5)).thenReturn(facility);
+        when(programManager.getPrograms(5)).thenReturn(Collections.emptyList());
+
+        addRequestParameter("method", "view");
+        addRequestParameter("id", "5");
+
+        FacilityManager2Action action = new FacilityManager2Action();
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo("view");
+        assertThat(getMockRequest().getAttribute("facility")).isEqualTo(facility);
+        verifySecurityCheck("_admin", "r");
+    }
+
+    @Test
+    @DisplayName("PMmodule Struts results should not use dead page.pmm.admin mappings")
+    void shouldUseConcretePmmoduleStrutsResults() throws IOException {
+        String strutsXml = Files.readString(Path.of("src/main/webapp/WEB-INF/classes/struts-pmmodule.xml"));
+
+        assertThat(strutsXml).doesNotContain("page.pmm.admin.list");
+        assertThat(strutsXml).doesNotContain("page.pmm.admin.edit");
+        assertThat(strutsXml).doesNotContain("page.pmm.admin.view");
+        assertThat(strutsXml).doesNotContain("page.pmm.admin.facility.view");
+        assertThat(strutsXml).contains("/WEB-INF/jsp/PMmodule/Admin/ProgramManagerList.jsp");
+        assertThat(strutsXml).contains("/WEB-INF/jsp/PMmodule/Admin/ProgramManagerForm.jsp");
+        assertThat(strutsXml).contains("/WEB-INF/jsp/PMmodule/Admin/ProgramManagerView.jsp");
+        assertThat(strutsXml).contains("/WEB-INF/jsp/PMmodule/Admin/Facility/ViewFacility.jsp");
     }
 }

@@ -31,6 +31,10 @@
 
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+<c:url var="programManagerViewClientsUri" value="/PMmodule/ProgramManagerView.do">
+    <c:param name="id" value="${requestScope.id}"/>
+    <c:param name="tab" value="Clients"/>
+</c:url>
 
 <script>
     function assignTeam(id, selectBox) {
@@ -108,10 +112,6 @@
         }
     }
 </script>
-<form name="programManagerViewForm" action="${pageContext.request.contextPath}/PMmodule/ProgramManagerView.do" method="post">
-<input type="hidden" name="id" value="<c:out value="${requestScope.id}"/>"/>
-<input type="hidden" name="tab" value="Clients"/>
-<input type="hidden" name="method" value=""/>
 <input type="hidden" name="teamId" value=""/>
 <input type="hidden" name="admissionId" value=""/>
 <input type="hidden" name="community" value=""/>
@@ -130,7 +130,7 @@
 <!-- show current clients -->
 <display:table class="simple" cellspacing="2" cellpadding="3"
                id="admission" name="admissions" export="false" pagesize="0"
-               requestURI="/PMmodule/ProgramManagerView.do">
+               requestURI="${programManagerViewClientsUri}">
     <display:setProperty name="paging.banner.placement" value="bottom"/>
     <display:setProperty name="basic.msg.empty_list"
                          value="No clients currently admitted to this program."/>
@@ -220,4 +220,3 @@
     </select>
     -->
 </c:if>
-</form>

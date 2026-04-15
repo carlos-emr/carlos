@@ -292,37 +292,7 @@ public class ProgramManager2Action extends ActionSupport {
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String method = request.getParameter("method");
-        boolean mutatingMethod =
-                "assign_role".equals(method)
-                        || "assign_team".equals(method)
-                        || "assign_team_client".equals(method)
-                        || "delete".equals(method)
-                        || "delete_access".equals(method)
-                        || "delete_function".equals(method)
-                        || "delete_provider".equals(method)
-                        || "delete_team".equals(method)
-                        || "remove_queue".equals(method)
-                        || "remove_team".equals(method)
-                        || "save_restriction_settings".equals(method)
-                        || "save".equals(method)
-                        || "chooseTemplate".equals(method)
-                        || "save_vacancy".equals(method)
-                        || "save_vacancy_template".equals(method)
-                        || "save_access".equals(method)
-                        || "save_function".equals(method)
-                        || "save_provider".equals(method)
-                        || "save_team".equals(method)
-                        || "delete_status".equals(method)
-                        || "edit_status".equals(method)
-                        || "save_status".equals(method)
-                        || "assign_status_client".equals(method)
-                        || "disable_restriction".equals(method)
-                        || "enable_restriction".equals(method)
-                        || "activeTmplStatus".equals(method)
-                        || "inactiveTmplStatus".equals(method)
-                        || "saveVacancyStatus".equals(method);
-        String privilege = mutatingMethod ? "w" : "r";
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", privilege, null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "w", null)) {
             throw new SecurityException("missing required sec object (_pmm_management)");
         }
 
@@ -406,12 +376,24 @@ public class ProgramManager2Action extends ActionSupport {
         String searchStatus = this.getSearchStatus();
         String searchType = this.getSearchType();
         String searchFacilityId = this.getSearchFacilityId();
+        if (searchStatus == null) {
+            searchStatus = "";
+        }
+        if (searchType == null) {
+            searchType = "Any";
+        }
+        if (searchFacilityId == null || searchFacilityId.isBlank()) {
+            searchFacilityId = "0";
+        }
 
         String providerNo = (String) request.getSession().getAttribute("user");
         String userrole = (String) request.getSession().getAttribute("userrole");
+        if (userrole == null) {
+            userrole = "";
+        }
 
         List<Program> list = null;
-        if ("".equals(searchStatus)) {
+        if ("".equals(searchStatus) || "Any".equals(searchStatus)) {
             // what is 'any' used for? Temporarily commented them out.
             // when click 'program list' on PMM, it will not display community programs, only display bed and service programs.
             // searchStatus = "Any";
@@ -457,6 +439,7 @@ public class ProgramManager2Action extends ActionSupport {
             }
 
             this.setProgram(program);
+            request.setAttribute("program", program);
             request.setAttribute("oldProgram", program);
 
             List<FunctionalCentre> functionalCentres = functionalCentreDao.findAll();
@@ -482,11 +465,7 @@ public class ProgramManager2Action extends ActionSupport {
     }
 
     private String editResult() {
-        Object viewTab = request.getAttribute("view.tab");
-        if (viewTab == null) {
-            viewTab = request.getParameter("view.tab");
-        }
-        return Objects.equals(viewTab, "Clients") ? "editClients" : "edit";
+        return "edit";
     }
 
     /**
@@ -515,6 +494,7 @@ public class ProgramManager2Action extends ActionSupport {
 
     public String add() {
         this.setProgram(new Program());
+        request.setAttribute("program", this.getProgram());
 
         setEditAttributes(request, null);
 

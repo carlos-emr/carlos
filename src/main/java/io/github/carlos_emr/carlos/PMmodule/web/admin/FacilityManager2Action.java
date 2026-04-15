@@ -103,9 +103,7 @@ public class FacilityManager2Action extends ActionSupport {
         }
 
         if ("view".equals(method)) {
-            // The legacy detail wrapper no longer exists; fall back to the
-            // moved edit page so facility navigation remains functional.
-            return edit();
+            return view();
         } else if ("edit".equals(method)) {
             return edit();
         } else if ("delete".equals(method)) {
@@ -143,7 +141,9 @@ public class FacilityManager2Action extends ActionSupport {
 
 
         this.setFacility(facility);
+        request.setAttribute("facility", facility);
         this.setRegistrationIntakeForms(eFormDao.getEfromInGroupByGroupName(registrationIntakeName));
+        request.setAttribute("registrationIntakeForms", this.getRegistrationIntakeForms());
 
         List<FacilityDischargedClients> facilityClients = new ArrayList<FacilityDischargedClients>();
 
@@ -207,7 +207,9 @@ public class FacilityManager2Action extends ActionSupport {
         Facility facility = facilityDao.find(Integer.valueOf(id));
 
         this.setFacility(facility);
+        request.setAttribute("facility", facility);
         this.setRegistrationIntakeForms(eFormDao.getEfromInGroupByGroupName(registrationIntakeName));
+        request.setAttribute("registrationIntakeForms", this.getRegistrationIntakeForms());
 
         request.setAttribute("id", facility.getId());
         request.setAttribute("orgId", facility.getOrgId());
@@ -235,6 +237,9 @@ public class FacilityManager2Action extends ActionSupport {
     public String add() {
         Facility facility = new Facility("", "");
         this.setFacility(facility);
+        request.setAttribute("facility", facility);
+        this.setRegistrationIntakeForms(eFormDao.getEfromInGroupByGroupName(registrationIntakeName));
+        request.setAttribute("registrationIntakeForms", this.getRegistrationIntakeForms());
 
         // get agency's organization list from the lookup table
         request.setAttribute("orgList", lookupManager.LoadCodeList("OGN", true, null, null));

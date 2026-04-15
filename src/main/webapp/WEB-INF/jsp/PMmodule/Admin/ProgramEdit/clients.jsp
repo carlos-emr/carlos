@@ -31,6 +31,11 @@
 
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+<c:url var="programManagerClientsUri" value="/PMmodule/ProgramManager.do">
+    <c:param name="method" value="edit"/>
+    <c:param name="id" value="${requestScope.id}"/>
+    <c:param name="view.tab" value="Clients"/>
+</c:url>
 <script>
     function assignTeam(id, selectBox) {
         var team_id = selectBox.options[selectBox.selectedIndex].value;
@@ -48,9 +53,6 @@
         document.programManagerForm.submit();
     }
 </script>
-<form name="programManagerForm" action="${pageContext.request.contextPath}/PMmodule/ProgramManager.do" method="post">
-<input type="hidden" name="method" value="edit"/>
-<input type="hidden" name="program.id" value="<c:out value="${requestScope.id}"/>"/>
 <input type="hidden" name="view.tab" value="Clients"/>
 <input type="hidden" name="admission.id" id="admissionId"/>
 <input type="hidden" name="admission.teamId" id="teamId"/>
@@ -64,7 +66,7 @@
 </div>
 <!-- show current clients -->
 <display:table class="simple" cellspacing="2" cellpadding="3" id="admission" name="admissions" export="false"
-               pagesize="0" requestURI="/PMmodule/ProgramManager.do">
+               pagesize="0" requestURI="${programManagerClientsUri}">
     <display:setProperty name="paging.banner.placement" value="bottom"/>
     <display:setProperty name="basic.msg.empty_list" value="No clients currently admitted to this program."/>
 
@@ -110,4 +112,3 @@
         </select>
     </display:column>
 </display:table>
-</form>
