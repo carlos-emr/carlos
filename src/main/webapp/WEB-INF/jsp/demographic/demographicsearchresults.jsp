@@ -146,7 +146,7 @@
 %>
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/Oscar.js"/>"></script>
         <title><fmt:message key="demographic.demographicsearchresults.title"/></title>
 

@@ -5,7 +5,7 @@
     Provides common CSS and JavaScript dependencies shared across all pages.
     Include this fragment inside the <head> element of any JSP page:
 
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
 
     Includes:
     - Viewport meta tag for responsive design

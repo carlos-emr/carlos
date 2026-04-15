@@ -110,7 +110,7 @@
 %>
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="report.reportdaysheet.title"/></title>
         <!-- Prototype.js removed — using vanilla JS (Phase 1c migration) -->
 

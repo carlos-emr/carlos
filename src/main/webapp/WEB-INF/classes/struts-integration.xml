@@ -28,6 +28,14 @@
 <struts>
     <package name="integration" namespace="/" extends="struts-default">
 
+        <global-results>
+            <result name="securityError">/securityError.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+        </global-exception-mappings>
+
         <action name="web/dashboard/OutcomesDashboard" class="io.github.carlos_emr.carlos.integration.dashboard.OutcomesDashboard2Action"/>
         <action name="demographic/ValidateSwipeCard" class="io.github.carlos_emr.carlos.integration.mchcv.ValidateSwipeCard2Action">
             <result name="success">/WEB-INF/jsp/demographic/demographicswipe.jsp</result>
@@ -117,12 +125,13 @@
         <!--
             ===== Tail-interactive view gates + signature mutation ==========
             Short-tail JSPs relocated behind /WEB-INF/jsp/ (administration,
-            common, calendar, oscarWorkflow, signature_pad, library/eforms).
-            Each view gate enforces the per-page privilege and is GET/HEAD
-            only. The signature save endpoint is POST-only and enforces
-            _con w — replaces the scriptlet in the deleted uploadSignature.jsp
-            which previously ran FileOutputStream writes and DB persistence
-            under only an in-JSP <security:oscarSec> check.
+            common, share, calendar, oscarWorkflow, signature_pad,
+            library/eforms). Each view gate enforces the per-page privilege
+            and is GET/HEAD only. The signature save endpoint is POST-only
+            and enforces _con w — replaces the scriptlet in the deleted
+            uploadSignature.jsp which previously ran FileOutputStream writes
+            and DB persistence under only an in-JSP <security:oscarSec>
+            check.
         -->
         <action name="administration/index" class="io.github.carlos_emr.carlos.administration.gate.ViewAdministrationIndex2Action">
             <result name="success">/WEB-INF/jsp/administration/index.jsp</result>
@@ -132,6 +141,9 @@
         </action>
         <action name="common/omdDiseaseList" class="io.github.carlos_emr.carlos.common.gate.ViewOmdDiseaseList2Action">
             <result name="success">/WEB-INF/jsp/common/omdDiseaseList.jsp</result>
+        </action>
+        <action name="share/CalendarPopup" class="io.github.carlos_emr.carlos.share.gate.ViewShareCalendarPopup2Action">
+            <result name="success">/WEB-INF/jsp/share/CalendarPopup.jsp</result>
         </action>
         <action name="calendar/oscarCalendarPopup" class="io.github.carlos_emr.carlos.calendar.gate.ViewOscarCalendarPopup2Action">
             <result name="success">/WEB-INF/jsp/calendar/oscarCalendarPopup.jsp</result>

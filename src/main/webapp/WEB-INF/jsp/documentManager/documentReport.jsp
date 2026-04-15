@@ -159,7 +159,7 @@
     <head>
         <title><fmt:message key="dms.documentReport.titleDocumentManager"/></title>
 
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css"
               rel="stylesheet" type="text/css"/>
 

@@ -48,7 +48,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.PublicKey" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
 
-<%@include file="/layouts/html_top.jspf" %>
+<%@include file="/WEB-INF/jsp/layouts/html_top.jspf" %>
 
 <h2 class="oscarBlueHeader">
     Key Manager
@@ -163,4 +163,4 @@
 </table>
 
 
-<%@include file="/layouts/html_bottom.jspf" %>
+<%@include file="/WEB-INF/jsp/layouts/html_bottom.jspf" %>

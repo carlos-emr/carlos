@@ -67,7 +67,7 @@
 <head>
 <title><fmt:message key="ScratchPad.title"/></title>
 
-    <%@ include file="/includes/global-head.jspf" %>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
 
     <script type="text/javascript">
         let dirty = false;

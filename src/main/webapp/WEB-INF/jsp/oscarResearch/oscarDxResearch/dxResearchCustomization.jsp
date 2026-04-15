@@ -51,7 +51,7 @@
 <html>
     <head>
         <title><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.title"/></title>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/oscarResearch/oscarDxResearch/dxResearch.css"/>
     </head>

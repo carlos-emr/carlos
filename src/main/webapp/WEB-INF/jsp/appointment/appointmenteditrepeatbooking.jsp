@@ -342,7 +342,7 @@
     <head>
         <meta charset="UTF-8">
         <title><fmt:message key="appointment.appointmentgrouprecords.title"/></title>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
 
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"

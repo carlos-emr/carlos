@@ -49,7 +49,7 @@
 %>
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title><%=bundle.getString(providertitle)%></title>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounter/encounterStyles.css">

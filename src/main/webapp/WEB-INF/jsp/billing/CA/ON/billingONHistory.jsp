@@ -100,7 +100,7 @@
 <html>
 <head>
     <title><fmt:message key="billing.billingONHistory.title"/></title>
-    <%@ include file="/includes/global-head.jspf" %>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <link href="<%=request.getContextPath()%>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
     <script src="<%=request.getContextPath()%>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
     <script src="<%=request.getContextPath()%>/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
