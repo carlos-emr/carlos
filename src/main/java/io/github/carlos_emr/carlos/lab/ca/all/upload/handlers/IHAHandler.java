@@ -151,8 +151,7 @@ public class IHAHandler extends DefaultGenericHandler implements MessageHandler 
                         hl7Body = allNodes.item(i).getFirstChild().getTextContent();
 
                         logger.debug("MESSAGE ID: {}", LogSanitizer.sanitize(msgId));
-                        logger.debug("MESSAGE: ");
-                        logger.debug(hl7Body);
+                        logger.debug("MESSAGE BODY PRESENT: {}, LENGTH: {}", hl7Body != null, hl7Body != null ? hl7Body.length() : 0);
 
                         if (hl7Body != null && hl7Body.indexOf("\nPID|") > 0) {
                             logger.info("using xml HL7 Type {}", LogSanitizer.sanitize(getHl7Type())); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
@@ -212,9 +211,9 @@ public class IHAHandler extends DefaultGenericHandler implements MessageHandler 
             Document doc = factory.newDocumentBuilder().parse(file);
             return (doc);
 
-            // Re-throw security exceptions from path validation
         } catch (SecurityException e) {
-            throw e;
+            logger.error("Path traversal attempt detected while parsing XML file: {}", LogSanitizer.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            return null;
         } catch (Exception e) {
             logger.error("Error parsing XML file: {}", LogSanitizer.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return (null);

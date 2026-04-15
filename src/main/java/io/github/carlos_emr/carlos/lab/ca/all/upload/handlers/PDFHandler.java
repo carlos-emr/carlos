@@ -91,6 +91,10 @@ public class PDFHandler implements MessageHandler {
 
         String providerNo = "-1";
         String filePath = fileName;
+        if (fileName == null || fileName.isBlank()) {
+            logger.error("Document filename is null or empty");
+            return null;
+        }
         if (!(fileName.endsWith(".pdf") || fileName.endsWith(".PDF"))) {
             logger.error("Document {} does not have pdf extension", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return null;

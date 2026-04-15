@@ -92,7 +92,7 @@ public class ExcellerisOntarioHandler implements MessageHandler {
                 file = PathValidationUtils.validateExistingPath(file, docDir);
             } catch (SecurityException e) {
                 logger.error("Attempted path traversal detected - file outside document directory: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-                throw new SecurityException("Access denied: file outside permitted directory");
+                return null;
             }
 
             // Now safe to check if file exists and is a regular file
@@ -116,9 +116,6 @@ public class ExcellerisOntarioHandler implements MessageHandler {
             DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
             // Use the validated file object - safe after all validation checks
             doc = docBuilder.parse(file);
-        } catch (SecurityException e) {
-            logger.error("Security violation in Excelleris ON message handling", e);
-            throw e; // Re-throw security exceptions
         } catch (ParserConfigurationException e) {
             logger.error("XML parser configuration error", e);
         } catch (Exception e) {

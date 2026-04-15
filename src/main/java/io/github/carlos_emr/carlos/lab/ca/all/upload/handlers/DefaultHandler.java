@@ -68,7 +68,7 @@ public class DefaultHandler implements MessageHandler {
     }
 
     String getHl7Type() {
-        logger.warn("DefaultHandler.getHl7Type: Returning hl7Type = {}", LogSanitizer.sanitize(hl7Type));
+        logger.debug("DefaultHandler.getHl7Type: Returning hl7Type = {}", LogSanitizer.sanitize(hl7Type));
         return hl7Type;
     }
 
@@ -90,8 +90,9 @@ public class DefaultHandler implements MessageHandler {
 
                     if (hl7Body != null && hl7Body.indexOf("\nPID|") > 0) {
                         msgCount++;
-                        logger.debug("using xml HL7 Type {}", LogSanitizer.sanitize(getHl7Type()));
-                        MessageUploader.routeReport(loggedInInfo, serviceName, getHl7Type(), hl7Body, fileId);
+                        String currentHl7Type = getHl7Type();
+                        logger.debug("using xml HL7 Type {}", LogSanitizer.sanitize(currentHl7Type));
+                        MessageUploader.routeReport(loggedInInfo, serviceName, currentHl7Type, hl7Body, fileId);
                     }
                 }
             } catch (Exception e) {
@@ -105,10 +106,11 @@ public class DefaultHandler implements MessageHandler {
                 ArrayList<String> messages = Utilities.separateMessages(fileName);
                 for (i = 0; i < messages.size(); i++) {
                     String msg = messages.get(i);
-                    String typeToUse = getHl7Type() != null ? getHl7Type() : serviceName;
+                    String currentHl7Type = getHl7Type();
+                    String typeToUse = currentHl7Type != null ? currentHl7Type : serviceName;
                     logger.info("using HL7 Type {} (original: {}, serviceName: {})",
                             LogSanitizer.sanitize(typeToUse),
-                            LogSanitizer.sanitize(getHl7Type()),
+                            LogSanitizer.sanitize(currentHl7Type),
                             LogSanitizer.sanitize(serviceName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     MessageUploader.routeReport(loggedInInfo, serviceName, typeToUse, msg, fileId);
                 }
@@ -149,9 +151,9 @@ public class DefaultHandler implements MessageHandler {
             Document doc = factory.newDocumentBuilder().parse(file);
             return (doc);
 
-            // Re-throw security exceptions from path validation
         } catch (SecurityException e) {
-            throw e;
+            logger.error("Path traversal attempt detected while parsing XML file: {}", LogSanitizer.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            return null;
         } catch (Exception e) {
             logger.error("Error parsing XML file: {}", LogSanitizer.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return (null);
