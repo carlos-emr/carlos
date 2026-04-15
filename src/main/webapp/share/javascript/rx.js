@@ -20,7 +20,7 @@ function goDOC() {
 
 
 function goOMD() {
-    var docURL = "../commons/OntarioMDRedirect.jsp?keyword=eCPS&params=" + document.RxSearchDrugForm.searchString.value;
+    var docURL = "../common/OntarioMDRedirect.do?keyword=eCPS&params=" + document.RxSearchDrugForm.searchString.value;
     popupDrugOfChoice(743, 817, docURL);
 }
 

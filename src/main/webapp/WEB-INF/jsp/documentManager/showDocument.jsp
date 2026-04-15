@@ -298,7 +298,7 @@
         const ctx = "${pageContext.servletContext.contextPath}";
         </script>
         <!-- include jQuery Bootstrap jQueryUI fontawesome standard styles -->
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/showDocument.css">
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/autocomplete.css">
 

@@ -373,7 +373,7 @@
 	</div></div>
 <% }%>
 <% if(demographic != null) { %>
-<%@ include file="/share/templates/patient.jspf" %>
+<%@ include file="/WEB-INF/jsp/share/templates/patient.jspf" %>
 <div style="height:60px;"></div>
 <% }%>
 

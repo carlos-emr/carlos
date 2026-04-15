@@ -320,7 +320,7 @@
             <fmt:message key="oscarprevention.index.oscarpreventiontitre"/>
         </title><!--I18n-->
 
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
         <script type="text/javascript"

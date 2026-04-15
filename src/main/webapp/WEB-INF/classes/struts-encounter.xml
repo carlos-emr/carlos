@@ -421,7 +421,7 @@
             <result name="failESend">/encounter/ViewRequest.do</result>
             <result name="printpdf">/encounter/oscarConsultationRequest/printPdf.do</result>
             <result name="printIndivica">/encounter/oscarConsultationRequest/printPdf2.do</result>
-            <result name="fax">/fax/CoverPage.jsp</result>
+            <result name="fax">/WEB-INF/jsp/fax/CoverPage.jsp</result>
         </action>
         <action name="encounter/oscarConsultationRequest/printPdf2" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestPrintAction22Action">
             <result name="error">/encounter/ViewRequest.do?error=true</result>

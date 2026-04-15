@@ -28,6 +28,15 @@
 <struts>
     <package name="pmmodule" namespace="/" extends="struts-default">
 
+        <global-results>
+            <result name="securityError">/securityError.jsp</result>
+            <result name="error">/errorpage.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+            <exception-mapping exception="java.lang.Exception" result="error"/>
+        </global-exception-mappings>
 
         <action name="EnterSignature" class="io.github.carlos_emr.carlos.providers.pageUtil.ProEditSignature2Action">
             <result name="success">/WEB-INF/jsp/provider/providerSignature.jsp</result>
@@ -55,21 +64,21 @@
             <result name="eject">/index.jsp</result>
         </action>
         <action name="PMmodule/ProgramManager" class="io.github.carlos_emr.carlos.PMmodule.web.admin.ProgramManager2Action" method="execute">
-            <result name="list">page.pmm.admin.list</result>
-            <result name="edit">page.pmm.admin.edit</result>
-            <result name="programSignatures">/PMmodule/Admin/ProgramSignatures.jsp</result>
+            <result name="list">/WEB-INF/jsp/PMmodule/Admin/ProgramManagerList.jsp</result>
+            <result name="edit">/WEB-INF/jsp/PMmodule/Admin/ProgramManagerForm.jsp</result>
+            <result name="programSignatures">/WEB-INF/jsp/PMmodule/Admin/ProgramSignatures.jsp</result>
         </action>
 
         <action name="PMmodule/ProgramManagerView" class="io.github.carlos_emr.carlos.PMmodule.web.admin.ProgramManagerView2Action" method="execute">
-            <result name="view">page.pmm.admin.view</result>
+            <result name="view">/WEB-INF/jsp/PMmodule/Admin/ProgramManagerView.jsp</result>
             <result name="error">/errorpage.jsp</result>
             <result name="service_restriction_error">page.pmm.program.service_restriction_error</result>
         </action>
 
         <action name="PMmodule/FacilityManager" class="io.github.carlos_emr.carlos.PMmodule.web.admin.FacilityManager2Action" method="execute">
-            <result name="list">page.pmm.admin.facility.list</result>
-            <result name="edit">page.pmm.admin.facility.edit</result>
-            <result name="view">page.pmm.admin.facility.view</result>
+            <result name="list">/WEB-INF/jsp/PMmodule/Admin/Facility/ListFacilities.jsp</result>
+            <result name="edit">/WEB-INF/jsp/PMmodule/Admin/Facility/EditFacility.jsp</result>
+            <result name="view">/WEB-INF/jsp/PMmodule/Admin/Facility/ViewFacility.jsp</result>
         </action>
 
         <action name="PMmodule/ClientSearch2" class="io.github.carlos_emr.carlos.PMmodule.web.ClientSearchAction22Action" method="execute">
@@ -91,8 +100,6 @@
             <result name="list">page.pmm.staff.list</result>
             <result name="edit">page.pmm.staff.edit</result>
         </action>
-
-
 
     </package>
 </struts>

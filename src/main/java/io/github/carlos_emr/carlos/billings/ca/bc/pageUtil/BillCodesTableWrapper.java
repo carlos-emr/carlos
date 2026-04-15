@@ -32,6 +32,8 @@ package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 import java.util.Map;
 
 import org.displaytag.decorator.TableDecorator;
+import org.owasp.encoder.Encode;
+
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 
 /**
@@ -44,9 +46,13 @@ public class BillCodesTableWrapper
 
     public String getBillingserviceNo() {
         BillingService bcd = (BillingService) this.getCurrentRowObject();
-        String links = "<a href=\"billingEditCode.jsp?codeId=" + bcd.getBillingserviceNo() +
-                "&code=" + bcd.getServiceCode() + "&desc=" + bcd.getDescription() + "&value=" + bcd.getValue() + "&whereTo=private\">Edit</a> <br>" +
-                "<a href=\"deletePrivateCode.jsp?code=" + bcd.getBillingserviceNo() + "\">Delete</a>";
+        String code = String.valueOf(bcd.getBillingserviceNo());
+        String links = "<a href=\"billingEditCode.do?codeId=" + Encode.forHtmlAttribute(code)
+                + "&amp;code=" + Encode.forHtmlAttribute(Encode.forUriComponent(bcd.getServiceCode()))
+                + "&amp;desc=" + Encode.forHtmlAttribute(Encode.forUriComponent(bcd.getDescription()))
+                + "&amp;value=" + Encode.forHtmlAttribute(Encode.forUriComponent(bcd.getValue()))
+                + "&amp;whereTo=private\">Edit</a> <br>"
+                + "<a href=\"#\" onclick=\"deletePrivateCode('" + Encode.forJavaScript(code) + "'); return false;\">Delete</a>";
         return links;
     }
 

@@ -49,7 +49,7 @@
 %>
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="provider.providersavemygroup.msgTitle"/></title>
     </head>
     <body>

@@ -1964,14 +1964,6 @@
     "integrity" : "sha512:FoAmQ2prz16WwMWWBmOKu9ww3ktAWuVa/ecP3yiV4mej1Iu6a9rcWonzjjHaPZqdyR4cq36nb14EMizx7GO4OA=="
   }, {
     "groupId" : "org.apache.logging.log4j",
-    "artifactId" : "log4j-1.2-api",
-    "version" : "2.25.4",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:uxEm4WOKEAfeMGjpoKXiAOz0S7UqZt5nkvmIa30svcLo1eYf+uRIwQqqCbgd35VsPGrnh66zpD8msYE8m1qQCw=="
-  }, {
-    "groupId" : "org.apache.logging.log4j",
     "artifactId" : "log4j-api",
     "version" : "2.25.4",
     "scope" : "compile",

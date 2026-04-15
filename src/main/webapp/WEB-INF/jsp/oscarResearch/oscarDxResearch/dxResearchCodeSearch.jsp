@@ -55,7 +55,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.title"/></title>
         <script type="text/javascript">
             /**

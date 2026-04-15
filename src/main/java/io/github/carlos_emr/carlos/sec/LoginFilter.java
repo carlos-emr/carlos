@@ -174,7 +174,7 @@ public class LoginFilter implements Filter {
 		"/mfa/",
 		// Heartbeat endpoint must be reachable without an active session so windows
 		// can detect server-side logout/timeout even after the session has been destroyed
-		"/status/sessionHeartbeat.jsp"
+		"/status/SessionHeartbeat.do"
     };
 
     /**
@@ -219,7 +219,7 @@ public class LoginFilter implements Filter {
             "/css/font/Roboto",
             // Heartbeat polling must not extend the inactivity timer, otherwise
             // background heartbeats would prevent legitimate session timeouts
-            "/status/sessionHeartbeat.jsp"
+            "/status/SessionHeartbeat.do"
     };
 
     /**
