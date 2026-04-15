@@ -22,6 +22,7 @@
 
 <%@ page import="java.util.*,io.github.carlos_emr.*,java.io.*,java.net.*,io.github.carlos_emr.carlos.util.*,org.apache.commons.io.FileUtils"
          errorPage="/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.PathValidationUtils" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
 
@@ -41,9 +42,9 @@
             }
 
             String fileContents = null;
-            if (!filename.matches(".*\\.\\..*")) {
-
-                File file = new File(INBOX + "/" + filename);
+            if (filename != null && !filename.trim().isEmpty()) {
+                File inboxDir = new File(INBOX);
+                File file = PathValidationUtils.validatePath(filename, inboxDir);
                 fileContents = FileUtils.readFileToString(file, "UTF-8");
             } else {
                 fileContents = "";
@@ -142,4 +143,3 @@
 
     </body>
 </html>
-

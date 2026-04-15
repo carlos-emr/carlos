@@ -174,7 +174,8 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
                 if (result.getResponse().get(0).getResult().getCode().equals("IEDTS0001")) {
                     ActionUtils.setUploadResourceId(request, result.getResponse().get(0).getResourceID());
                     CarlosProperties props = CarlosProperties.getInstance();
-                    File file = new File(props.getProperty("ONEDT_OUTBOX", "") + this.getFileName());
+                    File outboxDir = new File(props.getProperty("ONEDT_OUTBOX", ""));
+                    File file = PathValidationUtils.validatePath(this.getFileName(), outboxDir);
                     ActionUtils.setSuccessfulUploads(request, file);
                 } else {
                     ActionUtils.setUploadResourceId(request, new BigInteger("-2"));
@@ -268,7 +269,8 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
                 for (ResponseResult edtResponse : result.getResponse()) {
                     if (edtResponse.getResult().getCode().equals("IEDTS0001")) {
                         ids.add(edtResponse.getResourceID());
-                        File file = new File(props.getProperty("ONEDT_OUTBOX", "") + edtResponse.getDescription());
+                        File outboxDir = new File(props.getProperty("ONEDT_OUTBOX", ""));
+                        File file = PathValidationUtils.validatePath(edtResponse.getDescription(), outboxDir);
                         ActionUtils.moveFileToDirectory(file, sent, false, true);
                         successUploads.add(McedtMessageCreator.resourceResultToString(result));
                     } else {
