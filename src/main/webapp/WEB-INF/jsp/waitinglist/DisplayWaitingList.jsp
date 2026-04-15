@@ -310,6 +310,19 @@
             document.forms[0].submit();
         }
 
+        function appendCsrfToken(form) {
+            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+            if (csrfEl) {
+                var csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'CSRF-TOKEN';
+                csrfInput.value = csrfEl.value;
+                form.appendChild(csrfInput);
+            } else {
+                console.warn('CSRF token not found on page; form submission may be rejected by server.');
+            }
+        }
+
         function removePatient(demographicNo, waitingList) {
             var agree = confirm("Are you sure you want to remove this patient from the waiting list?");
             if (agree) {
@@ -325,6 +338,7 @@
                     input.value = fields[key];
                     form.appendChild(input);
                 }
+                appendCsrfToken(form);
                 document.body.appendChild(form);
                 window.open('', 'removeWaitingList', 'height=50,width=50,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0');
                 form.submit();
