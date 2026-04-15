@@ -111,6 +111,9 @@ public class ProfessionalSpecialist2Action extends ActionSupport {
      */
     public void get() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
         String specialistId = request.getParameter("id");
         ProfessionalSpecialist professionalSpecialist = null;
 
@@ -152,6 +155,9 @@ public class ProfessionalSpecialist2Action extends ActionSupport {
      */
     public void search() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
         String search_keyword = request.getParameter("keyword");
         List<ProfessionalSpecialist> professionalSpecialist = null;
 

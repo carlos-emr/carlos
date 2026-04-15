@@ -49,8 +49,8 @@ public class EctImmCreateImmunizationSetInit2Action extends ActionSupport {
     @Override
     public String execute() {
         LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(__li, "_admin.prevention", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.prevention)");
+        if (!securityInfoManager.hasPrivilege(__li, "_prevention", "w", null)) {
+            throw new SecurityException("missing required sec object (_prevention)");
         }
 
         if (numCols != null) numCols = numCols.trim();
