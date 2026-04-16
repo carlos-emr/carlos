@@ -39,7 +39,7 @@ CARLOS is forked from the OpenO EMR project, which itself was forked from OSCAR 
 **Important Disclaimers:**
 - This project has **no affiliation** with OpenOSP, the organization that developed OpenO EMR
 - This project has **no affiliation** with McMaster University
-- OSCAR is a registered official mark of McMaster University
+- OSCAR is an official mark of McMaster University
 - The OSCAR name is used in this project solely for descriptive and historical purposes
 
 For detailed copyright attribution and project heritage information, see [NOTICE.md](NOTICE.md).
