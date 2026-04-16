@@ -30,10 +30,10 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ page import="java.util.*,java.io.*,io.github.carlos_emr.carlos.lab.ca.all.util.KeyPairGen" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + ","
@@ -176,10 +176,12 @@
                                 <%
                                     if (message != null) {
                                         if (error.equals("false")) {
-                                            out.print(Encode.forHtml(message));
+                                %>
+                                        <e:forHtml value='<%= message %>' />
+                                <%
                                         } else {
-                                %><font color="red"><e:forHtmlContent value='<%= message %>' />
-                            </font>
+                                %>
+                                    <font color="red"><e:forHtmlContent value='<%= message %>' /></font>
                                 <%
                                         }
                                     }

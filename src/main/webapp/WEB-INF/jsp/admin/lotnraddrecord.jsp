@@ -30,6 +30,7 @@
 --%>
 <%@page import="java.net.URLEncoder" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     String curProvider_no = (String) session.getAttribute("user");
@@ -48,7 +49,6 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -71,8 +71,11 @@
             String resultMsg = (String) request.getAttribute("resultMsg");
             String prevention = (String) request.getAttribute("prevention");
             if (prevention == null) prevention = "";
+            if (resultMsg == null) {
+                resultMsg = "";
+            }
         %>
-        <%= resultMsg != null ? Encode.forHtml(resultMsg) : "" %>
+        <e:forHtml value='<%= resultMsg %>' />
         <br/>
         <a href="${pageContext.request.contextPath}/admin/ViewLotNrAddRecordHtm?prevention=<%=URLEncoder.encode(prevention,"UTF-8")%>">Add Another Lot #
             to <e:forHtmlContent value='<%= prevention %>' />

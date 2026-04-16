@@ -4,6 +4,7 @@
 <%@ page import="org.apache.commons.lang3.time.DateFormatUtils"%>
 <%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
 <%@ taglib prefix = "c" uri = "jakarta.tags.core" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
 <%
       String roleName2$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -101,7 +102,7 @@ if(!authed) {
 %>
 		<tr>
 			<td id="faxType_<%=faxJob.getId()%>" class="small"><%=type%></td>
-			<td class="small"><e:forHtmlContent value='<%= providerName %>' />(<%=faxJob.getUser()%>)</td>
+			<td class="small"><e:forHtmlContent value='<%= providerName %>' />(<e:forHtmlContent value='<%= faxJob.getUser() %>' />)</td>
 			<td id="patientName_<%=faxJob.getId()%>" class="small"><e:forHtmlContent value='<%= demographicName %>' /></td>
 			<td class="small"><e:forHtmlContent value='<%= faxJob.getRecipient() %>' /></td>
 			<td id="status<%=count%>" class="small" ><e:forHtmlContent value='<%= faxJob.getStatus() %>' /></td>
