@@ -61,7 +61,3 @@ The presence of copyright notices from these organizations reflects the
 open-source heritage of the code and compliance with GPL requirements to
 preserve attribution, not any current organizational relationship.
 
-## License
-
-CARLOS is open source licensed.
-See COPYING.md for the full license text.
