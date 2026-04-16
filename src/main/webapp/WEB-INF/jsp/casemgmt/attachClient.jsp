@@ -224,13 +224,13 @@
                                  value="No clients found."/>
             <display:setProperty name="sort.amount" value="list"/>
 
-            <display:column sortable="true" title="Client No" sortProperty="demographicNo" defaultorder="ascending">
+                <display:column sortable="true" title="Client No" sortProperty="demographicNo" defaultorder="ascending">
                 <a
-                        href="<%=request.getContextPath() %>/encounter/IncomingEncounter?selectId=${e:forUriComponent(client.demographicNo)}&demographicNo=${e:forUriComponent(client.demographicNo)}&PEAttach=yes&appointmentNo=0&noteId=<%=noteId$%>">${e:forHtml(client.demographicNo)}</a>
+                        href="${pageContext.request.contextPath}/encounter/IncomingEncounter?selectId=${e:forUriComponent(client.demographicNo)}&demographicNo=${e:forUriComponent(client.demographicNo)}&PEAttach=yes&appointmentNo=0&noteId=<%=noteId$%>">${e:forHtml(client.demographicNo)}</a>
             </display:column>
             <display:column sortable="true" title="Name" sortProperty="formattedName">
                 <a
-                        href="javascript:popupPage(600,800,'client','<%=request.getContextPath() %>/PMmodule/ClientManager?id=${e:forJavaScript(e:forUriComponent(client.currentRecord))}&consent=${e:forJavaScript(e:forUriComponent(consent))}')">${e:forHtml(client.formattedName)}</a>
+                        href="javascript:popupPage(600,800,'client','${e:forJavaScript(pageContext.request.contextPath)}/PMmodule/ClientManager?id=${e:forUriComponent(client.currentRecord)}&amp;consent=${e:forUriComponent(consent)}')">${e:forHtml(client.formattedName)}</a>
             </display:column>
             <display:column sortable="true" title="Date of Birth">
                 ${e:forHtml(client.yearOfBirth)}/${e:forHtml(client.monthOfBirth)}/${e:forHtml(client.dateOfBirth)}
