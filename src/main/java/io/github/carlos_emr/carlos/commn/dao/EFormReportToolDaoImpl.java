@@ -50,10 +50,10 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         super(EFormReportTool.class);
     }
 
-    private static final java.util.regex.Pattern INVALID_SQL_IDENTIFIER = java.util.regex.Pattern.compile(".*[`].*");
+    private static final java.util.regex.Pattern INVALID_SQL_IDENTIFIER = java.util.regex.Pattern.compile(".*[`';].*");
 
     private void validateIdentifier(String identifier) {
-        if (identifier == null || INVALID_SQL_IDENTIFIER.matcher(identifier).matches() || identifier.contains(";")) {
+        if (identifier == null || INVALID_SQL_IDENTIFIER.matcher(identifier).matches()) {
             throw new IllegalArgumentException("Invalid SQL identifier");
         }
     }
@@ -149,7 +149,8 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
 
         int paramIndex = 5;
         for (EFormValue v : values) {
-            sb.append("?" + paramIndex);
+            sb.append("?");
+            sb.append(paramIndex);
             sb.append(",");
             paramIndex++;
         }
