@@ -233,16 +233,16 @@ for (int i = 0; i < vec.size(); i++) {
     color = i%2==0?tdInterlColor:"white";
 %>
         <tr bgcolor="<%=color %>" align="center">
-            <td><e:forHtmlContent value='<%= prop.getProperty("dateTime") %>' /></td>
-            <td><e:forHtmlContent value='<%= prop.getProperty("action") %>' /></td>
-            <td><e:forHtmlContent value='<%= prop.getProperty("content") %>' /></td>
-            <td><e:forHtmlContent value='<%= prop.getProperty("contentId") %>' /></td>
-            <td><e:forHtmlContent value='<%= prop.getProperty("ip") %>' /></td>
+            <td><e:forHtmlContent value='<%= prop.getProperty("dateTime", "") %>' /></td>
+            <td><e:forHtmlContent value='<%= prop.getProperty("action", "") %>' /></td>
+            <td><e:forHtmlContent value='<%= prop.getProperty("content", "") %>' /></td>
+            <td><e:forHtmlContent value='<%= prop.getProperty("contentId", "") %>' /></td>
+            <td><e:forHtmlContent value='<%= prop.getProperty("ip", "") %>' /></td>
             <% if (bAll) { %>
             <td><e:forHtmlContent value='<%= propName.getProperty(prop.getProperty("provider_no"), "") %>' /></td>
             <% } %>
-            <td><e:forHtmlContent value='<%= prop.getProperty("demographic_no") %>' /></td>
-            <td><%=prop.getProperty("data") %></td>
+            <td><e:forHtmlContent value='<%= prop.getProperty("demographic_no", "") %>' /></td>
+            <td><e:forHtmlContent value='<%= prop.getProperty("data", "") %>' /></td>
         </tr>
 
                 <% } %>
