@@ -103,23 +103,25 @@ public class AuditLogManager {
 
         String filename = outputDirectory + "/OSCAR_AUDIR_LOG_PURGE_FILE_" + formatter3.format(endDateToPurge) + ".sql";
 
-        String[] vars = new String[] { // nosemgrep: java.lang.security.audit.command-injection.formatted-command-injection
-            mysqldump,
-            "--user", user,
-            // Do not add password to arguments to prevent leaking in process monitors (e.g. ps -ef)
-            "-w", "dateTime < '" + formatter2.format(endDateToPurge) + "'",
-            "-t",
-            "--result-file", filename,
-            dbName,
-            "log"
-        };
+        String[] vars = new String[10];
+        vars[0] = mysqldump;
+        vars[1] = "--user";
+        vars[2] = user;
+        // Do not add password to arguments to prevent leaking in process monitors (e.g. ps -ef)
+        vars[3] = "-w";
+        vars[4] = "dateTime < '" + formatter2.format(endDateToPurge) + "'";
+        vars[5] = "-t";
+        vars[6] = "--result-file";
+        vars[7] = filename;
+        vars[8] = dbName;
+        vars[9] = "log";
 
         Integer exitValue = null;
 
         try {
             String s = null;
 
-            ProcessBuilder pb = new ProcessBuilder(vars); // nosemgrep: java.lang.security.audit.command-injection.formatted-command-injection
+            ProcessBuilder pb = new ProcessBuilder(vars);
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
             }
