@@ -1,0 +1,4 @@
+## 2026-04-16 - Prevent SQL Injection in Dynamic Table Queries
+**Vulnerability:** `EFormReportToolDaoImpl` has multiple SQL injection vulnerabilities because dynamic table names derived from eform report tools are concatenated directly into native SQL queries using `+` (e.g., `select count(*) from " + eformReportTool.getTableName()`).
+**Learning:** Table names in `createNativeQuery()` cannot be parameterized with `?` or `:name`. However, since `getTableName()` comes from user/DB input (even though it's generated dynamically with a secure random suffix during `addNew`), passing unsanitized table names into native SQL is risky and triggers SQLi alarms.
+**Prevention:** For dynamic table names or columns in JPA native queries where parameterization is not possible, strongly validate the dynamic strings against an allowlist or a strict regex (e.g., `^[a-zA-Z0-9_]+$`) and throw an `IllegalArgumentException` if validation fails *before* concatenating it into the query.

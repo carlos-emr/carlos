@@ -51,10 +51,17 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         super(EFormReportTool.class);
     }
 
+    private void validateTableName(String tableName) {
+        if (tableName == null || !tableName.matches("^[a-zA-Z0-9_]+$")) {
+            throw new IllegalArgumentException("Invalid table name");
+        }
+    }
+
     @SuppressWarnings("unchecked")
     public void markLatest(Integer eformReportToolId) {
         EFormReportTool eft = find(eformReportToolId);
         if (eft != null) {
+            validateTableName(eft.getTableName());
             //get all distinct demographicNos
             Query q = entityManager.createNativeQuery("select distinct demographicNo from  " + eft.getTableName());
             List<Integer> demoNos = q.getResultList();
@@ -105,6 +112,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
     }
 
     public void populateReportTableItem(EFormReportTool eft, List<EFormValue> values, Integer fdid, Integer demographicNo, Date dateFormCreated, String providerNo) {
+        validateTableName(eft.getTableName());
         //create an insert statement
         StringBuilder sb = new StringBuilder();
         sb.append("INSERT INTO ");
@@ -146,6 +154,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
 
     public void deleteAllData(EFormReportTool eft) {
         if (eft != null) {
+            validateTableName(eft.getTableName());
             Query q = entityManager.createNativeQuery("delete from " + eft.getTableName());
             q.executeUpdate();
         }
@@ -153,6 +162,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
 
     public void drop(EFormReportTool eft) {
         if (eft != null) {
+            validateTableName(eft.getTableName());
             Query q = entityManager.createNativeQuery("drop table " + eft.getTableName());
             q.executeUpdate();
         }
@@ -160,6 +170,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
 
     public Integer getNumRecords(EFormReportTool eformReportTool) {
         if (eformReportTool != null) {
+            validateTableName(eformReportTool.getTableName());
             Query q = entityManager.createNativeQuery("select count(*) from " + eformReportTool.getTableName());
             List<BigInteger> results = q.getResultList();
             if (!results.isEmpty()) {
