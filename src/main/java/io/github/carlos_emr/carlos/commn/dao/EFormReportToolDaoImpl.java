@@ -82,6 +82,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
     public void addNew(EFormReportTool eformReportTool, EForm eform, List<String> fields, String providerNo) {
         //generate the create table statement
         String tableName = "ERT_" + eformReportTool.getName() + (new BigInteger(130, new SecureRandom()).toString(8).substring(0, 8));
+        validateTableName(tableName);
         StringBuilder sql = new StringBuilder("CREATE TABLE " + tableName + " (");
         sql.append("id int (10) NOT NULL auto_increment primary key,");
         sql.append("fdid int (10) NOT NULL, ");
