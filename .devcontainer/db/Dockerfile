@@ -6,7 +6,7 @@ LABEL version=0.0.2
 LABEL description="OpenOSP-EMR Docker Image for Development Environment"
 
 # Install required packages
-RUN apt-get update --allow-releaseinfo-change --fix-missing && apt-get install -y dos2unix  \
+RUN apt-get update -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true --allow-releaseinfo-change --fix-missing && apt-get install -y dos2unix  \
     && apt-get autoclean \
     && apt-get clean \
     && apt-get autoremove \
