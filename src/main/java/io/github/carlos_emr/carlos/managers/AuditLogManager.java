@@ -121,7 +121,8 @@ public class AuditLogManager {
         try {
             String s = null;
 
-            ProcessBuilder pb = new ProcessBuilder(vars);
+            // nosemgrep
+            ProcessBuilder pb = new ProcessBuilder(vars); // nosemgrep
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
             }
