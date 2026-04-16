@@ -42,17 +42,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install Node.js (latest LTS)
 RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
     && apt-get install -y nodejs \
-    && node --version && npm --version
+    && node --version && npm --version \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
     && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
     && apt-get update \
-    && apt-get install -y gh
+    && apt-get install -y gh \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Go
-RUN apt-get update || true && apt-get install -y --fix-missing golang-go
+RUN apt-get update || true && apt-get install -y --fix-missing golang-go && rm -rf /var/lib/apt/lists/*
 
 # Install javadoc2md utility for converting Javadoc to Markdown
 RUN go install github.com/dburkart/javadoc2md/cmd/javadoc2md@latest
@@ -85,15 +87,17 @@ RUN npm install -g playwright@1.56.0 && \
 # Note: Chrome excluded - no ARM64 Linux builds (breaks Apple Silicon). Chromium is equivalent.
 # Version 1.56.0+ correctly uses t64 package names (e.g., libasound2t64) for Ubuntu 24.04
 RUN apt-get update || true && npx playwright install --with-deps chromium firefox && \
+    rm -rf /var/lib/apt/lists/* && \
     echo "✅ Playwright browsers installed (Chromium, Firefox)"
 
 # Install pipx and Aider AI coding assistant
 RUN apt-get update || true && apt-get install -y --fix-missing pipx && \
+    rm -rf /var/lib/apt/lists/* && \
     pipx install aider-chat && \
     pipx ensurepath
 
 # Install Postfix for mail testing with default values
-RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y postfix
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y postfix && rm -rf /var/lib/apt/lists/*
 
 # Configure Postfix for simple localhost operation
 RUN postconf -e 'myhostname=openo-dev.local' && \
