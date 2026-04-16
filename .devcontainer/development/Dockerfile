@@ -54,7 +54,7 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     && rm -rf /var/lib/apt/lists/*
 
 # Install Go
-RUN apt-get update || true && apt-get install -y --fix-missing golang-go && rm -rf /var/lib/apt/lists/*
+RUN apt-get update || apt-get update && apt-get install -y --fix-missing golang-go && rm -rf /var/lib/apt/lists/*
 
 # Install javadoc2md utility for converting Javadoc to Markdown
 RUN go install github.com/dburkart/javadoc2md/cmd/javadoc2md@latest
