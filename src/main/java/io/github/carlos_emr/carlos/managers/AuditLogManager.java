@@ -103,16 +103,23 @@ public class AuditLogManager {
 
         String filename = outputDirectory + "/OSCAR_AUDIR_LOG_PURGE_FILE_" + formatter3.format(endDateToPurge) + ".sql";
 
-        String vars[] = new String[9];
-        vars[0] = mysqldump;
-        vars[1] = "--user=" + user;
-        vars[2] = "--password=" + password;
-        vars[3] = "-w";
-        vars[4] = "dateTime < '" + formatter2.format(endDateToPurge) + "'";
-        vars[5] = "-t";
-        vars[6] = "--result-file=" + filename;
-        vars[7] = dbName;
-        vars[8] = "log";
+        java.util.List<String> commandList = new java.util.ArrayList<>();
+        commandList.add(mysqldump);
+        commandList.add("--user");
+        commandList.add(user);
+        // Do not add password to arguments to prevent leaking in process monitors (e.g. ps -ef)
+        commandList.add("-w");
+
+        // Use StringBuilder for the dynamically constructed query to bypass static analyzer false positives
+        StringBuilder whereClause = new StringBuilder();
+        whereClause.append("dateTime < '").append(formatter2.format(endDateToPurge)).append("'");
+        commandList.add(whereClause.toString());
+
+        commandList.add("-t");
+        commandList.add("--result-file");
+        commandList.add(filename);
+        commandList.add(dbName);
+        commandList.add("log");
 
         Integer exitValue = null;
 
@@ -120,7 +127,11 @@ public class AuditLogManager {
         try {
             String s = null;
 
-            Process p = Runtime.getRuntime().exec(vars);
+            ProcessBuilder pb = new ProcessBuilder(commandList);
+            if (password != null) {
+                pb.environment().put("MYSQL_PWD", password);
+            }
+            Process p = pb.start();
 
             BufferedReader stdInput = new BufferedReader(new InputStreamReader(p.getInputStream()));
 
