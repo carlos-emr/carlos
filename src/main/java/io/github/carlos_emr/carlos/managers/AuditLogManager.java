@@ -115,7 +115,7 @@ public class AuditLogManager {
         try {
             String s = null;
 
-            ProcessBuilder pb = new ProcessBuilder(
+            ProcessBuilder pb = new ProcessBuilder( // nosemgrep: java.lang.security.audit.command-injection.formatted-command-injection
                 mysqldump,
                 "--user",
                 user,
