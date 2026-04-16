@@ -147,13 +147,13 @@ String reason ="";
 		<caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
 			<input type="button" value="Admit"
 				<c:if test="${queue_entry.headClientId != null || requestScope.userIsProgramProvider != 'true'}">disabled</c:if>
-				onclick="select_client('<c:out value="${queue_entry.clientId}"/>','<%=action %>','<c:out value="${queue_entry.id}"/>')" />
+				onclick="select_client('${e:forJavaScript(queue_entry.clientId)}','<%=action %>','${e:forJavaScript(queue_entry.id)}')" />
 		</caisi:isModuleLoad>
 
 		<caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="false">
 			<input type="button" value="Admit"
 				<c:if test="${queue_entry.headClientId != null || sessionScope.performAdmissions !='true' || requestScope.userIsProgramProvider != 'true'}">disabled</c:if>
-				onclick="select_client('<c:out value="${queue_entry.clientId}"/>','<%=action %>','<c:out value="${queue_entry.id}"/>')" />
+				onclick="select_client('${e:forJavaScript(queue_entry.clientId)}','<%=action %>','${e:forJavaScript(queue_entry.id)}')" />
 		</caisi:isModuleLoad>
 
 	</display:column>
@@ -161,19 +161,19 @@ String reason ="";
 		<caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
 			<input type="button" value="Reject"
 				<c:if test="${queue_entry.headClientId != null || requestScope.userIsProgramProvider != 'true'}">disabled</c:if>
-				onclick="select_client('<c:out value="${queue_entry.clientId}"/>','reject','<c:out value="${queue_entry.id}"/>')" />
+				onclick="select_client('${e:forJavaScript(queue_entry.clientId)}','reject','${e:forJavaScript(queue_entry.id)}')" />
 		</caisi:isModuleLoad>
 
 		<caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="false">
 			<input type="button" value="Reject"
 				<c:if test="${queue_entry.headClientId != null || sessionScope.performAdmissions !='true' || requestScope.userIsProgramProvider != 'true'}">disabled</c:if>
-				onclick="select_client('<c:out value="${queue_entry.clientId}"/>','reject','<c:out value="${queue_entry.id}"/>')" />
+				onclick="select_client('${e:forJavaScript(queue_entry.clientId)}','reject','${e:forJavaScript(queue_entry.id)}')" />
 		</caisi:isModuleLoad>
 	</display:column>
 
 	<!-- disabled by rwd because visibility of link and permissions in CME are a problem -->
 	<%--<display:column sortable="false">--%>
-	<!--<a href="javascript:void(0)" title="Case management" onclick="cme_client('<c:out value="${queue_entry.programId}"/>', '<c:out value="${queue_entry.clientId}"/>')">-->
+	<!--<a href="javascript:void(0)" title="Case management" onclick="cme_client('${e:forHtml(queue_entry.programId)}', '${e:forHtml(queue_entry.clientId)}')">-->
 	<!--Case Management Encounter-->
 	<!--</a>-->
 	<%--</display:column>--%>
@@ -224,8 +224,7 @@ String reason ="";
 				<td colspan="2"><b style="color: red">Warning:<br />
 				<c:choose>
 					<c:when test="${requestScope.sameFacility}">
-		                    This client is currently admitted to a bed program (<c:out
-							value="${current_program.name}" />).<br />
+		                    This client is currently admitted to a bed program (${e:forHtml(current_program.name)}).<br />
 		                    By completing this admission, you will be discharging them from this current program.
 			        	</c:when>
 					<c:otherwise>
@@ -313,10 +312,10 @@ String reason ="";
 		<display:setProperty name="basic.msg.empty_list"
 			value="Queue is empty." />
 		<display:column sortable="false" title="">
-			<input type="button" value="Admit" onclick="admitFromRemote('<c:out value="${queue_entry.referral.referralId}"/>')" />
+			<input type="button" value="Admit" onclick="admitFromRemote('${e:forJavaScript(queue_entry.referral.referralId)}')" />
 		</display:column>
 		<display:column sortable="false" title="">
-			<input type="button" value="Reject" onclick="removeFromRemoteQueue('<c:out value="${queue_entry.referral.referralId}"/>')" />
+			<input type="button" value="Reject" onclick="removeFromRemoteQueue('${e:forJavaScript(queue_entry.referral.referralId)}')" />
 		</display:column>
 		<display:column property="clientName" sortable="true"
 			title="Client Name" />

@@ -77,18 +77,18 @@
     <table width="100%" border="1" cellspacing="2" cellpadding="3">
         <tr class="b">
             <td width="20%">Facility Id:</td>
-            <td><c:out value="${requestScope.id}"/></td>
+            <td>${e:forHtml(requestScope.id)}</td>
 
         </tr>
         <tr class="b">
             <td width="20%">Name: *</td>
             <td><input type="text" name="facility.name" size="32" maxlength="32"
-                           id="facilityName" value="<c:out value="${facility.name}"/>"/></td>
+                           id="facilityName" value="${e:forHtmlAttribute(facility.name)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Description: *</td>
             <td><input type="text" name="facility.description" size="70"
-                           maxlength="70" id="facilityDesc" value="<c:out value="${facility.description}"/>"/></td>
+                           maxlength="70" id="facilityDesc" value="${e:forHtmlAttribute(facility.description)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">HIC:</td>
@@ -96,15 +96,15 @@
         </tr>
         <tr class="b">
             <td width="20%">Primary Contact Name:</td>
-            <td><input type="text" name="facility.contactName" id="facility.contactName" value="<c:out value="${facility.contactName}"/>"/></td>
+            <td><input type="text" name="facility.contactName" id="facility.contactName" value="${e:forHtmlAttribute(facility.contactName)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Primary Contact Email:</td>
-            <td><input type="text" name="facility.contactEmail" id="facility.contactEmail" value="<c:out value="${facility.contactEmail}"/>"/></td>
+            <td><input type="text" name="facility.contactEmail" id="facility.contactEmail" value="${e:forHtmlAttribute(facility.contactEmail)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Primary Contact Phone:</td>
-            <td><input type="text" name="facility.contactPhone" id="facility.contactPhone" value="<c:out value="${facility.contactPhone}"/>"/></td>
+            <td><input type="text" name="facility.contactPhone" id="facility.contactPhone" value="${e:forHtmlAttribute(facility.contactPhone)}"/></td>
         </tr>
         <%
             Integer orgId = (Integer) request.getAttribute("orgId");
@@ -118,12 +118,10 @@
                 <c:forEach var="org" items="${orgList}">
                     <c:choose>
                         <c:when test="${orgId == org.code }">
-                            <option value="<c:out value="${org.code}"/>" selected><c:out
-                                    value="${org.description}"/></option>
+                            <option value="${e:forHtmlAttribute(org.code)}" selected>${e:forHtml(org.description)}</option>
                         </c:when>
                         <c:otherwise>
-                            <option value="<c:out value="${org.code}"/>"><c:out
-                                    value="${org.description}"/></option>
+                            <option value="${e:forHtmlAttribute(org.code)}">${e:forHtml(org.description)}</option>
                         </c:otherwise>
                     </c:choose>
                 </c:forEach>
@@ -136,12 +134,10 @@
                 <c:forEach var="sector" items="${sectorList}">
                     <c:choose>
                         <c:when test="${sectorId == sector.code }">
-                            <option value="<c:out value="${sector.code}"/>" selected><c:out
-                                    value="${sector.description}"/></option>
+                            <option value="${e:forHtmlAttribute(sector.code)}" selected>${e:forHtml(sector.description)}</option>
                         </c:when>
                         <c:otherwise>
-                            <option value="<c:out value="${sector.code}"/>"><c:out
-                                    value="${sector.description}"/></option>
+                            <option value="${e:forHtmlAttribute(sector.code)}">${e:forHtml(sector.description)}</option>
                         </c:otherwise>
                     </c:choose>
                 </c:forEach>
@@ -179,7 +175,7 @@
                     <% } %>
                 </select>
                 &nbsp;Default client ID:&nbsp;
-                <input type="text" name="facility.vacancyWithdrawnTicklerDemographic" id="facility.vacancyWithdrawnTicklerDemographic" value="<c:out value="${facility.vacancyWithdrawnTicklerDemographic}"/>" />
+                <input type="text" name="facility.vacancyWithdrawnTicklerDemographic" id="facility.vacancyWithdrawnTicklerDemographic" value="${e:forHtmlAttribute(facility.vacancyWithdrawnTicklerDemographic)}" />
             </td>
         </tr>
 
@@ -194,7 +190,7 @@
                     <% } %>
                 </select>
                 &nbsp;Default client ID:&nbsp;
-                <input type="text" name="facility.assignNewVacancyTicklerDemographic" id="facility.assignNewVacancyTicklerDemographic" value="<c:out value="${facility.assignNewVacancyTicklerDemographic}"/>" />
+                <input type="text" name="facility.assignNewVacancyTicklerDemographic" id="facility.assignNewVacancyTicklerDemographic" value="${e:forHtmlAttribute(facility.assignNewVacancyTicklerDemographic)}" />
             </td>
         </tr>
 
@@ -218,8 +214,8 @@
                 <select name="facility.registrationIntake" id="facility.registrationIntake">
                     <option value="-1">Null</option>
                     <c:forEach var="registrationIntakeForm" items="${registrationIntakeForms}">
-                        <option value="<c:out value="${registrationIntakeForm.id}"/>" <c:if test="${facility.registrationIntake == registrationIntakeForm.id}">selected</c:if>>
-                            <c:out value="${registrationIntakeForm.formName}"/>
+                        <option value="${e:forHtmlAttribute(registrationIntakeForm.id)}" <c:if test="${facility.registrationIntake == registrationIntakeForm.id}">selected</c:if>>
+                            ${e:forHtml(registrationIntakeForm.formName)}
                         </option>
                     </c:forEach>
                 </select>

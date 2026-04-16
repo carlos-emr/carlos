@@ -1,5 +1,6 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%--
 
 
@@ -39,7 +40,7 @@
     <c:if test="${not empty pageContext.request.getAttribute('org.apache.struts.action.ERROR')}">
         <c:if test="${not empty savedMessage}">
             <tr>
-                <td class="error"><c:out value="${savedMessage}"/></td>
+                <td class="error">${e:forHtml(savedMessage)}</td>
             </tr>
         </c:if>
     </c:if>
@@ -48,7 +49,7 @@
     <c:if test="${not empty pageContext.request.getAttribute('org.apache.struts.action.MESSAGE')}">
         <c:if test="${not empty savedMessage}">
             <tr>
-                <td class="message"><c:out value="${savedMessage}"/></td>
+                <td class="message">${e:forHtml(savedMessage)}</td>
             </tr>
         </c:if>
     </c:if>

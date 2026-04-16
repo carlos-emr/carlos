@@ -36,6 +36,7 @@
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties,io.github.carlos_emr.carlos.log.*" %>
@@ -425,7 +426,7 @@
                         var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                         var csrfToken = csrfEl ? csrfEl.value : '';
                         var val = document.getElementById('hidecpp_<%=prescriptIdInt%>').checked;
-                        fetch('<c:out value="${ctx}"/>/rx/hideCpp', {
+                        fetch('${e:forJavaScript(ctx)}/rx/hideCpp', {
                             method: 'POST',
                             headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
                             credentials: 'same-origin',

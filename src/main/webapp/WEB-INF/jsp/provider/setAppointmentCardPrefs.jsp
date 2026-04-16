@@ -77,13 +77,13 @@
                 <%=bundle.getString(providermsgEdit)%>
 
                 <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
-                    <input type="hidden" name="method" value="<c:out value="${method}"/>">
+                    <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
                     <br/>
-                    Name: <input type="text" name="appointmentCardName.value" value="<c:out value='${name.value}'/>" size="50" />
+                    Name: <input type="text" name="appointmentCardName.value" value="${e:forHtmlAttribute(name.value)}" size="50" />
                     <br/>
-                    Phone: <input type="text" name="appointmentCardPhone.value" value="<c:out value='${phone.value}'/>" size="50" />
+                    Phone: <input type="text" name="appointmentCardPhone.value" value="${e:forHtmlAttribute(phone.value)}" size="50" />
                     <br/>
-                    Fax: <input type="text" name="appointmentCardFax.value" value="<c:out value='${fax.value}'/>" size="50" />
+                    Fax: <input type="text" name="appointmentCardFax.value" value="${e:forHtmlAttribute(fax.value)}" size="50" />
                     <br/>
                     <input type="submit" name="btnApply" value="Apply" />
                 </form>

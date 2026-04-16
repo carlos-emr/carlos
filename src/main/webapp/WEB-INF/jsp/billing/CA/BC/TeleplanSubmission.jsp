@@ -59,6 +59,7 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     GregorianCalendar now = new GregorianCalendar();
     int curYear = now.get(Calendar.YEAR);
@@ -178,8 +179,8 @@
             <c:forEach var="year" items="${yearArray}">
                 <tr>
                     <td align='CENTER'><a
-                            href="<%= request.getContextPath() %>/billing/CA/BC/SimulateTeleplanFile?year=<c:out value="${year}"/>">YEAR
-                        <c:out value="${year}"/></a></td>
+                            href="<%= request.getContextPath() %>/billing/CA/BC/SimulateTeleplanFile?year=${e:forHtmlAttribute(year)}">YEAR
+                        ${e:forHtml(year)}</a></td>
                 </tr>
             </c:forEach>
 
@@ -190,7 +191,7 @@
 
     <h4>Teleplan Group Report - <%=Encode.forHtml(thisyear)%>
     </h4>
-    <c:if test="${!empty error}"><c:out value="${error}"/></c:if>
+    <c:if test="${!empty error}">${e:forHtml(error)}</c:if>
 
     <form action="${pageContext.request.contextPath}/billing/CA/BC/GenerateTeleplanFile" method="post" onsubmit="return checkSubmit();"
                class="d-flex flex-wrap align-items-center gap-2">
@@ -239,10 +240,10 @@
                 </c:otherwise>
             </c:choose>
 
-            <td><c:out value="${billAct.providerohipno}"/>&nbsp;</td>
-            <td><c:out value="${billAct.groupno}"/>&nbsp;</td>
-            <td><c:out value="${billAct.updatedatetime}"/>&nbsp;</td>
-            <td><c:out value="${billAct.claimrecord}"/>&nbsp;</td>
+            <td>${e:forHtml(billAct.providerohipno)}&nbsp;</td>
+            <td>${e:forHtml(billAct.groupno)}&nbsp;</td>
+            <td>${e:forHtml(billAct.updatedatetime)}&nbsp;</td>
+            <td>${e:forHtml(billAct.claimrecord)}&nbsp;</td>
             <td><c:choose>
                 <c:when test="${billAct.status == 'A'}">
                     <a href="javascript:void(0);" onclick="sendTeleplanFile('${billAct.id}');">
@@ -255,10 +256,10 @@
             </c:choose></td>
 
             <td><a href="<%= request.getContextPath() %>/billing/CA/BC/DownloadBilling?filename=${billAct.ohipfilename}">
-                <c:out value="${billAct.ohipfilename}"/>
+                ${e:forHtml(billAct.ohipfilename)}
             </a></td>
             <td><a href="<%= request.getContextPath() %>/billing/CA/BC/DownloadBilling?filename=${billAct.htmlfilename}">
-                <c:out value="${billAct.htmlfilename}"/>
+                ${e:forHtml(billAct.htmlfilename)}
             </a></td>
             </tr>
         </c:forEach>

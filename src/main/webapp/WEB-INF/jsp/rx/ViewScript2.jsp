@@ -259,7 +259,7 @@
             var csrfToken = csrfEl ? csrfEl.value : '';
 
             function resetStash() {
-                var url = "<c:out value="${ctx}"/>" + "/rx/deleteRx?parameterValue=clearStash";
+                var url = "${e:forJavaScript(ctx)}" + "/rx/deleteRx?parameterValue=clearStash";
                 fetch(url, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
@@ -272,7 +272,7 @@
             }
 
             function resetReRxDrugList() {
-                var url = "<c:out value="${ctx}"/>" + "/rx/deleteRx?parameterValue=clearReRxDrugList";
+                var url = "${e:forJavaScript(ctx)}" + "/rx/deleteRx?parameterValue=clearReRxDrugList";
                 fetch(url, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
@@ -312,7 +312,7 @@
             }
 
             function setDefaultAddr() {
-                var url = '<c:out value="${ctx}"/>/rx/ViewSetDefaultAddr';
+                var url = '${e:forJavaScript(ctx)}/rx/ViewSetDefaultAddr';
                 var ran_number = Math.round(Math.random() * 1000000);
                 var addr = encodeURIComponent(document.getElementById('addressSel').value);
                 var params = "addr=" + addr + "&rand=" + ran_number;
@@ -328,7 +328,7 @@
 
             function addNotes() {
 
-                var url = '<c:out value="${ctx}"/>/rx/ViewAddRxComment';
+                var url = '${e:forJavaScript(ctx)}/rx/ViewAddRxComment';
                 var ran_number = Math.round(Math.random() * 1000000);
                 var comment = encodeURIComponent(document.getElementById('additionalNotes').value);
                 var params = "scriptNo=<%=request.getAttribute("scriptId")%>&comment=" + comment + "&rand=" + ran_number;  //]
@@ -712,7 +712,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         }
 
                                         function ShowDrugInfo(drug) {
-                                            window.open('<c:out value="${ctx}"/>/rx/drugInfo?GN=' + encodeURIComponent(drug), "_blank",
+                                            window.open('${e:forJavaScript(ctx)}/rx/drugInfo?GN=' + encodeURIComponent(drug), "_blank",
                                                 "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
                                         }
 
@@ -723,7 +723,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 	                                if(! id) {
 										return;
 	                                }
-                                    var url="<c:out value="${ctx}"/>"+"/rx/managePharmacy2?method=getPharmacyInfo&pharmacyId="+id;
+                                    var url="${e:forJavaScript(ctx)}"+"/rx/managePharmacy2?method=getPharmacyInfo&pharmacyId="+id;
                                     fetch(url, {
                                         method: 'GET',
                                         headers: {'X-Requested-With': 'XMLHttpRequest'},

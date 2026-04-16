@@ -39,6 +39,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
          import="java.util.*,java.math.*,java.net.*,java.sql.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.appt.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.administration.*" %>
@@ -302,8 +303,8 @@
 
     <oscar:customInterface section="billingReview"/>
     <script language="JavaScript">
-        ctx = "<c:out value="${ctx}"/>";
-        demographicNo = "<c:out value="${demographicNo}"/>";
+        ctx = "${e:forJavaScript(ctx)}";
+        demographicNo = "${e:forJavaScript(demographicNo)}";
 
         var bClick = false;
 

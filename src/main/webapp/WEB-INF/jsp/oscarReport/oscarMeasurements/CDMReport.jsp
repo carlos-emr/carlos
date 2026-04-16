@@ -49,6 +49,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page import="io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil.*" %>
 <%@ page import="java.util.*, java.sql.*, java.text.*, java.net.*" %>
 <%
@@ -65,7 +66,7 @@
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><c:if test="${not empty title}">
-            <c:out value="${title}"/>
+            ${e:forHtml(title)}
         </c:if></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
@@ -92,7 +93,7 @@
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
-                        <td><fmt:message key="oscarReport.CDMReport.msgTitle"/>: <c:out value="${CDMGroup}"/></td>
+                        <td><fmt:message key="oscarReport.CDMReport.msgTitle"/>: ${e:forHtml(CDMGroup)}</td>
                         <td></td>
                         <td style="text-align: right"><a
                                 href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
@@ -112,20 +113,20 @@
                                     <td>
                                 <tr>
                                     <th align="left" class="subTitles" width="600"><c:if test="${not empty title}">
-                                        <c:out value="${title}"/>
+                                        ${e:forHtml(title)}
                                     </c:if></th>
                                 </tr>
                                 <c:if test="${not empty headings}">
                                 <tr>
                                     <c:forEach var="hd" items="${headings}">
-                                        <td><c:out value="${hd}"/></td>
+                                        <td>${e:forHtml(hd)}</td>
                                     </c:forEach>
                                 </tr>
                                 </c:if>
                                 <c:if test="${not empty messages}">
                                 <c:forEach var="msg" items="${messages}">
                                 <tr>
-                                    <td><c:out value="${msg}"/></td>
+                                    <td>${e:forHtml(msg)}</td>
                                 </tr>
                                 </c:forEach>
                                 </c:if>

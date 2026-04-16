@@ -48,6 +48,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <html>
 
     <head>
@@ -948,7 +949,7 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><c:out value="${ExerDesc}"/>
+                                                    <td class="dataEntryTable">${e:forHtml(ExerDesc)}
                                                         <font class="eightyPercent"><%=request.getAttribute("ExerMeasuringInstrc")%>
                                                         </font></td>
                                                     <td class="dataEntryTable" align="center">
@@ -974,7 +975,7 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><c:out value="${DietDesc}"/>
+                                                    <td class="dataEntryTable">${e:forHtml(DietDesc)}
                                                         <font class="eightyPercent"><%=request.getAttribute("DietMeasuringInstrc")%>
                                                         </font></td>
                                                     <td class="dataEntryTable" align="center">
@@ -1827,7 +1828,7 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><c:out value="${iRefDesc}"/></td>
+                                                    <td class="dataEntryTable">${e:forHtml(iRefDesc)}</td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>

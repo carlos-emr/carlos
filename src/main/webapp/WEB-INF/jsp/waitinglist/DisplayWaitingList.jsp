@@ -93,7 +93,7 @@
                     <table class="TopStatusBar">
                         <tr>
                             <td>Current List: <c:if test="${not empty waitingListName}">
-                                <c:out value="${waitingListName}"/>
+                                ${e:forHtml(waitingListName)}
                             </c:if></td>
                             <td align="right"></td>
 
@@ -170,7 +170,7 @@
                                     </tr>
                                     <tr>
                                         <td class="${styleClass}">
-                                            <c:out value="${waitingListBean.position}"/>
+                                            ${e:forHtml(waitingListBean.position)}
                                         </td>
                                         <td class="${styleClass}">
                                             <a href="#" onclick="popupDemographicPage('<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=${e:forJavaScript(e:forUriComponent(waitingListBean.demographicNo))}'); return false;">
@@ -282,7 +282,7 @@
         }
 
         function popupPage(ctr, patientName, demographicNo, startDate, vheight, vwidth, varpage) {
-            var nbPatients = parseInt('<c:out value="${nbPatients}" default="0"/>');
+            var nbPatients = parseInt('${e:forJavaScript(nbPatients)}');
             if (nbPatients > 1) {
                 var selected = document.forms[0].selectedProvider[ctr].options[document.forms[0].selectedProvider[ctr].selectedIndex].value;
             } else {

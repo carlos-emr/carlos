@@ -73,6 +73,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve all variables from request attributes (set by DemographicEdit2Action) --%>
@@ -329,18 +330,16 @@
                                                                         <li><span class="label">
 	                           	First Nation:</span>
                                                                             <span class="info">
-	                            	<c:out value='${ pageScope.demoExtended["aboriginal"] }'/>
+	                            	${e:forHtml(pageScope.demoExtended["aboriginal"])}
 	                            </span>
                                                                         </li>
                                                                         <li>
                                                                             <span class="label">Status Number:</span>
-                                                                            <span class="info"><c:out
-                                                                                    value='${ pageScope.demoExtended["statusNum"] }'/></span>
+                                                                            <span class="info">${e:forHtml(pageScope.demoExtended["statusNum"])}</span>
                                                                         </li>
                                                                         <li>
                                                                             <span class="label">First Nation Community:</span>
-                                                                            <span class="info"><c:out
-                                                                                    value='${ fncommunity }'/></span>
+                                                                            <span class="info">${e:forHtml(fncommunity)}</span>
                                                                         </li>
                                                                     </oscar:oscarPropertiesCheck>
 
@@ -523,8 +522,7 @@
                                                                     <%if (!"true".equals(CarlosProperties.getInstance().getProperty("phu.hide", "false"))) { %>
                                                                     <li><span class="label">
 								<fmt:message key="demographic.demographiceditdemographic.formPHU"/>:</span>
-                                                                        <span class="info"><c:out
-                                                                                value="${phuName}"/></span>
+                                                                        <span class="info">${e:forHtml(phuName)}</span>
                                                                     </li>
                                                                     <%} %>
 
@@ -642,20 +640,18 @@
                                                                                         <c:if test="${ patientConsent.consentType.active }">
                           			<span class="popup label"
                                           onmouseover="nhpup.popup(${ patientConsent.consentType.description },{'width':350} );">
-										<c:out value="${ patientConsent.consentType.name }"/>
+										${e:forHtml(patientConsent.consentType.name)}
 									</span>
 
                                                                                             <c:choose>
                                                                                                 <c:when test="${ patientConsent.optout }">
                                                                                                     <span class="info"
-                                                                                                          style="color:red;"> Opted Out:<c:out
-                                                                                                            value="${ patientConsent.optoutDate }"/></span>
+                                                                                                          style="color:red;"> Opted Out:${e:forHtml(patientConsent.optoutDate)}</span>
                                                                                                 </c:when>
 
                                                                                                 <c:otherwise>
                                                                                                     <span class="info"
-                                                                                                          style="color:green;">Consented:<c:out
-                                                                                                            value="${ patientConsent.consentDate }"/></span>
+                                                                                                          style="color:green;">Consented:${e:forHtml(patientConsent.consentDate)}</span>
                                                                                                 </c:otherwise>
                                                                                             </c:choose>
 

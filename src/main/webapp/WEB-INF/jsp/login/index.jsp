@@ -564,7 +564,7 @@ body {
     <div class="content">
         <div class="topbar">
             <span id="buildInfo" style="color:black;">
-            	<c:out value="${ LoginResourceBean.buildTag }"/>
+            	${e:forHtml(LoginResourceBean.buildTag)}
             </span>
         </div>
 
@@ -588,11 +588,11 @@ body {
             <div id="clinic_text">
                 <h2 id="clinic_name">
                     <a target="_blank" href="${ LoginResourceBean.clinicLink }">
-                        <c:out value="${ LoginResourceBean.clinicName }"/>
+                        ${e:forHtml(LoginResourceBean.clinicName)}
                     </a>
                 </h2>
                 <div id="clinic_address">
-                    <c:out value="${ LoginResourceBean.clinicText }" escapeXml="false"/>
+                    ${ LoginResourceBean.clinicText }
                 </div>
             </div>
 
@@ -712,7 +712,7 @@ body {
                     Acceptable Use Agreement
                 </div>
                 <div class="card-body">
-                    <c:out value="${ LoginResourceBean.acceptableUseAgreementManager.text }" escapeXml="false"/>
+                    ${ LoginResourceBean.acceptableUseAgreementManager.text }
                 </div>
                 <div class="card-footer"></div>
             </div>
@@ -741,12 +741,12 @@ body {
                 <c:if test="${ not empty LoginResourceBean.supportName }">
                     <div id="support_name">
                         <a target="_blank" href="${ LoginResourceBean.supportLink }">
-                            <c:out value="${ LoginResourceBean.supportName }"/>
+                            ${e:forHtml(LoginResourceBean.supportName)}
                         </a>
                     </div>
                 </c:if>
                 <div id="support_text">
-                    <c:out value="${ LoginResourceBean.supportText }" escapeXml="false"/>
+                    ${ LoginResourceBean.supportText }
                 </div>
             </div>
         </div>

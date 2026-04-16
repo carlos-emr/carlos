@@ -82,30 +82,30 @@
     <display:column property="admissionNotes" sortable="true" title="Admission Notes"/>
     <display:column property="teamName" sortable="true" title="Team"/>
     <display:column sortable="false" title="">
-        <select name="x" onchange="assignTeam('<c:out value="${admission.id}"/>',this);">
+        <select name="x" onchange="assignTeam('${e:forHtml(admission.id)}',this);">
             <option value="0">&nbsp;</option>
             <c:forEach var="team" items="${teams}">
                 <c:choose>
                     <c:when test="${team.id == admission.teamId}">
-                        <option value="<c:out value="${team.id}"/>" selected><c:out value="${team.name}"/></option>
+                        <option value="${e:forHtmlAttribute(team.id)}" selected>${e:forHtml(team.name)}</option>
                     </c:when>
                     <c:otherwise>
-                        <option value="<c:out value="${team.id}"/>"><c:out value="${team.name}"/></option>
+                        <option value="${e:forHtmlAttribute(team.id)}">${e:forHtml(team.name)}</option>
                     </c:otherwise>
                 </c:choose>
             </c:forEach>
         </select>
     </display:column>
     <display:column sortable="false" title="Status">
-        <select name="y" onchange="assignStatus('<c:out value="${admission.id}"/>',this);">
+        <select name="y" onchange="assignStatus('${e:forHtml(admission.id)}',this);">
             <option value="0">&nbsp;</option>
             <c:forEach var="status" items="${client_statuses}">
                 <c:choose>
                     <c:when test="${status.id == admission.clientStatusId}">
-                        <option value="<c:out value="${status.id}"/>" selected><c:out value="${status.name}"/></option>
+                        <option value="${e:forHtmlAttribute(status.id)}" selected>${e:forHtml(status.name)}</option>
                     </c:when>
                     <c:otherwise>
-                        <option value="<c:out value="${status.id}"/>"><c:out value="${status.name}"/></option>
+                        <option value="${e:forHtmlAttribute(status.id)}">${e:forHtml(status.name)}</option>
                     </c:otherwise>
                 </c:choose>
             </c:forEach>

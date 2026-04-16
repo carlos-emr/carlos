@@ -1584,7 +1584,7 @@ input[id^='acklabel_']{
                         <td class="alert alert-info alert-dismissible fade show"><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                                     <!-- Duplicate Information Section -->
                                     <div class="info-section">
-                                        <p><b>Warning:</b> You are viewing a version of a lab result that is a duplicate of previously received version <b>v<c:out value="${duplicateOfLab}" /></b>.</p>
+                                        <p><b>Warning:</b> You are viewing a version of a lab result that is a duplicate of previously received version <b>v${e:forHtml(duplicateOfLab)}</b>.</p>
                                     </div>
                         </td>
                     </tr>
@@ -2399,8 +2399,8 @@ input[id^='acklabel_']{
                             <table class="test-list" >
                                 <c:forEach var="entry" items="${missingTests}">
                                     <tr>
-                                        <td><span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<c:out value="${entry.key}"/></span></td>
-                                        <td><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="status"><c:out value="${entry.value.description}"/></span></b></td>
+                                        <td><span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${e:forHtml(entry.key)}</span></td>
+                                        <td><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="status">${e:forHtml(entry.value.description)}</span></b></td>
                                     </tr>
                                 </c:forEach>
                                     <tr>

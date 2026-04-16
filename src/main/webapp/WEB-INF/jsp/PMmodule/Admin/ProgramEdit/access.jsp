@@ -48,7 +48,7 @@
 		value="No access currently defined for this program." />
 	<display:column sortable="false" title="">
 		<a href="javascript:void(0);"
-			onclick="deleteAccess('<c:out value="${access.id}"/>');return false;">
+			onclick="deleteAccess('${e:forJavaScript(access.id)}');return false;">
 		Delete </a>
 	</display:column>
 	<display:column property="accessType.name" sortable="true" title="Name" />
@@ -57,7 +57,7 @@
 	<display:column sortable="true" title="Role(s)">
 		<ul>
 			<c:forEach var="role" items="${access.roles}">
-				<li><c:out value="${role.name}" /></li>
+				<li>${e:forHtml(role.name)}</li>
 			</c:forEach>
 		</ul>
 	</display:column>
@@ -80,8 +80,8 @@
 	<tr class="b">
 		<td width="20%">Roles:</td>
 		<td><c:forEach var="role" items="${roles}">
-			<input name="checked_role" value="<c:out value="${role.id}"/>"
-				type="checkbox" />&nbsp;<c:out value="${role.name}" />
+			<input name="checked_role" value="${e:forHtmlAttribute(role.id)}"
+				type="checkbox" />&nbsp;${e:forHtml(role.name)}
 			<br />
 		</c:forEach></td>
 	</tr>

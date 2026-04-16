@@ -25,7 +25,7 @@
 
         <%-- Consumption indicator --%>
         <div class="d-flex align-items-center gap-1 me-2" style="font-size: 9px; font-variant: small-caps; font-weight: bold;">
-            <span><c:out value="${consumption}"/>%</span>
+            <span>${e:forHtml(consumption)}%</span>
             <div style="width: 80px; height: 12px; background-color: white; border: 1px solid #ccc; border-radius: 2px; overflow: hidden;">
                 <div style="width: <e:forHtmlAttribute value='${consumption}'/>%; height: 100%; background-color: <e:forHtmlAttribute value='${consumptionColor}'/>;" ></div>
             </div>
@@ -44,7 +44,7 @@
     </div>
     <div class="card-body">
         <textarea name="enTextarea" tabindex="7" wrap="hard" cols="90"
-                  style="height:<e:forHtmlAttribute value='${rowThreeSize}'/>;overflow:auto"><c:out value="${encounterText}"/></textarea>
+                  style="height:<e:forHtmlAttribute value='${rowThreeSize}'/>;overflow:auto">${e:forHtml(encounterText)}</textarea>
     </div>
 </div>
 

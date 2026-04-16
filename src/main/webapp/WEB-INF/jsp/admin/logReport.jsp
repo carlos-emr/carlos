@@ -38,6 +38,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -232,15 +233,15 @@ for (int i = 0; i < vec.size(); i++) {
     color = i%2==0?tdInterlColor:"white";
 %>
         <tr bgcolor="<%=color %>" align="center">
-            <td><c:out value='<%=prop.getProperty("dateTime")%>'/></td>
-            <td><c:out value='<%=prop.getProperty("action")%>'/></td>
-            <td><c:out value='<%=prop.getProperty("content")%>'/></td>
-            <td><c:out value='<%=prop.getProperty("contentId")%>'/></td>
-            <td><c:out value='<%=prop.getProperty("ip")%>'/></td>
+            <td><%= org.owasp.encoder.Encode.forHtml(prop.getProperty("dateTime")) %></td>
+            <td><%= org.owasp.encoder.Encode.forHtml(prop.getProperty("action")) %></td>
+            <td><%= org.owasp.encoder.Encode.forHtml(prop.getProperty("content")) %></td>
+            <td><%= org.owasp.encoder.Encode.forHtml(prop.getProperty("contentId")) %></td>
+            <td><%= org.owasp.encoder.Encode.forHtml(prop.getProperty("ip")) %></td>
             <% if (bAll) { %>
-            <td><c:out value='<%=propName.getProperty(prop.getProperty("provider_no"), "")%>'/></td>
+            <td><%= org.owasp.encoder.Encode.forHtml(propName.getProperty(prop.getProperty("provider_no"), "")) %></td>
             <% } %>
-            <td><c:out value='<%=prop.getProperty("demographic_no")%>'/></td>
+            <td><%= org.owasp.encoder.Encode.forHtml(prop.getProperty("demographic_no")) %></td>
             <td><%=prop.getProperty("data") %></td>
         </tr>
 

@@ -34,6 +34,7 @@
 <!DOCTYPE html>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
@@ -120,8 +121,8 @@
                                 <tr>
                                     <td><input type="checkbox" value="${i.index}"
                                                name="resourceId"/></td>
-                                    <td><c:out value="${u.resourceType}"/></td>
-                                    <td><c:out value="${u.description}"/></td>
+                                    <td>${e:forHtml(u.resourceType)}</td>
+                                    <td>${e:forHtml(u.description)}</td>
                                 </tr>
                             </c:forEach>
                         </table>

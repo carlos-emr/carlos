@@ -49,6 +49,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
 <%
@@ -852,7 +853,7 @@
         </form>
 
         <form name="ticklerform" method="post" action="DbTicklerMain">
-            <input type="hidden" name="parentAjaxId" value="<c:out value='${param.parentAjaxId}' />"/>
+            <input type="hidden" name="parentAjaxId" value="${e:forHtmlAttribute(param.parentAjaxId)}"/>
             <table id="ticklerResults" class="table table-striped table-sm" style="width:100%">
                 <thead>
                 <tr>

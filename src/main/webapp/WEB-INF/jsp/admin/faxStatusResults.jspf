@@ -104,10 +104,10 @@ if(!authed) {
 			<td id="faxType_<%=faxJob.getId()%>" class="small"><%=type%></td>
 			<td class="small"><%=Encode.forHtmlContent(providerName)%>(<%=faxJob.getUser()%>)</td>
 			<td id="patientName_<%=faxJob.getId()%>" class="small"><%=Encode.forHtmlContent(demographicName)%></td>
-			<td class="small"><c:out value="<%=faxJob.getRecipient()%>" /></td>
-			<td id="status<%=count%>" class="small" ><c:out value="<%=faxJob.getStatus()%>" /></td>
+			<td class="small"><%= org.owasp.encoder.Encode.forHtml(faxJob.getRecipient()) %></td>
+			<td id="status<%=count%>" class="small" ><%= org.owasp.encoder.Encode.forHtml(faxJob.getStatus()) %></td>
 			<td class="small" title="<%=Encode.forHtmlAttribute(faxJob.getStatusString())%>" style="max-width: 150px; width: 100px; text-overflow: ellipsis; overflow: hidden;">
-			<c:out value="<%=faxJob.getStatusString()%>" /></td>
+			<%= org.owasp.encoder.Encode.forHtml(faxJob.getStatusString()) %></td>
 			<td class="small"><%=DateFormatUtils.format(faxJob.getStamp(), "yyyy-MM-dd HH:mm:ss")%></td>
 			<td class="small">
 <div class="btn-group">

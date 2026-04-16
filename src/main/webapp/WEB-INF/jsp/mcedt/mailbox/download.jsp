@@ -33,6 +33,7 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
@@ -118,7 +119,7 @@
             <select name="serviceId" id="serviceId" class="serviceId">
                 <c:forEach var="r" items="${serviceIds}">
                     <option value="${r}" <c:if test="${r == serviceId}">selected</c:if>>
-                        <c:out value="${r}" />
+                        ${e:forHtml(r)}
                     </option>
                 </c:forEach>
             </select>
@@ -127,7 +128,7 @@
             <select name="pageNo" id="pageNo">
                 <c:forEach var="i" begin="1" end="${resultSize}">
                     <option value="${i}" <c:if test="${i == pageNo}">selected</c:if>>
-                        <c:out value="${i}" />
+                        ${e:forHtml(i)}
                     </option>
                 </c:forEach>
             </select>
@@ -158,13 +159,13 @@
                     <c:forEach var="r" items="${resourceListDL}" varStatus="loopStatus">
                         <tr bgcolor="${loopStatus.index % 2 == 0 ? '#FFF' : '#EEE'}">
                             <td><input type="checkbox" value="${r.resourceID}" name="resourceId"/></td>
-                            <td><c:out value="${r.resourceID}"/></td>
+                            <td>${e:forHtml(r.resourceID)}</td>
                             <td>
                                 <fmt:formatDate value="${i:toDate(r.createTimestamp)}" pattern="MM/dd/yyyy hh:mm"/>
                             </td>
-                            <td><c:out value="${r.resourceType}"/></td>
-                            <td><c:out value="${r.description}"/></td>
-                            <td><c:out value="${r.status}"/></td>
+                            <td>${e:forHtml(r.resourceType)}</td>
+                            <td>${e:forHtml(r.description)}</td>
+                            <td>${e:forHtml(r.status)}</td>
                         </tr>
                     </c:forEach>
                     </tbody>

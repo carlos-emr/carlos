@@ -74,10 +74,10 @@
             <td class="MainTableRightColumn">
                 <%if (request.getAttribute("status") == null) {%>
                 <form action="${pageContext.request.contextPath}/setTicklerPreferences" method="post">
-                    <input type="hidden" name="method" value="<c:out value="${method}"/>">
+                    <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
 
                     <h2>Default Tickler Task Assignee:</h2>
-                    <h3><c:out value="${providerMsg}"/></h3>
+                    <h3>${e:forHtml(providerMsg)}</h3>
 
                     <input type="radio" id="taskAssigneeDefault" name="taskAssigneeMRP.value" value="default"
                         <c:if test="${taskAssigneeMRPValue == 'default'}">checked</c:if> onclick="checkAssignee()" /> Default

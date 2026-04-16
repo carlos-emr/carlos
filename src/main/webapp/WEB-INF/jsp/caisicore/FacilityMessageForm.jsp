@@ -124,12 +124,10 @@
                     <c:choose>
                         <c:when
                                 test="${facility.id == facilityMessageForm.map.facility_message.facilityId}">
-                            <option value="<c:out value="${facility.id}"/>" selected><c:out
-                                    value="${facility.name}"/></option>
+                            <option value="${e:forHtmlAttribute(facility.id)}" selected>${e:forHtml(facility.name)}</option>
                         </c:when>
                         <c:otherwise>
-                            <option value="<c:out value="${facility.id}"/>"><c:out
-                                    value="${facility.name}"/></option>
+                            <option value="${e:forHtmlAttribute(facility.id)}">${e:forHtml(facility.name)}</option>
                         </c:otherwise>
                     </c:choose>
                 </c:forEach>
@@ -145,12 +143,10 @@
                         <c:choose>
                             <c:when
                                     test="${program.id == facilityMessageForm.map.facility_message.programId}">
-                                <option value="<c:out value="${program.id}"/>" selected><c:out
-                                        value="${program.name}"/></option>
+                                <option value="${e:forHtmlAttribute(program.id)}" selected>${e:forHtml(program.name)}</option>
                             </c:when>
                             <c:otherwise>
-                                <option value="<c:out value="${program.id}"/>"><c:out
-                                        value="${program.name}"/></option>
+                                <option value="${e:forHtmlAttribute(program.id)}">${e:forHtml(program.name)}</option>
                             </c:otherwise>
                         </c:choose>
 

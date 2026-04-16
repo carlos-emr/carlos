@@ -24,7 +24,7 @@
         <%-- Server-side configuration for encounter.js --%>
         <script type="text/javascript">
             var encounterConfig = {
-                ctx: "<c:out value='${ctx}'/>",
+                ctx: "${e:forJavaScript(ctx)}",
                 patientSex: "<e:forJavaScript value='${bean.patientSex}'/>",
                 pAge: "<e:forJavaScript value='${pAge}'/>",
                 popUrl: <c:choose><c:when test="${not empty popUrl}">"<e:forJavaScript value='${popUrl}'/>"</c:when><c:otherwise>null</c:otherwise></c:choose>,
@@ -37,37 +37,37 @@
                     popupSearchPageWindow: "<fmt:message key='encounter.Index.popupSearchPageWindow'/>"
                 },
                 images: {
-                    expand: "<c:out value='${ctx}'/>/encounter/graphics/expand.gif",
-                    collapse: "<c:out value='${ctx}'/>/messenger/img/collapse.gif",
-                    transparent: "<c:out value='${ctx}'/>/images/clear.gif"
+                    expand: "${e:forJavaScript(ctx)}/encounter/graphics/expand.gif",
+                    collapse: "${e:forJavaScript(ctx)}/messenger/img/collapse.gif",
+                    transparent: "${e:forJavaScript(ctx)}/images/clear.gif"
                 },
                 urls: {
                     navSections: {
-                        preventions: "<c:out value='${ctx}'/>/encounter/displayPrevention?hC=009999",
-                        tickler: "<c:out value='${ctx}'/>/encounter/displayTickler?hC=FF6600",
-                        Dx: "<c:out value='${ctx}'/>/encounter/displayDisease?hC=5A5A5A",
-                        forms: "<c:out value='${ctx}'/>/encounter/displayForms?hC=917611",
-                        eforms: "<c:out value='${ctx}'/>/encounter/displayEForms?hC=11CC00",
-                        docs: "<c:out value='${ctx}'/>/encounter/displayDocuments?hC=476BB3",
-                        labs: "<c:out value='${ctx}'/>/encounter/displayLabs?hC=A0509C",
-                        HRM: "<c:out value='${ctx}'/>/encounter/displayHRM?hC=28A0A8",
-                        msgs: "<c:out value='${ctx}'/>/encounter/displayMessages?hC=DDDD00",
-                        measurements: "<c:out value='${ctx}'/>/encounter/displayMeasurements?hC=344887",
-                        consultation: "<c:out value='${ctx}'/>/encounter/displayConsultation"
+                        preventions: "${e:forJavaScript(ctx)}/encounter/displayPrevention?hC=009999",
+                        tickler: "${e:forJavaScript(ctx)}/encounter/displayTickler?hC=FF6600",
+                        Dx: "${e:forJavaScript(ctx)}/encounter/displayDisease?hC=5A5A5A",
+                        forms: "${e:forJavaScript(ctx)}/encounter/displayForms?hC=917611",
+                        eforms: "${e:forJavaScript(ctx)}/encounter/displayEForms?hC=11CC00",
+                        docs: "${e:forJavaScript(ctx)}/encounter/displayDocuments?hC=476BB3",
+                        labs: "${e:forJavaScript(ctx)}/encounter/displayLabs?hC=A0509C",
+                        HRM: "${e:forJavaScript(ctx)}/encounter/displayHRM?hC=28A0A8",
+                        msgs: "${e:forJavaScript(ctx)}/encounter/displayMessages?hC=DDDD00",
+                        measurements: "${e:forJavaScript(ctx)}/encounter/displayMeasurements?hC=344887",
+                        consultation: "${e:forJavaScript(ctx)}/encounter/displayConsultation"
                     },
                     leftNavbar: {
-                        preventions: "<c:out value='${ctx}'/>/encounter/displayPrevention?hC=009999",
-                        tickler: "<c:out value='${ctx}'/>/encounter/displayTickler?hC=FF6600",
-                        Dx: "<c:out value='${ctx}'/>/encounter/displayDisease?hC=5A5A5A",
-                        forms: "<c:out value='${ctx}'/>/encounter/displayForms?hC=917611",
-                        eforms: "<c:out value='${ctx}'/>/encounter/displayEForms?hC=11CC00",
-                        docs: "<c:out value='${ctx}'/>/encounter/displayDocuments?hC=476BB3",
-                        labs: "<c:out value='${ctx}'/>/encounter/displayLabs?hC=A0509C",
-                        HRM: "<c:out value='${ctx}'/>/encounter/displayHRM?hC=28A0A8",
-                        msgs: "<c:out value='${ctx}'/>/encounter/displayMessages?hC=DDDD00",
-                        measurements: "<c:out value='${ctx}'/>/encounter/displayMeasurements?hC=344887",
-                        consultation: "<c:out value='${ctx}'/>/encounter/displayConsultation?hC=",
-                        eConsult: "<c:out value='${ctx}'/>/encounter/displayEconsultation"
+                        preventions: "${e:forJavaScript(ctx)}/encounter/displayPrevention?hC=009999",
+                        tickler: "${e:forJavaScript(ctx)}/encounter/displayTickler?hC=FF6600",
+                        Dx: "${e:forJavaScript(ctx)}/encounter/displayDisease?hC=5A5A5A",
+                        forms: "${e:forJavaScript(ctx)}/encounter/displayForms?hC=917611",
+                        eforms: "${e:forJavaScript(ctx)}/encounter/displayEForms?hC=11CC00",
+                        docs: "${e:forJavaScript(ctx)}/encounter/displayDocuments?hC=476BB3",
+                        labs: "${e:forJavaScript(ctx)}/encounter/displayLabs?hC=A0509C",
+                        HRM: "${e:forJavaScript(ctx)}/encounter/displayHRM?hC=28A0A8",
+                        msgs: "${e:forJavaScript(ctx)}/encounter/displayMessages?hC=DDDD00",
+                        measurements: "${e:forJavaScript(ctx)}/encounter/displayMeasurements?hC=344887",
+                        consultation: "${e:forJavaScript(ctx)}/encounter/displayConsultation?hC=",
+                        eConsult: "${e:forJavaScript(ctx)}/encounter/displayEconsultation"
                     }
                 },
                 calculators: [

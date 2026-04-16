@@ -4,6 +4,7 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c"%>
 
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi"%>
 <%@ page import="io.github.carlos_emr.carlos.utility.*"%>
 <%@ page import="io.github.carlos_emr.carlos.caisi.CaisiUtil" %>
@@ -103,12 +104,10 @@ function submitStatus(ctrl) {// only place other than infirmaction.java to set i
 		<c:forEach var="status" items="${program_client_statuses}">
 			<c:choose>
 				<c:when test="${infirmaryView_clientStatusId == status.id}">
-					<option selected value="<c:out value="${status.id}"/>"><c:out
-						value="${status.name}" /></option>
+					<option selected value="${e:forHtmlAttribute(status.id)}">${e:forHtml(status.name)}</option>
 				</c:when>
 				<c:otherwise>
-					<option value="<c:out value="${status.id}"/>"><c:out
-						value="${status.name}" /></option>
+					<option value="${e:forHtmlAttribute(status.id)}">${e:forHtml(status.name)}</option>
 				</c:otherwise>
 			</c:choose>
 

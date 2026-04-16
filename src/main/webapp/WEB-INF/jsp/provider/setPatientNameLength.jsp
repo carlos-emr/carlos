@@ -54,9 +54,9 @@
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title><%=bundle.getString(providertitle)%></title>
-        <script src="<c:out value="${ctx}"/>/share/javascript/provider_form_validations.js"></script>
-        <script src="<c:out value="${ctx}"/>/js/global.js"></script>
-        <link href="<c:out value="${ctx}"/>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
+        <script src="${e:forHtmlAttribute(ctx)}/share/javascript/provider_form_validations.js"></script>
+        <script src="${e:forHtmlAttribute(ctx)}/js/global.js"></script>
+        <link href="${e:forHtmlAttribute(ctx)}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
 
     </head>
 
@@ -78,12 +78,12 @@
                 <%=bundle.getString(providermsgEdit)%>
 
                 <form id="providerForm" action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
-                    <input type="hidden" name="method" value="<c:out value="${method}"/>">
+                    <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
                     <p id="errorMessage" class="alert alert-danger" style="display: none; color: red;">
                         Invalid input.
                     </p>
                     <fmt:message key="provider.patientNameLength.title"/>
-                    <input type="text" id="numericFormField" name="patientNameLength.value" value="<c:out value='${length.value}'/>" />
+                    <input type="text" id="numericFormField" name="patientNameLength.value" value="${e:forHtmlAttribute(length.value)}" />
                     <br/>
                     <input type="submit" name="submit" value="Apply" class="btn btn-primary" />
                 </form>

@@ -47,6 +47,7 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_report" rights="r" reverse="<%=true%>">
     <%
@@ -132,14 +133,14 @@
             <%}%>
 
     <h3>
-        <c:out value="${ curreport.title }"/><br>
-        <small><c:out value="${ curreport.description }"/></small>
+        ${e:forHtml(curreport.title)}<br>
+        <small>${e:forHtml(curreport.description)}</small>
     </h3>
 
     <c:if test="${ not empty errormsg }">
     <div class="alert alert-danger">
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        <c:out value="${ errormsg }"/>
+        ${e:forHtml(errormsg)}
     </div>
     </c:if>
 

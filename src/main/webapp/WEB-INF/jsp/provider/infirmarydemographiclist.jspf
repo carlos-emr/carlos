@@ -1,4 +1,5 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
@@ -88,14 +89,14 @@
 									</a>
 							</c:when>
 							<c:otherwise>
-								<b><c:out value="${de.label}"/></b>
+								<b>${e:forHtml(de.label)}</b>
 							</c:otherwise>
 						</c:choose>
 					</c:if>
 
 					<!-- Display demographic link -->
 					<a href="#" onclick="location.href="<%= request.getContextPath() %>/PMmodule/ClientManager?id=${demographic_no}"">
-						<c:out value="${de.label}"/>
+						${e:forHtml(de.label)}
 					</a>
 
 					<!-- Conditionally add encounter link based on bShowEncounterLink -->

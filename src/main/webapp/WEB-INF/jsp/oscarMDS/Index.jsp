@@ -25,6 +25,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;
@@ -209,8 +210,7 @@
                                 <summary>
                                     <a id="totalAll" href="javascript:void(0);"
                                        onclick="un_bold(this);changeView(CATEGORY_ALL);">
-                                        All (<span id="totalNumDocs"><c:out
-                                            value="${requestScope.categoryData.totalNumDocs}"/></span>)
+                                        All (<span id="totalNumDocs">${e:forHtml(requestScope.categoryData.totalNumDocs)}</span>)
                                     </a>
                                 </summary>
                                 <ul>
@@ -219,8 +219,7 @@
                                         <li>
                                             <a id="totalDocs" href="javascript:void(0);"
                                                onclick="un_bold(this);changeView(CATEGORY_DOCUMENTS);"
-                                               title="Documents">Documents (<span id="totalDocsNum"><c:out
-                                                    value="${requestScope.categoryData.totalDocs}"/></span>)
+                                               title="Documents">Documents (<span id="totalDocsNum">${e:forHtml(requestScope.categoryData.totalDocs)}</span>)
                                             </a>
                                         </li>
                                     </c:if>
@@ -229,8 +228,7 @@
                                         <li>
                                             <a id="totalHL7s" href="javascript:void(0);"
                                                onclick="un_bold(this);changeView(CATEGORY_HL7);" title="HL7">
-                                                HL7 (<span id="totalHL7Num"><c:out
-                                                    value="${requestScope.categoryData.totalLabs}"/></span>)
+                                                HL7 (<span id="totalHL7Num">${e:forHtml(requestScope.categoryData.totalLabs)}</span>)
                                             </a>
                                         </li>
                                     </c:if>
@@ -257,8 +255,7 @@
                                 <summary>
                                     <a id="patient0all" href="javascript:void(0);"
                                        onclick="un_bold(this);changeView(CATEGORY_PATIENT,0)"
-                                       title="Unmatched">Unmatched (<span id="patientNumDocs0"><c:out
-                                            value="${requestScope.categoryData.unmatchedDocs + requestScope.categoryData.unmatchedLabs}"/></span>)
+                                       title="Unmatched">Unmatched (<span id="patientNumDocs0">${e:forHtml(requestScope.categoryData.unmatchedDocs + requestScope.categoryData.unmatchedLabs)}</span>)
                                     </a>
                                 </summary>
 
@@ -268,8 +265,7 @@
                                             <a id="patient0docs" href="javascript:void(0);"
                                                onclick="un_bold(this);changeView(CATEGORY_PATIENT_SUB,0,CATEGORY_TYPE_DOC);"
                                                title="Documents">
-                                                Documents (<span id="pDocNum_0"><c:out
-                                                    value="${requestScope.categoryData.unmatchedDocs}"/></span>)
+                                                Documents (<span id="pDocNum_0">${e:forHtml(requestScope.categoryData.unmatchedDocs)}</span>)
                                             </a>
                                         </li>
                                     </c:if>
@@ -278,8 +274,7 @@
                                             <a id="patient0hl7s" href="javascript:void(0);"
                                                onclick="un_bold(this);changeView(CATEGORY_PATIENT_SUB,0,CATEGORY_TYPE_HL7);"
                                                title="HL7">
-                                                HL7 (<span id="pLabNum_0"><c:out
-                                                    value="${requestScope.categoryData.unmatchedLabs}"/></span>)
+                                                HL7 (<span id="pLabNum_0">${e:forHtml(requestScope.categoryData.unmatchedLabs)}</span>)
                                             </a>
                                         </li>
                                     </c:if>
@@ -313,8 +308,8 @@
                                             <summary>
                                                 <a id="patient${patientId}all" href="javascript:void(0);"
                                                    onclick="un_bold(this);changeView(CATEGORY_PATIENT,${patientId});"
-                                                   title="<c:out value='${patientName}' />">
-                                                    <c:out value='${patientName}'/> (<span
+                                                   title="${e:forHtmlAttribute(patientName)}">
+                                                    ${e:forHtml(patientName)} (<span
                                                         id="patientNumDocs${patientId}">${numDocs}</span>)
                                                 </a>
                                             </summary>

@@ -35,7 +35,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                     <e:forHtmlContent value='${labResult.patientName}' />
                 </div>
                 <iframe
-                    src="${e:forHtml(labLinks[loopStatus.index])}"
+                    src="${e:forHtmlAttribute(labLinks[loopStatus.index])}"
                     width="100%"
                     height="100%"
                     style="padding-bottom: 25px;"

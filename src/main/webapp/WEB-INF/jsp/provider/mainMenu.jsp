@@ -29,6 +29,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -280,7 +281,7 @@
                                                 <li>
                                                     <a href="javascript:void(0)"
                                                        onclick="newWindow('<%=request.getContextPath()%>/web/dashboard/display/DashboardDisplay?method=getDashboard&dashboardId=${ dashboard.id }','dashboard')">
-                                                        <c:out value="${ dashboard.name }"/>
+                                                        ${e:forHtml(dashboard.name)}
                                                     </a>
                                                 </li>
                                             </c:forEach>
@@ -350,7 +351,7 @@
                         <span class="fa-solid fa-user"></span>
 
                         <span>
-                                <c:out value='<%= userfirstname + " " + userlastname %>'/>
+                                <%= org.owasp.encoder.Encode.forHtml(userfirstname + " " + userlastname) %>
                             </span>
                         <security:oscarSec roleName="<%=roleName$%>" objectName="_pref" rights="r">
                     </a>

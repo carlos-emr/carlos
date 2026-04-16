@@ -30,6 +30,7 @@
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <script class="include" type="text/javascript"
         src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
 <link rel="stylesheet" href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css">
@@ -71,7 +72,7 @@
                     <option value="" selected></option>
                     <c:forEach items="${ ticklerCategories }" var="ticklerCategory">
                         <option title="${ ticklerCategory.description }" value="${ ticklerCategory.id }">
-                            <c:out value="${ ticklerCategory.category }"/>
+                            ${e:forHtml(ticklerCategory.category)}
                         </option>
                     </c:forEach>
                 </select>
@@ -87,7 +88,7 @@
                     <option value=""></option>
                     <c:forEach items="${ providers }" var="provider">
                         <option value="${ provider.providerNo }">
-                            <c:out value="${ provider.formattedName }"/>
+                            ${e:forHtml(provider.formattedName)}
                         </option>
                     </c:forEach>
                 </select>
@@ -152,8 +153,7 @@
                     <ul class="dropdown-menu" style="height:300px;overflow-y:scroll;">
                         <c:forEach items="${ textSuggestions }" var="textSuggestion">
                             <li>
-                                <a class="dropdown-item select-tickler-message" href="#"><c:out
-                                        value="${ textSuggestion.suggestedText }"/></a>
+                                <a class="dropdown-item select-tickler-message" href="#">${e:forHtml(textSuggestion.suggestedText)}</a>
                             </li>
                         </c:forEach>
                     </ul>

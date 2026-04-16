@@ -43,6 +43,7 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_report" rights="r" reverse="<%=true%>">
     <%
@@ -75,8 +76,8 @@
 
     <%@ include file="rbtTopNav.jspf" %>
     <h3>
-        <c:out value="${ curreport.title }"/><br/>
-        <small><c:out value="${ curreport.description }"/></small>
+        ${e:forHtml(curreport.title)}<br/>
+        <small>${e:forHtml(curreport.description)}</small>
     </h3>
 
 

@@ -37,6 +37,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
 <html>
     <head>
@@ -88,8 +89,8 @@
                                         <td>
                                     <tr>
                                         <td align="left"><fmt:message key="encounter.oscarMeasurements.SelectMeasurementGroup.msgCurrentStyleSheet"/>
-                                            <c:out value='${groupName}'/>: <c:if test="${not empty css}">
-                                                <c:out value="${css}"/>
+                                            ${e:forHtml(groupName)}: <c:if test="${not empty css}">
+                                                ${e:forHtml(css)}
                                             </c:if></td>
                                     <tr>
                                         <td><fmt:message key="encounter.oscarMeasurements.SelectMeasurementGroup.msgChangeTo"/>:
@@ -114,7 +115,7 @@
                                                    value="<fmt:message key="global.btnCancel"/>"
                                                    onClick="window.close()"></td>
                                         <input type="hidden" name="groupName"
-                                               value="<c:out value='${groupName}'/>"/>
+                                               value="${e:forHtmlAttribute(groupName)}"/>
                                     </tr>
                                 </table>
                             </td>

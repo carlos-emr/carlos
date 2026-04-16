@@ -30,6 +30,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve variables from request attributes (set by DemographicAdd2Action) --%>
 <%
@@ -532,12 +533,12 @@
                                     <tr class="privacyConsentRow" id="${ count.index }">
                                         <td class="alignRight" style="width:16%;vertical-align:top;">
                                             <div style="font-weight:bold;white-space:nowrap;">
-                                                <c:out value="${ consentType.name }"/>
+                                                ${e:forHtml(consentType.name)}
                                             </div>
                                         </td>
 
                                         <td colspan="2" style="padding-left:10px;vertical-align:top;">
-                                            <c:out value="${ consentType.description }"/>
+                                            ${e:forHtml(consentType.description)}
                                         </td>
 
                                         <td id="consentStatusDate" style="width:31%;vertical-align:top;">

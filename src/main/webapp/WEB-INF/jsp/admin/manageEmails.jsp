@@ -287,9 +287,7 @@
                             <option value="-1">All</option>
                             <c:forEach items="${ senderAccountList }" var="senderAccount">
                                 <option value="${ senderAccount.senderEmail }">
-                                    <c:out value="${ senderAccount.senderFirstName }"/> <c:out
-                                        value="${ senderAccount.senderLastName }"/> <c:out
-                                        value="(${ senderAccount.senderEmail })"/>
+                                    ${e:forHtml(senderAccount.senderFirstName)} ${e:forHtml(senderAccount.senderLastName)} ${e:forHtml('(${ senderAccount.senderEmail })')}
                                 </option>
                             </c:forEach>
                         </select>
@@ -300,7 +298,7 @@
                             <option value="-1">All</option>
                             <c:forEach items="${ emailStatusList }" var="status">
                                 <option value="${ status }">
-                                    <c:out value="${ status }"/>
+                                    ${e:forHtml(status)}
                                 </option>
                             </c:forEach>
                         </select>

@@ -399,7 +399,7 @@
 
             <%}%>
 
-Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.displayName ? requestScope.displayName : param.displayName}" />(<%=Encode.forHtml(flowsheet)%>)</span>
+Flowsheet: <span style="font-weight:normal">${e:forHtml(requestScope.displayName ? requestScope.displayName : param.displayName)}(<%=Encode.forHtml(flowsheet)%>)</span>
         </h4>
         <span class="mode-toggle">
 		  	<% if (scope == null) {

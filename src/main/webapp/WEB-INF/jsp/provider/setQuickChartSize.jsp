@@ -51,7 +51,7 @@
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title><%=bundle.getString(providertitle)%></title>
-        <script src="<c:out value="${ctx}"/>/share/javascript/provider_form_validations.js"></script>
+        <script src="${e:forHtmlAttribute(ctx)}/share/javascript/provider_form_validations.js"></script>
         <script src="<%= request.getContextPath() %>/js/global.js"></script>
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
     </head>
@@ -73,11 +73,11 @@
                 <%=bundle.getString(providermsgEdit)%>
 
                 <form id="providerForm" action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
-                    <input type="hidden" name="method" value="<c:out value="${method}"/>">
+                    <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
                     <p id="errorMessage" class="alert alert-danger" style="display: none; color: red;">
                         Invalid input.
                     </p>
-                    Number of Notes : <input type="text" id="numericFormField" name="quickChartSize.value" value="<c:out value='${size.value}'/>" size="5"/>
+                    Number of Notes : <input type="text" id="numericFormField" name="quickChartSize.value" value="${e:forHtmlAttribute(size.value)}" size="5"/>
                     <br/>
                     <input type="submit" name="submit" value="Apply"class="btn btn-primary" />
                 </form>

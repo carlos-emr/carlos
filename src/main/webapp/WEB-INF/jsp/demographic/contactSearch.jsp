@@ -176,9 +176,9 @@
                 onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
                 onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<%=Encode.forHtmlAttribute(strOnClick)%>">
                 <td></td>
-                <td><c:out value="${contact.lastName}"/></td>
-                <td><c:out value="${contact.firstName}"/></td>
-                <td><c:out value="${contact.residencePhone}"/></td>
+                <td>${e:forHtml(contact.lastName)}</td>
+                <td>${e:forHtml(contact.firstName)}</td>
+                <td>${e:forHtml(contact.residencePhone)}</td>
             </tr>
         </c:forEach>
 

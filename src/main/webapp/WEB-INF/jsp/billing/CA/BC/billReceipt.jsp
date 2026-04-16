@@ -299,7 +299,7 @@
                                                                 <td class="secHead" align="left">
                                                                     <h2> INVOICE -
 
-                                                                        <c:out value="${ billingViewBean.billingNo }"/>
+                                                                        ${e:forHtml(billingViewBean.billingNo)}
                                                                     </h2>
                                                                 </td>
                                                                 <%
@@ -405,20 +405,20 @@
                                             <table width="100%" border="0" cellspacing="2" cellpadding="2">
                                                 <tr>
                                                     <td colspan="2" valign="top" class="secHead">
-                                                        Patient (<c:out value="${ billingViewBean.patientPHN }"/>)
+                                                        Patient (${e:forHtml(billingViewBean.patientPHN)})
                                                     </td>
                                                 </tr>
                                                 <tr>
                                                     <td height="64" colspan="2" valign="top">
                                                         <strong>Name:</strong>
-                                                        <c:out value="${ billingViewBean.patientLastName }"/>,
-                                                        <c:out value="${ billingViewBean.patientFirstName }"/>
+                                                        ${e:forHtml(billingViewBean.patientLastName)},
+                                                        ${e:forHtml(billingViewBean.patientFirstName)}
                                                         <br>
                                                         <strong>Address:</strong>
 
                                                         <div style="padding-left: 5px;">
-                                                            <c:out value="<%=demo.getAddress()%>"/><br>
-                                                            <c:out value="<%=demo.getCity()%>"/>,
+                                                            <%= org.owasp.encoder.Encode.forHtml(demo.getAddress()) %><br>
+                                                            <%= org.owasp.encoder.Encode.forHtml(demo.getCity()) %>,
                                                             <%=demo.getProvince()%><br>
                                                             <%=Encode.forHtmlContent(demo.getPostal())%>
                                                         </div>
@@ -449,15 +449,13 @@
                                                     <td>Ref. Type 2</td>
                                                 </tr>
                                                 <tr align="center">
-                                                    <td><c:out value="${ billingViewBean.serviceDate }"/></td>
-                                                    <td><c:out
-                                                            value="<%=billform.getProviderName(bean.getApptProviderNo())%>"/></td>
-                                                    <td><c:out
-                                                            value="<%=billform.getProviderName(bean.getBillingProvider())%>"/></td>
-                                                    <td><c:out value="${ billingViewBean.referral1 }"/></td>
-                                                    <td><c:out value="${ billingViewBean.referType1 }"/></td>
-                                                    <td><c:out value="${ billingViewBean.referral2 }"/></td>
-                                                    <td><c:out value="${ billingViewBean.referType2 }"/></td>
+                                                    <td>${e:forHtml(billingViewBean.serviceDate)}</td>
+                                                    <td><%= org.owasp.encoder.Encode.forHtml(billform.getProviderName(bean.getApptProviderNo())) %></td>
+                                                    <td><%= org.owasp.encoder.Encode.forHtml(billform.getProviderName(bean.getBillingProvider())) %></td>
+                                                    <td>${e:forHtml(billingViewBean.referral1)}</td>
+                                                    <td>${e:forHtml(billingViewBean.referType1)}</td>
+                                                    <td>${e:forHtml(billingViewBean.referral2)}</td>
+                                                    <td>${e:forHtml(billingViewBean.referType2)}</td>
                                                 </tr>
                                             </table>
                                         </td>
@@ -565,7 +563,7 @@
                                                             <c:if test="${ not empty billingViewBean.defaultPayeeInfo }">
                                                                 <tr>
                                                                     <td class="title4 payeeInfo">
-                                                                        <c:out value="${ billingViewBean.defaultPayeeInfo }"/>
+                                                                        ${e:forHtml(billingViewBean.defaultPayeeInfo)}
                                                                     </td>
                                                                 </tr>
                                                             </c:if>
@@ -580,26 +578,22 @@
                                                                 <% SystemPreferences invoiceClinicInfo = systemPreferencesDao.findPreferenceByName(SystemPreferences.GENERAL_SETTINGS_KEYS.invoice_use_custom_clinic_info);
                                                                     if (invoiceClinicInfo == null || StringUtils.isNullOrEmpty(invoiceClinicInfo.getValue())) { %>
                                                                 <td class="title4">
-                                                                    <c:out value="<%=clinic.getClinicName()%>"/>
+                                                                    <%= org.owasp.encoder.Encode.forHtml(clinic.getClinicName()) %>
                                                                 </td>
                                                             </tr>
                                                             <tr>
-                                                                <td class="address"><c:out
-                                                                        value='<%=clinic.getClinicAddress()+", "+clinic.getClinicCity()+", "+clinic.getClinicProvince()+" "+clinic.getClinicPostal()%>'/></td>
+                                                                <td class="address"><%= org.owasp.encoder.Encode.forHtml(clinic.getClinicAddress()+", "+clinic.getClinicCity()+", "+clinic.getClinicProvince()+" "+clinic.getClinicPostal()) %></td>
                                                             </tr>
                                                             <tr>
-                                                                <td class="address" id="Phone"> Telephone: <c:out
-                                                                        value="<%=vecPhones.size() >= 1 ? vecPhones.elementAt(0) : clinic.getClinicPhone()%>"/></td>
+                                                                <td class="address" id="Phone"> Telephone: <%= org.owasp.encoder.Encode.forHtml(vecPhones.size() >= 1 ? vecPhones.elementAt(0) : clinic.getClinicPhone()) %></td>
                                                             </tr>
                                                             <tr>
-                                                                <td class="address" id="Fax"> Fax: <c:out
-                                                                        value="<%=vecFaxes.size() >= 1 ? vecFaxes.elementAt(0) : clinic.getClinicFax()%>"/></td>
+                                                                <td class="address" id="Fax"> Fax: <%= org.owasp.encoder.Encode.forHtml(vecFaxes.size() >= 1 ? vecFaxes.elementAt(0) : clinic.getClinicFax()) %></td>
                                                                 <% } else {
                                                                     SystemPreferences customInvoiceClinicInfo = systemPreferencesDao.findPreferenceByName(SystemPreferences.GENERAL_SETTINGS_KEYS.invoice_custom_clinic_info);
                                                                 %>
 
-                                                                <td class="payeeInfo"><c:out
-                                                                        value="<%= customInvoiceClinicInfo.getValue()%>"/></td>
+                                                                <td class="payeeInfo"><%= org.owasp.encoder.Encode.forHtml(customInvoiceClinicInfo.getValue()) %></td>
 
                                                                 <% } %>
                                                             </tr>

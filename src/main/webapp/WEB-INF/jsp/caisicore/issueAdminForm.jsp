@@ -74,12 +74,10 @@
                     <c:choose>
                         <c:when
                                 test="${caisiRole.name == issueAdminForm.map.issueAdmin.role}">
-                            <option value="<c:out value="${caisiRole.name}"/>" selected><c:out
-                                    value="${caisiRole.name}"/></option>
+                            <option value="${e:forHtmlAttribute(caisiRole.name)}" selected>${e:forHtml(caisiRole.name)}</option>
                         </c:when>
                         <c:otherwise>
-                            <option value="<c:out value="${caisiRole.name}"/>"><c:out
-                                    value="${caisiRole.name}"/></option>
+                            <option value="${e:forHtmlAttribute(caisiRole.name)}">${e:forHtml(caisiRole.name)}</option>
                         </c:otherwise>
                     </c:choose>
                 </c:forEach>

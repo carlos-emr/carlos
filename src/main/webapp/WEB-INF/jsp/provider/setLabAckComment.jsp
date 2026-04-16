@@ -65,21 +65,21 @@
               href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
-              href="<c:out value="${ctx}"/>/share/calendar/calendar.css"
+              href="${e:forHtmlAttribute(ctx)}/share/calendar/calendar.css"
               title="win2k-cold-1">
 
         <!-- main calendar program -->
         <script type="text/javascript"
-                src="<c:out value="${ctx}"/>/share/calendar/calendar.js"></script>
+                src="${e:forJavaScript(ctx)}/share/calendar/calendar.js"></script>
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<c:out value="${ctx}"/>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="${e:forJavaScript(ctx)}/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
                        adding a calendar a matter of 1 or 2 lines of code. -->
         <script type="text/javascript"
-                src="<c:out value="${ctx}"/>/share/calendar/calendar-setup.js"></script>
+                src="${e:forJavaScript(ctx)}/share/calendar/calendar-setup.js"></script>
         <script type="text/javascript">
             function setup() {
                 Calendar.setup({
@@ -118,7 +118,7 @@
                 <%if (request.getAttribute("status") == null) {%>
                 <%=bundle.getString(providermsgEdit)%>
                 <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
-                    <input type="hidden" name="method" value="<c:out value="${method}"/>">
+                    <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
                     <input type="checkbox" name="labAckCommentProperty.checked" <c:if test="${labAckComment.checked}">checked</c:if> />Disable Comment on Acknowledgement
                     <br/>
                     <input type="submit" name="btnApply" value="Apply" />

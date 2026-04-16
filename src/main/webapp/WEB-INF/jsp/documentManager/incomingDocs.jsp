@@ -51,6 +51,7 @@
 <%@page import="java.io.File" %>
 <%@ page import="java.util.*" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -505,7 +506,7 @@
             if (totalPage == 0) {
                 alert("<fmt:message key="dms.incomingDocs.selectDocumentFirst"/>");
             } else {
-                var url = '<c:out value="${ctx}"/>/documentManager/ManageDocument?method=displayIncomingDocs'
+                var url = '${e:forJavaScript(ctx)}/documentManager/ManageDocument?method=displayIncomingDocs'
                     + '&pdfDir=' + encodeURIComponent(pdfDir) + '&queueId=' + queueId + '&pdfName=' + encodeURIComponent(pdfName);
                 popupPage(700, 960, url);
             }
@@ -688,7 +689,7 @@
             if (demo == "-1") {
                 alert("<fmt:message key="dms.incomingDocs.selectDemographicFirst"/>");
             } else {
-                popupPage(710, 1024, '<c:out value="${ctx}"/>/demographic/DemographicEdit?demographic_no=' + demo + '');
+                popupPage(710, 1024, '${e:forJavaScript(ctx)}/demographic/DemographicEdit?demographic_no=' + demo + '');
             }
         }
 
@@ -699,7 +700,7 @@
             if (demo == "-1") {
                 alert("<fmt:message key="dms.incomingDocs.selectDemographicFirst"/>");
             } else {
-                popupPage(710, 1024, '<c:out value="${ctx}"/>/demographic/DemographicApptHistory?demographic_no=' + encodeURIComponent(demo) + '&orderby=appttime&dboperation=appt_history&limit1=0&limit2=25');
+                popupPage(710, 1024, '${e:forJavaScript(ctx)}/demographic/DemographicApptHistory?demographic_no=' + encodeURIComponent(demo) + '&orderby=appttime&dboperation=appt_history&limit1=0&limit2=25');
             }
         }
 

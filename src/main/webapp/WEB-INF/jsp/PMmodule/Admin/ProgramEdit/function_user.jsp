@@ -71,14 +71,14 @@
         </tr>
     </table>
 </div>
-<input type="hidden" name="function.id" id="function.id" value="<c:out value="${function.id}"/>"/>
-<input type="hidden" name="function.providerNo" id="function.providerNo" value="<c:out value="${function.providerNo}"/>"/>
+<input type="hidden" name="function.id" id="function.id" value="${e:forHtmlAttribute(function.id)}"/>
+<input type="hidden" name="function.providerNo" id="function.providerNo" value="${e:forHtmlAttribute(function.providerNo)}"/>
 <display:table class="simple" cellspacing="2" cellpadding="3" id="functional" name="functional_users" export="false"
                pagesize="0" requestURI="${programManagerFunctionUsersUri}">
     <display:setProperty name="paging.banner.placement" value="bottom"/>
     <display:setProperty name="basic.msg.empty_list" value="No functional users defined for this program"/>
     <display:column sortable="false" title="">
-        <a onclick="deleteFunctionalUser('<c:out value="${functional.id}"/>');return false;" href="javascript:void(0);">
+        <a onclick="deleteFunctionalUser('${e:forJavaScript(functional.id)}');return false;" href="javascript:void(0);">
             Delete </a>
     </display:column>
     <display:column property="userType.name" sortable="true" title="Functional User Type"/>

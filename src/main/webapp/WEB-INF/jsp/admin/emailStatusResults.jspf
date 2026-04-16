@@ -7,22 +7,22 @@
         <table class="email-info-table table table-borderless">
             <tr>
                 <th>Subject</th>
-                <td><c:out value="${ emailStatusResult.subject }"/></td>                      
+                <td>${e:forHtml(emailStatusResult.subject)}</td>                      
             </tr>
             <tr>
                 <th>From</th>
-                <td><c:out value="${ emailStatusResult.senderFullName }"/> &lt;<c:out value="${ emailStatusResult.senderEmail }"/>&gt;</td>
+                <td>${e:forHtml(emailStatusResult.senderFullName)} &lt;${e:forHtml(emailStatusResult.senderEmail)}&gt;</td>
             </tr>
             <tr>
                 <th>To</th>
-                <td><c:out value="${ emailStatusResult.recipientFullName }"/> &lt;<c:out value="${ emailStatusResult.recipientEmail }"/>&gt;</td>
+                <td>${e:forHtml(emailStatusResult.recipientFullName)} &lt;${e:forHtml(emailStatusResult.recipientEmail)}&gt;</td>
             </tr>
             <tr>
                 <th>Encryption</th>
                 <td>
                 <c:choose>
                     <c:when test="${emailStatusResult.isEncrypted}">
-                        <i class="fa-solid fa-lock"></i> Encrypted with password <b><c:out value="${ emailStatusResult.password }"/></b>
+                        <i class="fa-solid fa-lock"></i> Encrypted with password <b>${e:forHtml(emailStatusResult.password)}</b>
                     </c:when>
                     <c:otherwise>
                         <i class="fa-solid fa-unlock"></i> Unencrypted
@@ -37,12 +37,12 @@
                 <td class="status-and-date">
                     <div class="status-tag status-tag-${fn:toLowerCase(emailStatusResult.status)}" id="emailStatus${emailStatusResult.logId}" 
                         ${ empty emailStatusResult.errorMessage ? '' : "data-bs-toggle='popover'" } data-bs-trigger='hover click' data-bs-content="${emailStatusResult.errorMessage}">
-                        <c:out value="${ emailStatusResult.status }"/>
+                        ${e:forHtml(emailStatusResult.status)}
                     </div>
                     <div class="date-time text-muted">
-                        <c:out value="${ emailStatusResult.createdDate }"/> &#x2022; <c:out value="${ emailStatusResult.createdTime }"/> 
+                        ${e:forHtml(emailStatusResult.createdDate)} &#x2022; ${e:forHtml(emailStatusResult.createdTime)} 
                         <c:if test="${not empty emailStatusResult.providerFullName}">
-							<c:out value="by ${ emailStatusResult.providerFullName }"/>
+							by ${e:forHtml(emailStatusResult.providerFullName)}
 						</c:if>
                     </div>
                 </td>

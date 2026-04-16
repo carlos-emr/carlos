@@ -41,6 +41,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 
 <security:oscarSec roleName="<%=roleName$%>"
@@ -100,8 +101,8 @@
             Template
         </c:if>
         <c:if test="${ action eq 'edit' }">
-            : <c:out value="${ curreport.title }"/><br/>
-            <small><c:out value="${ curreport.description }"/></small>
+            : ${e:forHtml(curreport.title)}<br/>
+            <small>${e:forHtml(curreport.description)}</small>
         </c:if>
     </h3>
 
@@ -110,13 +111,13 @@
             <c:when test="${ not fn:startsWith(fn:toLowerCase(message), 'error') and not fn:startsWith(fn:toLowerCase(message), 'exception')}">
                 <div class="alert alert-success">
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    <c:out value="${ message }"/>
+                    ${e:forHtml(message)}
                 </div>
             </c:when>
             <c:otherwise>
                 <div class="alert alert-danger">
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    <c:out value="${ message }"/>
+                    ${e:forHtml(message)}
                 </div>
             </c:otherwise>
         </c:choose>

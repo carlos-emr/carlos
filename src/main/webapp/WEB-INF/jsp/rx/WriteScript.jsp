@@ -29,6 +29,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
@@ -1265,7 +1266,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                                                       name="sugQtyMax"/>
                                         <script language="javascript">
                                             function setQuantity() {
-                                                var path = "<c:out value="${ctx}"/>";
+                                                var path = "${e:forJavaScript(ctx)}";
                                                 oscarLog("here1");
                                                 oscarLog("path in setQuantity" + path);
                                                 var sugQtyLbl = document.getElementById('lblSugQty');
@@ -1465,7 +1466,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                 </div>-->
                             <script language=javascript>
                                 function submitPending(stashId, action) { //calls stash action
-                                    var path = "<c:out value="${ctx}"/>";
+                                    var path = "${e:forJavaScript(ctx)}";
                                     oscarLog("path in submitPending:" + path);
                                     var frm = document.getElementsByName("RxStashForm");
                                     frm[0].elements["stashId"].value = stashId;
@@ -1534,7 +1535,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                 </td>
                                                 <td>
                                                     <a href="javascript:submitPending('${loopStatus.index}', 'edit');">
-                                                        <c:out value="${rx.rxDisplay}"/>
+                                                        ${e:forHtml(rx.rxDisplay)}
                                                     </a>
                                                 </td>
                                                 <td>

@@ -117,7 +117,7 @@
 <input type="hidden" name="community" value=""/>
 <input type="hidden" name="type" value=""/>
 <input type="hidden" name="program_name"
-       value="<c:out value="${program_name}"/>"/>
+       value="${e:forHtmlAttribute(program_name)}"/>
 <input type="hidden" name="clientStatusId"/>
 
 <div class="tabs" id="tabs">
@@ -135,7 +135,7 @@
     <display:setProperty name="basic.msg.empty_list"
                          value="No clients currently admitted to this program."/>
     <display:column>
-        <input type="checkbox" name="checked_<c:out value="${admission.id}"/>">
+        <input type="checkbox" name="checked_${e:forHtmlAttribute(admission.id)}">
     </display:column>
     <display:column property="client.formattedName" sortable="true"
                     title="Name"/>
@@ -153,17 +153,15 @@
 
     <display:column sortable="false" title="">
         <select name="x"
-                onchange="assignTeam('<c:out value="${admission.id}"/>',this);">
+                onchange="assignTeam('${e:forHtml(admission.id)}',this);">
             <option value="0">&nbsp;</option>
             <c:forEach var="team" items="${teams}">
                 <c:choose>
                     <c:when test="${team.id == admission.teamId}">
-                        <option value="<c:out value="${team.id}"/>" selected><c:out
-                                value="${team.name}"/></option>
+                        <option value="${e:forHtmlAttribute(team.id)}" selected>${e:forHtml(team.name)}</option>
                     </c:when>
                     <c:otherwise>
-                        <option value="<c:out value="${team.id}"/>"><c:out
-                                value="${team.name}"/></option>
+                        <option value="${e:forHtmlAttribute(team.id)}">${e:forHtml(team.name)}</option>
                     </c:otherwise>
                 </c:choose>
             </c:forEach>
@@ -172,17 +170,15 @@
 
     <display:column sortable="false" title="Status">
         <select name="y"
-                onchange="assignStatus('<c:out value="${admission.id}"/>',this);">
+                onchange="assignStatus('${e:forHtml(admission.id)}',this);">
             <option value="0">&nbsp;</option>
             <c:forEach var="status" items="${client_statuses}">
                 <c:choose>
                     <c:when test="${status.id == admission.clientStatusId}">
-                        <option value="<c:out value="${status.id}"/>" selected><c:out
-                                value="${status.name}"/></option>
+                        <option value="${e:forHtmlAttribute(status.id)}" selected>${e:forHtml(status.name)}</option>
                     </c:when>
                     <c:otherwise>
-                        <option value="<c:out value="${status.id}"/>"><c:out
-                                value="${status.name}"/></option>
+                        <option value="${e:forHtmlAttribute(status.id)}">${e:forHtml(status.name)}</option>
                     </c:otherwise>
                 </c:choose>
             </c:forEach>
@@ -203,7 +199,7 @@
     <option value="0"></option>
     <c:forEach var="program" items="${servicePrograms}">
         <c:if test="${program.id != requestScope.id}">
-            <option value="<c:out value="${program.id}"/>"><c:out value="${program.name}"/></option>
+            <option value="${e:forHtmlAttribute(program.id)}">${e:forHtml(program.name)}</option>
         </c:if>
     </c:forEach>
     </select>
@@ -214,7 +210,7 @@
     <option value="0"></option>
     <c:forEach var="program" items="${communityPrograms}">
         <c:if test="${program.id != requestScope.id}">
-            <option value="<c:out value="${program.id}"/>"><c:out value="${program.name}"/></option>
+            <option value="${e:forHtmlAttribute(program.id)}">${e:forHtml(program.name)}</option>
         </c:if>
     </c:forEach>
     </select>

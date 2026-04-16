@@ -45,7 +45,7 @@
 		<table width="100%" cellspacing="2" cellpadding="2">
 			<c:forEach var="team" items="${provider.teams}">
 				<tr>
-					<td><c:out value="${team.name }" /></td>
+					<td>${e:forHtml(team.name)}</td>
 				</tr>
 			</c:forEach>
 		</table>

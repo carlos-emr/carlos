@@ -110,7 +110,7 @@
 
             //<!--
             function setfocus() {
-                var toggleSearchTool = "<c:out value="${ toggleSearchTool }" />";
+                var toggleSearchTool = "${e:forJavaScript(toggleSearchTool)}";
                 if (toggleSearchTool) {
                     document.getElementById("procontactSearch_searchTools").style.display = "none";
                 }
@@ -246,9 +246,9 @@
             <tr bgcolor="<%=bgColor%>"
                 onMouseOver="this.style.cursor='pointer';this.style.backgroundColor='pink';"
                 onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<%=Encode.forHtmlAttribute(strOnClick)%>">
-                <td><c:out value="${contact.lastName}"/></td>
-                <td><c:out value="${contact.firstName}"/></td>
-                <td><c:out value="${contact.residencePhone}"/></td>
+                <td>${e:forHtml(contact.lastName)}</td>
+                <td>${e:forHtml(contact.firstName)}</td>
+                <td>${e:forHtml(contact.residencePhone)}</td>
             </tr>
         </c:forEach>
 

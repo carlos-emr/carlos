@@ -49,7 +49,7 @@ function removeFromRemoteQueue(remoteReferralId) {
 	<display:setProperty name="paging.banner.placement" value="bottom" />
 	<display:setProperty name="basic.msg.empty_list" value="Queue is empty." />
 	<display:column sortable="false" title="">
-		<a href="javascript:void(0);" onclick="removeFromQueue('<c:out value="${queue_entry.id}"/>');return false;"> Remove </a>
+		<a href="javascript:void(0);" onclick="removeFromQueue('${e:forJavaScript(queue_entry.id)}');return false;"> Remove </a>
 	</display:column>
 	<display:column property="clientFormattedName" sortable="true" title="Client Name" />
 	<display:column property="referralDate" sortable="true" title="Referral Date" />
@@ -77,7 +77,7 @@ function removeFromRemoteQueue(remoteReferralId) {
 		<display:setProperty name="paging.banner.placement" value="bottom" />
 		<display:setProperty name="basic.msg.empty_list" value="Queue is empty." />
 		<display:column sortable="false" title="">
-			<a href="javascript:void(0);" onclick="removeFromRemoteQueue('<c:out value="${queue_entry.remoteReferral.remoteReferralId}"/>');return false;"> Remove </a>
+			<a href="javascript:void(0);" onclick="removeFromRemoteQueue('${e:forJavaScript(queue_entry.remoteReferral.remoteReferralId)}');return false;"> Remove </a>
 		</display:column>
 		<display:column property="clientName" sortable="true" title="Client Name" />
 		<display:column property="remoteReferral.referralDate" sortable="true" title="Referral Date" />

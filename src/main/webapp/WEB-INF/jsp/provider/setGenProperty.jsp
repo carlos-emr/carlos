@@ -63,26 +63,26 @@
               href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
-              href="<c:out value="${ctx}"/>/share/calendar/calendar.css"
+              href="${e:forHtmlAttribute(ctx)}/share/calendar/calendar.css"
               title="win2k-cold-1">
 
         <c:if test="${method eq 'saveConsultationRequestCuffOffDate'}">
-            <script src="<c:out value="${ctx}"/>/share/javascript/provider_form_validations.js"
+            <script src="${e:forHtmlAttribute(ctx)}/share/javascript/provider_form_validations.js"
                     type="text/javascript"></script>
         </c:if>
 
         <!-- main calendar program -->
         <script type="text/javascript"
-                src="<c:out value="${ctx}"/>/share/calendar/calendar.js"></script>
+                src="${e:forJavaScript(ctx)}/share/calendar/calendar.js"></script>
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<c:out value="${ctx}"/>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="${e:forJavaScript(ctx)}/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
                        adding a calendar a matter of 1 or 2 lines of code. -->
         <script type="text/javascript"
-                src="<c:out value="${ctx}"/>/share/calendar/calendar-setup.js"></script>
+                src="${e:forJavaScript(ctx)}/share/calendar/calendar-setup.js"></script>
         <script type="text/javascript">
             function setup() {
                 Calendar.setup({
@@ -132,9 +132,9 @@
         <tr>
             <td class="MainTableLeftColumn">&nbsp;</td>
             <td class="MainTableRightColumn">
-                <%if (request.getAttribute("status") == null) {%> <%=bundle.getString(providermsgEdit)%> <c:out value="${dateProperty.value}"/>
+                <%if (request.getAttribute("status") == null) {%> <%=bundle.getString(providermsgEdit)%> ${e:forHtml(dateProperty.value)}
                 <form id="providerForm" action="${pageContext.request.contextPath}/setProviderStaleDate" method="post" onsubmit="return validateForm();">
-                <input type="hidden" name="method" value="<c:out value="${method}"/>">
+                <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
 
                 <p id="errorMessage" style="display: none; color: red;">
                     Invalid input.
@@ -143,7 +143,7 @@
                 <% if (request.getAttribute("dropOpts") == null) { %>
                 <input type="text"
                         id="numericFormField"
-                        name="dateProperty.value"  value="<c:out value='${dateProperty.value}'/>" />
+                        name="dateProperty.value"  value="${e:forHtmlAttribute(dateProperty.value)}" />
                 <%if (request.getAttribute("dateProperty2") != null) {%>
                 <input type="text" name="dateProperty2.value" id="dateProperty2.value" />
                 <%}%>

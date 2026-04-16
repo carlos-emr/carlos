@@ -75,27 +75,27 @@
     <li><strong>First Nation Identity (INAC)</strong></li>
     <li>
         <span class="label">Status Number:</span>
-        <span class="info"><c:out value='${ demoExt["statusNum"] }'/></span>
+        <span class="info">${e:forHtml(demoExt["statusNum"])}</span>
     </li>
     <li>
         <span class="label">First Nation Community: </span>
         <span class="info">
-		<c:out value='${param.fncommunity}'/>
+		${e:forHtml(param.fncommunity)}
 	</span>
     </li>
 
     <li>
         <span class="label">Family Number: </span>
-        <span class="info"><c:out value='${ demoExt["fNationFamilyNumber"] }'/></span>
+        <span class="info">${e:forHtml(demoExt["fNationFamilyNumber"])}</span>
     </li>
 
     <li>
         <span class="label">Family Position: </span>
-        <span class="info"><c:out value='${ demoExt["fNationFamilyPosition"] }'/></span>
+        <span class="info">${e:forHtml(demoExt["fNationFamilyPosition"])}</span>
     </li>
     <li>
         <span class="label">First Nation Status: </span>
-        <span class="info"><c:out value='${ ethnicityMap[demoExt["ethnicity"]] }'/></span>
+        <span class="info">${e:forHtml(ethnicityMap[demoExt["ethnicity"]])}</span>
     </li>
 
 </ul>

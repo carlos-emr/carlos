@@ -45,7 +45,7 @@ function newWindow(url) {
 
 function getDrugRefStatus() {
 	const data = "method=verify";
-	const url = "<c:out value='${ctx}'/>" + "/rx/updateDrugrefDB";
+	const url = "${e:forJavaScript(ctx)}" + "/rx/updateDrugrefDB";
 
 	var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
 	var csrfToken = csrfEl ? csrfEl.value : '';

@@ -93,13 +93,13 @@
 
         <tr style="<%=style %>" bgcolor="<%=bgcolor %>">
             <td valign="middle"><a
-                    href="FacilityMessage?method=edit&id=<c:out value="${msg.id}"/>"><img
+                    href="FacilityMessage?method=edit&id=${e:forHtmlAttribute(msg.id)}"><img
                     border="0" src="images/edit.jpg"/></a></td>
-            <td><c:out value="${msg.facilityName}"/></td>
-            <td><c:out value="${msg.programName}"/></td>
-            <td><c:out value="${msg.formattedCreationDate}"/></td>
-            <td><c:out value="${msg.formattedExpiryDate}"/></td>
-            <td><c:out value="${msg.message}"/></td>
+            <td>${e:forHtml(msg.facilityName)}</td>
+            <td>${e:forHtml(msg.programName)}</td>
+            <td>${e:forHtml(msg.formattedCreationDate)}</td>
+            <td>${e:forHtml(msg.formattedExpiryDate)}</td>
+            <td>${e:forHtml(msg.message)}</td>
         </tr>
     </c:forEach>
 </table>

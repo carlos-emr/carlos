@@ -274,7 +274,7 @@ If JSTL cannot handle the logic, document why:
 
 | Old Pattern (Scriptlet) | New Pattern (JSTL/EL) |
 |-------------------------|------------------|
-| `<%= variable %>` | `${variable}` (for system data) or `<c:out value="${variable}"/>` |
+| `<%= variable %>` | `${variable}` (for system data) or `${e:forHtml(variable)}` |
 | `<%= request.getParameter("x") %>` | `${param.x}` |
 | `<%= session.getAttribute("x") %>` | `${sessionScope.x}` |
 | `<%= obj.getProperty() %>` | `${obj.property}` |
@@ -380,7 +380,7 @@ For **all** data displayed in JSPs, use OWASP Encoder with context-appropriate e
 ```jsp
 <c:forEach items="${allStatuses}" var="status" varStatus="loop">
     <option value="${status.status}">
-        <c:out value="${status.description}"/>
+        ${e:forHtml(status.description)}
     </option>
 </c:forEach>
 ```
@@ -983,7 +983,7 @@ value='<%=request.getParameter("start_time")%>'
 ${pageContext.request.contextPath}
 
 <%-- JSTL tag --%>
-<c:out value="${ reason.label }"/>
+${e:forHtml(reason.label)}
 ```
 
 #### 3. Table-Based Layout

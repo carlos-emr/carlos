@@ -57,7 +57,7 @@
     <title>Note History</title>
     <c:set var="ctx" value="${pageContext.request.contextPath}"
            scope="request"/>
-    <link rel="stylesheet" href="<c:out value="${ctx}"/>/css/casemgmt.css"
+    <link rel="stylesheet" href="${e:forHtmlAttribute(ctx)}/css/casemgmt.css"
           type="text/css">
 
 </head>
@@ -69,26 +69,26 @@
 <br>
 Client name:
 <I> <c:if test="${not empty requestScope.demoName}">
-    <c:out value="${requestScope.demoName}"/>
+    ${e:forHtml(requestScope.demoName)}
 </c:if>
 <c:if test="${empty requestScope.demoName}">
-    <c:out value="${param.demoName}"/>
+    ${e:forHtml(param.demoName)}
 </c:if> </I>
 <br>
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Age:
 <I> <c:if test="${not empty requestScope.demoName}">
-    <c:out value="${requestScope.demoAge}"/>
+    ${e:forHtml(requestScope.demoAge)}
 </c:if>
 <c:if test="${empty requestScope.demoName}">
-    <c:out value="${param.demoAge}"/>
+    ${e:forHtml(param.demoAge)}
 </c:if> </I>
 <br>
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; DOB:
 <I> <c:if test="${not empty requestScope.demoName}">
-    <c:out value="${requestScope.demoDOB}"/>
+    ${e:forHtml(requestScope.demoDOB)}
 </c:if>
 <c:if test="${empty requestScope.demoName}">
-    <c:out value="${param.demoDOB}"/>
+    ${e:forHtml(param.demoDOB)}
 </c:if> </I>
 <br>
 <br>

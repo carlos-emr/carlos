@@ -58,7 +58,7 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>Case Management</title>
     <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
-    <link rel="stylesheet" href="<c:out value="${ctx}"/>/css/casemgmt.css" type="text/css">
+    <link rel="stylesheet" href="${e:forHtmlAttribute(ctx)}/css/casemgmt.css" type="text/css">
     <script type="text/javascript">
         var flag =<%= request.getAttribute("change_flag") == null ? "null" : Encode.forJavaScript((String)request.getAttribute("change_flag")) %>;
 
@@ -195,9 +195,9 @@
                 XMLHttpRequestObject.open("POST", '<%=request.getContextPath() %>/CaseManagementEntry', true);
                 XMLHttpRequestObject.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
 
-                var demographicNo = '<c:out value="${param.demographicNo}"/>';
+                var demographicNo = '${e:forJavaScript(param.demographicNo)}';
                 var noteId = '<%=Encode.forJavaScript(request.getParameter("noteId") != null ? request.getParameter("noteId") : request.getAttribute("noteId") != null ? (String) request.getAttribute("noteId") : "")%>';
-                var programId = '<c:out value="${case_program_id}"/>';
+                var programId = '${e:forJavaScript(case_program_id)}';
                 XMLHttpRequestObject.send("method=autosave&demographicNo=" + demographicNo + "&programId=" + programId + "&note_id=" + noteId + "&note=" + escape(obj.value));
             }
 
@@ -250,30 +250,30 @@
         <b><fmt:message key="casemanagementEntry.clientname"/>
             <I>
                 <c:if test="${not empty requestScope.demoName}">
-                    <c:out value="${requestScope.demoName}"/>
+                    ${e:forHtml(requestScope.demoName)}
                 </c:if>
                 <c:if test="${empty requestScope.demoName}">
-                    <c:out value="${param.demoName}"/>
+                    ${e:forHtml(param.demoName)}
                 </c:if>
             </I>
             <br>
             &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Age:
             <I>
                 <c:if test="${not empty requestScope.demoName}">
-                    <c:out value="${requestScope.demoAge}"/>
+                    ${e:forHtml(requestScope.demoAge)}
                 </c:if>
                 <c:if test="${empty requestScope.demoName}">
-                    <c:out value="${param.demoAge}"/>
+                    ${e:forHtml(param.demoAge)}
                 </c:if>
             </I>
             <br>
             &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; DOB:
             <I>
                 <c:if test="${not empty requestScope.demoName}">
-                    <c:out value="${requestScope.demoDOB}"/>
+                    ${e:forHtml(requestScope.demoDOB)}
                 </c:if>
                 <c:if test="${empty requestScope.demoName}">
-                    <c:out value="${param.demoDOB}"/>
+                    ${e:forHtml(param.demoDOB)}
                 </c:if>
             </I></b>
         <br><br>
@@ -391,7 +391,7 @@
         <span id="spanMsg" style="color:blue">
             <c:if test="${not empty casemgmt}">
                 <c:forEach var="message" items="${casemgmt}">
-                    <i><c:out value="${message}" /></i>
+                    <i>${e:forHtml(message)}</i>
                 </c:forEach>
             </c:if>
 	    </span>

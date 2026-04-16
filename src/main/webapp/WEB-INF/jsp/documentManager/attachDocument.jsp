@@ -52,6 +52,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 
 <!DOCTYPE html >
@@ -322,7 +323,7 @@
                                         <input class="eForm_check" type="checkbox" name="eFormNo"
                                                id="eFormNo${ eForm.id }" value="${eForm.id}" title="${eForm.formName}"/>
                                         <label for="eFormNo${eForm.id}">
-                                            <c:out value="${eForm.subject.length() > 0 ? eForm.subject : eForm.formName} ${ eForm.getFormDate() }"/>
+                                            ${e:forHtml(eForm.subject.length() > 0 ? eForm.subject : eForm.formName)} ${e:forHtml(eForm.getFormDate())}
                                         </label>
                                         <button class="preview-button" type="button" title="Preview"
                                                 onclick="getPdf('EFORM', '${eForm.id}', 'method=renderEFormPDF&eFormId=${eForm.id}')">
@@ -358,8 +359,7 @@
                                         <input class="document_check" type="checkbox" name="docNo"
                                                id="docNo${document.docId}" value="${document.docId}"
                                                title="${ document.description }"/>
-                                        <label for="docNo${document.docId}"><c:out
-                                                value="${ document.description } ${ document.observationDate }"/></label>
+                                        <label for="docNo${document.docId}">${e:forHtml(document.description } ${ document.observationDate)}</label>
                                         <button class="preview-button" type="button" title="Preview"
                                                 onclick="getPdf('DOC', '${document.docId}', 'method=renderEDocPDF&eDocId=${document.docId}')">
                                             Preview
@@ -394,9 +394,8 @@
                                     <li class="lab ${loop.index > 19 ? 'd-none' : ''}">
                                         <input class="lab_check" type="checkbox" name="labNo"
                                                id="labNo${ lab.segmentID }" value="${lab.segmentID}"
-                                               title="<c:out value='${ labName }' />"/>
-                                        <label for="labNo${lab.segmentID}" title="<c:out value='${ labName }' />"><c:out
-                                                value="${ labName }"/>&nbsp;</label>
+                                               title="${e:forHtmlAttribute(labName)}"/>
+                                        <label for="labNo${lab.segmentID}" title="${e:forHtmlAttribute(labName)}">${e:forHtml(labName)}&nbsp;</label>
                                         <label for="labNo${lab.segmentID}"
                                                class="lab-date">${lab.labDateFormated}</label>
                                         <c:if test="${not empty lab.labVersionIds}">
@@ -418,7 +417,7 @@
                                                     <em>
                                                         <label for="labNo${version.key}"
                                                                title="v${totalVersions - versionLoop.index} ${ labName }">
-                                                            <c:out value="Earlier Version ${ totalVersions - versionLoop.index } of ${ totalVersions + 1 }"/>&nbsp;
+                                                            Earlier Version ${e:forHtml(totalVersions - versionLoop.index)} of ${ totalVersions + 1 }&nbsp;
                                                         </label>
                                                         <label for="labNo${version.key}"
                                                                class="lab-date">(${version.value})</label>
@@ -458,7 +457,7 @@
                                         <input class="hrm_check" type="checkbox" name="hrmNo" id="hrmNo${ hrm['id'] }"
                                                value="${hrm['id']}" title="${hrm['name']}"/>
                                         <label for="hrmNo${hrm['id']}">
-                                            <c:out value="${ hrm['name'] } ${ hrm['report_date'] }"/>
+                                            ${e:forHtml(hrm['name'] } ${ hrm['report_date'])}
                                         </label>
                                         <button class="preview-button" type="button" title="Preview"
                                                 onclick="getPdf('HRM', '${hrm.id}', 'method=renderHrmPDF&hrmId=${hrm.id}')">
@@ -493,7 +492,7 @@
                                                id="formNo${ form.formId }" value="${form.formId}"
                                                title="${form.formName}"/>
                                         <label for="formNo${form.formId}">
-                                            <c:out value="${ form.formName } ${ form.getEdited() }"/>
+                                            ${e:forHtml(form.formName } ${ form.getEdited())}
                                         </label>
                                         <button class="preview-button" type="button" title="Preview"
                                                 onclick="getPdf('FORM', '${form.formId}', 'method=renderFormPDF&formId=${form.formId}&formName=${form.formName}&demographicNo=${form.getDemoNo()}')">

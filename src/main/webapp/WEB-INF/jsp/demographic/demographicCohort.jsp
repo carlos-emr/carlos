@@ -139,14 +139,13 @@
     <h3><fmt:message key="demographic.demographiccohort.currentpatientset"/></h3>
     <ul>
         <c:forEach var="set" items="${curSets}">
-            <li><c:out value="${set}"/></li>
+            <li>${e:forHtml(set)}</li>
         </c:forEach>
     </ul>
     <h3><fmt:message key="demographic.demographiccohort.addtopatientset"/></h3>
     <ul>
         <c:forEach var="set" items="${arrDemoSets}">
-            <li><a href="<%= request.getContextPath() %>/demographic/ViewDemographicCohort?demographic_no=<%= Encode.forUriComponent(demoNo) %>&setName=<%= Encode.forUriComponent((String) pageContext.getAttribute("set")) %>"><c:out
-                    value="${set}"/></a></li>
+            <li><a href="<%= request.getContextPath() %>/demographic/ViewDemographicCohort?demographic_no=<%= Encode.forUriComponent(demoNo) %>&setName=<%= Encode.forUriComponent((String) pageContext.getAttribute("set")) %>">${e:forHtml(set)}</a></li>
         </c:forEach>
     </ul>
     <br>

@@ -42,6 +42,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 
 <security:oscarSec roleName="<%=roleName$%>"
@@ -120,8 +121,8 @@
         <%@ include file="rbtTopNav.jspf" %>
 
     <h3>
-        <c:out value="${ reportobject.title }"/><br>
-        <small><c:out value="${ reportobject.description }"/></small>
+        ${e:forHtml(reportobject.title)}<br>
+        <small>${e:forHtml(reportobject.description)}</small>
     </h3>
 
     <div class="reportBorderDiv row">
@@ -130,7 +131,7 @@
                 <c:when test="${ not fn:startsWith(htmlOut, '<table') }">
                     <div class="alert alert-danger">
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        <c:out value="${ htmlOut }"/>
+                        ${e:forHtml(htmlOut)}
                     </div>
                 </c:when>
                 <c:otherwise>

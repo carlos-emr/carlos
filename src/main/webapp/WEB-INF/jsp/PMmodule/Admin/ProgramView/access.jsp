@@ -42,7 +42,7 @@
 	<display:column sortable="true" title="Role(s)">
 		<ul>
 			<c:forEach var="role" items="${access.roles}">
-				<li><c:out value="${role.name}" /></li>
+				<li>${e:forHtml(role.name)}</li>
 			</c:forEach>
 		</ul>
 	</display:column>

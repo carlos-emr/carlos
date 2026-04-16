@@ -55,6 +55,7 @@
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 
@@ -147,7 +148,7 @@
 <html>
     <head>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/Oscar.js"/>"></script>
+        <script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/share/javascript/Oscar.js"></script>
         <title><fmt:message key="demographic.demographicsearchresults.title"/></title>
 
         <link rel="stylesheet" type="text/css" media="all"
@@ -285,8 +286,7 @@
             <a href="javascript:void(0)" onclick="showHideItem('demographicSearch');" id="searchPopUpButton"
                class="rightButton top">Search</a>
 
-            <i><fmt:message key="demographic.demographicsearchresults.msgSearchKeys"/></i> : <c:out
-                value="${param.keyword}"/>
+            <i><fmt:message key="demographic.demographicsearchresults.msgSearchKeys"/></i> : ${e:forHtml(param.keyword)}
 
             <div class="table-responsive">
             <table id="patientResults" class="table table-sm table-striped">
@@ -448,17 +448,16 @@
                     <td class="links"><security:oscarSec roleName="<%=roleName$%>"
                                                          objectName="_eChart" rights="r">
                         <a class="encounterBtn" title="Encounter" href="javascript:void(0)"
-                           onclick="popupEChart(710,1024,'<c:out
-                                   value="${ctx}"/>/encounter/IncomingEncounter?providerNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(curProvider_no)))%>&appointmentNo=&demographicNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(dem_no))%>&curProviderNo=&reason=<%=Encode.forJavaScriptAttribute(URLEncoder.encode(noteReason, StandardCharsets.UTF_8))%>&encType=&curDate=<%=""+curYear%>-<%=""+curMonth%>-<%=""+curDay%>&appointmentDate=&startTime=&status=');return false;">E</a>
+                           onclick="popupEChart(710,1024,'${e:forJavaScript(ctx)}/encounter/IncomingEncounter?providerNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(curProvider_no)))%>&appointmentNo=&demographicNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(dem_no))%>&curProviderNo=&reason=<%=Encode.forJavaScriptAttribute(URLEncoder.encode(noteReason, StandardCharsets.UTF_8))%>&encType=&curDate=<%=""+curYear%>-<%=""+curMonth%>-<%=""+curDay%>&appointmentDate=&startTime=&status=');return false;">E</a>
                     </security:oscarSec> <!-- Rights --> <security:oscarSec roleName="<%=roleName$%>"
                                                                             objectName="_rx" rights="r">
-			<a class="rxBtn" title="Prescriptions"  href="javascript:void(0)" onclick="popup(700,1027,'<c:out value="${ctx}"/>/rx/choosePatient?providerNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demo.getProviderNo())))%>&demographicNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(dem_no))%>')">Rx</a>
+			<a class="rxBtn" title="Prescriptions"  href="javascript:void(0)" onclick="popup(700,1027,'${e:forJavaScript(ctx)}/rx/choosePatient?providerNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demo.getProviderNo())))%>&demographicNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(dem_no))%>')">Rx</a>
 			</security:oscarSec>
 			<security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
-			<a class="ticklerBtn" title="Tickler"  href="javascript:void(0)" onclick="popup(700,1027,'<c:out value="${ctx}"/>/tickler/ViewTicklerMain?demoview=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(dem_no))%>')">T</a>
+			<a class="ticklerBtn" title="Tickler"  href="javascript:void(0)" onclick="popup(700,1027,'${e:forJavaScript(ctx)}/tickler/ViewTicklerMain?demoview=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(dem_no))%>')">T</a>
 			</security:oscarSec>
 			<security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="r">
-			<a class="consultBtn" title="Consultation"  href="javascript:void(0)" onclick="popup(700,1027,'<c:out value="${ctx}"/>/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests?de=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(dem_no))%>')">C</a>
+			<a class="consultBtn" title="Consultation"  href="javascript:void(0)" onclick="popup(700,1027,'${e:forJavaScript(ctx)}/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests?de=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(dem_no))%>')">C</a>
 			</security:oscarSec>
 		</td>
 

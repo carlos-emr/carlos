@@ -73,9 +73,9 @@
 
 <c:forEach var="ps" items="${programSignatures}">
     <tr class="b">
-    <td><c:out value="${ps.providerName}"/></td>
-    <td><c:out value="${ps.caisiRoleName}"/></td>
-    <td><c:out value="${ps.updateDate}"/></td>
+    <td>${e:forHtml(ps.providerName)}</td>
+    <td>${e:forHtml(ps.caisiRoleName)}</td>
+    <td>${e:forHtml(ps.updateDate)}</td>
     </tr>
 </c:forEach>
 </table>

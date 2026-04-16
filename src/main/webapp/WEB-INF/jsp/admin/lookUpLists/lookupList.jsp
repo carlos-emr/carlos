@@ -30,15 +30,16 @@
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <div class="lookupListItemsWrapper">
 
     <div class="row lookupListItemHeading">
         <div class="lookupListName row">
-            <h3><c:out value="${ lookuplist.listTitle }"/></h3>
+            <h3>${e:forHtml(lookuplist.listTitle)}</h3>
         </div>
         <div class="lookupListTitle row">
 			<span class="lookupListDescription">
-				<c:out value="${ lookuplist.description }"/>
+				${e:forHtml(lookuplist.description)}
 			</span>
             <%-- 			<a class="showHideEdit" id="edit_${ lookuplist.id }" href="javascript:void(0);" >edit</a> --%>
             <%-- 			<a class="showHideEdit" id="cancel_${ lookuplist.id }" style="display: none;" href="javascript:void(0);" >cancel</a>			 --%>
@@ -51,7 +52,7 @@
                 <c:if test="${ lookupListItem.active }">
                     <li class="lookupListItem" id="lookupListItem_${ lookupListItem.displayOrder }">
 						<span class="label">
-							<c:out value="${ lookupListItem.label }"/>
+							${e:forHtml(lookupListItem.label)}
 						</span>
                         <a href="javascript:void(0);"
                            id="removeLookupListItem_${ lookupListItem.id }_${ lookuplist.id }"

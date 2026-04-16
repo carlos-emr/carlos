@@ -62,6 +62,7 @@
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
 <%
@@ -376,7 +377,7 @@
 
         <div class="col-md-2">
             <% if (demographicNo == null) { %>
-            <a href='<c:out value="${ctx}/demographic/eRourkeExport"></c:out>'><fmt:message key="demographic.demographicexport.rourke2009export"/></a>
+            <a href='${e:forHtmlAttribute(ctx)}/demographic/eRourkeExport'><fmt:message key="demographic.demographicexport.rourke2009export"/></a>
             <%} %>
         </div><!--span2-->
 

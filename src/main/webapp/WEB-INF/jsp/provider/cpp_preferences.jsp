@@ -50,7 +50,7 @@
         <title><fmt:message key="provider.cppPrefs"/></title>
 
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
-        <link rel="stylesheet" type="text/css" media="all" href="<c:out value="${ctx}"/>/share/calendar/calendar.css"
+        <link rel="stylesheet" type="text/css" media="all" href="${e:forHtmlAttribute(ctx)}/share/calendar/calendar.css"
               title="win2k-cold-1">
         <script type="text/javascript">
 
@@ -99,7 +99,7 @@
             <td class="MainTableLeftColumn">&nbsp;</td>
             <td class="MainTableRightColumn">
                 <!-- form starts here -->
-                <form action="<c:out value="${ctx}"/>/provider/CppPreferences?method=save" method="post"
+                <form action="${e:forHtmlAttribute(ctx)}/provider/CppPreferences?method=save" method="post"
                       onSubmit="return validate();">
                     <table width="100%" border="1">
                         <tr>
