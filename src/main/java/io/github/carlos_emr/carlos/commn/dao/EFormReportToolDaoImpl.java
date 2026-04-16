@@ -38,7 +38,6 @@ import java.util.List;
 
 import jakarta.persistence.Query;
 
-import org.apache.commons.lang3.time.DateFormatUtils;
 import io.github.carlos_emr.carlos.commn.model.EForm;
 import io.github.carlos_emr.carlos.commn.model.EFormReportTool;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
@@ -51,20 +50,33 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         super(EFormReportTool.class);
     }
 
+    private static final java.util.regex.Pattern INVALID_SQL_IDENTIFIER = java.util.regex.Pattern.compile(".*[`].*");
+
+    private void validateIdentifier(String identifier) {
+        if (identifier == null || INVALID_SQL_IDENTIFIER.matcher(identifier).matches()) {
+            throw new IllegalArgumentException("Invalid SQL identifier: " + identifier);
+        }
+    }
+
     @SuppressWarnings("unchecked")
     public void markLatest(Integer eformReportToolId) {
         EFormReportTool eft = find(eformReportToolId);
         if (eft != null) {
+            validateIdentifier(eft.getTableName());
             //get all distinct demographicNos
             Query q = entityManager.createNativeQuery("select distinct demographicNo from  " + eft.getTableName());
             List<Integer> demoNos = q.getResultList();
             for (Integer demoNo : demoNos) {
-                Query q2 = entityManager.createNativeQuery("select id from " + eft.getTableName() + " where demographicNo = " + demoNo + " order by dateFormCreated desc,fdid desc").setMaxResults(1);
+                Query q2 = entityManager.createNativeQuery("select id from " + eft.getTableName() + " where demographicNo = ?1 order by dateFormCreated desc,fdid desc").setMaxResults(1);
+                q2.setParameter(1, demoNo);
                 List<Integer> idList = q2.getResultList();
 
                 //update the first result
-                Query q3 = entityManager.createNativeQuery("update " + eft.getTableName() + " set eft_latest=1 where id=" + idList.get(0));
-                q3.executeUpdate();
+                if (!idList.isEmpty()) {
+                    Query q3 = entityManager.createNativeQuery("update " + eft.getTableName() + " set eft_latest=1 where id=?1");
+                    q3.setParameter(1, idList.get(0));
+                    q3.executeUpdate();
+                }
             }
 
             eft.setLatestMarked(true);
@@ -75,6 +87,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
     public void addNew(EFormReportTool eformReportTool, EForm eform, List<String> fields, String providerNo) {
         //generate the create table statement
         String tableName = "ERT_" + eformReportTool.getName() + (new BigInteger(130, new SecureRandom()).toString(8).substring(0, 8));
+        validateIdentifier(tableName);
         StringBuilder sql = new StringBuilder("CREATE TABLE " + tableName + " (");
         sql.append("id int (10) NOT NULL auto_increment primary key,");
         sql.append("fdid int (10) NOT NULL, ");
@@ -84,6 +97,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         sql.append("eft_latest tinyint(1) NOT NULL, ");
         sql.append("dateCreated timestamp NOT NULL ");
         for (String field : fields) {
+            validateIdentifier(field);
             sql.append(",`" + field + "` text");
         }
         sql.append(")");
@@ -105,6 +119,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
     }
 
     public void populateReportTableItem(EFormReportTool eft, List<EFormValue> values, Integer fdid, Integer demographicNo, Date dateFormCreated, String providerNo) {
+        validateIdentifier(eft.getTableName());
         //create an insert statement
         StringBuilder sb = new StringBuilder();
         sb.append("INSERT INTO ");
@@ -117,6 +132,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         sb.append("eft_latest,");
         sb.append("dateCreated,");
         for (EFormValue v : values) {
+            validateIdentifier(v.getVarName());
             sb.append("`" + v.getVarName() + "`");
             sb.append(",");
         }
@@ -124,15 +140,18 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         sb.deleteCharAt(sb.length() - 1);
 
         sb.append(" ) VALUES (");
-        sb.append(fdid + ",");
-        sb.append(demographicNo + ",");
-        sb.append("\'" + DateFormatUtils.format(dateFormCreated, "yyyy-MM-dd HH:mm:ss") + "\',");
-        sb.append("\'" + providerNo + "\',");
+        sb.append("?1,");
+        sb.append("?2,");
+        sb.append("?3,");
+        sb.append("?4,");
         sb.append("0,");
         sb.append("now(),");
+
+        int paramIndex = 5;
         for (EFormValue v : values) {
-            sb.append("\'" + v.getVarValue() + "\'");
+            sb.append("?" + paramIndex);
             sb.append(",");
+            paramIndex++;
         }
         sb.deleteCharAt(sb.length() - 1);
 
@@ -141,11 +160,23 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         //logger.debug("sql=" + sb.toString());
 
         Query q = entityManager.createNativeQuery(sb.toString());
+        q.setParameter(1, fdid);
+        q.setParameter(2, demographicNo);
+        q.setParameter(3, dateFormCreated);
+        q.setParameter(4, providerNo);
+
+        paramIndex = 5;
+        for (EFormValue v : values) {
+            q.setParameter(paramIndex, v.getVarValue());
+            paramIndex++;
+        }
+
         q.executeUpdate();
     }
 
     public void deleteAllData(EFormReportTool eft) {
         if (eft != null) {
+            validateIdentifier(eft.getTableName());
             Query q = entityManager.createNativeQuery("delete from " + eft.getTableName());
             q.executeUpdate();
         }
@@ -153,6 +184,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
 
     public void drop(EFormReportTool eft) {
         if (eft != null) {
+            validateIdentifier(eft.getTableName());
             Query q = entityManager.createNativeQuery("drop table " + eft.getTableName());
             q.executeUpdate();
         }
@@ -160,6 +192,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
 
     public Integer getNumRecords(EFormReportTool eformReportTool) {
         if (eformReportTool != null) {
+            validateIdentifier(eformReportTool.getTableName());
             Query q = entityManager.createNativeQuery("select count(*) from " + eformReportTool.getTableName());
             List<BigInteger> results = q.getResultList();
             if (!results.isEmpty()) {
