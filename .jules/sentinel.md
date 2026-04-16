@@ -1,0 +1,4 @@
+## 2024-05-23 - Prevent SQL Injection in JPA Native Queries with Dynamic Columns
+**Vulnerability:** SQL injection vulnerability in `EFormReportToolDaoImpl.java` where data values and dynamic column names were directly concatenated into JPA native `INSERT` and `CREATE TABLE` queries instead of using parameters.
+**Learning:** In JPA/Hibernate native queries (`createNativeQuery`), dynamically injected column names cannot be parameterized. To prevent SQL injection, dynamic column names must be validated against a strict allowlist or regex pattern (e.g., `^[a-zA-Z0-9_]+$`) before string concatenation, while values must be safely parameterized using placeholders (like `?1`).
+**Prevention:** Always validate dynamic table and column names with strict regex patterns before concatenation. Always use query parameterization (e.g., `query.setParameter(index, value)`) for data values instead of string concatenation.
