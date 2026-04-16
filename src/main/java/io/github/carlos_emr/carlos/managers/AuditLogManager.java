@@ -101,33 +101,26 @@ public class AuditLogManager {
         SimpleDateFormat formatter2 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         SimpleDateFormat formatter3 = new SimpleDateFormat("yyyyMMddHHmmss");
 
-        // Use StringBuilder for filename construction to bypass static analyzer false positives
-        StringBuilder filenameBuilder = new StringBuilder();
-        filenameBuilder.append(outputDirectory).append("/OSCAR_AUDIR_LOG_PURGE_FILE_").append(formatter3.format(endDateToPurge)).append(".sql");
-        String filename = filenameBuilder.toString();
+        String filename = outputDirectory + "/OSCAR_AUDIR_LOG_PURGE_FILE_" + formatter3.format(endDateToPurge) + ".sql";
 
-        // Use StringBuilder for the dynamically constructed query to bypass static analyzer false positives
-        StringBuilder whereClause = new StringBuilder();
-        whereClause.append("dateTime < '").append(formatter2.format(endDateToPurge)).append("'");
+        String[] vars = new String[] {
+            mysqldump,
+            "--user", user,
+            // Do not add password to arguments to prevent leaking in process monitors (e.g. ps -ef)
+            "-w", "dateTime < '" + formatter2.format(endDateToPurge) + "'",
+            "-t",
+            "--result-file", filename,
+            dbName,
+            "log"
+        };
 
         Integer exitValue = null;
 
         try {
             String s = null;
 
-            ProcessBuilder pb = new ProcessBuilder( // nosemgrep: java.lang.security.audit.command-injection.formatted-command-injection
-                mysqldump,
-                "--user",
-                user,
-                // Do not add password to arguments to prevent leaking in process monitors (e.g. ps -ef)
-                "-w",
-                whereClause.toString(),
-                "-t",
-                "--result-file",
-                filename,
-                dbName,
-                "log"
-            );
+            // nosemgrep: java.lang.security.audit.command-injection.formatted-command-injection
+            ProcessBuilder pb = new ProcessBuilder(vars);
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
             }
