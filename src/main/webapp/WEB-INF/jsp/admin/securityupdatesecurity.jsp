@@ -30,6 +30,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -381,9 +382,15 @@
                     }
                 %>
             </form>
+            <%
+                if (security != null) {
+            %>
             <form id="deleteSecurityForm" method="post" action="${pageContext.request.contextPath}/admin/SecurityDelete" style="display:none">
                 <input type="hidden" name="keyword" value="<e:forHtmlAttribute value='<%= String.valueOf(security.getSecurityNo()) %>' />">
             </form>
+            <%
+                }
+            %>
         </table>
 
         <p></p>

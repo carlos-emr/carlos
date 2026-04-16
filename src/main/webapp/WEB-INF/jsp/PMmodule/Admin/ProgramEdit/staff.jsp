@@ -115,7 +115,7 @@
 				</tr>
 			</c:forEach>
 		</table>
-		<select name="x" onchange="assignTeam('${e:forHtml(provider.id)}',this)">
+		<select name="x" onchange="assignTeam('${e:forJavaScript(provider.id)}',this)">
 			<option value="" SELECTED></option>
 			<c:forEach var="team" items="${teams}">
 				<option value="${e:forHtmlAttribute(team.id)}">${e:forHtml(team.name)}</option>
@@ -123,7 +123,7 @@
 		</select>
 	</display:column>
 	<display:column sortable="false" title="Role">
-		<select name="x" onchange="assignRole('${e:forHtml(provider.id)}',this);">
+		<select name="x" onchange="assignRole('${e:forJavaScript(provider.id)}',this);">
 			<option value="0">&nbsp;</option>
 			<c:forEach var="role" items="${roles}">
 				<c:choose>

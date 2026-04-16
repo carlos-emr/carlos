@@ -91,7 +91,7 @@
     <display:column sortable="true" sortProperty="name" title="Program Name">
         <c:choose>
             <c:when test="${program.facilityId == facility.id}">
-                <a href="${pageContext.request.contextPath}/PMmodule/ProgramManagerView?id=${e:forHtmlAttribute(program.id)}">${e:forHtml(program.name)}</a>
+                <a href="${pageContext.request.contextPath}/PMmodule/ProgramManagerView?id=${e:forUriComponent(program.id)}">${e:forHtml(program.name)}</a>
             </c:when>
             <c:otherwise>${e:forHtml(program.name)}</c:otherwise>
         </c:choose>
@@ -133,9 +133,9 @@ while still admitted in this facility.
 <br/>
 Automatic discharges in the past 24 hours appear red.
 
-<div>
+    <div>
     <p>
-        <a href="${pageContext.request.contextPath}/PMmodule/FacilityManager?method=edit&amp;id=${e:forHtmlAttribute(requestScope.id)}">Edit facility</a>
+        <a href="${pageContext.request.contextPath}/PMmodule/FacilityManager?method=edit&amp;id=${e:forUriComponent(requestScope.id)}">Edit facility</a>
         |
         <a href="${pageContext.request.contextPath}/PMmodule/FacilityManager?method=list">Return to facilities list</a>
     </p>

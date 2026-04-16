@@ -74,7 +74,7 @@
         <!--Not allow to edit issue
         <td><a href="issueAdmin?method=edit&amp;id=${e:forHtmlAttribute(issueAdmin.id)}">${e:forHtml(issueAdmin.code)}</a></td>
         -->
-        <td>${e:forHtml(issueAdmin.code)}</a></td>
+        <td>${e:forHtml(issueAdmin.code)}</td>
         <td>${e:forHtml(issueAdmin.description)}</td>
         <td>${e:forHtml(issueAdmin.role)}</td>
         <!--

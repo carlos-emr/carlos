@@ -107,7 +107,7 @@
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="${e:forJavaScript(ctx)}/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+        src="${e:forHtmlAttribute(ctx)}/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes adding a calendar a matter of 1 or 2 lines of code. -->
         <script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/share/calendar/calendar-setup.js"></script>
@@ -497,36 +497,36 @@
              * Show and hide CPP categories according to user preferences, and display Social History, Medical History, Ongoing Concerns, and Reminders at user-specified positions
              */
             function getPreferenceBasedEChart() {
-                const isCppPreferencesEnabled = '${e:forHtmlAttribute(cppPreferences.enable)}';
+                const isCppPreferencesEnabled = '${e:forJavaScript(cppPreferences.enable)}';
                 if (isCppPreferencesEnabled !== 'on') {
                     showIssueNotes();
                     return;
                 }
 
-                const socialHxPosition = '${e:forHtmlAttribute(cppPreferences.socialHxPosition)}';
-                const medicalHxPosition = '${e:forHtmlAttribute(cppPreferences.medicalHxPosition)}';
+                const socialHxPosition = '${e:forJavaScript(cppPreferences.socialHxPosition)}';
+                const medicalHxPosition = '${e:forJavaScript(cppPreferences.medicalHxPosition)}';
                 const ongoingConcernsPosition = '${e:forJavaScript(cppPreferences.ongoingConcernsPosition)}';
-                const remindersPosition = '${e:forHtmlAttribute(cppPreferences.remindersPosition)}';
+                const remindersPosition = '${e:forJavaScript(cppPreferences.remindersPosition)}';
                 showCustomIssueNotes(socialHxPosition, medicalHxPosition, ongoingConcernsPosition, remindersPosition);
 
                 const preventionsDisplay = '${e:forJavaScript(cppPreferences.preventionsDisplay)}';
-                const dxRegistryDisplay = '${e:forHtmlAttribute(cppPreferences.dxRegistryDisplay)}';
-                const formsDisplay = '${e:forHtmlAttribute(cppPreferences.formsDisplay)}';
-                const eformsDisplay = '${e:forHtmlAttribute(cppPreferences.eformsDisplay)}';
-                const documentsDisplay = '${e:forHtmlAttribute(cppPreferences.documentsDisplay)}';
-                const labsDisplay = '${e:forHtmlAttribute(cppPreferences.labsDisplay)}';
-                const measurementsDisplay = '${e:forHtmlAttribute(cppPreferences.measurementsDisplay)}';
+                const dxRegistryDisplay = '${e:forJavaScript(cppPreferences.dxRegistryDisplay)}';
+                const formsDisplay = '${e:forJavaScript(cppPreferences.formsDisplay)}';
+                const eformsDisplay = '${e:forJavaScript(cppPreferences.eformsDisplay)}';
+                const documentsDisplay = '${e:forJavaScript(cppPreferences.documentsDisplay)}';
+                const labsDisplay = '${e:forJavaScript(cppPreferences.labsDisplay)}';
+                const measurementsDisplay = '${e:forJavaScript(cppPreferences.measurementsDisplay)}';
                 const consultationsDisplay = '${e:forJavaScript(cppPreferences.consultationsDisplay)}';
-                const hrmDisplay = '${e:forHtmlAttribute(cppPreferences.hrmDisplay)}';
+                const hrmDisplay = '${e:forJavaScript(cppPreferences.hrmDisplay)}';
 
-                const allergiesDisplay = '${e:forHtmlAttribute(cppPreferences.allergiesDisplay)}';
+                const allergiesDisplay = '${e:forJavaScript(cppPreferences.allergiesDisplay)}';
                 const medicationsDisplay = '${e:forJavaScript(cppPreferences.medicationsDisplay)}';
-                const otherMedsDisplay = '${e:forHtmlAttribute(cppPreferences.otherMedsDisplay)}';
-                const riskFactorsDisplay = '${e:forHtmlAttribute(cppPreferences.riskFactorsDisplay)}';
-                const familyHxDisplay = '${e:forHtmlAttribute(cppPreferences.familyHxDisplay)}';
-                const unresolvedIssuesDisplay = '${e:forHtmlAttribute(cppPreferences.unresolvedIssuesDisplay)}';
-                const resolvedIssuesDisplay = '${e:forHtmlAttribute(cppPreferences.resolvedIssuesDisplay)}';
-                const episodesDisplay = '${e:forHtmlAttribute(cppPreferences.episodesDisplay)}';
+                const otherMedsDisplay = '${e:forJavaScript(cppPreferences.otherMedsDisplay)}';
+                const riskFactorsDisplay = '${e:forJavaScript(cppPreferences.riskFactorsDisplay)}';
+                const familyHxDisplay = '${e:forJavaScript(cppPreferences.familyHxDisplay)}';
+                const unresolvedIssuesDisplay = '${e:forJavaScript(cppPreferences.unresolvedIssuesDisplay)}';
+                const resolvedIssuesDisplay = '${e:forJavaScript(cppPreferences.resolvedIssuesDisplay)}';
+                const episodesDisplay = '${e:forJavaScript(cppPreferences.episodesDisplay)}';
 
                 // If any display variable is empty, it means that the corresponding cpp is hidden
                 if (!preventionsDisplay) {

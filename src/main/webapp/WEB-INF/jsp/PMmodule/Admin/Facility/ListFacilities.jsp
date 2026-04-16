@@ -58,12 +58,12 @@
 
         <display:column sortable="false" title="">
             <a
-                    href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=view&id=${e:forHtmlAttribute(facility.id)}">
+                    href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=view&id=${e:forUriComponent(facility.id)}">
                 Details </a>
         </display:column>
         <display:column sortable="false" title="">
             <a
-                    href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=edit&id=${e:forHtmlAttribute(facility.id)}">
+                    href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=edit&id=${e:forUriComponent(facility.id)}">
                 Edit </a>
         </display:column>
         <display:column sortable="false" title="">

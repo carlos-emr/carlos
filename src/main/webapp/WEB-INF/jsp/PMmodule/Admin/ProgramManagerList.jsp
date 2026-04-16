@@ -112,18 +112,18 @@
 
     <display:column sortable="false" title="">
         <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=delete&amp;id=${e:forUriComponent(program.id)}&amp;name=${e:forUriComponent(program.name)}"
-           onclick="return confirmDelete('${e:forJavaScript(program.nameJs)}');">Delete</a>
+           onclick="return confirmDelete('${e:forJavaScript(program.name)}');">Delete</a>
     </display:column>
     <display:column sortable="false" title="">
         <c:choose>
             <c:when test="${program.programStatus == 'active'}">
-                <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${e:forHtmlAttribute(program.id)}">Edit</a>
+                <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${e:forUriComponent(program.id)}">Edit</a>
             </c:when>
             <c:otherwise>Edit</c:otherwise>
         </c:choose>
     </display:column>
     <display:column sortable="true" title="Name">
-        <a href="${pageContext.request.contextPath}/PMmodule/ProgramManagerView?id=${e:forHtmlAttribute(program.id)}">
+        <a href="${pageContext.request.contextPath}/PMmodule/ProgramManagerView?id=${e:forUriComponent(program.id)}">
             ${e:forHtml(program.name)}
         </a>
     </display:column>

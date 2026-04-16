@@ -274,7 +274,7 @@ If JSTL cannot handle the logic, document why:
 
 | Old Pattern (Scriptlet) | New Pattern (JSTL/EL) |
 |-------------------------|------------------|
-| `<%= variable %>` | `${variable}` (for system data) or `${e:forHtml(variable)}` |
+| `<%= variable %>` | `${e:forHtml(variable)}` |
 | `<%= request.getParameter("x") %>` | `${param.x}` |
 | `<%= session.getAttribute("x") %>` | `${sessionScope.x}` |
 | `<%= obj.getProperty() %>` | `${obj.property}` |

@@ -62,7 +62,7 @@
 <table width="100%" border="0" cellpadding="0" cellspacing="1">
 
     <tr>
-        <td><b>Client Name : </b>${e:forHtml(requestScope.casemgmt_demoName)}</td>
+        <td><b>Client Name : </b>${e:forHtml(requestScope.casemgmt_demoName == null ? '' : requestScope.casemgmt_demoName)}</td>
     </tr>
     <tr>
         <td><b>Age : </b>${e:forHtml(requestScope.casemgmt_demoAge)}</td>

@@ -153,7 +153,7 @@
 
     <display:column sortable="false" title="">
         <select name="x"
-                onchange="assignTeam('${e:forHtml(admission.id)}',this);">
+                onchange="assignTeam('${e:forJavaScript(admission.id)}',this);">
             <option value="0">&nbsp;</option>
             <c:forEach var="team" items="${teams}">
                 <c:choose>
@@ -170,7 +170,7 @@
 
     <display:column sortable="false" title="Status">
         <select name="y"
-                onchange="assignStatus('${e:forHtml(admission.id)}',this);">
+                onchange="assignStatus('${e:forJavaScript(admission.id)}',this);">
             <option value="0">&nbsp;</option>
             <c:forEach var="status" items="${client_statuses}">
                 <c:choose>

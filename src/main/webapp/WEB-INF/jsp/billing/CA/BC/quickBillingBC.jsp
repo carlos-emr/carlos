@@ -84,9 +84,9 @@
     <script type="text/javascript" src="${e:forHtmlAttribute(oscar_context_path)}/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="${e:forHtmlAttribute(oscar_context_path)}/library/jquery/jquery-compat.js"></script>
     <script type="text/javascript"
-            src="${e:forJavaScript(oscar_context_path)}/library/jquery/jquery-ui-1.14.2.min.js"></script>
+            src="${e:forHtmlAttribute(oscar_context_path)}/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script type="text/javascript"
-            src="${e:forJavaScript(oscar_context_path)}/library/flatpickr/flatpickr.min.js"></script>
+            src="${e:forHtmlAttribute(oscar_context_path)}/library/flatpickr/flatpickr.min.js"></script>
 
     <script type="text/javascript">
 

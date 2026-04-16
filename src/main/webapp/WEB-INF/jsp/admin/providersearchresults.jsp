@@ -30,6 +30,7 @@
 --%>
 <!DOCTYPE html>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -124,7 +125,7 @@
     <h4>
         <i class="fa-solid fa-magnifying-glass" title="Patient Search"></i>&nbsp;<fmt:message key="admin.providersearchresults.description"/></h4>
 
-    <form method="post" action="/admin/ViewProviderSearchResults" name="searchprovider" onsubmit="return onsub()">
+    <form method="post" action="${pageContext.request.contextPath}/admin/ViewProviderSearchResults" name="searchprovider" onsubmit="return onsub()">
         <div class="card card-body bg-body-tertiary">
             <table style="width:100%">
                 <tr>
@@ -234,7 +235,7 @@
         <!-- getPractionerNo() getPractitionerNoType() getFormattedName() getComments() getBillingNo() getTitle() getEmail() getOhipNo() getAddress() -->
         <tr>
             <td style="text-align:center"><a
-                    href='/admin/ViewProviderUpdateProvider?keyword=<e:forUriComponent value='<%= provider.getId() %>' />'><e:forHtmlContent value='<%= provider.getId() %>' />
+                    href='${pageContext.request.contextPath}/admin/ViewProviderUpdateProvider?keyword=<e:forUriComponent value='<%= provider.getId() %>' />'><e:forHtmlContent value='<%= provider.getId() %>' />
             </a></td>
             <td><e:forHtmlContent value='<%= (provider.getLastName() == null ? "" : provider.getLastName()) + ", " + (provider.getFirstName() == null ? "" : provider.getFirstName()) %>' />
             </td>
@@ -267,11 +268,11 @@
         String searchStatusQ = (searchStatus != null) ? "&search_status=" + Encode.forUriComponent(searchStatus) : "";
         if (nLastPage >= 0) {
     %> <a
-            href="/admin/ViewProviderSearchResults?keyword=<e:forUriComponent value='<%= keyword %>' />&search_mode=<e:forUriComponent value='<%= searchMode %>' /><%= searchStatusQ %>&orderby=<e:forUriComponent value='<%= orderBy %>' />&limit1=<%=nLastPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnLastPage"/></a> | <%
+            href="${pageContext.request.contextPath}/admin/ViewProviderSearchResults?keyword=<e:forUriComponent value='<%= keyword %>' />&search_mode=<e:forUriComponent value='<%= searchMode %>' /><%= searchStatusQ %>&orderby=<e:forUriComponent value='<%= orderBy %>' />&limit1=<%=nLastPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnLastPage"/></a> | <%
         }
         if (nItems == Integer.parseInt(strLimit)) {
     %> <a
-            href="/admin/ViewProviderSearchResults?keyword=<e:forUriComponent value='<%= keyword %>' />&search_mode=<e:forUriComponent value='<%= searchMode %>' /><%= searchStatusQ %>&orderby=<e:forUriComponent value='<%= orderBy %>' />&limit1=<%=nNextPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnNextPage"/></a> <%
+            href="${pageContext.request.contextPath}/admin/ViewProviderSearchResults?keyword=<e:forUriComponent value='<%= keyword %>' />&search_mode=<e:forUriComponent value='<%= searchMode %>' /><%= searchStatusQ %>&orderby=<e:forUriComponent value='<%= orderBy %>' />&limit1=<%=nNextPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnNextPage"/></a> <%
         }
     %>
     <p><fmt:message key="admin.providersearchresults.msgClickForEditing"/></p>

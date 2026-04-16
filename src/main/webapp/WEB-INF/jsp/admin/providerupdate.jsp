@@ -30,6 +30,7 @@
 --%>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -233,7 +234,7 @@
         %>
         <p>
         <h2><fmt:message key="admin.providerupdate.msgUpdateSuccess"/>
-            <a href="/admin/ViewProviderUpdateProvider?keyword=<e:forUriComponent value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' />"><e:forHtmlContent value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' />
+            <a href="${pageContext.request.contextPath}/admin/ViewProviderUpdateProvider?keyword=<e:forUriComponent value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' />"><e:forHtmlContent value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' />
             </a>
         </h2>
         <%

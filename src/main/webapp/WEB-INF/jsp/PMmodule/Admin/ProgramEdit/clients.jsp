@@ -82,7 +82,7 @@
     <display:column property="admissionNotes" sortable="true" title="Admission Notes"/>
     <display:column property="teamName" sortable="true" title="Team"/>
     <display:column sortable="false" title="">
-        <select name="x" onchange="assignTeam('${e:forHtml(admission.id)}',this);">
+        <select name="x" onchange="assignTeam('${e:forJavaScript(admission.id)}',this);">
             <option value="0">&nbsp;</option>
             <c:forEach var="team" items="${teams}">
                 <c:choose>
@@ -97,7 +97,7 @@
         </select>
     </display:column>
     <display:column sortable="false" title="Status">
-        <select name="y" onchange="assignStatus('${e:forHtml(admission.id)}',this);">
+        <select name="y" onchange="assignStatus('${e:forJavaScript(admission.id)}',this);">
             <option value="0">&nbsp;</option>
             <c:forEach var="status" items="${client_statuses}">
                 <c:choose>

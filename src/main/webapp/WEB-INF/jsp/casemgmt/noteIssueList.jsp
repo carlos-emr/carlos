@@ -224,7 +224,7 @@
                 </select>
             </c:when>
             <c:otherwise>
-                "&quot;${e:forHtml(caseManagementEntryForm.caseNote.encounter_type)}&quot;"
+                "&quot;${e:forHtml(caseManagementEntryForm.caseNote.encounter_type == null ? '' : caseManagementEntryForm.caseNote.encounter_type)}&quot;"
             </c:otherwise>
         </c:choose>
     </span>
