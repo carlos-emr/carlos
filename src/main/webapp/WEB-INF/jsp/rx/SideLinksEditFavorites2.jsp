@@ -68,7 +68,7 @@
         <p class="PropSheetLevel1CurrentItem<%=alle%>">
             <fmt:message key="oscarRx.sideLinks.msgAllergies"/>
             <a href="javascript:void(0);" name="cmdAllergies"
-               onclick="javascript:window.location.href='<%= request.getContextPath() %>/rx/showAllergy.do?demographicNo=<%=Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("demographicNo")))%>';"
+               onclick="javascript:window.location.href='<%= request.getContextPath() %>/rx/showAllergy?demographicNo=<%=Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("demographicNo")))%>';"
                style="width: 200px">+</a>
         </p>
         <p class="PropSheetMenuItemLevel1">
@@ -141,8 +141,8 @@
     </security:oscarSec>
 
     <p class="PropSheetLevel1CurrentItem"><fmt:message key="oscarRx.sideLinks.msgFavorites"/>
-        <a href="${pageContext.request.contextPath}/rx/updateFavorite.do"><fmt:message key="oscarRx.sideLinks.EditFavorites"/></a>
-        <a href="${pageContext.request.contextPath}/rx/copyFavorite.do"><fmt:message key="oscarRx.sideLinks.CopyFavorites"/></a>
+        <a href="${pageContext.request.contextPath}/rx/updateFavorite"><fmt:message key="oscarRx.sideLinks.EditFavorites"/></a>
+        <a href="${pageContext.request.contextPath}/rx/copyFavorite"><fmt:message key="oscarRx.sideLinks.CopyFavorites"/></a>
     </p>
     <p class="PropSheetMenuItemLevel1">
             <%
@@ -164,6 +164,6 @@
     // Pulled from function in SearchDrug3.jsp - function needs to be defined here
     // for ShowAllergies2.jsp for favorite staging in allergies page
     function useFav2(favoriteId) {
-        location.href = "<%= request.getContextPath() %>/rx/searchDrug.do?usefav=true&favid=" + encodeURIComponent(favoriteId);
+        location.href = "<%= request.getContextPath() %>/rx/searchDrug?usefav=true&favid=" + encodeURIComponent(favoriteId);
     }
 </script>

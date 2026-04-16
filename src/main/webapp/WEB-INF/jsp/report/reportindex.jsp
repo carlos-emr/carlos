@@ -56,7 +56,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed2 = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed2) {
@@ -161,7 +161,7 @@
                 var y = document.getElementsByName("sTime")[0].value;
                 var z = document.getElementsByName("eTime")[0].value;
                 var ro = document.getElementById("rosteredOnly").checked;
-                var x = '<%= request.getContextPath() %>/report/ViewReportdaysheet.do?dsmode=' + encodeURIComponent(r) + '&provider_no=' + encodeURIComponent(s) + '&sdate=' + encodeURIComponent(u) + '&edate=' + encodeURIComponent(v) + '&sTime=' + encodeURIComponent(y) + '&eTime=' + encodeURIComponent(z);
+                var x = '<%= request.getContextPath() %>/report/ViewReportdaysheet?dsmode=' + encodeURIComponent(r) + '&provider_no=' + encodeURIComponent(s) + '&sdate=' + encodeURIComponent(u) + '&edate=' + encodeURIComponent(v) + '&sTime=' + encodeURIComponent(y) + '&eTime=' + encodeURIComponent(z);
                 var x2 = x + '&rosteredStatus=true';
 
                 if (ro == true) {
@@ -236,10 +236,10 @@
                     <sup>*</sup><a HREF="#" ONCLICK="go('all')"><fmt:message key="report.reportindex.btnAllAppt"/></a><br>&nbsp;&nbsp; <fmt:message key="report.reportindex.chkRostered"/> <input type="checkbox" id="rosteredOnly" value="true">
                 </td>
                 <td><a HREF="#"
-                       onClick="popupPage(310,430,'<%= request.getContextPath() %>/share/CalendarPopup.do?urlfrom=<%= request.getContextPath() %>/report/ViewReportindex.do&year=<%=now.get(Calendar.YEAR)%>&month=<%=now.get(Calendar.MONTH)+1%>&param=<%=URLEncoder.encode("&formdatebox=document.getElementsByName('asdate')[0].value", StandardCharsets.UTF_8)%>')"><fmt:message key="report.reportindex.formFrom"/></a> <input type='text' name="asdate"
+                       onClick="popupPage(310,430,'<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<%= request.getContextPath() %>/report/ViewReportindex&year=<%=now.get(Calendar.YEAR)%>&month=<%=now.get(Calendar.MONTH)+1%>&param=<%=URLEncoder.encode("&formdatebox=document.getElementsByName('asdate')[0].value", StandardCharsets.UTF_8)%>')"><fmt:message key="report.reportindex.formFrom"/></a> <input type='text' name="asdate"
                                                                        VALUE="<%=today%>" class="form-control form-control-sm" style="width:auto;display:inline-block"></td>
                 <td><a HREF="#"
-                       onClick="popupPage(310,430,'<%= request.getContextPath() %>/share/CalendarPopup.do?urlfrom=<%= request.getContextPath() %>/report/ViewReportindex.do&year=<%=now.get(Calendar.YEAR)%>&month=<%=now.get(Calendar.MONTH)+1%>&param=<%=URLEncoder.encode("&formdatebox=document.getElementsByName('aedate')[0].value", StandardCharsets.UTF_8)%>')"><fmt:message key="report.reportindex.formTo"/> </a> <input type='text' name="aedate"
+                       onClick="popupPage(310,430,'<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<%= request.getContextPath() %>/report/ViewReportindex&year=<%=now.get(Calendar.YEAR)%>&month=<%=now.get(Calendar.MONTH)+1%>&param=<%=URLEncoder.encode("&formdatebox=document.getElementsByName('aedate')[0].value", StandardCharsets.UTF_8)%>')"><fmt:message key="report.reportindex.formTo"/> </a> <input type='text' name="aedate"
                                                                       VALUE="<%=today%>" class="form-control form-control-sm" style="width:auto;display:inline-block"></td>
                 <td><select name="sTime" class="form-select form-select-sm" style="width:auto;display:inline-block">
                     <%
@@ -267,7 +267,7 @@
                 </td>
                 <td width="1"></td>
                 <td width="300"><a
-                        href="<%= request.getContextPath() %>/oscarReport/ViewReportDemographicReport.do" target="_blank"><fmt:message key="report.reportindex.btnDemographicReportTool"/></a></td>
+                        href="<%= request.getContextPath() %>/oscarReport/ViewReportDemographicReport" target="_blank"><fmt:message key="report.reportindex.btnDemographicReportTool"/></a></td>
                 <td></td>
                 <td></td>
                 <td></td>
@@ -280,7 +280,7 @@
                 </td>
                 <td width="1"></td>
                 <td width="300"><a
-                        href="<%= request.getContextPath() %>/prevention/PreventionReport.do" target="_blank"><fmt:message key="report.reportindex.btnReport18n"/></a></td>
+                        href="<%= request.getContextPath() %>/prevention/PreventionReport" target="_blank"><fmt:message key="report.reportindex.btnReport18n"/></a></td>
                 <td></td>
                 <td></td>
                 <td></td>

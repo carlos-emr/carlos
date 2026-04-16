@@ -23,7 +23,7 @@
 
 --%>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -76,7 +76,7 @@
         </ul>
     </div>
 <% } %>
-    <form action="${pageContext.request.contextPath}/encounter/oscarMeasurements/DeleteData2.do" method="post">
+    <form action="${pageContext.request.contextPath}/encounter/oscarMeasurements/DeleteData2" method="post">
         <table>
             <tr>
                 <td>
@@ -139,7 +139,7 @@
                                 </c:forEach>
 
                                 <td><a href="#" name='<fmt:message key="encounter.Index.oldMeasurements"/>'
-                                       onClick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory.do?type=<c:out
+                                       onClick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory?type=<c:out
                                                value="${pair.key}"/>'); return false;">more...</a></td>
                             </tr>
                         </c:forEach>

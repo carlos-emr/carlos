@@ -1,4 +1,4 @@
-<%@page import="java.sql.*" errorPage="/errorpage.jsp" %>
+<%@page import="java.sql.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page
         import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*,io.github.carlos_emr.carlos.billing.ca.bc.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>

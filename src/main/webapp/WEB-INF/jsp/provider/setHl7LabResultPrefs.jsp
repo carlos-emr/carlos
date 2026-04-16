@@ -5,7 +5,7 @@
 <c:set var="roleName" value="${sessionScope.userrole},${sessionScope.user}" />
 
 <security:oscarSec roleName="${roleName}" objectName="_lab" rights="w" reverse="true">
-    <c:redirect url="../securityError.jsp">
+    <c:redirect url="../securityError">
         <c:param name="type" value="_lab" />
     </c:redirect>
 </security:oscarSec>
@@ -60,7 +60,7 @@
     function updatePreference(methodName, key, value) {
         ShowSpin(true);
         jQuery.ajax({
-            url: '${pageContext.request.contextPath}/setProviderStaleDate.do?method=' + methodName,
+            url: '${pageContext.request.contextPath}/setProviderStaleDate?method=' + methodName,
             method: 'POST',
             data: {
                 key: key,

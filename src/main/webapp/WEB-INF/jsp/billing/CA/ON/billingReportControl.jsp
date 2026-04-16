@@ -33,7 +33,7 @@
     String providerview = request.getParameter("providerview") == null ? "all" : request.getParameter("providerview");
 %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
-<%@ page import="java.math.*,java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.math.*,java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
@@ -100,7 +100,7 @@
 <table width="100%" border="0" cellspacing="0" cellpadding="0">
     <tr>
         <td align="right"><a href=#
-                             onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider.do?action=billingreport')">
+                             onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider?action=billingreport')">
             <font size="1">Manage Provider List </font></a></td>
     </tr>
 </table>
@@ -116,7 +116,7 @@
 
 <table width="100%" border="0" bgcolor="#EEEEFF">
     <form name="serviceform" method="post"
-          action="/billing/CA/ON/ViewBillingReportControl.do">
+          action="/billing/CA/ON/ViewBillingReportControl">
         <tr>
             <td width="50%" align="right"><font size="2" color="#333333"
                                                 face="Verdana, Arial, Helvetica, sans-serif"> <input
@@ -166,10 +166,10 @@
             <td></td>
             <td align="right"><B>Date</B> &nbsp; <font size="1"
                                                        face="Arial, Helvetica, sans-serif"> <a href="#"
-                                                                                               onClick="openBrWindow('/billing/CA/ON/ViewBillingCalendarPopup.do?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')">From:</a></font>
+                                                                                               onClick="openBrWindow('/billing/CA/ON/ViewBillingCalendarPopup?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')">From:</a></font>
                 <input type="text" name="xml_vdate" size="10" value="<%=Encode.forHtmlAttribute(xml_vdate)%>">
                 <font size="1" face="Arial, Helvetica, sans-serif"> <a href="#"
-                                                                       onClick="openBrWindow('/billing/CA/ON/ViewBillingCalendarPopup.do?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')">
+                                                                       onClick="openBrWindow('/billing/CA/ON/ViewBillingCalendarPopup?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')">
                     To:</a></font> <input type="text" name="xml_appointment_date" size="10"
                                           value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>"></td>
             <td></td>

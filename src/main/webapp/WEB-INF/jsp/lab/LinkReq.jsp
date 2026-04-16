@@ -47,7 +47,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -220,7 +220,7 @@
 </head>
 <body <%=(close) ? "onLoad=\"closeItUp()\" " : "" %>>
 
-<form action="<%=request.getContextPath()%>/lab/ViewLinkReq.do" method="post">
+<form action="<%=request.getContextPath()%>/lab/ViewLinkReq" method="post">
     <input type="hidden" name="table" value="<%=Encode.forHtmlAttribute(table != null ? table : "")%>"/>
     <input type="hidden" name="rptid" value="<%=Encode.forHtmlAttribute(rptId != null ? rptId : "")%>"/>
     <input type="hidden" name="reqid" value="<%=Encode.forHtmlAttribute(reqId != null ? reqId : "")%>"/>

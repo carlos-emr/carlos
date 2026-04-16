@@ -48,7 +48,7 @@
     String day = request.getParameter("pday") != null ? request.getParameter("pday") : "8";
 %>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
@@ -115,7 +115,7 @@
             newGroupNo = p;
             var form = document.createElement('form');
             form.method = 'post';
-            form.action = '<%= request.getContextPath() %>/provider/providercontrol.do';
+            form.action = '<%= request.getContextPath() %>/provider/providercontrol';
             var fields = {provider_no: '<%=curUser_no%>', start_hour: '<%=startHour%>', end_hour: '<%=endHour%>', every_min: '<%=everyMin%>', color_template: 'deepblue', dboperation: 'updatepreference', displaymode: 'updatepreference', default_servicetype: '<%=defaultServiceType%>', mygroup_no: newGroupNo};
             for (var key in fields) {
                 var input = document.createElement('input');

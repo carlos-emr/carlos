@@ -26,7 +26,7 @@
 
     String curUser_no = (String) session.getAttribute("user");
 %>
-<%@ page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>

@@ -32,7 +32,7 @@
 <%! boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable(); %>
 <%! String[] bgColors; %>
 
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplate" %>
@@ -90,7 +90,7 @@
     </head>
     <body bgcolor="ivory" bgproperties="fixed" onLoad="setfocus()"
           topmargin="0" leftmargin="0" rightmargin="0">
-    <form method="post" name="schedule" action="${pageContext.request.contextPath}/schedule/DateSave.do">
+    <form method="post" name="schedule" action="${pageContext.request.contextPath}/schedule/DateSave">
 
         <table border="0" width="100%">
             <tr>

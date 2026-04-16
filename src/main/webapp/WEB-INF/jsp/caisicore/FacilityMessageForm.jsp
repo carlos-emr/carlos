@@ -33,7 +33,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -71,7 +71,7 @@
 </table>
 
 <br/>
-<form action="${pageContext.request.contextPath}/FacilityMessage.do" method="post">
+<form action="${pageContext.request.contextPath}/FacilityMessage" method="post">
     <input type="hidden" name="method" value="save"/>
     <input type="hidden" name="id" id="id"/>
     <table width="60%" border="0" cellpadding="0" cellspacing="1"
@@ -85,7 +85,7 @@
                 int day = rightNow.get(Calendar.DAY_OF_MONTH);
                 String formattedDate = year + "-" + month + "-" + day;
             %> <a href="#"
-                  onClick="openBrWindow('<%= request.getContextPath() %>/calendar/oscarCalendarPopup.do?type=caisi&openerForm=facilityMessageForm&amp;openerElement=facility_message.expiry_day&amp;year=<%=year %>&amp;month=<%=month %>','','width=300,height=300')"><img
+                  onClick="openBrWindow('<%= request.getContextPath() %>/calendar/oscarCalendarPopup?type=caisi&openerForm=facilityMessageForm&amp;openerElement=facility_message.expiry_day&amp;year=<%=year %>&amp;month=<%=month %>','','width=300,height=300')"><img
                     border="0" src="images/calendar.jpg"/></a></td>
             <td></td>
         </tr>
@@ -163,7 +163,7 @@
         <tr>
             <td class="fieldValue" colspan="3"><input type="submit" name="submit" value="Save"/>
                 <input type="button" value="Cancel"
-                       onclick="location.href='FacilityMessage.do'"/></td>
+                       onclick="location.href='FacilityMessage'"/></td>
         </tr>
     </table>
 </form>

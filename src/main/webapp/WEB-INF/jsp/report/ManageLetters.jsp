@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -76,7 +76,7 @@
             </h4>
         </div>
 
-        <form method="post" action="${pageContext.request.contextPath}/report/ManageLetters.do" enctype="multipart/form-data">
+        <form method="post" action="${pageContext.request.contextPath}/report/ManageLetters" enctype="multipart/form-data">
             <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
             <input type="hidden" name="goto" value="<%=Encode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("goto")))%>"/>
             <table class="table table-sm" style="font-size:13px;">
@@ -125,10 +125,10 @@
                     <td><%= Encode.forHtml(String.valueOf(h.get("ID"))) %></td>
                     <td><%= Encode.forHtml(String.valueOf(h.get("provider_no"))) %></td>
                     <td><%= Encode.forHtml(String.valueOf(h.get("report_name"))) %></td>
-                    <td><a href="<%= request.getContextPath() %>/report/DownloadLetter.do?reportID=<%= Encode.forHtmlAttribute(String.valueOf(h.get("ID")))%>"><%= Encode.forHtml(String.valueOf(h.get("file_name")))%></a></td>
+                    <td><a href="<%= request.getContextPath() %>/report/DownloadLetter?reportID=<%= Encode.forHtmlAttribute(String.valueOf(h.get("ID")))%>"><%= Encode.forHtml(String.valueOf(h.get("file_name")))%></a></td>
                     <td><%= Encode.forHtml(String.valueOf(h.get("date_time"))) %></td>
                     <td>
-                        <form method="POST" action="<%= request.getContextPath() %>/report/DeleteLetter.do" style="display:inline; margin:0;">
+                        <form method="POST" action="<%= request.getContextPath() %>/report/DeleteLetter" style="display:inline; margin:0;">
                             <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
                             <input type="hidden" name="reportID" value="<%= Encode.forHtmlAttribute(String.valueOf(h.get("ID"))) %>"/>
                             <button type="submit" class="btn btn-sm btn-danger">Delete</button>

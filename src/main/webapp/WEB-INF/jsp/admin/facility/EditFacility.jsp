@@ -40,7 +40,7 @@
 %>
 
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
     <%authed = false; %>
 </security:oscarSec>
 <%
@@ -72,7 +72,7 @@
     </head>
     <body>
     <h1>Edit Facility</h1>
-    <form action="${pageContext.request.contextPath}/FacilityManager.do" method="post"
+    <form action="${pageContext.request.contextPath}/FacilityManager" method="post"
                onsubmit="return validateForm();">
         <input type="hidden" name="method" value="save"/>
         <input type="hidden" name="orgId" id="orgId"/>

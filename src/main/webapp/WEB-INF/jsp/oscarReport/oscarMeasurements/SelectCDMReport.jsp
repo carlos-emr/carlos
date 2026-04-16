@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -77,7 +77,7 @@
 
     <body class="BodyStyle" vlink="#0000FF">
     <!--  -->
-    <form action="${pageContext.request.contextPath}/oscarReport/oscarMeasurements/SelectCDMReport.do" method="post">
+    <form action="${pageContext.request.contextPath}/oscarReport/oscarMeasurements/SelectCDMReport" method="post">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
                 <td class="MainTableTopRowLeftColumn"><fmt:message key="oscarReport.CDMReport.msgReport"/></td>

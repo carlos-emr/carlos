@@ -24,12 +24,12 @@
 --%>
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     }
     String user_no = (String) session.getAttribute("user");
 
 %>
-<%@ page errorPage="/errorpage.jsp"
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
          import="java.util.*,java.sql.*,io.github.carlos_emr.*,java.text.*,java.net.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -290,7 +290,7 @@
 
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%"
            class="myYellow">
-        <form method="post" name="baseur0" action="/billing/CA/ON/OnAddEdit3rdAddr.do">
+        <form method="post" name="baseur0" action="/billing/CA/ON/OnAddEdit3rdAddr">
 
             <tr>
                 <td align="right" width="50%"><select name="company_name"
@@ -314,7 +314,7 @@
         </form>
     </table>
     <table width="100%" border="0" cellspacing="2" cellpadding="2">
-        <form method="post" name="baseurl" action="/billing/CA/ON/OnAddEdit3rdAddr.do">
+        <form method="post" name="baseurl" action="/billing/CA/ON/OnAddEdit3rdAddr">
             <tr class="myGreen">
                 <td align="right"><b>Company Name</b></td>
                 <td><input type="text" name="company_name"

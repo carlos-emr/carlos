@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -93,7 +93,7 @@
 
     List<Provider> providers = providerDao.getActiveProviders();
 %>
-<form class="card card-body bg-body-tertiary" action="${ctx}/admin/ViewUsageReport.do"
+<form class="card card-body bg-body-tertiary" action="${ctx}/admin/ViewUsageReport"
       id="usageForm">
     <fieldset>
         <h4>

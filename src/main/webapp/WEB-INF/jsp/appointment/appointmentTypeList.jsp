@@ -39,7 +39,7 @@
         sError = "Error: " + request.getParameter("err");
 %>
 
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.sql.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>
@@ -164,7 +164,7 @@
                 <tr>
                     <td colspan=7>
                         <center>
-                            <form action="${pageContext.request.contextPath}/appointment/appointmentTypeAction.do" method="post">
+                            <form action="${pageContext.request.contextPath}/appointment/appointmentTypeAction" method="post">
                                 <input TYPE="hidden" NAME="oper" VALUE="save"/>
                                 <input TYPE="hidden" NAME="id"
                                        VALUE="<c:out value="${id}"/>"/>
@@ -309,7 +309,7 @@
                         <%= type.getResources() %>
                     </th>
                     <th nowrap>
-                        <a href="${pageContext.request.contextPath}/appointment/appointmentTypeAction.do?oper=edit&no=<%= type.getId() %>">edit</a>
+                        <a href="${pageContext.request.contextPath}/appointment/appointmentTypeAction?oper=edit&no=<%= type.getId() %>">edit</a>
                         &nbsp;&nbsp;
                         <a href="javascript:delType('<%= type.getId() %>')">delete</a>
                     </th>
@@ -329,7 +329,7 @@
         if (answer) {
             var form = document.createElement('form');
             form.method = 'post';
-            form.action = '${pageContext.request.contextPath}/appointment/appointmentTypeAction.do';
+            form.action = '${pageContext.request.contextPath}/appointment/appointmentTypeAction';
             var fields = {oper: 'del', no: id};
             for (var key in fields) {
                 var input = document.createElement('input');

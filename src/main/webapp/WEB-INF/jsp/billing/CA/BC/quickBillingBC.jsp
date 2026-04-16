@@ -43,7 +43,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -193,7 +193,7 @@
 
                     } else {
 
-                        var path = "<c:out value="${ oscar_context_path }" />/quickBillingBC.do";
+                        var path = "<c:out value="${ oscar_context_path }" />/quickBillingBC";
                         var data = JSON.stringify($(document.quickBillingForm).serializeObject());
 
                         $("#quickBillingForm").attr("action", path + "?data=" + encodeURIComponent(data));
@@ -207,7 +207,7 @@
             $("#ptName").autocomplete({
                 source: function (request, response) {
                     $.ajax({
-                        url: "<c:out value="${ oscar_context_path }" />/demographic/SearchDemographic.do",
+                        url: "<c:out value="${ oscar_context_path }" />/demographic/SearchDemographic",
                         method: "POST",
                         data: { query: request.term },
                         dataType: "json",
@@ -251,7 +251,7 @@
         // removes an entry from the add invoice list.
         function removeBill(bill) {
 
-            var path = "<c:out value="${ oscar_context_path }" />/quickBillingBC.do";
+            var path = "<c:out value="${ oscar_context_path }" />/quickBillingBC";
             var data = "?remove=" + bill;
 
             $("#quickBillingForm").attr("action", path + data);
@@ -268,7 +268,7 @@
     <h1>BC MSP Quick Billing</h1>
 </div>
 
-<form action="<c:out value="${oscar_context_path}" />/saveQuickBillingBC.do"
+<form action="<c:out value="${oscar_context_path}" />/saveQuickBillingBC"
       id="quickBillingForm"
       name="quickBillingForm"
       method="POST"

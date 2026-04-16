@@ -5,14 +5,14 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
         return;
     }
 %>
-<%@ page errorPage="/errorpage.jsp"
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
          import="java.util.*, io.github.carlos_emr.carlos.report.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.login.*" %>
 <%@ page import="org.apache.commons.lang3.*" %>
@@ -90,7 +90,7 @@
             }
 
             function goPage(id) {
-                self.location.href = "<%= request.getContextPath() %>/report/ViewReportFilter.do?id=" + id;
+                self.location.href = "<%= request.getContextPath() %>/report/ViewReportFilter?id=" + id;
             }
 
             //-->
@@ -104,7 +104,7 @@
         <tr BGCOLOR="#CCCCFF">
             <td><%=Encode.forHtml(reportName)%> Order</td>
             <td width="10%" align="right" nowrap><a
-                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig.do?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%=Encode.forUriComponent(tableName)%>">Back
+                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%=Encode.forUriComponent(tableName)%>">Back
                 to the Configuration</a></td>
         </tr>
     </table>
@@ -114,7 +114,7 @@
             <td width="70%">
 
                 <table width="100%" border="0" cellspacing="1" cellpadding="2">
-                    <form method="post" name="baseurl" action="<%= request.getContextPath() %>/report/ViewReportFormOrder.do"
+                    <form method="post" name="baseurl" action="<%= request.getContextPath() %>/report/ViewReportFormOrder"
                           onsubmit="return checkscript()">
                         <%
                             for (int i = 0; i < vecConfigObj.size(); i++) {

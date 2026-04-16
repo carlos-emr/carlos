@@ -143,7 +143,7 @@ class MsgReDisplayMessages2ActionTest extends CarlosWebTestBase {
 
         // Then
         assertThat(result).isNull();
-        assertThat(getMockResponse().getRedirectedUrl()).contains("index.jsp");
+        assertThat(getMockResponse().getRedirectedUrl()).contains("index");
     }
 
     @Test

@@ -55,12 +55,12 @@
                 <img style="cursor: pointer;" id="ci"
                     src="${pageContext.request.contextPath}/imageRenderingServlet?source=local_client&amp;clientId=${demographicNo}" alt="id_photo" height="100"
                     title="Click to upload a new photo."
-                onClick="popupUploadPage('${pageContext.request.contextPath}/casemgmt/ViewUploadimage.do', ${demographicNo}); return false;"/>
+                onClick="popupUploadPage('${pageContext.request.contextPath}/casemgmt/ViewUploadimage', ${demographicNo}); return false;"/>
             </c:when>
             <c:otherwise>
                 <img style="cursor: pointer;" src="${pageContext.request.contextPath}/${ClientImage.imageMissingPlaceholderUrl}"
                     alt="No_Id_Photo" height="100" title="Click to upload a new photo."
-                    onClick="popupUploadPage('${pageContext.request.contextPath}/casemgmt/ViewUploadimage.do', ${demographicNo}); return false;"/>
+                    onClick="popupUploadPage('${pageContext.request.contextPath}/casemgmt/ViewUploadimage', ${demographicNo}); return false;"/>
             </c:otherwise>
         </c:choose>
     </security:oscarSec>

@@ -35,7 +35,7 @@ import org.apache.struts2.ServletActionContext;
  *
  * <p>Requires {@code _admin.misc} read privilege before forwarding to the JSP.
  * The JSP handles the display form and group member deletion. New group creation
- * POSTs to the separate {@code AdminSaveMyGroup.do} action endpoint.</p>
+ * POSTs to the separate {@code AdminSaveMyGroup} action endpoint.</p>
  *
  * @since 2026-04-05
  */

@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_casemgmt.notes");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_casemgmt.notes");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -157,7 +157,7 @@
                             <c:when
                                     test="${(!note.signed) and (sessionScope.readonly=='false')}">
                                 <c:url
-                                        value="/CaseManagementEntry.do?method=edit&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
+                                        value="/CaseManagementEntry?method=edit&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                         var="notesURL"/>
                                 <img src="<c:out value="${ctx}"/>/images/edit_white.png"
                                      title="Edit/Sign Note" style="cursor: pointer"
@@ -166,7 +166,7 @@
                             <c:when
                                     test="${note.signed and param.providerNo eq note.providerNo}">
                                 <c:url
-                                        value="/CaseManagementEntry.do?method=edit&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
+                                        value="/CaseManagementEntry?method=edit&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                         var="notesURL"/>
                                 <img src="<c:out value="${ctx}"/>/images/edit_white.png"
                                      title="Edit Note" style="cursor: pointer"
@@ -179,7 +179,7 @@
                         </c:choose> <c:choose>
                             <c:when test="${note.hasHistory == true}">
                                 <c:url
-                                        value="/CaseManagementEntry.do?method=history&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
+                                        value="/CaseManagementEntry?method=history&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                         var="historyURL"/>
                                 <img src="<c:out value="${ctx}"/>/images/history.gif"
                                      title="Note History" style="cursor: pointer"
@@ -192,7 +192,7 @@
                         </c:choose> <c:choose>
                             <c:when test="${note.locked}">
                                 <c:url
-                                        value="/CaseManagementView.do?method=unlock&noteId=${note.id}"
+                                        value="/CaseManagementView?method=unlock&noteId=${note.id}"
                                         var="lockedURL"/>
                                 <img src="<c:out value="${ctx}"/>/images/ulock.gif"
                                      title="Unlock" style="cursor: pointer"
@@ -254,7 +254,7 @@
                                     <td width="93%"><c:if
                                             test="${(!note.signed) and (sessionScope.readonly=='false')}">
                                         <c:url
-                                                value="/CaseManagementEntry.do?method=edit&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
+                                                value="/CaseManagementEntry?method=edit&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                                 var="notesURL"/>
                                         <input type="button" value="Edit and Sign"
                                                onclick="popupNotePage('<c:out value="${notesURL}"
@@ -262,21 +262,21 @@
                                     </c:if> <c:if
                                             test="${note.signed and param.providerNo eq note.providerNo}">
                                         <c:url
-                                                value="/CaseManagementEntry.do?method=edit&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
+                                                value="/CaseManagementEntry?method=edit&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                                 var="notesURL"/>
                                         <input type="button" value="Edit This Note"
                                                onclick="popupNotePage('<c:out value="${notesURL}"
                                                                               escapeXml="false"/>')">
                                     </c:if> <c:if test="${note.hasHistory == true}">
                                         <c:url
-                                                value="/CaseManagementEntry.do?method=history&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
+                                                value="/CaseManagementEntry?method=history&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                                 var="historyURL"/>
                                         <input type="button" value="Note History"
                                                onclick="popupHistoryPage('<c:out value="${historyURL}"
                                                                                  escapeXml="false"/>')">
                                     </c:if> <c:if test="${note.locked}">
                                         <c:url
-                                                value="/CaseManagementView.do?method=unlock&noteId=${note.id}"
+                                                value="/CaseManagementView?method=unlock&noteId=${note.id}"
                                                 var="lockedURL"/>
                                         <input type="button" value="Unlock"
                                                onclick="popupPage('<c:out value="${lockedURL}" escapeXml="false"/>')">

@@ -38,7 +38,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing,_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -374,7 +374,7 @@
 
             <td valign="top" class="MainTableRightColumn">
 
-                <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan.do" method="post">
+                <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan" method="post">
                     <input type="hidden" name="method" value="commitUpdateBillingCodes"/>
                     <input type="submit" value="Update Codes"/>
                     <table border="1">

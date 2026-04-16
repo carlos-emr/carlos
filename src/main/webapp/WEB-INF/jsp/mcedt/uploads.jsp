@@ -29,7 +29,7 @@
 
 --%>
 
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <!DOCTYPE html>
 
@@ -87,7 +87,7 @@
 
             <h2>Create New Upload</h2>
 
-            <form action="${pageContext.request.contextPath}/mcedt/uploads.do" method="post" id="form">
+            <form action="${pageContext.request.contextPath}/mcedt/uploads" method="post" id="form">
 
                 <jsp:include page="messages.jsp"/>
 

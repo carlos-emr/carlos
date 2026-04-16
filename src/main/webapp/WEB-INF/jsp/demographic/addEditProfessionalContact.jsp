@@ -199,7 +199,7 @@
         </tr>
     </table>
 
-    <form action="<%= request.getContextPath() %>/demographic/Contact.do" method="post" id="addEditProfessionalForm" name="contactForm">
+    <form action="<%= request.getContextPath() %>/demographic/Contact" method="post" id="addEditProfessionalForm" name="contactForm">
 
         <c:if test="${ pcontact.id gt 0 }">
             <input type="hidden" name="pcontact.id" value="${ pcontact.id }"/>

@@ -66,25 +66,25 @@ String curProvider_no = (String)session.getAttribute("user");
 			<div id="collapseOne" class="accordion-collapse collapse" data-bs-parent="#adminNav">
 			<div class="accordion-body">
 			<ul>
-				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewProviderAddARecordHtm.do"><fmt:message key="admin.admin.btnAddProvider"/></a></li>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewProviderAddARecordHtm"><fmt:message key="admin.admin.btnAddProvider"/></a></li>
 
 
-				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewProviderSearchRecordsHtm.do">
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewProviderSearchRecordsHtm">
 					<fmt:message key="admin.admin.btnSearchProvider"/>
 				</a></li>
-				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewSecurityAddARecord.do">
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewSecurityAddARecord">
 					<fmt:message key="admin.admin.btnAddLogin"/>
 				</a></li>
-				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewSecuritySearchRecordsHtm.do">
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewSecuritySearchRecordsHtm">
 					<fmt:message key="admin.admin.btnSearchLogin"/>
 				</a></li>
 
-				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ProviderRole.do">
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ProviderRole">
 				<fmt:message key="admin.admin.assignRole"/></a></li>
 
 				<security:oscarSec roleName="<%=roleName$%>"
 					objectName="_admin,_admin.unlockAccount" rights="r">
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/UnLock.do">
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/UnLock">
 					<fmt:message key="admin.admin.unlockAcct"/></a></li>
 				</security:oscarSec>
 			</ul>
@@ -111,98 +111,98 @@ String curProvider_no = (String)session.getAttribute("user");
 
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing" rights="w" reverse="<%=false%>">
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/ManageBillingform.do"><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/ManageBillingform"><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
 					</security:oscarSec>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/billingAddCode.do"><fmt:message key="admin.admin.ManagePrivFrm"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/BC/billingAddCode"><fmt:message key="admin.admin.ManagePrivFrm"/></a></li>
 					<oscar:oscarPropertiesCheck property="BC_BILLING_CODE_MANAGEMENT"
 						value="yes">
 						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/billingAddCode.do"><fmt:message key="admin.admin.ManageBillCodes"/></a></li>
+							class="xlink" rel="${ctx}/billing/CA/BC/billingAddCode"><fmt:message key="admin.admin.ManageBillCodes"/></a></li>
 					</oscar:oscarPropertiesCheck>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/showServiceCodeAssocs.do"><fmt:message key="admin.admin.ManageServiceDiagnosticCodeAssoc"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/BC/showServiceCodeAssocs"><fmt:message key="admin.admin.ManageServiceDiagnosticCodeAssoc"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/supServiceCodeAssocAction.do"><fmt:message key="admin.admin.ManageProcedureFeeCodeAssoc"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/BC/supServiceCodeAssocAction"><fmt:message key="admin.admin.ManageProcedureFeeCodeAssoc"/></a></li>
 
-					<li><a href="${ctx}/billing/CA/BC/AddReferralDoc.do" class="contentLink defaultManageReferralDoc"><fmt:message key="admin.admin.ManageReferralDoc"/></a></li>
+					<li><a href="${ctx}/billing/CA/BC/AddReferralDoc" class="contentLink defaultManageReferralDoc"><fmt:message key="admin.admin.ManageReferralDoc"/></a></li>
 
 					<li>
-						<a href="javascript:void(0);" class="xlink" rel="${ ctx }/quickBillingBC.do" >
+						<a href="javascript:void(0);" class="xlink" rel="${ ctx }/quickBillingBC" >
 							<fmt:message key="admin.admin.bcQuickBilling"/>
 						</a>
 					</li>
 
 					<oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="no" defaultVal="true">
 						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/ViewBillingSim.do"><fmt:message key="admin.admin.SimulateSubFile"/></a></li>
+							class="xlink" rel="${ctx}/billing/CA/BC/ViewBillingSim"><fmt:message key="admin.admin.SimulateSubFile"/></a></li>
 						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/ViewBillingTeleplanGroupReport.do"><fmt:message key="admin.admin.genTeleplanFile"/></a></li>
+							class="xlink" rel="${ctx}/billing/CA/BC/ViewBillingTeleplanGroupReport"><fmt:message key="admin.admin.genTeleplanFile"/></a></li>
 					</oscar:oscarPropertiesCheck>
 					<oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="yes">
 						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/GenerateTeleplanFile.do"><fmt:message key="admin.admin.simulateSubFile2"/></a></li>
+							class="xlink" rel="${ctx}/billing/CA/BC/GenerateTeleplanFile"><fmt:message key="admin.admin.simulateSubFile2"/></a></li>
 						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/SimulateTeleplanFile.do"><fmt:message key="admin.admin.genTeleplanFile2"/></a></li>
+							class="xlink" rel="${ctx}/billing/CA/BC/SimulateTeleplanFile"><fmt:message key="admin.admin.genTeleplanFile2"/></a></li>
 						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/ManageTeleplan.do"><fmt:message key="admin.admin.manageTeleplan"/></a></li>
+							class="xlink" rel="${ctx}/billing/CA/BC/ManageTeleplan"><fmt:message key="admin.admin.manageTeleplan"/></a></li>
 					</oscar:oscarPropertiesCheck>
 					<oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="no"
 						defaultVal="true">
 						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/ViewBillingTA.do"><fmt:message key="admin.admin.uploadRemittance"/></a></li>
+							class="xlink" rel="${ctx}/billing/CA/BC/ViewBillingTA"><fmt:message key="admin.admin.uploadRemittance"/></a></li>
 					</oscar:oscarPropertiesCheck>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/ProcessRemittance.do"><fmt:message key="admin.admin.reconciliationReports"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/BC/ProcessRemittance"><fmt:message key="admin.admin.reconciliationReports"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/ViewBillingAccountReports.do"><fmt:message key="admin.admin.AccountingRpts"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/BC/ViewBillingAccountReports"><fmt:message key="admin.admin.AccountingRpts"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/reprocessBill.do"><fmt:message key="admin.admin.editInvoices"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/BC/reprocessBill"><fmt:message key="admin.admin.editInvoices"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/ViewSettleBG.do"><fmt:message key="admin.admin.settlePaidClaims"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/BC/ViewSettleBG"><fmt:message key="admin.admin.settlePaidClaims"/></a></li>
 					</oscar:oscarPropertiesCheck>
 			
 					<oscar:oscarPropertiesCheck property="billregion" value="ON">
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/benefitScheduleUpload.do"><fmt:message key="admin.admin.scheduleOfBenefits"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/benefitScheduleUpload"><fmt:message key="admin.admin.scheduleOfBenefits"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/AddEditServiceCode.do"><fmt:message key="admin.admin.manageBillingServiceCode"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/AddEditServiceCode"><fmt:message key="admin.admin.manageBillingServiceCode"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/ViewBillingONEditPrivateCode.do"><fmt:message key="admin.admin.managePrivBillingCode"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/ViewBillingONEditPrivateCode"><fmt:message key="admin.admin.managePrivBillingCode"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/manageCSSStyles.do"><fmt:message key="admin.admin.manageCodeStyles"/></a></li>
+						class="xlink" rel="${ctx}/admin/manageCSSStyles"><fmt:message key="admin.admin.manageCodeStyles"/></a></li>
 					<li><a href='#'
-						class="xlink" rel="${ctx}/admin/GstControl.do"><fmt:message key="admin.admin.manageGSTControl"/></a></li>
+						class="xlink" rel="${ctx}/admin/GstControl"><fmt:message key="admin.admin.manageGSTControl"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/GstReport.do"><fmt:message key="admin.admin.gstReport"/></a></li>
+						class="xlink" rel="${ctx}/admin/GstReport"><fmt:message key="admin.admin.gstReport"/></a></li>
 					<li><a href='#'
-						class="xlink" rel="${ctx}/billing/CA/ON/ManageBillingLocation.do"><fmt:message key="admin.admin.btnAddBillingLocation"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/ManageBillingLocation"><fmt:message key="admin.admin.btnAddBillingLocation"/></a></li>
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing" rights="w" reverse="<%=false%>">
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/ManageBillingform.do"><fmt:message key="admin.admin.btnManageBillingForm"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/ManageBillingform"><fmt:message key="admin.admin.btnManageBillingForm"/></a></li>
 					</security:oscarSec>
 
-					<li><a href="${ctx}/billing/CA/ON/ViewBillingOHIPsimulation.do?html=" class="contentLink"><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></a></li>
+					<li><a href="${ctx}/billing/CA/ON/ViewBillingOHIPsimulation?html=" class="contentLink"><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></a></li>
 
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/ViewBillingOHIPreport.do"><fmt:message key="admin.admin.btnGenerateOHIPDiskette"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/ViewBillingOHIPreport"><fmt:message key="admin.admin.btnGenerateOHIPDiskette"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/ViewBillingCorrection.do?admin&billing_no="><fmt:message key="admin.admin.btnBillingCorrection"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/ViewBillingCorrection?admin&billing_no="><fmt:message key="admin.admin.btnBillingCorrection"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/BatchBill.do?service_code=all"><fmt:message key="admin.admin.btnBatchBilling"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/BatchBill?service_code=all"><fmt:message key="admin.admin.btnBatchBilling"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/ViewInrReportINR.do?provider_no=all"><fmt:message key="admin.admin.btnINRBatchBilling"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/ViewInrReportINR?provider_no=all"><fmt:message key="admin.admin.btnINRBatchBilling"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/BillingONUpload.do"><fmt:message key="admin.admin.uploadMOHFile"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/BillingONUpload"><fmt:message key="admin.admin.uploadMOHFile"/></a></li>
 					
 						
 					<oscar:oscarPropertiesCheck property="moh_file_management_enabled" value="true" defaultVal="false">
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/billing/CA/ON/moveMOHFiles.do"><fmt:message key="admin.admin.viewMOHFiles"/></a></li>
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/billing/CA/ON/moveMOHFiles"><fmt:message key="admin.admin.viewMOHFiles"/></a></li>
 					</oscar:oscarPropertiesCheck>
 					
 					<oscar:oscarPropertiesCheck property="mcedt.mailbox.enabled" value="false" defaultVal="false">
 					<li>
-						<a href="javascript:void(0);" class="xlink" rel="${ctx}/mcedt/mcedt.do">
+						<a href="javascript:void(0);" class="xlink" rel="${ctx}/mcedt/mcedt">
 							<fmt:message key="admin.admin.mcedt"/>
 						</a>
 					</li>
@@ -210,22 +210,22 @@ String curProvider_no = (String)session.getAttribute("user");
 					
 					<oscar:oscarPropertiesCheck property="mcedt.mailbox.enabled" value="true" defaultVal="false">
 					<li>
-						<a href="javascript:void(0);" class="xlink" rel="${ctx}/mcedt/kaimcedt.do">
+						<a href="javascript:void(0);" class="xlink" rel="${ctx}/mcedt/kaimcedt">
 							<fmt:message key="admin.admin.mcedt.mailbox"/>
 						</a>
 					</li>
 					</oscar:oscarPropertiesCheck>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}<%= oscarVariables.getProperty("RA_FORWORD", "/billing/CA/ON/ViewGenRA.do") %>"><fmt:message key="admin.admin.btnBillingReconciliation"/></a></li>
+						class="xlink" rel="${ctx}<%= oscarVariables.getProperty("RA_FORWORD", "/billing/CA/ON/ViewGenRA") %>"><fmt:message key="admin.admin.btnBillingReconciliation"/></a></li>
 					<!--  li><a href='javascript:void(0);' onclick ='popupPage(600,1000,"${ctx}/billing/CA/ON/billingOBECEA.jsp");return false;'><fmt:message key="admin.admin.btnEDTBillingReportGenerator"/></a></li-->
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/ViewBillStatus.do"><fmt:message key="admin.admin.invoiceRpts"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/ViewBillStatus"><fmt:message key="admin.admin.invoiceRpts"/></a></li>
 		                        <li><a href='javascript:void(0);'
-		                                class="xlink" rel="${ctx}/billing/CA/ON/endYearStatement.do"><fmt:message key="admin.admin.endYearStatement"/></a></li>
+		                                class="xlink" rel="${ctx}/billing/CA/ON/endYearStatement"><fmt:message key="admin.admin.endYearStatement"/></a></li>
 					
 					<oscar:oscarPropertiesCheck property="rma_enabled" value="true" defaultVal="false">
 						<li>
-							<a href='#'	class="xlink" rel="${ctx}/admin/ViewClinicNbrManage.do"><fmt:message key="admin.admin.manageClinicNbrCodes"/></a>
+							<a href='#'	class="xlink" rel="${ctx}/admin/ViewClinicNbrManage"><fmt:message key="admin.admin.manageClinicNbrCodes"/></a>
 						</li>
 					</oscar:oscarPropertiesCheck>
 					
@@ -234,11 +234,11 @@ String curProvider_no = (String)session.getAttribute("user");
 		                        
 		               
 		                <oscar:oscarPropertiesCheck property="billregion" value="ON">             	
-		                        <li><a href='javascript:void(0);' class="xlink" rel='${ctx}/billing/CA/ON/BillingONPayment.do'><fmt:message key="admin.admin.paymentReceived"/></a></li>
-		                        <li><a href='javascript:void(0);' class="xlink" rel='${ctx}/billing/CA/ON/managePaymentType.do'><fmt:message key="admin.admin.managePaymentType"/></a></li>
+		                        <li><a href='javascript:void(0);' class="xlink" rel='${ctx}/billing/CA/ON/BillingONPayment'><fmt:message key="admin.admin.paymentReceived"/></a></li>
+		                        <li><a href='javascript:void(0);' class="xlink" rel='${ctx}/billing/CA/ON/managePaymentType'><fmt:message key="admin.admin.managePaymentType"/></a></li>
 		                </oscar:oscarPropertiesCheck>
 
-                    <li><a href='javascript:void(0);' class="xlink" rel='${ctx}/admin/BillingSettings.do'><fmt:message key="admin.admin.billingSettings"/></a></li>
+                    <li><a href='javascript:void(0);' class="xlink" rel='${ctx}/admin/BillingSettings'><fmt:message key="admin.admin.billingSettings"/></a></li>
 			</ul>
 			</div>
 			</div>
@@ -257,13 +257,13 @@ String curProvider_no = (String)session.getAttribute("user");
 			<div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#adminNav">
 			<div class="accordion-body">
 			<ul>
-				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/lab/CA/ALL/insideLabUpload.do" ><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/lab/CA/ALL/insideLabUpload" ><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
 				<oscar:oscarPropertiesCheck property="OLD_LAB_UPLOAD" value="yes" defaultVal="false">
-					<li><a href="${ctx}/lab/labUpload.do" class="contentLink"><fmt:message key="admin.admin.oldLabUpload"/></a></li>
+					<li><a href="${ctx}/lab/labUpload" class="contentLink"><fmt:message key="admin.admin.oldLabUpload"/></a></li>
 				</oscar:oscarPropertiesCheck>
-				<li><a href="${ctx}/admin/labForwardingRules.do" class="contentLink"><fmt:message key="admin.admin.labFwdRules"/></a></li>
+				<li><a href="${ctx}/admin/labForwardingRules" class="contentLink"><fmt:message key="admin.admin.labFwdRules"/></a></li>
 
-				<li><a href="${ctx}/admin/ViewAddQueue.do" class="contentLink"><fmt:message key="admin.admin.AddNewQueue"/></a></li>
+				<li><a href="${ctx}/admin/ViewAddQueue" class="contentLink"><fmt:message key="admin.admin.AddNewQueue"/></a></li>
 			</ul>
 			</div>
 			</div>
@@ -282,31 +282,31 @@ String curProvider_no = (String)session.getAttribute("user");
 			<div id="collapseForms" class="accordion-collapse collapse" data-bs-parent="#adminNav">
 			<div class="accordion-body">
 			<ul>
-					<li><a href="${ctx}/form/setupSelect.do" class="contentLink"><fmt:message key="admin.admin.btnSelectForm"/></a></li>
+					<li><a href="${ctx}/form/setupSelect" class="contentLink"><fmt:message key="admin.admin.btnSelectForm"/></a></li>
 					
-					<li><a href="${ctx}/form/formXmlUpload.jsp" class="contentLink"><fmt:message key="admin.admin.btnImportFormData"/></a></li>
+					<li><a href="${ctx}/form/formXmlUpload" class="contentLink"><fmt:message key="admin.admin.btnImportFormData"/></a></li>
 					
-					<li><a href="${ctx}/eform/efmformmanager.jsp" class="contentLink defaultForms">
+					<li><a href="${ctx}/eform/efmformmanager" class="contentLink defaultForms">
 						<fmt:message key="eform.showmyform.msgManageEFrm"/>
 					</a></li>
 
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.eform" rights="w" reverse="<%=false%>">
-				<li><a href="javascript:void(0);" onclick="window.open('${ctx}/eform/visualEformEditor.jsp', '_blank'); return false;"><fmt:message key="eform.visual.editor.title"/></a></li>
+				<li><a href="javascript:void(0);" onclick="window.open('${ctx}/eform/visualEformEditor', '_blank'); return false;"><fmt:message key="eform.visual.editor.title"/></a></li>
 				</security:oscarSec>
 
-				<li><a href="${ctx}/eform/efmimagemanager.jsp"  class="contentLink defaultImageUpload">
+				<li><a href="${ctx}/eform/efmimagemanager"  class="contentLink defaultImageUpload">
 						<fmt:message key="admin.admin.btnUploadImage"/>
 					</a></li>
-					<li><a href="${ctx}/eform/efmmanageformgroups.jsp" class="contentLink defaultFormsGroups">
+					<li><a href="${ctx}/eform/efmmanageformgroups" class="contentLink defaultFormsGroups">
 						<fmt:message key="admin.admin.frmGroups"/>
 					</a></li>
 		
-					<li><a href="${ctx}/eform/efmmanageindependent.jsp" class="contentLink">
+					<li><a href="${ctx}/eform/efmmanageindependent" class="contentLink">
 						<fmt:message key="admin.admin.frmIndependent"/>
 					</a></li>
 					
 					<li>
-						<a href="javascript:void(0);" class="xlink" rel="${ctx}/lookupListManagerAction.do?method=manageSingle&listName=consultApptInst" >
+						<a href="javascript:void(0);" class="xlink" rel="${ctx}/lookupListManagerAction?method=manageSingle&listName=consultApptInst" >
 							<fmt:message key="admin.admin.encounter.consult.appointmentIntructions"/>
 						</a>
 					</li>
@@ -333,49 +333,49 @@ String curProvider_no = (String)session.getAttribute("user");
 				
 				<security:oscarSec roleName="<%=roleName$%>" objectName="_dashboardManager" rights="w" reverse="<%=false%>" >
 					<li>
-						<a href="javascript:void(0);" class="xlink" rel="${ctx}/web/dashboard/admin/DashboardManager.do" >
+						<a href="javascript:void(0);" class="xlink" rel="${ctx}/web/dashboard/admin/DashboardManager" >
 							<fmt:message key="dashboard.dashboardmanager.title"/>
 						</a>
 					</li>
 				</security:oscarSec>
 				 
 					<li>
-					<a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/RptByExample.do"><fmt:message key="admin.admin.btnQueryByExample"/></a>
+					<a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/RptByExample"><fmt:message key="admin.admin.btnQueryByExample"/></a>
 					</li>
 
 					<li>
-					<a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/reportByTemplate/ViewHomePage.do"><fmt:message key="admin.admin.rptbyTemplate"/></a>
+					<a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/reportByTemplate/ViewHomePage"><fmt:message key="admin.admin.rptbyTemplate"/></a>
 					</li>
 
 					<li>
 					<a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/dbReportAgeSex.jsp"><fmt:message key="admin.admin.btnAgeSexReport"/></a>
 					</li>
 					
-					<li><a href="${ctx}/oscarReport/ViewOscarReportVisitControl.do" class="contentLink defaultvisitreport">
+					<li><a href="${ctx}/oscarReport/ViewOscarReportVisitControl" class="contentLink defaultvisitreport">
 						<fmt:message key="admin.admin.btnVisitReport"/>
 						</a>
 					</li>
-					<li><a href="${ctx}/oscarReport/ViewOscarReportCatchment.do"
+					<li><a href="${ctx}/oscarReport/ViewOscarReportCatchment"
 						class="contentLink"><fmt:message key="admin.admin.pcnReport"/></a></li>
-					<li><a href="${ctx}/oscarReport/FluBilling.do?orderby="
+					<li><a href="${ctx}/oscarReport/FluBilling?orderby="
 						class="contentLink"><fmt:message key="admin.admin.btnFluBillingReport"/></a></li>
-					<li><a href="${ctx}/oscarReport/obec.do" class="contentLink"><fmt:message key="admin.admin.overnightBatch"/></a></li>
+					<li><a href="${ctx}/oscarReport/obec" class="contentLink"><fmt:message key="admin.admin.overnightBatch"/></a></li>
 								
 					<caisi:isModuleLoad moduleName="caisi">		
 						<li><a href="javascript:void(0);"
 						class="xlink contentLink" rel="${ctx}/PMmodule/Reports/ProgramActivityReport"><fmt:message key="admin.admin.activityRpt"/></a></li>
 					</caisi:isModuleLoad>			
 								
-					<li><a href="${ctx}/oscarReport/ViewPatientlist.do"
+					<li><a href="${ctx}/oscarReport/ViewPatientlist"
 						class="contentLink"><fmt:message key="admin.admin.exportPatientbyAppt"/></a></li>
 					<li><a
-						href="${ctx}/oscarReport/ViewProviderServiceReportForm.do"
+						href="${ctx}/oscarReport/ViewProviderServiceReportForm"
 						class="contentLink"><fmt:message key="admin.admin.providerServiceRpt"/></a></li>
 								
 					<caisi:isModuleLoad moduleName="caisi">
-						<li><a page="${pageContext.request.contextPath}/PopulationReport.do" class="contentLink"> <fmt:message key="admin.admin.popRpt"/></a></li>
-						<li><a href="${ctx}/oscarReport/ViewCds4ReportForm.do"	class="contentLink"><fmt:message key="admin.admin.cdsRpt"/></a></li>
-						<li><a href="${ctx}/oscarReport/ViewMisReportForm.do" class="contentLink"><fmt:message key="admin.admin.misRpt"/></a></li>
+						<li><a page="${pageContext.request.contextPath}/PopulationReport" class="contentLink"> <fmt:message key="admin.admin.popRpt"/></a></li>
+						<li><a href="${ctx}/oscarReport/ViewCds4ReportForm"	class="contentLink"><fmt:message key="admin.admin.cdsRpt"/></a></li>
+						<li><a href="${ctx}/oscarReport/ViewMisReportForm" class="contentLink"><fmt:message key="admin.admin.misRpt"/></a></li>
 						<li><a href="${ctx}/oscarReport/ocan_report_form.jsp" class="contentLink"><fmt:message key="admin.admin.ocanRpt"/></a></li>
 						<li><a href="${ctx}/oscarReport/ocan_iar.jsp" class="contentLink"><fmt:message key="admin.admin.ocanIarRpt"/></a></li>
 						<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/ocan_reporting.jsp"><fmt:message key="admin.admin.ocanReporting"/></a></li>
@@ -384,15 +384,15 @@ String curProvider_no = (String)session.getAttribute("user");
 						<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/cbi_report_form.jsp"><fmt:message key="admin.admin.cbiRpt"/></a></li>
 					</caisi:isModuleLoad>
 					
-					<li><a href="${ctx}/admin/ViewUsageReport.do" class="contentLink"><fmt:message key="admin.admin.usageRpt"/></a></li>
-					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/report/DxresearchReport.do"><fmt:message key="admin.admin.DiseaseRegistry"/></a></li>
+					<li><a href="${ctx}/admin/ViewUsageReport" class="contentLink"><fmt:message key="admin.admin.usageRpt"/></a></li>
+					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/report/DxresearchReport"><fmt:message key="admin.admin.DiseaseRegistry"/></a></li>
 
 			<%
 				if (oscarVariables.getProperty("billregion", "").equals("ON"))
 								{
 			%>
-			<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/report/ViewReportonbilledphcp.do"><fmt:message key="admin.admin.PHCP"/></a>
-			<span style="font-size: x-small;"> (Setting: <a href="javascript:void(0);" class="xlink" rel="${ctx}/report/ViewReportonbilledvisitprovider.do"><fmt:message key="admin.admin.provider"/></a>,
+			<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/report/ViewReportonbilledphcp"><fmt:message key="admin.admin.PHCP"/></a>
+			<span style="font-size: x-small;"> (Setting: <a href="javascript:void(0);" class="xlink" rel="${ctx}/report/ViewReportonbilledvisitprovider"><fmt:message key="admin.admin.provider"/></a>,
 			) </span></li>
 			<%}%>
 
@@ -400,14 +400,14 @@ String curProvider_no = (String)session.getAttribute("user");
 
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fieldnote" rights="r" reverse="<%=false%>">
 					<li><a href='javascript:void(0);' 
-						class="xlink" rel="${ctx}/eform/fieldNoteReport/fieldnotereport.jsp">
+						class="xlink" rel="${ctx}/eform/fieldNoteReport/fieldnotereport">
 						<fmt:message key="admin.admin.fieldNoteReport"/></a>
 					</li>
 					</security:oscarSec>
 
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.eformreporttool" rights="r" reverse="<%=false%>">
  						<li>
- 							<a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewEformReportTool.do">
+ 							<a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewEformReportTool">
  							<fmt:message key="admin.admin.eformReportTool"/></a>
 						</li>
 					</security:oscarSec>
@@ -431,7 +431,7 @@ String curProvider_no = (String)session.getAttribute("user");
 			<div class="accordion-body">
 			<ul>
 				<li><a href='javascript:void(0);'
-					class="xlink" rel="${ctx}/admin/ProviderTemplate.do"><fmt:message key="admin.admin.btnInsertTemplate"/></a></li>
+					class="xlink" rel="${ctx}/admin/ProviderTemplate"><fmt:message key="admin.admin.btnInsertTemplate"/></a></li>
 			</ul>
 			</div>
 			</div>
@@ -451,32 +451,32 @@ String curProvider_no = (String)session.getAttribute("user");
 			<div class="accordion-body">
 			<ul>
 					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/schedule/TemplateSetting.do"
+						class="xlink" rel="${ctx}/schedule/TemplateSetting"
 						title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:message key="admin.admin.scheduleSetting"/></a></li>
 				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule.curprovider_only" rights="r" reverse="<%=true%>">
 					<oscar:oscarPropertiesCheck property="ENABLE_EDIT_APPT_STATUS"
 						value="yes">
 						<li><a href="javascript:void(0);"
-							class="xlink" rel='${ctx}/appointment/apptStatusSetting.do?dispatch=view'
+							class="xlink" rel='${ctx}/appointment/apptStatusSetting?dispatch=view'
 							title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:message key="admin.admin.appointmentStatusSetting"/></a></li>
 					</oscar:oscarPropertiesCheck>
 		
-					<li><a href="javascript:void(0);" class="xlink" rel='${ctx}/appointment/appointmentTypeAction.do'><fmt:message key="admin.admin.appointmentTypeList"/></a></li>
+					<li><a href="javascript:void(0);" class="xlink" rel='${ctx}/appointment/appointmentTypeAction'><fmt:message key="admin.admin.appointmentTypeList"/></a></li>
 								
 					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/admin/AdminNewGroup.do?submit=blank"><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
+						class="xlink" rel="${ctx}/admin/AdminNewGroup?submit=blank"><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
 					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/admin/ViewAdminDisplayMyGroup.do"><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></a></li>
+						class="xlink" rel="${ctx}/admin/ViewAdminDisplayMyGroup"><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></a></li>
 					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/admin/GroupNoAcl.do"><fmt:message key="admin.admin.btnGroupNoAcl"/></a></li>
+						class="xlink" rel="${ctx}/admin/GroupNoAcl"><fmt:message key="admin.admin.btnGroupNoAcl"/></a></li>
 		            <oscar:oscarPropertiesCheck property="billregion" value="ON">
 		           
 		            <li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/groupPreferences.do"><fmt:message key="admin.admin.btnGroupPreference"/></a></li>
+						class="xlink" rel="${ctx}/admin/groupPreferences"><fmt:message key="admin.admin.btnGroupPreference"/></a></li>
 						
 					</oscar:oscarPropertiesCheck>
 					
-					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/prevention/ViewPreventionManager.do" title="Customize prevention notifications."><fmt:message key="admin.admin.preventionNotification.title"/></a></li>
+					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/prevention/ViewPreventionManager" title="Customize prevention notifications."><fmt:message key="admin.admin.preventionNotification.title"/></a></li>
 				</security:oscarSec>
 				</ul>
 				</div>
@@ -498,21 +498,21 @@ String curProvider_no = (String)session.getAttribute("user");
 			<div class="accordion-body">
 			<ul>
 					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/SystemMessage.do">
+						class="xlink" rel="${ctx}/SystemMessage">
 						<fmt:message key="admin.admin.systemMessage"/>
 					</a></li>
 					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/FacilityMessage.do?"><fmt:message key="admin.admin.FacilitiesMsgs"/></a></li>
+						class="xlink" rel="${ctx}/FacilityMessage?"><fmt:message key="admin.admin.FacilitiesMsgs"/></a></li>
 					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/issueAdmin.do?method=list">
+						class="xlink" rel="${ctx}/issueAdmin?method=list">
 						<fmt:message key="admin.admin.issueEditor"/>
 					</a></li>
 					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/SurveyManager.do">
+						class="xlink" rel="${ctx}/SurveyManager">
 						<fmt:message key="admin.admin.surveyManager"/>
 					</a></li>
 					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/DefaultEncounterIssue.do">
+						class="xlink" rel="${ctx}/DefaultEncounterIssue">
 						<fmt:message key="admin.admin.defaultEncounterIssue"/>
 					</a></li>
 				</ul>
@@ -534,14 +534,14 @@ String curProvider_no = (String)session.getAttribute("user");
 					<security:oscarSec roleName="<%=roleName$%>"
 						objectName="_admin.systemMessage" rights="r" reverse="<%=false%>">
 						<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/SystemMessage.do">
+						class="xlink" rel="${ctx}/SystemMessage">
 							<fmt:message key="admin.admin.systemMessage"/>
 						</a></li>
 					</security:oscarSec>
 					<security:oscarSec roleName="<%=roleName$%>"
 						objectName="_admin.facilityMessage" rights="r" reverse="<%=false%>">
 						<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/FacilityMessage.do?"><fmt:message key="admin.admin.FacilitiesMsgs"/></a></li>
+						class="xlink" rel="${ctx}/FacilityMessage?"><fmt:message key="admin.admin.FacilitiesMsgs"/></a></li>
 					</security:oscarSec>
 					<security:oscarSec roleName="<%=roleName$%>"
 						objectName="_admin.lookupFieldEditor" rights="r">
@@ -551,14 +551,14 @@ String curProvider_no = (String)session.getAttribute("user");
 					<security:oscarSec roleName="<%=roleName$%>"
 						objectName="_admin.issueEditor" rights="r">
 						<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/issueAdmin.do?method=list">
+						class="xlink" rel="${ctx}/issueAdmin?method=list">
 							<fmt:message key="admin.admin.issueEditor"/>
 						</a></li>
 					</security:oscarSec>
 					<security:oscarSec roleName="<%=roleName$%>"
 						objectName="_admin.userCreatedForms" rights="r">
 						<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/SurveyManager.do">
+						class="xlink" rel="${ctx}/SurveyManager">
 							<fmt:message key="admin.admin.surveyManager"/>
 						</a></li>
 					</security:oscarSec>
@@ -583,65 +583,65 @@ String curProvider_no = (String)session.getAttribute("user");
 			<ul>
 				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="r" reverse="<%=false%>">
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/ProviderAddRole.do">
+						class="xlink" rel="${ctx}/admin/ProviderAddRole">
 					<fmt:message key="admin.admin.addRole"/></a></li>
 				</security:oscarSec>
 
 				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.document" rights="r" reverse="<%=false%>">			
 								
 				<li><a href='javascript:void(0);'
-					class="xlink" rel="${ctx}/admin/DisplayDocumentDescriptionTemplate.do?setDefault=true"><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>		
+					class="xlink" rel="${ctx}/admin/DisplayDocumentDescriptionTemplate?setDefault=true"><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>		
 				</security:oscarSec>		
 						
 						
 				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">			
 				<li><a href='javascript:void(0);'
-					class="xlink" rel="${ctx}/admin/ProviderPrivilege.do">
+					class="xlink" rel="${ctx}/admin/ProviderPrivilege">
 				<fmt:message key="admin.admin.assignRightsObject"/></a></li>
 				
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/ManageClinic.do"><fmt:message key="admin.admin.clinicAdmin"/></a></li>
+						class="xlink" rel="${ctx}/admin/ManageClinic"><fmt:message key="admin.admin.clinicAdmin"/></a></li>
 					<%
 						if (IsPropertiesOn.isMultisitesEnable())
 									{
 					%>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/ManageSites.do"><fmt:message key="admin.admin.sitesAdmin"/></a></li>
+						class="xlink" rel="${ctx}/admin/ManageSites"><fmt:message key="admin.admin.sitesAdmin"/></a></li>
 					<%
 						}
 					%>
 		            <li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/encounter/oscarConsultationRequest/config/ViewEditSpecialists.do"><fmt:message key="admin.admin.consultationSettings"/></a></li>
+						class="xlink" rel="${ctx}/encounter/oscarConsultationRequest/config/ViewEditSpecialists"><fmt:message key="admin.admin.consultationSettings"/></a></li>
 <!--
 		            <li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/encounter/oscarConsultationRequest/config/ViewEditSpecialists.do"><fmt:message key="admin.admin.professionalSpecialistAdmin"/></a></li>
+						class="xlink" rel="${ctx}/encounter/oscarConsultationRequest/config/ViewEditSpecialists"><fmt:message key="admin.admin.professionalSpecialistAdmin"/></a></li>
  -->
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/oscarResearch/oscarDxResearch/ViewDxResearchCustomization.do"><fmt:message key="encounter.Index.btnCustomize"/> <fmt:message key="oscar.admin.diseaseRegistryQuickList"/></a></li>
+						class="xlink" rel="${ctx}/oscarResearch/oscarDxResearch/ViewDxResearchCustomization"><fmt:message key="encounter.Index.btnCustomize"/> <fmt:message key="oscar.admin.diseaseRegistryQuickList"/></a></li>
 					</security:oscarSec>
 					
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.measurements" rights="r" reverse="<%=false%>">	
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/encounter/oscarMeasurements/ViewCustomization.do"><fmt:message key="encounter.Index.btnCustomize"/> <fmt:message key="admin.admin.oscarMeasurements"/></a></li>
+						class="xlink" rel="${ctx}/encounter/oscarMeasurements/ViewCustomization"><fmt:message key="encounter.Index.btnCustomize"/> <fmt:message key="admin.admin.oscarMeasurements"/></a></li>
 					</security:oscarSec>
 
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">	
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/prevention/ViewPreventionListManager.do">
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/prevention/ViewPreventionListManager">
 						<fmt:message key="oscarprevention.preventionlistmanager.title"/></a></li>
 					</security:oscarSec>
 										
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">	
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/ResourceBaseUrl.do"
+						class="xlink" rel="${ctx}/admin/ResourceBaseUrl"
 						title='<fmt:message key="admin.admin.baseURLSettingTitle"/>'><fmt:message key="admin.admin.btnBaseURLSetting"/></a></li>
 					</security:oscarSec>	
 				
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.messenger" rights="r" reverse="<%=false%>">
 							<li><a href='javascript:void(0);'
-								class="xlink" rel="${ctx}/messenger/DisplayMessages.do?providerNo=<%=Encode.forUriComponent(curProvider_no)%>&amp;userName=<%=Encode.forUriComponent(userfirstname)%>%20<%=Encode.forUriComponent(userlastname)%>"><fmt:message key="admin.admin.messages"/></a></li>
+								class="xlink" rel="${ctx}/messenger/DisplayMessages?providerNo=<%=Encode.forUriComponent(curProvider_no)%>&amp;userName=<%=Encode.forUriComponent(userfirstname)%>%20<%=Encode.forUriComponent(userlastname)%>"><fmt:message key="admin.admin.messages"/></a></li>
 								
 							<li>
-								<a href="${ctx}/messenger.do?method=fetch" class="contentLink">
+								<a href="${ctx}/messenger?method=fetch" class="contentLink">
 									<fmt:message key="admin.admin.btnMessengerAdmin"/>
 								</a>
 							</li>
@@ -649,29 +649,29 @@ String curProvider_no = (String)session.getAttribute("user");
 					</security:oscarSec>
 					
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewKeygenKeyManager.do"><fmt:message key="admin.admin.keyPairGen"/></a></li>
-<%--					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/FacilityManager.do"><fmt:message key="admin.admin.manageFacilities"/></a></li>--%>
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/encounter/oscarMeasurements/adminFlowsheet/ViewNewFlowsheet.do"><fmt:message key="admin.admin.newFlowsheet"/></a></li>
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewKeygenKeyManager"><fmt:message key="admin.admin.keyPairGen"/></a></li>
+<%--					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/FacilityManager"><fmt:message key="admin.admin.manageFacilities"/></a></li>--%>
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/encounter/oscarMeasurements/adminFlowsheet/ViewNewFlowsheet"><fmt:message key="admin.admin.newFlowsheet"/></a></li>
 					</security:oscarSec>
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.flowsheet" rights="r" reverse="<%=false%>">
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ManageFlowsheets.do"><fmt:message key="admin.admin.flowsheetManager"/></a></li>
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ManageFlowsheets"><fmt:message key="admin.admin.flowsheetManager"/></a></li>
 					</security:oscarSec>
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
-			      	<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewLotNrAddRecordHtm.do"><fmt:message key="admin.admin.add_lot_nr.title"/></a></li>
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewLotNrSearchRecordsHtm.do"><fmt:message key="admin.lotnrsearchrecordshtm.title"/></a></li>
+			      	<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewLotNrAddRecordHtm"><fmt:message key="admin.admin.add_lot_nr.title"/></a></li>
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewLotNrSearchRecordsHtm"><fmt:message key="admin.lotnrsearchrecordshtm.title"/></a></li>
 			
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewJobs.do"><fmt:message key="admin.jobs.title"/></a></li>
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewJobTypes.do"><fmt:message key="admin.jobtypes.title"/></a></li>
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewJobs"><fmt:message key="admin.jobs.title"/></a></li>
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewJobTypes"><fmt:message key="admin.jobtypes.title"/></a></li>
 					
 					<li>
-						<a href="javascript:void(0);" class="xlink" rel="${ctx}/lookupListManagerAction.do?method=manage" >
+						<a href="javascript:void(0);" class="xlink" rel="${ctx}/lookupListManagerAction?method=manage" >
 							<fmt:message key="admin.admin.lookUpLists"/>
 						</a>
 					</li>
 			
 			      	<oscar:oscarPropertiesCheck property="LOGINTEST" value="yes">
 			            <li><a href='javascript:void(0);'
-			            class="xlink" rel="${ctx}/admin/uploadEntryText.do"><fmt:message key="admin.admin.uploadEntryTxt"/></a>
+			            class="xlink" rel="${ctx}/admin/uploadEntryText"><fmt:message key="admin.admin.uploadEntryTxt"/></a>
 			            </li>
 		            </oscar:oscarPropertiesCheck>	
 		            </security:oscarSec>
@@ -725,9 +725,9 @@ String curProvider_no = (String)session.getAttribute("user");
 			<div class="accordion-body">
 			<ul>
 				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax" rights="w" reverse="<%=false%>">
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewConfigureFax.do"><fmt:message key="admin.admin.configureFax"/></a></li>
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewConfigureFax"><fmt:message key="admin.admin.configureFax"/></a></li>
 				</security:oscarSec>
-				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewManageFaxes.do"><fmt:message key="admin.admin.manageFaxes"/></a></li>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewManageFaxes"><fmt:message key="admin.admin.manageFaxes"/></a></li>
 			</ul>
 			</div>
 			</div>
@@ -746,9 +746,9 @@ String curProvider_no = (String)session.getAttribute("user");
 			<div class="accordion-body">
 			<ul>
 				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewConfigureEmail.do"><fmt:message key="admin.admin.configureEmail"/></a></li>
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewConfigureEmail"><fmt:message key="admin.admin.configureEmail"/></a></li>
 				</security:oscarSec>
-				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ManageEmails.do?method=showEmailManager"><fmt:message key="admin.admin.manageEmails"/></a></li>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ManageEmails?method=showEmailManager"><fmt:message key="admin.admin.manageEmails"/></a></li>
 			</ul>
 			</div>
 			</div>
@@ -770,13 +770,13 @@ String curProvider_no = (String)session.getAttribute("user");
 				<security:oscarSec roleName="<%=roleName$%>"
 					objectName="_admin,_admin.securityLogReport" rights="r">
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/LogReport.do?keyword=admin">
+						class="xlink" rel="${ctx}/admin/LogReport?keyword=admin">
 					<fmt:message key="admin.admin.securityLogReport"/></a></li>
 				</security:oscarSec>
 				
 				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin, _admin.traceability" rights="r">
 					<li><a href="javascript:void(0);" class="xlink"
-						rel="${ctx}/admin/ViewTraceReport.do?keyword=admin">
+						rel="${ctx}/admin/ViewTraceReport?keyword=admin">
 					<fmt:message key="admin.admin.traceabilityReport"/></a></li>
 				</security:oscarSec>				
 				
@@ -802,12 +802,12 @@ String curProvider_no = (String)session.getAttribute("user");
 			<ul>
 					<li><fmt:message key="admin.admin.apiConnections"/>
 						<ul>
-						<li>&nbsp;<a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewApiClients.do"><fmt:message key="admin.admin.restClients"/></a></li>
+						<li>&nbsp;<a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewApiClients"><fmt:message key="admin.admin.restClients"/></a></li>
 						</ul>
 					</li>
 					
 					<caisi:isModuleLoad moduleName="HRM">
-						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/hospitalReportManager/Statement.do"><fmt:message key="admin.admin.hrmStatus"/></a></li>
+						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/hospitalReportManager/Statement"><fmt:message key="admin.admin.hrmStatus"/></a></li>
 					</caisi:isModuleLoad>
 
 					<%
@@ -815,7 +815,7 @@ String curProvider_no = (String)session.getAttribute("user");
 									{
 					%>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/RecommitHSFO.do?method=showSchedule"><fmt:message key="admin.admin.hsfoSubmit"/></a></li>
+						class="xlink" rel="${ctx}/admin/RecommitHSFO?method=showSchedule"><fmt:message key="admin.admin.hsfoSubmit"/></a></li>
 					<%
 						}
 					%>
@@ -825,12 +825,12 @@ String curProvider_no = (String)session.getAttribute("user");
 		                                {
 		                        %>
 		                        <li><a href='javascript:void(0);'
-		                                class="xlink" rel="${ctx}/admin/RecommitHSFO2.do?method=showSchedule"><fmt:message key="admin.admin.hsfo2Submit"/></a></li>
+		                                class="xlink" rel="${ctx}/admin/RecommitHSFO2?method=showSchedule"><fmt:message key="admin.admin.hsfo2Submit"/></a></li>
 		                        <%
 		                                }
 		                        %>		
 			
-					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/admin/ViewUpdateDrugref.do" ><fmt:message key="admin.admin.UpdateDrugref"/></a></li>	
+					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/admin/ViewUpdateDrugref" ><fmt:message key="admin.admin.UpdateDrugref"/></a></li>	
 <%-- K2A config link removed --%>
 
 					<caisi:isModuleLoad moduleName="BORN">
@@ -855,22 +855,22 @@ String curProvider_no = (String)session.getAttribute("user");
 			<div class="accordion-body">
 			<ul>
 <%--					<li><a href='javascript:void(0);'--%>
-<%--						class="xlink" rel="${ctx}/admin/ViewAdminBackupDownload.do"><fmt:message--%>
+<%--						class="xlink" rel="${ctx}/admin/ViewAdminBackupDownload"><fmt:message--%>
 <%--						key="admin.admin.btnAdminBackupDownload" /></a></li>--%>
 						
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/demographic/DemographicExport.do"><fmt:message key="admin.admin.DemoExport"/></a></li>
+						class="xlink" rel="${ctx}/demographic/DemographicExport"><fmt:message key="admin.admin.DemoExport"/></a></li>
 		                        <li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/form/importUpload.do"><fmt:message key="admin.admin.DemoImport"/></a></li>
+						class="xlink" rel="${ctx}/form/importUpload"><fmt:message key="admin.admin.DemoImport"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/DemographicMergeRecord.do"><fmt:message key="admin.admin.mergeRec"/></a></li>
+						class="xlink" rel="${ctx}/admin/DemographicMergeRecord"><fmt:message key="admin.admin.mergeRec"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/UpdateDemographicProvider.do"><fmt:message key="admin.admin.btnUpdatePatientProvider"/></a></li>
+						class="xlink" rel="${ctx}/admin/UpdateDemographicProvider"><fmt:message key="admin.admin.btnUpdatePatientProvider"/></a></li>
 						<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/FixRolesOnNotes.do"><fmt:message key="admin.admin.btnFixNotes"/></a></li>
+						class="xlink" rel="${ctx}/admin/FixRolesOnNotes"><fmt:message key="admin.admin.btnFixNotes"/></a></li>
 						
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/AuditLogPurge.do"><fmt:message key="admin.admin.btnAuditLogPurge"/></a></li>
+						class="xlink" rel="${ctx}/admin/AuditLogPurge"><fmt:message key="admin.admin.btnAuditLogPurge"/></a></li>
 				</ul>
 				</div>
 				</div>
@@ -966,4 +966,3 @@ function getUrlVars()
     return vars;
 }
 </script>
-

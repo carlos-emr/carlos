@@ -54,7 +54,7 @@
     }
 %>
 function storeApptNo(apptNo) {
-var url = "<%= request.getContextPath() %>/provider/ViewStoreApptInSession.do";
+var url = "<%= request.getContextPath() %>/provider/ViewStoreApptInSession";
 var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
 var csrfToken = csrfEl ? csrfEl.value : '';
 fetch(url, {
@@ -252,7 +252,7 @@ function getLocation(id, multiplier) {
 
     var dateDestination = DateAdd(itemType, dateSelected, valueToAdd);
 
-    var destination = '<%= request.getContextPath() %>/provider/providercontrol.do?year=' + dateDestination.getFullYear()
+    var destination = '<%= request.getContextPath() %>/provider/providercontrol?year=' + dateDestination.getFullYear()
         + '&month=' + getMonthNumber(dateDestination.getMonth())
         + '&day=' + dateDestination.getDate()
         + '&view=' + encodeURIComponent(qsParm['view'] || '0')
@@ -452,7 +452,7 @@ function popupPageOfChangePassword(){
         //javascript
 %>
 
-window.open("<%= request.getContextPath() %>/provider/ViewChangePassword.do","changePassword","resizable=yes,scrollbars=yes,width=400,height=300");
+window.open("<%= request.getContextPath() %>/provider/ViewChangePassword","changePassword","resizable=yes,scrollbars=yes,width=400,height=300");
 changePassword.moveTo(0,0);
 <%}%>
 }
@@ -572,7 +572,7 @@ if (IsPopupBlocker()) {
 <fmt:message var="popupBlockerMsg" key="provider.appointmentProviderAdminDay.popupBlockerAlert"/>
 alert('${e:forJavaScript(popupBlockerMsg)}');
 } else{
-var pu=window.open("<%=request.getContextPath()%>/UnreadTickler.do",'viewUnreadTickler',"height=120,width=250,location=no,scrollbars=no,menubars=no,toolbars=no,resizable=yes,top=500,left=700");
+var pu=window.open("<%=request.getContextPath()%>/UnreadTickler",'viewUnreadTickler',"height=120,width=250,location=no,scrollbars=no,menubars=no,toolbars=no,resizable=yes,top=500,left=700");
 if(window.focus)
 pu.focus();
 }
@@ -606,7 +606,7 @@ setTimeout("refreshTabAlerts('"+id+"')", 10);
 }
 
 function refreshTabAlerts(id) {
-var url = "<%= request.getContextPath() %>/provider/ViewTabAlertsRefresh.do";
+var url = "<%= request.getContextPath() %>/provider/ViewTabAlertsRefresh";
 var pars = "id=" + id;
 jQuery.ajax({
 url: url,

@@ -28,6 +28,6 @@
 
 --%>
 <%
-    String url = request.getContextPath() + "/PMmodule/ClientSearch2.do";
+    String url = request.getContextPath() + "/PMmodule/ClientSearch2";
 %>
 <META HTTP-EQUIV="refresh" content="0;URL=<%=url%>">

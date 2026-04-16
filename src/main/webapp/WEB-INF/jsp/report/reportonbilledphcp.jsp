@@ -5,7 +5,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -37,7 +37,7 @@
         }
     }
 %>
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.sql.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -125,7 +125,7 @@
                                                  color="#FFFFFF"> PHCP Encounter Report </font></th>
         </tr>
     </table>
-    <form name="myform" action="<%= request.getContextPath() %>/report/ViewReportonbilledphcp.do" method="POST"
+    <form name="myform" action="<%= request.getContextPath() %>/report/ViewReportonbilledphcp" method="POST"
           onsubmit="return onSub();">
         <table width="100%" border="0" bgcolor="ivory" cellspacing="1"
                cellpadding="1">
@@ -958,7 +958,7 @@
         // Log the error to the console
         System.err.println("JSP Processing Error:");
         e.printStackTrace(System.err);
-        request.getRequestDispatcher("/errorpage.jsp").forward(request, response);
+        request.getRequestDispatcher("/WEB-INF/jsp/error/errorpage.jsp").forward(request, response);
         return;
     }
     %>

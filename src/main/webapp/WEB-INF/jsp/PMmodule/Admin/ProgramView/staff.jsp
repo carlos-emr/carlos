@@ -38,7 +38,7 @@
 </div>
 <display:table class="simple" defaultsort="3" cellspacing="2"
 	cellpadding="3" id="provider" name="providers" export="false"
-	pagesize="0" requestURI="/PMmodule/ProgramManagerView.do">
+	pagesize="0" requestURI="/PMmodule/ProgramManagerView">
 	<display:setProperty name="paging.banner.placement" value="bottom" />
 	<display:column headerClass="non_sorted_header" sortable="false"
 		title="Team(s)">

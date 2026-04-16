@@ -45,7 +45,7 @@ function newWindow(url) {
 
 function getDrugRefStatus() {
 	const data = "method=verify";
-	const url = "<c:out value='${ctx}'/>" + "/rx/updateDrugrefDB.do";
+	const url = "<c:out value='${ctx}'/>" + "/rx/updateDrugrefDB";
 
 	var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
 	var csrfToken = csrfEl ? csrfEl.value : '';
@@ -103,7 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
           </span><span class="text-nowrap" title="<%= Encode.forHtmlAttribute(String.valueOf(patient2.getAge())) %>y"><b><fmt:message key="SearchDrug.DOBtext"/></b>
           <%= Encode.forHtmlContent(RxUtil.DateToString(patient2.getDOB(), "MMM d, yyyy")) %></span>
          <span><label for="Calcs">
-            <a class="text-black fw-bold text-decoration-underline" href="<%= request.getContextPath() %>/rx/managePharmacy.do"
+            <a class="text-black fw-bold text-decoration-underline" href="<%= request.getContextPath() %>/rx/managePharmacy"
                onclick="ShowSpin(true); return true;" data-bs-toggle="tooltip" title="<fmt:message key='SearchDrug.pharmacyClickToEdit'/>">
               <fmt:message key="SearchDrug.pharmacyLabel"/>
             </a>

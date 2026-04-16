@@ -69,7 +69,7 @@
             <td class="MainTableLeftColumn"></td>
             <td class="MainTableRightColumn">
                 <%if (request.getAttribute("status") == null) {%>
-                <form action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
+                <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
                     <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
                     <input type="checkbox" name="dashboardShareProperty.checked" <c:if test="${dashboardShareProperty.checked}">checked</c:if> />
                         <fmt:message key="provider.pref.dashboardShare"/>

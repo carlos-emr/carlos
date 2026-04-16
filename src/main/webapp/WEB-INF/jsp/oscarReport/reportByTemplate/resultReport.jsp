@@ -30,7 +30,7 @@
 --%>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 
@@ -47,7 +47,7 @@
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_report" rights="r" reverse="<%=true%>">
     <%
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     %>
 </security:oscarSec>
 <!DOCTYPE html>
@@ -67,7 +67,7 @@
 
         <script>
             function clearSession() {
-                navigator.sendBeacon('<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewClearSession.do');
+                navigator.sendBeacon('<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewClearSession');
             }
 
             jQuery(document).ready(function () {
@@ -144,14 +144,14 @@
 
         <div style="margin-bottom:15px;" class="d-flex gap-2">
             <input type="button" class="btn btn-primary" value="Back"
-                   onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewReportConfiguration.do?templateid=${ reportobject.templateId }'">
+                   onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewReportConfiguration?templateid=${ reportobject.templateId }'">
             <input type="button" class="btn btn-primary" value="Print" onclick="window.print();">
 
             <%
                 for (int x = 0; x < csvList.size(); x++) {
             %>
 
-            <form style="display:inline;" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/generateOutFilesAction.do" method="post">
+            <form style="display:inline;" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/generateOutFilesAction" method="post">
                 <%if (x > 1) { %>
                 <label><%=(x + 1)%>
                 </label>
@@ -169,7 +169,7 @@
             </a>
             <a href="javascript:void(0)" class="edit result-btn"
                style="padding-left: 5px;border-left:#0088cc 2px solid;"
-               onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate.do?templateid=${ reportobject.templateId }&opentext=1'">
+               onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate?templateid=${ reportobject.templateId }&opentext=1'">
                 Edit Template
             </a>
             <div class="sqlBorderDiv" id="sqlDiv" style="display:none;background-color:white;padding:5px;">

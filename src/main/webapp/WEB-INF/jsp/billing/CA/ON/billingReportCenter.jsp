@@ -26,7 +26,7 @@
 
     if (((String) session.getAttribute("userrole")).indexOf("admin") >= 0 ||
             ((String) session.getAttribute("userrole")).indexOf("doctor") >= 0) {
-        request.getRequestDispatcher("/billing/CA/ON/ViewBillingONNewReport.do").include(request, response);
+        request.getRequestDispatcher("/billing/CA/ON/ViewBillingONNewReport").include(request, response);
         return;
     }
     String user_no = (String) session.getAttribute("user");
@@ -38,7 +38,7 @@
     String providerview = request.getParameter("providerview") == null ? "all" : request.getParameter("providerview");
 %>
 
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
@@ -109,11 +109,11 @@
             &nbsp;Billing Report Center
         </h4>
         <span style="float:right;">
-            <a href="#" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider.do?action=billingreport'); return false;" class="btn btn-sm btn-secondary">Manage Provider List</a>
+            <a href="#" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider?action=billingreport'); return false;" class="btn btn-sm btn-secondary">Manage Provider List</a>
         </span>
     </div>
 
-    <form name="serviceform" method="post" action="/billing/CA/ON/ViewBillingReportControl.do">
+    <form name="serviceform" method="post" action="/billing/CA/ON/ViewBillingReportControl">
         <div class="d-flex flex-wrap align-items-center gap-2" style="margin-bottom:10px;">
             <div class="form-check form-check-inline">
                 <input class="form-check-input" type="radio" name="reportAction" value="unbilled" checked>

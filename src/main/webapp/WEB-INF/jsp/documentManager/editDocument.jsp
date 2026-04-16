@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_edoc");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_edoc");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -267,7 +267,7 @@
     <div class="maindivheading">Edit Document</div>
     <%-- Lists docerrors --%> <% for (Enumeration errorkeys = docerrors.keys(); errorkeys.hasMoreElements(); ) {%>
     <font class="warning">Error: <fmt:message key="<%=(String) docerrors.get(errorkeys.nextElement())%>"/></font><br/>
-    <% } %> <form action="${pageContext.request.contextPath}/documentManager/addEditDocument.do" method="POST"
+    <% } %> <form action="${pageContext.request.contextPath}/documentManager/addEditDocument" method="POST"
                        enctype="multipart/form-data" onsubmit="return submitUpload(this);">
     <input type="hidden" name="function"
            value="<%=Encode.forHtmlAttribute(formdata.getFunction())%>" size="20"/>

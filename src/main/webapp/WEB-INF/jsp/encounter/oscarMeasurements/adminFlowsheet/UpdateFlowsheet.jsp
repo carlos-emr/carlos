@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_flowsheet" rights="w" reverse="<%=true%>">
     <%authed2 = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_flowsheet");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_flowsheet");%>
 </security:oscarSec>
 <%
     if (!authed2) {
@@ -69,9 +69,9 @@
 
 <%
     long startTimeToGetP = System.currentTimeMillis();
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     //int demographic_no = Integer.parseInt(request.getParameter("demographic_no"));
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     //TODO: MOVE THIS TO AN ACTION
     WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(getServletContext());
     FlowSheetCustomizationDao flowSheetCustomizationDao = (FlowSheetCustomizationDao) ctx.getBean(FlowSheetCustomizationDao.class);
@@ -172,7 +172,7 @@ display:inline-block;
 <div class="container-fluid" id="container-main">
 
         <div class="col-md-8">
-<form action="FlowSheetCustomAction.do" method="post" onsubmit="return validateRuleValue();">
+<form action="FlowSheetCustomAction" method="post" onsubmit="return validateRuleValue();">
                 <input type="hidden" name="method" value="update"/>
                 <input type="hidden" name="flowsheet" value="<%= Encode.forHtmlAttribute(flowsheet) %>"/>
                 <input type="hidden" name="measurement" value="<%= Encode.forHtmlAttribute(measurement) %>"/>
@@ -493,9 +493,9 @@ display:inline-block;
 
                     <div style="width:100%;text-align:right">
                         <%if (request.getParameter("demographic") == null) { %>
-                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet.do?flowsheet=<%= Encode.forUriComponent(flowsheet) %><%=htQueryString%><%=scope != null ? "&scope=" + Encode.forUriComponent(scope) : ""%>" class="btn btn-secondary">Cancel</a>
+                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<%= Encode.forUriComponent(flowsheet) %><%=htQueryString%><%=scope != null ? "&scope=" + Encode.forUriComponent(scope) : ""%>" class="btn btn-secondary">Cancel</a>
                         <%} else { %>
-                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet.do?flowsheet=<%= Encode.forUriComponent(flowsheet) %>&demographic=<%=Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic))%><%=htQueryString%><%=scope != null ? "&scope=" + Encode.forUriComponent(scope) : ""%>"
+                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<%= Encode.forUriComponent(flowsheet) %>&demographic=<%=Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic))%><%=htQueryString%><%=scope != null ? "&scope=" + Encode.forUriComponent(scope) : ""%>"
                            class="btn btn-secondary">Cancel</a>
                         <%} %>
                         <input type="submit" class="btn btn-primary" value="Update"/>

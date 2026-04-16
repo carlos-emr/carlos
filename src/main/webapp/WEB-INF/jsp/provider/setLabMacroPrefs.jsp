@@ -52,7 +52,7 @@
         - Page loads existing macros from UserProperty.LAB_MACRO_JSON via SpringUtils
         - User fills form fields or edits raw JSON directly
         - JavaScript assembleJSON() function builds JSON from form or passes through raw JSON
-        - Form submission calls setProviderStaleDate.do?method=saveLabMacroPrefs
+        - Form submission calls setProviderStaleDate?method=saveLabMacroPrefs
         - Action validates JSON and persists to UserProperty table
         - JSP displays success or error status on form return
 
@@ -320,7 +320,7 @@ function toggleMe(el){
     </div>
 </div>
 
-<form name="labMacroPrefsForm" method="post" action="${pageContext.request.contextPath}/setProviderStaleDate.do" onsubmit="return assembleJSON();">
+<form name="labMacroPrefsForm" method="post" action="${pageContext.request.contextPath}/setProviderStaleDate" onsubmit="return assembleJSON();">
 <input type="hidden" name="method" value="saveLabMacroPrefs">
 <div class="container mt-3">
 

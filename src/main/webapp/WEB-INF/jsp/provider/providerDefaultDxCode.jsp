@@ -52,7 +52,7 @@
         ff = eval("document.forms[0].elements['" + name2 + "']");
         f0 = ff.value;
         f1 = escape("document.forms[0].elements[\'" + name2 + "\'].value");
-        awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch.do?name=' + f0 + '&search=&name2=' + f1, 600, 600, 1);
+        awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch?name=' + f0 + '&search=&name2=' + f1, 600, 600, 1);
         awnd.focus();
     }
 </script>
@@ -87,7 +87,7 @@
 %>
 
 
-<form id="preference_form" name="preference_form" action="<%= request.getContextPath() %>/provider/ViewPreferenceAction.do" method="post">
+<form id="preference_form" name="preference_form" action="<%= request.getContextPath() %>/provider/ViewPreferenceAction" method="post">
     <input type="hidden" name="provider_no" id="provider_no" value="<%=Encode.forHtmlAttribute(provider_no)%>"/>
     <input type="hidden" name="new_tickler_warning_window" id="new_tickler_warning_window"
            value="<%=Encode.forHtmlAttribute(request.getParameter("new_tickler_warning_window") != null ? request.getParameter("new_tickler_warning_window") : "")%>"/>

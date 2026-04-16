@@ -99,7 +99,7 @@
             <td class="MainTableLeftColumn">&nbsp;</td>
             <td class="MainTableRightColumn">
                 <!-- form starts here -->
-                <form action="<c:out value="${ctx}"/>/provider/CppPreferences.do?method=save" method="post"
+                <form action="<c:out value="${ctx}"/>/provider/CppPreferences?method=save" method="post"
                       onSubmit="return validate();">
                     <table width="100%" border="1">
                         <tr>

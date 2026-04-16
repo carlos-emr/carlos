@@ -255,7 +255,7 @@
             } catch (java.lang.ArrayIndexOutOfBoundsException _e0) {
             }%>
     </table>
-    <form action="<%= request.getContextPath() %>/billing/CA/ON/BillingCorrectionSubmit.do" method="post"><input type="submit"
+    <form action="<%= request.getContextPath() %>/billing/CA/ON/BillingCorrectionSubmit" method="post"><input type="submit"
                                                       name="submit"
                                                       value="<fmt:message key="billing.billingCorrection.btnSubmit"/>"><input
             type="button" name="cancel"

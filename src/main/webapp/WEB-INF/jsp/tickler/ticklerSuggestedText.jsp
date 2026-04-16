@@ -43,14 +43,14 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_tickler");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_tickler");%>
 </security:oscarSec>
 <%
     if (!authed) {
         return;
     }
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%!
     TicklerTextSuggestDao ticklerTextSuggestDao = SpringUtils.getBean(TicklerTextSuggestDao.class);
@@ -151,7 +151,7 @@
 <body>
 <div class="container">
     <h3><fmt:message key="global.tickler"/> <fmt:message key="tickler.ticklerTextSuggest.textSuggestTitle"/></h3>
-    <form action="${pageContext.request.contextPath}/tickler/EditTicklerTextSuggest.do" method="post">
+    <form action="${pageContext.request.contextPath}/tickler/EditTicklerTextSuggest" method="post">
         <input type="hidden" name="method" value="updateTextSuggest">
         <table style="display: flex;justify-content: space-evenly;align-items: stretch;">
 

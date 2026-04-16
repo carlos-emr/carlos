@@ -31,7 +31,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page import="java.math.*, java.util.*, io.github.carlos_emr.carlos.util.*" %>
 <%
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean isTeamBillingOnly = false;
     boolean isSiteAccessPrivacy = false;
@@ -52,7 +52,7 @@
 %>
 
 
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.*" %>
@@ -311,7 +311,7 @@
     <h3><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></h3>
 
     <form name="serviceform" id="serviceform"
-          action="<%=request.getContextPath() %>/billing/CA/ON/ViewBillingOHIPsimulation.do">
+          action="<%=request.getContextPath() %>/billing/CA/ON/ViewBillingOHIPsimulation">
         <div class="row card card-body bg-body-tertiary d-print-none">
 
             <input type="hidden" name="submit" value="Create Report">

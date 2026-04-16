@@ -39,7 +39,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -80,7 +80,7 @@
             });
 
             function loadIndicators() {
-                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getIndicators&flowsheetId=<%=Encode.forJavaScript(Encode.forUriComponent(flowsheetId))%>", {},
+                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=getIndicators&flowsheetId=<%=Encode.forJavaScript(Encode.forUriComponent(flowsheetId))%>", {},
                     function (xml) {
                         var arr = new Array();
                         if (xml.indicators instanceof Array) {
@@ -101,10 +101,10 @@
 
 
             function saveItem() {
-                jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=saveFlowsheetItemTarget',
+                jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet?method=saveFlowsheetItemTarget',
                     jQuery('#theForm').serialize(),
                     function (data) {
-                        location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetItemEditor.do?flowsheetId=<%=Encode.forJavaScript(Encode.forUriComponent(flowsheetId))%>&measurementType=<%=Encode.forJavaScript(Encode.forUriComponent(measurementType))%>';
+                        location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetItemEditor?flowsheetId=<%=Encode.forJavaScript(Encode.forUriComponent(flowsheetId))%>&measurementType=<%=Encode.forJavaScript(Encode.forUriComponent(measurementType))%>';
                     });
             }
 

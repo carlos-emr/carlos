@@ -135,21 +135,21 @@
     String demoPath = rootContextPath + "/demographic/";
     String printEnvelope, printLbl, printAddressLbl, printChartLbl, printSexHealthLbl, printHtmlLbl, printLabLbl;
     if (oscarProps != null && "true".equals(oscarProps.getProperty("new_label_print"))) {
-        printEnvelope = demoPath + "ViewPrintEnvelope.do?demos=";
-        printLbl = demoPath + "ViewPrintDemoLabel.do?demographic_no=";
-        printAddressLbl = demoPath + "ViewPrintAddressLabel.do?demographic_no=";
-        printChartLbl = demoPath + "ViewPrintDemoChartLabel.do?demographic_no=";
-        printSexHealthLbl = demoPath + "ViewPrintDemoChartLabel.do?labelName=SexualHealthClinicLabel&demographic_no=";
-        printHtmlLbl = demoPath + "ViewDemographicLabelPrintSetting.do?demographic_no=";
-        printLabLbl = demoPath + "ViewPrintClientLabLabel.do?demographic_no=";
+        printEnvelope = demoPath + "ViewPrintEnvelope?demos=";
+        printLbl = demoPath + "ViewPrintDemoLabel?demographic_no=";
+        printAddressLbl = demoPath + "ViewPrintAddressLabel?demographic_no=";
+        printChartLbl = demoPath + "ViewPrintDemoChartLabel?demographic_no=";
+        printSexHealthLbl = demoPath + "ViewPrintDemoChartLabel?labelName=SexualHealthClinicLabel&demographic_no=";
+        printHtmlLbl = demoPath + "ViewDemographicLabelPrintSetting?demographic_no=";
+        printLabLbl = demoPath + "ViewPrintClientLabLabel?demographic_no=";
     } else {
-        printEnvelope = rootContextPath + "/report/GenerateEnvelopes.do?demos=";
-        printLbl = demoPath + "printDemoLabelAction.do?demographic_no=";
-        printAddressLbl = demoPath + "printDemoAddressLabelAction.do?demographic_no=";
-        printChartLbl = demoPath + "printDemoChartLabelAction.do?demographic_no=";
-        printSexHealthLbl = demoPath + "printDemoChartLabelAction.do?labelName=SexualHealthClinicLabel&demographic_no=";
-        printHtmlLbl = demoPath + "ViewDemographicLabelPrintSetting.do?demographic_no=";
-        printLabLbl = demoPath + "printClientLabLabelAction.do?demographic_no=";
+        printEnvelope = rootContextPath + "/report/GenerateEnvelopes?demos=";
+        printLbl = demoPath + "printDemoLabelAction?demographic_no=";
+        printAddressLbl = demoPath + "printDemoAddressLabelAction?demographic_no=";
+        printChartLbl = demoPath + "printDemoChartLabelAction?demographic_no=";
+        printSexHealthLbl = demoPath + "printDemoChartLabelAction?labelName=SexualHealthClinicLabel&demographic_no=";
+        printHtmlLbl = demoPath + "ViewDemographicLabelPrintSetting?demographic_no=";
+        printLabLbl = demoPath + "printClientLabLabelAction?demographic_no=";
     }
 
     String wLReadonly = "";

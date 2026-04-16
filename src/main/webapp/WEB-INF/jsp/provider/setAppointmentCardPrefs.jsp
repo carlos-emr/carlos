@@ -76,7 +76,7 @@
                 <%if (request.getAttribute("status") == null) {%>
                 <%=bundle.getString(providermsgEdit)%>
 
-                <form action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
+                <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
                     <input type="hidden" name="method" value="<c:out value="${method}"/>">
                     <br/>
                     Name: <input type="text" name="appointmentCardName.value" value="<c:out value='${name.value}'/>" size="50" />

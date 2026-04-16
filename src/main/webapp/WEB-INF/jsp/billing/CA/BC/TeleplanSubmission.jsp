@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing,_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -46,7 +46,7 @@
 %>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String user_no = (String) session.getAttribute("user");
 %>
 
@@ -142,7 +142,7 @@
         function sendTeleplanFile(id) {
             var form = document.createElement('form');
             form.method = 'post';
-            form.action = '<%= request.getContextPath() %>/billing/CA/BC/ManageTeleplan.do';
+            form.action = '<%= request.getContextPath() %>/billing/CA/BC/ManageTeleplan';
             var fields = {id: id, method: 'sendFile'};
             for (var key in fields) {
                 var input = document.createElement('input');
@@ -170,7 +170,7 @@
             <% for (String year : yearArray) { %>
             <tr>
                 <td align='CENTER'><a
-                        href="<%= request.getContextPath() %>/billing/CA/BC/SimulateTeleplanFile.do?year=<%=Encode.forUriComponent(year)%>">YEAR <%=Encode.forHtml(year)%>
+                        href="<%= request.getContextPath() %>/billing/CA/BC/SimulateTeleplanFile?year=<%=Encode.forUriComponent(year)%>">YEAR <%=Encode.forHtml(year)%>
                 </a></td>
             </tr>
             <% } %>
@@ -178,7 +178,7 @@
             <c:forEach var="year" items="${yearArray}">
                 <tr>
                     <td align='CENTER'><a
-                            href="<%= request.getContextPath() %>/billing/CA/BC/SimulateTeleplanFile.do?year=<c:out value="${year}"/>">YEAR
+                            href="<%= request.getContextPath() %>/billing/CA/BC/SimulateTeleplanFile?year=<c:out value="${year}"/>">YEAR
                         <c:out value="${year}"/></a></td>
                 </tr>
             </c:forEach>
@@ -192,7 +192,7 @@
     </h4>
     <c:if test="${!empty error}"><c:out value="${error}"/></c:if>
 
-    <form action="${pageContext.request.contextPath}/billing/CA/BC/GenerateTeleplanFile.do" method="post" onsubmit="return checkSubmit();"
+    <form action="${pageContext.request.contextPath}/billing/CA/BC/GenerateTeleplanFile" method="post" onsubmit="return checkSubmit();"
                class="d-flex flex-wrap align-items-center gap-2">
 
         Select provider
@@ -254,10 +254,10 @@
                 </c:otherwise>
             </c:choose></td>
 
-            <td><a href="<%= request.getContextPath() %>/billing/CA/BC/DownloadBilling.do?filename=${billAct.ohipfilename}">
+            <td><a href="<%= request.getContextPath() %>/billing/CA/BC/DownloadBilling?filename=${billAct.ohipfilename}">
                 <c:out value="${billAct.ohipfilename}"/>
             </a></td>
-            <td><a href="<%= request.getContextPath() %>/billing/CA/BC/DownloadBilling.do?filename=${billAct.htmlfilename}">
+            <td><a href="<%= request.getContextPath() %>/billing/CA/BC/DownloadBilling?filename=${billAct.htmlfilename}">
                 <c:out value="${billAct.htmlfilename}"/>
             </a></td>
             </tr>

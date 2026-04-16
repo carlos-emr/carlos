@@ -97,7 +97,7 @@
 
 <body>
 <div class="container">
-<form method="post" name="RULES" action="ForwardingRules.do">
+<form method="post" name="RULES" action="ForwardingRules">
     <input type="hidden" name="providerNo" value="<%= Encode.forHtmlAttribute(providerNo) %>">
     <input type="hidden" name="operation" value="update">
     <input type="hidden" name="remProviderNum" value="">

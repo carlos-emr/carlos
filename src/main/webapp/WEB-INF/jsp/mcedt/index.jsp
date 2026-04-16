@@ -30,7 +30,7 @@
 --%>
 <!DOCTYPE html>
 
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -70,7 +70,7 @@
         <script language="javascript">
 
             function createNew() {
-                window.location.href = "<%= request.getContextPath() %>/mcedt/uploads.do";
+                window.location.href = "<%= request.getContextPath() %>/mcedt/uploads";
                 return false;
             }
 
@@ -96,7 +96,7 @@
                 }
                 var form = document.createElement('form');
                 form.method = 'post';
-                form.action = '<%= request.getContextPath() %>/mcedt/update.do';
+                form.action = '<%= request.getContextPath() %>/mcedt/update';
                 var input = document.createElement('input');
                 input.type = 'hidden';
                 input.name = 'resourceId';
@@ -111,7 +111,7 @@
                 if (control) {
                     control.disabled = true;
                 }
-                window.location.href = "<%= request.getContextPath() %>/mcedt/info.do?resourceId=" + resourceId;
+                window.location.href = "<%= request.getContextPath() %>/mcedt/info?resourceId=" + resourceId;
                 return false;
             }
 
@@ -146,7 +146,7 @@
 
             <h2>MCEDT Resources</h2>
 
-            <form action="${pageContext.request.contextPath}/mcedt/mcedt.do" method="post" id="form">
+            <form action="${pageContext.request.contextPath}/mcedt/mcedt" method="post" id="form">
 
                 <jsp:include page="messages.jsp"/>
 

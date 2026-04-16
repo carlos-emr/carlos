@@ -38,7 +38,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting,_billing" rights="r"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting&type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting&type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -60,7 +60,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     String user_no;
     user_no = (String) session.getAttribute("user");
 %>
@@ -115,7 +115,7 @@
 </div>
 </s:if>
 
-<form action="${ctx}/oscarReport/obec.do" class="card card-body bg-body-tertiary"
+<form action="${ctx}/oscarReport/obec" class="card card-body bg-body-tertiary"
       id="obecForm">
     <fieldset>
         <h4>

@@ -58,7 +58,7 @@
                 return false;
             }
 
-            var url = "<%=request.getContextPath()%>/documentManager/inboxManage.do?method=prepareForIndexPage&providerNo=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo")))) %>";
+            var url = "<%=request.getContextPath()%>/documentManager/inboxManage?method=prepareForIndexPage&providerNo=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo")))) %>";
             if ($("#provfind").val().trim() != "") {
                 url += "&searchProviderNo=" + $("#provfind").val().trim();
             } else {
@@ -93,7 +93,7 @@
         $(function () {
 
             $("#autocompleteprov").autocomplete({
-                source: "<%= request.getContextPath() %>/provider/SearchProvider.do?method=labSearch",
+                source: "<%= request.getContextPath() %>/provider/SearchProvider?method=labSearch",
                 minLength: 2,
                 focus: function (event, ui) {
                     $("#autocompleteprov").val(ui.item.label);

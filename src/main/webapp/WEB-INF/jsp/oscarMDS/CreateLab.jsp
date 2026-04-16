@@ -38,7 +38,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -93,7 +93,7 @@
     <script>
         $(document).ready(function() {
 
-            var searchDemoUrl = "<%= request.getContextPath() %>/demographic/SearchDemographic.do";
+            var searchDemoUrl = "<%= request.getContextPath() %>/demographic/SearchDemographic";
 
             $("#lastname").autocomplete( {
                 source: function (req, res) {
@@ -155,7 +155,7 @@
                 return li.appendTo( ul );
             };
 
-            var url2 = "<%= request.getContextPath() %>/provider/SearchProvider.do?method=labSearch";
+            var url2 = "<%= request.getContextPath() %>/provider/SearchProvider?method=labSearch";
 
             $( "#pLastname" ).autocomplete({
                 source: url2,
@@ -186,7 +186,7 @@
             var total = jQuery("#test_num").val();
             total++;
             jQuery("#test_num").val(total);
-            jQuery.ajax({url:'<%=request.getContextPath()%>/oscarMDS/ViewCreateLabTest.do?id='+total,async:false, success:function(data) {
+            jQuery.ajax({url:'<%=request.getContextPath()%>/oscarMDS/ViewCreateLabTest?id='+total,async:false, success:function(data) {
                     jQuery("#test_container").append(data);
                     jQuery('form[name="testForm"] :submit').prop('disabled', false);
                 }});
@@ -232,7 +232,7 @@
         </div>
     </s:if>
 
-    <form name="testForm" method="post" action="<%=request.getContextPath()%>/oscarMDS/SubmitLab.do?method=saveManage"
+    <form name="testForm" method="post" action="<%=request.getContextPath()%>/oscarMDS/SubmitLab?method=saveManage"
           onsubmit="return confirmSave();">
 
         <div class="row mb-3">

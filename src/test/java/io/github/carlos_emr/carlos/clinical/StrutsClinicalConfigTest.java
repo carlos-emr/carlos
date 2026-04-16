@@ -194,7 +194,7 @@ class StrutsClinicalConfigTest {
                 }
                 assertThat(failurePath)
                         .as("dxResearch action should keep a failure result that re-renders the migrated JSP "
-                                + "inside /WEB-INF so invalid-code submissions do not redirect into setupDxResearch.do")
+                                + "inside /WEB-INF so invalid-code submissions do not redirect into setupDxResearch")
                         .isEqualTo("/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearch.jsp");
             }
         }

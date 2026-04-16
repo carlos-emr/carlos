@@ -35,7 +35,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -78,7 +78,7 @@
 
             function valid(form) {
                 if (validateServiceType(form)) {
-                    form.action = "<%= request.getContextPath() %>/billing/CA/ON/DbManageBillingformAdd.do"
+                    form.action = "<%= request.getContextPath() %>/billing/CA/ON/DbManageBillingformAdd"
                     form.submit()
                 } else {
                 }
@@ -123,7 +123,7 @@
                 <td width="3%"></td>
                 <td width="30%" align="left" valign="top">
                     <form name="serviceform" method="post"
-                          action="DbManageBillingLocation.do"><B><fmt:message key="billing.manageBillingLocation.msgCodeDescription"/></B> <br>
+                          action="DbManageBillingLocation"><B><fmt:message key="billing.manageBillingLocation.msgCodeDescription"/></B> <br>
                         <input style="width:40px" type="text" name="location1" size="4"> <input type="text"
                                                                                                 name="location1desc"
                                                                                                 size="30"> <br>
@@ -174,7 +174,7 @@
 
                         <tr>
                             <form name="serviceform" method="post"
-                                  action="/billing/CA/ON/ManageBillingLocation.do"
+                                  action="/billing/CA/ON/ManageBillingLocation"
                                   onsubmit="return confirmthis(<%=clinicLocation.getClinicLocationNo()%>);">
                                 <td align="center"><%=clinicLocation.getClinicLocationNo()%>
                                 </td>

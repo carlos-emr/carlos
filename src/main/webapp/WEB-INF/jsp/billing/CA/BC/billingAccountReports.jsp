@@ -8,7 +8,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting,_admin" rights="r"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting&type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting&type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -157,7 +157,7 @@
                 <tr bgcolor="#FFFFFF">
                     <div align="right"><a
                             href="javascript: function myFunction() {return false; }"
-                            onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider.do?action=billingreport')">
+                            onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider?action=billingreport')">
                         <font face="Arial, Helvetica, sans-serif" size="1">Manage
                             Provider List</font> </a></div>
                 </tr>
@@ -178,7 +178,7 @@
                 </tr>
             </table>
             <table width="100%" border="0" bgcolor="#EEEEFF">
-                <form action="createBillingReportAction.do" method="post">
+                <form action="createBillingReportAction" method="post">
                     <tr>
                         <td width="34%"><font
                                 face="Verdana, Arial, Helvetica, sans-serif" size="2"

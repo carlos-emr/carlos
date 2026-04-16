@@ -57,7 +57,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_tickler");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_tickler");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -316,7 +316,7 @@
                         url: '${pageContext.request.contextPath}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json'
                         },
                     ajax: {
-                        url: ctx + '/tickler/ListTicklers.do',
+                        url: ctx + '/tickler/ListTicklers',
                         type: 'GET',
                         error: function(xhr, error, thrown) {
                             console.error('[ticklerMain] DataTables AJAX error (HTTP ' + xhr.status + '):', error, thrown);
@@ -364,7 +364,7 @@
                             orderable: false,
                             render: function(data) {
                                 var name = escapeHtml(data.demographicName || 'N/A');
-                                return '<a class="nav-link" href="javascript:void(0)" onClick="popupPage(600,800,\'' + ctx + '/demographic/DemographicEdit.do?demographic_no=' + encodeURIComponent(data.demographicNo) + '\')">' + name + '</a>';
+                                return '<a class="nav-link" href="javascript:void(0)" onClick="popupPage(600,800,\'' + ctx + '/demographic/DemographicEdit?demographic_no=' + encodeURIComponent(data.demographicNo) + '\')">' + name + '</a>';
                             }
                         },
                         {
@@ -480,7 +480,7 @@
              * checkmark so the user has a visual cue that this tickler has been opened.
              */
             function openTicklerEdit(link, ticklerNo) {
-                window.open(ctx + '/tickler/ViewTicklerEdit.do?tickler_no=' + ticklerNo, 'edit_tickler', 'width=800, height=650');
+                window.open(ctx + '/tickler/ViewTicklerEdit?tickler_no=' + ticklerNo, 'edit_tickler', 'width=800, height=650');
                 var icon = link.querySelector('span');
                 if (icon) {
                     icon.classList.remove('fa-pencil-alt');
@@ -502,15 +502,15 @@
                 if (tableName === 'MDS') {
                     url = 'javascript:reportWindow(\'SegmentDisplay.jsp?segmentID=' + encodedId + '\')';
                 } else if (tableName === 'CML') {
-                    url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/ON/ViewCMLDisplay.do?segmentID=' + encodedId + '\')';
+                    url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/ON/ViewCMLDisplay?segmentID=' + encodedId + '\')';
                 } else if (tableName === 'HL7') {
-                    url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/ALL/ViewLabDisplay.do?segmentID=' + encodedId + '\')';
+                    url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/ALL/ViewLabDisplay?segmentID=' + encodedId + '\')';
                 } else if (tableName === 'DOC' || tableName === 'document') {
-                    url = 'javascript:reportWindow(\'' + ctx + '/documentManager/ManageDocument.do?method=display&doc_no=' + encodedId + '\')';
+                    url = 'javascript:reportWindow(\'' + ctx + '/documentManager/ManageDocument?method=display&doc_no=' + encodedId + '\')';
                 } else if (tableName === 'HRM') {
-                    url = 'javascript:reportWindow(\'' + ctx + '/hospitalReportManager/Display.do?id=' + encodedId + '&segmentID=' + encodedId + '\')';
+                    url = 'javascript:reportWindow(\'' + ctx + '/hospitalReportManager/Display?id=' + encodedId + '&segmentID=' + encodedId + '\')';
                 } else {
-                    url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/BC/ViewLabDisplay.do?segmentID=' + encodedId + '\')';
+                    url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/BC/ViewLabDisplay?segmentID=' + encodedId + '\')';
                 }
                 return ' <a title="' + i18nViewAttachment + '" href="' + url + '"><i class="fas fa-paperclip"></i></a>';
             }
@@ -527,7 +527,7 @@
                 document.getElementById('tickler_note_obsDate').innerHTML = '';
 
                 jQuery.ajax({
-                    method: "POST", url: ctx + '/CaseManagementEntry.do',
+                    method: "POST", url: ctx + '/CaseManagementEntry',
                     data: {method: "ticklerGetNote", ticklerNo: document.getElementById('tickler_note_ticklerNo').value},
                     async: false,
                     dataType: 'json',
@@ -536,7 +536,7 @@
                             document.getElementById('tickler_note_noteId').value = data.noteId;
                             document.getElementById('tickler_note').value = data.note;
                             document.getElementById('tickler_note_revision').textContent = data.revision;
-                            document.getElementById('tickler_note_revision_url').setAttribute("onclick", "window.open('" + ctx + "/CaseManagementEntry.do?method=notehistory&noteId=" + encodeURIComponent(data.noteId) + "')");
+                            document.getElementById('tickler_note_revision_url').setAttribute("onclick", "window.open('" + ctx + "/CaseManagementEntry?method=notehistory&noteId=" + encodeURIComponent(data.noteId) + "')");
                             document.getElementById('tickler_note_editor').textContent = data.editor;
                             document.getElementById('tickler_note_obsDate').textContent = data.obsDate;
                         }
@@ -555,7 +555,7 @@
 
             function saveNoteDialog() {
                 jQuery.ajax({
-                    url: ctx + '/CaseManagementEntry.do',
+                    url: ctx + '/CaseManagementEntry',
                     data: {
                         method: "ticklerSaveNote",
                         noteId: document.getElementById('tickler_note_noteId').value,
@@ -622,7 +622,7 @@
             }
 
             function saveView() {
-                let url = ctx + "/saveWorkView.do";
+                let url = ctx + "/saveWorkView";
                 let params = {
                     method: 'save',
                     view_name: 'tickler',
@@ -685,7 +685,7 @@
                 </h4>
             </div>
 
-        <form name="serviceform" method="get" action="<%= request.getContextPath() %>/tickler/ViewTicklerMain.do">
+        <form name="serviceform" method="get" action="<%= request.getContextPath() %>/tickler/ViewTicklerMain">
             <input type="hidden" name="Submit" value="">
             <input type="hidden" name="demoview" value="<%=org.owasp.encoder.Encode.forHtmlAttribute(isDemoView ? demographic_no : "")%>">
 
@@ -851,7 +851,7 @@
             </c:if>
         </form>
 
-        <form name="ticklerform" method="post" action="DbTicklerMain.do">
+        <form name="ticklerform" method="post" action="DbTicklerMain">
             <input type="hidden" name="parentAjaxId" value="<c:out value='${param.parentAjaxId}' />"/>
             <table id="ticklerResults" class="table table-striped table-sm" style="width:100%">
                 <thead>
@@ -900,7 +900,7 @@
                         %>
                         <input type="button" class="btn btn-primary"
                                value="<fmt:message key='tickler.ticklerMain.btnAddTickler'/>"
-                               onClick="popupPage('500','800', '<%= request.getContextPath() %>/tickler/ViewAddTickler.do?updateParent=true&parentAjaxId=<%= Encode.forUriComponent(parentAjaxId != null ? parentAjaxId : "") %>&bFirstDisp=false&messageID=null&demographic_no=<%= Encode.forUriComponent(demoviewParam != null ? demoviewParam : "") %>')">
+                               onClick="popupPage('500','800', '<%= request.getContextPath() %>/tickler/ViewAddTickler?updateParent=true&parentAjaxId=<%= Encode.forUriComponent(parentAjaxId != null ? parentAjaxId : "") %>&bFirstDisp=false&messageID=null&demographic_no=<%= Encode.forUriComponent(demoviewParam != null ? demoviewParam : "") %>')">
                         <%-- Back: tries opener reload (if opened as popup), then history back,
                              then window close as last resort. Matches search.jsp pattern. --%>
                         <input type="button" name="button" class="btn btn-secondary"

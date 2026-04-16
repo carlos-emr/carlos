@@ -75,7 +75,7 @@
         }
 
         function reloadPage() {
-            document.CONFIG.action = '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewRemapMeasurementMap.do';
+            document.CONFIG.action = '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewRemapMeasurementMap';
             return true;
         }
 
@@ -104,7 +104,7 @@
 </head>
 
 <body>
-<form method="post" name="CONFIG" action="RemapMeasurementMap.do">
+<form method="post" name="CONFIG" action="RemapMeasurementMap">
     <input type="hidden" name="id" value="<%= Encode.forHtmlAttribute(id) %>"> <input
         type="hidden" name="identifier" value="<%= Encode.forHtmlAttribute(identifier) %>"> <input
         type="hidden" name="name" value="<%= Encode.forHtmlAttribute(name) %>"> <input
@@ -118,8 +118,8 @@
                                                 value=" <fmt:message key="global.btnClose"/> "
                                                 onClick="window.close()"></td>
                         <td align="right"><a
-                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout.do')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewLicense.do')"><fmt:message key="global.license"/></a></td>
+                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
+                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>
@@ -176,7 +176,7 @@
                             <td colspan="2" class="Cell" align="center"><input
                                     type="submit" value=" Remap Measurement "> <input
                                     type="button" value=" Add New Loinc Code "
-                                    onclick="javascript:popupStart('300','600','<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewNewMeasurementMap.do','Add New Loinc Code')">
+                                    onclick="javascript:popupStart('300','600','<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewNewMeasurementMap','Add New Loinc Code')">
                             </td>
                         </tr>
                         <tr>

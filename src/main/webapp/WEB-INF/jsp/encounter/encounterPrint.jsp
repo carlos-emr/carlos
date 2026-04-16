@@ -40,7 +40,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -65,7 +65,7 @@
 
     EctSessionBean bean = null;
     if ((bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
-        response.sendRedirect(request.getContextPath() + "/encounter/ViewError.do");
+        response.sendRedirect(request.getContextPath() + "/encounter/ViewError");
         return;
     }
 %>

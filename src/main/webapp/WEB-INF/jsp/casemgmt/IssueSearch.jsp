@@ -40,7 +40,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.issues" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_casemgmt.issues");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_casemgmt.issues");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -63,8 +63,8 @@
 </head>
 
 <body>
-<form action="<%= request.getContextPath() %>/CaseManagementEntry.do" method="post">
-    <c:url value="/casemgmt/ViewCaseManagementEntry.do?demographicNo=${param.demographicNo}&providerNo=${param.providerNo}&demoName=${requestScope.demoName}&demoAge=${requestScope.demoAge}&demoDOB=${requestScope.demoDOB}"
+<form action="<%= request.getContextPath() %>/CaseManagementEntry" method="post">
+    <c:url value="/casemgmt/ViewCaseManagementEntry?demographicNo=${param.demographicNo}&providerNo=${param.providerNo}&demoName=${requestScope.demoName}&demoAge=${requestScope.demoAge}&demoDOB=${requestScope.demoDOB}"
            var="url"/>
     <script type="text/javascript">
         function backToNote(from) {

@@ -38,10 +38,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * POST — POST is required for the demographic-search handoff forms
  * ({@code demographicsearch2apptresults.jsp},
  * {@code demographicsearch2reportresults.jsp},
- * {@code demographicaddarecord.jsp}) that submit to {@code addappointment.do}
+ * {@code demographicaddarecord.jsp}) that submit to {@code addappointment}
  * to open the add-appointment screen pre-populated with the selected patient.
- * The forms themselves submit to separate AddRecord.do / UpdateRecord.do /
- * CutRecord.do endpoints.
+ * The forms themselves submit to separate AddRecord / UpdateRecord /
+ * CutRecord endpoints.
  *
  * @since 2026-04-14
  */

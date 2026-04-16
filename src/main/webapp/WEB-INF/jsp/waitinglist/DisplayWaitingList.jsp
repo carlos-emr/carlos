@@ -32,7 +32,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 
     String styleClass = "data2";
 %>
@@ -76,7 +76,7 @@
     <body class="BodyStyle" vlink="#0000FF"
           onload='window.resizeTo(900,400)'>
     <!--  -->
-    <form action="${pageContext.request.contextPath}/waitinglist/SetupDisplayWaitingList.do?update=Y" method="post">
+    <form action="${pageContext.request.contextPath}/waitinglist/SetupDisplayWaitingList?update=Y" method="post">
 
         <input type="hidden" name="demographicNumSelected" value=""/>
         <input type="hidden" name="wlNoteSelected" value=""/>
@@ -173,7 +173,7 @@
                                             <c:out value="${waitingListBean.position}"/>
                                         </td>
                                         <td class="${styleClass}">
-                                            <a href="#" onclick="popupDemographicPage('<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=${e:forJavaScript(e:forUriComponent(waitingListBean.demographicNo))}'); return false;">
+                                            <a href="#" onclick="popupDemographicPage('<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=${e:forJavaScript(e:forUriComponent(waitingListBean.demographicNo))}'); return false;">
                                                 ${e:forHtml(waitingListBean.patientName)}
                                             </a>
                                             <input type="button" value="Update" name="update_${ctr.index}" style="font-size: 7pt;"
@@ -204,7 +204,7 @@
                                                     </option>
                                                 </c:forEach>
                                             </select>
-                                            <a href="#" onClick="popupPage(${ctr.index}, '${e:forJavaScript(waitingListBean.patientName)}', '${e:forJavaScript(waitingListBean.demographicNo)}', '${e:forJavaScript(today)}', 400, 780, '<%= request.getContextPath() %>/schedule/FlipView.do?originalpage=<%= request.getContextPath() %>/waitinglist/SetupDisplayWaitingList.do'); return false;">
+                                            <a href="#" onClick="popupPage(${ctr.index}, '${e:forJavaScript(waitingListBean.patientName)}', '${e:forJavaScript(waitingListBean.demographicNo)}', '${e:forJavaScript(today)}', 400, 780, '<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= request.getContextPath() %>/waitinglist/SetupDisplayWaitingList'); return false;">
                                                 make_appt
                                             </a>
                                         </td>
@@ -239,7 +239,7 @@
         function goToPage() {
             document.forms[0].waitingListId.value =
                 document.forms[0].selectedWL.options[document.forms[0].selectedWL.selectedIndex].value;
-            window.location = "<%=request.getContextPath()%>/waitinglist/SetupDisplayWaitingList.do?waitingListId=" +
+            window.location = "<%=request.getContextPath()%>/waitinglist/SetupDisplayWaitingList?waitingListId=" +
                 document.forms[0].selectedWL.options[document.forms[0].selectedWL.selectedIndex].value;
         }
 
@@ -247,7 +247,7 @@
             document.forms[0].waitingListId.value =
                 document.forms[0].selectedWL.options[document.forms[0].selectedWL.selectedIndex].value;
 
-            var redirectPage = "<%=request.getContextPath()%>/waitinglist/WLEditWaitingListNameAction.do?waitingListId=" +
+            var redirectPage = "<%=request.getContextPath()%>/waitinglist/WLEditWaitingListNameAction?waitingListId=" +
                 document.forms[0].selectedWL.options[document.forms[0].selectedWL.selectedIndex].value;
             popupDemographicPage(redirectPage);
         }
@@ -306,7 +306,7 @@
         function updateWaitingList(waitingListId, ctr) {
             document.forms[0].waitingListId.value = waitingListId;
             document.forms[0].update.value = "Y";
-            document.forms[0].action = "<%=request.getContextPath()%>/waitinglist/SetupDisplayWaitingList.do#anchor_" + ctr;
+            document.forms[0].action = "<%=request.getContextPath()%>/waitinglist/SetupDisplayWaitingList#anchor_" + ctr;
             document.forms[0].submit();
         }
 
@@ -328,7 +328,7 @@
             if (agree) {
                 var form = document.createElement('form');
                 form.method = 'post';
-                form.action = '<%= request.getContextPath() %>/waitinglist/RemoveFromWaitingList.do';
+                form.action = '<%= request.getContextPath() %>/waitinglist/RemoveFromWaitingList';
                 form.target = 'removeWaitingList';
                 var fields = {listId: waitingList, demographicNo: demographicNo, remove: 'Y'};
                 for (var key in fields) {

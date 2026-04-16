@@ -158,7 +158,7 @@
     </tr>
 </table>
 <form name="servicecode" id="servicecode" method="post"
-      action="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingReferCodeUpdate.do"><input type="hidden"
+      action="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingReferCodeUpdate"><input type="hidden"
                                                  name="formName" value="<%=Encode.forHtmlAttribute(formName)%>"/> <input type="hidden"
                                                                                                 name="formElement"
                                                                                                 value="<%=Encode.forHtmlAttribute(formElement)%>"/>

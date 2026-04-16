@@ -48,7 +48,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.misc" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.misc");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.misc");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -126,7 +126,7 @@
 <h3><fmt:message key="admin.admin.labFwdRules"/></h3>
 
 
-<form id="ForwardRulesForm" name="RULES" action="${ctx}/admin/ForwardingRules.do" method="post">
+<form id="ForwardRulesForm" name="RULES" action="${ctx}/admin/ForwardingRules" method="post">
 
     <input type="hidden" name="operation" value="update">
     <input type="hidden" name="remProviderNum" value="">
@@ -267,7 +267,7 @@
 
     $("#providers-selection").change(function (e) {
         e.preventDefault();
-        $("#dynamic-content").load('${ctx}/admin/labForwardingRules.do?providerNo=' + $("#providers-selection").val(),
+        $("#dynamic-content").load('${ctx}/admin/labForwardingRules?providerNo=' + $("#providers-selection").val(),
             function (response, status, xhr) {
                 if (status == "error") {
                     var msg = "Sorry but there was an error: ";

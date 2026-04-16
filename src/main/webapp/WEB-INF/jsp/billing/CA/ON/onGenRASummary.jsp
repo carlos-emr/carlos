@@ -26,7 +26,7 @@
 
 
 <%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, java.net.*,io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.MyDateFormat"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 
 <jsp:useBean id="billingLocalInvNoBean" class="java.util.Properties" scope="page"/>
@@ -132,7 +132,7 @@
 %>
 
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
-    <form action="/billing/CA/ON/ViewOnGenRASummary.do">
+    <form action="/billing/CA/ON/ViewOnGenRASummary">
         <tr class="myDarkGreen">
             <th align='LEFT'><font color="#FFFFFF"> Billing
                 Reconcilliation - Summary Report</font></th>

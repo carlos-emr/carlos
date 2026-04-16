@@ -51,7 +51,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 
@@ -214,7 +214,7 @@
     <div class="row card card-body bg-body-tertiary">
         <%=Encode.forHtml(errorMsg)%>
 
-        <form name="billingPaymentForm" method="get" action="/billing/CA/ON/BillingONPayment.do">
+        <form name="billingPaymentForm" method="get" action="/billing/CA/ON/BillingONPayment">
 
             <h4><fmt:message key="oscar.billing.on.paymentReceived.freezePeriod"/></h4>
 
@@ -385,7 +385,7 @@
             <tr class="<%=Encode.forHtmlAttribute(rowColor)%>">
                 <% if (!isSameBill) {%>
                 <td style="text-align:center"><a href="#"
-                                                 onclick="popupPage(700,700,'/billing/CA/ON/BillingONCorrection.do?billing_no=<%=Encode.forJavaScript(curBillingNoStr)%>');return false;"><%=Encode.forHtml(curBillingNoStr)%>
+                                                 onclick="popupPage(700,700,'/billing/CA/ON/BillingONCorrection?billing_no=<%=Encode.forJavaScript(curBillingNoStr)%>');return false;"><%=Encode.forHtml(curBillingNoStr)%>
                 </a></td>
                 <%} else {%>
                 <td></td>
@@ -396,7 +396,7 @@
                 </td>
                 <% if (!isSameBill) {%>
                 <td style="text-align:center"><a href="#"
-                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=Encode.forJavaScript(String.valueOf(demoNo))%>');return false;"><%=Encode.forHtml(demographicName)%>
+                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<%=Encode.forJavaScript(String.valueOf(demoNo))%>');return false;"><%=Encode.forHtml(demographicName)%>
                 </a></td>
                 <%} else {%>
                 <td></td>
@@ -573,7 +573,7 @@
                     String billingNo = String.valueOf(bCh1.getId());
                     if (!isThisProviderOnly) { %>
                 <td style="text-align:center"><a href="#"
-                                                 onclick="popupPage(700,700,'/billing/CA/ON/BillingONCorrection.do?billing_no=<%=Encode.forJavaScript(billingNo)%>');return false;"><%=Encode.forHtml(billingNo)%>
+                                                 onclick="popupPage(700,700,'/billing/CA/ON/BillingONCorrection?billing_no=<%=Encode.forJavaScript(billingNo)%>');return false;"><%=Encode.forHtml(billingNo)%>
                 </a></td>
                 <% } else { %>
                 <td style="text-align:center"><%=Encode.forHtml(billingNo)%>
@@ -582,7 +582,7 @@
                 <td style="text-align:center"><%=Encode.forHtml(billingDateStr)%>
                 </td>
                 <td style="text-align:center"><a href="#"
-                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=Encode.forJavaScript(String.valueOf(demoNo))%>');return false;"><%=Encode.forHtml(demographicName)%>
+                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<%=Encode.forJavaScript(String.valueOf(demoNo))%>');return false;"><%=Encode.forHtml(demographicName)%>
                 </a></td>
                 <%
                     String dxCode = "";

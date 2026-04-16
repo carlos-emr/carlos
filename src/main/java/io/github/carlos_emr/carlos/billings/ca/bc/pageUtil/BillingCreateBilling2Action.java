@@ -69,7 +69,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
 
 
     /** Validation-failure redirect target — the Struts entry for the billing form. */
-    private static final String BILLING_REDIRECT = "/billing.do";
+    private static final String BILLING_REDIRECT = "/billing";
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

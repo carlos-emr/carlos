@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_appointment" rights="r" reverse="<%=true%>">
     <%authed2 = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_appointment");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_appointment");%>
 </security:oscarSec>
 <%
     if (!authed2) {

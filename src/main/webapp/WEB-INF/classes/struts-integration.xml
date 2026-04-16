@@ -29,7 +29,7 @@
     <package name="integration" namespace="/" extends="struts-default">
 
         <global-results>
-            <result name="securityError">/securityError.jsp</result>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
         </global-results>
 
         <global-exception-mappings>
@@ -43,7 +43,7 @@
         <!--
             MCEDT (Ontario MOH Electronic Data Transfer). All JSPs live under
             /WEB-INF/jsp/mcedt/ so the container blocks direct GETs; entry
-            only through these .do actions, which enforce _admin r/w via
+            only through these action routes, which enforce _admin r/w via
             McedtSecurity and require POST for state-changing dispatch
             methods (upload, delete, submit, download, change-password,
             resubmit).
@@ -54,13 +54,13 @@
         <action name="mcedt/uploads" class="io.github.carlos_emr.carlos.integration.mcedt.Upload2Action">
             <result name="success">/WEB-INF/jsp/mcedt/uploads.jsp</result>
             <result name="addNew">/WEB-INF/jsp/mcedt/addUpload.jsp</result>
-            <result name="cancel">/mcedt/mcedt.do</result>
-            <result name="done">/mcedt/mcedt.do</result>
+            <result name="cancel">/mcedt/mcedt</result>
+            <result name="done">/mcedt/mcedt</result>
         </action>
         <action name="mcedt/update" class="io.github.carlos_emr.carlos.integration.mcedt.Update2Action">
-            <result name="cancel">/mcedt/mcedt.do</result>
-            <result name="add">/mcedt/update.do</result>
-            <result name="success">/mcedt/mcedt.do</result>
+            <result name="cancel">/mcedt/mcedt</result>
+            <result name="add">/mcedt/update</result>
+            <result name="success">/mcedt/mcedt</result>
             <result name="initial">/WEB-INF/jsp/mcedt/update.jsp</result>
         </action>
         <action name="mcedt/openUpdateUpload" class="io.github.carlos_emr.carlos.integration.mcedt.gate.ViewMcedtForm2Action">
@@ -81,28 +81,28 @@
         <action name="mcedt/autoUpload" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Upload2Action">
             <result name="success">/WEB-INF/jsp/mcedt/mailbox/autoUpload.jsp</result>
             <result name="failure">/WEB-INF/jsp/mcedt/mailbox/autoUpload.jsp?connection=failed</result>
-            <result name="cancel">/mcedt/kaimcedt.do</result>
+            <result name="cancel">/mcedt/kaimcedt</result>
         </action>
         <action name="mcedt/upload" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Upload2Action">
             <result name="success">/WEB-INF/jsp/mcedt/mailbox/index.jsp?tab=upload</result>
             <result name="failure">/WEB-INF/jsp/mcedt/mailbox/index.jsp?tab=upload</result>
-            <result name="cancel">/mcedt/kaimcedt.do</result>
+            <result name="cancel">/mcedt/kaimcedt</result>
         </action>
         <action name="mcedt/addUpload" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Upload2Action">
             <result name="success">/WEB-INF/jsp/mcedt/mailbox/index.jsp?tab=upload</result>
             <result name="failure">/WEB-INF/jsp/mcedt/mailbox/addUpload.jsp</result>
-            <result name="cancel">/mcedt/kaimcedt.do</result>
+            <result name="cancel">/mcedt/kaimcedt</result>
         </action>
         <action name="mcedt/openAddUploadMailbox" class="io.github.carlos_emr.carlos.integration.mcedt.gate.ViewMcedtForm2Action">
             <result name="success">/WEB-INF/jsp/mcedt/mailbox/addUpload.jsp</result>
         </action>
         <action name="mcedt/kaichpass" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.User2Action">
             <result name="success">/WEB-INF/jsp/mcedt/mailbox/changepass.jsp</result>
-            <result name="cancel">/mcedt/kaimcedt.do</result>
+            <result name="cancel">/mcedt/kaimcedt</result>
         </action>
         <action name="mcedt/kaiautodl" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Download2Action">
             <result name="success">/WEB-INF/jsp/mcedt/mailbox/autoDownload.jsp</result>
-            <result name="cancel">/mcedt/kaimcedt.do</result>
+            <result name="cancel">/mcedt/kaimcedt</result>
         </action>
         <action name="mcedt/download" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Download2Action">
             <result name="success">/WEB-INF/jsp/mcedt/mailbox/index.jsp?tab=download</result>

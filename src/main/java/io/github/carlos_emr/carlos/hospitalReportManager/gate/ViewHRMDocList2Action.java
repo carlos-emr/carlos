@@ -35,7 +35,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * HRM document popup opened from the encounter left navbar. Previously
  * reached via a direct GET to the public JSP URL with only the in-JSP
  * {@code <security:oscarSec>} taglib as protection. Now routed through
- * {@code /hospitalReportManager/ViewDocList.do} which enforces {@code _hrm r}
+ * {@code /hospitalReportManager/ViewDocList} which enforces {@code _hrm r}
  * at the action layer before the container forwards.
  */
 public final class ViewHRMDocList2Action extends ActionSupport {

@@ -25,7 +25,7 @@
     </tr>
 </table>
 
-<form action="${pageContext.request.contextPath}/billing/CA/BC/ViewBillingCorrection.do">
+<form action="${pageContext.request.contextPath}/billing/CA/BC/ViewBillingCorrection">
     <input type="hidden" name="billing_no" value="">
     <% if (request.getAttribute("correctionError") == null) { %>
     <input type="submit" value="Correct Another One" name="submit">

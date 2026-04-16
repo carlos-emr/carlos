@@ -80,12 +80,12 @@
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr>
             <td BGCOLOR="#bbbbff" width="50%" align="center">
-                <a href="<%= request.getContextPath() %>/encounter/oscarConsultationRequest/ViewCalendarPopup.do?year=<%=year%>&month=<%=month%>&delta=-1&type=<%=type%>">
+                <a href="<%= request.getContextPath() %>/encounter/oscarConsultationRequest/ViewCalendarPopup?year=<%=year%>&month=<%=month%>&delta=-1&type=<%=type%>">
                     <img src="<%= request.getContextPath() %>/images/previous.gif" WIDTH="10" HEIGHT="9" BORDER="0"
                          ALT="<fmt:message key="encounter.oscarConsultationRequest.CalendarPopUp.msgVLastMonth"/>"
                          vspace="2"> <fmt:message key="encounter.oscarConsultationRequest.CalendarPopUp.msgLastMonth"/>&nbsp;&nbsp;</a>
                 <b><span CLASS=title><%=year%>-<%=month%></span></b>
-                <a href="<%= request.getContextPath() %>/encounter/oscarConsultationRequest/ViewCalendarPopup.do?year=<%=year%>&month=<%=month%>&delta=1&type=<%=type%>">
+                <a href="<%= request.getContextPath() %>/encounter/oscarConsultationRequest/ViewCalendarPopup?year=<%=year%>&month=<%=month%>&delta=1&type=<%=type%>">
                     &nbsp;&nbsp;<fmt:message key="encounter.oscarConsultationRequest.CalendarPopUp.msgNextMonth"/>
                     <img src="<%= request.getContextPath() %>/images/next.gif" WIDTH="10" HEIGHT="9" BORDER="0"
                          ALT="<fmt:message key="encounter.oscarConsultationRequest.CalendarPopUp.msgVNextMonth"/>"

@@ -242,7 +242,7 @@
                 var d = elementName;
                 t0 = escape("document.forms[1].elements[\'" + d + "\'].value");
                 t1 = escape("document.forms[1].elements[\'" + name2 + "\'].value");
-                rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc.do?param=' + t0 + '&param2=' + t1), 600, 600, 1);
+                rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc?param=' + t0 + '&param2=' + t1), 600, 600, 1);
             }
 
             function checkName() {
@@ -464,7 +464,7 @@
                     return true;
                 }
                 jQuery.ajaxSetup({async: false});
-                let findDuplicate = jQuery.post("<%=request.getContextPath()%>/demographicSupport.do", { method: "checkForDuplicates", lastName: lastName, firstName: firstName });
+                let findDuplicate = jQuery.post("<%=request.getContextPath()%>/demographicSupport", { method: "checkForDuplicates", lastName: lastName, firstName: firstName });
                 findDuplicate.success(function (data) {
                     if (data.hasDuplicates) {
                         console.log(data);
@@ -537,7 +537,7 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
 
                 jQuery.ajax({
                     type: "POST",
-                    url: '<%=request.getContextPath()%>/demographicSupport.do',
+                    url: '<%=request.getContextPath()%>/demographicSupport',
                     data: 'method=getCountryAndProvinceCodes',
                     dataType: 'json',
                     success: function (data) {
@@ -563,7 +563,7 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
 
                 jQuery.ajax({
                     type: "POST",
-                    url: '<%=request.getContextPath()%>/demographicSupport.do',
+                    url: '<%=request.getContextPath()%>/demographicSupport',
                     data: 'method=getCountryAndProvinceCodes',
                     dataType: 'json',
                     success: function (data) {
@@ -598,7 +598,7 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
 
                 jQuery.ajax({
                     type: "POST",
-                    url: '<%=request.getContextPath()%>/demographicSupport.do',
+                    url: '<%=request.getContextPath()%>/demographicSupport',
                     data: 'method=getCountryAndProvinceCodes&country=' + country,
                     dataType: 'json',
                     success: function (data) {
@@ -625,7 +625,7 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
 
                 jQuery.ajax({
                     type: "POST",
-                    url: '<%=request.getContextPath()%>/demographicSupport.do',
+                    url: '<%=request.getContextPath()%>/demographicSupport',
                     data: 'method=getCountryAndProvinceCodes&country=' + country,
                     dataType: 'json',
                     success: function (data) {
@@ -674,7 +674,7 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
         </tr>
     </table>
 
-    <jsp:include page="/demographic/ViewZdemographicFullTitleSearch.do" />
+    <jsp:include page="/demographic/ViewZdemographicFullTitleSearch" />
     <table width="100%" bgcolor="#CCCCFF">
         <tr>
             <td class="RowTop" colspan="4">
@@ -683,7 +683,7 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
         </tr>
         <tr>
             <td>
-                <form method="post" id="adddemographic" name="adddemographic" action="DemographicAddRecord.do"
+                <form method="post" id="adddemographic" name="adddemographic" action="DemographicAddRecord"
 
                     <jsp:include page="add-form-personal.jsp"/>
                     <jsp:include page="add-form-clinical.jsp"/>

@@ -76,7 +76,7 @@ public class OpenEFormByName2Action extends ActionSupport {
         else {
             try {
                 int demoNo = Integer.parseInt(demographic_no);
-                url += "/eform/efmformadd_data.jsp?fid=" + Encode.forUriComponent(fid.toString())
+                url += "/eform/efmformadd_data?fid=" + Encode.forUriComponent(fid.toString())
                         + "&demographic_no=" + Encode.forUriComponent(Integer.toString(demoNo));
             } catch (NumberFormatException e) {
                 url += "/demographic_no_invalid";

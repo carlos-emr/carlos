@@ -24,13 +24,13 @@
 
 --%>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     CarlosProperties props = CarlosProperties.getInstance();
     session.setAttribute("homepath", props.getProperty("project_home", ""));
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ page import="io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <html>
@@ -57,10 +57,10 @@
                 }
             } else {
                 if (document.all) {
-                    document.all.form1.action = "/<%=props.getProperty("project_home", "")%>/oscarBilling/DocumentErrorReportUpload.do";
+                    document.all.form1.action = "/<%=props.getProperty("project_home", "")%>/oscarBilling/DocumentErrorReportUpload";
                     document.all.form1.submit();
                 } else {
-                    document.getElementById('form1').action = "/<%=props.getProperty("project_home", "")%>/oscarBilling/DocumentErrorReportUpload.do";
+                    document.getElementById('form1').action = "/<%=props.getProperty("project_home", "")%>/oscarBilling/DocumentErrorReportUpload";
                     document.getElementById('form1').submit();
                 }
             }

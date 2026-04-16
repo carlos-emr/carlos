@@ -5,7 +5,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -22,7 +22,7 @@
         }
     }
 %>
-<%@ page errorPage="/errorpage.jsp"
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
          import="java.util.*, io.github.carlos_emr.carlos.report.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.login.*" %>
@@ -85,7 +85,7 @@
             }
 
             function goPage(id) {
-                self.location.href = "<%= request.getContextPath() %>/report/ViewReportFilter.do?id=" + id;
+                self.location.href = "<%= request.getContextPath() %>/report/ViewReportFilter?id=" + id;
             }
 
             //-->
@@ -112,7 +112,7 @@
         <tr BGCOLOR="#CCCCFF">
             <td></td>
             <td width="10%" align="right" nowrap><a
-                    href="<%= request.getContextPath() %>/report/ViewReportFilter.do?id=<%= Encode.forUriComponent(reportId) %>">Back to Report Filter</a></td>
+                    href="<%= request.getContextPath() %>/report/ViewReportFilter?id=<%= Encode.forUriComponent(reportId) %>">Back to Report Filter</a></td>
         </tr>
     </table>
 

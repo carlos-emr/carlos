@@ -70,7 +70,7 @@
 
     @since CARLOS 1.0 (Bootstrap 5 / i18n conversion, April 2026)
 --%>
-<%@ page import="java.sql.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.sql.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="io.github.carlos_emr.*" %>
@@ -94,7 +94,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment" rights="u" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_appointment");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_appointment");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -103,7 +103,7 @@
 %>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     boolean bEdit = request.getParameter("appointment_no") != null;
 %>
 

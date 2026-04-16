@@ -17,7 +17,7 @@
 
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
@@ -214,7 +214,7 @@
             params.set("demographicNo", String(id));
             params.set("filterPatient", "true");
             params.set("submitted", "yes");
-            popupPage(700, 1000, "${ctx}/billing/CA/BC/reprocessBill.do?" + params.toString());
+            popupPage(700, 1000, "${ctx}/billing/CA/BC/reprocessBill?" + params.toString());
         }
 
         function printItem(itemValue) {

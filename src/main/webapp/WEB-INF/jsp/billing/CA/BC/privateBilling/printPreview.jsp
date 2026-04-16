@@ -24,7 +24,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>

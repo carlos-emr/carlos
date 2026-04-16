@@ -79,7 +79,7 @@
 
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -485,7 +485,7 @@
 </div>
 
 
-<form name="myform" action="${pageContext.request.contextPath}/admin/ProviderRole.do" method="POST">
+<form name="myform" action="${pageContext.request.contextPath}/admin/ProviderRole" method="POST">
 
     <% if (msg.length() > 1) {%>
     <div class="alert alert-info">
@@ -533,7 +533,7 @@
             Properties item = vec.get(i);
             String providerNo = item.getProperty("provider_no", "");
     %>
-      <form name="myform" class="myform myform-<%= Encode.forHtmlAttribute(providerNo) %>" action="${pageContext.request.contextPath}/admin/ProviderRole.do" method="POST" onSubmit="this.scrollPosition.value=window.scrollY">
+      <form name="myform" class="myform myform-<%= Encode.forHtmlAttribute(providerNo) %>" action="${pageContext.request.contextPath}/admin/ProviderRole" method="POST" onSubmit="this.scrollPosition.value=window.scrollY">
         <tr>
 
               <td><%= Encode.forHtml(providerNo) %></td>
@@ -593,7 +593,7 @@
       <% if( newCaseManagement ) {
       %>
 <div class="card card-body bg-body-tertiary">
-       <form name="myform" action="${pageContext.request.contextPath}/admin/ProviderRole.do" method="POST" onSubmit="this.scrollPosition.value=window.scrollY">
+       <form name="myform" action="${pageContext.request.contextPath}/admin/ProviderRole" method="POST" onSubmit="this.scrollPosition.value=window.scrollY">
         <table>
             <tr>
                 <td><fmt:message key="global.update"/>&nbsp;<fmt:message key="demographic.demographiceditdemographic.primaryEMR"/>&nbsp;<fmt:message key="role"/></td>

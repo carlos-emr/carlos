@@ -41,7 +41,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.misc" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.misc");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.misc");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -89,7 +89,7 @@
             HRMProviderConfidentialityStatementDao hrmProviderConfidentialityStatementDao = (HRMProviderConfidentialityStatementDao) SpringUtils.getBean(HRMProviderConfidentialityStatementDao.class);
             String statement = hrmProviderConfidentialityStatementDao.getConfidentialityStatementForProvider(loggedInInfo.getLoggedInProviderNo());
         %>
-        <form action="<%=request.getContextPath() %>/hospitalReportManager/Statement.do" method="post">
+        <form action="<%=request.getContextPath() %>/hospitalReportManager/Statement" method="post">
             <div class="mb-3">
                 <label class="form-label">Provider Confidentiality Statement</label>
                 <div>

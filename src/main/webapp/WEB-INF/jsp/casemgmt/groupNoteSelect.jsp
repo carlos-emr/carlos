@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_casemgmt.notes");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_casemgmt.notes");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -115,7 +115,7 @@
 }%>
 
 <h5>Select clients for group note</h5>
-<form action="<%= request.getContextPath() %>/casemgmt/ViewGroupNoteSelectAction.do" method="post">
+<form action="<%= request.getContextPath() %>/casemgmt/ViewGroupNoteSelectAction" method="post">
     <input type="hidden" name="demographicNo" value="<%=Encode.forHtmlAttribute(demographicNo)%>"/>
     <table>
 

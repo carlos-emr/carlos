@@ -22,7 +22,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page import="java.sql.*, java.util.*,java.net.*, io.github.carlos_emr.MyDateFormat" errorPage="/errorpage.jsp" %>
+<%@ page import="java.sql.*, java.util.*,java.net.*, io.github.carlos_emr.MyDateFormat" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>

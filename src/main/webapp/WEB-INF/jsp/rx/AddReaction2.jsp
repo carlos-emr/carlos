@@ -43,7 +43,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_allergy" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_allergy");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_allergy");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -121,8 +121,8 @@
                        height="100%">
                     <tr>
                         <td width="0%" valign="top">
-                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug.do"> <fmt:message key="SearchDrug.title"/></a>&nbsp;&gt;&nbsp; <a
-                                    href="<%= request.getContextPath() %>/rx/showAllergy.do"> <fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:message key="AddReaction.title"/></b></div>
+                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug"> <fmt:message key="SearchDrug.title"/></a>&nbsp;&gt;&nbsp; <a
+                                    href="<%= request.getContextPath() %>/rx/showAllergy"> <fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:message key="AddReaction.title"/></b></div>
                         </td>
                     </tr>
                     <!----Start new rows here-->
@@ -134,7 +134,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <td id="addAllergyDialogue"><form action="<%=request.getContextPath()%>/rx/addAllergy2.do" method="post"
+                        <td id="addAllergyDialogue"><form action="<%=request.getContextPath()%>/rx/addAllergy2" method="post"
                                                                name="RxAddAllergyForm" id="RxAddAllergyForm" focus="reactionDescription">
 
                             <script type="text/javascript">
@@ -309,7 +309,7 @@
                                     <td>
                                         <input type="submit" name="submit" value="Add Allergy" class="ControlPushButton" onclick="return doSubmit()"/>
                                         <input type=button class="ControlPushButton" id="cancelAddReactionButton"
-                                               onclick="window.location='<%= request.getContextPath() %>/rx/showAllergy.do?demographicNo=<%=bean.getDemographicNo() %>'"
+                                               onclick="window.location='<%= request.getContextPath() %>/rx/showAllergy?demographicNo=<%=bean.getDemographicNo() %>'"
                                                value="Cancel"/>
                                     </td>
                                 </tr>
@@ -321,7 +321,7 @@
                     <tr>
                         <td>
                             <%
-                                String sBack = request.getContextPath() + "/rx/showAllergy.do";
+                                String sBack = request.getContextPath() + "/rx/showAllergy";
                             %> <input type=button class="ControlPushButton"
                                       onclick="window.location.href='<%=sBack%>';"
                                       value="Back to View Allergies"/></td>

@@ -41,7 +41,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_con");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_con");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -272,7 +272,7 @@
 
             jQuery.ajax({
                 type: 'GET',
-                url: "${ pageContext.request.contextPath }/previewDocs.do?" + parameters,
+                url: "${ pageContext.request.contextPath }/previewDocs?" + parameters,
                 dataType: "json",
                 success: function (data) {
                     if (data.base64Data) {

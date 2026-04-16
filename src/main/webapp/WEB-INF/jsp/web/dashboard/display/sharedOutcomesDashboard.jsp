@@ -96,7 +96,7 @@
                         //console.log("query="+params.query); //OSCAR Metric Test
                         //console.log("group="+params.group); //Up to date, Overdue, ect (the label) - doesn't matter for us
                         //console.log("username="+params.username); //999998
-                        $("#drillDownFrame").attr('src', 'DrilldownDisplay.do?method=getDrilldownBySharedMetricSetName&sharedMetricSetName=' + encodeURIComponent(params.query) + '&sharedMetricSetLable=' + encodeURIComponent(params.group) + "&providerNo=" + params.username);
+                        $("#drillDownFrame").attr('src', 'DrilldownDisplay?method=getDrilldownBySharedMetricSetName&sharedMetricSetName=' + encodeURIComponent(params.query) + '&sharedMetricSetLable=' + encodeURIComponent(params.group) + "&providerNo=" + params.username);
                         outcomesWindow.postMessage(outcomesData.onSuccess, '*');
                         //window.focus();
                     }
@@ -106,7 +106,7 @@
                         var data = params.queryList;
 
                         jQuery.ajax({
-                            url: "<%=request.getContextPath()%>/OutcomesDashboard.do?method=refreshIndicators",
+                            url: "<%=request.getContextPath()%>/OutcomesDashboard?method=refreshIndicators",
                             type: 'POST',
                             async: true,
                             data: 'data=' + btoa(JSON.stringify(params)),

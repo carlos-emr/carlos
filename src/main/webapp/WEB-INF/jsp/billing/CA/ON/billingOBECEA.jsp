@@ -28,7 +28,7 @@
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
 
     String user_no;
     user_no = (String) session.getAttribute("user");
@@ -50,7 +50,7 @@
 
     <p>EDT OBEC Response Report Generator</p>
 
-    <form action="${pageContext.request.contextPath}/oscarBilling/DocumentErrorReportUpload.do" method="POST" enctype="multipart/form-data">
+    <form action="${pageContext.request.contextPath}/oscarBilling/DocumentErrorReportUpload" method="POST" enctype="multipart/form-data">
 
 
         <div class="alert alert-danger">

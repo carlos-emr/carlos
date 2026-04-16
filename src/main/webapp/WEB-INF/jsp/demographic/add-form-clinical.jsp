@@ -662,7 +662,7 @@
                                         if (fid != null && fid >= 0) {
                                     %>
                                     <iframe scrolling="no" id="eform_iframe" name="eform_iframe" frameborder="0"
-                                            src="<%= request.getContextPath() %>/eform/efmshowform_data.jsp?fid=<%=fid%>"
+                                            src="<%= request.getContextPath() %>/eform/efmshowform_data?fid=<%=fid%>"
                                             onload="this.height=0;var fdh=(this.Document?this.Document.body.scrollHeight:this.contentDocument.body.offsetHeight);this.height=(fdh>800?fdh:800)"
                                             width="100%"></iframe>
                                     <%}%>

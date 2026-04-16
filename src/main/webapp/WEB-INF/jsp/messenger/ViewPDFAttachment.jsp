@@ -61,7 +61,7 @@
  * 3. Submits selected file ID to ViewPDFFile action for download
  *
  * Form Integration:
- * - Posts to ViewPDFFile.do action with file_id parameter
+ * - Posts to ViewPDFFile action with file_id parameter
  * - Passes attachment data as hidden form field
  *
  * @since 2003
@@ -83,7 +83,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_msg");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -93,12 +93,12 @@
 
 
 <c:if test="${empty msgSessionBean}">
-    <c:redirect url="index.jsp"/>
+    <c:redirect url="/index"/>
 </c:if>
 <c:if test="${not empty msgSessionBean}">
     <c:set var="bean" value="${msgSessionBean}" scope="session"/>
     <c:if test="${bean.valid == 'false'}">
-        <c:redirect url="index.jsp"/>
+        <c:redirect url="/index"/>
     </c:if>
 </c:if>
 
@@ -142,7 +142,7 @@
     <tr>
         <td class="MainTableBottomRowLeftColumn"></td>
 
-        <form action="${pageContext.request.contextPath}/messenger/ViewPDFFile.do" method="post">
+        <form action="${pageContext.request.contextPath}/messenger/ViewPDFFile" method="post">
             <td class="MainTableBottomRowRightColumn">
                 <table cellspacing=3>
                     <tr>

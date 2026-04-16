@@ -40,7 +40,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -81,10 +81,10 @@
             });
 
             function saveItem() {
-                jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=saveFlowsheetItemWarning',
+                jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet?method=saveFlowsheetItemWarning',
                     jQuery('#theForm').serialize(),
                     function (data) {
-                        location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetItemEditor.do?flowsheetId=<%=Encode.forJavaScript(Encode.forUriComponent(flowsheetId))%>&measurementType=<%=Encode.forJavaScript(Encode.forUriComponent(measurementType))%>';
+                        location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetItemEditor?flowsheetId=<%=Encode.forJavaScript(Encode.forUriComponent(flowsheetId))%>&measurementType=<%=Encode.forJavaScript(Encode.forUriComponent(measurementType))%>';
                     });
             }
         </script>

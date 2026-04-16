@@ -30,7 +30,7 @@
 --%>
 <!DOCTYPE html>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -140,7 +140,7 @@
 
                     var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                     var csrfToken = csrfEl ? csrfEl.value : '';
-                    fetch('<%=request.getContextPath()%>/encounter/Measurements.do?ajax=true&skipCreateNote=true', {
+                    fetch('<%=request.getContextPath()%>/encounter/Measurements?ajax=true&skipCreateNote=true', {
                         method: 'POST',
                         credentials: 'same-origin',
                         headers: {
@@ -189,7 +189,7 @@
         </script>
     </head>
     <body class="BodyStyle" onload="window.focus();">
-    <form action="${pageContext.request.contextPath}/encounter/Measurements.do" method="post" id="theForm" name="theForm">
+    <form action="${pageContext.request.contextPath}/encounter/Measurements" method="post" id="theForm" name="theForm">
         <c:if test="${not empty css}">
             <link rel="stylesheet" type="text/css" href="${css}">
         </c:if>
@@ -218,7 +218,7 @@
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(150,200,'<%=request.getContextPath()%>/encounter/ViewCalculators.do?demo=<%=Encode.forUriComponent(demo)%>'); return false;"><fmt:message key="encounter.Index.calculators"/></a></td>
+                                    onClick="popupPage(150,200,'<%=request.getContextPath()%>/encounter/ViewCalculators?demo=<%=Encode.forUriComponent(demo)%>'); return false;"><fmt:message key="encounter.Index.calculators"/></a></td>
                         </tr>
                     </table>
                 </td>
@@ -317,7 +317,7 @@
                                                                 <td>&nbsp;${measurementType.lastComments}</td>
                                                                 <td>
                                                                     <i class="fa-solid fa-clock fa-lg" title="<fmt:message key='encounter.Index.oldMeasurements'/>"
-                                                                       onclick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory.do?type=${measurementType.type}'); return false;">
+                                                                       onclick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory?type=${measurementType.type}'); return false;">
                                                                     </i>
                                                                 </td>
                                                             </tr>

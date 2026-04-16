@@ -49,7 +49,7 @@
 
 </script>
 <form name="ticklerAddForm" id="ticklerAddForm"
-      action="${ pageContext.request.contextPath }/web/dashboard/display/AssignTickler.do" method="POST" novalidate>
+      action="${ pageContext.request.contextPath }/web/dashboard/display/AssignTickler" method="POST" novalidate>
     <input type="hidden" value="saveTickler" name="method"/>
     <div class="row">
         <div class="col-12">

@@ -6,8 +6,8 @@ CARLOS EMR uses a two-layer approach to ensure all open browser windows and tabs
 
 | Layer | Detects | Mechanism |
 |-------|---------|-----------|
-| **Logout broadcast** | Manual logout, server-detected timeout | `logout.jsp` sends BroadcastChannel + localStorage message before redirecting to `logout.do` |
-| **Session heartbeat** | Server restart, session destroyed, inactivity | Client polls `/status/sessionHeartbeat.jsp` every 60s; triggers logout on `{"valid":false}` or if no successful response within the inactivity limit |
+| **Logout broadcast** | Manual logout, server-detected timeout | `logoutPage` renders the logout helper page, which sends BroadcastChannel + localStorage messages before continuing to `logout` |
+| **Session heartbeat** | Server restart, session destroyed, inactivity | Client polls `/status/SessionHeartbeat` every 60s; triggers logout on `{"valid":false}` or if no successful response within the inactivity limit |
 
 Both layers trigger the same response: broadcast "logout" to all windows, then popups close and tabs redirect to login.
 
@@ -40,10 +40,9 @@ CARLOS has three independent session timeout mechanisms:
 
 ### Components
 
-#### `sessionHeartbeat.jsp`
-- Location: `src/main/webapp/status/sessionHeartbeat.jsp` (in `status/` directory for general health/status endpoints)
-- Lightweight JSON endpoint: returns `{"valid": true}` or `{"valid": false}`
-- Uses `session="false"` JSP directive to prevent orphan session creation
+#### `SessionHeartbeat2Action`
+- Location: `io.github.carlos_emr.carlos.status.action.SessionHeartbeat2Action`
+- Lightweight JSON action: returns `{"valid": true}` or `{"valid": false}`
 - Called with `?autoRefresh=true` to bypass `UserActivityFilter` activity tracking
 - Added to LoginFilter's `EXEMPT_URLS` (accessible without auth) and `EXEMPT_URLS_FOR_REQUEST_TIMEOUT` (doesn't reset inactivity timer)
 
@@ -51,11 +50,11 @@ CARLOS has three independent session timeout mechanisms:
 - Location: `src/main/java/io/github/carlos_emr/carlos/app/LogoutBroadcastFilter.java`
 - Servlet filter registered in `web.xml` after `PrivacyStatementAppendingFilter`
 - Injects ~1KB inline JavaScript into all authenticated HTML responses
-- Exclusions configured via init-param (excludes `/logout.jsp` to prevent self-listening)
+- Exclusions configured via init-param (excludes `/logoutPage` to prevent self-listening)
 
-#### `logout.jsp`
-- Modified to broadcast logout signal before redirecting to `logout.do`
-- Uses `session="false"` to prevent orphan session creation
+#### `logoutPage`
+- Public Struts action that renders `/WEB-INF/jsp/login/logout.jsp`
+- The JSP broadcasts the logout signal before redirecting to `/logout`
 - Includes `<meta http-equiv="refresh">` as no-JavaScript fallback
 
 ### Injected JavaScript Behavior
@@ -68,7 +67,7 @@ The script injected by `LogoutBroadcastFilter` does two things:
 - On receiving signal: closes window (works for popups) or redirects to login page
 
 **2. Session Heartbeat**
-- Polls `sessionHeartbeat.jsp?autoRefresh=true` every 60 seconds
+- Polls `status/SessionHeartbeat?autoRefresh=true` every 60 seconds
 - On `{"valid": true}`: updates `lastSuccessfulHeartbeat` timestamp
 - On `{"valid": false}`: broadcasts logout to all windows
 - On network error: silently retries next cycle (no false logout)
@@ -88,14 +87,14 @@ The script sets `window.__carlosLogoutActive = true` at the start. If the script
 ## Scenarios
 
 ### Manual Logout
-1. User clicks logout -> browser loads `/logout.jsp`
-2. `logout.jsp` broadcasts `'logout'` via BroadcastChannel + localStorage
+1. User clicks logout -> browser loads `/logoutPage`
+2. The logout page broadcasts `'logout'` via BroadcastChannel + localStorage
 3. All other windows receive signal -> popups close, tabs redirect to login
-4. `logout.jsp` redirects to `logout.do` -> session invalidated -> login page shown
+4. The logout page redirects to `/logout` -> session invalidated -> login page shown
 
 ### Inactivity Timeout (Server-Detected)
 1. User idle for configured period. Next real request from any window hits LoginFilter.
-2. LoginFilter detects `last_request_time` exceeded -> redirects that window to `/logout.jsp`
+2. LoginFilter detects `last_request_time` exceeded -> redirects that window to `/logoutPage`
 3. Same as manual logout from step 2 onward
 
 ### Inactivity Timeout (Heartbeat-Detected)
@@ -129,7 +128,7 @@ The script sets `window.__carlosLogoutActive = true` at the start. If the script
 
 - Heartbeat interval: 60 seconds per window
 - With 10 open windows: ~10 additional requests/minute to the server
-- `sessionHeartbeat.jsp` is extremely lightweight (no Spring beans, no business logic)
+- `SessionHeartbeat2Action` is extremely lightweight (no Spring beans, no business logic)
 - Comparable to existing `tabAlertsRefresh.jsp` polling already in the application
 
 ## Testing
@@ -152,7 +151,7 @@ The script sets `window.__carlosLogoutActive = true` at the start. If the script
 3. Once server is back, within 60s all windows should detect loss and redirect
 
 ### Exclusion Verification
-- Login page (`index.jsp`): injected script should NOT appear (no valid session)
+- Login page (`/index`, usually reached through `/context/`): injected script should NOT appear (no valid session)
 - AJAX responses: check browser devtools Network tab -> script not in AJAX responses
-- `logout.jsp`: script NOT injected (in exclusion list)
+- `/logoutPage`: script NOT injected (in exclusion list)
 - Heartbeat polling: verify `last_request_time` is NOT reset (check debug logs with `debug-on`)

@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -115,7 +115,7 @@
     <tr>
         <td class="MainTableLeftColumn" valign="top">&nbsp;</td>
         <td class="MainTableRightColumn">
-            <form action="${pageContext.request.contextPath}/admin/uploadEntryText.do" method="POST" enctype="multipart/form-data">
+            <form action="${pageContext.request.contextPath}/admin/uploadEntryText" method="POST" enctype="multipart/form-data">
 
                 How long is agreement valid?<br>
 

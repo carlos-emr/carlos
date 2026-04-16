@@ -34,7 +34,7 @@
     String user_no = (String) session.getAttribute("user");
 %>
 <%@ page import="java.util.*, java.sql.*, java.io.*, io.github.carlos_emr.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="javax.xml.parsers.SAXParser" %>
@@ -66,7 +66,7 @@
 </head>
 <body onLoad="setfocus()" bgcolor="#c4e9f6" bgproperties="fixed"
       topmargin="0" leftmargin="1" rightmargin="1">
-<form name="checklistedit" action="<%= request.getContextPath() %>/decision/antenatal/obarchecklistedit_99_12.do"
+<form name="checklistedit" action="<%= request.getContextPath() %>/decision/antenatal/obarchecklistedit_99_12"
       method="POST">
     <%
         char sep = oscarVariables.getProperty("file_separator").toCharArray()[0];

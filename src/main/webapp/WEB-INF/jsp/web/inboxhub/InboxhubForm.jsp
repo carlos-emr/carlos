@@ -63,7 +63,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         </h2>
         <div id="collapseSearch" class="accordion-collapse collapse show" aria-labelledby="headingSearch" data-bs-parent="#inbox-hub-search">
             <div class="accordion-body">
-                 <form action="${pageContext.request.contextPath}/web/inboxhub/Inboxhub.do?method=displayInboxForm" method="post" id="inboxSearchForm" onsubmit="return validatePatientOptions();">
+                 <form action="${pageContext.request.contextPath}/web/inboxhub/Inboxhub?method=displayInboxForm" method="post" id="inboxSearchForm" onsubmit="return validatePatientOptions();">
                     <div class="m-2">
                         <input type="hidden" name="query.viewMode" id="btnViewMode" value="${query.viewMode ? 'true' : 'false'}">
 
@@ -574,7 +574,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      * Listens for refresh requests from lab/HRM popup windows after acknowledge or sign-off.
      *
      * Popup windows cannot call fetchInboxhubData() directly via window.opener because
-     * Struts 7's CoopInterceptor sets Cross-Origin-Opener-Policy: same-origin on all .do
+     * Struts 7's CoopInterceptor sets Cross-Origin-Opener-Policy: same-origin on all action
      * responses, which nulls window.opener on popups opened from this page. BroadcastChannel
      * provides reliable same-origin cross-window messaging that is unaffected by COOP.
      *
@@ -601,7 +601,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      */
     function resetInboxFilters() {
         var ctxPath = "<e:forJavaScript value='${pageContext.request.contextPath}' />";
-        window.location.href = ctxPath + '/web/inboxhub/Inboxhub.do?method=displayInboxForm';
+        window.location.href = ctxPath + '/web/inboxhub/Inboxhub?method=displayInboxForm';
     }
 
     // Flag set by BroadcastChannel listener to open the next item after data loads
@@ -725,7 +725,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     function fetchInboxhubListData() {
         if (!hasMoreData || isFetchingData) { return; }
         isFetchingData = true; 
-        const url = "<e:forJavaScript value='${pageContext.request.contextPath}' />/web/inboxhub/Inboxhub.do?method=displayInboxList";
+        const url = "<e:forJavaScript value='${pageContext.request.contextPath}' />/web/inboxhub/Inboxhub?method=displayInboxList";
         currentFetchRequest = jQuery.ajax({
 			url: url,
 			method: 'POST',
@@ -749,7 +749,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         if (!hasMoreData || isFetchingData) { return; }
         ShowSpin(true);
         isFetchingData = true;
-        const url = "<e:forJavaScript value='${pageContext.request.contextPath}' />/web/inboxhub/Inboxhub.do?method=displayInboxView";
+        const url = "<e:forJavaScript value='${pageContext.request.contextPath}' />/web/inboxhub/Inboxhub?method=displayInboxView";
         currentFetchRequest = jQuery.ajax({
 			url: url,
 			method: 'POST',
@@ -830,7 +830,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
     function autoCompleteProvider() {
         jQuery("#autocompleteProvider").autocomplete({
-            source: contextPath + "/provider/SearchProvider.do?method=labSearch",
+            source: contextPath + "/provider/SearchProvider?method=labSearch",
             minLength: 2,
             focus: function (event, ui) {
                 jQuery("#autocompleteProvider").val(ui.item.label);

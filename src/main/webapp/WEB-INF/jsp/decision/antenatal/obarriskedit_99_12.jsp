@@ -56,7 +56,7 @@
 </head>
 <body onLoad="setfocus()" bgcolor="#c4e9f6" bgproperties="fixed"
       topmargin="0" leftmargin="1" rightmargin="1">
-<form name="checklistedit" action="<%= request.getContextPath() %>/decision/antenatal/obarriskedit_99_12.do" method="POST">
+<form name="checklistedit" action="<%= request.getContextPath() %>/decision/antenatal/obarriskedit_99_12" method="POST">
     <%
         char sep = oscarVariables.getProperty("file_separator").toCharArray()[0];
         String str = null;

@@ -88,7 +88,7 @@
                     if (request.getAttribute("status") == null) {
 
                 %> 
-                <form style="frmProperty" action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
+                <form style="frmProperty" action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
                     <input type="hidden" id="method" name="method" value="save">
                     <input type="hidden" name="dateProperty.name" value="staleNoteDate"/>
                     <input type="hidden" name="dateProperty.providerNo" value="${providerNo}"/>

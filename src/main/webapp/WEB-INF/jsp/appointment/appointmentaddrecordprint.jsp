@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_appointment");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_appointment");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -137,7 +137,7 @@
 
         <script LANGUAGE="JavaScript">
             self.opener.refresh();
-            popupPage(350, 750, '<%= request.getContextPath() %>/report/ViewReportdaysheet.do?dsmode=new&provider_no=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("provider_no")))) %>&sdate=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("appointment_date")))) %>');
+            popupPage(350, 750, '<%= request.getContextPath() %>/report/ViewReportdaysheet?dsmode=new&provider_no=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("provider_no")))) %>&sdate=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("appointment_date")))) %>');
             self.close();
         </script>
         <%

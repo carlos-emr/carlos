@@ -60,7 +60,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_edoc");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_edoc");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -80,11 +80,11 @@
 
 // NOTE: Historic GET-triggered delete / undelete / refile scriptlets
 // were removed in favor of POST-only Struts2 mutation actions:
-//   /documentManager/DocumentDelete.do   (_edoc w)
-//   /documentManager/DocumentUndelete.do (_admin.edocdelete w)
-//   /documentManager/DocumentRefile.do   (_edoc w)
+//   /documentManager/DocumentDelete   (_edoc w)
+//   /documentManager/DocumentUndelete (_admin.edocdelete w)
+//   /documentManager/DocumentRefile   (_edoc w)
 // The submit-helpers below (doDelete, doUndelete, doRefile) now point
-// the DisplayDoc form at the appropriate .do endpoint before posting.
+// the DisplayDoc form at the appropriate action route before posting.
 
     QueueDao queueDao = SpringUtils.getBean(QueueDao.class);
     List<Hashtable> queues = queueDao.getQueues();
@@ -190,21 +190,21 @@ Remote documents not supported
         }
 
         function DeleteDoc() {
-            document.DisplayDoc.action = '<%= request.getContextPath() %>/documentManager/DocumentDelete.do';
+            document.DisplayDoc.action = '<%= request.getContextPath() %>/documentManager/DocumentDelete';
             document.DisplayDoc.delDocumentNo.value = docid;
             document.DisplayDoc.viewstatus.value = document.DisplayDoc.selviewstatus.options[document.DisplayDoc.selviewstatus.selectedIndex].value;
             document.DisplayDoc.submit();
         }
 
         function UnDeleteDoc() {
-            document.DisplayDoc.action = '<%= request.getContextPath() %>/documentManager/DocumentUndelete.do';
+            document.DisplayDoc.action = '<%= request.getContextPath() %>/documentManager/DocumentUndelete';
             document.DisplayDoc.undelDocumentNo.value = docid;
             document.DisplayDoc.viewstatus.value = document.DisplayDoc.selviewstatus.options[document.DisplayDoc.selviewstatus.selectedIndex].value;
             document.DisplayDoc.submit();
         }
 
         function RefileDoc() {
-            document.DisplayDoc.action = '<%= request.getContextPath() %>/documentManager/DocumentRefile.do';
+            document.DisplayDoc.action = '<%= request.getContextPath() %>/documentManager/DocumentRefile';
             document.DisplayDoc.refileDocumentNo.value = docid;
             document.DisplayDoc.viewstatus.value = document.DisplayDoc.selviewstatus.options[document.DisplayDoc.selviewstatus.selectedIndex].value;
             document.DisplayDoc.submit();
@@ -258,11 +258,11 @@ Remote documents not supported
             if (curdocid != "0") {
 
 
-                var url2 = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument.do?method=display&doc_no='
+                var url2 = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument?method=display&doc_no='
                     + curdocid;
                 document.getElementById('docdisp').innerHTML = '<iframe	src="' + url2 + '"  width="' + width + '" height="' + height + '"></iframe>';
 
-                var url4 = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument.do?method=viewDocumentInfo&doc_no=' + curdocid;
+                var url4 = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument?method=viewDocumentInfo&doc_no=' + curdocid;
                 document.getElementById('docextrainfo').innerHTML = '<object data="' + url4 + '"  height=250px width="100%" type="text/html" ></object>';
 
 
@@ -283,7 +283,7 @@ Remote documents not supported
             if (getWidth() > 1250) {
                 width = getWidth() - 650;
             }
-            var url2 = '<%=request.getContextPath()%>' + '/documentManager/combinePDFs.do?ContentDisposition=inline' + doclist;
+            var url2 = '<%=request.getContextPath()%>' + '/documentManager/combinePDFs?ContentDisposition=inline' + doclist;
             document.getElementById('docdisp').innerHTML = '<object	data="' + url2 + '" type="application/pdf" width="' + width + '" height="' + height + '"></object>';
             document.getElementById('docextrainfo').innerHTML = '';
 
@@ -378,7 +378,7 @@ Remote documents not supported
         }
 
         function AddTickler() {
-            popup(450, 600, '<%=request.getContextPath()%>/tickler/ForwardDemographicTickler.do?docType=DOC&docId=' + docid + '&demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'tickler');
+            popup(450, 600, '<%=request.getContextPath()%>/tickler/ForwardDemographicTickler?docType=DOC&docId=' + docid + '&demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'tickler');
         }
 
 
@@ -391,17 +391,17 @@ Remote documents not supported
             var doctype = selected[0].value.substring(docidindexend + 1, selected[0].value.length);
 
             if (doctype == 'text/html') {
-                popup(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml.do?editDocumentNo=' + docid + '&function=<%=Encode.forJavaScript(Encode.forUriComponent(module))%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'EditDoc');
+                popup(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml?editDocumentNo=' + docid + '&function=<%=Encode.forJavaScript(Encode.forUriComponent(module))%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'EditDoc');
             } else {
 
-                popup(350, 500, '<%= request.getContextPath() %>/documentManager/ViewEditDocument.do?editDocumentNo=' + docid + '&function=<%=Encode.forJavaScript(Encode.forUriComponent(module))%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'EditDoc');
+                popup(350, 500, '<%= request.getContextPath() %>/documentManager/ViewEditDocument?editDocumentNo=' + docid + '&function=<%=Encode.forJavaScript(Encode.forUriComponent(module))%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'EditDoc');
             }
         }
 
     </script>
 </head>
 <body onload="window.innerWidth=<%=winwidth.length()>0?winwidth:"screen.availWidth*0.9"%>;window.innerHeight=<%=winheight.length()>0?winheight:"screen.availHeight*0.9"%>;">
-<form name="DisplayDoc" method="post" action="<%= request.getContextPath() %>/documentManager/ViewDocumentBrowser.do">
+<form name="DisplayDoc" method="post" action="<%= request.getContextPath() %>/documentManager/ViewDocumentBrowser">
 
     <table>
         <%if (errorMessage.length() > 0) {%>
@@ -537,4 +537,3 @@ Remote documents not supported
 </form>
 </body>
 </html>
-

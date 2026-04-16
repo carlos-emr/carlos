@@ -39,7 +39,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -84,7 +84,7 @@
         reportType = "general";
     }
 %>
-<form id="logForm" action="${ctx}/admin/ViewOscarLogging.do" class="card card-body bg-body-tertiary">
+<form id="logForm" action="${ctx}/admin/ViewOscarLogging" class="card card-body bg-body-tertiary">
 
     <fieldset>
         <h4>

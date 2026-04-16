@@ -29,7 +29,7 @@
 --%>
 <%@ include file="/taglibs.jsp" %>
 <%@ include file="/WEB-INF/jsp/common/messages.jsp" %>
-<c:url var="facilityViewUri" value="/PMmodule/FacilityManager.do">
+<c:url var="facilityViewUri" value="/PMmodule/FacilityManager">
     <c:param name="method" value="view"/>
     <c:param name="id" value="${requestScope.id}"/>
 </c:url>
@@ -91,7 +91,7 @@
     <display:column sortable="true" sortProperty="name" title="Program Name">
         <c:choose>
             <c:when test="${program.facilityId == facility.id}">
-                <a href="${pageContext.request.contextPath}/PMmodule/ProgramManagerView.do?id=<c:out value="${program.id}"/>"><c:out value="${program.name}"/></a>
+                <a href="${pageContext.request.contextPath}/PMmodule/ProgramManagerView?id=<c:out value="${program.id}"/>"><c:out value="${program.name}"/></a>
             </c:when>
             <c:otherwise><c:out value="${program.name}"/></c:otherwise>
         </c:choose>
@@ -135,8 +135,8 @@ Automatic discharges in the past 24 hours appear red.
 
 <div>
     <p>
-        <a href="${pageContext.request.contextPath}/PMmodule/FacilityManager.do?method=edit&amp;id=<c:out value="${requestScope.id}"/>">Edit facility</a>
+        <a href="${pageContext.request.contextPath}/PMmodule/FacilityManager?method=edit&amp;id=<c:out value="${requestScope.id}"/>">Edit facility</a>
         |
-        <a href="${pageContext.request.contextPath}/PMmodule/FacilityManager.do?method=list">Return to facilities list</a>
+        <a href="${pageContext.request.contextPath}/PMmodule/FacilityManager?method=list">Return to facilities list</a>
     </p>
 </div>

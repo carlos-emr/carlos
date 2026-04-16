@@ -10,7 +10,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -48,7 +48,7 @@
     </fieldset>
 </c:if>
 <c:if test="${not receivePaymentActionForm.paymentReceived}">
-    <form action="${pageContext.request.contextPath}/billing/CA/BC/receivePaymentAction.do" method="post">
+    <form action="${pageContext.request.contextPath}/billing/CA/BC/receivePaymentAction" method="post">
         <input type="hidden" name="billingmasterNo" id="billingmasterNo"/>
         <input type="hidden" name="billNo" id="billNo"/>
 

@@ -113,11 +113,11 @@
 
     %>
     <form name="serviceform" method="post"
-          action="<%=oscarVariables.getProperty("isNewONbilling","").equals("true")? "/billing/CA/ON/ViewInrOnGenINRbilling.do":"/billing/CA/ON/ViewInrGenINRbilling.do" %>">
+          action="<%=oscarVariables.getProperty("isNewONbilling","").equals("true")? "/billing/CA/ON/ViewInrOnGenINRbilling":"/billing/CA/ON/ViewInrGenINRbilling" %>">
         Select provider
         <select name="provider" onChange="jumpMenu('parent',this,0)" class="form-select">
             <option value="#">Select Provider</option>
-            <option value="/billing/CA/ON/ViewInrReportINR.do?provider_no=all"
+            <option value="/billing/CA/ON/ViewInrReportINR?provider_no=all"
                     <%=providerview.equals("all") ? "selected" : ""%>><b>All
                 Provider</b></option>
             <% String proFirst = "";
@@ -145,7 +145,7 @@
                     providerArr[1] = proName;
                     providerArray.add(providerArr);
             %>
-            <option value="/billing/CA/ON/ViewInrReportINR.do?provider_no=<%=proOHIP%>"
+            <option value="/billing/CA/ON/ViewInrReportINR?provider_no=<%=proOHIP%>"
                     <%=providerview.equals(proOHIP) ? "selected" : ""%>><%=proLast%>,
                 <%=proFirst%>
             </option>
@@ -234,7 +234,7 @@
                 <td width="12%" height="16"><input type="checkbox"
                                                    name="inrbilling<%=billinginr_no%>"></td>
                 <td width="22%" height="16"><a href="#"
-                                               onClick='rs("billinginrupdate","/billing/CA/ON/InrUpdateINRbilling.do?demono=<%=demono%>&billinginr_no=<%=billinginr_no%>&servicecode=<%=service_code%>&billingamount=<%=billing_amount%>&dxcode=<%=diagnostic_code%>&demo_name=<%=URLEncoder.encode(demo_name, StandardCharsets.UTF_8)%>&provider_name=<%=URLEncoder.encode(proName1, StandardCharsets.UTF_8)%>","380","300","0")'><%=demo_name%>
+                                               onClick='rs("billinginrupdate","/billing/CA/ON/InrUpdateINRbilling?demono=<%=demono%>&billinginr_no=<%=billinginr_no%>&servicecode=<%=service_code%>&billingamount=<%=billing_amount%>&dxcode=<%=diagnostic_code%>&demo_name=<%=URLEncoder.encode(demo_name, StandardCharsets.UTF_8)%>&provider_name=<%=URLEncoder.encode(proName1, StandardCharsets.UTF_8)%>","380","300","0")'><%=demo_name%>
                 </a></td>
                 <td width="22%" height="16"><%=proName1%>
                 </td>
@@ -293,7 +293,7 @@
                 <td width="12%" height="16"><input type="checkbox"
                                                    name="inrbilling<%=billinginr_no%>"></td>
                 <td width="22%" height="16"><a href="#"
-                                               onClick='rs("billinginrupdate","/billing/CA/ON/InrUpdateINRbilling.do?demono=<%=demono%>&billinginr_no=<%=billinginr_no%>&servicecode=<%=service_code%>&billingamount=<%=billing_amount%>&dxcode=<%=diagnostic_code%>&demo_name=<%=URLEncoder.encode(demo_name, StandardCharsets.UTF_8)%>&provider_name=<%=URLEncoder.encode(proName1, StandardCharsets.UTF_8)%>","380","300","0")'><%=demo_name%>
+                                               onClick='rs("billinginrupdate","/billing/CA/ON/InrUpdateINRbilling?demono=<%=demono%>&billinginr_no=<%=billinginr_no%>&servicecode=<%=service_code%>&billingamount=<%=billing_amount%>&dxcode=<%=diagnostic_code%>&demo_name=<%=URLEncoder.encode(demo_name, StandardCharsets.UTF_8)%>&provider_name=<%=URLEncoder.encode(proName1, StandardCharsets.UTF_8)%>","380","300","0")'><%=demo_name%>
                 </a></td>
                 <td width="22%" height="16"><%=proName1%>
                 </td>
@@ -320,7 +320,7 @@
             <tr>
                 <td>
                     <a href="#"
-                       onClick='rs("billingcalendar","<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup.do?year=<%=curYear%>&month=<%=curMonth%>&type=service","380","300","0")'>Service
+                       onClick='rs("billingcalendar","<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?year=<%=curYear%>&month=<%=curMonth%>&type=service","380","300","0")'>Service
                         Date:</a>
                     <input type="text" name="xml_appointment_date"
                            value="<%=now.get(Calendar.YEAR)+"-"+(now.get(Calendar.MONTH)+1)+"-"+now.get(Calendar.DAY_OF_MONTH)%>"

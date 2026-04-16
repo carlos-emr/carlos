@@ -38,7 +38,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -74,10 +74,10 @@
         %>
         <%= resultMsg != null ? Encode.forHtml(resultMsg) : "" %>
         <br/>
-        <a href="${pageContext.request.contextPath}/admin/ViewLotNrAddRecordHtm.do?prevention=<%=URLEncoder.encode(prevention,"UTF-8")%>">Add Another Lot #
+        <a href="${pageContext.request.contextPath}/admin/ViewLotNrAddRecordHtm?prevention=<%=URLEncoder.encode(prevention,"UTF-8")%>">Add Another Lot #
             to <%=Encode.forHtml(prevention)%>
         </a> <br/>
-        <a href="${pageContext.request.contextPath}/admin/LotNrSearchResults.do?search_mode=search_prev&keyword=<%=URLEncoder.encode(prevention,"UTF-8")%>&orderby=prevention_type&dboperation=lotnr_search_prevention&limit1=0&limit2=10&button=submit">View
+        <a href="${pageContext.request.contextPath}/admin/LotNrSearchResults?search_mode=search_prev&keyword=<%=URLEncoder.encode(prevention,"UTF-8")%>&orderby=prevention_type&dboperation=lotnr_search_prevention&limit1=0&limit2=10&button=submit">View
             Lots for <%=Encode.forHtml(prevention)%>
         </a>
     </center>

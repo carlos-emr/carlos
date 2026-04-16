@@ -276,7 +276,7 @@
             </h4>
         </div>
     </div>
-    <form method="get" name="titlesearch" action="<%=request.getContextPath()%>/demographic/DemographicSearch.do"
+    <form method="get" name="titlesearch" action="<%=request.getContextPath()%>/demographic/DemographicSearch"
           onsubmit="return checkTypeIn()">
 
         <% String searchMode = request.getParameter("search_mode");
@@ -368,7 +368,7 @@
 
             <caisi:isModuleLoad moduleName="caisi">
                 <input type="button" value="cancel"
-                       onclick="location.href='${request.contextPath}/PMmodule/ProviderInfo.do'">
+                       onclick="location.href='${request.contextPath}/PMmodule/ProviderInfo'">
             </caisi:isModuleLoad>
         </div>
 

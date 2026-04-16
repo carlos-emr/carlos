@@ -38,7 +38,7 @@
     }
 %>
 <%@ page import="java.util.*, java.sql.*, java.io.*, io.github.carlos_emr.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 
 <html>
@@ -59,7 +59,7 @@
 </head>
 <body onLoad="setfocus()" bgcolor="#c4e9f6" bgproperties="fixed"
       topmargin="0" leftmargin="1" rightmargin="1">
-<form name="checklistedit" action="<%= request.getContextPath() %>/decision/annualreview/riskedit.do" method="POST">
+<form name="checklistedit" action="<%= request.getContextPath() %>/decision/annualreview/riskedit" method="POST">
     <%
     try {
         String str = null;

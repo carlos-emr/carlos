@@ -51,7 +51,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -132,7 +132,7 @@ Conditions:
     </c:forEach>
 </table>
 <input type="button" value="<fmt:message key="encounter.guidelinedetail.btnlistguideline"/>"
-       onclick="document.location='guidelineAction.do?method=list&demographic_no=<c:out
+       onclick="document.location='guidelineAction?method=list&demographic_no=<c:out
                value="${demographic_no}"/>&provider_no=<c:out value="${provider_no}"/>'">
 </body>
 </html>

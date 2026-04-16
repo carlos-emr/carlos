@@ -35,7 +35,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     }
 %>
 <html>

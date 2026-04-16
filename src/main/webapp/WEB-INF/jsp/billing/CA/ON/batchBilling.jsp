@@ -33,7 +33,7 @@
 <%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String user_no = "";
     user_no = (String) session.getAttribute("user");
 %>
@@ -130,7 +130,7 @@
             var providerNo = provider.options[provider.selectedIndex].value;
 
             if (providerNo != "#") {
-                eval(targ + ".location='/billing/CA/ON/BatchBill.do?provider_no=" + providerNo + "&service_code=" + service + "'");
+                eval(targ + ".location='/billing/CA/ON/BatchBill?provider_no=" + providerNo + "&service_code=" + service + "'");
             }
 
         }
@@ -167,7 +167,7 @@
         <%
             ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
         %>
-        <form name="serviceform" method="post" action="BatchBill.do" class="d-flex flex-wrap align-items-center gap-2">
+        <form name="serviceform" method="post" action="BatchBill" class="d-flex flex-wrap align-items-center gap-2">
             <input type="hidden" id="method" name="method" value="">
 
             <div class="col-md-2">

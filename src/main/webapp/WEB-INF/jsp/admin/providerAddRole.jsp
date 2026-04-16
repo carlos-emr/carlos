@@ -29,7 +29,7 @@
 
 --%>
 
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.sql.*" %>
 
@@ -58,7 +58,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -257,7 +257,7 @@
     <span style="display: inline-block; width:100%; margin:auto; text-align:center;" class="alert"><%=msg%></span>
     <br><br>
     <div class="card card-body bg-body-tertiary">
-        <form method="post" name="baseurl" action="${pageContext.request.contextPath}/admin/ProviderAddRole.do" class="">
+        <form method="post" name="baseurl" action="${pageContext.request.contextPath}/admin/ProviderAddRole" class="">
             <div class="mb-3">
                 <label class="form-label" for="role_name"><fmt:message key="admin.provideraddrole.rolename"/></label>
                 <div>

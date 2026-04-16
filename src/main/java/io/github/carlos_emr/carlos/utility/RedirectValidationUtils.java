@@ -50,7 +50,7 @@ import java.util.regex.Pattern;
  * if (RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
  *     response.sendRedirect(nextPage);
  * } else {
- *     response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
+ *     response.sendRedirect(request.getContextPath() + "/loginfailed");
  * }
  * </pre>
  *

@@ -115,7 +115,7 @@ public class dxResearchUpdate2Action extends ActionSupport {
             dao.merge(research);
         }
 
-        StringBuffer forward = new StringBuffer(request.getContextPath() + "/oscarResearch/dxresearch/setupDxResearch.do");
+        StringBuffer forward = new StringBuffer(request.getContextPath() + "/oscarResearch/dxresearch/setupDxResearch");
         forward.append("?demographicNo=").append(URLEncoder.encode(Integer.toString(demographicNoInt), StandardCharsets.UTF_8));
         forward.append("&providerNo=").append(URLEncoder.encode(Integer.toString(providerNoInt), StandardCharsets.UTF_8));
         forward.append("&quickList=");

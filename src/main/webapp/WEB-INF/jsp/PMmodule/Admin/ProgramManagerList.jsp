@@ -29,7 +29,7 @@
 --%>
 <%@ include file="/taglibs.jsp" %>
 <%@ include file="/WEB-INF/jsp/common/messages.jsp" %>
-<c:url var="programListUri" value="/PMmodule/ProgramManager.do">
+<c:url var="programListUri" value="/PMmodule/ProgramManager">
     <c:param name="method" value="list"/>
     <c:if test="${not empty param.searchStatus}">
         <c:param name="searchStatus" value="${param.searchStatus}"/>
@@ -55,7 +55,7 @@
     </table>
 </div>
 
-<form action="${pageContext.request.contextPath}/PMmodule/ProgramManager.do" method="get">
+<form action="${pageContext.request.contextPath}/PMmodule/ProgramManager" method="get">
     <input type="hidden" name="method" value="list"/>
     <table class="simple" cellspacing="2" cellpadding="3" width="100%">
         <thead>
@@ -111,19 +111,19 @@
     <display:setProperty name="basic.msg.empty_list" value="No programs found."/>
 
     <display:column sortable="false" title="">
-        <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager.do?method=delete&amp;id=<c:out value="${program.id}"/>&amp;name=<c:out value="${program.name}"/>"
+        <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=delete&amp;id=<c:out value="${program.id}"/>&amp;name=<c:out value="${program.name}"/>"
            onclick="return confirmDelete('<c:out value="${program.nameJs}"/>');">Delete</a>
     </display:column>
     <display:column sortable="false" title="">
         <c:choose>
             <c:when test="${program.programStatus == 'active'}">
-                <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager.do?method=edit&amp;id=<c:out value="${program.id}"/>">Edit</a>
+                <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=<c:out value="${program.id}"/>">Edit</a>
             </c:when>
             <c:otherwise>Edit</c:otherwise>
         </c:choose>
     </display:column>
     <display:column sortable="true" title="Name">
-        <a href="${pageContext.request.contextPath}/PMmodule/ProgramManagerView.do?id=<c:out value="${program.id}"/>">
+        <a href="${pageContext.request.contextPath}/PMmodule/ProgramManagerView?id=<c:out value="${program.id}"/>">
             <c:out value="${program.name}"/>
         </a>
     </display:column>
@@ -138,5 +138,5 @@
 </display:table>
 
 <div>
-    <p><a href="${pageContext.request.contextPath}/PMmodule/ProgramManager.do?method=add">Add new program</a></p>
+    <p><a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=add">Add new program</a></p>
 </div>

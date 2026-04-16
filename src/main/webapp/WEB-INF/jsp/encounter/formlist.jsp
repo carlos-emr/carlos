@@ -39,7 +39,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -161,7 +161,7 @@
             %>
             <tr bgcolor='<%= yellow ? "yellow" : j%2 == 0 ? (i%2 == 0 ?weakcolor:deepcolor) : (i%2 == 0 ?"white":"#eeeeee")%>'>
                 <td><a href=# onClick="popupPageK('<%=Encode.forJavaScriptAttribute(hash + "started")%>','<%=Encode.forJavaScriptAttribute(request.getContextPath()
-									+ "/form/forwardshortcutname.do?formname=" + Encode.forUriComponent(frm.getFormName())
+									+ "/form/forwardshortcutname?formname=" + Encode.forUriComponent(frm.getFormName())
 									+ "&demographic_no=" + Encode.forUriComponent(demoNo)
 									+ "&formId=" + pfrm.getFormId()
 									+ "&provNo=" + Encode.forUriComponent(provNo))
@@ -188,14 +188,14 @@
                     if (nLastPage >= 0) {
             %>
             <a
-                    href="<%= request.getContextPath() %>/encounter/ViewFormlist.do?demographic_no=<%= Encode.forUriComponent(demoNo) %>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>"><fmt:message key="encounter.formlist.formLastpage"/></a>
+                    href="<%= request.getContextPath() %>/encounter/ViewFormlist?demographic_no=<%= Encode.forUriComponent(demoNo) %>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>"><fmt:message key="encounter.formlist.formLastpage"/></a>
             |
             <%
                 }
                 if (nItems == intLimit2) {
             %>
             <a
-                    href="<%= request.getContextPath() %>/encounter/ViewFormlist.do?demographic_no=<%= Encode.forUriComponent(demoNo) %>&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>">
+                    href="<%= request.getContextPath() %>/encounter/ViewFormlist?demographic_no=<%= Encode.forUriComponent(demoNo) %>&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>">
                 <fmt:message key="encounter.formlist.formNextPage"/></a>
             </td>
             </tr>

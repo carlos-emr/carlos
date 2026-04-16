@@ -38,7 +38,7 @@
                    objectName="_admin,_admin.userAdmin" rights="r"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -48,7 +48,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ page import="java.lang.*, java.util.*, java.text.*,java.sql.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.lang.*, java.util.*, java.text.*,java.sql.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -189,7 +189,7 @@
 	 */
 	function handleResetMfa(securityId) {
 		if (confirm("<fmt:message key="admin.securityAddRecord.mfa.reset.confirm"/>")) {
-			var url = "${pageContext.request.contextPath}/securityRecord/mfa.do";
+			var url = "${pageContext.request.contextPath}/securityRecord/mfa";
 			var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
 			var csrfToken = csrfEl ? csrfEl.value : '';
 			var params = 'method=<%= MfaActions2Action.METHOD_RESET_MFA %>&securityId=' + encodeURIComponent(securityId);
@@ -227,7 +227,7 @@
             </tr>
         </table>
         <table cellspacing="0" cellpadding="2" width="100%" border="0">
-            <form method="post" action="${pageContext.request.contextPath}/admin/SecurityUpdate.do" name="updatearecord" onsubmit="return onsub()">
+            <form method="post" action="${pageContext.request.contextPath}/admin/SecurityUpdate" name="updatearecord" onsubmit="return onsub()">
                 <%
                     SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
                     Integer securityId = Integer.valueOf(request.getParameter("keyword"));
@@ -383,7 +383,7 @@
                     }
                 %>
             </form>
-            <form id="deleteSecurityForm" method="post" action="${pageContext.request.contextPath}/admin/SecurityDelete.do" style="display:none">
+            <form id="deleteSecurityForm" method="post" action="${pageContext.request.contextPath}/admin/SecurityDelete" style="display:none">
                 <input type="hidden" name="keyword" value="<%= Encode.forHtmlAttribute(String.valueOf(security.getSecurityNo())) %>">
             </form>
         </table>

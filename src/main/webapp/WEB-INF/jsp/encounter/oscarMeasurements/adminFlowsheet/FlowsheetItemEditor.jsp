@@ -41,7 +41,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -91,7 +91,7 @@
             });
 
             function loadItem() {
-                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getFlowsheetItem&flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>", {},
+                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=getFlowsheetItem&flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>", {},
                     function (xml) {
                         document.getElementById('displayName').value = xml.displayName;
                         document.getElementById('guideline').value = xml.guideline;
@@ -102,7 +102,7 @@
             }
 
             function loadValidations() {
-                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getValidations", {},
+                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=getValidations", {},
                     function (xml) {
                         var arr = new Array();
                         if (xml.results instanceof Array) {
@@ -120,7 +120,7 @@
             }
 
             function loadWarnings() {
-                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getWarnings&flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>", {},
+                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=getWarnings&flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>", {},
                     function (xml) {
                         var arr = new Array();
                         if (xml.results instanceof Array) {
@@ -139,7 +139,7 @@
             }
 
             function loadTargets() {
-                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getTargets&flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>", {},
+                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=getTargets&flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>", {},
                     function (xml) {
                         var arr = new Array();
                         if (xml.results instanceof Array) {
@@ -158,31 +158,31 @@
             }
 
             function saveItem() {
-                jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=saveFlowsheetItem',
+                jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet?method=saveFlowsheetItem',
                     jQuery('#theForm').serialize(),
                     function (data) {
-                        location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetEditor.do?id=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>';
+                        location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetEditor?id=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>';
                     });
             }
 
             function addNewWarning() {
-                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetAddWarning.do?flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>';
+                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetAddWarning?flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>';
             }
 
             function addNewTarget() {
-                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetAddTarget.do?flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>';
+                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetAddTarget?flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>';
             }
 
             function updateDetails() {
                 var template = document.getElementById('template').value;
 
-                $.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=getTemplateDetails', {template: template}, function (data) {
+                $.post('<%=request.getContextPath()%>/admin/Flowsheet?method=getTemplateDetails', {template: template}, function (data) {
                     //  loadFlowsheet();
                 });
             }
 
             function removeWarning(hash) {
-                jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=removeWarning', {
+                jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet?method=removeWarning', {
                         flowsheetId: '<%= Encode.forJavaScript(flowsheetId) %>',
                         type: '<%= Encode.forJavaScript(measurementType) %>',
                         hash: hash
@@ -193,7 +193,7 @@
             }
 
             function removeTarget(hash) {
-                jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=removeTarget', {
+                jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet?method=removeTarget', {
                         flowsheetId: '<%= Encode.forJavaScript(flowsheetId) %>',
                         type: '<%= Encode.forJavaScript(measurementType) %>',
                         hash: hash

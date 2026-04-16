@@ -40,7 +40,7 @@
     - OWASP encoding for all user-supplied values
     - i18n via oscarResources bundle
     - Date-range filter to narrow query history
-    - "Add to Favourite" button submits selected query to RptByExamplesFavorite.do
+    - "Add to Favourite" button submits selected query to RptByExamplesFavorite
 
     Parameters (set by backing Action):
     - allQueries  — RptByExampleAllQueryBean containing queryVector of RptByExampleQueryBean
@@ -64,7 +64,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -125,7 +125,7 @@
             <span class="fw-semibold"><fmt:message key="oscarReport.CDMReport.msgReport"/></span>
         </div>
         <!-- Refresh form: form wraps controls directly — no table needed -->
-        <form action="${pageContext.request.contextPath}/oscarReport/RptViewAllQueryByExamples.do"
+        <form action="${pageContext.request.contextPath}/oscarReport/RptViewAllQueryByExamples"
               method="post"
               class="d-flex align-items-center gap-2">
             <label for="startDateInput" class="form-label form-label-sm mb-0">
@@ -158,7 +158,7 @@
 
                 <!-- favouriteForm wraps the table — correct HTML5 nesting -->
                 <form id="favouriteForm"
-                      action="${pageContext.request.contextPath}/oscarReport/RptByExamplesFavorite.do"
+                      action="${pageContext.request.contextPath}/oscarReport/RptByExamplesFavorite"
                       method="post">
                     <input type="hidden" id="newQuery" name="newQuery" value="error"/>
 

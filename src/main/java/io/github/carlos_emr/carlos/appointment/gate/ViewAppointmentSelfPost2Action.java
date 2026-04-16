@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * GET, HEAD, and POST for the read/form-render path, but forces POST when the
  * request carries mutation-intent — either the {@code groupappt} parameter is
  * present (triggers persist in the three group-records JSPs) or the request
- * targets {@code appointmentaddrecordprint.do} (which persists unconditionally
+ * targets {@code appointmentaddrecordprint} (which persists unconditionally
  * on every hit). This prevents GET-triggered mutations and cross-origin link
  * abuse even for users that hold {@code _appointment w}. Scriptlet extraction
  * into dedicated {@code *2Action} classes is flagged for follow-up — in-JSP
@@ -90,10 +90,10 @@ public final class ViewAppointmentSelfPost2Action extends ActionSupport {
         }
 
         // Block GET/HEAD when the request would trigger a mutation:
-        //  - appointmentaddrecordprint.do always persists on every hit
+        //  - appointmentaddrecordprint always persists on every hit
         //  - the three group-records JSPs persist when the "groupappt" param is present
         String uri = request.getRequestURI();
-        boolean alwaysMutates = uri != null && uri.endsWith("/appointmentaddrecordprint.do");
+        boolean alwaysMutates = uri != null && uri.endsWith("/appointmentaddrecordprint");
         boolean groupapptMutation = request.getParameter("groupappt") != null;
         if ((alwaysMutates || groupapptMutation) && !"POST".equalsIgnoreCase(method)) {
             MiscUtils.getLogger().warn("Denied appointment self-post: mutation intent on {} requires POST, got {}",

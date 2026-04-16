@@ -51,7 +51,7 @@ Required Parameters to plug-in:
                 <div class="card-body">
                     <fmt:message key="oscarResearch.oscarDxResearch.quickList"/>
                     <small class="float-end">
-                        <a class="oscar-dialog-link" href="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/ViewDxResearchCustomization.do">
+                        <a class="oscar-dialog-link" href="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/ViewDxResearchCustomization">
                             add/edit
                         </a>
                     </small>
@@ -89,7 +89,7 @@ Required Parameters to plug-in:
 
 <script type="text/javascript">
     function changeList(quickList, demographicNo, providerNo) {
-        location.href = 'setupDxResearch.do?demographicNo='
+        location.href = 'setupDxResearch?demographicNo='
             + encodeURIComponent(demographicNo)
             + '&quickList='
             + encodeURIComponent(quickList.value)

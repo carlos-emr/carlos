@@ -58,7 +58,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin.fax");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin.fax");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -212,7 +212,7 @@
             $("#submit").click(function (e) {
                 e.preventDefault();
 
-                var url = "<%=Encode.forJavaScript(request.getContextPath()) %>/admin/ManageFax.do?method=configure";
+                var url = "<%=Encode.forJavaScript(request.getContextPath()) %>/admin/ManageFax?method=configure";
                 var data = $("#configFrm").serialize();
 
                 $.ajax({
@@ -272,7 +272,7 @@
 
         function getFaxSchedularStatus() {
             $.ajax({
-                url: "<%=Encode.forJavaScript(request.getContextPath()) %>/admin/ManageFax.do",
+                url: "<%=Encode.forJavaScript(request.getContextPath()) %>/admin/ManageFax",
                 method: 'POST',
                 data: 'method=getFaxSchedularStatus',
                 success: function (data) {
@@ -296,7 +296,7 @@
 
         function rebootFaxSchedular() {
             $.ajax({
-                url: "<%=Encode.forJavaScript(request.getContextPath()) %>/admin/ManageFax.do",
+                url: "<%=Encode.forJavaScript(request.getContextPath()) %>/admin/ManageFax",
                 method: 'POST',
                 data: 'method=restartFaxScheduler',
                 success: function (data) {
@@ -312,7 +312,7 @@
 
         function getPendingIncomingFaxes() {
             $.ajax({
-                url: "<%=Encode.forJavaScript(request.getContextPath()) %>/admin/ManageFax.do",
+                url: "<%=Encode.forJavaScript(request.getContextPath()) %>/admin/ManageFax",
                 method: 'POST',
                 data: 'method=getPendingIncomingFaxes',
                 success: function (data) {

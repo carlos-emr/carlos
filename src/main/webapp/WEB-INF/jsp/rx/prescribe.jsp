@@ -84,7 +84,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="w" reverse="<%=true%>">
 	<%authed=false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
 	if(!authed) {
@@ -654,7 +654,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 	   				}
        				       				
        				jQuery.ajax({
-       				    url: ctx + "/dxCodeSearchJSON.do",
+       				    url: ctx + "/dxCodeSearchJSON",
        				    type: 'POST',
        				    data: 'method=search' + ( jQuery( '#codingSystem' + idindex ).find(":selected").val() ).toUpperCase()
        				    				+ '&keyword=' 
@@ -733,7 +733,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
             jQuery("#siInput_<%=rand%>").autocomplete({
                 source: function(request, response) {
                     jQuery.ajax({
-                        url: "<%= request.getContextPath() %>/rx/search.do?parameterValue=searchSpecialInstructions",
+                        url: "<%= request.getContextPath() %>/rx/search?parameterValue=searchSpecialInstructions",
                         type: "POST",
                         data: { query: request.term },
                         dataType: "json",
@@ -805,7 +805,7 @@ jQuery(document).ready(function() {
 		source: function(request, response) {
 			var randId = this.element[0].id.split("_")[1];
 			jQuery.ajax({
-				url: "${ctx}/rx/WriteScript.do?parameterValue=getInstructionsAutocomplete",
+				url: "${ctx}/rx/WriteScript?parameterValue=getInstructionsAutocomplete",
 				type: "POST",
 				data: "randomId=" + randId + "&term=" + encodeURIComponent(request.term),
 				dataType: "json",

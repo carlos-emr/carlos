@@ -28,14 +28,14 @@
 
 --%>
 <%@ include file="/taglibs.jsp" %>
-<c:url var="programManagerFunctionUsersUri" value="/PMmodule/ProgramManager.do">
+<c:url var="programManagerFunctionUsersUri" value="/PMmodule/ProgramManager">
     <c:param name="method" value="edit"/>
     <c:param name="id" value="${requestScope.id}"/>
     <c:param name="view.tab" value="Function User"/>
 </c:url>
 <script>
     function search_provider(name) {
-        var url = '<%=request.getContextPath() %>/PMmodule/ProviderSearch.do';
+        var url = '<%=request.getContextPath() %>/PMmodule/ProviderSearch';
         url += '?q=' + name;
         url += '&formName=programManagerForm';
         url += '&formElementId=function.providerNo';

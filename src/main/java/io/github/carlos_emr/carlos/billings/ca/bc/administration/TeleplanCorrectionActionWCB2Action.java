@@ -215,7 +215,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
             log.error("WCB Teleplan Correction Query Error: " + ex.getMessage() + " - ", ex);
         }
 
-        String newURL = "/billing/CA/BC/billingTeleplanCorrectionWCB.do";
+        String newURL = "/billing/CA/BC/billingTeleplanCorrectionWCB";
         newURL = newURL + "?billing_no=" + this.getId();
         MiscUtils.getLogger().debug(newURL);
 

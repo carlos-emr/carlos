@@ -77,7 +77,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -272,7 +272,7 @@
         %>
         <tr>
 
-        <td><a id="createDate_<%=prescriptIdInt%>"   <%=styleColor%> href="<%= request.getContextPath() %>/rx/ViewStaticScript2.do?regionalIdentifier=<%=Encode.forUriComponent(prescriptDrug.getRegionalIdentifier())%>&amp;cn=<%=Encode.forUriComponent(prescriptDrug.getCustomName())%>&amp;bn=<%=Encode.forUriComponent(bn)%>&amp;atc=<%=Encode.forUriComponent(prescriptDrug.getAtc())%>"><%=DateToString(prescriptDrug.getCreateDate())%></a></td>
+        <td><a id="createDate_<%=prescriptIdInt%>"   <%=styleColor%> href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<%=Encode.forUriComponent(prescriptDrug.getRegionalIdentifier())%>&amp;cn=<%=Encode.forUriComponent(prescriptDrug.getCustomName())%>&amp;bn=<%=Encode.forUriComponent(bn)%>&amp;atc=<%=Encode.forUriComponent(prescriptDrug.getAtc())%>"><%=DateToString(prescriptDrug.getCreateDate())%></a></td>
             <td>
             	<% if(startDateUnknown) { %>
             		
@@ -281,7 +281,7 @@
                     startDate = partialDateDao.getDatePartial(startDate, PartialDate.DRUGS, prescriptDrug.getId(), PartialDate.DRUGS_STARTDATE);
                 %>
                 <a id="rxDate_<%=prescriptIdInt%>"   <%=styleColor%>
-                   href="<%= request.getContextPath() %>/rx/ViewStaticScript2.do?regionalIdentifier=<%=Encode.forUriComponent(prescriptDrug.getRegionalIdentifier())%>&amp;cn=<%=Encode.forUriComponent(prescriptDrug.getCustomName())%>&amp;bn=<%=Encode.forUriComponent(bn)%>"><%=startDate%>
+                   href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<%=Encode.forUriComponent(prescriptDrug.getRegionalIdentifier())%>&amp;cn=<%=Encode.forUriComponent(prescriptDrug.getCustomName())%>&amp;bn=<%=Encode.forUriComponent(bn)%>"><%=startDate%>
                 </a>
                 <% } %>
             </td>
@@ -314,7 +314,7 @@
 			}
 			
 			%>
-            <td ><a id="prescrip_<%=prescriptIdInt%>" <%=styleColor%> href="<%= request.getContextPath() %>/rx/ViewStaticScript2.do?regionalIdentifier=<%=Encode.forUriComponent(prescriptDrug.getRegionalIdentifier())%>&amp;cn=<%=Encode.forUriComponent(prescriptDrug.getCustomName())%>&amp;bn=<%=Encode.forUriComponent(bn)%>&amp;atc=<%=Encode.forUriComponent(prescriptDrug.getAtc())%>"   <%=tComment%>   ><%=RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(";", " ")%></a></td>
+            <td ><a id="prescrip_<%=prescriptIdInt%>" <%=styleColor%> href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<%=Encode.forUriComponent(prescriptDrug.getRegionalIdentifier())%>&amp;cn=<%=Encode.forUriComponent(prescriptDrug.getCustomName())%>&amp;bn=<%=Encode.forUriComponent(bn)%>&amp;atc=<%=Encode.forUriComponent(prescriptDrug.getAtc())%>"   <%=tComment%>   ><%=RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(";", " ")%></a></td>
 			<%            			
 	           	if(securityManager.hasWriteAccess("_rx",roleName$,true)) {            		
            	%>
@@ -425,7 +425,7 @@
                         var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                         var csrfToken = csrfEl ? csrfEl.value : '';
                         var val = document.getElementById('hidecpp_<%=prescriptIdInt%>').checked;
-                        fetch('<c:out value="${ctx}"/>/rx/hideCpp.do', {
+                        fetch('<c:out value="${ctx}"/>/rx/hideCpp', {
                             method: 'POST',
                             headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
                             credentials: 'same-origin',

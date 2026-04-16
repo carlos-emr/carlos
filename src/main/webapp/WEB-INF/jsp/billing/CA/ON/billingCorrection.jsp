@@ -22,4 +22,4 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<jsp:forward page="/billing/CA/ON/BillingONCorrection.do"/>
+<jsp:forward page="/billing/CA/ON/BillingONCorrection"/>

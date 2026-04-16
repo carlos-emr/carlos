@@ -102,7 +102,7 @@
         </ul>
     </div>
 <% } %>
-    <form action="${pageContext.request.contextPath}/oscarReport/oscarMeasurements/InitializePatientsMetGuidelineCDMReport.do" method="post">
+    <form action="${pageContext.request.contextPath}/oscarReport/oscarMeasurements/InitializePatientsMetGuidelineCDMReport" method="post">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
                 <td class="MainTableTopRowLeftColumn"><fmt:message key="oscarReport.CDMReport.msgReport"/></td>
@@ -142,12 +142,12 @@
                                                 type="text" name='startDateA'
                                                 value='<c:out value="${lastYear}"/>' size="10"> <img
                                                 src="<%= request.getContextPath() %>/img/calendar.gif" border="0"
-                                                onClick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup.do?type=startDateA&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=<%="RptInitializePatientsMetGuidelineCDMReportForm"%>','','width=300,height=300')"/>
+                                                onClick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=startDateA&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=<%="RptInitializePatientsMetGuidelineCDMReportForm"%>','','width=300,height=300')"/>
                                         </td>
                                         <td width="120" class="fieldBox" bgcolor="#ddddff"><input
                                                 type="text" name='endDateA' value='<c:out value="${today}"/>'
                                                 size="10"> <img src="<%= request.getContextPath() %>/img/calendar.gif" border="0"
-                                                                onClick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup.do?type=endDateA&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=<%="RptInitializePatientsMetGuidelineCDMReportForm"%>','','width=300,height=300')"/>
+                                                                onClick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=endDateA&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=<%="RptInitializePatientsMetGuidelineCDMReportForm"%>','','width=300,height=300')"/>
                                         </td>
                                         <td width="450" class="fieldBox" bgcolor="#ddddff"></td>
                                     </tr>
@@ -207,12 +207,12 @@
                                         <td width="120" class="fieldBox" bgcolor="#ddddff">
                                             <input type="text" name="startDateB" value="${lastYear}" size="10">
                                             <img src="<%= request.getContextPath() %>/img/calendar.gif" border="0"
-                                                 onclick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup.do?type=startDateB[${ctr.index}]&amp;year=${curYear}&amp;month=${curMonth}&amp;form=RptInitializePatientsMetGuidelineCDMReportForm','','width=300,height=300')" />
+                                                 onclick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=startDateB[${ctr.index}]&amp;year=${curYear}&amp;month=${curMonth}&amp;form=RptInitializePatientsMetGuidelineCDMReportForm','','width=300,height=300')" />
                                         </td>
                                         <td width="120" class="fieldBox" bgcolor="#ddddff">
                                             <input type="text" name="endDateB" value="${today}" size="10">
                                             <img src="<%= request.getContextPath() %>/img/calendar.gif" border="0"
-                                                 onclick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup.do?type=endDateB[${ctr.index}]&amp;year=${curYear}&amp;month=${curMonth}&amp;form=RptInitializePatientsMetGuidelineCDMReportForm','','width=300,height=300')" />
+                                                 onclick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=endDateB[${ctr.index}]&amp;year=${curYear}&amp;month=${curMonth}&amp;form=RptInitializePatientsMetGuidelineCDMReportForm','','width=300,height=300')" />
                                         </td>
                                         <input type="hidden" name="value(measurementType${ctr.index})" value="${measurementType.type}" />
                                     </tr>

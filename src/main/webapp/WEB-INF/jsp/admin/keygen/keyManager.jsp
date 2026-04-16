@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -56,7 +56,7 @@
 
 <br/>
 
-<input type="button" value="Create New Key" onclick="document.location='/admin/ViewKeygenCreateKey.do'"/>
+<input type="button" value="Create New Key" onclick="document.location='/admin/ViewKeygenCreateKey'"/>
 
 <br/>
 <hr/>
@@ -66,7 +66,7 @@
     String requestUrl = request.getRequestURL().toString();
     String servletPath = request.getServletPath();
     String uploadUrl = requestUrl.substring(0, requestUrl.length() - servletPath.length());
-    uploadUrl = uploadUrl + "/lab/newLabUpload.do";
+    uploadUrl = uploadUrl + "/lab/newLabUpload";
 %>
 <div style="border:solid grey 1px;word-wrap:break-word;font-size:12px; width:95%"><%=Encode.forHtml(uploadUrl)%>
 </div>
@@ -108,7 +108,7 @@
     function updateMatchingProcessionalSpecialist() {
         var selectKeyList = document.getElementById("selectKeyList");
         var selectProfessionalSpecialistList = document.getElementById("selectProfessionalSpecialistList");
-        jQuery.post("/admin/ViewKeygenUpdateMatchingProfessionalSpecialist.do", {
+        jQuery.post("/admin/ViewKeygenUpdateMatchingProfessionalSpecialist", {
                 serviceName: getSelectListValue(selectKeyList),
                 professionalSpecialistId: getSelectListValue(selectProfessionalSpecialistList)
             },

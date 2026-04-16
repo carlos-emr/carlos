@@ -30,7 +30,7 @@
 --%>
 <!DOCTYPE html>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@page import="java.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
@@ -85,7 +85,7 @@
     %>
 
 
-    <form action="${pageContext.request.contextPath}/waitinglist/WLEditWaitingListNameAction.do" method="post">
+    <form action="${pageContext.request.contextPath}/waitinglist/WLEditWaitingListNameAction" method="post">
         <input type="hidden" name="actionChosen" id="actionChosen"/>
 
         <h3>&nbsp;&nbsp;<fmt:message key="oscarwaitinglist.displayPatientWaitingList.waitinglist"/></h3>

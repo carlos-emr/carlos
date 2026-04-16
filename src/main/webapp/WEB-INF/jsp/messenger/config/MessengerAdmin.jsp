@@ -147,9 +147,9 @@
                  * @param {string} groupId - The ID of the group to add the member to
                  */
                 function addMember(memberId, groupId) {
-                    $.post(ctx + "/messenger.do?method=add&member=" + memberId + "&group=" + groupId).success(function () {
+                    $.post(ctx + "/messenger?method=add&member=" + memberId + "&group=" + groupId).success(function () {
                         // Reload the group member list to show the new member
-                        $('#group-member-list-' + groupId).load(ctx + '/messenger.do?method=fetch #group-member-list-' + groupId);
+                        $('#group-member-list-' + groupId).load(ctx + '/messenger?method=fetch #group-member-list-' + groupId);
                         // Check the appropriate checkbox in the member list display
                         $("div#addContacts input[type='checkbox'][value^='" + memberId + "']").prop("checked", true);
                     });
@@ -164,7 +164,7 @@
                  */
                 function removeMember(memberId, groupId) {
                     if (memberId) {
-                        $.post(ctx + "/messenger.do?method=remove&member=" + memberId).success(function () {
+                        $.post(ctx + "/messenger?method=remove&member=" + memberId).success(function () {
                             // Remove from groups view display
                             $('div#manageGroups i[id^=' + memberId + ']').parent().parent().remove();
                         });
@@ -173,7 +173,7 @@
 
                 function removeGroupMember(memberId, groupId) {
                     if (memberId) {
-                        $.post(ctx + "/messenger.do?method=remove&member=" + memberId + "&group=" + groupId).success(function () {
+                        $.post(ctx + "/messenger?method=remove&member=" + memberId + "&group=" + groupId).success(function () {
                             /*
                              * Add the group id back into selector as it is used to make the id's unique.
                              * Remove the selected value from the user interface
@@ -184,13 +184,13 @@
                 }
 
                 function createGroup(groupName) {
-                    $.post(ctx + "/messenger.do?method=create&groupName=" + groupName);
-                    $('#manageGroups').load(ctx + '/messenger.do?method=fetch #manageGroups');
+                    $.post(ctx + "/messenger?method=create&groupName=" + groupName);
+                    $('#manageGroups').load(ctx + '/messenger?method=fetch #manageGroups');
                 }
 
                 function deleteGroup(groupId) {
-                    $.post(ctx + "/messenger.do?method=remove&group=" + groupId);
-                    $('#manageGroups').load(ctx + '/messenger.do?method=fetch #manageGroups');
+                    $.post(ctx + "/messenger?method=remove&group=" + groupId);
+                    $('#manageGroups').load(ctx + '/messenger?method=fetch #manageGroups');
                 }
 
                 $(document).ready(function () {

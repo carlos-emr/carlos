@@ -36,7 +36,7 @@
     }
 %>
 <%@ page import="java.util.*,java.sql.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
@@ -69,7 +69,7 @@
             </h4>
         </div>
 
-    <form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/providercontrol.do">
+    <form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/providercontrol">
         <input type="hidden" name="submit_form" value="">
         <input type="hidden" name="displaymode" value="newgroup">
         <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">

@@ -23,7 +23,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Conditional-POST gate for {@code lab/CA/BC/index.jsp}. The JSP's scriptlet
+ * Conditional-POST gate for {@code lab/CA/BC/index}. The JSP's scriptlet
  * performs DB mutations (linkDao.merge/persist or LabRequestReportLink save/update/delete) when a submit/action parameter is present. Enforces
  * {@code _lab} w privilege always, plus POST-only when the mutation
  * trigger is supplied (CSRF hardening). GET without trigger params is

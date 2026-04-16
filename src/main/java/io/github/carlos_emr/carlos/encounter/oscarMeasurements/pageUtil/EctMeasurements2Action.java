@@ -298,7 +298,7 @@ public class EctMeasurements2Action extends ActionSupport {
                 return null;
             }
 
-            response.sendRedirect(request.getContextPath() + "/encounter/oscarMeasurements/ViewAddMeasurementData.do");
+            response.sendRedirect(request.getContextPath() + "/encounter/oscarMeasurements/ViewAddMeasurementData");
             return NONE;
         }
 

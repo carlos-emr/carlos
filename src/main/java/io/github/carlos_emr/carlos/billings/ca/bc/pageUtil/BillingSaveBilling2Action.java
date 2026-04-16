@@ -211,7 +211,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
             log.debug("FULL STRING " + stb);
 
             // Redirect to the desired URL
-            String redirectUrl = "/billing/CA/BC/billingView.do?" + stb.toString() + "receipt=yes";
+            String redirectUrl = "/billing/CA/BC/billingView?" + stb.toString() + "receipt=yes";
             response.sendRedirect(redirectUrl);
 
             // Return null since redirection is handled manually

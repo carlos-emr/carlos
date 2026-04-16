@@ -70,11 +70,11 @@
 
 
     <object id="pdf" type="application/pdf"
-            data="<%= request.getContextPath() %>/report/GenerateEnvelopes.do?demos=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("demos"))) %>"
+            data="<%= request.getContextPath() %>/report/GenerateEnvelopes?demos=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("demos"))) %>"
             height="80%" width="100%" standby="Loading pdf...">
 
         Sorry the pdf failed to load...<a
-            href="<%= request.getContextPath() %>/report/GenerateEnvelopes.do?demos=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("demos"))) %>">click here to download the
+            href="<%= request.getContextPath() %>/report/GenerateEnvelopes?demos=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("demos"))) %>">click here to download the
         PDF</a>.
 
     </object>

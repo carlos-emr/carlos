@@ -26,7 +26,7 @@
 <%
     String user_no = (String) session.getAttribute("user");
 %>
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
@@ -123,7 +123,7 @@
     %>
 
     <form name="codesearch" id="codesearch" method="post"
-          action="/billing/CA/ON/ViewBillingDigSearch.do">
+          action="/billing/CA/ON/ViewBillingDigSearch">
         <%if (targetElement != null || name2ParseError) {%>
         <input type="hidden" name="name2"
                value="<%=Encode.forHtmlAttribute(name2)%>"/>
@@ -152,7 +152,7 @@
     </form>
 
     <form name="diagcode" id="diagcode" method="post"
-          action="/billing/CA/ON/BillingDigUpdate.do">
+          action="/billing/CA/ON/BillingDigUpdate">
         <table style="width:800px; margin:auto" class="table-striped table-sm">
             <thead>
             <tr>

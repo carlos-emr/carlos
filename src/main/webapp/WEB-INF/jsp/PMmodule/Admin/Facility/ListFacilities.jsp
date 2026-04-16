@@ -45,10 +45,10 @@
         </tr>
     </table>
 </div>
-<form action="${pageContext.request.contextPath}/PMmodule/FacilityManager.do" method="post">
+<form action="${pageContext.request.contextPath}/PMmodule/FacilityManager" method="post">
     <display:table class="simple" cellspacing="2" cellpadding="3"
                    id="facility" name="facilities" export="false" pagesize="0"
-                   requestURI="/PMmodule/FacilityManager.do">
+                   requestURI="/PMmodule/FacilityManager">
         <display:setProperty name="paging.banner.placement" value="bottom"/>
         <display:setProperty name="paging.banner.item_name" value="agency"/>
         <display:setProperty name="paging.banner.items_name"
@@ -58,12 +58,12 @@
 
         <display:column sortable="false" title="">
             <a
-                    href="<%=request.getContextPath() %>/PMmodule/FacilityManager.do?method=view&id=<c:out value="${facility.id}" />">
+                    href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=view&id=<c:out value="${facility.id}" />">
                 Details </a>
         </display:column>
         <display:column sortable="false" title="">
             <a
-                    href="<%=request.getContextPath() %>/PMmodule/FacilityManager.do?method=edit&id=<c:out value="${facility.id}" />">
+                    href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=edit&id=<c:out value="${facility.id}" />">
                 Edit </a>
         </display:column>
         <display:column sortable="false" title="">
@@ -71,7 +71,7 @@
                     onclick="if(ConfirmDelete('<c:out value="${facility.name}"/>')){document.getElementById('deleteForm_<c:out value="${facility.id}"/>').submit()}">
                 Disable </a>
             <form id="deleteForm_<c:out value="${facility.id}"/>" method="post"
-                  action="<%=request.getContextPath() %>/PMmodule/FacilityManager.do" style="display:none">
+                  action="<%=request.getContextPath() %>/PMmodule/FacilityManager" style="display:none">
                 <input type="hidden" name="method" value="delete"/>
                 <input type="hidden" name="id" value="<c:out value="${facility.id}"/>"/>
                 <input type="hidden" name="name" value="<c:out value="${facility.name}"/>"/>
@@ -89,6 +89,6 @@
 </form>
 <div>
     <p><a
-            href="<%=request.getContextPath() %>/PMmodule/FacilityManager.do?method=add">
+            href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=add">
         Add new facility </a></p>
 </div>

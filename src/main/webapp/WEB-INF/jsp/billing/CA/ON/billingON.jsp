@@ -34,7 +34,7 @@
 
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ page errorPage="/errorpage.jsp"%>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"%>
 
 <%@page import="java.util.*,java.net.*,java.sql.*" %>
 <%@page import="io.github.carlos_emr.*" %>
@@ -88,7 +88,7 @@
              scope="session"/>
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect("${ pageContext.request.contextPath }/logout.jsp");
+        response.sendRedirect("${ pageContext.request.contextPath }/logoutPage");
     }
     CarlosProperties oscarVariables = CarlosProperties.getInstance();
 
@@ -671,7 +671,7 @@
             if (self.location.href.lastIndexOf("?") > 0) {
                 a = self.location.href.substring(self.location.href.lastIndexOf("?"));
             }
-            self.location.href = "/billing.do" + a;
+            self.location.href = "/billing" + a;
         }
 
         function findObj(n, d) { //v4.0
@@ -905,8 +905,8 @@
             var d = elementName;
             t0 = escape("document.forms[0].elements[\'" + d + "\'].value");
             //t1 = escape("");
-            //alert(('/billing/CA/ON/ViewSearchRefDoc.do?param='+t0));
-            awnd = rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc.do?param=' + t0), 1000, 800, 1);
+            //alert(('/billing/CA/ON/ViewSearchRefDoc?param='+t0));
+            awnd = rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc?param=' + t0), 1000, 800, 1);
             //awnd.focus();
         }
 
@@ -914,7 +914,7 @@
             var d = elementName;
             t0 = escape("document.forms[0].elements[\'" + d + "\'].value");
             t1 = escape("document.forms[0].elements[\'" + name2 + "\'].value");
-            awnd = rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc.do?param=' + t0 + '&param2=' + t1 + '&submit=Search&keyword=' + document.forms[0].elements[name2].value), 1000, 800, 1);
+            awnd = rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc?param=' + t0 + '&param2=' + t1 + '&submit=Search&keyword=' + document.forms[0].elements[name2].value), 1000, 800, 1);
             //awnd.focus();
         }
 
@@ -922,14 +922,14 @@
             ff = eval("document.forms[0].elements['" + name2 + "']");
             f0 = ff.value;
             f1 = escape("document.forms[0].elements[\'" + name2 + "\'].value");
-            awnd = rs('att', '/billing/CA/ON/ViewBillingDigSearch.do?name=' + f0 + '&search=&name2=' + f1, 800, 800, 1);
+            awnd = rs('att', '/billing/CA/ON/ViewBillingDigSearch?name=' + f0 + '&search=&name2=' + f1, 800, 800, 1);
             //awnd.focus();
         }
 
         function scScriptAttach(nameF) {
             f0 = escape(nameF.value);
             f1 = escape("document.forms[0].elements[\'" + nameF.name + "\'].value");
-            awnd = rs('att', '/billing/CA/ON/ViewBillingCodeSearch.do?name=' + f0 + '&search=&name1=&name2=&nameF=' + f1, 600, 600, 1);
+            awnd = rs('att', '/billing/CA/ON/ViewBillingCodeSearch?name=' + f0 + '&search=&name1=&name2=&nameF=' + f1, 600, 600, 1);
             //awnd.focus();
         }
 
@@ -1027,12 +1027,12 @@
             var n = document.forms[0].xml_billtype.selectedIndex;
             var val = document.forms[0].xml_billtype[n].value;
             if (val.substring(0, 3) == "PAT" || val.substring(0, 3) == "OCF" || val.substring(0, 3) == "ODS" || val.substring(0, 3) == "CPP" || val.substring(0, 3) == "STD") {
-                self.location.href = "/billing.do?curBillForm=<%="PRI"%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")))) %>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))) %>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&providerview=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&appointment_date=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")))) %>&status=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")))) %>&start_time=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")))) %>&bNewForm=1";
+                self.location.href = "/billing?curBillForm=<%="PRI"%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")))) %>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))) %>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&providerview=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&appointment_date=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")))) %>&status=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")))) %>&start_time=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")))) %>&bNewForm=1";
             } else if (val.substring(0, 3) == "BON") {
-                self.location.href = "/billing.do?curBillForm=<%=oscarVariables.getProperty("primary_care_incentive", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")))) %>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))) %>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&providerview=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&appointment_date=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")))) %>&status=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")))) %>&start_time=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")))) %>&bNewForm=1";
+                self.location.href = "/billing?curBillForm=<%=oscarVariables.getProperty("primary_care_incentive", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")))) %>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))) %>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&providerview=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&appointment_date=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")))) %>&status=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")))) %>&start_time=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")))) %>&bNewForm=1";
             } else {
                 <% if(ctlBillForm.equals("PRI") ) {%>
-                self.location.href = "/billing.do?curBillForm=<%=oscarVariables.getProperty("default_view", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")))) %>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))) %>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&providerview=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&appointment_date=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")))) %>&status=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")))) %>&start_time=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")))) %>&bNewForm=1";
+                self.location.href = "/billing?curBillForm=<%=oscarVariables.getProperty("default_view", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")))) %>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))) %>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&providerview=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&appointment_date=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")))) %>&status=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")))) %>&start_time=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")))) %>&bNewForm=1";
                 <% } %>
             }
         }
@@ -1051,7 +1051,7 @@
         function onHistory() {
             var dd = document.forms[0].day.value;
             //alert(dd);
-            popupPage("800", "1000", "/billing/CA/ON/ViewBillingONHistorySpec.do?demographic_no=<%=Encode.forJavaScript(demo_no)%>&demo_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&orderby=appointment_date&day=" + dd);
+            popupPage("800", "1000", "/billing/CA/ON/ViewBillingONHistorySpec?demographic_no=<%=Encode.forJavaScript(demo_no)%>&demo_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&orderby=appointment_date&day=" + dd);
         }
 
         function prepareBack() {
@@ -1117,7 +1117,7 @@
         }
 
         function changeCodeDesc() {
-            var url = "/billing/CA/ON/ViewBillingONDxDesc.do";
+            var url = "/billing/CA/ON/ViewBillingONDxDesc";
             var pars = "diagnostic_code=" + document.forms[0].dxCode.value;
 
             //prototype
@@ -1250,16 +1250,16 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
         }
 
         // Dx diagnosis code fields
-        initCodeAutocomplete(jQuery("input[name^='dxCode']"), "/billing/CA/ON/ViewBillingDigSearchAjax.do");
+        initCodeAutocomplete(jQuery("input[name^='dxCode']"), "/billing/CA/ON/ViewBillingDigSearchAjax");
 
         // Billing service code fields
-        initCodeAutocomplete(jQuery("input[name^='serviceCode']"), "/billing/CA/ON/ViewBillingCodeSearchAjax.do");
+        initCodeAutocomplete(jQuery("input[name^='serviceCode']"), "/billing/CA/ON/ViewBillingCodeSearchAjax");
 
         // Referral doctor fields: referralCode and referralDocName both trigger search
         function initRefDocAutocomplete(inputEl) {
             var inst = jQuery(inputEl).autocomplete({
                 source: function (request, response) {
-                    jQuery.getJSON(ctx + "/billing/CA/ON/ViewSearchRefDocAjax.do", {term: request.term}, response);
+                    jQuery.getJSON(ctx + "/billing/CA/ON/ViewSearchRefDocAjax", {term: request.term}, response);
                 },
                 minLength: 2,
                 delay: 300,
@@ -1441,7 +1441,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
 </div>
 
 <form method="post" id="titlesearch" name="titlesearch"
-      action="/billing/CA/ON/ViewBillingONReview.do" onsubmit="return onNext();">
+      action="/billing/CA/ON/ViewBillingONReview" onsubmit="return onNext();">
     <%
         String checkFlag = request.getParameter("checkFlag");
         if (checkFlag == null) checkFlag = "0";
@@ -1457,7 +1457,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
             <td><H4><i class="fa-solid fa-money-bill" style="margin-left:10px;"></i>&nbsp;<fmt:message key="oscar.billing.ca.on.billingON.headerTitle"/></H4></td>
             <td style="text-align: right"><i class="fa-solid fa-circle-question"></i>&nbsp;
                 <i class="fa-solid fa-pen-to-square"></i><a href="javascript:void(0);"
-                                              onclick="popupPage(800,700,'/billing/CA/ON/ViewBillingONFavourite.do'); return false;">
+                                              onclick="popupPage(800,700,'/billing/CA/ON/ViewBillingONFavourite'); return false;">
                     <fmt:message key="oscar.billing.ca.on.billingON.edit"/>
                 </a> <select name="cutlist" id="cutlist" onchange="changeCut(this)">
                     <option selected="selected" value=""><fmt:message key="oscar.billing.ca.on.billingON.superCodes"/></option>

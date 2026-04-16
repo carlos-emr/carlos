@@ -28,6 +28,6 @@
 
 --%>
 <%
-    String url = request.getContextPath() + "/index.jsp";
+    String url = request.getContextPath() + "/index";
 %>
 <META HTTP-EQUIV="refresh" content="0;URL=<%=url%>">

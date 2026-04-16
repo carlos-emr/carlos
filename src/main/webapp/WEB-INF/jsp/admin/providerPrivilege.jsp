@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="*" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -46,7 +46,7 @@
 %>
 
 
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.sql.BatchUpdateException" %>
 <%@ page import="java.sql.*" %>
@@ -396,7 +396,7 @@
 </head>
 <body>
 
-<form name="myform" action="${pageContext.request.contextPath}/admin/ProviderPrivilege.do" method="POST">
+<form name="myform" action="${pageContext.request.contextPath}/admin/ProviderPrivilege" method="POST">
     <table width="100%">
         <tr>
             <th><% if (msg.length() > 1) {%>
@@ -455,7 +455,7 @@
                 String roleUserName = vecProviderNo.contains(roleUser) ? Encode.forHtmlContent((String) vecProviderName.get(vecProviderNo.indexOf(roleUser))) : roleUser;
                 String obj = (vec.get(i)).getProperty("objectName", "");
         %>
-        <form name="myformrow<%=i%>" action="${pageContext.request.contextPath}/admin/ProviderPrivilege.do"
+        <form name="myformrow<%=i%>" action="${pageContext.request.contextPath}/admin/ProviderPrivilege"
               method="POST">
             <tr style="background-color:<%=bgColor%>">
                 <td><%= roleUserName %>
@@ -502,7 +502,7 @@
 
 <h4>Add Role/Privilege</h4>
 <div class="card card-body bg-body-tertiary">
-    <form name="myform2" action="${pageContext.request.contextPath}/admin/ProviderPrivilege.do" method="POST">
+    <form name="myform2" action="${pageContext.request.contextPath}/admin/ProviderPrivilege" method="POST">
         For:
         <select name="roleUserGroup"
                 onChange="onChangeSelect()">

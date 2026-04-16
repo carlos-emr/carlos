@@ -192,7 +192,7 @@
         function autoSave() {
             if (XMLHttpRequestObject) {
                 var obj = document.getElementById('caseNote_note');
-                XMLHttpRequestObject.open("POST", '<%=request.getContextPath() %>/CaseManagementEntry.do', true);
+                XMLHttpRequestObject.open("POST", '<%=request.getContextPath() %>/CaseManagementEntry', true);
                 XMLHttpRequestObject.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
 
                 var demographicNo = '<c:out value="${param.demographicNo}"/>';
@@ -229,7 +229,7 @@
         String pId = (String) session.getAttribute("case_program_id");
         if (pId == null) pId = "";
     %>
-    <form action="<%=request.getContextPath() %>/CaseManagementEntry.do" method="post">
+    <form action="<%=request.getContextPath() %>/CaseManagementEntry" method="post">
         <input type="hidden" name="chain" id="chain"/>
         <input type="hidden" name="demographicNo" id="demographicNo"/>
         <c:if test="${param.providerNo==null}">
@@ -375,7 +375,7 @@
         } else {
         %>
         <input id="showResolved" type="button" value="Show Resolved Issues"
-               onclick="document.location='CaseManagementEntry.do?method=edit&note_edit=new&from=casemgmt&demographicNo=<%=Encode.forUriComponent(request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "")%>&providerNo=<%=Encode.forUriComponent(request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "")%>&showResolved=true'"/>
+               onclick="document.location='CaseManagementEntry?method=edit&note_edit=new&from=casemgmt&demographicNo=<%=Encode.forUriComponent(request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "")%>&providerNo=<%=Encode.forUriComponent(request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "")%>&showResolved=true'"/>
         <%
             }
         %>

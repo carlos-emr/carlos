@@ -30,7 +30,7 @@
 --%>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 
@@ -50,7 +50,7 @@
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_report" rights="r" reverse="<%=true%>">
     <%
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     %>
 </security:oscarSec>
 <!DOCTYPE html>
@@ -97,7 +97,7 @@
                 if (confirm('Are you sure you want to delete this report template?')) {
                     var form = document.createElement('form');
                     form.method = 'post';
-                    form.action = 'addEditTemplatesAction.do';
+                    form.action = 'addEditTemplatesAction';
                     var fields = {templateid: templateId, action: 'delete'};
                     for (var key in fields) {
                         var input = document.createElement('input');
@@ -128,7 +128,7 @@
         <%@ include file="rbtTopNav.jspf" %>
 
             <%if (templateid == null) { %>
-        <jsp:forward page="/oscarReport/reportByTemplate/ViewHomePage.do"/>
+        <jsp:forward page="/oscarReport/reportByTemplate/ViewHomePage"/>
             <%}%>
 
     <h3>
@@ -144,7 +144,7 @@
     </c:if>
 
     <div class="card card-body bg-body-tertiary configDiv" id=manageGroups>
-        <form class="form" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/GenerateReportAction.do"
+        <form class="form" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/GenerateReportAction"
                    method="post" onsubmit="return checkform(this);">
             <input type="hidden" name="templateId" value="<%= Encode.forHtmlAttribute(curreport.getTemplateId()) %>">
             <input type="hidden" name="type" value="<%= Encode.forHtmlAttribute(curreport.getType()) %>">
@@ -245,8 +245,8 @@
     </div>
 
     <div id="optionsDiv" class="form-actions">
-        <a href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewViewTemplate.do?templateid=<%=Encode.forUriComponent(curreport.getTemplateId())%>" class="link">View Template XML</a>
-        <a href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate.do?templateid=<%=Encode.forUriComponent(curreport.getTemplateId())%>&amp;opentext=1" class="link">Edit
+        <a href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewViewTemplate?templateid=<%=Encode.forUriComponent(curreport.getTemplateId())%>" class="link">View Template XML</a>
+        <a href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate?templateid=<%=Encode.forUriComponent(curreport.getTemplateId())%>&amp;opentext=1" class="link">Edit
             Template</a>
         <a href="javascript:void(0);" onclick="deleteTemplate('<%=Encode.forJavaScriptAttribute(curreport.getTemplateId())%>');" class="link">
             Delete Template

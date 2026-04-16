@@ -105,7 +105,7 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         addActionMessage("Form Saved");
 
 
-        StringBuilder actionRedirect = new StringBuilder("/formBPMH.do?method=fetch");
+        StringBuilder actionRedirect = new StringBuilder("/formBPMH?method=fetch");
         actionRedirect.append("&demographic_no=").append(demographicNo);
         actionRedirect.append("&formId=").append(formId);
         actionRedirect.append("&provNo=");

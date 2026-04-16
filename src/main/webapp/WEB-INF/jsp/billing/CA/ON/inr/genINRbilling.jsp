@@ -25,7 +25,7 @@
 <%
     String user_no = (String) session.getAttribute("user");
 %>
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 
 <jsp:useBean id="SxmlMisc" class="io.github.carlos_emr.SxmlMisc" scope="session"/>

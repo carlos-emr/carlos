@@ -135,21 +135,21 @@
     String demoPath = rootContextPath + "/demographic/";
     String printEnvelope, printLbl, printAddressLbl, printChartLbl, printSexHealthLbl, printHtmlLbl, printLabLbl;
     if (oscarProps != null && "true".equals(oscarProps.getProperty("new_label_print"))) {
-        printEnvelope = demoPath + "ViewPrintEnvelope.do?demos=";
-        printLbl = demoPath + "ViewPrintDemoLabel.do?demographic_no=";
-        printAddressLbl = demoPath + "ViewPrintAddressLabel.do?demographic_no=";
-        printChartLbl = demoPath + "ViewPrintDemoChartLabel.do?demographic_no=";
-        printSexHealthLbl = demoPath + "ViewPrintDemoChartLabel.do?labelName=SexualHealthClinicLabel&demographic_no=";
-        printHtmlLbl = demoPath + "ViewDemographicLabelPrintSetting.do?demographic_no=";
-        printLabLbl = demoPath + "ViewPrintClientLabLabel.do?demographic_no=";
+        printEnvelope = demoPath + "ViewPrintEnvelope?demos=";
+        printLbl = demoPath + "ViewPrintDemoLabel?demographic_no=";
+        printAddressLbl = demoPath + "ViewPrintAddressLabel?demographic_no=";
+        printChartLbl = demoPath + "ViewPrintDemoChartLabel?demographic_no=";
+        printSexHealthLbl = demoPath + "ViewPrintDemoChartLabel?labelName=SexualHealthClinicLabel&demographic_no=";
+        printHtmlLbl = demoPath + "ViewDemographicLabelPrintSetting?demographic_no=";
+        printLabLbl = demoPath + "ViewPrintClientLabLabel?demographic_no=";
     } else {
-        printEnvelope = rootContextPath + "/report/GenerateEnvelopes.do?demos=";
-        printLbl = demoPath + "printDemoLabelAction.do?demographic_no=";
-        printAddressLbl = demoPath + "printDemoAddressLabelAction.do?demographic_no=";
-        printChartLbl = demoPath + "printDemoChartLabelAction.do?demographic_no=";
-        printSexHealthLbl = demoPath + "printDemoChartLabelAction.do?labelName=SexualHealthClinicLabel&demographic_no=";
-        printHtmlLbl = demoPath + "ViewDemographicLabelPrintSetting.do?demographic_no=";
-        printLabLbl = demoPath + "printClientLabLabelAction.do?demographic_no=";
+        printEnvelope = rootContextPath + "/report/GenerateEnvelopes?demos=";
+        printLbl = demoPath + "printDemoLabelAction?demographic_no=";
+        printAddressLbl = demoPath + "printDemoAddressLabelAction?demographic_no=";
+        printChartLbl = demoPath + "printDemoChartLabelAction?demographic_no=";
+        printSexHealthLbl = demoPath + "printDemoChartLabelAction?labelName=SexualHealthClinicLabel&demographic_no=";
+        printHtmlLbl = demoPath + "ViewDemographicLabelPrintSetting?demographic_no=";
+        printLabLbl = demoPath + "printClientLabLabelAction?demographic_no=";
     }
 
     String wLReadonly = "";
@@ -1356,17 +1356,17 @@
                                                         <security:oscarSec roleName="<%=roleName$%>" objectName="_demographicExport" rights="r" reverse="<%=false%>">
                                                             <input type="button" class="btn-toolbar-secondary"
                                                                    value="<fmt:message key="demographic.demographiceditdemographic.msgExport"/>"
-                                                                   onclick="window.open('<%= request.getContextPath() %>/demographic/DemographicExport.do?demographicNo=<%=demographic.getDemographicNo()%>');"/>
+                                                                   onclick="window.open('<%= request.getContextPath() %>/demographic/DemographicExport?demographicNo=<%=demographic.getDemographicNo()%>');"/>
                                                         </security:oscarSec>
                                                         <input type="button" class="btn-toolbar-secondary"
                                                                value="<fmt:message key="demographic.demographiceditdemographic.btnAuditInfo"/>"
-                                                               onclick="window.open('<%= Encode.forJavaScriptAttribute(request.getContextPath()) %>/demographic/ViewDemographicAudit.do?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic.getDemographicNo().toString())) %>');"/>
+                                                               onclick="window.open('<%= Encode.forJavaScriptAttribute(request.getContextPath()) %>/demographic/ViewDemographicAudit?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic.getDemographicNo().toString())) %>');"/>
                                                     </div>
                                                     <div class="toolbar-right">
                                                         <span id="swipeButtonBottom" style="display: none;">
                                                             <input type="button" name="Button" class="btn-toolbar-secondary"
                                                                    value="<fmt:message key="demographic.demographiceditdemographic.btnSwipeCard"/>"
-                                                                   onclick="window.open('<%= request.getContextPath() %>/demographic/ViewZdemographicSwipe.do','', 'scrollbars=yes,resizable=yes,width=600,height=300, top=360, left=0')">
+                                                                   onclick="window.open('<%= request.getContextPath() %>/demographic/ViewZdemographicSwipe','', 'scrollbars=yes,resizable=yes,width=600,height=300, top=360, left=0')">
                                                         </span>
                                                         <div class="dropdown">
                                                             <button class="btn-toolbar-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">

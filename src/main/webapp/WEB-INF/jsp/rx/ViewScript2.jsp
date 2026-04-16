@@ -75,7 +75,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -129,7 +129,7 @@
             String createAnewRx;
             if (reprint.equalsIgnoreCase("true")) {
                 bean = (RxSessionBean) session.getAttribute("tmpBeanRX");
-                createAnewRx = "window.location.href = '" + request.getContextPath() + "/rx/searchDrug.do'";
+                createAnewRx = "window.location.href = '" + request.getContextPath() + "/rx/searchDrug'";
             } else {
                 createAnewRx = "javascript:clearPending('')";
             }
@@ -259,7 +259,7 @@
             var csrfToken = csrfEl ? csrfEl.value : '';
 
             function resetStash() {
-                var url = "<c:out value="${ctx}"/>" + "/rx/deleteRx.do?parameterValue=clearStash";
+                var url = "<c:out value="${ctx}"/>" + "/rx/deleteRx?parameterValue=clearStash";
                 fetch(url, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
@@ -272,7 +272,7 @@
             }
 
             function resetReRxDrugList() {
-                var url = "<c:out value="${ctx}"/>" + "/rx/deleteRx.do?parameterValue=clearReRxDrugList";
+                var url = "<c:out value="${ctx}"/>" + "/rx/deleteRx?parameterValue=clearReRxDrugList";
                 fetch(url, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
@@ -312,7 +312,7 @@
             }
 
             function setDefaultAddr() {
-                var url = '<c:out value="${ctx}"/>/rx/ViewSetDefaultAddr.do';
+                var url = '<c:out value="${ctx}"/>/rx/ViewSetDefaultAddr';
                 var ran_number = Math.round(Math.random() * 1000000);
                 var addr = encodeURIComponent(document.getElementById('addressSel').value);
                 var params = "addr=" + addr + "&rand=" + ran_number;
@@ -328,7 +328,7 @@
 
             function addNotes() {
 
-                var url = '<c:out value="${ctx}"/>/rx/ViewAddRxComment.do';
+                var url = '<c:out value="${ctx}"/>/rx/ViewAddRxComment';
                 var ran_number = Math.round(Math.random() * 1000000);
                 var comment = encodeURIComponent(document.getElementById('additionalNotes').value);
                 var params = "scriptNo=<%=request.getAttribute("scriptId")%>&comment=" + comment + "&rand=" + ran_number;  //]
@@ -451,7 +451,7 @@
 
 	function writeToEncounter(print, text) {
     	try {
-			var url = "<%=request.getContextPath() %>/rx/WriteToEncounter.do";
+			var url = "<%=request.getContextPath() %>/rx/WriteToEncounter";
 			var prefPharmacy = "<%=prefPharmacy != null ? Encode.forJavaScriptBlock(prefPharmacy) : ""%>";
 			fetch(url, {
 				method: 'POST',
@@ -480,7 +480,7 @@
             function openEncounter() {
                 var windowprops = "height=710,width=1024,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=20,left=20";
                 var currentDate = new Date().toISOString().substring(0, 10);
-                var url = "<%= request.getContextPath() %>/encounter/IncomingEncounter.do?providerNo=<%= bean.getProviderNo() %>&demographicNo=<%= bean.getDemographicNo() %>&curProviderNo=<%= bean.getProviderNo() %>&userName=<%=Encode.forUriComponent(ProviderData.getProviderName(bean.getProviderNo()))%>&curDate=" + currentDate;
+                var url = "<%= request.getContextPath() %>/encounter/IncomingEncounter?providerNo=<%= bean.getProviderNo() %>&demographicNo=<%= bean.getDemographicNo() %>&curProviderNo=<%= bean.getProviderNo() %>&userName=<%=Encode.forUriComponent(ProviderData.getProviderName(bean.getProviderNo()))%>&curDate=" + currentDate;
 
                 if (window.parent.opener && window.parent.opener.document.forms["caseManagementEntryForm"] != undefined) {
                     // redirect if encounter window open
@@ -608,7 +608,7 @@
             }
 
 function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
-	fetch('<%=request.getContextPath() %>/rx/saveDigitalSignature.do', {
+	fetch('<%=request.getContextPath() %>/rx/saveDigitalSignature', {
 		method: 'POST',
 		headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
 		credentials: 'same-origin',
@@ -684,12 +684,12 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
                                         <iframe id='preview' name='preview' width=420px height=890px
-							src="<%= request.getContextPath() %>/rx/ViewPreview2.do?scriptId=<%=bean.getStashItem(0).getScript_no()%>&rePrint=<%=reprint%>&pharmacyId=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("pharmacyId"))) %>"
+							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%=bean.getStashItem(0).getScript_no()%>&rePrint=<%=reprint%>&pharmacyId=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("pharmacyId"))) %>"
 							align=center border=0 frameborder=0></iframe></div>
 					<% } %>
                                 </td>
 
-                                <td valign=top><form name="RxClearPendingForm" action="${pageContext.request.contextPath}/rx/clearPending.do" method="post">
+                                <td valign=top><form name="RxClearPendingForm" action="${pageContext.request.contextPath}/rx/clearPending" method="post">
                                     <input type="hidden" name="action" id="action" value=""/>
                                     <div class="warning-note" id="faxWarningNote">
                                         <strong><fmt:message key="ViewScript.msgWarning"/></strong> <fmt:message key="ViewScript.msgFaxWarning"/><br/><br/><fmt:message key="ViewScript.msgFaxWarningHelp"/>
@@ -712,7 +712,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         }
 
                                         function ShowDrugInfo(drug) {
-                                            window.open('<c:out value="${ctx}"/>/rx/drugInfo.do?GN=' + encodeURIComponent(drug), "_blank",
+                                            window.open('<c:out value="${ctx}"/>/rx/drugInfo?GN=' + encodeURIComponent(drug), "_blank",
                                                 "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
                                         }
 
@@ -723,7 +723,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 	                                if(! id) {
 										return;
 	                                }
-                                    var url="<c:out value="${ctx}"/>"+"/rx/managePharmacy2.do?method=getPharmacyInfo&pharmacyId="+id;
+                                    var url="<c:out value="${ctx}"/>"+"/rx/managePharmacy2?method=getPharmacyInfo&pharmacyId="+id;
                                     fetch(url, {
                                         method: 'GET',
                                         headers: {'X-Requested-With': 'XMLHttpRequest'},
@@ -903,7 +903,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 									<input type="hidden" name="<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>"
 										   value="<%=signatureRequestId%>"/>
 									<iframe style="width:500px; height:132px;" id="signatureFrame"
-											src="<%= request.getContextPath() %>/signature_pad/tabletSignature.do?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=signatureRequestId%>&saveToDB=true&demographicNo=<%=bean.getDemographicNo()%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.PRESCRIPTION%>"></iframe>
+											src="<%= request.getContextPath() %>/signature_pad/tabletSignature?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=signatureRequestId%>&saveToDB=true&demographicNo=<%=bean.getDemographicNo()%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.PRESCRIPTION%>"></iframe>
                                             </td>
                                         </tr>
 						<% } %>

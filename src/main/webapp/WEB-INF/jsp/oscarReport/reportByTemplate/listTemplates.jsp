@@ -34,7 +34,7 @@
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObject" %>
 <%
 
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 
     ArrayList templates = (new ReportManager()).getReportTemplatesNoParam();
@@ -45,15 +45,15 @@
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_report" rights="r" reverse="<%=true%>">
     <%
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     %>
 </security:oscarSec>
 
 <div class="templatelist">
-    <a href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate.do" style="color: #226d55; font-size: 10px;">Add Template</a>
+    <a href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate" style="color: #226d55; font-size: 10px;">Add Template</a>
     <div class="templatelistHeader">Select a template:</div>
     <ul class="templatelist">
-        <li><a href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewHomePage.do"><b>Main Page</b></a> <%
+        <li><a href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewHomePage"><b>Main Page</b></a> <%
 				class CustomComparator implements Comparator<ReportObject>{
 			        public int compare(ReportObject r1, ReportObject r2){
 			                return r1.getTitle().compareTo(r2.getTitle());
@@ -70,7 +70,7 @@
 	                if (templateId.equals(templateViewId)) selectedTemplate = "selectedTemplate";%>
 
         <li class="<%=selectedTemplate%>"><%=String.valueOf(i + 1)%>. <a
-                href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewReportConfiguration.do?templateid=<%=templateId%>"><%=templateTitle%>
+                href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewReportConfiguration?templateid=<%=templateId%>"><%=templateTitle%>
         </a></li>
         <% } %>
     </ul>

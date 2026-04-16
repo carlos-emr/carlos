@@ -100,19 +100,19 @@ public class LabsDocsSummary implements Summary {
             if (result.isMDS()) {
                 if (label == null || label.equals("")) labDisplayName = result.getDiscipline();
                 else labDisplayName = label;
-                url = "../oscarMDS/ViewSegmentDisplay.do?providerNo=" + Encode.forUriComponent(loggedInInfo.getLoggedInProvider().getProviderNo()) + "&segmentID=" + Encode.forUriComponent(String.valueOf(result.segmentID)) + "&status=" + Encode.forUriComponent(String.valueOf(result.getReportStatus()));
+                url = "../oscarMDS/ViewSegmentDisplay?providerNo=" + Encode.forUriComponent(loggedInInfo.getLoggedInProvider().getProviderNo()) + "&segmentID=" + Encode.forUriComponent(String.valueOf(result.segmentID)) + "&status=" + Encode.forUriComponent(String.valueOf(result.getReportStatus()));
             } else if (result.isCML()) {
                 if (label == null || label.equals("")) labDisplayName = result.getDiscipline();
                 else labDisplayName = label;
-                url = "../lab/CA/ON/ViewCMLDisplay.do?providerNo=" + loggedInInfo.getLoggedInProvider().getProviderNo() + "&segmentID=" + result.segmentID;
+                url = "../lab/CA/ON/ViewCMLDisplay?providerNo=" + loggedInInfo.getLoggedInProvider().getProviderNo() + "&segmentID=" + result.segmentID;
             } else if (result.isHL7TEXT()) {
                 if (label == null || label.equals("")) labDisplayName = result.getDiscipline();
                 else labDisplayName = label;
-                url = "../lab/CA/ALL/ViewLabDisplay.do?providerNo=" + loggedInInfo.getLoggedInProvider().getProviderNo() + "&segmentID=" + result.segmentID;
+                url = "../lab/CA/ALL/ViewLabDisplay?providerNo=" + loggedInInfo.getLoggedInProvider().getProviderNo() + "&segmentID=" + result.segmentID;
             } else {
                 if (label == null || label.equals("")) labDisplayName = result.getDiscipline();
                 else labDisplayName = label;
-                url = "../lab/CA/BC/ViewLabDisplay.do?segmentID=" + result.segmentID + "&providerNo=" + loggedInInfo.getLoggedInProvider().getProviderNo();
+                url = "../lab/CA/BC/ViewLabDisplay?segmentID=" + result.segmentID + "&providerNo=" + loggedInInfo.getLoggedInProvider().getProviderNo();
             }
 
             SummaryItemTo1 summaryItem = new SummaryItemTo1(Integer.parseInt(result.segmentID), labDisplayName, "action", "lab"); //+result.labType);
@@ -162,7 +162,7 @@ public class LabsDocsSummary implements Summary {
 
 
             if (curDoc.isPDF()) {
-                url = "../documentManager/ViewMultiPageDocDisplay.do?segmentID=" + dispDocNo + "&providerNo=" + loggedInInfo.getLoggedInProviderNo() + "&searchProviderNo=" + loggedInInfo.getLoggedInProviderNo() + "&status=A&demoName=";
+                url = "../documentManager/ViewMultiPageDocDisplay?segmentID=" + dispDocNo + "&providerNo=" + loggedInInfo.getLoggedInProviderNo() + "&searchProviderNo=" + loggedInInfo.getLoggedInProviderNo() + "&status=A&demoName=";
             } else {
                 url = "";
             }

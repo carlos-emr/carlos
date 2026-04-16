@@ -99,7 +99,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_tickler");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_tickler");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -539,9 +539,9 @@
 
                 // Set form action based on mode
                 if (writeToEncounter) {
-                    form.action = "<%= request.getContextPath() %>/tickler/DbTicklerAdd.do?writeToEncounter=true";
+                    form.action = "<%= request.getContextPath() %>/tickler/DbTicklerAdd?writeToEncounter=true";
                 } else {
-                    form.action = "<%= request.getContextPath() %>/tickler/DbTicklerAdd.do";
+                    form.action = "<%= request.getContextPath() %>/tickler/DbTicklerAdd";
                 }
                 form.target = 'ticklerSubmitFrame';
                 form.submit();
@@ -666,10 +666,10 @@
             }
             ChartNo = bFirstDisp ? "" : request.getParameter("chart_no") == null ? "" : request.getParameter("chart_no");
         %>
-        <form name="ADDAPPT" method="post" action="<%= request.getContextPath() %>/appointment/appointmentcontrol.do">
+        <form name="ADDAPPT" method="post" action="<%= request.getContextPath() %>/appointment/appointmentcontrol">
             <input type="hidden" name="orderby" value="last_name">
             <input type="hidden" name="search_mode" value="<%=Encode.forHtmlAttribute(searchMode)%>">
-            <input type="hidden" name="originalpage" value="<%=Encode.forHtmlAttribute(request.getContextPath() + "/tickler/ViewAddTickler.do")%>">
+            <input type="hidden" name="originalpage" value="<%=Encode.forHtmlAttribute(request.getContextPath() + "/tickler/ViewAddTickler")%>">
             <input type="hidden" name="limit1" value="0">
             <input type="hidden" name="limit2" value="5">
             <input type="hidden" name="displaymode" value="Search ">
@@ -711,7 +711,7 @@
                 </tr>
             </table>
         </form>
-        <form name="serviceform" method="post" action="<%=request.getContextPath()%>/tickler/DbTicklerAdd.do">
+        <form name="serviceform" method="post" action="<%=request.getContextPath()%>/tickler/DbTicklerAdd">
             <input type="hidden" name="parentAjaxId" value="<%=Encode.forHtmlAttribute(parentAjaxId)%>">
             <input type="hidden" name="updateParent" value="<%=Encode.forHtmlAttribute(updateParent)%>">
             <input type="hidden" name="writeToEncounter" value="<%=Encode.forHtmlAttribute(writeToEncounter.toString())%>">
@@ -900,7 +900,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="tickler-label"><a href="#" onclick="openBrWindow('<%= request.getContextPath() %>/tickler/ViewTicklerSuggestedText.do','','width=680,height=400')" style="font-weight:bold"><fmt:message key="tickler.ticklerEdit.suggestedText"/></a>:</td>
+                    <td class="tickler-label"><a href="#" onclick="openBrWindow('<%= request.getContextPath() %>/tickler/ViewTicklerSuggestedText','','width=680,height=400')" style="font-weight:bold"><fmt:message key="tickler.ticklerEdit.suggestedText"/></a>:</td>
                     <td>
                         <select name="suggestedText" class="form-select" onchange="pasteMessageText()">
                             <option value="">---</option>

@@ -79,7 +79,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
 <%
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 
     UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
 
@@ -322,7 +322,7 @@
         <span class="d-flex align-items-center gap-1">
             <i class="fa-solid fa-circle-info"></i>
             <a href="javascript:void(0)"
-               onClick="window.open('<%=request.getContextPath()%>/encounter/ViewAbout.do','About CARLOS EMR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')"><fmt:message key="global.about"/></a>
+               onClick="window.open('<%=request.getContextPath()%>/encounter/ViewAbout','About CARLOS EMR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')"><fmt:message key="global.about"/></a>
         </span>
     </div>
 
@@ -344,7 +344,7 @@
             <div class="row">
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.unlockAccount" rights="r">
                     <div class="card card-body bg-body-tertiary quick-links">
-                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/UnLock.do"><i
+                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/UnLock"><i
                                 class="fa-solid fa-user fa-4x"></i>
                             <h5><fmt:message key="admin.admin.unlockAcct"/></h5></a>
                     </div>
@@ -353,13 +353,13 @@
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin,_admin.provider"
                                    rights="r" reverse="<%=false%>">
                     <div class="card card-body bg-body-tertiary quick-links">
-                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewProviderAddARecordHtm.do"><i
+                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewProviderAddARecordHtm"><i
                                 class="fa-solid fa-user fa-4x"></i>
                             <h5><fmt:message key="admin.admin.btnAddProvider"/></h5></a>
                     </div>
 
                     <div class="card card-body bg-body-tertiary quick-links">
-                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewSecurityAddARecord.do"><i
+                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewSecurityAddARecord"><i
                                 class="fa-solid fa-user fa-4x"></i>
                             <h5><fmt:message key="admin.admin.btnAddLogin"/></h5></a>
                     </div>
@@ -368,7 +368,7 @@
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.eform" rights="r"
                                    reverse="<%=false%>">
                     <div class="card card-body bg-body-tertiary quick-links">
-                        <a href="${ctx}/eform/efmformmanager.jsp" class="contentLink defaultForms"><i
+                        <a href="${ctx}/eform/efmformmanager" class="contentLink defaultForms"><i
                                 class="fa-solid fa-file fa-4x"></i>
                             <h5><fmt:message key="eform.showmyform.msgManageEFrm"/></h5></a>
                     </div>
@@ -377,14 +377,14 @@
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.schedule" rights="r"
                                    reverse="<%=false%>">
                     <div class="card card-body bg-body-tertiary quick-links">
-                        <a href="javascript:void(0);" class="xlink" rel="${ctx}/schedule/TemplateSetting.do"
+                        <a href="javascript:void(0);" class="xlink" rel="${ctx}/schedule/TemplateSetting"
                            title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><i
                                 class="fa-solid fa-calendar fa-4x"></i>
                             <h5><fmt:message key="admin.admin.scheduleSetting"/></h5></a>
                     </div>
 
                     <div class="card card-body bg-body-tertiary quick-links">
-                        <a href="javascript:void(0);" class="xlink" rel="${ctx}/admin/ViewAdminDisplayMyGroup.do"><i
+                        <a href="javascript:void(0);" class="xlink" rel="${ctx}/admin/ViewAdminDisplayMyGroup"><i
                                 class="fa-solid fa-calendar fa-4x"></i>
                             <h5><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></h5></a>
                     </div>
@@ -393,7 +393,7 @@
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.encounter" rights="r"
                                    reverse="<%=false%>">
                     <div class="card card-body bg-body-tertiary quick-links">
-                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ProviderTemplate.do"><i
+                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ProviderTemplate"><i
                                 class="fa-solid fa-suitcase-medical fa-4x"></i>
                             <h5><fmt:message key="admin.admin.btnInsertTemplate"/></h5></a>
                     </div>
@@ -402,7 +402,7 @@
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="r"
                                    reverse="<%=false%>">
                     <div class="card card-body bg-body-tertiary quick-links">
-                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ProviderPrivilege.do"><i
+                        <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ProviderPrivilege"><i
                                 class="fa-solid fa-wrench fa-4x"></i>
                             <h5><fmt:message key="admin.admin.assignRightsObject"/></h5></a>
                     </div>

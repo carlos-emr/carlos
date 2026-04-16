@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.misc" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.misc");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.misc");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -70,7 +70,7 @@
             }
 
             function getUpdateTime() {
-                const url = "<c:out value='${ctx}'/>" + "/rx/updateDrugrefDB.do";
+                const url = "<c:out value='${ctx}'/>" + "/rx/updateDrugrefDB";
                 const formData = new URLSearchParams();
                 formData.append('method', 'verify');
                 formData.append('CSRF-TOKEN', getCsrfToken());
@@ -118,7 +118,7 @@
             }
 
             function updateDB() {
-                const url = "<c:out value='${ctx}'/>" + "/rx/updateDrugrefDB.do";
+                const url = "<c:out value='${ctx}'/>" + "/rx/updateDrugrefDB";
                 const formData = new URLSearchParams();
                 formData.append('method', 'updateDB');
                 formData.append('CSRF-TOKEN', getCsrfToken());

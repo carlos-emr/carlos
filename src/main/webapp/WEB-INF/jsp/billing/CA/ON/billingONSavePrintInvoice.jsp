@@ -35,7 +35,7 @@
         }
     }
 
-    popupPage(700, 720, '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingON3rdInv.do?billingNo=<%= billingNo != null ? billingNo : 0 %>');
+    popupPage(700, 720, '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingON3rdInv?billingNo=<%= billingNo != null ? billingNo : 0 %>');
     self.close();
     try { if (self.opener && self.opener.refresh) { self.opener.refresh(); } else { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); } } catch(e) { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); }
 </script>

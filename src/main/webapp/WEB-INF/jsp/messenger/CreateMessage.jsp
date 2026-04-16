@@ -117,7 +117,7 @@
 <%-- Security tag: Verify user has write permissions for messaging module --%>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_msg");%>
 </security:oscarSec>
 <%
     // Exit page execution if user is not authorized
@@ -129,12 +129,12 @@
 
 <%-- Session validation: Ensure message session bean exists and is valid --%>
 <c:if test="${empty sessionScope.msgSessionBean}">
-    <c:redirect url="index.jsp"/>
+    <c:redirect url="/index"/>
 </c:if>
 <c:if test="${not empty sessionScope.msgSessionBean}">
     <c:set var="bean" value="${sessionScope.msgSessionBean}" scope="page"/>
     <c:if test="${bean.valid == false}">
-        <c:redirect url="index.jsp"/>
+        <c:redirect url="/index"/>
     </c:if>
 </c:if>
 
@@ -346,7 +346,7 @@ function validateFields() {
 			return;
 		}
 
-		var theArchiveLink = theLinkComponents[0].substring(0, theLinkComponents[0].lastIndexOf('/')) + '/DisplayMessages.do';
+		var theArchiveLink = theLinkComponents[0].substring(0, theLinkComponents[0].lastIndexOf('/')) + '/DisplayMessages';
 
 		oRequest.open('POST', theArchiveLink, true);
 		oRequest.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
@@ -375,7 +375,7 @@ function validateFields() {
 	    var vheight = 700;
 	    var vwidth = 900;
 	    var windowprops = "height="+vheight+",width="+vwidth+",location=0,scrollbars=1,menubar=0,toolbar=1,resizable=1,screenX=0,screenY=0,top=0,left=0";
-	    var page = 'attachmentFrameset.jsp?demographic_no=' +demographic;
+	    var page = '<%= request.getContextPath() %>/messenger/attachmentFrameset?demographic_no=' +demographic;
 
 	    if ( demographic == "" || !demographic || demographic == "null") {
 	        showAlert(msgSelectDemographic, 'warning');
@@ -457,10 +457,10 @@ function validateFields() {
 			<tr>
 
 						<td><div style="display:flex; padding-left:10px;">
-						    <a class="btn btn-primary" href="<%=request.getContextPath()%>/messenger/DisplayMessages.do">
+						    <a class="btn btn-primary" href="<%=request.getContextPath()%>/messenger/DisplayMessages">
 								<fmt:message key="messenger.ViewMessage.btnInbox" />
 							</a>
-                            <a class="btn btn-outline-secondary" href="<%=request.getContextPath()%>/messenger/ClearMessage.do">
+                            <a class="btn btn-outline-secondary" href="<%=request.getContextPath()%>/messenger/ClearMessage">
 								<fmt:message key="messenger.CreateMessage.btnClear" />
 							</a>
                             <button type="button" class="btn btn-outline-secondary" onclick="BackToCarlos()">
@@ -474,7 +474,7 @@ function validateFields() {
 
 			<tr>
 				<td><!-- colspan -->
-				<form action="${pageContext.request.contextPath}/messenger/CreateMessage.do" method="post" onsubmit="return validateFields()">
+				<form action="${pageContext.request.contextPath}/messenger/CreateMessage" method="post" onsubmit="return validateFields()">
 				<table class="card card-body bg-body-tertiary" style="width:100%">
 						<tr class="subheader">
 							<th><fmt:message key="messenger.CreateMessage.msgRecipients" /></th>

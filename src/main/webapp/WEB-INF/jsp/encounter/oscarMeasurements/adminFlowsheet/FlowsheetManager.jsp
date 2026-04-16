@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -73,7 +73,7 @@
             });
 
             function listSystemFlowsheets() {
-                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=listSystem", {},
+                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=listSystem", {},
                     function (xml) {
                         var arr = new Array();
                         if (xml.results instanceof Array) {
@@ -104,7 +104,7 @@
             }
 
             function listFlowsheets(scope) {
-                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=list&scope=" + scope, {},
+                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=list&scope=" + scope, {},
                     function (xml) {
                         jQuery('#' + scope + 'Table tbody').empty();
                         var arr = new Array();
@@ -132,16 +132,16 @@
             }
 
             function addNewFlowsheet(scope) {
-                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetAdd.do?scope=' + scope;
+                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetAdd?scope=' + scope;
             }
 
             function editFlowsheet(id) {
-                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetEditor.do?id=' + id;
+                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetEditor?id=' + id;
             }
 
             function deleteFlowsheet(id) {
                 if (confirm('Are you sure you would like to delete this flowhseet?')) {
-                    jQuery.post("<%=request.getContextPath()%>/admin/Flowsheet.do",
+                    jQuery.post("<%=request.getContextPath()%>/admin/Flowsheet",
                         {method: "deleteFlowsheet", id: id},
                         function (xml) {
                             listFlowsheets1();

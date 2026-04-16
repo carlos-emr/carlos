@@ -38,7 +38,7 @@
                    objectName="_admin,_admin.userAdmin" rights="r"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -63,7 +63,7 @@
 
 <%@ page
         import="java.lang.*, java.util.*, java.text.*,java.sql.*, io.github.carlos_emr.*"
-        errorPage="/errorpage.jsp" %>
+        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
@@ -227,7 +227,7 @@
                 <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.securityaddarecord.description"/></font></th>
             </tr>
         </table>
-        <form method="post" action="${pageContext.request.contextPath}/admin/SecurityAddSecurity.do" name="searchprovider"
+        <form method="post" action="${pageContext.request.contextPath}/admin/SecurityAddSecurity" name="searchprovider"
               onsubmit="return onsub()">
 
             <table cellspacing="0" cellpadding="2" width="90%" border="0">

@@ -109,7 +109,7 @@
                 return;
             }
             isSaving = true;
-            let url = context + "/Scratch.do";
+            let url = context + "/Scratch";
             let timeoutId = setTimeout(() => {
                 // Abort ongoing AJAX request if still pending
                 $.ajaxStop();
@@ -330,7 +330,7 @@
 		        console.warn('showVersion: invalid or non-numeric id, ignoring.');
 		        return;
 	        }
-	        let url = context + "/Scratch.do?method=showVersion&id=" + numId;
+	        let url = context + "/Scratch?method=showVersion&id=" + numId;
 	        let win = window.open(url, "scratchPadVersion", "width=" +window.innerWidth+ ",height=" +window.innerHeight+ ",toolbar=no, scrollbars=yes");
 	        if (win) {
 		        win.focus();

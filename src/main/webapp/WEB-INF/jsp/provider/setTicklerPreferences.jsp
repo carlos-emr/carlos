@@ -73,7 +73,7 @@
             <td class="MainTableLeftColumn"></td>
             <td class="MainTableRightColumn">
                 <%if (request.getAttribute("status") == null) {%>
-                <form action="${pageContext.request.contextPath}/setTicklerPreferences.do" method="post">
+                <form action="${pageContext.request.contextPath}/setTicklerPreferences" method="post">
                     <input type="hidden" name="method" value="<c:out value="${method}"/>">
 
                     <h2>Default Tickler Task Assignee:</h2>

@@ -80,7 +80,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -166,7 +166,7 @@
                 <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.provideraddrecordhtm.description"/></font></th>
             </tr>
         </table>
-        <form method="post" action="${pageContext.request.contextPath}/admin/ProviderAddARecord.do" name="searchprovider" onsubmit="return onsub()">
+        <form method="post" action="${pageContext.request.contextPath}/admin/ProviderAddARecord" name="searchprovider" onsubmit="return onsub()">
             <table cellspacing="0" cellpadding="2" width="90%" border="0">
                 <tr>
                     <td width="50%" align="right"><fmt:message key="admin.provider.formProviderNo"/><font color="red">:</font></td>

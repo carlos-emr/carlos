@@ -81,7 +81,7 @@
             var form = self.opener.document.forms['reassignForm_' + doclabid];
             var data = new URLSearchParams(new FormData(form)).toString();
 
-            var url = '<%=request.getContextPath()%>' + "/oscarMDS/Forward.do";
+            var url = '<%=request.getContextPath()%>' + "/oscarMDS/Forward";
             CarlosAjax.request(url, {
                 method: 'post', postBody: data, onSuccess: function (transport) {
 
@@ -93,7 +93,7 @@
 </script>
 
 <body>
-<form name="providerSelectForm" method="post" action="AssignLab.do">
+<form name="providerSelectForm" method="post" action="AssignLab">
     <center>
         <p><font size="-1"><fmt:message key="oscarMDS.selectProvider.msgSelectProvider"/>:</font></p>
         <select name="selectedProviders" size="10" multiple>

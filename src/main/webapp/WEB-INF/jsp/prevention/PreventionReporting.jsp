@@ -57,7 +57,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_prevention" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_prevention");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_prevention");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -165,7 +165,7 @@
             </h4>
         </div>
 
-        <form action="${pageContext.request.contextPath}/prevention/PreventionReport.do" method="get">
+        <form action="${pageContext.request.contextPath}/prevention/PreventionReport" method="get">
             <table class="table table-sm" style="font-size:13px; margin-bottom:10px;">
                 <tr>
                     <td style="width:180px;">Patient Demographic Query</td>
@@ -287,7 +287,7 @@
                 <tr>
                     <td><%=i+1%></td>
                     <td>
-                        <a href="javascript: return false;" onClick="popup(724,964,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=Encode.forHtmlAttribute(dis.demographicNo.toString())%>','MasterDemographic')"><%=Encode.forHtml(dis.demographicNo.toString())%></a>
+                        <a href="javascript: return false;" onClick="popup(724,964,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<%=Encode.forHtmlAttribute(dis.demographicNo.toString())%>','MasterDemographic')"><%=Encode.forHtml(dis.demographicNo.toString())%></a>
                     </td>
                     <td><%=DemographicData.getDob(demo,"-")%></td>
 

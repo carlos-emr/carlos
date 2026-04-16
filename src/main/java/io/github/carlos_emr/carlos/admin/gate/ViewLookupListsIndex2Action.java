@@ -22,7 +22,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * View gate for {@code admin/lookUpLists/index.jsp}. Enforces {@code _admin}
+ * View gate for {@code admin/lookUpLists/index}. Enforces {@code _admin}
  * {@code w} privilege before forwarding to the JSP at its
  * {@code /WEB-INF/jsp/admin/} location. Part of the admin module
  * security-hardening migration (defense in depth; matches the 2Action

@@ -5,14 +5,14 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
         return;
     }
 %>
-<%@ page errorPage="/errorpage.jsp"
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
          import="java.util.*, io.github.carlos_emr.carlos.report.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.login.*" %>
 <%@ page import="org.apache.commons.lang3.*" %>
@@ -101,11 +101,11 @@
             }
 
             function goCaption() {
-                //self.location.href = "<%= request.getContextPath() %>/report/ViewReportFormCaption.do?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>";
+                //self.location.href = "<%= request.getContextPath() %>/report/ViewReportFormCaption?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>";
             }
 
             function goPage(id) {
-                self.location.href = "<%= request.getContextPath() %>/report/ViewReportFilter.do?id=" + id;
+                self.location.href = "<%= request.getContextPath() %>/report/ViewReportFilter?id=" + id;
             }
 
             //-->
@@ -119,15 +119,15 @@
         <tr BGCOLOR="#CCCCFF">
             <td><%=Encode.forHtml(reportName)%> Configuration</td>
             <td width="10%" align="right" nowrap><a
-                    href="<%= request.getContextPath() %>/report/ViewReportFilter.do?id=<%= Encode.forUriComponent(reportId) %>">Back to the Report</a></td>
+                    href="<%= request.getContextPath() %>/report/ViewReportFilter?id=<%= Encode.forUriComponent(reportId) %>">Back to the Report</a></td>
         </tr>
     </table>
 
     <table width="100%" border="1" cellspacing="0" cellpadding="2">
-        <form method="post" name="baseurl0" action="<%= request.getContextPath() %>/report/ViewReportFormDemoConfig.do">
+        <form method="post" name="baseurl0" action="<%= request.getContextPath() %>/report/ViewReportFormDemoConfig">
             <tr bgcolor="<%="#EEEEFF"%>">
                 <td align="center" width="45%"><a
-                        href="<%= request.getContextPath() %>/report/ViewReportFormConfig.do?id=<%= Encode.forUriComponent(reportId) %>">Form</a> | Patient
+                        href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<%= Encode.forUriComponent(reportId) %>">Form</a> | Patient
                     Profile <br/>
                     <select size=28 name="selField" ondblclick="javascript:onSelField();">
                         <%
@@ -147,7 +147,7 @@
                         <% } %>
                     </select> <br>
                     <a
-                            href="<%= request.getContextPath() %>/report/ViewReportFormCaption.do?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>&formTableName=<%= Encode.forUriComponent(formTableName) %>&configTableName=<%= Encode.forUriComponent(configTableName) %>">Add
+                            href="<%= request.getContextPath() %>/report/ViewReportFormCaption?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>&formTableName=<%= Encode.forUriComponent(formTableName) %>&configTableName=<%= Encode.forUriComponent(configTableName) %>">Add
                         Caption</a></td>
 
                 <td align="center" width="20%" nowrap valign="top">

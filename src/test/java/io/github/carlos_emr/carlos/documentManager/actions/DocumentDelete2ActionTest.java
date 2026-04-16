@@ -120,7 +120,7 @@ class DocumentDelete2ActionTest extends CarlosUnitTestBase {
         action.execute();
         assertThat(deletedDocNos).containsExactly("42");
         assertThat(mockResponse.getRedirectedUrl())
-            .contains("/documentManager/ViewDocumentReport.do")
+            .contains("/documentManager/ViewDocumentReport")
             .contains("function=demographic")
             .contains("functionid=1001")
             .contains("viewstatus=active");
@@ -134,7 +134,7 @@ class DocumentDelete2ActionTest extends CarlosUnitTestBase {
         action.setCategorykey("Private Documents");
         action.execute();
         assertThat(mockResponse.getRedirectedUrl())
-            .contains("/documentManager/ViewDocumentBrowser.do")
+            .contains("/documentManager/ViewDocumentBrowser")
             .contains("categorykey=");
     }
 
@@ -168,6 +168,6 @@ class DocumentDelete2ActionTest extends CarlosUnitTestBase {
         action.execute();
         assertThat(deletedDocNos).isEmpty();
         assertThat(mockResponse.getStatus()).isNotEqualTo(400);
-        assertThat(mockResponse.getRedirectedUrl()).contains("ViewDocumentReport.do");
+        assertThat(mockResponse.getRedirectedUrl()).contains("ViewDocumentReport");
     }
 }

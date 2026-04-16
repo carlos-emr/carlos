@@ -33,7 +33,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -93,7 +93,7 @@
 
         <tr style="<%=style %>" bgcolor="<%=bgcolor %>">
             <td valign="middle"><a
-                    href="FacilityMessage.do?method=edit&id=<c:out value="${msg.id}"/>"><img
+                    href="FacilityMessage?method=edit&id=<c:out value="${msg.id}"/>"><img
                     border="0" src="images/edit.jpg"/></a></td>
             <td><c:out value="${msg.facilityName}"/></td>
             <td><c:out value="${msg.programName}"/></td>
@@ -109,9 +109,9 @@
 <table>
     <tr>
         <td><input type="button" value="Back"
-                   onclick="location.href='<%=request.getContextPath()%>/admin/ViewAdmin.do'"/></td>
+                   onclick="location.href='<%=request.getContextPath()%>/admin/ViewAdmin'"/></td>
         <td><input type="button" value="Create New Message"
-                   onclick="location.href='FacilityMessage.do?method=edit'"/></td>
+                   onclick="location.href='FacilityMessage?method=edit'"/></td>
     </tr>
 </table>
 

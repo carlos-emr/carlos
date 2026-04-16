@@ -58,7 +58,7 @@ Makes an AJAX request without DOM manipulation. Replacement for `Ajax.Request`.
 **Example:**
 
 ```javascript
-CarlosAjax.request('saveNote.do', {
+CarlosAjax.request('saveNote', {
     method: 'POST',
     parameters: { noteId: 123, content: noteText },
     onSuccess: function(transport) {
@@ -100,7 +100,7 @@ Makes an AJAX request and inserts the response HTML into a DOM element. Replacem
 
 ```javascript
 // Append drug row to existing list (preserves existing rows)
-CarlosAjax.updater('rxText', 'addDrug.do', {
+CarlosAjax.updater('rxText', 'addDrug', {
     method: 'POST',
     parameters: { drugId: 456 },
     insertion: 'bottom',
@@ -111,7 +111,7 @@ CarlosAjax.updater('rxText', 'addDrug.do', {
 });
 
 // Replace entire section content
-CarlosAjax.updater('labResults', 'loadLabs.do', {
+CarlosAjax.updater('labResults', 'loadLabs', {
     method: 'GET',
     parameters: { demographicNo: demoNo },
     evalScripts: true
@@ -119,7 +119,7 @@ CarlosAjax.updater('labResults', 'loadLabs.do', {
 
 // Success-only update — only inserts HTML on HTTP 2xx (no DOM change on failure)
 // Used in newCaseManagementView.js.jsp (lines 2399, 2840) for note saving
-CarlosAjax.updater({success: 'noteContainer'}, 'saveNote.do', {
+CarlosAjax.updater({success: 'noteContainer'}, 'saveNote', {
     method: 'POST',
     parameters: { noteId: 123 },
     onFailure: function(transport) {
@@ -193,13 +193,13 @@ The token value is read from the hidden `<input name="CSRF-TOKEN">` field that C
 
 ### CSRF Failure Redirect Detection (CRITICAL)
 
-**The problem**: When CSRFGuard rejects a request (missing/invalid token), it does NOT return a 403 status code. Instead, it **redirects (302) to `errorpage.jsp`**. The `fetch()` API follows redirects transparently by default (`redirect: 'follow'`), so the caller receives the error page HTML with an **HTTP 200 status**. Without detection, `onSuccess` fires with error page content — and `CarlosAjax.updater()` would inject "Looks like something went wrong..." into the DOM.
+**The problem**: When CSRFGuard rejects a request (missing/invalid token), it does NOT return a 403 status code. Instead, it **redirects (302) to `errorpage`**. The `fetch()` API follows redirects transparently by default (`redirect: 'follow'`), so the caller receives the error page HTML with an **HTTP 200 status**. Without detection, `onSuccess` fires with error page content — and `CarlosAjax.updater()` would inject "Looks like something went wrong..." into the DOM.
 
 **How CarlosAjax handles this**: After every `fetch()` response, CarlosAjax checks for CSRF redirect failures:
 
 ```javascript
 // After fetch() resolves:
-if (response.redirected && response.url.includes('errorpage.jsp')) {
+if (response.redirected && response.url.includes('/errorpage')) {
     // Treat as failure — invoke onFailure with synthetic 403 status
     const transport = {
         responseText: 'CSRF validation failed — request was rejected by the server.',
@@ -213,7 +213,7 @@ if (response.redirected && response.url.includes('errorpage.jsp')) {
 
 For synchronous `XMLHttpRequest`, the equivalent check uses `xhr.responseURL`:
 ```javascript
-if (xhr.responseURL && xhr.responseURL.includes('errorpage.jsp')) {
+if (xhr.responseURL && xhr.responseURL.includes('/errorpage')) {
     // Same failure handling
 }
 ```
@@ -268,7 +268,7 @@ Synchronous requests block the browser thread until the response is received. Th
 
 ```javascript
 // Synchronous request
-CarlosAjax.request('checkLock.do', {
+CarlosAjax.request('checkLock', {
     method: 'POST',
     parameters: { noteId: 123 },
     synchronous: true,
@@ -296,7 +296,7 @@ Synchronous XHR is deprecated in browsers and should be replaced during migratio
 ```javascript
 document.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'hidden') {
-        navigator.sendBeacon('releaseNoteLock.do', new URLSearchParams({
+        navigator.sendBeacon('releaseNoteLock', new URLSearchParams({
             noteId: 123,
             'CSRF-TOKEN': getCsrfToken()   // REQUIRED — sendBeacon sends POST
         }));
@@ -330,7 +330,7 @@ The `visibilitychange` event fires in all the same scenarios as `beforeunload` (
       body: new URLSearchParams(params)
   });
   // Check for CSRF redirect failure BEFORE using the response
-  if (response.redirected && response.url.includes('errorpage.jsp')) {
+  if (response.redirected && response.url.includes('/errorpage')) {
       throw new Error('CSRF validation failed — request rejected by server');
   }
   const data = await response.text();
@@ -385,7 +385,7 @@ The `visibilitychange` event fires in all the same scenarios as `beforeunload` (
   ```javascript
   document.addEventListener('visibilitychange', function() {
       if (document.visibilityState === 'hidden') {
-          fetch('releaseNoteLock.do', {
+          fetch('releaseNoteLock', {
               method: 'POST',
               keepalive: true,     // Survives page unload like sendBeacon
               credentials: 'same-origin',
@@ -490,7 +490,7 @@ async function doWork() {
         body: new URLSearchParams(data)
     });
     // Check for CSRF redirect failure
-    if (response.redirected && response.url.includes('errorpage.jsp')) {
+    if (response.redirected && response.url.includes('/errorpage')) {
         throw new Error('CSRF validation failed');
     }
     const result = await response.text();

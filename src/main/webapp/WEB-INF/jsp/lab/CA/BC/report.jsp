@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -123,7 +123,7 @@
     </script>
 </head>
 <body>
-<form name="signForm" action="<%= request.getContextPath() %>/lab/CA/BC/ViewReport.do" method="post">
+<form name="signForm" action="<%= request.getContextPath() %>/lab/CA/BC/ViewReport" method="post">
     <table width="100%" class="DarkBG">
         <tr>
             <td height="40" width="25"></td>

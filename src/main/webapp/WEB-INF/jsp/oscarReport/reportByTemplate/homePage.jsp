@@ -30,7 +30,7 @@
 --%>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 
@@ -48,7 +48,7 @@
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_report" rights="r" reverse="<%=true%>">
     <%
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     %>
 </security:oscarSec>
 <!DOCTYPE html>
@@ -129,7 +129,7 @@
                 <td align="center"><%=String.valueOf(i + 1)%>
                 </td>
                 <td><a style="display:block;outline:none;"
-                       href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewReportConfiguration.do?templateid=<%=curReport.getTemplateId()%>"><%=curReport.getTitle()%>
+                       href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewReportConfiguration?templateid=<%=curReport.getTemplateId()%>"><%=curReport.getTitle()%>
                 </a></td>
                 <td><%=curReport.getDescription()%>
                 </td>

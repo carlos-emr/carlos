@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -84,7 +84,7 @@
         sDoc = new EctImmImmunizationData().getImmunizations(demoNo);
     }
     if (sDoc == null) {
-        String redirect = "loadConfig.do";
+        String redirect = "loadConfig";
 
         if (demoNo != null)
             redirect += "?demographic_no=" + demoNo;
@@ -119,7 +119,7 @@
 
         function edit(nodeName, colName) {
             windowprops = "height=443,width=630,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-            window.open("<%= request.getContextPath() %>/encounter/immunization/ViewScheduleEdit.do?node=" + encodeURIComponent(nodeName) + "&name=" + encodeURIComponent(colName), "<fmt:message key='encounter.immunization.Schedule.msgRecordImm'/>", windowprops);
+            window.open("<%= request.getContextPath() %>/encounter/immunization/ViewScheduleEdit?node=" + encodeURIComponent(nodeName) + "&name=" + encodeURIComponent(colName), "<fmt:message key='encounter.immunization.Schedule.msgRecordImm'/>", windowprops);
         }
 
         function returnEdit(nodeName, givenDate, refusedDate, lot, provider, comments) {
@@ -224,7 +224,7 @@
 
         </td>
         <td class="MainTableRightColumn">
-            <form action="${pageContext.request.contextPath}/encounter/immunization/saveSchedule.do" method="post">
+            <form action="${pageContext.request.contextPath}/encounter/immunization/saveSchedule" method="post">
                 <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demoNo) %>">
                 <table name="encounterTableRightCol" width="100%">
                     <tr>
@@ -286,7 +286,7 @@
                                 <% if (!status.equals("deleted")) { %>
                                 <a href="javascript:void(0)"
                                    onclick="if(confirm('Are you sure you want to delete this record ?')){document.getElementById('scheduleForm_<%=i%>').submit()}">del</a>
-                                <form id="scheduleForm_<%=i%>" method="post" action="deleteSchedule.do" style="display:none">
+                                <form id="scheduleForm_<%=i%>" method="post" action="deleteSchedule" style="display:none">
                                     <input type="hidden" name="method" value="delete"/>
                                     <input type="hidden" name="tblSet" value="<%=i%>"/>
                                     <input type="hidden" name="demoNo" value="<%= Encode.forHtmlAttribute(demoNo) %>"/>
@@ -294,7 +294,7 @@
                                 <%} else {%>
                                 <a href="javascript:void(0)"
                                    onclick="if(confirm('Are you sure you want to restore this record ?')){document.getElementById('restoreForm_<%=i%>').submit()}">restore</a>
-                                <form id="restoreForm_<%=i%>" method="post" action="deleteSchedule.do" style="display:none">
+                                <form id="restoreForm_<%=i%>" method="post" action="deleteSchedule" style="display:none">
                                     <input type="hidden" name="method" value="restore"/>
                                     <input type="hidden" name="tblSet" value="<%=i%>"/>
                                     <input type="hidden" name="demoNo" value="<%= Encode.forHtmlAttribute(demoNo) %>"/>

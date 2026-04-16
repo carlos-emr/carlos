@@ -31,7 +31,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
@@ -140,7 +140,7 @@
         }
 
         function selectSlot(providerNo, year, month, day, startTime, endTime, duration) {
-            var queryString = '<%=request.getContextPath()%>/appointment/addappointment.do?provider_no=' + providerNo + '&year=' + year + '&month=' + month + '&day=' + day + '&start_time=' + startTime + '&end_time=' + endTime + '&duration=' + duration;
+            var queryString = '<%=request.getContextPath()%>/appointment/addappointment?provider_no=' + providerNo + '&year=' + year + '&month=' + month + '&day=' + day + '&start_time=' + startTime + '&end_time=' + endTime + '&duration=' + duration;
             popupPage2(queryString, 'appointment', 400, 780);
 
         }
@@ -166,7 +166,7 @@
         </th>
     </tr>
 </table>
-<form name="searchForm" action="<%=request.getContextPath()%>/appointment/appointmentsearch.do" method="get"
+<form name="searchForm" action="<%=request.getContextPath()%>/appointment/appointmentsearch" method="get"
       onsubmit="return validate()">
     <input type="hidden" name="method" value="search"/>
     <table width="100%" border="0">

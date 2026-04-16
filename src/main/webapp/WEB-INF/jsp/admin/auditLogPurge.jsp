@@ -40,7 +40,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.auditLogPurge" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin.auditLogPurge");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin.auditLogPurge");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -139,7 +139,7 @@
             <%
                 if (msg == null) {
             %>
-            <form action="<%=request.getContextPath()%>/admin/AuditLogPurge.do" method="post" onsubmit="return submitForm();">
+            <form action="<%=request.getContextPath()%>/admin/AuditLogPurge" method="post" onsubmit="return submitForm();">
 
                 <p>Welcome to the Audit Log Purge Tool.</p>
                 <p>

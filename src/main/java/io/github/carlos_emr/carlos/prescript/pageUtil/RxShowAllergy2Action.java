@@ -105,7 +105,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
                 // demoNoParam validated as numeric at method entry
                 request.getSession().setAttribute("Patient", patient); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
             }
-            response.sendRedirect(request.getContextPath() + "/rx/showAllergy.do?demographicNo=" + Encode.forUriComponent(demoNoParam));
+            response.sendRedirect(request.getContextPath() + "/rx/showAllergy?demographicNo=" + Encode.forUriComponent(demoNoParam));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

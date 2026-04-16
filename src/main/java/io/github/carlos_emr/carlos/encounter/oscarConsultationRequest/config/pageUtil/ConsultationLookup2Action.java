@@ -37,8 +37,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * their associated specialists via AJAX calls.
  *
  * Endpoints:
- * - ConsultationLookup2Action.do?method=getServices - Returns all active consultation services
- * - ConsultationLookup2Action.do?method=getSpecialists&amp;serviceId=X - Returns specialists for a service
+ * - ConsultationLookup2Action?method=getServices - Returns all active consultation services
+ * - ConsultationLookup2Action?method=getSpecialists&amp;serviceId=X - Returns specialists for a service
  *
  * @since 2025-11-20
  */
@@ -82,7 +82,7 @@ public class ConsultationLookup2Action extends ActionSupport {
     /**
      * Returns all active consultation services as JSON.
      *
-     * URL: ConsultationLookup2Action.do?method=getServices
+     * URL: ConsultationLookup2Action?method=getServices
      *
      * Response format:
      * [
@@ -119,7 +119,7 @@ public class ConsultationLookup2Action extends ActionSupport {
     /**
      * Returns specialists for a specific consultation service as JSON.
      *
-     * URL: ConsultationLookup2Action.do?method=getSpecialists&serviceId=53
+     * URL: ConsultationLookup2Action?method=getSpecialists&serviceId=53
      *
      * Response format:
      * [
@@ -177,7 +177,7 @@ public class ConsultationLookup2Action extends ActionSupport {
      * Returns all specialists across all services as JSON, grouped by specialist.
      * Each entry includes the list of service IDs and service names the specialist belongs to.
      *
-     * URL: ConsultationLookup2Action.do?method=getAllSpecialists
+     * URL: ConsultationLookup2Action?method=getAllSpecialists
      *
      * Response format:
      * [

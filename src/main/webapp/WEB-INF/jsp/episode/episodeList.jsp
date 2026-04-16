@@ -35,7 +35,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 
@@ -119,7 +119,7 @@
             %>
             <tr class="gradeB">
                 <td>
-                    <a href="<%=request.getContextPath()%>/Episode.do?method=edit&episode.id=<%=episode.getId()%>"><%=episode.getDescription() %>
+                    <a href="<%=request.getContextPath()%>/Episode?method=edit&episode.id=<%=episode.getId()%>"><%=episode.getDescription() %>
                     </a>
                 </td>
                 <td style="text-align:center"><%=startDateStr %>

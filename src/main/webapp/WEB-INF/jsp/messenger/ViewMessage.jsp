@@ -95,7 +95,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_msg");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -136,7 +136,7 @@ function popupViewAttach(vheight,vwidth,varpage) {
   windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
   var winName;
 
-  if( page.indexOf("IncomingEncounter.do") > -1 ) {
+  if( page.indexOf("IncomingEncounter") > -1 ) {
     winName = "encounter";
   }
   else {
@@ -199,7 +199,7 @@ function popup(demographicNo, msgId, providerNo, action) {
               win.close();
               var writeForm = document.createElement('form');
               writeForm.method = 'post';
-              writeForm.action = 'WriteToEncounter.do';
+              writeForm.action = 'WriteToEncounter';
               writeForm.target = "<fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>";
               var writeFields = {'demographic_no': demographicNo, 'msgId': msgId, 'providerNo': providerNo, 'encType': 'messenger'};
               for (var k in writeFields) {
@@ -221,7 +221,7 @@ function popup(demographicNo, msgId, providerNo, action) {
       else if ( action == "linkToDemographic"){
           var linkForm = document.createElement('form');
           linkForm.method = 'post';
-          linkForm.action = 'ViewMessage.do';
+          linkForm.action = 'ViewMessage';
           var linkFields = {'linkMsgDemo': 'true', 'demographic_no': demographicNo, 'messageID': msgId, 'providerNo': providerNo};
           for (var lk in linkFields) {
               var li = document.createElement('input');
@@ -315,7 +315,7 @@ function fmtOscarMsg() {
 </style>
 </head>
 <body>
-<form action="<%=request.getContextPath()%>/messenger/HandleMessages.do" method="post">
+<form action="<%=request.getContextPath()%>/messenger/HandleMessages" method="post">
 	<table class="MainTable" id="scrollNumber1" style="width:95%">
 		<tr class="MainTableTopRow">
 			<td class="MainTableTopRowLeftColumn">
@@ -342,7 +342,7 @@ function fmtOscarMsg() {
 								<table class=messButtonsA >
 									<tr>
 										<td class="messengerButtonsA">
-									        <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.do"
+									        <a href="${pageContext.request.contextPath}/messenger/DisplayMessages"
 									            class="btn btn-primary">
 									            <fmt:message key="messenger.ViewMessage.btnInbox"/>
 									        </a>
@@ -358,7 +358,7 @@ function fmtOscarMsg() {
 							<table class=messButtonsA >
 								<tr>
 									<td class="messengerButtonsA">
-									    <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.do?boxType=1"
+									    <a href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=1"
 									        class="btn btn-primary">
 									        <fmt:message key="messenger.ViewMessage.btnSent"/>
 									    </a>
@@ -374,7 +374,7 @@ function fmtOscarMsg() {
 								<table class=messButtonsA>
 									<tr>
 										<td class="messengerButtonsA">
-                                            <a href="${pageContext.request.contextPath}/messenger/ViewCreateMessage.do"
+                                            <a href="${pageContext.request.contextPath}/messenger/ViewCreateMessage"
                                                 class="btn btn-outline-secondary">
                                                 <fmt:message key="messenger.ViewMessage.btnCompose"/>
                                             </a>
@@ -443,7 +443,7 @@ function fmtOscarMsg() {
 						<tr class="DoNotPrint">
 							<td><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
 							<td colspan="2"><a
-								href="javascript:popupViewAttach(700,960,'ViewAttach.do?attachId=<%=Encode.forJavaScript(id)%>')">
+								href="javascript:popupViewAttach(700,960,'ViewAttach?attachId=<%=Encode.forJavaScript(id)%>')">
 							<fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
 						</tr>
 						<%
@@ -456,7 +456,7 @@ function fmtOscarMsg() {
 						<tr class="DoNotPrint">
 							<td><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
 							<td colspan="2"><a
-								href="javascript:popupViewAttach(700,960,'ViewPDFAttach.do?attachId=<%=Encode.forJavaScript(id)%>')">
+								href="javascript:popupViewAttach(700,960,'ViewPDFAttach?attachId=<%=Encode.forJavaScript(id)%>')">
 							<fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
 						</tr>
 						<%
@@ -635,9 +635,9 @@ function fmtOscarMsg() {
 								<%
                                     String demoKeyJs = Encode.forJavaScript((String) (pageContext.getAttribute("demographicNumber")+""));
                                     %>
-                                    <a href="javascript:popupViewAttach(700,960,'../demographic/DemographicEdit.do?demographic_no=<%=demoKeyJs%>')"><fmt:message key="global.M" /></a>
-                                    <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../encounter/IncomingEncounter.do?demographicNo=<%=demoKeyJs%>&curProviderNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>');return false;"><fmt:message key="global.E" /></a>
-                                    <a href="javascript:popupViewAttach(700,960,'../rx/choosePatient.do?providerNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>&demographicNo=<%=demoKeyJs%>')">Rx</a>
+                                    <a href="javascript:popupViewAttach(700,960,'../demographic/DemographicEdit?demographic_no=<%=demoKeyJs%>')"><fmt:message key="global.M" /></a>
+                                    <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../encounter/IncomingEncounter?demographicNo=<%=demoKeyJs%>&curProviderNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>');return false;"><fmt:message key="global.E" /></a>
+                                    <a href="javascript:popupViewAttach(700,960,'../rx/choosePatient?providerNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>&demographicNo=<%=demoKeyJs%>')">Rx</a>
                                 </span>
 								</td>
 								<td class="DoNotPrint">
@@ -652,7 +652,7 @@ function fmtOscarMsg() {
 							<tr>
 								<td></td>
 								<td><a class="DoNotPrint"
-									href="javascript:popupStart(400,850,'../demographic/DemographicApptHistory.do?demographic_no=<%=demoKeyJs%>&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25','ApptHist')"
+									href="javascript:popupStart(400,850,'../demographic/DemographicApptHistory?demographic_no=<%=demoKeyJs%>&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25','ApptHist')"
 									title="<fmt:message key="messenger.ViewMessage.clickApptHx" />"><fmt:message key="encounter.oscarConsultationRequest.consultationFormPrint.msgappDate" />   <oscar:nextAppt demographicNo="${ demographic.key }" /></a></td>
 								<td></td>
 							</tr>

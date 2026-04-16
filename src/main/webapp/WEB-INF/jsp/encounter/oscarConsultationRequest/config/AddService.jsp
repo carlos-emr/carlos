@@ -41,7 +41,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.consult" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.consult");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.consult");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -106,7 +106,7 @@
                 </div>
                 <% } %>
 
-                <form action="${pageContext.request.contextPath}/encounter/AddService.do" method="post" onsubmit="return checkServiceName();">
+                <form action="${pageContext.request.contextPath}/encounter/AddService" method="post" onsubmit="return checkServiceName();">
                     <div class="row mb-3">
                         <div class="col-md-5">
                             <label for="service" class="form-label"><fmt:message key="encounter.oscarConsultationRequest.config.AddService.service"/></label>

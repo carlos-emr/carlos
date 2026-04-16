@@ -28,7 +28,7 @@
 
 --%>
 <%@ include file="/taglibs.jsp" %>
-<c:url var="programManagerViewFunctionUsersUri" value="/PMmodule/ProgramManagerView.do">
+<c:url var="programManagerViewFunctionUsersUri" value="/PMmodule/ProgramManagerView">
     <c:param name="id" value="${requestScope.id}"/>
     <c:param name="tab" value="Function User"/>
 </c:url>

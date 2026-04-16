@@ -45,7 +45,7 @@
 
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -119,7 +119,7 @@
 
     </head>
     <body>
-    <form name="myform" class="card card-body bg-body-tertiary" action="${pageContext.request.contextPath}/admin/LogReport.do" method="POST" onSubmit="return(onSub());">
+    <form name="myform" class="card card-body bg-body-tertiary" action="${pageContext.request.contextPath}/admin/LogReport" method="POST" onSubmit="return(onSub());">
         <fieldset>
             <h3>Log Admin Report <small>Please select the provider, start and end dates.</small></h3>
 

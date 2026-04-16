@@ -28,12 +28,12 @@
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_admin.misc" rights="r" reverse="<%=true%>">
-    <%response.sendRedirect(request.getContextPath() + "/logout.jsp");%>
+    <%response.sendRedirect(request.getContextPath() + "/logoutPage");%>
 </security:oscarSec>
 
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
@@ -78,18 +78,18 @@
 
 
             function openAddSpecialist() {
-                popupOscarRx(625, 1024, '<%= request.getContextPath() %>/encounter/oscarConsultationRequest/config/ViewAddSpecialist.do');
+                popupOscarRx(625, 1024, '<%= request.getContextPath() %>/encounter/oscarConsultationRequest/config/ViewAddSpecialist');
                 return false;
             }
 
             function openEditSpecialist(specId) {
-                popupOscarRx(625, 1024, '<%=request.getContextPath()%>/encounter/EditSpecialists.do?specId=' + specId);
+                popupOscarRx(625, 1024, '<%=request.getContextPath()%>/encounter/EditSpecialists?specId=' + specId);
             }
 
             function checkUncheck(referralId) {
                 var checked = $("input[name^='checked_" + referralId + "']").prop("checked");
 
-                $.post("<%= request.getContextPath() %>/admin/ManageBillingReferral.do",
+                $.post("<%= request.getContextPath() %>/admin/ManageBillingReferral",
                     { method: "modifyBatch", id: referralId, checked: checked },
                     function (data, textStatus) {
                         updateCheckedList(data);
@@ -97,7 +97,7 @@
             }
 
             function clearCheckedLabels(referralId) {
-                $.post("<%= request.getContextPath() %>/admin/ManageBillingReferral.do",
+                $.post("<%= request.getContextPath() %>/admin/ManageBillingReferral",
                     { method: "modifyBatch", clear: true },
                     function (data, textStatus) {
                         updateCheckedList(data);
@@ -107,7 +107,7 @@
             function printAllCheckedLabels() {
                 $("#checked_items_tbl tbody tr").remove();
                 $("#checked_items_tbl tbody").append("<tr><td>Processing. Refresh to get updated list</td></tr>");
-                location.href = '<%=request.getContextPath() %>/printReferralLabelAction.do?useCheckList=true';
+                location.href = '<%=request.getContextPath() %>/printReferralLabelAction?useCheckList=true';
             }
 
             function updateCheckedList(data) {
@@ -150,7 +150,7 @@
             <td class="MainTableRightColumn" valign="top">
 
 
-                <form action="<%= request.getContextPath() %>/admin/ManageBillingReferral.do">
+                <form action="<%= request.getContextPath() %>/admin/ManageBillingReferral">
                     <input type="hidden" name="method" value="advancedSearch"/>
                     <input type="text" name="nameQuery" id="nameQuery" placeholder="Name or ReferralId"
                            value="<%= Encode.forHtmlAttribute(name != null ? name : "") %>">
@@ -180,7 +180,7 @@
                 %>
                 <display:table name="referrals" id="referral" class="its" pagesize="15"
                                style="border:1px solid #666666; width:99%;margin-top:2px;"
-                               requestURI="ManageBillingReferral.do?method=list">
+                               requestURI="ManageBillingReferral?method=list">
                     <%
                         ProfessionalSpecialist ps = (ProfessionalSpecialist) pageContext.getAttribute("referral");
 
@@ -201,7 +201,7 @@
                     <display:column property="streetAddress" title="Address"/>
                     <display:column property="phoneNumber" title="Phone"/>
                     <display:column property="faxNumber" title="Fax"/>
-                    <display:column title="Label" url="/printReferralLabelAction.do" paramId="billingreferralNo"
+                    <display:column title="Label" url="/printReferralLabelAction" paramId="billingreferralNo"
                                     paramProperty="id">label</display:column>
                 </display:table>
             </td>

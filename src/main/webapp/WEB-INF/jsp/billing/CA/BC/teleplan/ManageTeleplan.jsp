@@ -83,7 +83,7 @@
 
         <oscar:oscarPropertiesCheck property="BILLING_SUPERUSER" value="<%=superUser%>">
             <h4>Manually Set Sequence #</h4>
-            <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan.do" method="post">
+            <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan" method="post">
                 <input type="hidden" name="method" value="setSequenceNumber"/>
                 Sequence #: <input type="text" name="num"/>
                 <input class="btn btn-secondary" type="submit" value="save"/>
@@ -92,7 +92,7 @@
 
         <oscar:oscarPropertiesCheck property="BILLING_SUPERUSER" value="<%=superUser%>">
             <h4>Set Teleplan UserName Password</h4>
-            <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan.do" method="post">
+            <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan" method="post">
                 <input type="hidden" name="method" value="setUserName"/>
                 Username: <input type="text" name="user"/>
                 Password: <input type="password" name="pass"/>
@@ -104,32 +104,32 @@
 
         <oscar:oscarPropertiesCheck property="BILLING_SUPERUSER" value="<%=superUser%>">
             <h4>Get Teleplan Sequence #</h4>
-            <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan.do" method="post">
+            <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan" method="post">
                 <input type="hidden" name="method" value="getSequenceNumber"/>
                 <input class="btn btn-secondary" type="submit" value="Get Teleplan Sequence #"/>
             </form>
         </oscar:oscarPropertiesCheck>
 
         <h4>Update Billing Codes</h4>
-        <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan.do" method="post">
+        <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan" method="post">
             <input type="hidden" name="method" value="updateBillingCodes"/>
             <input class="btn btn-secondary" type="submit" value="update"/>
         </form>
 
         <h4>Update Explanatory Codes</h4>
-        <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan.do" method="post">
+        <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan" method="post">
             <input type="hidden" name="method" value="updateExplanatoryCodesList"/>
             <input class="btn btn-secondary" type="submit" value="update"/>
         </form>
 
         <h4>Update MSP ICD9 Codes</h4>
-        <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan.do" method="post">
+        <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan" method="post">
             <input type="hidden" name="method" value="updateteleplanICDCodesList"/>
             <input class="btn btn-secondary" type="submit" value="update"/>
         </form>
 
         <h4>Change Teleplan Password</h4>
-        <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan.do" method="post">
+        <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan" method="post">
             <input type="hidden" name="method" value="changePass"/>
             Current Password: <input type="password" name="oldpass"/>
             <br>
@@ -139,14 +139,14 @@
         </form>
 
         <h4>Set Teleplan Password</h4>
-        <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan.do" method="post">
+        <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan" method="post">
             <input type="hidden" name="method" value="setPass"/>
             New Password: <input type="password" name="newpass"/>
             <input class="btn btn-secondary" type="submit" value="save"/>
         </form>
 
         <h4>Get Remittance</h4>
-        <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan.do" method="post">
+        <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan" method="post">
             <input type="hidden" name="method" value="remit"/>
             <input class="btn btn-secondary" type="submit" value="Get Remittance"/>
         </form>

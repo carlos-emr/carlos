@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing,_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -103,7 +103,7 @@
             String limit = request.getParameter("limit");
             String lastname = request.getParameter("lastname");
         %>
-        <form action="<%=request.getContextPath() %>/billing/CA/BC/AddReferralDoc.do" class="d-flex flex-wrap align-items-center gap-2"
+        <form action="<%=request.getContextPath() %>/billing/CA/BC/AddReferralDoc" class="d-flex flex-wrap align-items-center gap-2"
               name="referralDocform" id="referralDocform">
             Last Name: <input type="text" name="lastname" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(lastname)) %>"/>
             <select name="limit" class="form-select" title="limit results">
@@ -112,7 +112,7 @@
                 <option value="100" <%=selected(limit, "100")%>>100</option>
             </select>
             <input class="btn btn-primary" type="submit" value="Search"/>
-            <a href="<%=request.getContextPath() %>/billing/CA/BC/AddReferralDoc.do"
+            <a href="<%=request.getContextPath() %>/billing/CA/BC/AddReferralDoc"
                class="contentLink btn btn-info">Add Doctor</a>
         </form>
 
@@ -146,7 +146,7 @@
             <tr>
                 <!--td><%=billingReferral.getBillingreferralNo()%></td-->
                 <td>
-                    <a href="<%=request.getContextPath() %>/billing/CA/BC/AddReferralDoc.do?id=<%= Encode.forUriComponent(String.valueOf(billingReferral.getBillingreferralNo())) %>"
+                    <a href="<%=request.getContextPath() %>/billing/CA/BC/AddReferralDoc?id=<%= Encode.forUriComponent(String.valueOf(billingReferral.getBillingreferralNo())) %>"
                        class="contentLink"><%= Encode.forHtml(StringUtils.noNull(billingReferral.getReferralNo())) %>
                     </a></td>
                 <td><%= Encode.forHtml(StringUtils.noNull(billingReferral.getLastName())) %></td>

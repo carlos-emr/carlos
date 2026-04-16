@@ -64,11 +64,11 @@ public class EctDisplayEForm2Action extends EctDisplayAction {
                 //set lefthand module heading and link
                 String winName = "eForm" + bean.demographicNo;
                 Dao.setLeftHeading(getText("global.eForms"));
-                Dao.setLeftPopup(500, 950, winName, request.getContextPath() + "/eform/efmpatientformlist.jsp?demographic_no=" + bean.demographicNo + "&apptProvider=" + bean.getCurProviderNo() + "&appointment=" + bean.appointmentNo + "&parentAjaxId=" + cmd);
+                Dao.setLeftPopup(500, 950, winName, request.getContextPath() + "/eform/efmpatientformlist?demographic_no=" + bean.demographicNo + "&apptProvider=" + bean.getCurProviderNo() + "&appointment=" + bean.appointmentNo + "&parentAjaxId=" + cmd);
 
                 //set the right hand heading link
                 winName = "AddeForm" + bean.demographicNo;
-                Dao.setRightPopup(500, 950, winName, request.getContextPath() + "/eform/efmformslistadd.jsp?demographic_no=" + bean.demographicNo + "&appointment=" + bean.appointmentNo + "&parentAjaxId=" + cmd);
+                Dao.setRightPopup(500, 950, winName, request.getContextPath() + "/eform/efmformslistadd?demographic_no=" + bean.demographicNo + "&appointment=" + bean.appointmentNo + "&parentAjaxId=" + cmd);
                 Dao.setRightHeadingID(cmd);  //no menu so set div id to unique id for this action
 
                 String url;
@@ -80,7 +80,7 @@ public class EctDisplayEForm2Action extends EctDisplayAction {
                     HashMap<String, ? extends Object> curform = eForms.get(i);
                     winName = (String) curform.get("formName") + bean.demographicNo;
                     hash = Math.abs(winName.hashCode());
-                    url = "popupPage(700, 800,'" + hash + "','" + request.getContextPath() + "/eform/efmformadd_data.jsp?fid=" + curform.get("fid") + "&demographic_no=" + bean.demographicNo + "&appointment=" + bean.appointmentNo + "&parentAjaxId=" + cmd + "','" + curform.get("fid") + "_" + bean.demographicNo + "');";
+                    url = "popupPage(700, 800,'" + hash + "','" + request.getContextPath() + "/eform/efmformadd_data?fid=" + curform.get("fid") + "&demographic_no=" + bean.demographicNo + "&appointment=" + bean.appointmentNo + "&parentAjaxId=" + cmd + "','" + curform.get("fid") + "_" + bean.demographicNo + "');";
                     logger.debug("SETTING EFORM URL " + url);
                     key = StringUtils.maxLenString((String) curform.get("formName"), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + " (new)";
                     Dao.addAutoCompleteItem(key, url, BGCOLOUR);
@@ -113,7 +113,7 @@ public class EctDisplayEForm2Action extends EctDisplayAction {
                     NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
                     winName = eFormData.getFormName() + bean.demographicNo;
                     hash = Math.abs(winName.hashCode());
-                    url = "popupPage( 800, 960, '" + hash + "', '" + request.getContextPath() + "/eform/efmshowform_data.jsp?fdid=" + eFormData.getId() + "&appointment=" + bean.appointmentNo + "&parentAjaxId=" + cmd + "');";
+                    url = "popupPage( 800, 960, '" + hash + "', '" + request.getContextPath() + "/eform/efmshowform_data?fdid=" + eFormData.getId() + "&appointment=" + bean.appointmentNo + "&parentAjaxId=" + cmd + "');";
                     String formattedDate = DateUtils.formatDate(eFormData.getFormDate(), request.getLocale());
                     key = StringUtils.maxLenString(eFormData.getFormName(), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + "(" + formattedDate + ")";
                     item.setLinkTitle(eFormData.getSubject());

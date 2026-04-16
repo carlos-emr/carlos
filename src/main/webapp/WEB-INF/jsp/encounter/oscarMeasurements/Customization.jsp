@@ -30,7 +30,7 @@
 --%>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -82,7 +82,7 @@
                 <table class=messButtonsA cellspacing=0 cellpadding=3>
                     <tr>
                         <td class="messengerButtonsA" width="200"><a href=#
-                                                                     onClick="popupOscarConS(300,1000,'encounter/oscarMeasurements/SetupStyleSheetList.do', event)"
+                                                                     onClick="popupOscarConS(300,1000,'encounter/oscarMeasurements/SetupStyleSheetList', event)"
                                                                      class="messengerButtons"><fmt:message key="encounter.Index.measurements.addMeasurementGroup"/></a></td>
                     </tr>
                 </table>
@@ -91,7 +91,7 @@
                 <table class=messButtonsA cellspacing=0 cellpadding=3>
                     <tr>
                         <td class="messengerButtonsA" width="200"><a href=#
-                                                                     onClick="popupOscarConS(300,1000,'encounter/oscarMeasurements/SetupGroupList.do', event)"
+                                                                     onClick="popupOscarConS(300,1000,'encounter/oscarMeasurements/SetupGroupList', event)"
                                                                      class="messengerButtons"><fmt:message key="encounter.Index.measurements.editMeasurementGroup"/></a></td>
                     </tr>
                 </table>
@@ -105,7 +105,7 @@
                 <table class=messButtonsA cellspacing=0 cellpadding=3>
                     <tr>
                         <td class="messengerButtonsA" width="200"><a href=#
-                                                                     onClick="popupOscarConS(700,1000,'encounter/oscarMeasurements/SetupDisplayMeasurementTypes.do', event)"
+                                                                     onClick="popupOscarConS(700,1000,'encounter/oscarMeasurements/SetupDisplayMeasurementTypes', event)"
                                                                      class="messengerButtons"><fmt:message key="encounter.Index.measurements.viewMeasurementType"/></a></td>
                     </tr>
                 </table>
@@ -114,7 +114,7 @@
                 <table class=messButtonsA cellspacing=0 cellpadding=3>
                     <tr>
                         <td class="messengerButtonsA" width="200"><a href=#
-                                                                     onClick="popupOscarConS(300,1000,'encounter/oscarMeasurements/SetupAddMeasurementType.do', event)"
+                                                                     onClick="popupOscarConS(300,1000,'encounter/oscarMeasurements/SetupAddMeasurementType', event)"
                                                                      class="messengerButtons"><fmt:message key="encounter.Index.measurements.addMeasurementType"/></a></td>
                     </tr>
                 </table>
@@ -122,7 +122,7 @@
         </tr>
         <tr>
             <td class=Title colspan="2">Mappings --
-                <a href=# onClick="popupOscarConS(300,1000,'encounter/oscarMeasurements/ViewViewMeasurementMap.do', event)" class="messengerButtons">View
+                <a href=# onClick="popupOscarConS(300,1000,'encounter/oscarMeasurements/ViewViewMeasurementMap', event)" class="messengerButtons">View
                     Mapping</a></td>
         </tr>
         <tr>
@@ -130,7 +130,7 @@
                 <table class=messButtonsA cellspacing=0 cellpadding=3>
                     <tr>
                         <td class="messengerButtonsA" width="200"><a href=#
-                                                                     onClick="popupOscarConS(700,1000,'encounter/oscarMeasurements/AddMeasurementMap.do', event)"
+                                                                     onClick="popupOscarConS(700,1000,'encounter/oscarMeasurements/AddMeasurementMap', event)"
                                                                      class="messengerButtons">Add Measurement
                             Mapping</a></td>
                     </tr>
@@ -140,7 +140,7 @@
                 <table class=messButtonsA cellspacing=0 cellpadding=3>
                     <tr>
                         <td class="messengerButtonsA" width="200"><a href=#
-                                                                     onClick="popupOscarConS(600,700,'encounter/oscarMeasurements/RemoveMeasurementMap.do', event)"
+                                                                     onClick="popupOscarConS(600,700,'encounter/oscarMeasurements/RemoveMeasurementMap', event)"
                                                                      class="messengerButtons">Remove/Remap Measurement
                             Mapping</a></td>
                     </tr>
@@ -155,7 +155,7 @@
                 <table class=messButtonsA cellspacing=0 cellpadding=3>
                     <tr>
                         <td class="messengerButtonsA" width="200"><a href=#
-                                                                     onClick="popupOscarConS(300,1000,'encounter/oscarMeasurements/SetupAddMeasuringInstruction.do', event)"
+                                                                     onClick="popupOscarConS(300,1000,'encounter/oscarMeasurements/SetupAddMeasuringInstruction', event)"
                                                                      class="messengerButtons"><fmt:message key="encounter.Index.measurements.addMeasuringInstruction"/></a>
                         </td>
                     </tr>
@@ -170,7 +170,7 @@
                 <table class=messButtonsA cellspacing=0 cellpadding=3>
                     <tr>
                         <td class="messengerButtonsA" width="200"><a href=#
-                                                                     onClick="popupOscarConS(300,1000,'encounter/oscarMeasurements/SetupDisplayMeasurementStyleSheet.do', event)"
+                                                                     onClick="popupOscarConS(300,1000,'encounter/oscarMeasurements/SetupDisplayMeasurementStyleSheet', event)"
                                                                      class="messengerButtons"><fmt:message key="encounter.Index.measurements.viewMeasurementStyleSheet"/></a>
                         </td>
                     </tr>
@@ -180,7 +180,7 @@
                 <table class=messButtonsA cellspacing=0 cellpadding=3>
                     <tr>
                         <td class="messengerButtonsA" width="200"><a href=#
-                                                                     onClick="popupOscarConS(300,1000,'encounter/oscarMeasurements/SetupAddMeasurementStyleSheet.do', event)"
+                                                                     onClick="popupOscarConS(300,1000,'encounter/oscarMeasurements/SetupAddMeasurementStyleSheet', event)"
                                                                      class="messengerButtons"><fmt:message key="encounter.Index.measurements.addMeasurementStyleSheet"/></a>
                         </td>
                     </tr>

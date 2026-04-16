@@ -4,14 +4,14 @@
 
     This file is deployed from WEB-INF/eform-assets/ to the eForm images directory
     by EFormAssetDeployer at Tomcat startup. It is loaded by the RTL eForm's form_html
-    via: <script src="../eform/displayImage.do?imagefile=editControl2.js"></script>
+    via: <script src="../eform/displayImage?imagefile=editControl2.js"></script>
 
     Key architecture notes:
     - This script builds a WYSIWYG toolbar and editor iframe using document.designMode
     - Content insertion uses the Selection/Range API (execCommand('insertHtml') is deprecated)
     - The RTL eForm's sidebar buttons (Patient Name, Allergies, etc.) call printKey()
       which uses APCache.js to fetch patient data via AJAX, then calls doHtml() to insert it
-    - Template management loads .rtl files via efmformrtl_templates.jsp
+    - Template management loads .rtl files via efmformrtl_templates
     - The Start() function is called from <body onload="Start()"> in the DB-stored form_html
 
     Version 1.6 now about 600 lines of code
@@ -566,7 +566,7 @@ void [
 	// analysis cannot see. These are NOT dead code — removing them would
 	// break the RTL eForm at runtime.
 	isGenderLookup, Start, htmlLine,
-	// formIsRTL: read by efmshowform_data.jsp to detect RTL eForm type.
+	// formIsRTL: read by efmshowform_data to detect RTL eForm type.
 	// formPath: currently unused (commented-out graph link feature) but
 	//   kept for potential future use. See TODO at its declaration.
 	formIsRTL, formPath, getMeasures,
@@ -708,7 +708,7 @@ jQuery(document).ready(function(){
 	if (demographicNo == "") { demographicNo = gup("efmdemographic_no", jQuery("form").attr('action')); }
 	if (typeof signatureControl != "undefined") {
 		signatureControl.initialize({
-			sigHTML:"../signature_pad/tabletSignature.do?inWindow=true&saveToDB=true&demographicNo=",
+			sigHTML:"../signature_pad/tabletSignature?inWindow=true&saveToDB=true&demographicNo=",
 			demographicNo:demographicNo,
 			refreshImage: function (e) {
 				var html = "<img src='"+e.storedImageUrl+"&r="+ Math.floor(Math.random()*1001) +"'></img>";
@@ -987,7 +987,7 @@ function submitFaxButton() {
 	 * Called from <body onload="Start()"> in the DB-stored form_html.
 	 *
 	 * Performs three setup tasks:
-	 * 1. Loads available letter templates via AJAX from efmformrtl_templates.jsp
+	 * 1. Loads available letter templates via AJAX from efmformrtl_templates
 	 * 2. Populates the AP cache from hidden .cacheInit fields injected by the JSP
 	 * 3. Initializes gender pronouns from the cached sex field
 	 * 4. Loads existing letter content into the editor (for saved forms)
@@ -999,7 +999,7 @@ function submitFaxButton() {
 
 			// Load template <option> elements into the template dropdown
 			$.ajax({
-				url : "efmformrtl_templates.jsp",
+				url : "efmformrtl_templates",
 				success : function(data) {
 					var cleanData = sanitizeHtml(data, {ALLOWED_TAGS: ['option'], ALLOWED_ATTR: ['value', 'selected']});
 					if (cleanData !== null) {
@@ -1131,14 +1131,14 @@ function submitFaxButton() {
 		//	"doctor|SignatureFile.png",
 		//	];
 
-		var mystamp ='<img src="../eform/displayImage.do?imagefile=stamp.png" width="200" height="100">';
+		var mystamp ='<img src="../eform/displayImage?imagefile=stamp.png" width="200" height="100">';
 		if (cache.contains("doctor")) {
 			for (i=0; i<ImgArray.length;i++){
 		        var ListItemArr =  ImgArray[i].split("|");
 		        var UserName = ListItemArr[0];
 		        var FileName = ListItemArr[1];
 		        if (cache.get('doctor').indexOf(UserName)>=0){
-		            mystamp = '<img src="../eform/displayImage.do?imagefile='+FileName+'" width="200" height="100" />';
+		            mystamp = '<img src="../eform/displayImage?imagefile='+FileName+'" width="200" height="100" />';
 			        }
 				}
 		}
@@ -1150,13 +1150,13 @@ function submitFaxButton() {
 		        var FileName = ListItemArr[1];
 		        if (cache.get('current_user').indexOf(UserName)>=0){
 					console.log('current user has a signature so use it');					
-		            mystamp = '<img src="../eform/displayImage.do?imagefile='+FileName+'" width="200" height="100" />';
+		            mystamp = '<img src="../eform/displayImage?imagefile='+FileName+'" width="200" height="100" />';
 			        }
 				}
 		}
 		return mystamp;
 	}
-	// Flag read by efmshowform_data.jsp and the eForm framework to identify this
+	// Flag read by efmshowform_data and the eForm framework to identify this
 	// as a Rich Text Letter eForm (vs. a regular eForm). Static analysis may flag
 	// this as "unused" because the read happens in JSP/server-side code, not JS.
 	var formIsRTL = true;
@@ -1186,7 +1186,7 @@ if (location.search) {
 // upstream value that would be wrong for most installations. If the graph link
 // feature is ever re-enabled, formPath should derive the fid from the URL
 // parameter (gup("fid")) instead of hardcoding it.
-var formPath = vPath + "/eform/efmshowform_data.jsp?fid=74&LabName="
+var formPath = vPath + "/eform/efmshowform_data?fid=74&LabName="
 var measureArray = [];
 var measureDateArray = [];
 
@@ -1195,7 +1195,7 @@ var measureDateArray = [];
  * a formatted summary into the editor. Called by labgrid() and labgrid2()
  * (the "Lab Grid" and "Vitals" sidebar buttons).
  *
- * Makes a synchronous XHR to efmshowform_data.jsp to fetch measurement data
+ * Makes a synchronous XHR to efmshowform_data to fetch measurement data
  * for the current patient, then formats it as "TYPE: value (date), value (date), ..."
  *
  * @param {string} measure - Measurement type code (e.g., "HB", "BP", "A1C")
@@ -1205,7 +1205,7 @@ function getMeasures(measure, max) {
     var xmlhttp = new XMLHttpRequest();
     // pathArray was originally used to build newURL; kept for potential future use by callers.
     var pathArray = window.location.pathname.split('/'); void pathArray;
-    var newURL = "..//encounter/oscarMeasurements/SetupDisplayHistory.do?type=" + measure;
+    var newURL = "..//encounter/oscarMeasurements/SetupDisplayHistory?type=" + measure;
     xmlhttp.onreadystatechange = function() {
         if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
             var str = xmlhttp.responseText; //local variable

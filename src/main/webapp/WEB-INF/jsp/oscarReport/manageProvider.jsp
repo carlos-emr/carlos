@@ -46,7 +46,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -95,7 +95,7 @@
             </h4>
             </div>
 
-        <form name="form1" action="DbManageProvider.do" method="post">
+        <form name="form1" action="DbManageProvider" method="post">
             <table class="table table-hover table-sm table-striped">
                 <thead>
                 <tr>

@@ -71,7 +71,7 @@
     </table>
 </div>
 
-<form action="${pageContext.request.contextPath}/PMmodule/FacilityManager.do" method="post"
+<form action="${pageContext.request.contextPath}/PMmodule/FacilityManager" method="post"
            onsubmit="return validateForm();">
     <input type="hidden" name="method" value="save"/>
     <table width="100%" border="1" cellspacing="2" cellpadding="3">
@@ -266,6 +266,6 @@
 </form>
 <div>
     <p><a
-            href="<%=request.getContextPath() %>/PMmodule/FacilityManager.do?method=list">Return
+            href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=list">Return
         to facilities list</a></p>
 </div>

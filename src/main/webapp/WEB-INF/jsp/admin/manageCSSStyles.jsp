@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -262,7 +262,7 @@
         }
     %>
 
-    <form action="${pageContext.request.contextPath}/admin/manageCSSStyles.do" method="post" accept-charset="UTF-8">
+    <form action="${pageContext.request.contextPath}/admin/manageCSSStyles" method="post" accept-charset="UTF-8">
         <input type="hidden" id="method" name="method" value="save"/>
 
         <div class="row card card-body bg-body-tertiary"><!--select existing styles-->

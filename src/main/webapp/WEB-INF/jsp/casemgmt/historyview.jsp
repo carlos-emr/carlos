@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_casemgmt.notes");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_casemgmt.notes");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -62,7 +62,7 @@
 
 </head>
 <body bgcolor="#eeeeff">
-<form action="<%= request.getContextPath() %>/CaseManagementEntry.do">
+<form action="<%= request.getContextPath() %>/CaseManagementEntry">
 <br>
 <b>Archived Note Update History</b>
 <br>

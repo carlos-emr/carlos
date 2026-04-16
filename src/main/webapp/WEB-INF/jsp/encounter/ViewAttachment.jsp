@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -192,8 +192,8 @@
                         <td><fmt:message key="encounter.ViewAttachment.msgViewAtt"/></td>
                         <td></td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'<%= request.getContextPath() %>/encounter/ViewAbout.do')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'<%= request.getContextPath() %>/encounter/ViewLicense.do')"><fmt:message key="global.license"/></a></td>
+                                href="javascript:popupStart(300,400,'<%= request.getContextPath() %>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
+                                href="javascript:popupStart(300,400,'<%= request.getContextPath() %>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>

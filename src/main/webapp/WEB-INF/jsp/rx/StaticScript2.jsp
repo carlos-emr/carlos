@@ -56,7 +56,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -109,14 +109,14 @@
 
         <script type="text/javascript">
             function ShowDrugInfo(gn) {
-                window.open("<%= request.getContextPath() %>/rx/drugInfo.do?GN=" + encodeURIComponent(gn), "_blank",
+                window.open("<%= request.getContextPath() %>/rx/drugInfo?GN=" + encodeURIComponent(gn), "_blank",
                     "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
             }
         </script>
 
         <%
             if (session.getAttribute("user") == null)
-                response.sendRedirect(request.getContextPath() + "/logout.jsp");
+                response.sendRedirect(request.getContextPath() + "/logoutPage");
             String curUser_no = (String) session.getAttribute("user");
             String regionalIdentifier = request.getParameter("regionalIdentifier");
             String cn = request.getParameter("cn");
@@ -139,7 +139,7 @@
                 var favoriteName = window.prompt('Please enter a name for the Favorite:', brandName);
 
                 if (favoriteName !== null && favoriteName.length > 0) {
-                    var url = '<%=request.getContextPath()%>' + "/rx/addFavorite2.do?parameterValue=addFav2";
+                    var url = '<%=request.getContextPath()%>' + "/rx/addFavorite2?parameterValue=addFav2";
                     oscarLog(url);
                     favoriteName = encodeURIComponent(favoriteName);
                     var data = "drugId=" + encodeURIComponent(drugId) + "&favoriteName=" + favoriteName;
@@ -149,7 +149,7 @@
                         credentials: 'same-origin',
                         body: data
                     }).then(function() {
-                        window.location.href = "<c:out value="${ctx}"/>" + "/rx/ViewStaticScript2.do?regionalIdentifier=" + '<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(regionalIdentifier))) %>' + "&cn=" + '<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(cn))) %>';
+                        window.location.href = "<c:out value="${ctx}"/>" + "/rx/ViewStaticScript2?regionalIdentifier=" + '<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(regionalIdentifier))) %>' + "&cn=" + '<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(cn))) %>';
                     });
                 }
             }
@@ -157,7 +157,7 @@
             //represcribe a drug
             async function reRxDrugSearch3(reRxDrugId) {
                 var dataUpdateId = "reRxDrugId=" + encodeURIComponent(reRxDrugId) + "&action=addToReRxDrugIdList&rand=" + Math.floor(Math.random() * 10001);
-                var urlUpdateId = "<c:out value="${ctx}"/>" + "/rx/WriteScript.do";
+                var urlUpdateId = "<c:out value="${ctx}"/>" + "/rx/WriteScript";
                 fetch(urlUpdateId, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
@@ -166,14 +166,14 @@
                 });
 
                 var data = "drugId=" + encodeURIComponent(reRxDrugId);
-                var url = "<c:out value="${ctx}"/>" + "/rx/rePrescribe2.do?method=saveReRxDrugIdToStash";
+                var url = "<c:out value="${ctx}"/>" + "/rx/rePrescribe2?method=saveReRxDrugIdToStash";
                 await fetch(url, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
                     credentials: 'same-origin',
                     body: data
                 });
-                location.href = "<c:out value="${ctx}"/>" + "/rx/searchDrug.do?";
+                location.href = "<c:out value="${ctx}"/>" + "/rx/searchDrug?";
             }
 
         </script>
@@ -192,7 +192,7 @@
                        width="100%" height="100%">
                     <tr>
                         <td width="0%" valign="top">
-                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug.do"> <fmt:message key="SearchDrug.title"/></a> &gt; <b><fmt:message key="StaticScript.title"/></b>
+                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug"> <fmt:message key="SearchDrug.title"/></a> &gt; <b><fmt:message key="StaticScript.title"/></b>
                             </div>
                         </td>
                     </tr>
@@ -256,7 +256,7 @@
                                     <td>
                                         <%if (drug.localDrugId != null) { %>
                                         <a href="javascript:void(0);"
-                                           onclick="popup(600, 425,'<%= request.getContextPath() %>/rx/ViewDisplayRxRecord.do?id=<%=Encode.forUriComponent(String.valueOf(drug.localDrugId))%>','displayRxWindow')">
+                                           onclick="popup(600, 425,'<%= request.getContextPath() %>/rx/ViewDisplayRxRecord?id=<%=Encode.forUriComponent(String.valueOf(drug.localDrugId))%>','displayRxWindow')">
                                             <%}%>
                                             <%=Encode.forHtml(drug.prescriptionDetails)%>
                                             <%if (drug.localDrugId != null) { %>
@@ -322,7 +322,7 @@
                             <%
                             } else {
                             %>
-                            <form action="<%=request.getContextPath()%>/rx/searchDrug.do" method="post">
+                            <form action="<%=request.getContextPath()%>/rx/searchDrug" method="post">
                                 <input type="hidden" name="demographicNo" value="<%=Encode.forHtmlAttribute(String.valueOf(currentDemographicNo))%>"/>
                                 <%
                                     String searchString = drug.brandName;
@@ -349,7 +349,7 @@
             <td><br/>
                 <br/>
                 <input type="button" value="Back To Search Drug" class="ControlPushButton"
-                       onclick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug.do';"/></td>
+                       onclick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug';"/></td>
         </tr>
         <!----End new rows here-->
         <tr height="100%">

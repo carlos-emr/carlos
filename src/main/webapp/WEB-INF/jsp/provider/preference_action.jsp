@@ -49,5 +49,5 @@
     ProviderPreferenceDao preferenceDao = (ProviderPreferenceDao) SpringUtils.getBean(ProviderPreferenceDao.class);
     ProviderPreference preference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
 
-    response.sendRedirect(request.getContextPath() + "/provider/ViewProviderDefaultDxCode.do?provider_no=" + Encode.forUriComponent(providerNo));
+    response.sendRedirect(request.getContextPath() + "/provider/ViewProviderDefaultDxCode?provider_no=" + Encode.forUriComponent(providerNo));
 %>

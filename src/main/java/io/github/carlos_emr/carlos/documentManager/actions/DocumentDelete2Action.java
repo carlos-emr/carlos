@@ -42,8 +42,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * document-read rights to destroy documents via a crafted GET link.
  *
  * Redirects back to the caller's view: {@code source=browser} returns to
- * {@code ViewDocumentBrowser.do} (preserving browser filter state), otherwise
- * to {@code ViewDocumentReport.do}.
+ * {@code ViewDocumentBrowser} (preserving browser filter state), otherwise
+ * to {@code ViewDocumentReport}.
  */
 public class DocumentDelete2Action extends ActionSupport {
 
@@ -83,8 +83,8 @@ public class DocumentDelete2Action extends ActionSupport {
         }
 
         String target = "browser".equalsIgnoreCase(source)
-                ? "/documentManager/ViewDocumentBrowser.do"
-                : "/documentManager/ViewDocumentReport.do";
+                ? "/documentManager/ViewDocumentBrowser"
+                : "/documentManager/ViewDocumentReport";
         String redirect = new RedirectUrlBuilder(request.getContextPath() + target)
                 .param("function", function)
                 .param("doctype", doctype)

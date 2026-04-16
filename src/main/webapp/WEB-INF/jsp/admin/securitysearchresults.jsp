@@ -52,7 +52,7 @@
 
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="*" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -108,7 +108,7 @@
     <h4><i class="fa-solid fa-magnifying-glass" title=""></i>&nbsp;<fmt:message key="admin.securitysearchresults.description"/></h4>
     <div name="alert" style="display:none;" class="alert alert-danger"></div>
     <div class="card card-body bg-body-tertiary">
-        <form method="post" action="${pageContext.request.contextPath}/admin/SecuritySearchResults.do" name="searchprovider">
+        <form method="post" action="${pageContext.request.contextPath}/admin/SecuritySearchResults" name="searchprovider">
             <table style="width:100%">
                 <tr>
                     <td style="text-align:right; vertical-align:middle"><b><i><fmt:message key="admin.securitysearchrecordshtm.msgCriteria"/></i></b>&nbsp;&nbsp;
@@ -169,7 +169,7 @@
         %>
         <tr>
             <td>
-                <a href='${pageContext.request.contextPath}/admin/ViewSecurityUpdateSecurity.do?keyword=<%=securityRecord.getId()%>'><%= Encode.forHtmlContent(securityRecord.getUserName()) %>
+                <a href='${pageContext.request.contextPath}/admin/ViewSecurityUpdateSecurity?keyword=<%=securityRecord.getId()%>'><%= Encode.forHtmlContent(securityRecord.getUserName()) %>
                 </a></td>
             <td style="text-align:center">*********</td>
             <td style="text-align:center"><%= securityRecord.getProviderNo() %>

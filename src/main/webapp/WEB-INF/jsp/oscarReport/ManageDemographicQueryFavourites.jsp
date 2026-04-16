@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -73,7 +73,7 @@
             </h4>
         </div>
 
-        <form action="${pageContext.request.contextPath}/report/DeleteDemographicReport.do" method="post">
+        <form action="${pageContext.request.contextPath}/report/DeleteDemographicReport" method="post">
             <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
             <table class="table table-sm table-striped" style="font-size:13px;">
                 <%
@@ -90,7 +90,7 @@
             </table>
             <div style="padding:5px 0;">
                 <input type="submit" value="Delete Selected" class="btn btn-sm btn-danger"/>
-                <a href="<%= request.getContextPath() %>/oscarReport/ViewReportDemographicReport.do" class="btn btn-sm btn-secondary">Cancel</a>
+                <a href="<%= request.getContextPath() %>/oscarReport/ViewReportDemographicReport" class="btn btn-sm btn-secondary">Cancel</a>
             </div>
         </form>
 

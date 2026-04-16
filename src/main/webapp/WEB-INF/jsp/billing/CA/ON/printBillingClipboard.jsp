@@ -26,7 +26,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     String user_no;
     user_no = (String) session.getAttribute("user");
     String asstProvider_no = "";

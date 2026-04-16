@@ -11,7 +11,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -24,7 +24,7 @@
         MSPReconcile rec = new MSPReconcile();
         rec.settleBGBills();
 %>
-<jsp:forward page="/billing/CA/BC/ViewSettleBG.do">
+<jsp:forward page="/billing/CA/BC/ViewSettleBG">
     <jsp:param name="settled" value="true"/>
 </jsp:forward>
 <%}%>
@@ -43,7 +43,7 @@
     <h4>All claims with an explanation of type 'BG' have been adjusted and settled</h4>
     <%} else {%>
     <h4>Automatically settle claims that have been over/under paid(BG)</h4>
-    <form method="post" action="<%= request.getContextPath() %>/billing/CA/BC/ViewSettleBG.do">
+    <form method="post" action="<%= request.getContextPath() %>/billing/CA/BC/ViewSettleBG">
         <input type="hidden" name="settled" value="false"/> <br>
         <input class="btn btn-primary" type="submit" name="Continue" value="Submit">
     </form>

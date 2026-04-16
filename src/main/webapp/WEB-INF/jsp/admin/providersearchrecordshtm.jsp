@@ -44,7 +44,7 @@
 
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="*" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -98,7 +98,7 @@
         <table cellspacing="0" cellpadding="2" width="100%" border="0"
                BGCOLOR="#C4D9E7">
 
-            <form method="post" action="/admin/ViewProviderSearchResults.do" name="searchprovider" onsubmit="return onsub()">
+            <form method="post" action="/admin/ViewProviderSearchResults" name="searchprovider" onsubmit="return onsub()">
                 <tr valign="top">
                     <td rowspan="2" align="right" valign="middle"><font face="Verdana" color="#0000FF">
                         <b><i><fmt:message key="admin.search.formSearchCriteria"/></i></b></font></td>

@@ -30,7 +30,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
@@ -48,7 +48,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin,_admin.unlockAccount" rights="r"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin&type=_admin.unlockAccount");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin&type=_admin.unlockAccount");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -116,7 +116,7 @@
         </div>
     </div>
 
-    <form method="post" name="baseurl" action="${pageContext.request.contextPath}/admin/UnLock.do">
+    <form method="post" name="baseurl" action="${pageContext.request.contextPath}/admin/UnLock">
         <% if (!msg.isEmpty()) { %>
         <div class="alert alert-success">
             <%= Encode.forHtml(msg) %>

@@ -42,7 +42,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     }
 
     String user_no = (String) session.getAttribute("user");
@@ -59,7 +59,7 @@
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*,java.net.*, java.sql.*, io.github.carlos_emr.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
@@ -450,7 +450,7 @@
             if (self.location.href.lastIndexOf("?") > 0) {
                 a = self.location.href.substring(self.location.href.lastIndexOf("?"));
             }
-            self.location.href = "/billing.do" + a;
+            self.location.href = "/billing" + a;
         }
 
         function findObj(n, d) { //v4.0
@@ -639,8 +639,8 @@
             var d = elementName;
             t0 = escape("document.forms[0].elements[\'" + d + "\'].value");
             //t1 = escape("");
-            //alert(('/billing/CA/ON/ViewSearchRefDoc.do?param='+t0));
-            awnd = rs('att', ('/billing/CA/ON/ViewSearchRefDoc.do?param=' + t0), 600, 600, 1);
+            //alert(('/billing/CA/ON/ViewSearchRefDoc?param='+t0));
+            awnd = rs('att', ('/billing/CA/ON/ViewSearchRefDoc?param=' + t0), 600, 600, 1);
             awnd.focus();
         }
 
@@ -648,14 +648,14 @@
             var d = elementName;
             t0 = escape("document.forms[0].elements[\'" + d + "\'].value");
             t1 = escape("document.forms[0].elements[\'" + name2 + "\'].value");
-            awnd = rs('att', ('/billing/CA/ON/ViewSearchRefDoc.do?param=' + t0 + '&param2=' + t1), 600, 600, 1);
+            awnd = rs('att', ('/billing/CA/ON/ViewSearchRefDoc?param=' + t0 + '&param2=' + t1), 600, 600, 1);
             awnd.focus();
         }
 
         function dxScriptAttach(name2) {
             f0 = escape(document.forms[0].dxCode.value);
             f1 = escape("document.forms[0].elements[\'" + name2 + "\'].value");
-            awnd = rs('att', '/billing/CA/ON/ViewBillingDigSearch.do?name=' + f0 + '&search=&name2=' + f1, 600, 600, 1);
+            awnd = rs('att', '/billing/CA/ON/ViewBillingDigSearch?name=' + f0 + '&search=&name2=' + f1, 600, 600, 1);
             awnd.focus();
         }
 
@@ -752,7 +752,7 @@
 </div>
 
 
-<form method="post" name="titlesearch" action="<%= request.getContextPath() %>/billing/CA/ON/BillingShortcutPg2Save.do"
+<form method="post" name="titlesearch" action="<%= request.getContextPath() %>/billing/CA/ON/BillingShortcutPg2Save"
       onsubmit="return onNext();">
     <table border="0" cellpadding="0" cellspacing="2" width="100%"
            bgcolor="#CCCCFF">

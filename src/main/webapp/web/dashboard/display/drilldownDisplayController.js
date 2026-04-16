@@ -318,7 +318,7 @@ $(document).ready(function () {
     //--> Re-draw the dashboard.
     $(".backtoDashboardBtn").on('click', function (event) {
         event.preventDefault();
-        var url = "/web/dashboard/display/DashboardDisplay.do";
+        var url = "/web/dashboard/display/DashboardDisplay";
         var data = new Object();
         data.dashboardId = (this.id).split("_")[1];
         data.method = (this.id).split("_")[0];
@@ -368,7 +368,7 @@ $(document).ready(function () {
     $("#saveTicklerBtn").on('click', function (event) {
         event.preventDefault();
         if (checkFields()) {
-            sendData("/web/dashboard/display/AssignTickler.do", $("#ticklerAddForm").serialize(), "close")
+            sendData("/web/dashboard/display/AssignTickler", $("#ticklerAddForm").serialize(), "close")
         }
     });
 

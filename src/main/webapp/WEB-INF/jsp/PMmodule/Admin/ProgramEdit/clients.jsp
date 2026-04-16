@@ -31,7 +31,7 @@
 
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<c:url var="programManagerClientsUri" value="/PMmodule/ProgramManager.do">
+<c:url var="programManagerClientsUri" value="/PMmodule/ProgramManager">
     <c:param name="method" value="edit"/>
     <c:param name="id" value="${requestScope.id}"/>
     <c:param name="view.tab" value="Clients"/>

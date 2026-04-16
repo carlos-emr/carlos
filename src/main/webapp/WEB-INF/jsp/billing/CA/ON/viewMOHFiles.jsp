@@ -24,14 +24,14 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean bodd = false;
     EDTFolder folder = EDTFolder.getFolder(request.getParameter("folder"));
     String folderPath = folder.getPath();
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.backup,_admin.billing" rights="r" reverse="<%=true%>">
-    <% response.sendRedirect(request.getContextPath() + "/logout.jsp"); %>
+    <% response.sendRedirect(request.getContextPath() + "/logoutPage"); %>
 </security:oscarSec>
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
 <html>
@@ -49,14 +49,14 @@
             var fileType = decodedFilename.substring(0, 1).toUpperCase();
             if (decodedFilename.substring(decodedFilename.length - 4).toLowerCase() == ".zip") {
                 alert("Please unzip " + decodedFilename + " before processing.");
-                location.href = "<%= request.getContextPath() %>/billing/CA/ON/moveMOHFiles.do";
+                location.href = "<%= request.getContextPath() %>/billing/CA/ON/moveMOHFiles";
                 return;
             } else if (fileType == "P" || fileType == "S") {
                 form.action = "<%= request.getContextPath() %>/servlet/io.github.carlos_emr.DocumentUploadServlet";
             } else if (fileType == "L") {
                 form.action = "<%= request.getContextPath() %>/billing/CA/ON/billingLreport.jsp";
             } else {
-                form.action = "/<%= CarlosProperties.getInstance().getProperty("project_home") %>/oscarBilling/DocumentErrorReportUpload.do";
+                form.action = "/<%= CarlosProperties.getInstance().getProperty("project_home") %>/oscarBilling/DocumentErrorReportUpload";
             }
             form.submit();
         }
@@ -65,7 +65,7 @@
             var allowed = ["inbox", "outbox", "sent", "archive"];
             var folder = selectEl.options[selectEl.selectedIndex].value;
             if (allowed.indexOf(folder) !== -1) {
-                location.href = "<%= request.getContextPath() %>/billing/CA/ON/moveMOHFiles.do?folder=" + encodeURIComponent(folder);
+                location.href = "<%= request.getContextPath() %>/billing/CA/ON/moveMOHFiles?folder=" + encodeURIComponent(folder);
             }
         }
 
@@ -95,7 +95,7 @@
     </form>
 
     <% if (folder == EDTFolder.INBOX) { %>
-    <form method="POST" action="<%=request.getContextPath()%>/billing/CA/ON/moveMOHFiles.do" onsubmit="return checkForm();" class="d-flex flex-wrap align-items-center gap-2">
+    <form method="POST" action="<%=request.getContextPath()%>/billing/CA/ON/moveMOHFiles" onsubmit="return checkForm();" class="d-flex flex-wrap align-items-center gap-2">
     <% } %>
 
         <% if (folder == EDTFolder.INBOX) {%>

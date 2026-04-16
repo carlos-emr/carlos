@@ -54,7 +54,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.consult" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.consult");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.consult");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -121,7 +121,7 @@
                         for (int i = 0; i < showAllServicesUtil.serviceIdVec.size(); i++) {
                             String id = (String) showAllServicesUtil.serviceIdVec.elementAt(i);
                             String desc = (String) showAllServicesUtil.serviceDescVec.elementAt(i);
-                            String url = contextPath + "/encounter/ShowAllServices.do?serviceId="
+                            String url = contextPath + "/encounter/ShowAllServices?serviceId="
                                 + Encode.forUriComponent(id) + "&serviceDesc=" + Encode.forUriComponent(desc);
                     %>
                     <a href="<%= url %>" class="list-group-item list-group-item-action"><%= Encode.forHtml(desc) %></a>

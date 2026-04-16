@@ -4,14 +4,14 @@
         <div class="flex-grow-1 d-flex gap-3">
             <span>
                 <a href="#"
-                   onclick="popupPage(700,960,'allergy','${ctx}/rx/showAllergy.do?demographicNo=${bean.demographicNo}');return false;">
+                   onclick="popupPage(700,960,'allergy','${ctx}/rx/showAllergy?demographicNo=${bean.demographicNo}');return false;">
                     <fmt:message key="global.allergies"/>
                 </a>:
             </span>
             <span></span>
             <span>
                 <a href="#"
-                   onclick="popupPage(700,1027,'Rx','${ctx}/rx/choosePatient.do?providerNo=${bean.providerNo}&amp;demographicNo=${bean.demographicNo}');return false;">
+                   onclick="popupPage(700,1027,'Rx','${ctx}/rx/choosePatient?providerNo=${bean.providerNo}&amp;demographicNo=${bean.demographicNo}');return false;">
                     <fmt:message key="global.prescriptions"/>
                 </a>
             </span>

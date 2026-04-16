@@ -24,7 +24,7 @@ import org.apache.struts2.ServletActionContext;
 /**
  * Read gate for HL7 {@code lab/CA/ALL/labDisplay.jsp}. Enforces {@code _lab r}
  * so read-only providers (circle of care) can view HL7 lab results without
- * being routed through the write-gated {@code createLabLabel.do} action used
+ * being routed through the write-gated {@code createLabLabel} action used
  * for label mutations.
  *
  * @since 2026-04-14

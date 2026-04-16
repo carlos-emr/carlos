@@ -23,7 +23,7 @@
 
 --%>
 <%@ page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.billing.ca.on.OHIP.*, java.net.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 
 
@@ -220,11 +220,11 @@
 %>
 
 <% if (bHybridBilling) { %>
-<jsp:forward page='/billing/CA/ON/ViewGenGroupReport.do'>
+<jsp:forward page='/billing/CA/ON/ViewGenGroupReport'>
     <jsp:param name="year" value=''/>
 </jsp:forward>
 <% } else { %>
-<jsp:forward page='/billing/CA/ON/ViewBillingOHIPreport.do'>
+<jsp:forward page='/billing/CA/ON/ViewBillingOHIPreport'>
     <jsp:param name="year" value=''/>
 </jsp:forward>
 <% } %>

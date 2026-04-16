@@ -100,7 +100,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_prevention" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_prevention");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_prevention");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -117,7 +117,7 @@
 
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String demographic_no = request.getParameter("demographic_no");
     String snomedId = request.getParameter("snomedId");
     String id = request.getParameter("id");
@@ -503,7 +503,7 @@
                     var formData = new URLSearchParams();
                     formData.append('method', 'getLotNumberAndExpiryDates');
                     formData.append('snomedConceptId', snomedId);
-                    fetch('<%=request.getContextPath()%>/cvc.do', {
+                    fetch('<%=request.getContextPath()%>/cvc', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                         body: formData.toString()
@@ -666,7 +666,7 @@
                 <% if (prevHash == null) { %>
                 <h3 class="alert alert-danger"><fmt:message key="oscarprevention.addpreventiondata.preventionNotFound"/></h3>
                 <%} else { %>
-                <form action="${pageContext.request.contextPath}/prevention/AddPrevention.do" method="post" onsubmit="return handleFormSubmission()">
+                <form action="${pageContext.request.contextPath}/prevention/AddPrevention" method="post" onsubmit="return handleFormSubmission()">
                     <input type="hidden" name="prevention" value="<%=Encode.forHtmlAttribute(prevention != null ? prevention : "")%>"/>
                     <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no != null ? demographic_no : "")%>"/>
                     <input type="hidden" name="providerNo" value="<%=Encode.forHtmlAttribute(provider != null ? provider : "")%>"/>

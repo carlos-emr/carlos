@@ -31,7 +31,7 @@
 
 
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -206,7 +206,7 @@
                             </tr-->
             </table>
 
-            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements.do?method=actualLab&demographic_no=<%=Encode.forUriComponent(demographicNo)%>&labType=<%= Encode.forUriComponent(labType) %>&identifier=<%=Encode.forUriComponent(identifier)%>&testName=<%=Encode.forUriComponent(testName)%><%=drugForGraph%>"/>
+            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements?method=actualLab&demographic_no=<%=Encode.forUriComponent(demographicNo)%>&labType=<%= Encode.forUriComponent(labType) %>&identifier=<%=Encode.forUriComponent(identifier)%>&testName=<%=Encode.forUriComponent(testName)%><%=drugForGraph%>"/>
 
 
             <table width="100%" border="0" cellspacing="0" cellpadding="3"
@@ -221,7 +221,7 @@
                     </td>
                 </tr>
             </table>
-            <form action="<%= request.getContextPath() %>/lab/CA/ON/ViewLabValuesGraph.do">
+            <form action="<%= request.getContextPath() %>/lab/CA/ON/ViewLabValuesGraph">
                 <input type="hidden" name="labType" value="<%= Encode.forHtmlAttribute(labType) %>"/>
                 <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
                 <input type="hidden" name="testName" value="<%= Encode.forHtmlAttribute(testName) %>"/>

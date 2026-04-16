@@ -68,9 +68,9 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 
 <%
-	if(session.getAttribute("user") == null) response.sendRedirect("${ pageContext.request.contextPath }/logout.jsp");
+	if(session.getAttribute("user") == null) response.sendRedirect("${ pageContext.request.contextPath }/logoutPage");
     //int demographic_no = Integer.parseInt(request.getParameter("demographic_no"));
-    if(session.getAttribute("userrole") == null )  response.sendRedirect("${ pageContext.request.contextPath }/logout.jsp");
+    if(session.getAttribute("userrole") == null )  response.sendRedirect("${ pageContext.request.contextPath }/logoutPage");
     String roleName$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     String demographic_no = request.getParameter("demographic_no");
     String providerNo = (String) session.getAttribute("user");
@@ -322,7 +322,7 @@ div.headPrevention p {
         	selectedItemsStr = "&selectedItems=" + encodeURIComponent(selectedItems.join(','));
         }
 
-        var url = '<%= Encode.forJavaScript(request.getContextPath()) %>/encounter/oscarMeasurements/ViewTemplateFlowSheet.do?demographic_no=<%= Encode.forJavaScript(safeDemoNoUri) %>&template=<%= Encode.forJavaScript(safeTempUri) %>';
+        var url = '<%= Encode.forJavaScript(request.getContextPath()) %>/encounter/oscarMeasurements/ViewTemplateFlowSheet?demographic_no=<%= Encode.forJavaScript(safeDemoNoUri) %>&template=<%= Encode.forJavaScript(safeTempUri) %>';
         if(numEle.length > 0){
         	url = url + '&numEle='+numEle;
         }
@@ -484,13 +484,13 @@ div.recommendations ul{
 
                     <span class="DoNotPrint">
 
-                    <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheet.do?demographic_no=<%= safeDemoNoUri %>&template=<%= safeTempUri %>&show=lastOnly">Last Only</a>
+                    <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheet?demographic_no=<%= safeDemoNoUri %>&template=<%= safeTempUri %>&show=lastOnly">Last Only</a>
                     &nbsp;
-                    <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheet.do?demographic_no=<%= safeDemoNoUri %>&template=<%= safeTempUri %>&show=outOfRange">Only out of Range</a>
+                    <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheet?demographic_no=<%= safeDemoNoUri %>&template=<%= safeTempUri %>&show=outOfRange">Only out of Range</a>
                      &nbsp;
-                    <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheet.do?demographic_no=<%= safeDemoNoUri %>&template=<%= safeTempUri %>&show=overdue">Only overdue</a>
+                    <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheet?demographic_no=<%= safeDemoNoUri %>&template=<%= safeTempUri %>&show=overdue">Only overdue</a>
                     &nbsp;
-                    <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheet.do?demographic_no=<%= safeDemoNoUri %>&template=<%= safeTempUri %>">All</a>
+                    <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheet?demographic_no=<%= safeDemoNoUri %>&template=<%= safeTempUri %>">All</a>
                   </span>
                 </td>
              </tr>
@@ -532,10 +532,10 @@ div.recommendations ul{
     <p><a class="DoNotPrint" href="javascript: function myFunction() {return false; }"  onclick="javascript:createAddAll('<%= safeDemoNoJsUri %>', '<%= URLEncoder.encode(temp,"UTF-8") %>', <%=Math.abs( "ADDTHEMALL".hashCode() ) %>)" TITLE="Add all measurements.">
 	    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.addall"/>
 	</a> </p>
-    <p id="add_overdue"><a class="DoNotPrint" href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(760,670,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData.do?demographic_no=<%= safeDemoNoJsUri %><%=recListBuffer.toString()%>&amp;template=<%= safeTempJsUri %>','addMeasurementData<%=Math.abs( "ADDTHEMALL".hashCode() ) %>')" TITLE="Add all overdue measurements.">
+    <p id="add_overdue"><a class="DoNotPrint" href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(760,670,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData?demographic_no=<%= safeDemoNoJsUri %><%=recListBuffer.toString()%>&amp;template=<%= safeTempJsUri %>','addMeasurementData<%=Math.abs( "ADDTHEMALL".hashCode() ) %>')" TITLE="Add all overdue measurements.">
         <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.addoverdue"/>
     </a></p>
-    <p id="add_custom" style="display:none"><a class="DoNotPrint" href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(760,670,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData.do?demographic_no=<%= safeDemoNoJsUri %>&amp;measurement=WT&amp;measurement=HT&amp;measurement=BMI&amp;template=<%= safeTempJsUri %>','addMeasurementData<%=Math.abs( "ADDTHEMALL".hashCode() ) %>')" TITLE="Add HT & WT to calculate BMI.">
+    <p id="add_custom" style="display:none"><a class="DoNotPrint" href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(760,670,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData?demographic_no=<%= safeDemoNoJsUri %>&amp;measurement=WT&amp;measurement=HT&amp;measurement=BMI&amp;template=<%= safeTempJsUri %>','addMeasurementData<%=Math.abs( "ADDTHEMALL".hashCode() ) %>')" TITLE="Add HT & WT to calculate BMI.">
         Add BMI
     </a></p>
     <%}%>
@@ -563,7 +563,7 @@ div.recommendations ul{
             %>
             <li>
                     <% if (pDx == null){ %>
-                     <form method="post" action="FlowSheetDrugAction.do" style="display:inline;">
+                     <form method="post" action="FlowSheetDrugAction" style="display:inline;">
                          <input type="hidden" name="method" value="dxSave"/>
                          <input type="hidden" name="flowsheet" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(temp)) %>"/>
                          <input type="hidden" name="demographic" value="<%= safeDemoNoHtml %>"/>
@@ -606,7 +606,7 @@ div.recommendations ul{
                         if(arr[i].isCurrent()){
                     %>
                     <li title="<%= Encode.forHtmlAttribute(rxD) %> - <%= Encode.forHtmlAttribute(rxP) %>">
-                            <form method="post" action="FlowSheetDrugAction.do" style="display:inline;">
+                            <form method="post" action="FlowSheetDrugAction" style="display:inline;">
                                 <input type="hidden" name="method" value="save"/>
                                 <input type="hidden" name="flowsheet" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(temp)) %>"/>
                                 <input type="hidden" name="demographic" value="<%= safeDemoNoHtml %>"/>
@@ -657,7 +657,7 @@ div.recommendations ul{
     <% } %>
 <div id="print_box">
    <input type="button" class="DoNotPrint btn" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.print"/>" onclick="javascript:window.print()">
-    <a class="btn btn-secondary" href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheetPrint.do?demographic_no=<%= safeDemoNoUri %>&template=<%= safeTempUri %>">Custom Print</a>
+    <a class="btn btn-secondary" href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheetPrint?demographic_no=<%= safeDemoNoUri %>&template=<%= safeTempUri %>">Custom Print</a>
 &nbsp;
 
 </div>
@@ -751,14 +751,14 @@ div.recommendations ul{
         <input type="checkbox" name="selected_item" value="<%= h.get("name")%>"/>
             <%if(h2.get("graphable") != null && ((String) h2.get("graphable")).equals("yes")){%>
             <%if (alist != null && alist.size() > 1) { %>
-               <img class="DoNotPrint" src="img/chart.gif" alt="Plot"  onclick="window.open('${ pageContext.request.contextPath }/encounter/GraphMeasurements.do?demographic_no=<%= safeDemoNoJsUri %>&type=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(measure))) %>');"/>
+               <img class="DoNotPrint" src="img/chart.gif" alt="Plot"  onclick="window.open('${ pageContext.request.contextPath }/encounter/GraphMeasurements?demographic_no=<%= safeDemoNoJsUri %>&type=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(measure))) %>');"/>
             <%}else{%>
                <img class="DoNotPrint" src="img/chart.gif" alt="Plot"/>
             <%}%>
            <%}%>
 
 		   <security:oscarSec roleName="<%=roleName$%>" objectName="_flowsheet" rights="w">
-            <a class="noborder" href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(760,670,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData.do?measurement=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(measure))) %>&amp;demographic_no=<%= safeDemoNoJsUri %>&amp;template=<%= safeTempJsUri %>','addMeasurementData<%=Math.abs( ((String) h.get("name")).hashCode() ) %>')">
+            <a class="noborder" href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(760,670,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData?measurement=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(measure))) %>&amp;demographic_no=<%= safeDemoNoJsUri %>&amp;template=<%= safeTempJsUri %>','addMeasurementData<%=Math.abs( ((String) h.get("name")).hashCode() ) %>')">
            </security:oscarSec>
                 <span  class="noborder" style="font-weight:bold;"><%= Encode.forHtml((String) h2.get("display_name")) %></span>
 
@@ -820,7 +820,7 @@ div.recommendations ul{
 
     %>
     <div class="preventionProcedure" <%=hider%>
-    onclick="javascript:fsPopup(760,670,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData.do?measurement=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(measure))) %>&amp;id=<%= Encode.forJavaScriptAttribute(String.valueOf(hdata.get("id"))) %>&amp;demographic_no=<%= safeDemoNoJsUri %>&amp;template=<%= safeTempJsUri %>','addMeasurementData')"
+    onclick="javascript:fsPopup(760,670,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData?measurement=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(measure))) %>&amp;id=<%= Encode.forJavaScriptAttribute(String.valueOf(hdata.get("id"))) %>&amp;demographic_no=<%= safeDemoNoJsUri %>&amp;template=<%= safeTempJsUri %>','addMeasurementData')"
     >
         <p <%=indColour%> title="fade=[on] header=[<%= Encode.forHtmlAttribute(String.valueOf(hdata.get("age"))) %> -- Date:<%= Encode.forHtmlAttribute(String.valueOf(hdata.get("prevention_date"))) %>] body=[<%= Encode.forHtmlAttribute(com) %>&lt;br/&gt;Entered By:<%= Encode.forHtmlAttribute(mdb.getProviderFirstName()) %> <%= Encode.forHtmlAttribute(mdb.getProviderLastName()) %>]"><%= Encode.forHtml(String.valueOf(h2.get("value_name"))) %>: <%= Encode.forHtml(String.valueOf(hdata.get("age"))) %> <br/>
             <%= Encode.forHtml(String.valueOf(hdata.get("prevention_date"))) %>&nbsp;<%=mdb.getNumMonthSinceObserved()%>M
@@ -852,7 +852,7 @@ div.recommendations ul{
 <div class="preventionSection" style="<%=hidden%>" >
     <div class="headPrevention">
         <p title="fade=[on] header=[<%= Encode.forHtmlAttribute((String) h2.get("display_name")) %>] body=[<%=wrapWithSpanIfNotNull(mi.getWarning(measure),"red")%><%=wrapWithSpanIfNotNull(mi.getRecommendation(measure),"red")%><%= Encode.forHtmlAttribute((String) h2.get("guideline")) %>]">
-            <a href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(465,635,'${ pageContext.request.contextPath }/prevention/AddPrevention.do?prevention=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(prevType))) %>&amp;demographic_no=<%= safeDemoNoJsUri %>','addPreventionData<%=Math.abs( prevType.hashCode() ) %>')">
+            <a href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(465,635,'${ pageContext.request.contextPath }/prevention/AddPrevention?prevention=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(prevType))) %>&amp;demographic_no=<%= safeDemoNoJsUri %>','addPreventionData<%=Math.abs( prevType.hashCode() ) %>')">
                 <span title="<%= Encode.forHtmlAttribute((String) h2.get("guideline")) %>" style="font-weight:bold;"><%= Encode.forHtml((String) h2.get("display_name")) %></span>
             </a>
             &nbsp;
@@ -899,7 +899,7 @@ div.recommendations ul{
                 }
             }
     %>
-    <div class="preventionProcedure" <%=hider%> onclick="javascript:fsPopup(465,635,'${ pageContext.request.contextPath }/prevention/AddPrevention.do?id=<%= Encode.forJavaScriptAttribute(String.valueOf(hdata.get("id"))) %>&amp;demographic_no=<%= safeDemoNoJsUri %>','addPreventionData')" >
+    <div class="preventionProcedure" <%=hider%> onclick="javascript:fsPopup(465,635,'${ pageContext.request.contextPath }/prevention/AddPrevention?id=<%= Encode.forJavaScriptAttribute(String.valueOf(hdata.get("id"))) %>&amp;demographic_no=<%= safeDemoNoJsUri %>','addPreventionData')" >
         <p <%=r(hdata.get("refused"))%> title="fade=[on] header=[<%= Encode.forHtmlAttribute(String.valueOf(hdata.get("age"))) %> -- Date:<%= Encode.forHtmlAttribute(String.valueOf(hdata.get("prevention_date"))) %>] body=[<%= Encode.forHtmlAttribute(com) %>]" >Age: <%= Encode.forHtml(String.valueOf(hdata.get("age"))) %> <br/>
             <!--<%=refused(hdata.get("refused"))%>-->Date: <%= Encode.forHtml(String.valueOf(hdata.get("prevention_date"))) %>
             <%if (comb) {%>
@@ -933,7 +933,7 @@ function createAddAll(d,t,h){
    				out.print("&measurement="+ addAllLink[i]);
    				}%>';
 
-	return fsPopup(760,670,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData.do?demographic_no='+d+'&template='+t+newMtype,'addMeasurementData'+h);
+	return fsPopup(760,670,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData?demographic_no='+d+'&template='+t+newMtype,'addMeasurementData'+h);
 }
 </script>
 

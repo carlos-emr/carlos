@@ -34,7 +34,7 @@
                 t0 = escape(document.forms[0].xml_diagnostic_detail1.value);
                 t1 = escape(document.forms[0].xml_diagnostic_detail2.value);
                 t2 = escape(document.forms[0].xml_diagnostic_detail3.value);
-                awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/BC/ViewBillingDigNewSearch.do?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=', 600, 600, 1);
+                awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/BC/ViewBillingDigNewSearch?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=', 600, 600, 1);
                 awnd.focus();
 
 
@@ -43,7 +43,7 @@
 
             function OtherScriptAttach() {
                 t0 = escape(document.forms[0].xml_other1.value);
-                awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingCodeNewSearch.do"/>?name=' + t0 + '&name1=&name2=&search=', 820, 660, 1);
+                awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingCodeNewSearch"/>?name=' + t0 + '&name1=&name2=&search=', 820, 660, 1);
                 awnd.focus();
             }
 
@@ -71,7 +71,7 @@
         </ul>
     </div>
 <% } %></h2>
-    <form action="${pageContext.request.contextPath}/billing/CA/BC/saveAssocAction.do" method="post">
+    <form action="${pageContext.request.contextPath}/billing/CA/BC/saveAssocAction" method="post">
         <input type="hidden" name="mode" id="mode"/>
         <table width="75%" border="1" align="center" cellpadding="3"
                cellspacing="3" bgcolor="EEEEFF">

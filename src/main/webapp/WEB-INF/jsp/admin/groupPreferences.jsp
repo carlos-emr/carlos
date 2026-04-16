@@ -46,7 +46,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -81,7 +81,7 @@
 
     <body topmargin="0" leftmargin="0" rightmargin="0">
 
-    <form id="groupPreference" method="post" action="${pageContext.request.contextPath}/admin/GroupPreference.do">
+    <form id="groupPreference" method="post" action="${pageContext.request.contextPath}/admin/GroupPreference">
 
         <input type="hidden" id="method" name="method"/>
 

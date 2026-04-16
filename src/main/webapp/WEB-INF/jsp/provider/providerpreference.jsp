@@ -31,7 +31,7 @@
     clinical styling). Uses FontAwesome icons for visual clarity.
 
     Previously, most settings required navigating to many separate sub-pages via
-    setProviderStaleDate.do. Now they are all inlined with a single Save button.
+    setProviderStaleDate. Now they are all inlined with a single Save button.
     Only items that truly require a separate page (password change, signature edit,
     printer setup, etc.) remain as external links.
 
@@ -50,7 +50,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@ page import="java.util.*" %>
 
@@ -77,7 +77,7 @@
     // ── Authentication & provider context ──────────────────────────────────
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     if (loggedInInfo == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
         return;
     }
     String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -506,7 +506,7 @@
     </style>
 </head>
 <body>
-<form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/ViewProviderUpdatePreference.do" onsubmit="return checkTypeInAll()">
+<form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/ViewProviderUpdatePreference" onsubmit="return checkTypeInAll()">
 <input type="hidden" name="color_template" value="deepblue">
 <input type="hidden" name="ticklerforproviderno" value="<%=Encode.forHtmlAttribute(props.getOrDefault(UserProperty.PROVIDER_FOR_TICKLER_WARNING, ""))%>">
 
@@ -564,7 +564,7 @@
                 <div class="pref-value" style="display:flex; align-items:center; gap:8px;">
                     <input type="text" name="mygroup_no" value="<%=Encode.forHtmlAttribute(myGroupNo != null ? myGroupNo : "")%>"
                            class="pref-input form-select-sm" maxlength="10">
-                    <a href="<%= request.getContextPath() %>/provider/ViewProviderDisplayMyGroup.do" class="pref-link" target="_blank" rel="noopener noreferrer">
+                    <a href="<%= request.getContextPath() %>/provider/ViewProviderDisplayMyGroup" class="pref-link" target="_blank" rel="noopener noreferrer">
                         <i class="fas fa-users"></i> <fmt:message key="provider.providerpreference.link.viewGroups"/>
                     </a>
                 </div>
@@ -1120,11 +1120,11 @@
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.labRecallMacros"/></div>
                 <div class="pref-value pref-links">
-                    <a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewLabRecall"
+                    <a href="<%=request.getContextPath()%>/setProviderStaleDate?method=viewLabRecall"
                        class="pref-link" target="_blank" rel="noopener noreferrer">
                         <i class="fas fa-redo"></i> <fmt:message key="provider.providerpreference.link.labRecallSettings"/>
                     </a>
-                    <a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewLabMacroPrefs"
+                    <a href="<%=request.getContextPath()%>/setProviderStaleDate?method=viewLabMacroPrefs"
                        class="pref-link" target="_blank" rel="noopener noreferrer">
                         <i class="fas fa-code"></i> <fmt:message key="provider.providerpreference.link.labMacros"/>
                     </a>
@@ -1214,7 +1214,7 @@
                 <div class="pref-value pref-links"><%
                     String br = CarlosProperties.getInstance().getProperty("billregion");
                     if ("BC".equals(br)) {
-                %><a href="<%=request.getContextPath()%>/billing/CA/BC/viewBillingPreferencesAction.do?providerNo=<%=Encode.forUriComponent(providerNo)%>"
+                %><a href="<%=request.getContextPath()%>/billing/CA/BC/viewBillingPreferencesAction?providerNo=<%=Encode.forUriComponent(providerNo)%>"
                      class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-external-link-alt"></i> <fmt:message key="provider.providerpreference.link.bcBillingPrefs"/>
                 </a><%
@@ -1251,7 +1251,7 @@
                 <label class="pref-label"><fmt:message key="provider.providerpreference.signatureStamp.labelCurrentSig"/></label>
                 <div id="sigPreviewArea" style="border:1px solid var(--carlos-border); border-radius:4px; padding:10px; background:#fff; min-height:80px; display:flex; align-items:center; justify-content:center;">
                     <% if (hasConsultSignature) { %>
-                        <img id="sigPreviewImg" src="<%=request.getContextPath()%>/provider/providerSignatureImage.do"
+                        <img id="sigPreviewImg" src="<%=request.getContextPath()%>/provider/providerSignatureImage"
                              alt="<%=Encode.forHtmlAttribute((String)pageContext.getAttribute("altCurrentSig"))%>" style="max-width:100%; max-height:120px;"/>
                     <% } else { %>
                         <span id="sigPlaceholder" style="color:#999; font-style:italic;"><fmt:message key="provider.providerpreference.signatureStamp.noSigUploaded"/></span>
@@ -1322,26 +1322,26 @@
                 <fmt:message key="provider.providerpreference.account.sectionNote"/>
             </div>
             <div class="pref-links">
-                <a href="<%= request.getContextPath() %>/provider/ViewProviderChangePassword.do" class="pref-link" target="_blank" rel="noopener noreferrer">
+                <a href="<%= request.getContextPath() %>/provider/ViewProviderChangePassword" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-key"></i> <fmt:message key="provider.providerpreference.link.changePassword"/>
                 </a>
-                <a href="${pageContext.request.contextPath}/EnterSignature.do" class="pref-link" target="_blank" rel="noopener noreferrer">
+                <a href="${pageContext.request.contextPath}/EnterSignature" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-pen-nib"></i> <fmt:message key="provider.providerpreference.linkEditTextSig"/>
                 </a>
-                <a href="<%= request.getContextPath() %>/EditPrinter.do" class="pref-link" target="_blank" rel="noopener noreferrer">
+                <a href="<%= request.getContextPath() %>/EditPrinter" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-print"></i> <fmt:message key="provider.providerpreference.link.setDefaultPrinter"/>
                 </a>
-                <a href="<%=request.getContextPath()%>/provider/CppPreferences.do" class="pref-link" target="_blank" rel="noopener noreferrer">
+                <a href="<%=request.getContextPath()%>/provider/CppPreferences" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-columns"></i> <fmt:message key="provider.providerpreference.link.configureEChartCpp"/>
                 </a>
-                <a href="<%= request.getContextPath() %>/admin/ViewApiClients.do" class="pref-link" target="_blank" rel="noopener noreferrer">
+                <a href="<%= request.getContextPath() %>/admin/ViewApiClients" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-plug"></i> <fmt:message key="provider.providerpreference.link.manageApiClients"/>
                 </a>
-                <a href="<%= request.getContextPath() %>/admin/DisplayDocumentDescriptionTemplate.do"
+                <a href="<%= request.getContextPath() %>/admin/DisplayDocumentDescriptionTemplate"
                    class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-file-alt"></i> <fmt:message key="provider.providerpreference.link.docDescTemplate"/>
                 </a>
-                <a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewTicklerTaskAssignee"
+                <a href="<%=request.getContextPath()%>/setProviderStaleDate?method=viewTicklerTaskAssignee"
                    class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-tasks"></i> <fmt:message key="provider.providerpreference.link.ticklerPrefs"/>
                 </a>
@@ -1476,7 +1476,7 @@ function checkTypeInAll() {
 function submitQuickLinkAction(action, name, url) {
     var form = document.createElement('form');
     form.method = 'post';
-    form.action = '<%= request.getContextPath() %>/provider/ViewProviderPreferenceQuickLinks.do';
+    form.action = '<%= request.getContextPath() %>/provider/ViewProviderPreferenceQuickLinks';
     var fields = {action: action, name: name};
     if (url) { fields.url = url; }
     for (var key in fields) {
@@ -1518,7 +1518,7 @@ function closePreferences() {
             if (history.length > 1) {
                 history.back();
             } else {
-                location.href = '<%= request.getContextPath() %>/provider/providercontrol.do';
+                location.href = '<%= request.getContextPath() %>/provider/providercontrol';
             }
         }
     }, 150);
@@ -1557,7 +1557,7 @@ function isValidAutoSaveResponse(status, body) {
         var self = this;
         var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
         var csrfToken = csrfEl ? csrfEl.value : '';
-        fetch('${e:forJavaScript(ctx)}/provider/rxInteractionWarningLevel.do', {
+        fetch('${e:forJavaScript(ctx)}/provider/rxInteractionWarningLevel', {
             method: 'POST',
             credentials: 'same-origin',
             headers: {
@@ -1595,7 +1595,7 @@ function isValidAutoSaveResponse(status, body) {
 document.getElementById('dxSearchModal').addEventListener('show.bs.modal', function() {
     var code = document.getElementById('dxCode').value;
     var frame = document.getElementById('dxSearchFrame');
-    frame.src = '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch.do?name='
+    frame.src = '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch?name='
         + encodeURIComponent(code) + '&search=';
     frame.onload = function() {
         try {
@@ -1644,7 +1644,7 @@ document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', fun
 <fmt:message key="provider.providerpreference.signatureStamp.btnDelete" var="_sigBtnDelete"/>
 <script>
 (function() {
-    var sigStampUrl = '<%=request.getContextPath()%>/provider/providerSignatureStamp.do';
+    var sigStampUrl = '<%=request.getContextPath()%>/provider/providerSignatureStamp';
 
     var _msg = {
         selectFirst:    '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigSelectFirst"))%>',

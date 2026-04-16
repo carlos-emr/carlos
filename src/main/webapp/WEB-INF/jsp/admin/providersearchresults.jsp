@@ -46,7 +46,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="*" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -124,7 +124,7 @@
     <h4>
         <i class="fa-solid fa-magnifying-glass" title="Patient Search"></i>&nbsp;<fmt:message key="admin.providersearchresults.description"/></h4>
 
-    <form method="post" action="/admin/ViewProviderSearchResults.do" name="searchprovider" onsubmit="return onsub()">
+    <form method="post" action="/admin/ViewProviderSearchResults" name="searchprovider" onsubmit="return onsub()">
         <div class="card card-body bg-body-tertiary">
             <table style="width:100%">
                 <tr>
@@ -234,7 +234,7 @@
         <!-- getPractionerNo() getPractitionerNoType() getFormattedName() getComments() getBillingNo() getTitle() getEmail() getOhipNo() getAddress() -->
         <tr>
             <td style="text-align:center"><a
-                    href='/admin/ViewProviderUpdateProvider.do?keyword=<%=Encode.forUriComponent(provider.getId())%>'><%= Encode.forHtml(provider.getId()) %>
+                    href='/admin/ViewProviderUpdateProvider?keyword=<%=Encode.forUriComponent(provider.getId())%>'><%= Encode.forHtml(provider.getId()) %>
             </a></td>
             <td><%= Encode.forHtmlContent((provider.getLastName() == null ? "" : provider.getLastName()) + ", " + (provider.getFirstName() == null ? "" : provider.getFirstName())) %>
             </td>
@@ -267,11 +267,11 @@
         String searchStatusQ = (searchStatus != null) ? "&search_status=" + Encode.forUriComponent(searchStatus) : "";
         if (nLastPage >= 0) {
     %> <a
-            href="/admin/ViewProviderSearchResults.do?keyword=<%= Encode.forUriComponent(keyword) %>&search_mode=<%= Encode.forUriComponent(searchMode) %><%= searchStatusQ %>&orderby=<%= Encode.forUriComponent(orderBy) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnLastPage"/></a> | <%
+            href="/admin/ViewProviderSearchResults?keyword=<%= Encode.forUriComponent(keyword) %>&search_mode=<%= Encode.forUriComponent(searchMode) %><%= searchStatusQ %>&orderby=<%= Encode.forUriComponent(orderBy) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnLastPage"/></a> | <%
         }
         if (nItems == Integer.parseInt(strLimit)) {
     %> <a
-            href="/admin/ViewProviderSearchResults.do?keyword=<%= Encode.forUriComponent(keyword) %>&search_mode=<%= Encode.forUriComponent(searchMode) %><%= searchStatusQ %>&orderby=<%= Encode.forUriComponent(orderBy) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnNextPage"/></a> <%
+            href="/admin/ViewProviderSearchResults?keyword=<%= Encode.forUriComponent(keyword) %>&search_mode=<%= Encode.forUriComponent(searchMode) %><%= searchStatusQ %>&orderby=<%= Encode.forUriComponent(orderBy) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnNextPage"/></a> <%
         }
     %>
     <p><fmt:message key="admin.providersearchresults.msgClickForEditing"/></p>

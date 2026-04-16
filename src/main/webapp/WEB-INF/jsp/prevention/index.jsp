@@ -30,7 +30,7 @@
 --%>
 
 <%--
-    Page    : prevention/index.jsp
+    Page    : prevention/index
     Purpose : Displays the immunization and screening prevention record for a patient.
               Provides a navigable list of prevention types (immunizations and screenings),
               shows existing prevention records, and allows entry of new immunizations via
@@ -102,7 +102,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_prevention" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_prevention");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_prevention");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -330,7 +330,7 @@
             function addByLot() {
                 var input = document.getElementById('lotNumberToAdd2');
                 var lotNbr = input ? input.value : '';
-                popup(600, 900, '<%=request.getContextPath()%>/prevention/AddPrevention.do?demographic_no=<%= Encode.forJavaScript(demographic_no) %>&lotNumber=' + encodeURIComponent(lotNbr), 'addPreventionData' + <%=new java.util.Random().nextInt(10000) + 1%>);
+                popup(600, 900, '<%=request.getContextPath()%>/prevention/AddPrevention?demographic_no=<%= Encode.forJavaScript(demographic_no) %>&lotNumber=' + encodeURIComponent(lotNbr), 'addPreventionData' + <%=new java.util.Random().nextInt(10000) + 1%>);
             }
         </script>
 
@@ -568,7 +568,7 @@
          * Loads vaccine-brands.json from the eform images directory.
          * Admins can upload a customised vaccine-brands.json via the eform images
          * upload screen; the file is served via:
-         *   eform/displayImage.do?imagefile=vaccine-brands.json
+         *   eform/displayImage?imagefile=vaccine-brands.json
          * Falls back to the bundled prevention/vaccine-brands.json if the
          * custom file cannot be loaded or is absent.
          */
@@ -595,7 +595,7 @@
                 .filter(Boolean);
             return parsed.length ? parsed : null;
         }
-        var _vaccineLoadPromise = fetch('<%=request.getContextPath()%>/eform/displayImage.do?imagefile=vaccine-brands.json')
+        var _vaccineLoadPromise = fetch('<%=request.getContextPath()%>/eform/displayImage?imagefile=vaccine-brands.json')
             .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
             .then(function(data) {
                 var parsed = _parseVaccineBrands(data);
@@ -663,7 +663,7 @@
                             %>
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate.do?<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<%= Encode.forUriComponent(prevName) %>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>&amp;prevResultDesc=<%= Encode.forUriComponent(h.get("resultDesc")) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
+                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate?<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<%= Encode.forUriComponent(prevName) %>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>&amp;prevResultDesc=<%= Encode.forUriComponent(h.get("resultDesc")) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
                                 <%=Encode.forHtml(displayName)%>
                             </a></li>
@@ -671,7 +671,7 @@
                             %>
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention.do?4=4&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<%= Encode.forUriComponent(prevName) %>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>&amp;prevResultDesc=<%= Encode.forUriComponent(h.get("resultDesc")) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
+                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?4=4&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<%= Encode.forUriComponent(prevName) %>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>&amp;prevResultDesc=<%= Encode.forUriComponent(h.get("resultDesc")) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
                                 <%=Encode.forHtml(displayName)%>
                             </a></li>
@@ -706,7 +706,7 @@
                             %>
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate.do?<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<%= Encode.forUriComponent(prevName) %>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>&amp;prevResultDesc=<%= Encode.forUriComponent(h.get("resultDesc")) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
+                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate?<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<%= Encode.forUriComponent(prevName) %>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>&amp;prevResultDesc=<%= Encode.forUriComponent(h.get("resultDesc")) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
                                 <%=Encode.forHtml(displayName)%><%=ispa1 %>
                             </a></li>
@@ -714,7 +714,7 @@
                             %>
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention.do?4=4&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<%= Encode.forUriComponent(prevName) %>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>&amp;prevResultDesc=<%= Encode.forUriComponent(h.get("resultDesc")) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
+                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?4=4&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<%= Encode.forUriComponent(prevName) %>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>&amp;prevResultDesc=<%= Encode.forUriComponent(h.get("resultDesc")) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
                                 <%=Encode.forHtml(displayName)%><%=ispa1 %>
                             </a></li>
@@ -743,7 +743,7 @@
                                             if (mappings != null && mappings.size() > 1) {%>
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate.do?<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<%= Encode.forUriComponent(prevName) %>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>&amp;prevResultDesc=<%= Encode.forUriComponent(h.get("resultDesc")) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
+                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate?<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<%= Encode.forUriComponent(prevName) %>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>&amp;prevResultDesc=<%= Encode.forUriComponent(h.get("resultDesc")) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
                                 <%=Encode.forHtml(displayName)%>
                             </a></li>
@@ -751,7 +751,7 @@
                             %>
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention.do?4=4&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<%= Encode.forUriComponent(prevName) %>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>&amp;prevResultDesc=<%= Encode.forUriComponent(h.get("resultDesc")) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
+                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?4=4&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<%= Encode.forUriComponent(prevName) %>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>&amp;prevResultDesc=<%= Encode.forUriComponent(h.get("resultDesc")) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
                                 <%=Encode.forHtml(displayName)%>
                             </a></li>
@@ -767,13 +767,13 @@
                 <oscar:oscarPropertiesCheck property="IMMUNIZATION_IN_PREVENTION"
                                             value="yes">
                     <a href="javascript: function myFunction() {return false; }"
-                       onclick="javascript:popup(700,960,'<%=request.getContextPath()%>/encounter/immunization/initSchedule.do?demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>','oldImms')">Old
+                       onclick="javascript:popup(700,960,'<%=request.getContextPath()%>/encounter/immunization/initSchedule?demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>','oldImms')">Old
                         <fmt:message key="global.immunizations"/></a>
                     <br>
                 </oscar:oscarPropertiesCheck></td>
 
             <form name="printFrm" method="post" onsubmit="return onPrint();"
-                  action="<rewrite:reWrite jspPage="printPrevention.do"/>">
+                  action="<rewrite:reWrite jspPage="printPrevention"/>">
                 <input type="hidden" name="immunizationOnly" value="false"/>
                 <td valign="top" class="MainTableRightColumn">
 
@@ -942,13 +942,13 @@
                                             List<CVCMapping> mappings = cvcMappingDao.findMultipleByOscarName(prevName);
                                             if (mappings != null && mappings.size() > 1) {%>
                                         <a href="javascript: function myFunction() {return false; }"
-                                           onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate.do?1=1&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<%= Encode.forUriComponent(h.get("name")) %>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>&amp;prevResultDesc=<%= Encode.forUriComponent(h.get("resultDesc")) %>','addPreventionData<%=Math.abs( ( h.get("name")).hashCode() ) %>')">
+                                           onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate?1=1&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<%= Encode.forUriComponent(h.get("name")) %>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>&amp;prevResultDesc=<%= Encode.forUriComponent(h.get("resultDesc")) %>','addPreventionData<%=Math.abs( ( h.get("name")).hashCode() ) %>')">
                                             <span title="<%=Encode.forHtmlAttribute(h.get("desc"))%>"
                                                   style="font-weight: bold;"><%=Encode.forHtml(h.get("name"))%><%=ispa1%></span>
                                         </a>
                                         <% } else { %>
                                         <a href="javascript: function myFunction() {return false; }"
-                                           onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention.do?1=1&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<%= Encode.forUriComponent(h.get("name")) %>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>&amp;prevResultDesc=<%= Encode.forUriComponent(h.get("resultDesc")) %>','addPreventionData<%=Math.abs( ( h.get("name")).hashCode() ) %>')">
+                                           onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?1=1&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<%= Encode.forUriComponent(h.get("name")) %>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>&amp;prevResultDesc=<%= Encode.forUriComponent(h.get("resultDesc")) %>','addPreventionData<%=Math.abs( ( h.get("name")).hashCode() ) %>')">
                                             <span title="<%=Encode.forHtmlAttribute(h.get("desc"))%>"
                                                   style="font-weight: bold;"><%=Encode.forHtml(h.get("name"))%><%=ispa1 %></span>
                                         </a>
@@ -962,7 +962,7 @@
                                         Map<String, String> hExt = PreventionData.getPreventionKeyValues((String) hdata.get("id"));
                                         result = hExt.get("result");
 
-                                        String onClickCode = "javascript:popup(600,900,'" + request.getContextPath() + "/prevention/AddPrevention.do?id=" + Encode.forJavaScriptAttribute(hdata.get("id") != null ? String.valueOf(hdata.get("id")) : "") + "&amp;demographic_no=" + Encode.forJavaScriptAttribute(demographic_no) + "','addPreventionData')";
+                                        String onClickCode = "javascript:popup(600,900,'" + request.getContextPath() + "/prevention/AddPrevention?id=" + Encode.forJavaScriptAttribute(hdata.get("id") != null ? String.valueOf(hdata.get("id")) : "") + "&amp;demographic_no=" + Encode.forJavaScriptAttribute(demographic_no) + "','addPreventionData')";
                                 %>
 
                                 <div class="preventionProcedure" onclick="<%=onClickCode%>"
@@ -1040,7 +1040,7 @@
                                         </div>
                                         <div class="headPrevention">
                                             <p><a href="javascript: function myFunction() {return false; }"
-                                                  onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention.do?2=2&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<%= Encode.forUriComponent(h.get("name")) %>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>&amp;prevResultDesc=<%= Encode.forUriComponent(h.get("resultDesc")) %>','addPreventionData<%=Math.abs( ( h.get("name")).hashCode() ) %>')">
+                                                  onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?2=2&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<%= Encode.forUriComponent(h.get("name")) %>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>&amp;prevResultDesc=<%= Encode.forUriComponent(h.get("resultDesc")) %>','addPreventionData<%=Math.abs( ( h.get("name")).hashCode() ) %>')">
                                                 <span title="<%=Encode.forHtmlAttribute(h.get("desc"))%>"
                                                       style="font-weight: bold;"><%=Encode.forHtml(h.get("name"))%><%=ispa1 %></span>
                                             </a>
@@ -1056,7 +1056,7 @@
                                                 result = hExt.get("result");
                                         %>
                                         <div class="preventionProcedure"
-                                             onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention.do?id=<%=Encode.forJavaScriptAttribute(hdata.get("id"))%>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>','addPreventionData')"
+                                             onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?id=<%=Encode.forJavaScriptAttribute(hdata.get("id"))%>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>','addPreventionData')"
                                              title="fade=[on] header=[<%=Encode.forHtmlAttribute((String)hdata.get("age"))%> -- Date:<%=Encode.forHtmlAttribute((String)hdata.get("prevention_date_no_time"))%>] body=[<%=Encode.forHtmlAttribute((String)hExt.get("comments"))%>&lt;br/&gt;Administered By: <%=Encode.forHtmlAttribute((String)hdata.get("provider_name"))%>]">
                                             <p <%=r(hdata.get("refused"), result)%>>Age: <%=Encode.forHtml(hdata.get("age") != null ? String.valueOf(hdata.get("age")) : "")%> <br/>
                                                 <!--<%=refused(hdata.get("refused"))%>-->
@@ -1125,7 +1125,7 @@
                                     <div class="preventionSection">
                                         <div class="headPrevention">
                                             <p><a href="javascript: function myFunction() {return false; }"
-                                                  onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention.do?3=3&prevention=<%= Encode.forUriComponent(h.get("name")) %>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>&amp;prevResultDesc=<%= Encode.forUriComponent(h.get("resultDesc")) %>','addPreventionData<%=Math.abs(h.get("name").hashCode())%>')">
+                                                  onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?3=3&prevention=<%= Encode.forUriComponent(h.get("name")) %>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>&amp;prevResultDesc=<%= Encode.forUriComponent(h.get("resultDesc")) %>','addPreventionData<%=Math.abs(h.get("name").hashCode())%>')">
                                                 <span title="<%=Encode.forHtmlAttribute(h.get("desc"))%>"
                                                       style="font-weight: bold;"><%=Encode.forHtml(h.get("name"))%></span>
                                             </a> <br/>
@@ -1141,7 +1141,7 @@
                                                 Map<String, String> hExt = PreventionData.getPreventionKeyValues((String) hdata.get("id"));
                                                 result = hExt.get("result");
 
-                                                String onClickCode = "javascript:popup(600,900,'" + request.getContextPath() + "/prevention/AddPrevention.do?id=" + Encode.forJavaScriptAttribute(hdata.get("id") != null ? String.valueOf(hdata.get("id")) : "") + "&amp;demographic_no=" + Encode.forJavaScriptAttribute(demographic_no) + "','addPreventionData')";
+                                                String onClickCode = "javascript:popup(600,900,'" + request.getContextPath() + "/prevention/AddPrevention?id=" + Encode.forJavaScriptAttribute(hdata.get("id") != null ? String.valueOf(hdata.get("id")) : "") + "&amp;demographic_no=" + Encode.forJavaScriptAttribute(demographic_no) + "','addPreventionData')";
                                         %>
                                         <div class="preventionProcedure" onclick="<%=onClickCode%>">
                                             <p <%=r(hdata.get("refused"), result)%>>Age: <%=Encode.forHtml(hdata.get("age") != null ? String.valueOf(hdata.get("age")) : "")%> <br/>
@@ -1425,7 +1425,7 @@
                     input.value = '';
                     var vPath = '<%=request.getContextPath()%>';
                     var demographicNo = '<%= Encode.forJavaScript(demographic_no) %>';
-                    var url = vPath + '/prevention/AddPrevention.do?1=1'
+                    var url = vPath + '/prevention/AddPrevention?1=1'
                         + '&prevention=' + encodeURIComponent(item.name)
                         + '&demographic_no=' + demographicNo
                         + '&brandName=' + encodeURIComponent(item.value || '')
@@ -1443,7 +1443,7 @@
         _vaccineLoadPromise.finally(initVaccineAutocomplete);
 
         /* ---- CVC lot-number autocomplete on #lotNumberToAdd2 ----
-         * Fetches suggestions from the server (cvc.do?method=query).
+         * Fetches suggestions from the server (cvc?method=query).
          * Mirrors ARIA combobox/listbox pattern from initAutocomplete().
          */
         (function() {
@@ -1476,7 +1476,7 @@
                 debounceTimer = setTimeout(function() {
                     var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                     var csrfToken = csrfEl ? csrfEl.value : '';
-                    fetch('<%=request.getContextPath()%>/cvc.do?method=query', {
+                    fetch('<%=request.getContextPath()%>/cvc?method=query', {
                         method: 'POST',
                         credentials: 'same-origin',
                         headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
@@ -1537,9 +1537,9 @@
                             activeIdx = -1;
                             var lotNum = item.lotNumber || '';
                             if (lotNum.length > 0) {
-                                popup(465, 635, '<%=request.getContextPath()%>/prevention/AddPrevention.do?demographic_no=<%= Encode.forJavaScript(demographic_no) %>&lotNumber=' + encodeURIComponent(lotNum), 'addPreventionData' + Math.floor(Math.random() * 10000 + 1));
+                                popup(465, 635, '<%=request.getContextPath()%>/prevention/AddPrevention?demographic_no=<%= Encode.forJavaScript(demographic_no) %>&lotNumber=' + encodeURIComponent(lotNum), 'addPreventionData' + Math.floor(Math.random() * 10000 + 1));
                             } else {
-                                popup(465, 635, '<%=request.getContextPath()%>/prevention/AddPrevention.do?search=true&demographic_no=<%= Encode.forJavaScript(demographic_no) %>&snomedId=' + encodeURIComponent(item.genericSnomedId || '') + '&brandSnomedId=' + encodeURIComponent(item.snomedId || ''), 'addPreventionData' + Math.floor(Math.random() * 10000 + 1));
+                                popup(465, 635, '<%=request.getContextPath()%>/prevention/AddPrevention?search=true&demographic_no=<%= Encode.forJavaScript(demographic_no) %>&snomedId=' + encodeURIComponent(item.genericSnomedId || '') + '&brandSnomedId=' + encodeURIComponent(item.snomedId || ''), 'addPreventionData' + Math.floor(Math.random() * 10000 + 1));
                             }
                         });
                         dropdown.appendChild(div);

@@ -55,7 +55,7 @@ import org.apache.struts2.ServletActionContext;
  * <p>Invoked after {@code SearchPatient2Action} resolves (or the user manually
  * selects) a demographic match for an MDS lab. Updates the lab-to-demographic
  * routing via {@code CommonLabResultData.updatePatientLabRouting(...)} then
- * redirects to {@code /oscarMDS/ViewOpenEChart.do} (the {@code _lab r} gate
+ * redirects to {@code /oscarMDS/ViewOpenEChart} (the {@code _lab r} gate
  * for {@code OpenEChart.jsp}) rather than self-redirecting.
  *
  * <p>Request parameters:
@@ -96,11 +96,11 @@ public class PatientMatch2Action extends ActionSupport {
 
         try {
             CommonLabResultData.updatePatientLabRouting(labNo, demographicNo, labType);
-            newURL = request.getContextPath() + "/oscarMDS/ViewOpenEChart.do"
+            newURL = request.getContextPath() + "/oscarMDS/ViewOpenEChart"
                     + "?demographicNo=" + Encode.forUriComponent(demographicNo == null ? "" : demographicNo);
         } catch (Exception e) {
             MiscUtils.getLogger().error("exception in PatientMatch2Action", e);
-            newURL = request.getContextPath() + "/errorpage.jsp";
+            newURL = request.getContextPath() + "/errorpage";
         }
 
         response.sendRedirect(newURL);

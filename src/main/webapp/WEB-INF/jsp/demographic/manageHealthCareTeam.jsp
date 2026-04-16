@@ -104,7 +104,7 @@
             if (data != null) {
 
                 jQuery('#searchHealthCareTeamInput').attr('value', null);
-                var path = "<c:out value="${ oscar_context_path }" />/demographic/Contact.do";
+                var path = "<c:out value="${ oscar_context_path }" />/demographic/Contact";
                 var target = '#listHealthCareTeam';
                 var json = JSON.parse(data);
 
@@ -259,7 +259,7 @@
             var windowspecs = "width=500,height=600,left=100,top=100, scrollbars=yes, resizable=yes";
 
             popupWindow = window.open(
-                '<%= request.getContextPath() %>/demographic/ViewProContactSearch.do?form=updatedelete' +
+                '<%= request.getContextPath() %>/demographic/ViewProContactSearch?form=updatedelete' +
                 '&elementName=contactName' +
                 '&elementId=contactId' +
                 '&keyword=' + searchfield +

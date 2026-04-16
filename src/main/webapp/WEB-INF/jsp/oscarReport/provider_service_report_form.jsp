@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -71,7 +71,7 @@
     <h4>Provider Service Report Form</h4>
 </div>
 
-<form action="${ctx}/oscarReport/ViewProviderServiceReportExport.do"
+<form action="${ctx}/oscarReport/ViewProviderServiceReportExport"
       class="card card-body bg-body-tertiary" id="psrForm">
 
     <fieldset>

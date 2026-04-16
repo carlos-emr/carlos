@@ -121,15 +121,15 @@ var CarlosAjax = (function () {
 
     /**
      * Check if a response was redirected to the CSRF error page.
-     * CSRFGuard returns 302 -> errorpage.jsp instead of 403.
+     * CSRFGuard returns 302 -> errorpage instead of 403.
      * @param {Response|Object} response - fetch Response or transport with responseURL
      * @returns {boolean} True if this is a CSRF rejection redirect
      */
     function isCsrfRedirect(response) {
-        if (response.redirected && response.url && response.url.indexOf('errorpage.jsp') !== -1) {
+        if (response.redirected && response.url && response.url.indexOf('errorpage') !== -1) {
             return true;
         }
-        if (response.responseURL && response.responseURL.indexOf('errorpage.jsp') !== -1) {
+        if (response.responseURL && response.responseURL.indexOf('errorpage') !== -1) {
             return true;
         }
         return false;
@@ -254,7 +254,7 @@ var CarlosAjax = (function () {
         var transport = makeTransport(xhr.status, xhr.responseText, xhr.responseURL, xhr.statusText);
 
         // Check for CSRF redirect
-        if (xhr.responseURL && xhr.responseURL.indexOf('errorpage.jsp') !== -1) {
+        if (xhr.responseURL && xhr.responseURL.indexOf('errorpage') !== -1) {
             transport.status = 403;
             transport.responseText = 'CSRF validation failed — request was rejected by the server.';
             if (options.onFailure) options.onFailure(transport);

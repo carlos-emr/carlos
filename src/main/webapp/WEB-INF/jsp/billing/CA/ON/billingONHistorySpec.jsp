@@ -77,7 +77,7 @@
     </tr>
 </table>
 
-<form method="post" name="titlesearch" action="/billing/CA/ON/ViewBillingONHistorySpec.do">
+<form method="post" name="titlesearch" action="/billing/CA/ON/ViewBillingONHistorySpec">
     <table style="width:95%; margin:auto;">
         <tr>
             <td style="text-align:left"><%=Encode.forHtml(request.getParameter("demo_name") != null ? request.getParameter("demo_name") : "")%>

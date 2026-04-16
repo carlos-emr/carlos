@@ -25,7 +25,7 @@
 
 
 <%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.MyDateFormat"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingRAPrep" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -51,7 +51,7 @@
 <body leftmargin="0" topmargin="0" marginwidth="0" marginheight="0">
 
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
-    <form action="/billing/CA/ON/ViewOnGenRAError.do">
+    <form action="/billing/CA/ON/ViewOnGenRAError">
         <tr class="myDarkGreen">
             <th align='LEFT'><font color="#FFFFFF"> Billing
                 Reconcilliation - Error Report</font></th>

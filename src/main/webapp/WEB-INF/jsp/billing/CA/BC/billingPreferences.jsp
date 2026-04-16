@@ -46,7 +46,7 @@
     </head>
     <body class="BodyStyle">
     <div class="container">
-        <form action="${pageContext.request.contextPath}/billing/CA/BC/saveBillingPreferencesAction.do" method="POST">
+        <form action="${pageContext.request.contextPath}/billing/CA/BC/saveBillingPreferencesAction" method="POST">
             <input type="hidden" name="providerNo" id="providerNo"/>
             <h2>Billing Preferences</h2>
             <table class="table-sm" id="scrollNumber1">

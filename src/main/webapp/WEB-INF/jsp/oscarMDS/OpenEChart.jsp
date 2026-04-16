@@ -41,7 +41,7 @@
         String labType = request.getParameter("labType");
         String keyword = request.getParameter("keyword");
 
-        String redirectURL = request.getContextPath() + "/oscarMDS/ViewPatientSearch.do?search_mode=search_name&limit1=0&limit2=10";
+        String redirectURL = request.getContextPath() + "/oscarMDS/ViewPatientSearch?search_mode=search_name&limit1=0&limit2=10";
         if (labNo != null) {
             redirectURL += "&labNo=" + URLEncoder.encode(labNo, "UTF-8");
         }
@@ -71,7 +71,7 @@
 
         %>
 
-        location.href = '${pageContext.request.contextPath}/encounter/IncomingEncounter.do?demographicNo=<%=Encode.forJavaScript(Encode.forUriComponent(demographicNo))%>&reason=Lab+Results-Notes&curDate=<%=curYear%>-<%=curMonth%>-<%=curDay%>&encType=<%=URLEncoder.encode("Lab Results","UTF-8")%>&status=';
+        location.href = '${pageContext.request.contextPath}/encounter/IncomingEncounter?demographicNo=<%=Encode.forJavaScript(Encode.forUriComponent(demographicNo))%>&reason=Lab+Results-Notes&curDate=<%=curYear%>-<%=curMonth%>-<%=curDay%>&encType=<%=URLEncoder.encode("Lab Results","UTF-8")%>&status=';
         window.resizeTo(980, 700);
 
     </script>
@@ -80,7 +80,7 @@
 <body>
 
 <a
-        href="javascript:popupPage(700, 980, '${pageContext.request.contextPath}/encounter/IncomingEncounter.do?demographicNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographicNo)) %>&reason=Lab+Results-Notes&curDate=<%=curYear%>-<%=curMonth%>-<%=curDay%>&encType=<%=URLEncoder.encode("Lab Results","UTF-8")%>&status=');window.close();">Please
+        href="javascript:popupPage(700, 980, '${pageContext.request.contextPath}/encounter/IncomingEncounter?demographicNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographicNo)) %>&reason=Lab+Results-Notes&curDate=<%=curYear%>-<%=curMonth%>-<%=curDay%>&encType=<%=URLEncoder.encode("Lab Results","UTF-8")%>&status=');window.close();">Please
     click here to go to the patient's E-Chart.</a>
 
 </body>

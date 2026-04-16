@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -47,7 +47,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@page import="java.util.*, io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@page import="io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*,io.github.carlos_emr.*,io.github.carlos_emr.oscarClinic.*" %>
@@ -149,7 +149,7 @@
         <script language="JavaScript">
 
             function editInvoice(billNo) {
-                popupPage(700, 750, '<%= request.getContextPath() %>/billing/CA/BC/reprocessBill.do?billingmaster_no=' + billNo);
+                popupPage(700, 750, '<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?billingmaster_no=' + billNo);
             }
 
             function printInvoiceWithoutNotes() {
@@ -255,7 +255,7 @@
 
             function scriptAttach(elementName) {
                 var d = elementName;
-                popupPage('600', '700', '<%= request.getContextPath() %>/billing/CA/BC/ViewOnSearch3rdBillAddr.do');
+                popupPage('600', '700', '<%= request.getContextPath() %>/billing/CA/BC/ViewOnSearch3rdBillAddr');
             }
 
         </script>
@@ -280,7 +280,7 @@
     </head>
     <body bgcolor="#FFFFFF" text="#000000" rightmargin="0" leftmargin="0" topmargin="10" marginwidth="0"
           marginheight="0">
-    <form action="${pageContext.request.contextPath}/billing/CA/BC/UpdateBilling.do" method="post">
+    <form action="${pageContext.request.contextPath}/billing/CA/BC/UpdateBilling" method="post">
         <input type="hidden" name="billingNo" id="billingNo"/>
         <table width="650" border="0" align="center" style="border:black solid 1px ">
             <tr>
@@ -488,7 +488,7 @@
                                                     <td>
                                                             <span class="rcvPayment">
                                                             <a href="#"
-                                                               onClick="popupPage(300,450,'viewReceivePaymentAction.do?lineNo=<%=Encode.forJavaScriptAttribute(String.valueOf(bi.getLineNo()))%>&amp;billNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(bean.getBillingNo())))%>')">Receive Payment</a>
+                                                               onClick="popupPage(300,450,'viewReceivePaymentAction?lineNo=<%=Encode.forJavaScriptAttribute(String.valueOf(bi.getLineNo()))%>&amp;billNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(bean.getBillingNo())))%>')">Receive Payment</a>
                                                             </span>
                                                     </td>
                                                     <td><%=bi.getLineNo()%>

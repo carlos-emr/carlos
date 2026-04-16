@@ -89,12 +89,12 @@
     }
 
     function cme_client(programId, clientId) {
-        popup("caseManagement" + clientId, "../oscarEncounter/IncomingEncounter.do?case_program_id=" + programId + "&demographicNo=" + clientId + "&status=B");
+        popup("caseManagement" + clientId, "../oscarEncounter/IncomingEncounter?case_program_id=" + programId + "&demographicNo=" + clientId + "&status=B");
     }
 
 	function admitFromRemote(remoteReferralId)
 	{
-		window.location="<%=request.getContextPath()%>/PMmodule/GenericIntake/Search.do?method=searchFromRemoteAdmit&remoteReferralId="+remoteReferralId;
+		window.location="<%=request.getContextPath()%>/PMmodule/GenericIntake/Search?method=searchFromRemoteAdmit&remoteReferralId="+remoteReferralId;
 	}
 
 	function removeFromRemoteQueue(remoteReferralId) {
@@ -133,7 +133,7 @@ String reason ="";
 <!--  show current clients -->
 <display:table class="simple" cellspacing="2" cellpadding="3"
 	id="queue_entry" name="queue" export="false" pagesize="0"
-	requestURI="/PMmodule/ProgramManagerView.do">
+	requestURI="/PMmodule/ProgramManagerView">
 	<display:setProperty name="paging.banner.placement" value="bottom" />
 	<display:setProperty name="basic.msg.empty_list"
 		value="Queue is empty." />
@@ -191,10 +191,10 @@ String reason ="";
 				int demographic_no = temp.getClientId().intValue();
 				if(ppd.isThisProgramInProgramDomain(curUser_no,Integer.valueOf(programId))) {				
 					
-					String eURL = "../oscarEncounter/IncomingEncounter.do?programId="+programId+"&providerNo="+curUser_no+"&appointmentNo="+rsAppointNO+"&demographicNo="+demographic_no+"&curProviderNo="+curUser_no+"&reason="+java.net.URLEncoder.encode(reason)+"&encType="+java.net.URLEncoder.encode("face to face encounter with client","UTF-8")+"&userName="+java.net.URLEncoder.encode( userfirstname+" "+userlastname)+"&curDate=null&appointmentDate=null&startTime=0:0"+"&status="+status+"&source=cm";
+					String eURL = "../oscarEncounter/IncomingEncounter?programId="+programId+"&providerNo="+curUser_no+"&appointmentNo="+rsAppointNO+"&demographicNo="+demographic_no+"&curProviderNo="+curUser_no+"&reason="+java.net.URLEncoder.encode(reason)+"&encType="+java.net.URLEncoder.encode("face to face encounter with client","UTF-8")+"&userName="+java.net.URLEncoder.encode( userfirstname+" "+userlastname)+"&curDate=null&appointmentDate=null&startTime=0:0"+"&status="+status+"&source=cm";
 		%>	
 		<a href=#
-			onClick="popupPage(710, 1024,'../oscarSurveillance/CheckSurveillance.do?demographicNo=<%=demographic_no%>&proceed=<%=java.net.URLEncoder.encode(eURL)%>');return false;"
+			onClick="popupPage(710, 1024,'../oscarSurveillance/CheckSurveillance?demographicNo=<%=demographic_no%>&proceed=<%=java.net.URLEncoder.encode(eURL)%>');return false;"
 			title="<bean:message key="global.encounter"/>"> <bean:message
 			key="provider.appointmentProviderAdminDay.btnE" /></a> 
 		
@@ -308,7 +308,7 @@ String reason ="";
 	<!--  show current clients -->
 	<display:table class="simple" cellspacing="2" cellpadding="3"
 		id="queue_entry" name="remoteQueue" export="false" pagesize="0"
-		requestURI="/PMmodule/ProgramManager.do">
+		requestURI="/PMmodule/ProgramManager">
 		<display:setProperty name="paging.banner.placement" value="bottom" />
 		<display:setProperty name="basic.msg.empty_list"
 			value="Queue is empty." />

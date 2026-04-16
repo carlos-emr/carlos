@@ -48,7 +48,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -83,7 +83,7 @@
 </h4>
 
 <%if (action == null || !"run".equals(action)) { %>
-<form action="<%=request.getContextPath()%>/admin/FixRolesOnNotes.do" method="post">
+<form action="<%=request.getContextPath()%>/admin/FixRolesOnNotes" method="post">
     Choose role to change to: <select name="role_to">
     <%
         for (SecRole role : roles) {

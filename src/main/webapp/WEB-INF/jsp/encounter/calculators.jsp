@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -105,7 +105,7 @@
         <tr>
             <td align="center" class="menuLayer"><a
                     href="javascript: function myFunction() {return false; }"
-                    onclick="popperup(525,775,'${ctx}/encounter/calculators/ViewCoronaryArteryDiseaseRiskPrediction.do?sex=${sexEncoded}&age=${ageEncoded}','CoronaryArteryDiseaseRisk');">
+                    onclick="popperup(525,775,'${ctx}/encounter/calculators/ViewCoronaryArteryDiseaseRiskPrediction?sex=${sexEncoded}&age=${ageEncoded}','CoronaryArteryDiseaseRisk');">
                 <fmt:message key="encounter.Index.coronary"/> </a></td>
         </tr>
         <tr>
@@ -125,7 +125,7 @@
         <tr>
             <td align="center" class="menuLayer"><a
                     href="javascript: function myFunction() {return false; }"
-                    onclick="popperup(525,775,'${ctx}/encounter/calculators/ViewOsteoporoticFracture.do?sex=${sexEncoded}&age=${ageEncoded}','OsteoporoticFracture');">
+                    onclick="popperup(525,775,'${ctx}/encounter/calculators/ViewOsteoporoticFracture?sex=${sexEncoded}&age=${ageEncoded}','OsteoporoticFracture');">
                 <fmt:message key="encounter.Index.msgOsteoporotic"/> </a></td>
         </tr>
         <tr>
@@ -137,13 +137,13 @@
         <tr>
             <td align="center" class="menuLayer"><a
                     href="javascript: function myFunction() {return false; }"
-                    onclick="popperup(400,500,'${ctx}/encounter/calculators/ViewSimpleCalculator.do','SimpleCalc');">
+                    onclick="popperup(400,500,'${ctx}/encounter/calculators/ViewSimpleCalculator','SimpleCalc');">
                 <fmt:message key="encounter.Index.simpleCalculator"/> </a></td>
         </tr>
         <tr>
             <td align="center" class="menuLayer"><a
                     href="javascript: function myFunction() {return false; }"
-                    onclick="popperup(650,775,'${ctx}/encounter/calculators/ViewGeneralCalculators.do','GeneralConversions'); ">
+                    onclick="popperup(650,775,'${ctx}/encounter/calculators/ViewGeneralCalculators','GeneralConversions'); ">
                 <fmt:message key="encounter.Index.generalConversions"/> </a></td>
         </tr>
     </table>

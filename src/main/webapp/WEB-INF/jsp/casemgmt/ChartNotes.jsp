@@ -100,7 +100,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_casemgmt.notes");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_casemgmt.notes");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -146,7 +146,7 @@
         String demographicNo = request.getParameter("demographicNo");
         EctSessionBean bean = null;
         if ((bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
-            response.sendRedirect(request.getContextPath() + "/casemgmt/ViewError.do");
+            response.sendRedirect(request.getContextPath() + "/casemgmt/ViewError");
             return;
         }
 
@@ -215,7 +215,7 @@
 
 </script>
 <div id="topContent">
-    <form name="caseManagementViewForm" action="${pageContext.request.contextPath}/CaseManagementView.do" method="post">
+    <form name="caseManagementViewForm" action="${pageContext.request.contextPath}/CaseManagementView" method="post">
         <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
         <input type="hidden" name="providerNo" value="<%=provNo%>"/>
         <input type="hidden" name="tab" value="Current Issues"/>
@@ -465,7 +465,7 @@
     </div>
 </div>
 <%-- Insert smart note templates here --%>
-<form name="caseManagementEntryForm" id="caseManagementEntryForm" action="<%=request.getContextPath()%>/CaseManagementEntry.do" method="post">
+<form name="caseManagementEntryForm" id="caseManagementEntryForm" action="<%=request.getContextPath()%>/CaseManagementEntry" method="post">
     <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
     <input type="hidden" name="includeIssue" value="off"/>
     <%
@@ -629,7 +629,7 @@
         <div class="row">
             <div id="note-control-panel">
                 <button type="button"
-                        onclick="popupPage(500,200,'noteBrowser<%=bean.demographicNo%>','casemgmt/ViewNoteBrowser.do?demographic_no=<%=bean.demographicNo%>&FirstTime=1');">
+                        onclick="popupPage(500,200,'noteBrowser<%=bean.demographicNo%>','casemgmt/ViewNoteBrowser?demographic_no=<%=bean.demographicNo%>&FirstTime=1');">
                     <fmt:message key="encounter.Index.BrowseNotes"/></button>
                 <button type="button" onclick="notesLoadAll();"><fmt:message key="encounter.Index.btnLoadAllNotes"/></button>
                 <button type="button" onclick="toggleFullViewForAll();"><fmt:message key="encounter.Index.btneExpandLoadedNotes"/></button>
@@ -645,7 +645,7 @@
      * enable autocomplete for Issue search menus.
      */
     jQuery(document).ready(function($) {
-        var autocompleteUrl = ctx + "/CaseManagementEntry.do?method=issueList&demographicNo=" + demographicNo + "&providerNo=" + providerNo;
+        var autocompleteUrl = ctx + "/CaseManagementEntry?method=issueList&demographicNo=" + demographicNo + "&providerNo=" + providerNo;
         
         $(".issueAutocomplete").autocomplete({
             source: function(request, response) {

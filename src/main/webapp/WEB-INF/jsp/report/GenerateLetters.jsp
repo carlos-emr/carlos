@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -136,7 +136,7 @@
                 var comment = prompt('Are you sure you want to added this to patients record \n\nAdd Comment Below ', '');
                 if (comment != null) {
                     var params = "id=" + idval + "&followupType=" + followUpType + "&followupValue=" + procedure + "&demos=" + demographic + "&message=" + comment;
-                    var url = "<%=request.getContextPath()%>/oscarMeasurement/AddShortMeasurement.do";
+                    var url = "<%=request.getContextPath()%>/oscarMeasurement/AddShortMeasurement";
                     var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                     var csrfToken = csrfEl ? csrfEl.value : '';
 
@@ -200,7 +200,7 @@
                 <table class="TopStatusBar">
                     <tr>
                         <td>Choose Letter</td>
-                        <td>&nbsp; <a href="${pageContext.request.contextPath}/report/ViewManageLetters.do">manage</a></td>
+                        <td>&nbsp; <a href="${pageContext.request.contextPath}/report/ViewManageLetters">manage</a></td>
                         <td style="text-align: right">
                             <a
                                     href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
@@ -212,7 +212,7 @@
         <tr>
             <td class="MainTableLeftColumn" valign="top">&nbsp;</td>
             <td valign="top" class="MainTableRightColumn"><form
-                    action="${pageContext.request.contextPath}/report/GenerateLetters.do" method="POST"
+                    action="${pageContext.request.contextPath}/report/GenerateLetters" method="POST"
                     id="listDemographic">
 
                 <%
@@ -297,7 +297,7 @@
         // Calendar.setup( { inputField : "asofDate", ifFormat : "%Y-%m-%d", showsTime :false, button : "date", singleClick : true, step : 1 } );
         function genEnvelopes(form) {
             var formEl = document.getElementById('listDemographic');
-            window.location = "<%=request.getContextPath()%>/report/GenerateEnvelopes.do?" + new URLSearchParams(new FormData(formEl)).toString();
+            window.location = "<%=request.getContextPath()%>/report/GenerateEnvelopes?" + new URLSearchParams(new FormData(formEl)).toString();
         }
 
     </script>

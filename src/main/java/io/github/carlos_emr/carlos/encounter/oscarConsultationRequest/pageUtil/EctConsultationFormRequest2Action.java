@@ -562,7 +562,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 		}
 
         String contextPath = request.getContextPath();
-        String forward = contextPath + "/encounter/oscarConsultationRequest/ViewConfirmConsultationRequest.do?de=" + demographicNo;
+        String forward = contextPath + "/encounter/oscarConsultationRequest/ViewConfirmConsultationRequest?de=" + demographicNo;
         response.sendRedirect(forward);
         return NONE;
     }

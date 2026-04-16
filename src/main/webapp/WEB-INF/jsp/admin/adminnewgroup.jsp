@@ -34,7 +34,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
-<%@ page import="java.util.*,java.sql.*,java.util.ResourceBundle" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*,java.sql.*,java.util.ResourceBundle" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroupPrimaryKey" %>
@@ -125,7 +125,7 @@
         }
     %>
 
-    <FORM NAME="UPDATEPRE" METHOD="post" ACTION="${pageContext.request.contextPath}/admin/AdminSaveMyGroup.do" onsubmit="return validate();">
+    <FORM NAME="UPDATEPRE" METHOD="post" ACTION="${pageContext.request.contextPath}/admin/AdminSaveMyGroup" onsubmit="return validate();">
 
         <%if (request.getParameter("submit") != null && request.getParameter("submit").equals(properties.getString("admin.admindisplaymygroup.btnSubmit1"))) { %>
         <br>
@@ -133,9 +133,9 @@
             <strong>Success!</strong> record(s) have been deleted.
         </div>
 
-        <a href="${pageContext.request.contextPath}/admin/ViewAdminDisplayMyGroup.do" class="btn btn-primary">View Group List</a>
+        <a href="${pageContext.request.contextPath}/admin/ViewAdminDisplayMyGroup" class="btn btn-primary">View Group List</a>
 
-        <a href="${pageContext.request.contextPath}/admin/AdminNewGroup.do" class="btn btn-secondary"><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
+        <a href="${pageContext.request.contextPath}/admin/AdminNewGroup" class="btn btn-secondary"><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
         <%} else {%>
 
         <h3><fmt:message key="admin.adminnewgroup.description"/></h3>
@@ -187,7 +187,7 @@
         <input type="submit" name="Submit" class="btn btn-primary"
                value="<fmt:message key="admin.adminnewgroup.btnSubmit"/>">
 
-        <a href="${pageContext.request.contextPath}/admin/ViewAdminDisplayMyGroup.do" class="btn btn-secondary">Cancel</a>
+        <a href="${pageContext.request.contextPath}/admin/ViewAdminDisplayMyGroup" class="btn btn-secondary">Cancel</a>
 
     </FORM>
 

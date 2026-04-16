@@ -29,7 +29,7 @@
 
 --%>
 
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -124,14 +124,14 @@
             if (control) {
                 control.disabled = true;
             }
-            window.location.href = '<%= request.getContextPath() %>/mcedt/openAddUploadMailbox.do';
+            window.location.href = '<%= request.getContextPath() %>/mcedt/openAddUploadMailbox';
             return false;
         }
 
     </script>
 </head>
 <body>
-<form action="${pageContext.request.contextPath}/mcedt/upload.do" method="post" id="formUpload">
+<form action="${pageContext.request.contextPath}/mcedt/upload" method="post" id="formUpload">
     <jsp:include page="/WEB-INF/jsp/mcedt/messages.jsp"/>
 
     <input id="methodUpload" name="method" type="hidden" value=""/>

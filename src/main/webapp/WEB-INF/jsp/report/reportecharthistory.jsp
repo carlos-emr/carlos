@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -57,7 +57,7 @@
     if (request.getParameter("limit2") != null) strLimit2 = request.getParameter("limit2");
 %>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*,io.github.carlos_emr.carlos.providers.data.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.EChartDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.EChart" %>
@@ -140,7 +140,7 @@
     %>
     <tr bgcolor="<%=bgcolor%>">
         <td align="center"><a
-                href="<%= request.getContextPath() %>/encounter/ViewEcharthistoryprint.do?echartid=<%=eChart.getId()%>&demographic_no=<%= Encode.forUriComponent(demographic_no) %>"><%=Encode.forHtml(datetime)%>
+                href="<%= request.getContextPath() %>/encounter/ViewEcharthistoryprint?echartid=<%=eChart.getId()%>&demographic_no=<%= Encode.forUriComponent(demographic_no) %>"><%=Encode.forHtml(datetime)%>
         </a></td>
         <td><%=Encode.forHtml(eChart.getSubject() != null ? eChart.getSubject() : "")%>
         </td>
@@ -162,12 +162,12 @@
         nLastPage = Integer.parseInt(strLimit1) - intLimit2;
         if (nLastPage >= 0) {
     %> <a
-        href="<%= request.getContextPath() %>/report/ViewReportecharthistory.do?demographic_no=<%= Encode.forUriComponent(demographic_no) %>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>">Last
+        href="<%= request.getContextPath() %>/report/ViewReportecharthistory?demographic_no=<%= Encode.forUriComponent(demographic_no) %>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>">Last
     Page</a> | <%
     }
     if (nItems == intLimit2) {
 %> <a
-        href="<%= request.getContextPath() %>/report/ViewReportecharthistory.do?demographic_no=<%= Encode.forUriComponent(demographic_no) %>&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>&splitectsize=<%= Encode.forUriComponent(splitectsize) %>">
+        href="<%= request.getContextPath() %>/report/ViewReportecharthistory?demographic_no=<%= Encode.forUriComponent(demographic_no) %>&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>&splitectsize=<%= Encode.forUriComponent(splitectsize) %>">
     Next Page</a> <%
     }
 %>

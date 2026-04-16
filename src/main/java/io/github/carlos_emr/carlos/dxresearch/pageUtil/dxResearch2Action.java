@@ -170,11 +170,11 @@ public class dxResearch2Action extends ActionSupport {
 
         StringBuilder actionforward = new StringBuilder();
         if ("success".equals(forwardTo)) {
-            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/dxresearch/setupDxResearch.do");
+            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/dxresearch/setupDxResearch");
         } else if ("codeSearch".equals(forwardTo)) {
-            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/dxresearch/dxcodeSearch.do");
+            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/dxresearch/dxcodeSearch");
         } else if ("codeList".equals(forwardTo)) {
-            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/oscarDxResearch/ViewQuickCodeList.do");
+            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/oscarDxResearch/ViewQuickCodeList");
         }
         actionforward.append("?demographicNo=").append(demographicNo);
         actionforward.append("&providerNo=").append(providerNo);

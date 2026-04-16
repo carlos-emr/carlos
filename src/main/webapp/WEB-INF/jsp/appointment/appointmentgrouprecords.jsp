@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_appointment");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_appointment");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -73,7 +73,7 @@
 %>
 <%@ page
         import="java.util.*, java.sql.*,java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.commn.OtherIdManager"
-        errorPage="/errorpage.jsp" %>
+        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>

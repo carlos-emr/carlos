@@ -205,7 +205,7 @@
 				if (button) button.disabled = true;
 
 				$.post(
-					context + "/Scratch.do",
+					context + "/Scratch",
 					{
 						method: "delete",
 						id: id

@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -230,7 +230,7 @@
             t0 = escape(document.forms['reprocessBilling'].elements[d].value);
             t1 = escape("");
             t2 = escape("");
-            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingDigNewSearch.do"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=&formElement=' + d + '&formName=reprocessBilling', 820, 660, 1);
+            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingDigNewSearch"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=&formElement=' + d + '&formName=reprocessBilling', 820, 660, 1);
             awnd.focus();
         }
 
@@ -241,7 +241,7 @@
             t0 = escape(document.forms[form].elements[code].value);
             t1 = escape("");
             t2 = escape("");
-            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingGetPriceCode.do"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=&formElementCode=' + t0 + '&formName=' + form + '&formElementPrice=' + price + '&formNothing=blank', 820, 660, 1);
+            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingGetPriceCode"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=&formElementCode=' + t0 + '&formName=' + form + '&formElementPrice=' + price + '&formNothing=blank', 820, 660, 1);
             awnd.focus();
         }
 
@@ -249,7 +249,7 @@
             t0 = escape(document.forms['reprocessBilling'].service_code.value);
             t1 = escape("");
             t2 = escape("");
-            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingCodeNewSearch.do"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=&formName=reprocessBilling&formElement=service_code', 820, 660, 1);
+            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingCodeNewSearch"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=&formName=reprocessBilling&formElement=service_code', 820, 660, 1);
             awnd.focus();
         }
 
@@ -257,7 +257,7 @@
             var d = elementName;
             t0 = escape(document.forms['reprocessBilling'].elements[d].value);
             t1 = escape("");
-            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingReferCodeSearch.do"/>?name=' + t0 + '&name1=' + t1 + '&name2=&search=&formElement=' + d + '&formName=reprocessBilling', 600, 600, 1);
+            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingReferCodeSearch"/>?name=' + t0 + '&name1=' + t1 + '&name2=&search=&formElement=' + d + '&formName=reprocessBilling', 600, 600, 1);
             awnd.focus();
         }
 
@@ -355,7 +355,7 @@
             var serviceDate = document.getElementById('serviceDate').value;
             var str = document.forms[form].elements[field].value;
             var providerNo = document.getElementById('providerNo').value;
-            var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/BillingFeeItem.do"/>' + '?form=' + form + '&field=' + field + '&feeField=billingAmount&corrections=1&searchStr=' + str + '&serviceDate=' + serviceDate + '&providerNo=' + providerNo;
+            var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/BillingFeeItem"/>' + '?form=' + form + '&field=' + field + '&feeField=billingAmount&corrections=1&searchStr=' + str + '&serviceDate=' + serviceDate + '&providerNo=' + providerNo;
             var windowName = field;
             popup(height, width, url, windowName);
         }
@@ -534,7 +534,7 @@
     }
 
 %>
-<form style="reprocessBilling" action="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill.do" method="post" onsubmit="return checkSubmitType()">
+<form style="reprocessBilling" action="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill" method="post" onsubmit="return checkSubmitType()">
     <input type="hidden" name="update_date" value="<%=Encode.forHtmlAttribute(UpdateDate)%>"/>
     <input type="hidden" name="demoNo" value="<%=Encode.forHtmlAttribute(DemoNo)%>"/>
     <input type="hidden" name="billNumber" value="<%=Encode.forHtmlAttribute(allFields.getProperty("billingNo", ""))%>"/>
@@ -545,7 +545,7 @@
 
                 <%if (BillType.equals("A") || BillType.equals("P")) {%>
                 <a href="#"
-                   onClick="popupPage(800,800, '<%=request.getContextPath()%>/billing/CA/BC/billingView.do?billing_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull((String) request.getAttribute("invoiceNo"))))%>&receipt=yes')">View
+                   onClick="popupPage(800,800, '<%=request.getContextPath()%>/billing/CA/BC/billingView?billing_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull((String) request.getAttribute("invoiceNo"))))%>&receipt=yes')">View
                     Invoice</a>
                 <%}%>
             </td>
@@ -555,7 +555,7 @@
             <td width="54%" class="bCellData">
                 Patient Name:
                 <a href=#
-                   onClick="popupPage2('<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(DemoNo))%>');return false;"
+                   onClick="popupPage2('<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(DemoNo))%>');return false;"
                    title="<fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">
                     <%=Encode.forHtml(DemoName)%>
                 </a>
@@ -626,7 +626,7 @@
                 <table>
                     <tr>
                         <td>
-                            <%--<a href="#" onClick='rs("billingcalendar","<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingCalendarPopup.do"/>?year=<%=curYear%>&month=<%=curMonth%>&type=&returnForm=ReProcessBilling&returnItem=serviceDate","380","300","0")'>--%>
+                            <%--<a href="#" onClick='rs("billingcalendar","<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingCalendarPopup"/>?year=<%=curYear%>&month=<%=curMonth%>&type=&returnForm=ReProcessBilling&returnItem=serviceDate","380","300","0")'>--%>
                             <a href="javascript: function myFunction() {return false; }" id="hlSDate">
                                 Billing Date:
                             </a>
@@ -699,7 +699,7 @@
             <td width="46%" class="bCellData">
                 <input type="hidden" name="xml_visitdate" value="<%=Encode.forHtmlAttribute(visitdate)%>">
                 <a href="#"
-                   onClick='rs("billingcalendar","<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup.do?year=<%=Encode.forJavaScriptAttribute(String.valueOf(curYear))%>&month=<%=Encode.forJavaScriptAttribute(String.valueOf(curMonth))%>&type=&returnForm=serviceform&returnItem=xml_vdate","380","300","0")'>
+                   onClick='rs("billingcalendar","<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup?year=<%=Encode.forJavaScriptAttribute(String.valueOf(curYear))%>&month=<%=Encode.forJavaScriptAttribute(String.valueOf(curMonth))%>&type=&returnForm=serviceform&returnItem=xml_vdate","380","300","0")'>
                     Admission Date:
                 </a>
                 <input type="text" style="font-size:80%;" name="xml_vdate" value="<%=Encode.forHtmlAttribute(visitdate)%>">
@@ -1103,7 +1103,7 @@
 
         function replaceWCB(id) {
             oscarLog("In replaceWCB");
-            var ur = "<%= request.getContextPath() %>/billing/CA/BC/ViewWcbForms.do?wcbid=" + id;
+            var ur = "<%= request.getContextPath() %>/billing/CA/BC/ViewWcbForms?wcbid=" + id;
             callReplacementWebService(ur, 'wcbForms');
             oscarLog("replaceWCB out == " + ur);
         }

@@ -48,7 +48,7 @@
 			{
 				String trimmedLinkName = AppointmentProviderAdminDayUIBean.getLengthLimitedLinkName(loggedInInfo3, formNameTemp);
 				String url = request.getContextPath()
-						+ "/form/forwardshortcutname.do?formname=" + URLEncoder.encode(formNameTemp, "UTF-8")
+						+ "/form/forwardshortcutname?formname=" + URLEncoder.encode(formNameTemp, "UTF-8")
 						+ "&demographic_no=" + (demographic_no != null ? URLEncoder.encode(demographic_no, "UTF-8") : "")
 						+ "&appointmentNo=" + (appointment_no != null ? URLEncoder.encode(appointment_no, "UTF-8") : "");
 				%>
@@ -66,7 +66,7 @@
 					continue;
 				}
 				String trimmedLinkName = AppointmentProviderAdminDayUIBean.getLengthLimitedLinkName(loggedInInfo3, eForm.getFormName());
-				String url = request.getContextPath() + "/eform/efmformadd_data.jsp?fid=" + eFormIdTemp
+				String url = request.getContextPath() + "/eform/efmformadd_data?fid=" + eFormIdTemp
 						+ "&demographic_no=" + (demographic_no != null ? URLEncoder.encode(demographic_no, "UTF-8") : "")
 						+ "&appointment=" + (appointment_no != null ? URLEncoder.encode(appointment_no, "UTF-8") : "");
 				%>

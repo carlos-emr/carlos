@@ -22,7 +22,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * View gate for {@code tickler/index.jsp}. Enforces {@code _tickler}
+ * View gate for {@code tickler/index}. Enforces {@code _tickler}
  * {@code r} privilege before forwarding to the JSP at its
  * {@code /WEB-INF/jsp/tickler/} location. Part of the tickler-module JSP-gating migration (PR #1670).
  *
@@ -38,7 +38,7 @@ public final class ViewIndex2Action extends ActionSupport {
      * @return {@code SUCCESS} when the caller holds {@code _tickler r};
      *         the package-level {@code global-exception-mappings} in
      *         {@code struts-scheduling.xml} routes the {@link SecurityException}
-     *         thrown on denial to {@code /securityError.jsp}.
+     *         thrown on denial to {@code /securityError}.
      * @throws SecurityException when the caller lacks {@code _tickler r}
      * @throws Exception if the underlying {@code ActionSupport.execute} contract
      *         declares one (not thrown by this implementation)

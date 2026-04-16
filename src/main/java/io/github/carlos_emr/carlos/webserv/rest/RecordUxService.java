@@ -146,7 +146,7 @@ public class RecordUxService extends AbstractServiceImpl {
         //}
 
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.prescriptions", "r", null)) {
-            menulist.add(new MenuItemTo1(idCounter++, "Rx", "../rx/choosePatient.do?demographicNo=" + demographicNo));
+            menulist.add(new MenuItemTo1(idCounter++, "Rx", "../rx/choosePatient?demographicNo=" + demographicNo));
         }
 
 
@@ -180,44 +180,44 @@ public class RecordUxService extends AbstractServiceImpl {
         List<MenuItemTo1> morelist = new ArrayList<MenuItemTo1>();
 		
 		/*if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.preventions", "r", null)) {
-			morelist.add(new MenuItemTo1(idCounter++, "Preventions", "../prevention/ViewPreventionIndex.do?demographic_no="+demographicNo));
+			morelist.add(new MenuItemTo1(idCounter++, "Preventions", "../prevention/ViewPreventionIndex?demographic_no="+demographicNo));
 		}*/
 		
 		/*if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.viewTickler", "r", null)) {
 			if ( org.oscarehr.commons.IsPropertiesOn.isTicklerPlusEnable()) {
-				morelist.add(new MenuItemTo1(idCounter++, "Tickler", "../Tickler.do?filter.demographicNo="+demographicNo));
+				morelist.add(new MenuItemTo1(idCounter++, "Tickler", "../Tickler?filter.demographicNo="+demographicNo));
 			}else {
-				morelist.add(new MenuItemTo1(idCounter++, "Tickler", "..//tickler/ViewTicklerDemoMain.do?demoview="+demographicNo));
+				morelist.add(new MenuItemTo1(idCounter++, "Tickler", "..//tickler/ViewTicklerDemoMain?demoview="+demographicNo));
 			}
 		}*/
 
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.DxRegistry", "r", null)) {
-            morelist.add(new MenuItemTo1(idCounter++, "Disease Registry", "../oscarResearch/dxresearch/setupDxResearch.do?quickList=&demographicNo=" + demographicNo));
+            morelist.add(new MenuItemTo1(idCounter++, "Disease Registry", "../oscarResearch/dxresearch/setupDxResearch?quickList=&demographicNo=" + demographicNo));
         }
 
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.oscarMsg", "r", null)) {
-            morelist.add(new MenuItemTo1(idCounter++, "Messenger", "../messenger/DisplayDemographicMessages.do?orderby=date&boxType=3&demographic_no=" + demographicNo));
+            morelist.add(new MenuItemTo1(idCounter++, "Messenger", "../messenger/DisplayDemographicMessages?orderby=date&boxType=3&demographic_no=" + demographicNo));
         }
 
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.oscarMsg", "r", null)) {
-            morelist.add(new MenuItemTo1(idCounter++, "Create Message", "../messenger/SendDemoMessage.do?demographic_no=" + demographicNo));
+            morelist.add(new MenuItemTo1(idCounter++, "Create Message", "../messenger/SendDemoMessage?demographic_no=" + demographicNo));
         }
         // Requires EctSession bean to open the window.  I think it's best to just redo measurements in a better interface in the record with angular
         //if (checkPermissions("_newCasemgmt.measurements", roleName)){
-        //	morelist.add(new MenuItemTo1(2, "Measurements", "../encounter/oscarMeasurements/SetupHistoryIndex.do?demographic_no="+demographicNo));
+        //	morelist.add(new MenuItemTo1(2, "Measurements", "../encounter/oscarMeasurements/SetupHistoryIndex?demographic_no="+demographicNo));
         //}
 
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.documents", "r", null)) {
-            morelist.add(new MenuItemTo1(idCounter++, "Documents", "../documentManager/ViewDocumentReport.do?function=demographic&doctype=lab&functionid=" + demographicNo));
+            morelist.add(new MenuItemTo1(idCounter++, "Documents", "../documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=" + demographicNo));
         }
 
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.decisionSupportAlerts", "r", null)) {
-            morelist.add(new MenuItemTo1(idCounter++, "DS Guidelines", "../encounter/decisionSupport/guidelineAction.do?method=list&provider_no=" + loggedInInfo.getLoggedInProviderNo() + "&demographic_no=" + demographicNo));
+            morelist.add(new MenuItemTo1(idCounter++, "DS Guidelines", "../encounter/decisionSupport/guidelineAction?method=list&provider_no=" + loggedInInfo.getLoggedInProviderNo() + "&demographic_no=" + demographicNo));
         }
 
-		/*measurements, <a onclick="popupPage(600, 1000,'measurements69','/oscar/encounter/oscarMeasurements/SetupHistoryIndex.do'); return false;" href="#">Measurements</a>
-		 <a onclick="popupPage(500, 900,'episode69','/oscar/Episode.do?method=list&amp;demographicNo=69'); return false;" href="#">Episodes</a>
-		 <a onclick="popupPage(500, 900,'pregnancy69','/oscar/Pregnancy.do?method=list&amp;demographicNo=69'); return false;" href="#">Pregnancies</a>
+		/*measurements, <a onclick="popupPage(600, 1000,'measurements69','/oscar/encounter/oscarMeasurements/SetupHistoryIndex'); return false;" href="#">Measurements</a>
+		 <a onclick="popupPage(500, 900,'episode69','/oscar/Episode?method=list&amp;demographicNo=69'); return false;" href="#">Episodes</a>
+		 <a onclick="popupPage(500, 900,'pregnancy69','/oscar/Pregnancy?method=list&amp;demographicNo=69'); return false;" href="#">Pregnancies</a>
 		 */
         if (!morelist.isEmpty()) {  // If the more list is empty no sense in displaying it.
             moreMenu.setDropdownItems(morelist);

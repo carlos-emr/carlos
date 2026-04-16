@@ -51,7 +51,7 @@
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String demographic_no = request.getParameter("demographic_no");
     String id = request.getParameter("id");
     String measurement = request.getParameter("measurement");
@@ -371,11 +371,11 @@
     </div>
 <% } %>
                 <% String val = "";
-                    String saveAction = "encounter/Measurements2.do";
+                    String saveAction = "encounter/Measurements2";
                     String comment = "";
                     Hashtable h = null;
                     if (id != null) {
-                        saveAction = "encounter/oscarMeasurements/DeleteData2.do";
+                        saveAction = "encounter/oscarMeasurements/DeleteData2";
                         h = EctMeasurementsDataBeanHandler.getMeasurementDataById(id);
                         prevDate = (String) h.get("dateObserved");
                         val = (String) h.get("value");

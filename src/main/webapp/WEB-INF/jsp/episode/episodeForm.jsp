@@ -32,12 +32,12 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin" rights="r" reverse="<%=true%>">
-    <%response.sendRedirect(request.getContextPath() + "/logout.jsp");%>
+    <%response.sendRedirect(request.getContextPath() + "/logoutPage");%>
 </security:oscarSec>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -76,7 +76,7 @@
                 flatpickr("#startDate", {dateFormat: "Y-m-d", allowInput: true});
                 flatpickr("#endDate", {dateFormat: "Y-m-d", allowInput: true});
                 $("#description").autocomplete({
-                    source: ctx + '/CodeSearch.do?codingSystem=' + $("#search_coding_system").val(),
+                    source: ctx + '/CodeSearch?codingSystem=' + $("#search_coding_system").val(),
                     select: function (event, ui) {
                         $("#description").val(ui.item.label);
                         $("#code").val(ui.item.value);
@@ -86,7 +86,7 @@
                 });
 
                 $("#search_coding_system").bind('change', function () {
-                    $("#description").autocomplete("option", "source", ctx + '/CodeSearch.do?codingSystem=' + $("#search_coding_system").val());
+                    $("#description").autocomplete("option", "source", ctx + '/CodeSearch?codingSystem=' + $("#search_coding_system").val());
                     $('input[name="episode.codingSystem"]').val($("#search_coding_system").val());
                 });
 
@@ -166,7 +166,7 @@
                 &nbsp;
             </td>
             <td class="MainTableRightColumn">
-                <form action="${pageContext.request.contextPath}/Episode.do" method="post">
+                <form action="${pageContext.request.contextPath}/Episode" method="post">
                     <input type="hidden" name="method" value="save"/>
                     <input type="hidden" id="episode.demographicNo" name="episode.demographicNo"
                            value="<%=request.getAttribute("demographicNo")%>"/>

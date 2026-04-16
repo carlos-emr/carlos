@@ -40,7 +40,7 @@
 
 <%
     if (session.getAttribute("userrole") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     }
     String curUser_no = (String) session.getAttribute("user");
     UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
@@ -194,7 +194,7 @@
                     if (request.getAttribute("status") == null) {
                 %>
 
-                <form action="${pageContext.request.contextPath}/EditPrinter.do" method="post">
+                <form action="${pageContext.request.contextPath}/EditPrinter" method="post">
                     <fmt:message key="provider.setDefaultPrinter.setDefaultPrinterFor"/>:<br>
                     <table>
                         <tr>
@@ -265,7 +265,7 @@
                                 <fmt:message key="provider.setDefaultPrinter.requirementSilentPrint"/>
                                 <div style="visibility: hidden; display:inline;">
                                     <object id="myPdf" type="application/pdf"
-                                            data="<%=request.getContextPath()%>/PrinterList.do?method=generatePrinterListInPDF"
+                                            data="<%=request.getContextPath()%>/PrinterList?method=generatePrinterListInPDF"
                                             height="100%" width="100%"></object>
                                 </div>
                             </td>

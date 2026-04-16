@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.consult" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.consult");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.consult");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -102,7 +102,7 @@
             <div class="col-md-9">
                 <p>Please check off all the departments offered by <%= Encode.forHtml(name) %>.</p>
 
-                <form action="${pageContext.request.contextPath}/encounter/UpdateInstitutionDepartment.do" method="post">
+                <form action="${pageContext.request.contextPath}/encounter/UpdateInstitutionDepartment" method="post">
                     <input type="hidden" name="id" value="<%=id %>">
                     <input type="submit" class="btn btn-primary mb-3" value="Update Institution Department">
 

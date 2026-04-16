@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -128,7 +128,7 @@
             Vector cfgSet = new EctImmConfigData().getImmunizationConfigName();
             Vector cfgId = new EctImmConfigData().getImmunizationConfigId();
         %>
-            <form action="${pageContext.request.contextPath}/encounter/immunization/saveConfig.do" method="post">
+            <form action="${pageContext.request.contextPath}/encounter/immunization/saveConfig" method="post">
                 <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demoNo) %>">
                 <input type="hidden" name="xmlDoc" value="<%--= UtilMisc.encode64(UtilXML.toXML(cfgDoc)) --%>"/>
 
@@ -151,12 +151,12 @@
                             <input type="submit" name="submit"
                                     value="<fmt:message key="encounter.immunization.ScheduleConfig.addTemplate"/>" />
                             <input type="button" value='<fmt:message key="global.btnCancel"/>'
-                                   onclick="javascript:location.href='loadSchedule.do?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demoNo))%>';"/>
+                                   onclick="javascript:location.href='loadSchedule?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demoNo))%>';"/>
                         </td>
                         <td align="right">
                             <input type="button"
                                    value='<fmt:message key="encounter.immunization.ScheduleConfig.createTemplate"/>'
-                                   onclick="javascript:location.href='config/initConfig.do';"/>
+                                   onclick="javascript:location.href='config/initConfig';"/>
                         </td>
                     </tr>
                 </table>
