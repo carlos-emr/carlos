@@ -58,23 +58,23 @@
 
         <display:column sortable="false" title="">
             <a
-                    href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=view&id=<c:out value="${facility.id}" />">
+                    href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=view&id=${e:forUriComponent(facility.id)}">
                 Details </a>
         </display:column>
         <display:column sortable="false" title="">
             <a
-                    href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=edit&id=<c:out value="${facility.id}" />">
+                    href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=edit&id=${e:forUriComponent(facility.id)}">
                 Edit </a>
         </display:column>
         <display:column sortable="false" title="">
             <a href="javascript:void(0)"
-                    onclick="if(ConfirmDelete('<c:out value="${facility.name}"/>')){document.getElementById('deleteForm_<c:out value="${facility.id}"/>').submit()}">
+                    onclick="if(ConfirmDelete('${e:forJavaScript(facility.name)}')){document.getElementById('deleteForm_${e:forJavaScript(facility.id)}').submit()}">
                 Disable </a>
-            <form id="deleteForm_<c:out value="${facility.id}"/>" method="post"
+            <form id="deleteForm_${e:forHtmlAttribute(facility.id)}" method="post"
                   action="<%=request.getContextPath() %>/PMmodule/FacilityManager" style="display:none">
                 <input type="hidden" name="method" value="delete"/>
-                <input type="hidden" name="id" value="<c:out value="${facility.id}"/>"/>
-                <input type="hidden" name="name" value="<c:out value="${facility.name}"/>"/>
+                <input type="hidden" name="id" value="${e:forHtmlAttribute(facility.id)}"/>
+                <input type="hidden" name="name" value="${e:forHtmlAttribute(facility.name)}"/>
             </form>
         </display:column>
 

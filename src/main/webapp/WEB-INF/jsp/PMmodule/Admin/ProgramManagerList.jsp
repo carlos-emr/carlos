@@ -90,8 +90,8 @@
                     <select name="searchFacilityId">
                         <option value="0" <c:if test="${empty param.searchFacilityId || param.searchFacilityId == '0'}">selected</c:if>>Any</option>
                         <c:forEach var="facility" items="${facilities}">
-                            <option value="<c:out value="${facility.id}"/>" <c:if test="${param.searchFacilityId == facility.id.toString()}">selected</c:if>>
-                                <c:out value="${facility.name}"/>
+                            <option value="${e:forHtmlAttribute(facility.id)}" <c:if test="${param.searchFacilityId == facility.id.toString()}">selected</c:if>>
+                                ${e:forHtml(facility.name)}
                             </option>
                         </c:forEach>
                     </select>
@@ -111,20 +111,20 @@
     <display:setProperty name="basic.msg.empty_list" value="No programs found."/>
 
     <display:column sortable="false" title="">
-        <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=delete&amp;id=<c:out value="${program.id}"/>&amp;name=<c:out value="${program.name}"/>"
-           onclick="return confirmDelete('<c:out value="${program.nameJs}"/>');">Delete</a>
+        <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=delete&amp;id=${e:forUriComponent(program.id)}&amp;name=${e:forUriComponent(program.name)}"
+           onclick="return confirmDelete('${e:forJavaScript(program.name)}');">Delete</a>
     </display:column>
     <display:column sortable="false" title="">
         <c:choose>
             <c:when test="${program.programStatus == 'active'}">
-                <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=<c:out value="${program.id}"/>">Edit</a>
+                <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${e:forUriComponent(program.id)}">Edit</a>
             </c:when>
             <c:otherwise>Edit</c:otherwise>
         </c:choose>
     </display:column>
     <display:column sortable="true" title="Name">
-        <a href="${pageContext.request.contextPath}/PMmodule/ProgramManagerView?id=<c:out value="${program.id}"/>">
-            <c:out value="${program.name}"/>
+        <a href="${pageContext.request.contextPath}/PMmodule/ProgramManagerView?id=${e:forUriComponent(program.id)}">
+            ${e:forHtml(program.name)}
         </a>
     </display:column>
     <display:column property="description" sortable="true" title="Description"/>
@@ -132,8 +132,8 @@
     <display:column property="programStatus" sortable="true" title="Status"/>
     <display:column property="location" sortable="true" title="Location"/>
     <display:column sortable="true" title="Participation">
-        <c:out value="${program.numOfMembers}"/>/<c:out value="${program.maxAllowed}"/>
-        (<c:out value="${program.queueSize}"/> waiting)
+        ${e:forHtml(program.numOfMembers)}/${e:forHtml(program.maxAllowed)}
+        (${e:forHtml(program.queueSize)} waiting)
     </display:column>
 </display:table>
 

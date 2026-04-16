@@ -124,13 +124,12 @@
         </td>
         <td style="<%=style%>"><fmt:formatDate
                 pattern="MM/dd/yy : hh:mm a" value="${tickler.serviceDate}"/></td>
-        <td style="<%=style%>"><c:out value="${tickler.priority}"/></td>
+        <td style="<%=style%>">${e:forHtml(tickler.priority)}</td>
         <td style="<%=style%>"><%=assignee_name %>
         </td>
         <td style="<%=style%>"><%=status %>
         </td>
-        <td style="<%=style%>" align="left"><c:out escapeXml="false"
-                                                   value="${tickler.message}"/></td>
+        <td style="<%=style%>" align="left">${tickler.message}</td>
     </tr>
     </c:forEach>
     </tr>

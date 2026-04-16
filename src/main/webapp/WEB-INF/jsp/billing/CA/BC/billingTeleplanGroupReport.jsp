@@ -55,7 +55,6 @@
 <%@page import="io.github.carlos_emr.carlos.billing.CA.model.BillActivity" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao" %>
-<%@page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
@@ -184,7 +183,7 @@
         <th align='LEFT'><input type='button' name='print' value='Print'
                                 onClick='window.print()'></th>
         <th align='CENTER'><font face="Arial, Helvetica, sans-serif"
-                                 color="#FFFFFF"> Teleplan Group Report - <%=Encode.forHtml(thisyear)%>
+                                 color="#FFFFFF"> Teleplan Group Report - <e:forHtmlContent value='<%= thisyear %>' />
         </font></th>
         <th align='RIGHT'><input type='button' name='close' value='Close'
                                  onClick='window.close()'></th>
@@ -220,7 +219,7 @@
                             billinggroup_no = p.getBillingNo();//SxmlMisc.getXmlContent(rslocal.getString("comments"),"<xml_p_billinggroup_no>","</xml_p_billinggroup_no>");
                             specialty_code = SxmlMisc.getXmlContent(p.getComments(), "<xml_p_specialty_code>", "</xml_p_specialty_code>");
                 %>
-                <option value="<%=Encode.forHtmlAttribute(StringUtils.noNull(proOHIP))%>,<%=Encode.forHtmlAttribute(StringUtils.noNull(specialty_code))%>|<%=Encode.forHtmlAttribute(StringUtils.noNull(billinggroup_no))%>"><%=Encode.forHtml(StringUtils.noNull(proLast))%>,<%=Encode.forHtml(StringUtils.noNull(proFirst))%>
+                <option value="<e:forHtmlAttribute value='<%= StringUtils.noNull(proOHIP) %>' />,<e:forHtmlAttribute value='<%= StringUtils.noNull(specialty_code) %>' />|<e:forHtmlAttribute value='<%= StringUtils.noNull(billinggroup_no) %>' />"><e:forHtmlContent value='<%= StringUtils.noNull(proLast) %>' />,<e:forHtmlContent value='<%= StringUtils.noNull(proFirst) %>' />
                 </option>
                 <%
 
@@ -238,10 +237,10 @@
  </select>--></td>
             <td width="277"><font color="#003366"> <input
                     type="submit" name="Submit" value="Create Report"> <input
-                    type="hidden" name="monthCode" value="<%=Encode.forHtmlAttribute(monthCode)%>"> <input
+                    type="hidden" name="monthCode" value="<e:forHtmlAttribute value='<%= monthCode %>' />"> <input
                     type="hidden" name="verCode" value="V03"> <input
-                    type="hidden" name="curUser" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(user_no))%>"> <input
-                    type="hidden" name="curDate" value="<%=Encode.forHtmlAttribute(nowDate)%>"> </font></td>
+                    type="hidden" name="curUser" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(user_no) %>' />"> <input
+                    type="hidden" name="curDate" value="<e:forHtmlAttribute value='<%= nowDate %>' />"> </font></td>
         </tr>
         <tr>
             <td colspan="4"><font color="#003366"> <b><font
@@ -293,27 +292,27 @@
             bgcolor="<%=updatedate.startsWith(strToday)? "#E6F0F7" : yearColor %>"
             align="center">
         <td><font face="Arial, Helvetica, sans-serif" size="2"
-                  color="#003366"><%=Encode.forHtml(pro_ohip)%>
+                  color="#003366"><e:forHtmlContent value='<%= pro_ohip %>' />
         </font></td>
         <td><font face="Arial, Helvetica, sans-serif" size="2"
-                  color="#003366"><%=Encode.forHtml(pro_group)%>
+                  color="#003366"><e:forHtmlContent value='<%= pro_group %>' />
         </font></td>
         <td><font face="Arial, Helvetica, sans-serif" size="2"
-                  color="#003366"><%=Encode.forHtml(updatedate)%>
+                  color="#003366"><e:forHtmlContent value='<%= updatedate %>' />
         </font></td>
         <td><font face="Arial, Helvetica, sans-serif" size="2"
-                  color="#003366"><%=Encode.forHtml(cr)%>
+                  color="#003366"><e:forHtmlContent value='<%= cr %>' />
         </font><font
                 face="Arial, Helvetica, sans-serif" size="2" color="#003366"></font></td>
         <td><font face="Arial, Helvetica, sans-serif" size="2"
                   color="#003366"><a
-                href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<%=Encode.forUriComponent(oFile)%>"
-                target="_blank"><%=Encode.forHtml(oFile)%>
+                href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<e:forUriComponent value='<%= oFile %>' />"
+                target="_blank"><e:forHtmlContent value='<%= oFile %>' />
         </a></font></td>
         <td><font face="Arial, Helvetica, sans-serif" size="2"
                   color="#003366"><a
-                href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<%=Encode.forUriComponent(hFile)%>"
-                target="_blank"><%=Encode.forHtml(hFile)%>
+                href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<e:forUriComponent value='<%= hFile %>' />"
+                target="_blank"><e:forHtmlContent value='<%= hFile %>' />
         </a></font></td>
     </tr>
     <%

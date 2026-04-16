@@ -29,8 +29,6 @@
 
 --%>
 <!DOCTYPE HTML>
-
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.scratch.ScratchData" %>
 <%@ page import="java.util.Map" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScratchPad" %>
@@ -75,7 +73,7 @@
         let saveTimeout = null;
         let currentText = "";
         let lastSavedText = "";
-		const context = "<%=Encode.forJavaScript(request.getContextPath())%>";
+		const context = "<e:forJavaScriptBlock value='<%= request.getContextPath() %>' />";
 
         function setDirty(){
             dirty = true;
@@ -422,7 +420,7 @@
             </h2>
         </div>
           <div class="user-name" >
-              <h4><%=Encode.forHtmlContent(userfirstname)%> <%=Encode.forHtmlContent(userlastname)%></h4>
+              <h4><e:forHtmlContent value='<%= userfirstname %>' /> <e:forHtmlContent value='<%= userlastname %>' /></h4>
           </div>
     </div>
 
@@ -440,7 +438,7 @@
 				    Date date = scratchPad.getDateTime();
 				    
 				%>
-					<option value="<%=Encode.forHtmlAttribute(strId)%>"><%=DateUtils.formatDateTime(date, request.getLocale())%></option>
+					<option value="<e:forHtmlAttribute value='<%= strId %>' />"><%=DateUtils.formatDateTime(date, request.getLocale())%></option>
 				<%
 				}
 				%>
@@ -451,12 +449,12 @@
 
 		<td class="MainTableRightColumn" id="mainRight">
 		<form id="scratch" action="">
-            <input type="hidden" name="providerNo" value="<%=Encode.forHtmlAttribute(user_no)%>" />
-            <input type="hidden" name="id" id="curr_id" value="<%=Encode.forHtmlAttribute(id)%>" />
+            <input type="hidden" name="providerNo" value="<e:forHtmlAttribute value='<%= user_no %>' />" />
+            <input type="hidden" name="id" id="curr_id" value="<e:forHtmlAttribute value='<%= id %>' />" />
             <input type="hidden" name="windowId" id="windowId" value="<%=String.valueOf(System.nanoTime())%>" />
             <input type="hidden" name="dirty" value=false id="dirty" />
             <textarea name="scratchpad" id="thetext" rows="50"
-			cols="50" oninput="setDirty();" onpaste="setDirty();" ><%=Encode.forHtmlContent(text)%></textarea>
+			cols="50" oninput="setDirty();" onpaste="setDirty();" ><e:forHtmlContent value='<%= text %>' /></textarea>
 
         </form>
 		</td>

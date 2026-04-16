@@ -28,8 +28,6 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
-<%@page import="org.owasp.encoder.Encode" %>
 <%@page import="java.util.Objects" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils,io.github.carlos_emr.carlos.utility.OntarioMD,java.util.Hashtable" %>
 <%@page import="org.springframework.web.context.WebApplicationContext,io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.*" %>
@@ -89,17 +87,17 @@ Invalid Requestor Value. - Please contact your support vendor for configuration
 <body>
 <form id="loginFormID" name="loginForm" action="https://www.ontariomd.ca/AutoAuthentication/redirect.jsp" method="post">
     <p>JSESSIONID:</p>
-    <input type="text" size="70" id="jsessionID" name="jsessionID" value="<%=Encode.forHtmlAttribute(Objects.toString(loginCreds.get("jsessionID"), ""))%>"/>
+    <input type="text" size="70" id="jsessionID" name="jsessionID" value="<e:forHtmlAttribute value='<%= Objects.toString(loginCreds.get("jsessionID"), "") %>' />"/>
     <p>PT login Token:</p>
-    <input type="text" size="70" id="ptLoginToken" name="ptLoginToken" value="<%=Encode.forHtmlAttribute(Objects.toString(loginCreds.get("ptLoginToken"), ""))%>"/>
+    <input type="text" size="70" id="ptLoginToken" name="ptLoginToken" value="<e:forHtmlAttribute value='<%= Objects.toString(loginCreds.get("ptLoginToken"), "") %>' />"/>
     <p>Keyword:</p>
-    <input type="text" size="100" id="keyword" name="keyword" value="<%=Encode.forHtmlAttribute(Objects.toString(keyword, ""))%>"/>
+    <input type="text" size="100" id="keyword" name="keyword" value="<e:forHtmlAttribute value='<%= Objects.toString(keyword, "") %>' />"/>
     <p>Params:</p>
-    <input type="text" size="200" id="params" name="params" value="<%=Encode.forHtmlAttribute(Objects.toString(params, ""))%>"/>
+    <input type="text" size="200" id="params" name="params" value="<e:forHtmlAttribute value='<%= Objects.toString(params, "") %>' />"/>
     <p>Requestor:</p>
-    <input type="text" size="50" id="requestor" name="requestor" value="<%=Encode.forHtmlAttribute(Objects.toString(requestor, ""))%>"/>
+    <input type="text" size="50" id="requestor" name="requestor" value="<e:forHtmlAttribute value='<%= Objects.toString(requestor, "") %>' />"/>
     <p>Username:</p>
-    <input type="text" size="50" id="username" name="username" value="<%=Encode.forHtmlAttribute(uname)%>"/>
+    <input type="text" size="50" id="username" name="username" value="<e:forHtmlAttribute value='<%= uname %>' />"/>
     <p></p>
     <input type="submit" value="Submit"/>
 </form>

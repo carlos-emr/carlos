@@ -28,8 +28,6 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/struts-tags" prefix="s" %>
 <%
@@ -257,7 +255,7 @@
                             <label class="form-label" for="lab_req_date">Lab Req Date/Time</label>
                             <div class="input-group">
                                 <input type="text" class="form-control" name="lab_req_date" id="lab_req_date" required>
-                                <img src="<%=Encode.forHtmlAttribute(request.getContextPath())%>/images/cal.gif" id="lab_req_date_cal" class="input-group-text" style="cursor:pointer;">
+                                <img src="<e:forHtmlAttribute value='<%= request.getContextPath() %>' />/images/cal.gif" id="lab_req_date_cal" class="input-group-text" style="cursor:pointer;">
                             </div>
                         </div>
                     </div>
@@ -316,7 +314,7 @@
                         <label class="form-label" for="dob">Date of Birth</label>
                         <div class="input-group">
                             <input type="text" class="form-control" required name="dob" id="dob"/>
-                            <img src="<%=Encode.forHtmlAttribute(request.getContextPath())%>/images/cal.gif" id="dob_cal" class="input-group-text" style="cursor:pointer;">
+                            <img src="<e:forHtmlAttribute value='<%= request.getContextPath() %>' />/images/cal.gif" id="dob_cal" class="input-group-text" style="cursor:pointer;">
                         </div>
                     </div>
                     <div class="col-md-4">

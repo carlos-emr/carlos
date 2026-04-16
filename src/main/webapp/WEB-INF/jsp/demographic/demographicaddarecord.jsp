@@ -104,8 +104,8 @@
     <span style="color:red;">
         <fmt:message key="demographic.demographicaddarecord.msgDuplicatedHINError"/></span><br>
     <fmt:message key="demographic.msgDuplicatedHINDetail"/>
-    <a href="DemographicEdit?demographic_no=<%= Encode.forUriComponent(hinDuplicateDemo.getDemographicNo().toString()) %>">
-        <%= Encode.forHtml(hinDuplicateDemo.getLastName() + ", " + hinDuplicateDemo.getFirstName()) %></a><br><br>
+    <a href="DemographicEdit?demographic_no=<e:forUriComponent value='<%= hinDuplicateDemo.getDemographicNo().toString() %>' />">
+        <e:forHtmlContent value='<%= hinDuplicateDemo.getLastName() + ", " + hinDuplicateDemo.getFirstName() %>' /></a><br><br>
     <a href="#" onClick="history.go(-1);return false;"><b>&lt;-
         <fmt:message key="global.btnBack"/></b></a>
     <% } else { %>
@@ -118,7 +118,7 @@
                  (A-Za-z0-9-._~ and %XX hex sequences) contains no JS-unsafe characters,
                  making this encoding sufficient for both the URL parameter context and
                  the containing JS string. See Encode.forUriComponent() JavaDoc. --%>
-            document.addappt.action = "<%= request.getContextPath() %>/appointment/addappointment?user_id=<%=Encode.forUriComponent(creator != null ? creator : "")%>&provider_no=<%=Encode.forUriComponent(provider_no2 != null ? provider_no2 : "")%>&bFirstDisp=<%=Encode.forUriComponent(bFirstDisp2 != null ? bFirstDisp2 : "")%>&appointment_date=<%=Encode.forUriComponent(appointmentDate != null ? appointmentDate : "")%>&year=<%=Encode.forUriComponent(year2 != null ? year2 : "")%>&month=<%=Encode.forUriComponent(month2 != null ? month2 : "")%>&day=<%=Encode.forUriComponent(day2 != null ? day2 : "")%>&start_time=<%=Encode.forUriComponent(start_time2 != null ? start_time2 : "")%>&end_time=<%=Encode.forUriComponent(end_time2 != null ? end_time2 : "")%>&duration=<%=Encode.forUriComponent(duration2 != null ? duration2 : "")%>&name=<%=Encode.forUriComponent(bufName != null ? bufName : "")%>&chart_no=<%=Encode.forUriComponent(bufChart != null ? bufChart : "")%>&demographic_no=<%=Encode.forUriComponent(dem != null ? dem : "")%>&messageID=<%=Encode.forUriComponent(messageId != null ? messageId : "")%>&doctor_no=<%=Encode.forUriComponent(bufDoctorNo != null ? bufDoctorNo : "")%>&notes=<%=Encode.forUriComponent(notes != null ? notes : "")%>&reason=<%=Encode.forUriComponent(reason != null ? reason : "")%>&location=<%=Encode.forUriComponent(location != null ? location : "")%>&resources=<%=Encode.forUriComponent(resources != null ? resources : "")%>&type=<%=Encode.forUriComponent(type != null ? type : "")%>&style=<%=Encode.forUriComponent(style != null ? style : "")%>&billing=<%=Encode.forUriComponent(billing != null ? billing : "")%>&status=<%=Encode.forUriComponent(status != null ? status : "")%>&createdatetime=<%=Encode.forUriComponent(createdatetime != null ? createdatetime : "")%>&creator=<%=Encode.forUriComponent(creator != null ? creator : "")%>&remarks=<%=Encode.forUriComponent(remarks != null ? remarks : "")%>";
+            document.addappt.action = "<%= request.getContextPath() %>/appointment/addappointment?user_id=<e:forUriComponent value='<%= creator != null ? creator : "" %>' />&provider_no=<e:forUriComponent value='<%= provider_no2 != null ? provider_no2 : "" %>' />&bFirstDisp=<e:forUriComponent value='<%= bFirstDisp2 != null ? bFirstDisp2 : "" %>' />&appointment_date=<e:forUriComponent value='<%= appointmentDate != null ? appointmentDate : "" %>' />&year=<e:forUriComponent value='<%= year2 != null ? year2 : "" %>' />&month=<e:forUriComponent value='<%= month2 != null ? month2 : "" %>' />&day=<e:forUriComponent value='<%= day2 != null ? day2 : "" %>' />&start_time=<e:forUriComponent value='<%= start_time2 != null ? start_time2 : "" %>' />&end_time=<e:forUriComponent value='<%= end_time2 != null ? end_time2 : "" %>' />&duration=<e:forUriComponent value='<%= duration2 != null ? duration2 : "" %>' />&name=<e:forUriComponent value='<%= bufName != null ? bufName : "" %>' />&chart_no=<e:forUriComponent value='<%= bufChart != null ? bufChart : "" %>' />&demographic_no=<e:forUriComponent value='<%= dem != null ? dem : "" %>' />&messageID=<e:forUriComponent value='<%= messageId != null ? messageId : "" %>' />&doctor_no=<e:forUriComponent value='<%= bufDoctorNo != null ? bufDoctorNo : "" %>' />&notes=<e:forUriComponent value='<%= notes != null ? notes : "" %>' />&reason=<e:forUriComponent value='<%= reason != null ? reason : "" %>' />&location=<e:forUriComponent value='<%= location != null ? location : "" %>' />&resources=<e:forUriComponent value='<%= resources != null ? resources : "" %>' />&type=<e:forUriComponent value='<%= type != null ? type : "" %>' />&style=<e:forUriComponent value='<%= style != null ? style : "" %>' />&billing=<e:forUriComponent value='<%= billing != null ? billing : "" %>' />&status=<e:forUriComponent value='<%= status != null ? status : "" %>' />&createdatetime=<e:forUriComponent value='<%= createdatetime != null ? createdatetime : "" %>' />&creator=<e:forUriComponent value='<%= creator != null ? creator : "" %>' />&remarks=<e:forUriComponent value='<%= remarks != null ? remarks : "" %>' />";
             document.addappt.submit();
         </script>
     </form>
@@ -129,14 +129,14 @@
         <h2>
             <fmt:message key="demographic.demographicaddarecord.msgSuccessful"/></h2>
 
-        <a href="DemographicEdit?demographic_no=<%=Encode.forUriComponent(dem != null ? dem : "")%>">
+        <a href="DemographicEdit?demographic_no=<e:forUriComponent value='<%= dem != null ? dem : "" %>' />">
             <fmt:message key="demographic.demographicaddarecord.goToRecord"/></a>
 
         <caisi:isModuleLoad moduleName="caisi">
             <br/>
-            <a href="<%= request.getContextPath() %>/PMmodule/ClientManager?id=<%=Encode.forUriComponent(dem != null ? dem : "")%>">
+            <a href="<%= request.getContextPath() %>/PMmodule/ClientManager?id=<e:forUriComponent value='<%= dem != null ? dem : "" %>' />">
                 <fmt:message key="demographic.demographicaddarecord.goToCaisiRecord"/></a>
-            (<a href="#" onclick="popup(700,1027,'DemographicEdit?demographic_no=<%=Encode.forUriComponent(dem != null ? dem : "")%>')">New Window</a>)
+            (<a href="#" onclick="popup(700,1027,'DemographicEdit?demographic_no=<e:forUriComponent value='<%= dem != null ? dem : "" %>' />')">New Window</a>)
         </caisi:isModuleLoad>
 
     </p>

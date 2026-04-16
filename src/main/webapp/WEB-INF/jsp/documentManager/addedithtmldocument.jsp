@@ -60,7 +60,6 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String mode = "";
     if (request.getAttribute("mode") != null) {
@@ -308,15 +307,15 @@
                        enctype="multipart/form-data" class="form"
                        onsubmit="return submitUpload(this);">
     <input type="hidden" name="function"
-           value="<%=Encode.forHtmlAttribute(formdata.getFunction())%>" size="20"/>
+           value="<e:forHtmlAttribute value='<%= formdata.getFunction() %>' />" size="20"/>
     <input type="hidden" name="functionId"
-           value="<%=Encode.forHtmlAttribute(formdata.getFunctionId())%>" size="20"/>
-    <input type="hidden" name="functionid" value="<%=Encode.forHtmlAttribute(moduleid)%>" size="20"/>
-    <input type="hidden" name="mode" value="<%=Encode.forHtmlAttribute(mode)%>"/>
+           value="<e:forHtmlAttribute value='<%= formdata.getFunctionId() %>' />" size="20"/>
+    <input type="hidden" name="functionid" value="<e:forHtmlAttribute value='<%= moduleid %>' />" size="20"/>
+    <input type="hidden" name="mode" value="<e:forHtmlAttribute value='<%= mode %>' />"/>
     <input type="hidden" name="docCreator"
-           value="<%=Encode.forHtmlAttribute(formdata.getDocCreator())%>"/>
-    <input type="hidden" name="reviewerId" value="<%=Encode.forHtmlAttribute(formdata.getReviewerId())%>"/>
-    <input type="hidden" name="reviewDateTime" value="<%=Encode.forHtmlAttribute(formdata.getReviewDateTime())%>"/>
+           value="<e:forHtmlAttribute value='<%= formdata.getDocCreator() %>' />"/>
+    <input type="hidden" name="reviewerId" value="<e:forHtmlAttribute value='<%= formdata.getReviewerId() %>' />"/>
+    <input type="hidden" name="reviewDateTime" value="<e:forHtmlAttribute value='<%= formdata.getReviewDateTime() %>' />"/>
     <input type="hidden" name="reviewDoc" value="false"/>
 
     <table width="100%" height="100%" class="layouttable">
@@ -327,7 +326,7 @@
                     <option value=""><fmt:message key="dms.addDocument.formSelect"/></option>
                     <% for (int i = 0; i < doctypes.size(); i++) {
                         String doctype = doctypes.get(i); %>
-                    <option value="<%=Encode.forHtmlAttribute(doctype)%>" <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><%=Encode.forHtmlContent(doctype)%>
+                    <option value="<e:forHtmlAttribute value='<%= doctype %>' />" <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><e:forHtmlContent value='<%= doctype %>' />
                     </option>
                     <%}%>
                 </select>
@@ -347,7 +346,7 @@
                             consultShown = true;
                         }
                 %>
-                <option value="<%=Encode.forHtmlAttribute(reportClass)%>" <%=reportClass.equals(formdata.getDocClass()) ? "selected" : ""%>><%=Encode.forHtmlContent(reportClass)%>
+                <option value="<e:forHtmlAttribute value='<%= reportClass %>' />" <%=reportClass.equals(formdata.getDocClass()) ? "selected" : ""%>><e:forHtmlContent value='<%= reportClass %>' />
                 </option>
                 <% } %>
             </select>
@@ -355,7 +354,7 @@
         </tr>
         <tr>
             <td><fmt:message key="dms.addDocument.msgDocSubClass"/>:</td>
-            <td><input type="text" name="docSubClass" id="docSubClass" value="<%=Encode.forHtmlAttribute(formdata.getDocSubClass())%>"
+            <td><input type="text" name="docSubClass" id="docSubClass" value="<e:forHtmlAttribute value='<%= formdata.getDocSubClass() %>' />"
                        style="width:330px">
                 <div class="autocomplete_style" id="docSubClass_list"></div>
             </td>
@@ -364,7 +363,7 @@
             <td>Description:</td>
             <td><input <% if (linkhtmlerrors.containsKey("descmissing")) {%>
                     class="warning" <%}%> type="text" name="docDesc" size="30"
-                    onfocus="checkDefaultValue(this)" value="<%=Encode.forHtmlAttribute(formdata.getDocDesc())%>"></td>
+                    onfocus="checkDefaultValue(this)" value="<e:forHtmlAttribute value='<%= formdata.getDocDesc() %>' />"></td>
         </tr>
         <tr>
             <td>Added By:</td>
@@ -380,8 +379,8 @@
                         String selected = "";
                         if (formdata.getResponsibleId().equals(pd.get("providerNo"))) selected = "selected";
                     %>
-                    <option value="<%=Encode.forHtmlAttribute(String.valueOf(pd.get("providerNo")))%>" <%=selected%>><%=Encode.forHtmlContent(String.valueOf(pd.get("lastName")))%>
-                        , <%=Encode.forHtmlContent(String.valueOf(pd.get("firstName")))%>
+                    <option value="<e:forHtmlAttribute value='<%= String.valueOf(pd.get("providerNo")) %>' />" <%=selected%>><e:forHtmlContent value='<%= String.valueOf(pd.get("lastName")) %>' />
+                        , <e:forHtmlContent value='<%= String.valueOf(pd.get("firstName")) %>' />
                     </option>
                     <% } %>
                 </select>

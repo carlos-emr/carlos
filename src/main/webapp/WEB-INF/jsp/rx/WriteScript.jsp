@@ -29,6 +29,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
@@ -45,8 +46,6 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScriptForm" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="java.util.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%long start = System.currentTimeMillis();%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -1265,7 +1264,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                                                       name="sugQtyMax"/>
                                         <script language="javascript">
                                             function setQuantity() {
-                                                var path = "<c:out value="${ctx}"/>";
+                                                var path = "${e:forJavaScript(ctx)}";
                                                 oscarLog("here1");
                                                 oscarLog("path in setQuantity" + path);
                                                 var sugQtyLbl = document.getElementById('lblSugQty');
@@ -1465,7 +1464,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                 </div>-->
                             <script language=javascript>
                                 function submitPending(stashId, action) { //calls stash action
-                                    var path = "<c:out value="${ctx}"/>";
+                                    var path = "${e:forJavaScript(ctx)}";
                                     oscarLog("path in submitPending:" + path);
                                     var frm = document.getElementsByName("RxStashForm");
                                     frm[0].elements["stashId"].value = stashId;
@@ -1534,7 +1533,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                 </td>
                                                 <td>
                                                     <a href="javascript:submitPending('${loopStatus.index}', 'edit');">
-                                                        <c:out value="${rx.rxDisplay}"/>
+                                                        ${e:forHtml(rx.rxDisplay)}
                                                     </a>
                                                 </td>
                                                 <td>
@@ -1544,7 +1543,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                 </td>
                                                 <td>
                                                     <c:set var="drugNameForFavorite" value="${rx2.custom ? rx2.customName : rx2.brandName}"/>
-                                                    <a href="javascript:addFavorite('${loopStatus.index}', '<%=Encode.forJavaScript((String)pageContext.getAttribute("drugNameForFavorite"))%>');">
+                                                    <a href="javascript:addFavorite('${loopStatus.index}', '<e:forJavaScript value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' />');">
                                                         <fmt:message key="WriteScript.msgAddtoFavorites"/>
                                                     </a>
                                                 </td>

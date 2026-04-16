@@ -29,6 +29,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -49,7 +50,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.AppManager" %>
 <%@ page import="java.net.URLEncoder" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -280,7 +280,7 @@
                                                 <li>
                                                     <a href="javascript:void(0)"
                                                        onclick="newWindow('<%=request.getContextPath()%>/web/dashboard/display/DashboardDisplay?method=getDashboard&dashboardId=${ dashboard.id }','dashboard')">
-                                                        <c:out value="${ dashboard.name }"/>
+                                                        ${e:forHtml(dashboard.name)}
                                                     </a>
                                                 </li>
                                             </c:forEach>
@@ -343,14 +343,14 @@
                 <li>
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_pref" rights="r">
                     <a href="javascript:void(0)"
-                       onClick="popupPage(800,1000,'<%= request.getContextPath() %>/provider/ViewProviderPreference?provider_no=<%= Encode.forUriComponent(curUser_no) %>')"
+                       onClick="popupPage(800,1000,'<%= request.getContextPath() %>/provider/ViewProviderPreference?provider_no=<e:forUriComponent value='<%= curUser_no %>' />')"
                        title='<fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>'>
 
                         </security:oscarSec>
                         <span class="fa-solid fa-user"></span>
 
                         <span>
-                                <c:out value='<%= userfirstname + " " + userlastname %>'/>
+                                <e:forHtmlContent value='<%= userfirstname + " " + userlastname %>' />
                             </span>
                         <security:oscarSec roleName="<%=roleName$%>" objectName="_pref" rights="r">
                     </a>

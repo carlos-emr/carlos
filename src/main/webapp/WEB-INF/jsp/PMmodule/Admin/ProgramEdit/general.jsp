@@ -58,37 +58,37 @@
 
 <input type="hidden" name="method" value="save"/>
     <input type="hidden" name="view.tab" value="General"/>
-    <input type="hidden" name="program.id" value="<c:out value="${program.id}"/>"/>
-    <input type="hidden" name="program.numOfMembers" value="<c:out value="${empty program.numOfMembers ? 0 : program.numOfMembers}"/>"/>
+    <input type="hidden" name="program.id" value="${e:forHtmlAttribute(program.id)}"/>
+    <input type="hidden" name="program.numOfMembers" value="${e:forHtmlAttribute(empty program.numOfMembers ? 0 : program.numOfMembers)}"/>
 
-    <input type="hidden" name="old_maxAllowed" value="<c:out value="${empty program.maxAllowed ? 0 : program.maxAllowed}"/>"/>
-    <input type="hidden" name="old_name" value="<c:out value="${program.name}"/>"/>
-    <input type="hidden" name="old_descr" value="<c:out value="${program.description}"/>"/>
-    <input type="hidden" name="old_type" value="<c:out value="${program.type}"/>"/>
-    <input type="hidden" name="old_address" value="<c:out value="${program.address}"/>"/>
-    <input type="hidden" name="old_phone" value="<c:out value="${program.phone}"/>"/>
-    <input type="hidden" name="old_fax" value="<c:out value="${program.fax}"/>"/>
-    <input type="hidden" name="old_url" value="<c:out value="${program.url}"/>"/>
-    <input type="hidden" name="old_email" value="<c:out value="${program.email}"/>"/>
-    <input type="hidden" name="old_emergencyNumber" value="<c:out value="${program.emergencyNumber}"/>"/>
-    <input type="hidden" name="old_location" value="<c:out value="${program.location}"/>"/>
-    <input type="hidden" name="old_programStatus" value="<c:out value="${program.programStatus}"/>"/>
-    <input type="hidden" name="old_manOrWoman" value="<c:out value="${program.manOrWoman}"/>"/>
-    <input type="hidden" name="old_abstinenceSupport" value="<c:out value="${program.abstinenceSupport}"/>"/>
-    <input type="hidden" name="old_exclusiveView" value="<c:out value="${program.exclusiveView}"/>"/>
-    <input type="hidden" name="old_holdingTank" value="<c:out value="${program.holdingTank}"/>"/>
-    <input type="hidden" name="old_allowBatchAdmission" value="<c:out value="${program.allowBatchAdmission}"/>"/>
-    <input type="hidden" name="old_allowBatchDischarge" value="<c:out value="${program.allowBatchDischarge}"/>"/>
-    <input type="hidden" name="old_hic" value="<c:out value="${program.hic}"/>"/>
-    <input type="hidden" name="old_transgender" value="<c:out value="${program.transgender}"/>"/>
-    <input type="hidden" name="old_firstNation" value="<c:out value="${program.firstNation}"/>"/>
-    <input type="hidden" name="old_alcohol" value="<c:out value="${program.alcohol}"/>"/>
-    <input type="hidden" name="old_physicalHealth" value="<c:out value="${program.physicalHealth}"/>"/>
-    <input type="hidden" name="old_mentalHealth" value="<c:out value="${program.mentalHealth}"/>"/>
-    <input type="hidden" name="old_housing" value="<c:out value="${program.housing}"/>"/>
-    <input type="hidden" name="old_facility_id" value="<c:out value="${empty program.facilityId ? 0 : program.facilityId}"/>"/>
-    <input type="hidden" name="old_enableEncounterTime" value="<c:out value="${program.enableEncounterTime}"/>"/>
-    <input type="hidden" name="old_enableEncounterTransportationTime" value="<c:out value="${program.enableEncounterTransportationTime}"/>"/>
+    <input type="hidden" name="old_maxAllowed" value="${e:forHtmlAttribute(empty program.maxAllowed ? 0 : program.maxAllowed)}"/>
+    <input type="hidden" name="old_name" value="${e:forHtmlAttribute(program.name)}"/>
+    <input type="hidden" name="old_descr" value="${e:forHtmlAttribute(program.description)}"/>
+    <input type="hidden" name="old_type" value="${e:forHtmlAttribute(program.type)}"/>
+    <input type="hidden" name="old_address" value="${e:forHtmlAttribute(program.address)}"/>
+    <input type="hidden" name="old_phone" value="${e:forHtmlAttribute(program.phone)}"/>
+    <input type="hidden" name="old_fax" value="${e:forHtmlAttribute(program.fax)}"/>
+    <input type="hidden" name="old_url" value="${e:forHtmlAttribute(program.url)}"/>
+    <input type="hidden" name="old_email" value="${e:forHtmlAttribute(program.email)}"/>
+    <input type="hidden" name="old_emergencyNumber" value="${e:forHtmlAttribute(program.emergencyNumber)}"/>
+    <input type="hidden" name="old_location" value="${e:forHtmlAttribute(program.location)}"/>
+    <input type="hidden" name="old_programStatus" value="${e:forHtmlAttribute(program.programStatus)}"/>
+    <input type="hidden" name="old_manOrWoman" value="${e:forHtmlAttribute(program.manOrWoman)}"/>
+    <input type="hidden" name="old_abstinenceSupport" value="${e:forHtmlAttribute(program.abstinenceSupport)}"/>
+    <input type="hidden" name="old_exclusiveView" value="${e:forHtmlAttribute(program.exclusiveView)}"/>
+    <input type="hidden" name="old_holdingTank" value="${e:forHtmlAttribute(program.holdingTank)}"/>
+    <input type="hidden" name="old_allowBatchAdmission" value="${e:forHtmlAttribute(program.allowBatchAdmission)}"/>
+    <input type="hidden" name="old_allowBatchDischarge" value="${e:forHtmlAttribute(program.allowBatchDischarge)}"/>
+    <input type="hidden" name="old_hic" value="${e:forHtmlAttribute(program.hic)}"/>
+    <input type="hidden" name="old_transgender" value="${e:forHtmlAttribute(program.transgender)}"/>
+    <input type="hidden" name="old_firstNation" value="${e:forHtmlAttribute(program.firstNation)}"/>
+    <input type="hidden" name="old_alcohol" value="${e:forHtmlAttribute(program.alcohol)}"/>
+    <input type="hidden" name="old_physicalHealth" value="${e:forHtmlAttribute(program.physicalHealth)}"/>
+    <input type="hidden" name="old_mentalHealth" value="${e:forHtmlAttribute(program.mentalHealth)}"/>
+    <input type="hidden" name="old_housing" value="${e:forHtmlAttribute(program.housing)}"/>
+    <input type="hidden" name="old_facility_id" value="${e:forHtmlAttribute(empty program.facilityId ? 0 : program.facilityId)}"/>
+    <input type="hidden" name="old_enableEncounterTime" value="${e:forHtmlAttribute(program.enableEncounterTime)}"/>
+    <input type="hidden" name="old_enableEncounterTransportationTime" value="${e:forHtmlAttribute(program.enableEncounterTransportationTime)}"/>
 
     <div class="tabs">
         <table cellpadding="3" cellspacing="0" border="0">
@@ -100,15 +100,15 @@
     <table width="100%" border="1" cellspacing="2" cellpadding="3">
         <tr class="b">
             <td width="20%">Name:</td>
-            <td><input type="text" name="program.name" id="program-name" size="30" maxlength="70" value="<c:out value="${program.name}"/>"/></td>
+            <td><input type="text" name="program.name" id="program-name" size="30" maxlength="70" value="${e:forHtmlAttribute(program.name)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Facility:</td>
             <td>
                 <select name="program.facilityId">
                     <c:forEach var="facility" items="${facilities}">
-                        <option value="<c:out value="${facility.id}"/>" <c:if test="${program.facilityId == facility.id}">selected</c:if>>
-                            <c:out value="${facility.name}"/>
+                        <option value="${e:forHtmlAttribute(facility.id)}" <c:if test="${program.facilityId == facility.id}">selected</c:if>>
+                            ${e:forHtml(facility.name)}
                         </option>
                     </c:forEach>
                 </select>
@@ -116,7 +116,7 @@
         </tr>
         <tr class="b">
             <td width="20%">Description:</td>
-            <td><input type="text" name="program.description" size="30" maxlength="255" value="<c:out value="${program.description}"/>"/></td>
+            <td><input type="text" name="program.description" size="30" maxlength="255" value="${e:forHtmlAttribute(program.description)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Functional Centre:</td>
@@ -124,8 +124,8 @@
                 <select name="program.functionalCentreId">
                     <option value="">&nbsp;</option>
                     <c:forEach var="functionalCentre" items="${functionalCentres}">
-                        <option value="<c:out value="${functionalCentre.accountId}"/>" <c:if test="${program.functionalCentreId == functionalCentre.accountId}">selected</c:if>>
-                            <c:out value="${functionalCentre.accountId}"/>, <c:out value="${functionalCentre.description}"/>
+                        <option value="${e:forHtmlAttribute(functionalCentre.accountId)}" <c:if test="${program.functionalCentreId == functionalCentre.accountId}">selected</c:if>>
+                            ${e:forHtml(functionalCentre.accountId)}, ${e:forHtml(functionalCentre.description)}
                         </option>
                     </c:forEach>
                 </select>
@@ -137,27 +137,27 @@
         </tr>
         <tr class="b">
             <td width="20%">Address:</td>
-            <td><input type="text" name="program.address" size="30" maxlength="255" value="<c:out value="${program.address}"/>"/></td>
+            <td><input type="text" name="program.address" size="30" maxlength="255" value="${e:forHtmlAttribute(program.address)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Phone:</td>
-            <td><input type="text" name="program.phone" size="30" maxlength="25" value="<c:out value="${program.phone}"/>"/></td>
+            <td><input type="text" name="program.phone" size="30" maxlength="25" value="${e:forHtmlAttribute(program.phone)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Fax:</td>
-            <td><input type="text" name="program.fax" size="30" maxlength="25" value="<c:out value="${program.fax}"/>"/></td>
+            <td><input type="text" name="program.fax" size="30" maxlength="25" value="${e:forHtmlAttribute(program.fax)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">URL:</td>
-            <td><input type="text" name="program.url" size="30" maxlength="100" value="<c:out value="${program.url}"/>"/></td>
+            <td><input type="text" name="program.url" size="30" maxlength="100" value="${e:forHtmlAttribute(program.url)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Email:</td>
-            <td><input type="text" name="program.email" size="30" maxlength="50" value="<c:out value="${program.email}"/>"/></td>
+            <td><input type="text" name="program.email" size="30" maxlength="50" value="${e:forHtmlAttribute(program.email)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Emergency Number:</td>
-            <td><input type="text" name="program.emergencyNumber" size="30" maxlength="25" value="<c:out value="${program.emergencyNumber}"/>"/></td>
+            <td><input type="text" name="program.emergencyNumber" size="30" maxlength="25" value="${e:forHtmlAttribute(program.emergencyNumber)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Type:</td>
@@ -183,11 +183,11 @@
         </tr>
         <tr class="b">
             <td width="20%">Location:</td>
-            <td><input type="text" name="program.location" size="30" maxlength="70" value="<c:out value="${program.location}"/>"/></td>
+            <td><input type="text" name="program.location" size="30" maxlength="70" value="${e:forHtmlAttribute(program.location)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Max Participants:</td>
-            <td><input type="text" name="program.maxAllowed" id="program-maxAllowed" size="8" maxlength="8" value="<c:out value="${program.maxAllowed}"/>"/></td>
+            <td><input type="text" name="program.maxAllowed" id="program-maxAllowed" size="8" maxlength="8" value="${e:forHtmlAttribute(program.maxAllowed)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Holding Tank:</td>
@@ -259,11 +259,11 @@
         </tr>
         <tr class="b">
             <td width="20%">Minimum Age (inclusive):</td>
-            <td><input type="text" name="program.ageMin" size="8" maxlength="8" value="<c:out value="${program.ageMin}"/>"/></td>
+            <td><input type="text" name="program.ageMin" size="8" maxlength="8" value="${e:forHtmlAttribute(program.ageMin)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Maximum Age (inclusive):</td>
-            <td><input type="text" name="program.ageMax" size="8" maxlength="8" value="<c:out value="${program.ageMax}"/>"/></td>
+            <td><input type="text" name="program.ageMax" size="8" maxlength="8" value="${e:forHtmlAttribute(program.ageMax)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Enable Mandatory Encounter Time in Encounter:</td>
@@ -299,13 +299,13 @@
         </tr>
         <tr class="b">
             <td>
-                <a href="javascript:void(0)" onclick="return openProgramSignatures('<c:out value="${requestScope.id}"/>');">
+                <a href="javascript:void(0)" onclick="return openProgramSignatures('${e:forJavaScript(requestScope.id)}');">
                     <img alt="View details" src="${pageContext.request.contextPath}/images/details.gif" border="0"/>
                 </a>
             </td>
-            <td><c:out value="${programFirstSignature.providerName}"/></td>
-            <td><c:out value="${programFirstSignature.caisiRoleName}"/></td>
-            <td><c:out value="${programFirstSignature.updateDate}"/></td>
+            <td>${e:forHtml(programFirstSignature.providerName)}</td>
+            <td>${e:forHtml(programFirstSignature.caisiRoleName)}</td>
+            <td>${e:forHtml(programFirstSignature.updateDate)}</td>
         </tr>
     </table>
 </c:if>

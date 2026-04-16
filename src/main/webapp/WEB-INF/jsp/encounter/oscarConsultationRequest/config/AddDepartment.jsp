@@ -32,11 +32,10 @@
 <%@ page import="java.util.ResourceBundle" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -83,7 +82,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><%= Encode.forHtml(error) %></li>
+                    <li><e:forHtmlContent value='<%= error %>' /></li>
                 <% } %>
             </ul>
         </div>

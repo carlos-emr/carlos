@@ -40,7 +40,7 @@
 <c:if test="${not empty requestScope.id}">
     <table width="100%">
         <tr>
-            <td style="text-align: right;" align="right"><c:out value="${programName}"/></td>
+            <td style="text-align: right;" align="right">${e:forHtml(programName)}</td>
         </tr>
     </table>
 
@@ -48,34 +48,34 @@
         <table cellpadding="0" cellspacing="0" border="0">
             <tr>
                 <td <c:if test="${selectedTab == 'General'}">style="background-color: #555;"</c:if>>
-                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=<c:out value="${requestScope.id}"/>">General</a>
+                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${e:forUriComponent(requestScope.id)}">General</a>
                 </td>
                 <td <c:if test="${selectedTab == 'Staff'}">style="background-color: #555;"</c:if>>
-                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Staff">Staff</a>
+                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${e:forUriComponent(requestScope.id)}&amp;view.tab=Staff">Staff</a>
                 </td>
                 <td <c:if test="${selectedTab == 'Function User'}">style="background-color: #555;"</c:if>>
-                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Function%20User">Function User</a>
+                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${e:forUriComponent(requestScope.id)}&amp;view.tab=Function%20User">Function User</a>
                 </td>
                 <td <c:if test="${selectedTab == 'Teams'}">style="background-color: #555;"</c:if>>
-                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Teams">Teams</a>
+                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${e:forUriComponent(requestScope.id)}&amp;view.tab=Teams">Teams</a>
                 </td>
                 <td <c:if test="${selectedTab == 'Clients'}">style="background-color: #555;"</c:if>>
-                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Clients">Clients</a>
+                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${e:forUriComponent(requestScope.id)}&amp;view.tab=Clients">Clients</a>
                 </td>
                 <td <c:if test="${selectedTab == 'vacancies' or selectedTab == 'vacancy_add'}">style="background-color: #555;"</c:if>>
-                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=vacancies">Vacancies</a>
+                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${e:forUriComponent(requestScope.id)}&amp;view.tab=vacancies">Vacancies</a>
                 </td>
                 <td <c:if test="${selectedTab == 'Queue'}">style="background-color: #555;"</c:if>>
-                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Queue">Queue</a>
+                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${e:forUriComponent(requestScope.id)}&amp;view.tab=Queue">Queue</a>
                 </td>
                 <td <c:if test="${selectedTab == 'Access'}">style="background-color: #555;"</c:if>>
-                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Access">Access</a>
+                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${e:forUriComponent(requestScope.id)}&amp;view.tab=Access">Access</a>
                 </td>
                 <td <c:if test="${selectedTab == 'Client Status'}">style="background-color: #555;"</c:if>>
-                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Client%20Status">Client Status</a>
+                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${e:forUriComponent(requestScope.id)}&amp;view.tab=Client%20Status">Client Status</a>
                 </td>
                 <td <c:if test="${selectedTab == 'Service Restrictions'}">style="background-color: #555;"</c:if>>
-                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Service%20Restrictions">Service Restrictions</a>
+                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${e:forUriComponent(requestScope.id)}&amp;view.tab=Service%20Restrictions">Service Restrictions</a>
                 </td>
             </tr>
         </table>
@@ -86,11 +86,11 @@
     <c:if test="${selectedTab != 'General'}">
         <input type="hidden" name="method" value="edit"/>
     </c:if>
-    <input type="hidden" name="id" value="<c:out value="${requestScope.id}"/>"/>
-    <input type="hidden" name="program.id" value="<c:out value="${requestScope.id}"/>"/>
-    <input type="hidden" name="view.tab" value="<c:out value="${selectedTab}"/>"/>
-    <input type="hidden" name="view.subtab" value="<c:out value="${param['view.subtab']}"/>"/>
-    <input type="hidden" name="vacancyOrTemplateId" value="<c:out value="${requestScope.vacancyOrTemplateId}"/>"/>
+    <input type="hidden" name="id" value="${e:forHtmlAttribute(requestScope.id)}"/>
+    <input type="hidden" name="program.id" value="${e:forHtmlAttribute(requestScope.id)}"/>
+    <input type="hidden" name="view.tab" value="${e:forHtmlAttribute(selectedTab)}"/>
+    <input type="hidden" name="view.subtab" value="${e:forHtmlAttribute(param['view.subtab'])}"/>
+    <input type="hidden" name="vacancyOrTemplateId" value="${e:forHtmlAttribute(requestScope.vacancyOrTemplateId)}"/>
 
     <c:choose>
         <c:when test="${selectedTab == 'Staff' && not empty requestScope.id}">

@@ -33,6 +33,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProSignatureData, io.github.carlos_emr.carlos.providers.data.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.rx.data.*" %>
 <%@ page import="io.github.carlos_emr.*,
@@ -351,7 +352,7 @@
                                     }
                                 %>
                                 <input type="hidden" name="doctorName"
-                                       value="<%= Encode.forHtmlAttribute(doctorName) %>"/>
+                                       value="<e:forHtmlAttribute value='<%= doctorName %>' />"/>
                                 <c:choose>
                                     <c:when test="${empty infirmaryView_programAddress}">
                                         <%
@@ -365,9 +366,9 @@
                                             request.setAttribute("phone", finalPhone);
                                         %>
                                         <input type="hidden" name="clinicName"
-                                               value="<%= Encode.forHtmlAttribute(clinicTitle.replaceAll("(<br>)","\\\n")) %>"/>
+                                               value="<e:forHtmlAttribute value='<%= clinicTitle.replaceAll("(<br>)","\\\n") %>' />"/>
                                         <input type="hidden" name="clinicPhone"
-                                               value="<%= Encode.forHtmlAttribute(finalPhone) %>"/>
+                                               value="<e:forHtmlAttribute value='<%= finalPhone %>' />"/>
                                         <input type="hidden" id="finalFax" name="clinicFax" value=""/>
                                     </c:when>
                                     <c:otherwise>
@@ -388,7 +389,7 @@
                                             request.setAttribute("phone", finalPhone);
                                         %>
                                         <input type="hidden" name="clinicName"
-                                               value="<c:out value="${infirmaryView_programAddress}"/>"/>
+                                               value="${e:forHtmlAttribute(infirmaryView_programAddress)}"/>
                                         <input type="hidden" name="clinicPhone" value="<%=finalPhone%>"/>
                                         <input type="hidden" id="finalFax" name="clinicFax" value=""/>
                                     </c:otherwise>
@@ -396,14 +397,14 @@
                                 <input type="hidden" name="patientName"
                                        value="<%= Encode.forHtmlAttribute(patient.getFirstName())+ " " +Encode.forHtmlAttribute(patient.getSurname()) %>"/>
                                 <input type="hidden" name="patientDOB"
-                                       value="<%= Encode.forHtmlAttribute(patientDOBStr) %>"/>
+                                       value="<e:forHtmlAttribute value='<%= patientDOBStr %>' />"/>
                                 <input type="hidden" name="pharmaFax" value="<%=pharmaFax%>"/>
                                 <input type="hidden" name="pharmaName" value="<%=pharmaName%>"/>
-                                <input type="hidden" name="pracNo" value="<%= Encode.forHtmlAttribute(pracNo) %>"/>
+                                <input type="hidden" name="pracNo" value="<e:forHtmlAttribute value='<%= pracNo %>' />"/>
                                 <input type="hidden" name="showPatientDOB" value="<%=showPatientDOB%>"/>
                                 <input type="hidden" name="pdfId" id="pdfId" value=""/>
                                 <input type="hidden" name="patientAddress"
-                                       value="<%= Encode.forHtmlAttribute(patientAddress) %>"/>
+                                       value="<e:forHtmlAttribute value='<%= patientAddress %>' />"/>
                                 <%
                                     int check = (patientCity.trim().length() > 0 ? 1 : 0) | (patientProvince.trim().length() > 0 ? 2 : 0);
                                     String patientCityPostal = String.format("%s%s%s %s",
@@ -418,18 +419,18 @@
                                     }
                                 %>
                                 <input type="hidden" name="patientCityPostal"
-                                       value="<%= Encode.forHtmlAttribute(patientCityPostal)%>"/>
+                                       value="<e:forHtmlAttribute value='<%= patientCityPostal %>' />"/>
                                 <input type="hidden" name="patientHIN"
-                                       value="<%= Encode.forHtmlAttribute(patientHin) %>"/>
+                                       value="<e:forHtmlAttribute value='<%= patientHin %>' />"/>
                                 <input type="hidden" name="patientChartNo"
-                                       value="<%=Encode.forHtmlAttribute(ptChartNo)%>"/>
+                                       value="<e:forHtmlAttribute value='<%= ptChartNo %>' />"/>
                                 <input type="hidden" name="bandNumber" value="${ bandNumber }"/>
                                 <input type="hidden" name="patientPhone"
-                                       value="<fmt:message key="RxPreview.msgTel"/>: <%=Encode.forHtmlAttribute(patientPhone) %>"/>
+                                       value="<fmt:message key="RxPreview.msgTel"/>: <e:forHtmlContent value='<%= patientPhone %>' />"/>
                                 <input type="hidden" name="rxDate"
-                                       value="<%= Encode.forHtmlAttribute(RxUtil.DateToString(rxDate, "MMMM d, yyyy")) %>"/>
+                                       value="<e:forHtmlAttribute value='<%= RxUtil.DateToString(rxDate, "MMMM d, yyyy") %>' />"/>
                                 <input type="hidden" name="sigDoctorName"
-                                       value="<%= Encode.forHtmlAttribute(doctorName) %>"/>
+                                       value="<e:forHtmlAttribute value='<%= doctorName %>' />"/>
                                 <!--img src="img/prescript.gif" border="0"-->
                             </th>
                             <th valign=top height="100px" id="clinicAddress">
@@ -492,7 +493,7 @@
                                             request.setAttribute("phone", finalPhone);
 
                                         %>
-                                        <c:out value="${infirmaryView_programAddress}" escapeXml="false"/><br>
+                                        ${infirmaryView_programAddress}<br>
                                         <fmt:message key="RxPreview.msgTel"/>: <%=finalPhone %><br>
                                         <oscar:oscarPropertiesCheck property="RXFAX" value="yes">
                                             <fmt:message key="RxPreview.msgFax"/>: <%=finalFax %>
@@ -504,20 +505,20 @@
                         <tr>
                             <th colspan=2 valign=top height="75px">
 								<span style="float: left">
-									<%= Encode.forHtmlContent(patient.getFirstName()) %> <%= Encode.forHtmlContent(patient.getSurname()) %> <%if (showPatientDOB) {%><br>DOB:<%= Encode.forHtmlContent(patientDOBStr) %> <%}%><br>
-										<%= Encode.forHtmlContent(patientAddress) %><br>
-										<%= Encode.forHtmlContent(patientCityPostal) %><br>
-										<%= Encode.forHtmlContent(patientPhone) %><br>
+									<e:forHtmlContent value='<%= patient.getFirstName() %>' /> <e:forHtmlContent value='<%= patient.getSurname() %>' /> <%if (showPatientDOB) {%><br>DOB:<e:forHtmlContent value='<%= patientDOBStr %>' /> <%}%><br>
+										<e:forHtmlContent value='<%= patientAddress %>' /><br>
+										<e:forHtmlContent value='<%= patientCityPostal %>' /><br>
+										<e:forHtmlContent value='<%= patientPhone %>' /><br>
 										<oscar:oscarPropertiesCheck value="true" property="showRxBandNumber">
                                             <c:if test="${ not empty bandNumber }">
                                                 <br/>
                                                 <b><fmt:message key="io.github.carlos_emr.carlos.rx.bandNumber"/></b>
-                                                <c:out value="${ bandNumber }"/>
+                                                ${e:forHtml(bandNumber)}
                                             </c:if>
                                         </oscar:oscarPropertiesCheck>
 										<b>
 											<% if (!props.getProperty("showRxHin", "").equals("false")) { %>
-												<fmt:message key="io.github.carlos_emr.carlos.rx.hin"/><%= Encode.forHtmlContent(patientHin) %>
+												<fmt:message key="io.github.carlos_emr.carlos.rx.hin"/><e:forHtmlContent value='<%= patientHin %>' />
 											<% } %>
 										</b><br>
 										<% if (props.getProperty("showRxChartNo", "").equalsIgnoreCase("true")) { %>
@@ -609,7 +610,7 @@
                                 <%-- Topaz signature pad support removed - HTML5 signature capture is now standard --%>
                             </td>
                             <td height=25px>
-                                &nbsp; <%= Encode.forHtmlContent(doctorName) %>
+                                &nbsp; <e:forHtmlContent value='<%= doctorName %>' />
                                 <% if (pracNo != null && !pracNo.equals("") && !pracNo.equalsIgnoreCase("null")) { %>
                                 <br>
                                 &nbsp;<fmt:message key="RxPreview.PractNo"/> <%= pracNo%>
@@ -625,7 +626,7 @@
                         <tr valign=bottom>
                             <td height=55px colspan="2">
 										<span style="float:right; font-size:10px;">
-											<fmt:message key="RxPreview.msgReprintBy"/> <%=Encode.forHtmlContent(ProviderData.getProviderName(strUser))%> <br>
+											<fmt:message key="RxPreview.msgReprintBy"/> <e:forHtmlContent value='<%= ProviderData.getProviderName(strUser) %>' /> <br>
 											<fmt:message key="RxPreview.msgOrigPrinted"/>:&nbsp;<%=rx.getPrintDate()%> <br>
 											<fmt:message key="RxPreview.msgTimesPrinted"/>:&nbsp;<%=String.valueOf(rx.getNumPrints())%>
 										</span>
@@ -685,7 +686,7 @@
                         </tr>
 
                         <input type="hidden" name="rx"
-                               value="<%= Encode.forHtmlAttribute(strRx.replaceAll(";","\\\n")) %>"/>
+                               value="<e:forHtmlAttribute value='<%= strRx.replaceAll(";","\\\n") %>' />"/>
                         <input type="hidden" name="rx_no_newlines" value="<%= strRxNoNewLines.toString() %>"/>
                         <input type="hidden" name="additNotes" value=""/>
                         </tbody>

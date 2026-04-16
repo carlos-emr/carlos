@@ -28,8 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page import="java.util.List,
-                 org.owasp.encoder.Encode" %>
+<%@ page import="java.util.List" %>
 
 <html>
 <head>
@@ -45,7 +44,7 @@ You tried to access a resource with insufficient privileges.
     if (vals != null) {
         for (String val : vals) {
 %>
-<h5>Object:<%= Encode.forHtml(val) %>
+<h5>Object:<e:forHtmlContent value='<%= val %>' />
 </h5>
 <%
         }
@@ -58,7 +57,7 @@ You tried to access a resource with insufficient privileges.
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= Encode.forHtml(error) %></li>
+                <li><e:forHtmlContent value='<%= error %>' /></li>
             <% } %>
         </ul>
     </div>

@@ -33,7 +33,6 @@
     @since 2026-04-05
 --%>
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <html>
 <head>
     <script language="JavaScript">
@@ -64,12 +63,12 @@
     <%
         } else {
     %>
-    <div style="white-space: pre-line"><%=Encode.forHtml(errorCode)%></div>
+    <div style="white-space: pre-line"><e:forHtmlContent value='<%= errorCode %>' /></div>
     <input type="button" value="Change" onClick="history.go(-1);return false;">
     <%
         }
     %>
-    <p><%=Encode.forHtml(inraction)%> Bill number <%=Encode.forHtml(billinginr_no)%></p>
+    <p><e:forHtmlContent value='<%= inraction %>' /> Bill number <e:forHtmlContent value='<%= billinginr_no %>' /></p>
     <hr width="90%"/>
     <form><input type="button" value="Close this window" onClick="window.close()"></form>
 </center>

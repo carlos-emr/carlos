@@ -69,7 +69,6 @@
 <%@ page import="java.util.Calendar" %>
 <%@ page import="java.util.GregorianCalendar" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -207,8 +206,8 @@
                             if (isTeamAccessPrivacy)
                                 continue;    //skip mygroup display if user have TeamAccessPrivacy
                     %>
-                    <option value="<%=Encode.forHtmlAttribute("_grp_"+rsgroup.getString("mygroup_no"))%>"
-                            <%=mygroupno.equals(rsgroup.getString("mygroup_no")) ? "selected" : ""%>><%=Encode.forHtml("GRP: " + rsgroup.getString("mygroup_no"))%>
+                    <option value="<e:forHtmlAttribute value='<%= "_grp_"+rsgroup.getString("mygroup_no") %>' />"
+                            <%=mygroupno.equals(rsgroup.getString("mygroup_no")) ? "selected" : ""%>><e:forHtmlContent value='<%= "GRP: " + rsgroup.getString("mygroup_no") %>' />
                     </option>
                     <%
                         }
@@ -217,8 +216,8 @@
                         rsgroup = reportMainBean.queryResults(provider_dboperation);
                         while (rsgroup.next()) {
                     %>
-                    <option value="<%=Encode.forHtmlAttribute(rsgroup.getString("provider_no"))%>"
-                            <%=curUser_no.equals(rsgroup.getString("provider_no")) ? "selected" : ""%>><%=Encode.forHtml(rsgroup.getString("last_name") + ", " + rsgroup.getString("first_name"))%>
+                    <option value="<e:forHtmlAttribute value='<%= rsgroup.getString("provider_no") %>' />"
+                            <%=curUser_no.equals(rsgroup.getString("provider_no")) ? "selected" : ""%>><e:forHtmlContent value='<%= rsgroup.getString("last_name") + ", " + rsgroup.getString("first_name") %>' />
                     </option>
                     <%
                         }

@@ -60,8 +60,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%@taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -685,15 +683,16 @@
                 <input type="hidden" id="billTotal" value="<%=BillTotal%>"/>
 
                 <div class="col-md-2">
-                    <a href="#" onclick="return sanityCheck('<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(nullToEmpty(billNo))) %>', <%=billNoErr%>);"><fmt:message key="billing.billingCorrection.formInvoiceNo"/></a><br>
-                    <input type="text" id="billing_no" name="billing_no" value="<%= Encode.forHtmlAttribute(nullToEmpty(billNo)) %>" class="col-md-2"
+                    <c:set var="__enc_1"><e:forUriComponent value='<%= nullToEmpty(billNo) %>' /></c:set>
+                    <a href="#" onclick="return sanityCheck('<e:forJavaScriptAttribute value='${__enc_1}' />', <%=billNoErr%>);"><fmt:message key="billing.billingCorrection.formInvoiceNo"/></a><br>
+                    <input type="text" id="billing_no" name="billing_no" value="<e:forHtmlAttribute value='<%= nullToEmpty(billNo) %>' />" class="col-md-2"
                            required>
                 </div>
 
 
                 <div class="col-md-2">
                     OHIP Claim No <br>
-                    <input type="text" name="claim_no" value="<%= Encode.forHtmlAttribute(nullToEmpty(claimNo)) %>" class="col-md-2">
+                    <input type="text" name="claim_no" value="<e:forHtmlAttribute value='<%= nullToEmpty(claimNo) %>' />" class="col-md-2">
                 </div>
 
                 <div class="col-md-2">
@@ -743,7 +742,7 @@
 
         <form action="<%=request.getContextPath() %>/billing/CA/ON/BillingONCorrection" method="post">
             <input type="hidden" name="method" value="updateInvoice"/>
-            <input type="hidden" name="xml_billing_no" value="<%= Encode.forHtmlAttribute(billNo) %>"/>
+            <input type="hidden" name="xml_billing_no" value="<e:forHtmlAttribute value='<%= billNo %>' />"/>
             <input type="hidden" name="update_date" value="<%=nullToEmpty(createTimestamp)%>"/>
             <input type="hidden" name="payDate" value="<%=UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss")%>"/>
             <input type="hidden" name="demoNo" value="<%=DemoNo%>"/>
@@ -1255,7 +1254,7 @@
 
                     <%if (billNo != null) {%>
 
-                    <a id="reprintLink" onclick="return sanityCheck('<%= Encode.forJavaScriptAttribute(nullToEmpty(billNo)) %>', <%=billNoErr%>)" href="/billing/CA/ON/ViewBillingON3rdInv?billingNo=<%= Encode.forUriComponent(billNo) %>" class="btn btn-secondary"><i
+                    <a id="reprintLink" onclick="return sanityCheck('<e:forJavaScriptAttribute value='<%= nullToEmpty(billNo) %>' />', <%=billNoErr%>)" href="/billing/CA/ON/ViewBillingON3rdInv?billingNo=<e:forUriComponent value='<%= billNo %>' />" class="btn btn-secondary"><i
                             class="fa-solid fa-print"></i> Reprint</a>
                     <a id="rebillLink"
                        onclick="document.querySelector(&quot;select[name='status']&quot;).value = 'O'; document.getElementsByName(&quot;submit&quot;)[1].click();"
@@ -1360,7 +1359,8 @@
         }, 5000);
 
         function display3rdPartyPayments() {
-            popupPage('800', '860', 'billingON3rdPayments?method=listPayments&billingNo=<%= Encode.forJavaScript(Encode.forUriComponent(billNo)) %>');
+                <c:set var="__enc_2"><e:forUriComponent value='<%= billNo %>' /></c:set>
+        popupPage('800', '860', 'billingON3rdPayments?method=listPayments&billingNo=<e:forJavaScript value='${__enc_2}' />');
         }
 
         document.addEventListener('DOMContentLoaded', function () {

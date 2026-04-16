@@ -29,9 +29,6 @@
 
 --%>
 <!DOCTYPE HTML>
-
-
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScratchPad" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.DateUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -60,7 +57,7 @@
 %>
 
 <head>
-    <title><fmt:message key="ScratchPad.title"/> <%=Encode.forHtmlContent(title)%>
+    <title><fmt:message key="ScratchPad.title"/> <e:forHtmlContent value='<%= title %>' />
     </title>
     <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
@@ -169,7 +166,7 @@
             </h2>
         </div>
         <div class="user-name">
-            <h4><%=Encode.forHtmlContent(userfirstname)%> <%=Encode.forHtmlContent(userlastname)%>
+            <h4><e:forHtmlContent value='<%= userfirstname %>' /> <e:forHtmlContent value='<%= userlastname %>' />
             </h4>
         </div>
 
@@ -178,23 +175,23 @@
         <tr>
             <td>&nbsp;</td>
             <td>
-                <div class="pad-version"><fmt:message key="ScratchPad.title"/> <%=Encode.forHtmlContent(title)%>
+                <div class="pad-version"><fmt:message key="ScratchPad.title"/> <e:forHtmlContent value='<%= title %>' />
                 </div>
             </td>
         </tr>
         <tr>
             <td class="MainTableLeftColumn">
-                <button name="deleteVersion" class="btn btn-danger" onclick="deleteVersion('<%=Encode.forUriComponent(id)%>')">Delete</button>
+                <button name="deleteVersion" class="btn btn-danger" onclick="deleteVersion('<e:forUriComponent value='<%= id %>' />')">Delete</button>
             </td>
             <td class="MainTableRightColumn" id="scratchpad-version" style="white-space: pre-line;">
-                <%=Encode.forHtmlContent(scratchPad.getText())%>
+                <e:forHtmlContent value='<%= scratchPad.getText() %>' />
             </td>
         </tr>
 
     </table>
 
     <script>
-	    const context = "<%=Encode.forJavaScript(request.getContextPath())%>";
+	    const context = "<e:forJavaScriptBlock value='<%= request.getContextPath() %>' />";
 
 	    function deleteVersion(id) {
 			let action = confirm("Are you sure you would like to delete this version?");

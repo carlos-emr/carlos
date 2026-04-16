@@ -27,7 +27,6 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
@@ -62,7 +61,7 @@
     return;
     <%} else {%>
     self.close();
-    opener.document["<%= Encode.forJavaScript(form) %>"]["<%= Encode.forJavaScript(field) %>"].value = index;
+    opener.document["<e:forJavaScriptBlock value='<%= form %>' />"]["<e:forJavaScriptBlock value='<%= field %>' />"].value = index;
     opener.document.focus();
     <%}%>
     }
@@ -92,9 +91,9 @@
     <tr <%=((color) ? "bgcolor=\"#F6F6F6\"" : "")%> align="left"
     valign="top">
     <td class="SmallerText"><a href=#
-    onClick="posttoText('<%= Encode.forJavaScriptAttribute(StringUtils.noNull(dcode.getDiagnosticCode())) %>');"><%= Encode.forHtml(StringUtils.noNull(dcode.getDiagnosticCode())) %></a>
+    onClick="posttoText('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(dcode.getDiagnosticCode()) %>' />');"><e:forHtmlContent value='<%= StringUtils.noNull(dcode.getDiagnosticCode()) %>' /></a>
     </td>
-    <td class="SmallerText"><%= Encode.forHtml(StringUtils.noNull(dcode.getDescription())) %></td>
+    <td class="SmallerText"><e:forHtmlContent value='<%= StringUtils.noNull(dcode.getDescription()) %>' /></td>
     </tr>
     <%
             color = !(color);

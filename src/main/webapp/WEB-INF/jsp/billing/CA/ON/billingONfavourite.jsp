@@ -366,7 +366,7 @@
                         List sL = dbObj.getBillingFavouriteList();
                         for (int i = 0; i < sL.size(); i = i + 2) {
                     %>
-                    <option value="<%=Encode.forHtmlAttribute((String) sL.get(i))%>"><%=Encode.forHtml((String) sL.get(i))%>
+                    <option value="<e:forHtmlAttribute value='<%= (String) sL.get(i) %>' />"><e:forHtmlContent value='<%= (String) sL.get(i) %>' />
                     </option>
                     <%
                         }
@@ -389,7 +389,7 @@
             <tr class="myGreen">
                 <td style="text-align:right"><b>Name</b></td>
                 <td><input class="form-control d-inline-block w-auto" type="text" name="name"
-                           value="<%=Encode.forHtmlAttribute(prop.getProperty("name", ""))%>" maxlength='50'/>
+                           value="<e:forHtmlAttribute value='<%= prop.getProperty("name", "") %>' />" maxlength='50'/>
                     (e.g. Flu shot) <input class="btn btn-secondary" type="submit" name="submit" value="Search"
                                            onclick="javascript:return onSearch();"></td>
             </tr>
@@ -402,15 +402,15 @@
                 <td style="text-align:right"><b>Service Code <%=i + 1%>
                 </b></td>
                 <td><input class="form-control form-control-sm d-inline-block w-auto" type="text" name="serviceCode<%=i%>"
-                           value="<%=Encode.forHtmlAttribute(prop.getProperty("serviceCode"+i, ""))%>"
+                           value="<e:forHtmlAttribute value='<%= prop.getProperty("serviceCode"+i, "") %>' />"
                            maxlength='50' onblur="upCaseCtrl(this)"/> (e.g. A001A) <b>Unit</b><input class="form-control form-control-sm d-inline-block w-auto"
                                                                                                      type="text"
                                                                                                      name="serviceUnit<%=i%>"
-                                                                                                     value="<%=Encode.forHtmlAttribute(prop.getProperty("serviceUnit"+i, ""))%>"
+                                                                                                     value="<e:forHtmlAttribute value='<%= prop.getProperty("serviceUnit"+i, "") %>' />"
                                                                                                      maxlength='2'/>
                     (e.g. 1, 12) <b>@</b><input class="form-control form-control-sm d-inline-block w-auto" type="text"
                                                 name="serviceAt<%=i%>"
-                                                value="<%=Encode.forHtmlAttribute(prop.getProperty("serviceAt"+i, ""))%>"
+                                                value="<e:forHtmlAttribute value='<%= prop.getProperty("serviceAt"+i, "") %>' />"
                                                 maxlength='4'/> (e.g. 0.85)
                 </td>
             </tr>
@@ -422,15 +422,15 @@
             <tr>
                 <td style="text-align:right"><b>Dx</b></td>
                 <td><input class="form-control form-control-sm d-inline-block w-auto" type="text" name="dx"
-                           value="<%=Encode.forHtmlAttribute(prop.getProperty("dx", ""))%>" maxlength='4'/>
+                           value="<e:forHtmlAttribute value='<%= prop.getProperty("dx", "") %>' />" maxlength='4'/>
                     (e.g. 012) <b>Dx1</b> <input class="form-control form-control-sm d-inline-block w-auto" type="text" name="dx1"
-                                                 value="<%=Encode.forHtmlAttribute(prop.getProperty("dx1", ""))%>" maxlength='4'/> <b>Dx2</b>
-                    <input class="form-control form-control-sm d-inline-block w-auto" type="text" name="dx2" value="<%=Encode.forHtmlAttribute(prop.getProperty("dx2", ""))%>"
+                                                 value="<e:forHtmlAttribute value='<%= prop.getProperty("dx1", "") %>' />" maxlength='4'/> <b>Dx2</b>
+                    <input class="form-control form-control-sm d-inline-block w-auto" type="text" name="dx2" value="<e:forHtmlAttribute value='<%= prop.getProperty("dx2", "") %>' />"
                            maxlength='4'/></td>
             </tr>
             <tr>
                 <td style="text-align:center" class="myGreen" colspan="2"><input
-                        type="hidden" name="action" value='<%=Encode.forHtmlAttribute(action)%>'> <input
+                        type="hidden" name="action" value='<e:forHtmlAttribute value='<%= action %>' />'> <input
                         type="submit" name="submit" class="btn btn-primary"
                         value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
                         onclick="javascript:return onSave();"> <input class="btn btn-secondary" type="button"

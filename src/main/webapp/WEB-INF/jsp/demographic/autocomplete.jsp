@@ -30,7 +30,7 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <ul>
     <c:forEach var="l" items="${list}">
         <li id="${e:forHtmlAttribute(l.demographicNo)}">${e:forHtml(l.formattedName)} (${e:forHtml(l.formattedDob)})

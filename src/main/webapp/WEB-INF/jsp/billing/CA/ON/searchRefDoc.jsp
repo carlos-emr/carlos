@@ -175,15 +175,15 @@
             <%if(paramField != null && param2Field != null) {%>
 
             function typeInData2(data1, data2) {
-                opener.document.forms[<%= paramFormIdx %>].elements["<%= Encode.forJavaScript(paramField) %>"].value = data1;
-                opener.document.forms[<%= param2FormIdx %>].elements["<%= Encode.forJavaScript(param2Field) %>"].value = data2;
+                opener.document.forms[<%= paramFormIdx %>].elements["<e:forJavaScriptBlock value='<%= paramField %>' />"].value = data1;
+                opener.document.forms[<%= param2FormIdx %>].elements["<e:forJavaScriptBlock value='<%= param2Field %>' />"].value = data2;
                 self.close();
             }
 
             <%} else if(param2Field != null) {%>
 
             function typeInData2(data1, data2) {
-                opener.document.forms[<%= param2FormIdx %>].elements["<%= Encode.forJavaScript(param2Field) %>"].value = data2;
+                opener.document.forms[<%= param2FormIdx %>].elements["<e:forJavaScriptBlock value='<%= param2Field %>' />"].value = data2;
                 self.close();
             }
 
@@ -192,23 +192,23 @@
             function typeInData3(billno, toname, toaddress, tophone, tofax) {
                 var fieldsSet = false;
                 <%if(paramField != null) {%>
-                opener.document.forms[<%= paramFormIdx %>].elements["<%= Encode.forJavaScript(paramField) %>"].value = billno;
+                opener.document.forms[<%= paramFormIdx %>].elements["<e:forJavaScriptBlock value='<%= paramField %>' />"].value = billno;
                 fieldsSet = true;
                 <%}
                   if(tonameField != null) {%>
-                opener.document.forms[<%= tonameFormIdx %>].elements["<%= Encode.forJavaScript(tonameField) %>"].value = toname;
+                opener.document.forms[<%= tonameFormIdx %>].elements["<e:forJavaScriptBlock value='<%= tonameField %>' />"].value = toname;
                 fieldsSet = true;
                 <%}
                   if(toaddress1Field != null) {%>
-                opener.document.forms[<%= toaddress1FormIdx %>].elements["<%= Encode.forJavaScript(toaddress1Field) %>"].value = toaddress;
+                opener.document.forms[<%= toaddress1FormIdx %>].elements["<e:forJavaScriptBlock value='<%= toaddress1Field %>' />"].value = toaddress;
                 fieldsSet = true;
                 <%}
                   if(tophoneField != null) {%>
-                opener.document.forms[<%= tophoneFormIdx %>].elements["<%= Encode.forJavaScript(tophoneField) %>"].value = tophone;
+                opener.document.forms[<%= tophoneFormIdx %>].elements["<e:forJavaScriptBlock value='<%= tophoneField %>' />"].value = tophone;
                 fieldsSet = true;
                 <%}
                   if(tofaxField != null) {%>
-                opener.document.forms[<%= tofaxFormIdx %>].elements["<%= Encode.forJavaScript(tofaxField) %>"].value = tofax;
+                opener.document.forms[<%= tofaxFormIdx %>].elements["<e:forJavaScriptBlock value='<%= tofaxField %>' />"].value = tofax;
                 fieldsSet = true;
                 <%}%>
                 if (!fieldsSet) {
@@ -231,7 +231,7 @@
         </script>
     </head>
     <body>
-    <h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.optChooseSpec"/></h3>&nbsp;<%= Encode.forHtml(keyword == null ? "" : keyword) %>&nbsp;<input
+    <h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.optChooseSpec"/></h3>&nbsp;<e:forHtmlContent value='<%= keyword == null ? "" : keyword %>' />&nbsp;<input
             type="button" class="btn-link" value="<fmt:message key="report.reportindex.formAllProviders"/>"
             onclick="location = location.href.replace(/(\?|\&)(keyword)([^&]*)/, '').replace(/(\?|\&)(submit)([^&]*)/, '');">
     <div class="container-fluid">
@@ -264,18 +264,18 @@
                 onmouseover="this.style.cursor='pointer';this.style.backgroundColor='LightBlue';"
                 onmouseout="this.style.backgroundColor='<%=bgColor%>'"
                 onClick="<%=strOnClick%>">
-                <td><%=Encode.forHtml(prop.getProperty("referral_no", ""))%>
+                <td><e:forHtmlContent value='<%= prop.getProperty("referral_no", "") %>' />
                 </td>
-                <td><%=Encode.forHtml(prop.getProperty("last_name", ""))%>
+                <td><e:forHtmlContent value='<%= prop.getProperty("last_name", "") %>' />
                 </td>
-                <td><%=Encode.forHtml(prop.getProperty("first_name", ""))%>
+                <td><e:forHtmlContent value='<%= prop.getProperty("first_name", "") %>' />
                 </td>
-                <td><%=Encode.forHtml(prop.getProperty("specialty", ""))%>
+                <td><e:forHtmlContent value='<%= prop.getProperty("specialty", "") %>' />
                 </td>
-                <td title="<fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.fax"/> <%=Encode.forHtml(prop.getProperty("to_fax", ""))%>"><%=Encode.forHtml(prop.getProperty("phone", ""))%>
+                <td title="<fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.fax"/> <e:forHtmlContent value='<%= prop.getProperty("to_fax", "") %>' />"><e:forHtmlContent value='<%= prop.getProperty("phone", "") %>' />
                 </td>
                 <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
-                    title="<%=Encode.forHtml(prop.getProperty("to_address", ""))%>"><%=Encode.forHtml(prop.getProperty("to_address", ""))%>
+                    title="<e:forHtmlAttribute value='<%= prop.getProperty("to_address", "") %>' />"><e:forHtmlContent value='<%= prop.getProperty("to_address", "") %>' />
                 </td>
             </tr>
             <% } %>

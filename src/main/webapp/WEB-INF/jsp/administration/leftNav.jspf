@@ -31,8 +31,6 @@
 
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%@ taglib uri="jakarta.tags.core" prefix="c"%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -638,7 +636,7 @@ String curProvider_no = (String)session.getAttribute("user");
 				
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.messenger" rights="r" reverse="<%=false%>">
 							<li><a href='javascript:void(0);'
-								class="xlink" rel="${ctx}/messenger/DisplayMessages?providerNo=<%=Encode.forUriComponent(curProvider_no)%>&amp;userName=<%=Encode.forUriComponent(userfirstname)%>%20<%=Encode.forUriComponent(userlastname)%>"><fmt:message key="admin.admin.messages"/></a></li>
+								class="xlink" rel="${ctx}/messenger/DisplayMessages?providerNo=<e:forUriComponent value='<%= curProvider_no %>' />&amp;userName=<e:forUriComponent value='<%= userfirstname %>' />%20<e:forUriComponent value='<%= userlastname %>' />"><fmt:message key="admin.admin.messages"/></a></li>
 								
 							<li>
 								<a href="${ctx}/messenger?method=fetch" class="contentLink">

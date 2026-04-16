@@ -102,9 +102,9 @@
     <center></center>
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr BGCOLOR="#CCCCFF">
-            <td><%=Encode.forHtml(reportName)%> Order</td>
+            <td><e:forHtmlContent value='<%= reportName %>' /> Order</td>
             <td width="10%" align="right" nowrap><a
-                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%=Encode.forUriComponent(tableName)%>">Back
+                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<e:forUriComponent value='<%= reportId %>' />&tableName=<e:forUriComponent value='<%= tableName %>' />">Back
                 to the Configuration</a></td>
         </tr>
     </table>
@@ -129,20 +129,20 @@
 
                         <tr class=<%=color%>>
                             <td width="20%" align="right"><input type="checkbox"
-                                                                 name="nameSelected" value="<%=Encode.forHtmlAttribute(fieldId)%>"
+                                                                 name="nameSelected" value="<e:forHtmlAttribute value='<%= fieldId %>' />"
                                                                  onClick="onCheckbox(this, <%=i%>);"/></td>
                             <td width="30%" nowrap><span title="<%=fieldName%>"><%=fieldCaption%></span></td>
                             <td align="center"><input type="submit" name="submit"
-                                                      value="Move here" onClick="onButMove(<%=Encode.forJavaScript(fieldPosition)%>)"/></td>
+                                                      value="Move here" onClick="onButMove(<e:forJavaScript value='<%= fieldPosition %>' />)"/></td>
                         </tr>
                         <% } %>
                         <input type="hidden" name="position"/>
-                        <input type="hidden" name="id" value="<%= Encode.forHtmlAttribute(reportId) %>"/>
-                        <input type="hidden" name="save" value="<%= Encode.forHtmlAttribute(SAVE_AS) %>">
-                        <input type="hidden" name="tableName" value="<%= Encode.forHtmlAttribute(tableName) %>"/>
-                        <input type="hidden" name="formTableName" value="<%= Encode.forHtmlAttribute(formTableName) %>"/>
+                        <input type="hidden" name="id" value="<e:forHtmlAttribute value='<%= reportId %>' />"/>
+                        <input type="hidden" name="save" value="<e:forHtmlAttribute value='<%= SAVE_AS %>' />">
+                        <input type="hidden" name="tableName" value="<e:forHtmlAttribute value='<%= tableName %>' />"/>
+                        <input type="hidden" name="formTableName" value="<e:forHtmlAttribute value='<%= formTableName %>' />"/>
                         <input type="hidden" name="configTableName"
-                               value="<%= Encode.forHtmlAttribute(configTableName) %>"/>
+                               value="<e:forHtmlAttribute value='<%= configTableName %>' />"/>
                     </form>
                 </table>
             </td>

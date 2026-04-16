@@ -1,6 +1,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ReceivePayment2Action" %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <%@taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -38,8 +39,8 @@
                 ReceivePayment2Action frm = (ReceivePayment2Action) request.getAttribute("receivePaymentActionForm");
             %> <%=java.text.NumberFormat.getCurrencyInstance().format(new Double(frm.getAmountReceived()))%>
             <fmt:message key="oscar.billing.CA.BC.credit"/> &nbsp; <fmt:message key="oscar.billing.CA.BC.invoice"/> 
-            <c:out value="${receivePaymentActionForm.billNo}"/> &nbsp; <fmt:message key="oscar.billing.CA.BC.lineNo"/> 
-            <c:out value="${receivePaymentActionForm.billingmasterNo}"/></div>
+            ${e:forHtml(receivePaymentActionForm.billNo)} &nbsp; <fmt:message key="oscar.billing.CA.BC.lineNo"/> 
+            ${e:forHtml(receivePaymentActionForm.billingmasterNo)}</div>
         <div align="center">
             <button
                     onclick="opener.window.location.reload();self.close();return false;">Close
@@ -56,9 +57,9 @@
             <legend><fmt:message key="oscar.billing.CA.BC.title"/></legend>
             <div class="msgDisplay">
                 <p><fmt:message key="oscar.billing.CA.BC.invoice"/> 
-                    <c:out value="${receivePaymentActionForm.billNo}"/></p>
+                    ${e:forHtml(receivePaymentActionForm.billNo)}</p>
                 <p><fmt:message key="oscar.billing.CA.BC.lineNo"/> 
-                    <c:out value="${receivePaymentActionForm.billingmasterNo}"/></p>
+                    ${e:forHtml(receivePaymentActionForm.billingmasterNo)}</p>
             </div>
             <p><label> <fmt:message key="oscar.billing.CA.BC.amount"/>
                 <input type="text" maxlength="6" name="amountReceived" /><!--&nbsp;<input type="checkbox" name="isRefund" value="true"/>-->

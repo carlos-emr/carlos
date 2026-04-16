@@ -34,6 +34,7 @@
 <!DOCTYPE html>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
@@ -90,9 +91,9 @@
                 <select name="resourceType" id="resourceType" class="form-select w-auto d-inline-block">
                     <c:forEach var="r" items="${mcedtTypeList.data}">
                         <option value="${r.resourceType}">
-                            <c:out value="${r.resourceType}"/> -
-                            <c:out value="${r.access}"/> -
-                            <c:out value="${r.descriptionEn}"/>
+                            ${e:forHtml(r.resourceType)} -
+                            ${e:forHtml(r.access)} -
+                            ${e:forHtml(r.descriptionEn)}
                         </option>
                     </c:forEach>
                 </select>

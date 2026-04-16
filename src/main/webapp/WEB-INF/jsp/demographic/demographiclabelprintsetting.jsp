@@ -170,20 +170,20 @@
                     <th><fmt:message key="demographic.demographiclabelprintsetting.msgLabel"/></th>
                     <th><fmt:message key="demographic.demographiclabelprintsetting.msgNumeberOfLabel"/></th>
                     <th><fmt:message key="demographic.demographiclabelprintsetting.msgLocation"/>
-                        <input type="hidden" name="address" value="<%=Encode.forHtmlAttribute(address)%>">
-                        <input type="hidden" name="chart_no" value="<%=Encode.forHtmlAttribute(chart_no)%>">
-                        <input type="hidden" name="city" value="<%=Encode.forHtmlAttribute(city)%>">
-                        <input type="hidden" name="dob" value="<%=Encode.forHtmlAttribute(dob)%>">
-                        <input type="hidden" name="first_name" value="<%=Encode.forHtmlAttribute(first_name)%>">
-                        <input type="hidden" name="hin" value="<%=Encode.forHtmlAttribute(hin)%>">
-                        <input type="hidden" name="last_name" value="<%=Encode.forHtmlAttribute(last_name)%>">
-                        <input type="hidden" name="phone" value="<%=Encode.forHtmlAttribute(phone)%>">
-                        <input type="hidden" name="phone2" value="<%=Encode.forHtmlAttribute(phone2Raw)%>">
-                        <input type="hidden" name="postal" value="<%=Encode.forHtmlAttribute(postal)%>">
-                        <input type="hidden" name="providername" value="<%=Encode.forHtmlAttribute(providername)%>">
-                        <input type="hidden" name="province" value="<%=Encode.forHtmlAttribute(province)%>">
-                        <input type="hidden" name="sex" value="<%=Encode.forHtmlAttribute(sex)%>">
-                        <input type="hidden" name="age" value="<%=Encode.forHtmlAttribute(String.valueOf(age))%>">
+                        <input type="hidden" name="address" value="<e:forHtmlAttribute value='<%= address %>' />">
+                        <input type="hidden" name="chart_no" value="<e:forHtmlAttribute value='<%= chart_no %>' />">
+                        <input type="hidden" name="city" value="<e:forHtmlAttribute value='<%= city %>' />">
+                        <input type="hidden" name="dob" value="<e:forHtmlAttribute value='<%= dob %>' />">
+                        <input type="hidden" name="first_name" value="<e:forHtmlAttribute value='<%= first_name %>' />">
+                        <input type="hidden" name="hin" value="<e:forHtmlAttribute value='<%= hin %>' />">
+                        <input type="hidden" name="last_name" value="<e:forHtmlAttribute value='<%= last_name %>' />">
+                        <input type="hidden" name="phone" value="<e:forHtmlAttribute value='<%= phone %>' />">
+                        <input type="hidden" name="phone2" value="<e:forHtmlAttribute value='<%= phone2Raw %>' />">
+                        <input type="hidden" name="postal" value="<e:forHtmlAttribute value='<%= postal %>' />">
+                        <input type="hidden" name="providername" value="<e:forHtmlAttribute value='<%= providername %>' />">
+                        <input type="hidden" name="province" value="<e:forHtmlAttribute value='<%= province %>' />">
+                        <input type="hidden" name="sex" value="<e:forHtmlAttribute value='<%= sex %>' />">
+                        <input type="hidden" name="age" value="<e:forHtmlAttribute value='<%= String.valueOf(age) %>' />">
                     </th>
                 </tr>
                 <tr>
@@ -191,13 +191,13 @@
                         <table style="width:90%">
                             <tr>
                                 <td style="border: solid 1px; background-color: white;">
-				<span id="copytext1" class="copytext"> <b><%=Encode.forHtml(last_name)%>,&nbsp;<%=Encode.forHtml(first_name)%></b><br>
-				&nbsp;&nbsp;&nbsp;&nbsp;<%=Encode.forHtml(hin)%><br>
-				&nbsp;&nbsp;&nbsp;&nbsp;<%=Encode.forHtml(dob)%>&nbsp;<%=Encode.forHtml(sex)%><br>
+				<span id="copytext1" class="copytext"> <b><e:forHtmlContent value='<%= last_name %>' />,&nbsp;<e:forHtmlContent value='<%= first_name %>' /></b><br>
+				&nbsp;&nbsp;&nbsp;&nbsp;<e:forHtmlContent value='<%= hin %>' /><br>
+				&nbsp;&nbsp;&nbsp;&nbsp;<e:forHtmlContent value='<%= dob %>' />&nbsp;<e:forHtmlContent value='<%= sex %>' /><br>
 				<br>
-				<b><%=Encode.forHtml(last_name)%>,&nbsp;<%=Encode.forHtml(first_name)%></b><br>
-				&nbsp;&nbsp;&nbsp;&nbsp;<%=Encode.forHtml(hin)%><br>
-				&nbsp;&nbsp;&nbsp;&nbsp;<%=Encode.forHtml(dob)%>&nbsp;<%=Encode.forHtml(sex)%><br>
+				<b><e:forHtmlContent value='<%= last_name %>' />,&nbsp;<e:forHtmlContent value='<%= first_name %>' /></b><br>
+				&nbsp;&nbsp;&nbsp;&nbsp;<e:forHtmlContent value='<%= hin %>' /><br>
+				&nbsp;&nbsp;&nbsp;&nbsp;<e:forHtmlContent value='<%= dob %>' />&nbsp;<e:forHtmlContent value='<%= sex %>' /><br>
 				</span></td>
                             </tr>
                         </table>
@@ -253,10 +253,10 @@
                             <tr>
                                 <td style="border: solid 1px; background-color: white;">
 				<span id="copytext2"
-                      class="copytext"> <b><%=Encode.forHtml(last_name)%>,&nbsp;<%=Encode.forHtml(first_name)%>&nbsp;<%=Encode.forHtml(chart_no)%></b><br><%=Encode.forHtml(address)%><br><%=Encode.forHtml(city)%>,&nbsp;<%=Encode.forHtml(province)%>,&nbsp;<%=Encode.forHtml(postal)%><br>
-				<fmt:message key="demographic.demographiclabelprintsetting.msgHome"/>:&nbsp;<%=Encode.forHtml(phone)%><br><%=Encode.forHtml(dob)%>&nbsp;<%=Encode.forHtml(sex)%><br><%=Encode.forHtml(hin)%><br>
+                      class="copytext"> <b><e:forHtmlContent value='<%= last_name %>' />,&nbsp;<e:forHtmlContent value='<%= first_name %>' />&nbsp;<e:forHtmlContent value='<%= chart_no %>' /></b><br><e:forHtmlContent value='<%= address %>' /><br><e:forHtmlContent value='<%= city %>' />,&nbsp;<e:forHtmlContent value='<%= province %>' />,&nbsp;<e:forHtmlContent value='<%= postal %>' /><br>
+				<fmt:message key="demographic.demographiclabelprintsetting.msgHome"/>:&nbsp;<e:forHtmlContent value='<%= phone %>' /><br><e:forHtmlContent value='<%= dob %>' />&nbsp;<e:forHtmlContent value='<%= sex %>' /><br><e:forHtmlContent value='<%= hin %>' /><br>
 				<fmt:message key="demographic.demographiclabelprintsetting.msgBus"/>:<%=phone2Display%>&nbsp;
-				<fmt:message key="demographic.demographiclabelprintsetting.msgDr"/>&nbsp;<%=Encode.forHtml(providername)%><br>
+				<fmt:message key="demographic.demographiclabelprintsetting.msgDr"/>&nbsp;<e:forHtmlContent value='<%= providername %>' /><br>
 				</span></td>
                             </tr>
                         </table>
@@ -271,7 +271,7 @@
                         <table style="width:90%">
                             <tr>
                                 <td style="border: solid 1px; background-color: white;">
-				<span id="copytext3" class="copytext"> <%=Encode.forHtml(last_name)%>,&nbsp;<%=Encode.forHtml(first_name)%><br><%=Encode.forHtml(address)%><br><%=Encode.forHtml(city)%>,&nbsp;<%=Encode.forHtml(province)%>,&nbsp;<%=Encode.forHtml(postal)%><br>
+				<span id="copytext3" class="copytext"> <e:forHtmlContent value='<%= last_name %>' />,&nbsp;<e:forHtmlContent value='<%= first_name %>' /><br><e:forHtmlContent value='<%= address %>' /><br><e:forHtmlContent value='<%= city %>' />,&nbsp;<e:forHtmlContent value='<%= province %>' />,&nbsp;<e:forHtmlContent value='<%= postal %>' /><br>
 				</span></td>
                             </tr>
                         </table>
@@ -286,7 +286,7 @@
                         <table style="width:90%">
                             <tr>
                                 <td style="border: solid 1px; background-color: white;">
-				<span id="copytext4" class="copytext"> <%=Encode.forHtml(first_name)%>&nbsp;<%=Encode.forHtml(last_name)%><br><%=Encode.forHtml(address)%><br><%=Encode.forHtml(city)%>,&nbsp;<%=Encode.forHtml(province)%>,&nbsp;<%=Encode.forHtml(postal)%><br>
+				<span id="copytext4" class="copytext"> <e:forHtmlContent value='<%= first_name %>' />&nbsp;<e:forHtmlContent value='<%= last_name %>' /><br><e:forHtmlContent value='<%= address %>' /><br><e:forHtmlContent value='<%= city %>' />,&nbsp;<e:forHtmlContent value='<%= province %>' />,&nbsp;<e:forHtmlContent value='<%= postal %>' /><br>
 				</span></td>
                             </tr>
                         </table>
@@ -303,8 +303,8 @@
                             <tr>
                                 <td style="border: solid 1px; background-color: white;">
 				<span id="copytext5"
-                      class="copytext"> <%=Encode.forHtml(chart_no)%> &nbsp;&nbsp;<%=Encode.forHtml(last_name)%>, <%=Encode.forHtml(first_name)%><br><%=Encode.forHtml(address)%>, <%=Encode.forHtml(city)%>, <%=Encode.forHtml(province)%>, <%=Encode.forHtml(postal)%>
-				<br><%=Encode.forHtml(dob)%> &nbsp;&nbsp;&nbsp;<%=Encode.forHtml(String.valueOf(age))%> <%=Encode.forHtml(sex)%> &nbsp;<%=Encode.forHtml(hin)%><br><%=Encode.forHtml(phone)%>&nbsp;&nbsp;&nbsp;<%=phone2Display%><br><%=Encode.forHtml(refDoc)%>
+                      class="copytext"> <e:forHtmlContent value='<%= chart_no %>' /> &nbsp;&nbsp;<e:forHtmlContent value='<%= last_name %>' />, <e:forHtmlContent value='<%= first_name %>' /><br><e:forHtmlContent value='<%= address %>' />, <e:forHtmlContent value='<%= city %>' />, <e:forHtmlContent value='<%= province %>' />, <e:forHtmlContent value='<%= postal %>' />
+				<br><e:forHtmlContent value='<%= dob %>' /> &nbsp;&nbsp;&nbsp;<e:forHtmlContent value='<%= String.valueOf(age) %>' /> <e:forHtmlContent value='<%= sex %>' /> &nbsp;<e:forHtmlContent value='<%= hin %>' /><br><e:forHtmlContent value='<%= phone %>' />&nbsp;&nbsp;&nbsp;<%=phone2Display%><br><e:forHtmlContent value='<%= refDoc %>' />
 				</span></td>
                             </tr>
                         </table>

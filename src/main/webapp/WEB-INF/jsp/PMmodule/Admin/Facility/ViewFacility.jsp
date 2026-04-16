@@ -45,35 +45,35 @@
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
     <tr class="b">
         <td width="20%">Facility Id:</td>
-        <td><c:out value="${requestScope.id}"/></td>
+        <td>${e:forHtml(requestScope.id)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Name:</td>
-        <td><c:out value="${facility.name}"/></td>
+        <td>${e:forHtml(facility.name)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Description:</td>
-        <td><c:out value="${facility.description}"/></td>
+        <td>${e:forHtml(facility.description)}</td>
     </tr>
     <tr class="b">
         <td width="20%">HIC:</td>
-        <td><c:out value="${facility.hic}"/></td>
+        <td>${e:forHtml(facility.hic)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Primary Contact Name:</td>
-        <td><c:out value="${facility.contactName}"/></td>
+        <td>${e:forHtml(facility.contactName)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Primary Contact Email:</td>
-        <td><c:out value="${facility.contactEmail}"/></td>
+        <td>${e:forHtml(facility.contactEmail)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Primary Contact Phone:</td>
-        <td><c:out value="${facility.contactPhone}"/></td>
+        <td>${e:forHtml(facility.contactPhone)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Digital Signatures Enabled:</td>
-        <td><c:out value="${facility.enableDigitalSignatures}"/></td>
+        <td>${e:forHtml(facility.enableDigitalSignatures)}</td>
     </tr>
 </table>
 
@@ -91,9 +91,9 @@
     <display:column sortable="true" sortProperty="name" title="Program Name">
         <c:choose>
             <c:when test="${program.facilityId == facility.id}">
-                <a href="${pageContext.request.contextPath}/PMmodule/ProgramManagerView?id=<c:out value="${program.id}"/>"><c:out value="${program.name}"/></a>
+                <a href="${pageContext.request.contextPath}/PMmodule/ProgramManagerView?id=${e:forUriComponent(program.id)}">${e:forHtml(program.name)}</a>
             </c:when>
-            <c:otherwise><c:out value="${program.name}"/></c:otherwise>
+            <c:otherwise>${e:forHtml(program.name)}</c:otherwise>
         </c:choose>
     </display:column>
     <display:column property="type" sortable="true" title="Program Type"/>
@@ -122,10 +122,10 @@ while still admitted in this facility.
     </tr>
     <c:forEach var="client" items="${associatedClients}">
         <tr class="b" <c:if test="${client.inOneDay}">style="color:red;"</c:if>>
-            <td><c:out value="${client.name}"/></td>
-            <td><c:out value="${client.dob}"/></td>
-            <td><c:out value="${client.programName}"/></td>
-            <td><c:out value="${client.dischargeDate}"/></td>
+            <td>${e:forHtml(client.name)}</td>
+            <td>${e:forHtml(client.dob)}</td>
+            <td>${e:forHtml(client.programName)}</td>
+            <td>${e:forHtml(client.dischargeDate)}</td>
         </tr>
     </c:forEach>
 </table>
@@ -133,9 +133,9 @@ while still admitted in this facility.
 <br/>
 Automatic discharges in the past 24 hours appear red.
 
-<div>
+    <div>
     <p>
-        <a href="${pageContext.request.contextPath}/PMmodule/FacilityManager?method=edit&amp;id=<c:out value="${requestScope.id}"/>">Edit facility</a>
+        <a href="${pageContext.request.contextPath}/PMmodule/FacilityManager?method=edit&amp;id=${e:forUriComponent(requestScope.id)}">Edit facility</a>
         |
         <a href="${pageContext.request.contextPath}/PMmodule/FacilityManager?method=list">Return to facilities list</a>
     </p>

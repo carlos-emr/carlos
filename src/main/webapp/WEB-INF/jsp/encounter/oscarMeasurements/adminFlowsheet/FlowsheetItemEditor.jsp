@@ -56,8 +56,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     Provider provider = loggedInInfo.getLoggedInProvider();
@@ -91,7 +89,9 @@
             });
 
             function loadItem() {
-                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=getFlowsheetItem&flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>", {},
+                <c:set var="__enc_1"><e:forUriComponent value='<%= flowsheetId %>' /></c:set>
+                <c:set var="__enc_2"><e:forUriComponent value='<%= measurementType %>' /></c:set>
+                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=getFlowsheetItem&flowsheetId=<e:forJavaScript value='${__enc_1}' />&measurementType=<e:forJavaScript value='${__enc_2}' />", {},
                     function (xml) {
                         document.getElementById('displayName').value = xml.displayName;
                         document.getElementById('guideline').value = xml.guideline;
@@ -120,7 +120,9 @@
             }
 
             function loadWarnings() {
-                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=getWarnings&flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>", {},
+                <c:set var="__enc_3"><e:forUriComponent value='<%= flowsheetId %>' /></c:set>
+                <c:set var="__enc_4"><e:forUriComponent value='<%= measurementType %>' /></c:set>
+                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=getWarnings&flowsheetId=<e:forJavaScript value='${__enc_3}' />&measurementType=<e:forJavaScript value='${__enc_4}' />", {},
                     function (xml) {
                         var arr = new Array();
                         if (xml.results instanceof Array) {
@@ -139,7 +141,9 @@
             }
 
             function loadTargets() {
-                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=getTargets&flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>", {},
+                <c:set var="__enc_5"><e:forUriComponent value='<%= flowsheetId %>' /></c:set>
+                <c:set var="__enc_6"><e:forUriComponent value='<%= measurementType %>' /></c:set>
+                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=getTargets&flowsheetId=<e:forJavaScript value='${__enc_5}' />&measurementType=<e:forJavaScript value='${__enc_6}' />", {},
                     function (xml) {
                         var arr = new Array();
                         if (xml.results instanceof Array) {
@@ -161,16 +165,21 @@
                 jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet?method=saveFlowsheetItem',
                     jQuery('#theForm').serialize(),
                     function (data) {
-                        location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetEditor?id=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>';
+                        <c:set var="__enc_7"><e:forUriComponent value='<%= flowsheetId %>' /></c:set>
+                        location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetEditor?id=<e:forJavaScript value='${__enc_7}' />';
                     });
             }
 
             function addNewWarning() {
-                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetAddWarning?flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>';
+                <c:set var="__enc_8"><e:forUriComponent value='<%= flowsheetId %>' /></c:set>
+                <c:set var="__enc_9"><e:forUriComponent value='<%= measurementType %>' /></c:set>
+                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetAddWarning?flowsheetId=<e:forJavaScript value='${__enc_8}' />&measurementType=<e:forJavaScript value='${__enc_9}' />';
             }
 
             function addNewTarget() {
-                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetAddTarget?flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>';
+                <c:set var="__enc_10"><e:forUriComponent value='<%= flowsheetId %>' /></c:set>
+                <c:set var="__enc_11"><e:forUriComponent value='<%= measurementType %>' /></c:set>
+                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetAddTarget?flowsheetId=<e:forJavaScript value='${__enc_10}' />&measurementType=<e:forJavaScript value='${__enc_11}' />';
             }
 
             function updateDetails() {
@@ -183,8 +192,8 @@
 
             function removeWarning(hash) {
                 jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet?method=removeWarning', {
-                        flowsheetId: '<%= Encode.forJavaScript(flowsheetId) %>',
-                        type: '<%= Encode.forJavaScript(measurementType) %>',
+                        flowsheetId: '<e:forJavaScriptBlock value='<%= flowsheetId %>' />',
+                        type: '<e:forJavaScriptBlock value='<%= measurementType %>' />',
                         hash: hash
                     },
                     function (data) {
@@ -194,8 +203,8 @@
 
             function removeTarget(hash) {
                 jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet?method=removeTarget', {
-                        flowsheetId: '<%= Encode.forJavaScript(flowsheetId) %>',
-                        type: '<%= Encode.forJavaScript(measurementType) %>',
+                        flowsheetId: '<e:forJavaScriptBlock value='<%= flowsheetId %>' />',
+                        type: '<e:forJavaScriptBlock value='<%= measurementType %>' />',
                         hash: hash
                     },
                     function (data) {
@@ -210,8 +219,8 @@
     <h2>Flowsheet Item Editor</h2>
     <br/>
     <form name="theForm" id="theForm">
-        <input type="hidden" name="flowsheetId" value="<%= Encode.forHtmlAttribute(flowsheetId) %>"/>
-        <input type="hidden" name="measurementType" value="<%= Encode.forHtmlAttribute(measurementType) %>"/>
+        <input type="hidden" name="flowsheetId" value="<e:forHtmlAttribute value='<%= flowsheetId %>' />"/>
+        <input type="hidden" name="measurementType" value="<e:forHtmlAttribute value='<%= measurementType %>' />"/>
 
         <table style="width:20%">
             <tr>

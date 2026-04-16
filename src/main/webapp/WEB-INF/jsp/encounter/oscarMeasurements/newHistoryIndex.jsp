@@ -29,6 +29,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
@@ -93,7 +94,7 @@
                             </th>
                             <c:forEach var="date" items="${measurementsDates}" varStatus="count">
                                 <th align="left" class="Header" style="width:50px;color:white">
-                                    <c:out value="${sf.format(date)}" />
+                                    ${e:forHtml(sf.format(date))}
                                 </th>
                             </c:forEach>
                             <th align="left" class="Header" style="color:white" width="50">
@@ -111,9 +112,9 @@
                                 </c:otherwise>
                             </c:choose>
 
-                            <tr class="data" style='<c:out value="${rowStyle}"/>'>
-                                <td><c:out value="${pair.key}"/></td>
-                                <td><c:out value="${pair.value}"/></td>
+                            <tr class="data" style='${e:forHtmlAttribute(rowStyle)}'>
+                                <td>${e:forHtml(pair.key)}</td>
+                                <td>${e:forHtml(pair.value)}</td>
 
                                 <c:forEach items="${sessionScope.measurementsDates }" var="date">
                                     <c:set var="map" value="${sessionScope.measurementsData[date]}"/>
@@ -129,8 +130,8 @@
                                             }
 
                                         %>
-                                        <td title='<c:out value="${unit}" /> <c:out value="${comment}" />' <%=ucStyle%>>
-                                            <c:out value="${cell.dataField}"/>
+                                        <td title='${e:forHtmlAttribute(unit)} ${e:forHtml(comment)}' <%=ucStyle%>>
+                                            ${e:forHtml(cell.dataField)}
                                         </td>
                                     </c:if>
                                     <c:if test="${cell==null }">
@@ -139,8 +140,7 @@
                                 </c:forEach>
 
                                 <td><a href="#" name='<fmt:message key="encounter.Index.oldMeasurements"/>'
-                                       onClick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory?type=<c:out
-                                               value="${pair.key}"/>'); return false;">more...</a></td>
+                                       onClick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory?type=${e:forHtml(pair.key)}'); return false;">more...</a></td>
                             </tr>
                         </c:forEach>
 

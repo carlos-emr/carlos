@@ -38,6 +38,7 @@
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -129,7 +130,7 @@
         <table width="100%" border="0">
             <tr>
                 <td align="left"><i><fmt:message key="admin.search.keywords"/></i>
-                    : <%=Encode.forHtml(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>
+                    : <e:forHtmlContent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />
                 </td>
             </tr>
         </table>
@@ -156,10 +157,10 @@
                         nItems++;
                 %>
                 <tr bgcolor="<%=bodd?"white":weakcolor%>">
-                    <td><%=Encode.forHtml(pRec.getPreventionType())%>
+                    <td><e:forHtmlContent value='<%= pRec.getPreventionType() %>' />
                     </td>
                     <td><a
-                     href="${pageContext.request.contextPath}/admin/ViewLotNrDeleteRecordHtm?prevention=<%=Encode.forUriComponent(pRec.getPreventionType())%>&lotnr=<%=URLEncoder.encode(pRec.getLotNr(), StandardCharsets.UTF_8)%>"><%=Encode.forHtml(pRec.getLotNr())%>
+                     href="${pageContext.request.contextPath}/admin/ViewLotNrDeleteRecordHtm?prevention=<e:forUriComponent value='<%= pRec.getPreventionType() %>' />&lotnr=<%=URLEncoder.encode(pRec.getLotNr(), StandardCharsets.UTF_8)%>"><e:forHtmlContent value='<%= pRec.getLotNr() %>' />
                     </a></td>
                 </tr>
                 <% }
@@ -178,11 +179,11 @@
                 nLastPage = limit1 - limit2;
                 if (nLastPage >= 0) {
             %> <a
-                href="${pageContext.request.contextPath}/admin/LotNrSearchResults?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&limit1=<%=nLastPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnLastPage"/></a> | <%
+                href="${pageContext.request.contextPath}/admin/LotNrSearchResults?keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&limit1=<%=nLastPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnLastPage"/></a> | <%
             }
             if (nItems == limit2) {
         %> <a
-                href="${pageContext.request.contextPath}/admin/LotNrSearchResults?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&limit1=<%=nNextPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnNextPage"/></a> <%
+                href="${pageContext.request.contextPath}/admin/LotNrSearchResults?keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&limit1=<%=nNextPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnNextPage"/></a> <%
             }
         %>
             <p><fmt:message key="admin.lotnrsearchresults.msgClickForEditing"/></p>

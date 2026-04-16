@@ -33,8 +33,7 @@
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
-
-<%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.*, org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObject" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -43,6 +42,7 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_report" rights="r" reverse="<%=true%>">
     <%
@@ -75,8 +75,8 @@
 
     <%@ include file="rbtTopNav.jspf" %>
     <h3>
-        <c:out value="${ curreport.title }"/><br/>
-        <small><c:out value="${ curreport.description }"/></small>
+        ${e:forHtml(curreport.title)}<br/>
+        <small>${e:forHtml(curreport.description)}</small>
     </h3>
 
 
@@ -85,14 +85,14 @@
     <%}%>
 
     <div class="xmlBorderDiv">
-        <pre style="font-size: 11px;"><%=Encode.forHtml(xml)%></pre>
+        <pre style="font-size: 11px;"><e:forHtmlContent value='<%= xml %>' /></pre>
     </div>
 
     <div id="viewTemplateActions" class="form-actions noprint">
         <input type="button" class="btn btn-secondary" value="Back" onclick="javascript: window.history.back();return false;"/>
         <input type="button" class="btn btn-secondary" value="Print" onclick="javascript: window.print();"/>
         <input type="button" class="btn btn-primary" value="Edit"
-               onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate?templateid=<%=Encode.forUriComponent(templateid)%>&opentext=1'"/>
+               onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate?templateid=<e:forUriComponent value='<%= templateid %>' />&opentext=1'"/>
     </div>
 
 </html>

@@ -57,7 +57,6 @@
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.CdsFormOption" %>
 <%@page import="io.github.carlos_emr.carlos.web.Cds4ReportUIBean" %>
-<%@page import="org.owasp.encoder.Encode" %>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     ProviderManager2 providerManager = (ProviderManager2) SpringUtils.getBean(ProviderManager2.class);
@@ -115,14 +114,14 @@
 <%
     if (providerIdList != null) {
 %>
-<span style="font-weight:bold">Providers : </span><%=Encode.forHtml(providerNamesList.toString())%>
+<span style="font-weight:bold">Providers : </span><e:forHtmlContent value='<%= providerNamesList.toString() %>' />
 <br/>
 <%
     }
 
     if (programIds != null) {
 %>
-<span style="font-weight:bold">Programs : </span><%=Encode.forHtml(programNamesList.toString())%>
+<span style="font-weight:bold">Programs : </span><e:forHtmlContent value='<%= programNamesList.toString() %>' />
 <br/>
 <%
     }
@@ -151,9 +150,9 @@
             int[] dataRow = cds4ReportUIBean.getDataRow(cdsFormOption);
     %>
     <tr>
-        <td><%=Encode.forHtml(cdsFormOption.getCdsDataCategory())%>
+        <td><e:forHtmlContent value='<%= cdsFormOption.getCdsDataCategory() %>' />
         </td>
-        <td><%=Encode.forHtml(cdsFormOption.getCdsDataCategoryName())%>
+        <td><e:forHtmlContent value='<%= cdsFormOption.getCdsDataCategoryName() %>' />
         </td>
         <%
             for (int dataElement : dataRow) {

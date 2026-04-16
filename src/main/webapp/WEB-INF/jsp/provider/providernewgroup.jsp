@@ -41,7 +41,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     if (session.getAttribute("user") == null) {
         response.sendRedirect(request.getContextPath() + "/logout.htm");
@@ -135,11 +134,11 @@
                 <tr>
                     <td class="text-center">
                         <input type="checkbox" class="form-check-input provider-check" name="data<%=i%>" value="<%=i%>">
-                        <input type="hidden" name="provider_no<%=i%>" value="<%=Encode.forHtmlAttribute(p.getProviderNo() == null ? "" : p.getProviderNo())%>">
-                        <input type="hidden" name="last_name<%=i%>" value="<%=Encode.forHtmlAttribute(p.getLastName() == null ? "" : p.getLastName())%>">
-                        <input type="hidden" name="first_name<%=i%>" value="<%=Encode.forHtmlAttribute(p.getFirstName() == null ? "" : p.getFirstName())%>">
+                        <input type="hidden" name="provider_no<%=i%>" value="<e:forHtmlAttribute value='<%= p.getProviderNo() == null ? "" : p.getProviderNo() %>' />">
+                        <input type="hidden" name="last_name<%=i%>" value="<e:forHtmlAttribute value='<%= p.getLastName() == null ? "" : p.getLastName() %>' />">
+                        <input type="hidden" name="first_name<%=i%>" value="<e:forHtmlAttribute value='<%= p.getFirstName() == null ? "" : p.getFirstName() %>' />">
                     </td>
-                    <td><%=Encode.forHtml(p.getLastName() == null ? "" : p.getLastName())%>, <%=Encode.forHtml(p.getFirstName() == null ? "" : p.getFirstName())%></td>
+                    <td><e:forHtmlContent value='<%= p.getLastName() == null ? "" : p.getLastName() %>' />, <e:forHtmlContent value='<%= p.getFirstName() == null ? "" : p.getFirstName() %>' /></td>
                 </tr>
                 <%
                     }

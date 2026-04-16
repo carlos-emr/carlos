@@ -38,6 +38,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -134,9 +135,9 @@
                             String prov = ((Properties) vecProvider.get(i)).getProperty("providerNo", "");
                             String selected = request.getParameter("providerNo");
                     %>
-                    <option value="<%=Encode.forHtmlAttribute(prov) %>"
+                    <option value="<e:forHtmlAttribute value='<%= prov %>' />"
                             <% if ((selected != null) && (selected.equals(prov))) { %> selected
-                            <% } %>><%= Encode.forHtmlContent(((Properties) vecProvider.get(i)).getProperty("name", "")) %>
+                            <% } %>><e:forHtmlContent value='<%= ((Properties) vecProvider.get(i)).getProperty("name", "") %>' />
                     </option>
                     <%
                         }
@@ -155,7 +156,7 @@
             <div class="col-md-4">
                 <label>Start Date: </label>
                 <div class="input-group">
-                    <input type="text" name="startDate" id="startDate1" value="<%=Encode.forHtmlAttribute(startDate!=null?startDate:"")%>"
+                    <input type="text" name="startDate" id="startDate1" value="<e:forHtmlAttribute value='<%= startDate!=null?startDate:"" %>' />"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -164,7 +165,7 @@
             <div class="col-md-4">
                 <label>End Date: </label>
                 <div class="input-group">
-                    <input type="text" name="endDate" id="endDate1" value="<%=Encode.forHtmlAttribute(endDate!=null?endDate:"")%>"
+                    <input type="text" name="endDate" id="endDate1" value="<e:forHtmlAttribute value='<%= endDate!=null?endDate:"" %>' />"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -182,7 +183,7 @@
         String dateError = (String) request.getAttribute("dateError");
         if (dateError != null && !dateError.isEmpty()) {
     %>
-    <div class="alert alert-danger" role="alert"><%= Encode.forHtml(dateError) %></div>
+    <div class="alert alert-danger" role="alert"><e:forHtmlContent value='<%= dateError %>' /></div>
     <%
         }
         out.flush();
@@ -208,7 +209,7 @@
     </button>
 
 
-    <p>Period: ( <%= Encode.forHtml(startDate == null ? "" : startDate) %> ~ <%= Encode.forHtml(endDate == null ? "" : endDate) %>)</p>
+    <p>Period: ( <e:forHtmlContent value='<%= startDate == null ? "" : startDate %>' /> ~ <e:forHtmlContent value='<%= endDate == null ? "" : endDate %>' />)</p>
     <table class="table table-bordered table-striped table-hover table-sm">
         <tr bgcolor="<%=tdTitleColor%>">
             <TH>Time</TH>
@@ -232,15 +233,15 @@ for (int i = 0; i < vec.size(); i++) {
     color = i%2==0?tdInterlColor:"white";
 %>
         <tr bgcolor="<%=color %>" align="center">
-            <td><c:out value='<%=prop.getProperty("dateTime")%>'/></td>
-            <td><c:out value='<%=prop.getProperty("action")%>'/></td>
-            <td><c:out value='<%=prop.getProperty("content")%>'/></td>
-            <td><c:out value='<%=prop.getProperty("contentId")%>'/></td>
-            <td><c:out value='<%=prop.getProperty("ip")%>'/></td>
+            <td><e:forHtmlContent value='<%= prop.getProperty("dateTime") %>' /></td>
+            <td><e:forHtmlContent value='<%= prop.getProperty("action") %>' /></td>
+            <td><e:forHtmlContent value='<%= prop.getProperty("content") %>' /></td>
+            <td><e:forHtmlContent value='<%= prop.getProperty("contentId") %>' /></td>
+            <td><e:forHtmlContent value='<%= prop.getProperty("ip") %>' /></td>
             <% if (bAll) { %>
-            <td><c:out value='<%=propName.getProperty(prop.getProperty("provider_no"), "")%>'/></td>
+            <td><e:forHtmlContent value='<%= propName.getProperty(prop.getProperty("provider_no"), "") %>' /></td>
             <% } %>
-            <td><c:out value='<%=prop.getProperty("demographic_no")%>'/></td>
+            <td><e:forHtmlContent value='<%= prop.getProperty("demographic_no") %>' /></td>
             <td><%=prop.getProperty("data") %></td>
         </tr>
 

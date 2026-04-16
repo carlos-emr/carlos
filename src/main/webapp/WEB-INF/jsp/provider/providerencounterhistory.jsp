@@ -36,8 +36,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Encounter" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@page import="org.owasp.encoder.Encode" %>
-
 <%
     EncounterDao encounterDao = SpringUtils.getBean(EncounterDao.class);
 
@@ -90,12 +88,12 @@
                 if (strForm.toLowerCase().compareTo("form") == 0 && st.hasMoreTokens()) {
                     strTemplateURL = "template" + (new String(st.nextToken())).trim().toLowerCase() + ".jsp";
             %> <a href=#
-                  onClick="popupPage(600,800,'<%= request.getContextPath() %>/provider/providercontrol?encounter_no=<%=enc.getId()%>&demographic_no=<%=Encode.forUriComponent(request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "")%>&dboperation=search_encountersingle&displaymodevariable=<%=Encode.forUriComponent(strTemplateURL)%>&displaymode=vary&bNewForm=0')"><%=Encode.forHtml(historysubject)%>
+                  onClick="popupPage(600,800,'<%= request.getContextPath() %>/provider/providercontrol?encounter_no=<%=enc.getId()%>&demographic_no=<e:forUriComponent value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' />&dboperation=search_encountersingle&displaymodevariable=<e:forUriComponent value='<%= strTemplateURL %>' />&displaymode=vary&bNewForm=0')"><e:forHtmlContent value='<%= historysubject %>' />
             </a></font><br>
                 <%
                 } else if (strForm.compareTo("") != 0) {
                 %> <a href=#
-                      onClick="popupPage(400,600,'<%= request.getContextPath() %>/provider/providercontrol?encounter_no=<%=enc.getId()%>&demographic_no=<%=Encode.forUriComponent(request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "")%>&template=<%=Encode.forUriComponent(strForm)%>&dboperation=search_encountersingle&displaymode=encountersingle')"><%=Encode.forHtml(historysubject)%>
+                      onClick="popupPage(400,600,'<%= request.getContextPath() %>/provider/providercontrol?encounter_no=<%=enc.getId()%>&demographic_no=<e:forUriComponent value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' />&template=<e:forUriComponent value='<%= strForm %>' />&dboperation=search_encountersingle&displaymode=encountersingle')"><e:forHtmlContent value='<%= historysubject %>' />
             </a></font><br>
                 <%
                         }

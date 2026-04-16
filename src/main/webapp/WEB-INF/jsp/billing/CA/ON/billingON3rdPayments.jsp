@@ -50,6 +50,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page import="java.math.*,java.util.*,java.sql.*,io.github.carlos_emr.*,java.net.*,java.text.*"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site,io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
@@ -71,8 +72,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingPaymentType" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
     List<String> errors = new ArrayList<String>();
     String datetime = new SimpleDateFormat("yyyy-MM-dd").format(Calendar.getInstance().getTime());
@@ -279,7 +278,7 @@
 <c:if test="${not empty paymentTypeList}">
     <form name="editPayment" id="editPayment" method="POST" action="">
         <input type="hidden" name="method" value="savePayment"/>
-        <input type="hidden" name="billingNo" value="<%= Encode.forHtmlAttribute(billingNo) %>"/>
+        <input type="hidden" name="billingNo" value="<e:forHtmlAttribute value='<%= billingNo %>' />"/>
         <input type="hidden" name="id" id="paymentId" value=""/>
         <table border=0 cellspacing=0 cellpadding=0 width="100%">
             <tr bgcolor="#CCCCFF">
@@ -354,7 +353,7 @@
                                 <input type="radio" name="paymentType"
                                     id="paymentType${billingPaymentType.id}"
                                     value="${billingPaymentType.id}" ${ttr.index == 0 ? "checked" : ""}/>
-                                <c:out value="${billingPaymentType.paymentType}"/>
+                                ${e:forHtml(billingPaymentType.paymentType)}
                             </td>
                             <c:if test="${ttr.index % 2 != 0}">
                                 </tr>
@@ -447,12 +446,12 @@
             <c:forEach var="displayPayment" items="${paymentsList}" varStatus="ctr">
                 <tr>
                     <td>${ctr.index + 1}</td>
-                    <td><c:out value="${displayPayment.total_payment}"/></td>
+                    <td>${e:forHtml(displayPayment.total_payment)}</td>
                     <td>${types[ctr.index]}</td>
-                    <td><c:out value="${displayPayment.paymentDateFormatted}"/></td>
-                    <td><c:out value="${displayPayment.total_discount}"/></td>
-                    <td><c:out value="${displayPayment.total_credit}"/></td>
-                    <td><c:out value="${displayPayment.total_refund}"/></td>
+                    <td>${e:forHtml(displayPayment.paymentDateFormatted)}</td>
+                    <td>${e:forHtml(displayPayment.total_discount)}</td>
+                    <td>${e:forHtml(displayPayment.total_credit)}</td>
+                    <td>${e:forHtml(displayPayment.total_refund)}</td>
                     <td>
                         <c:choose>
                             <c:when test="${balances[ctr.index] < 0}">
@@ -464,7 +463,7 @@
                         </c:choose>
                     </td>
                     <td>
-                        <a href="javascript:onViewPayment('<c:out value="${displayPayment.id}"/>')" >view</a>
+                        <a href="javascript:onViewPayment('${e:forJavaScript(displayPayment.id)}')" >view</a>
                     </td>
                 </tr>
             </c:forEach>

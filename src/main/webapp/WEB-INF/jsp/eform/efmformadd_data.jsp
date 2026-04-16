@@ -35,8 +35,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.EForm" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%--
 	Addition of a floating global toolbar specifically for activation of the
@@ -67,7 +65,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= Encode.forHtml(error) %></li>
+                <li><e:forHtmlContent value='<%= error %>' /></li>
             <% } %>
         </ul>
     </div>

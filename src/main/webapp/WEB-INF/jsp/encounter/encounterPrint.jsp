@@ -49,7 +49,6 @@
 %>
 
 <%@page import="io.github.carlos_emr.carlos.encounter.data.*,java.net.*" %>
-<%@page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
@@ -210,7 +209,7 @@
                                 <tr>
                                     <td class="TableWithBorder" valign="top" style="text-align: left">
                                         <pre name='enTextarea'
-                                             style="font-size: 8pt;"><%=Encode.forHtml(bean.encounter)%></pre>
+                                             style="font-size: 8pt;"><e:forHtmlContent value='<%= bean.encounter %>' /></pre>
                                     </td>
                                 </tr>
                             </table>

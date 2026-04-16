@@ -36,6 +36,7 @@
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties,io.github.carlos_emr.carlos.log.*" %>
@@ -187,10 +188,10 @@
 
     if (heading != null) {
 %>
-<h4 style="margin-bottom:1px;margin-top:3px;"><%=Encode.forHtmlContent(heading)%></h4>
+<h4 style="margin-bottom:1px;margin-top:3px;"><e:forHtmlContent value='<%= heading %>' /></h4>
 <%}%>
 <div class="drugProfileText" style="">
-    <table class="list-drugs sortable" id="Drug_table<%=Encode.forHtmlContent(heading)%>">
+    <table class="list-drugs sortable" id="Drug_table<e:forHtmlAttribute value='<%= heading %>' />">
         <tr>
 
         	<th ><b>Entered Date</b></th>
@@ -272,7 +273,7 @@
         %>
         <tr>
 
-        <td><a id="createDate_<%=prescriptIdInt%>"   <%=styleColor%> href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<%=Encode.forUriComponent(prescriptDrug.getRegionalIdentifier())%>&amp;cn=<%=Encode.forUriComponent(prescriptDrug.getCustomName())%>&amp;bn=<%=Encode.forUriComponent(bn)%>&amp;atc=<%=Encode.forUriComponent(prescriptDrug.getAtc())%>"><%=DateToString(prescriptDrug.getCreateDate())%></a></td>
+        <td><a id="createDate_<%=prescriptIdInt%>"   <%=styleColor%> href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<e:forUriComponent value='<%= prescriptDrug.getRegionalIdentifier() %>' />&amp;cn=<e:forUriComponent value='<%= prescriptDrug.getCustomName() %>' />&amp;bn=<e:forUriComponent value='<%= bn %>' />&amp;atc=<e:forUriComponent value='<%= prescriptDrug.getAtc() %>' />"><%=DateToString(prescriptDrug.getCreateDate())%></a></td>
             <td>
             	<% if(startDateUnknown) { %>
             		
@@ -281,7 +282,7 @@
                     startDate = partialDateDao.getDatePartial(startDate, PartialDate.DRUGS, prescriptDrug.getId(), PartialDate.DRUGS_STARTDATE);
                 %>
                 <a id="rxDate_<%=prescriptIdInt%>"   <%=styleColor%>
-                   href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<%=Encode.forUriComponent(prescriptDrug.getRegionalIdentifier())%>&amp;cn=<%=Encode.forUriComponent(prescriptDrug.getCustomName())%>&amp;bn=<%=Encode.forUriComponent(bn)%>"><%=startDate%>
+                   href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<e:forUriComponent value='<%= prescriptDrug.getRegionalIdentifier() %>' />&amp;cn=<e:forUriComponent value='<%= prescriptDrug.getCustomName() %>' />&amp;bn=<e:forUriComponent value='<%= bn %>' />"><%=startDate%>
                 </a>
                 <% } %>
             </td>
@@ -314,7 +315,7 @@
 			}
 			
 			%>
-            <td ><a id="prescrip_<%=prescriptIdInt%>" <%=styleColor%> href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<%=Encode.forUriComponent(prescriptDrug.getRegionalIdentifier())%>&amp;cn=<%=Encode.forUriComponent(prescriptDrug.getCustomName())%>&amp;bn=<%=Encode.forUriComponent(bn)%>&amp;atc=<%=Encode.forUriComponent(prescriptDrug.getAtc())%>"   <%=tComment%>   ><%=RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(";", " ")%></a></td>
+            <td ><a id="prescrip_<%=prescriptIdInt%>" <%=styleColor%> href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<e:forUriComponent value='<%= prescriptDrug.getRegionalIdentifier() %>' />&amp;cn=<e:forUriComponent value='<%= prescriptDrug.getCustomName() %>' />&amp;bn=<e:forUriComponent value='<%= bn %>' />&amp;atc=<e:forUriComponent value='<%= prescriptDrug.getAtc() %>' />"   <%=tComment%>   ><%=RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(";", " ")%></a></td>
 			<%            			
 	           	if(securityManager.hasWriteAccess("_rx",roleName$,true)) {            		
            	%>
@@ -425,7 +426,7 @@
                         var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                         var csrfToken = csrfEl ? csrfEl.value : '';
                         var val = document.getElementById('hidecpp_<%=prescriptIdInt%>').checked;
-                        fetch('<c:out value="${ctx}"/>/rx/hideCpp', {
+                        fetch('${e:forJavaScript(ctx)}/rx/hideCpp', {
                             method: 'POST',
                             headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
                             credentials: 'same-origin',

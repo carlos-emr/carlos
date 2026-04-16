@@ -102,7 +102,7 @@
 	<display:setProperty name="paging.banner.placement" value="bottom" />
 	<display:setProperty name="basic.msg.empty_list" value="No staff currently assigned to this program." />
 	<display:column sortable="false" title="">
-		<a href="javascript:void(0);" onclick="deleteProvider('<c:out value="${provider.id}"/>');return false;"> Delete </a>
+		<a href="javascript:void(0);" onclick="deleteProvider('${e:forJavaScript(provider.id)}');return false;"> Delete </a>
 	</display:column>
 	<display:column property="provider.formattedName" sortable="true" title="Name" />
 	<display:column property="provider.phone" sortable="true" title="Phone" />
@@ -110,28 +110,28 @@
 		<table width="100%" cellspacing="2" cellpadding="2">
 			<c:forEach var="team" items="${provider.teams}">
 				<tr>
-					<td><c:out value="${team.name }" /></td>
-					<td><a href="javascript:void(0);" onclick="removeTeam('<c:out value="${provider.id}"/>','<c:out value="${team.id}"/>');return false;">Remove</a>
+					<td>${e:forHtml(team.name)}</td>
+					<td><a href="javascript:void(0);" onclick="removeTeam('${e:forJavaScript(provider.id)}','${e:forJavaScript(team.id)}');return false;">Remove</a>
 				</tr>
 			</c:forEach>
 		</table>
-		<select name="x" onchange="assignTeam('<c:out value="${provider.id}"/>',this)">
+		<select name="x" onchange="assignTeam('${e:forJavaScript(provider.id)}',this)">
 			<option value="" SELECTED></option>
 			<c:forEach var="team" items="${teams}">
-				<option value="<c:out value="${team.id}"/>"><c:out value="${team.name}" /></option>
+				<option value="${e:forHtmlAttribute(team.id)}">${e:forHtml(team.name)}</option>
 			</c:forEach>
 		</select>
 	</display:column>
 	<display:column sortable="false" title="Role">
-		<select name="x" onchange="assignRole('<c:out value="${provider.id}"/>',this);">
+		<select name="x" onchange="assignRole('${e:forJavaScript(provider.id)}',this);">
 			<option value="0">&nbsp;</option>
 			<c:forEach var="role" items="${roles}">
 				<c:choose>
 					<c:when test="${role.id == provider.roleId}">
-						<option value="<c:out value="${role.id}"/>" selected><c:out value="${role.name}" /></option>
+						<option value="${e:forHtmlAttribute(role.id)}" selected>${e:forHtml(role.name)}</option>
 					</c:when>
 					<c:otherwise>
-						<option value="<c:out value="${role.id}"/>"><c:out value="${role.name}" /></option>
+						<option value="${e:forHtmlAttribute(role.id)}">${e:forHtml(role.name)}</option>
 					</c:otherwise>
 				</c:choose>
 			</c:forEach>

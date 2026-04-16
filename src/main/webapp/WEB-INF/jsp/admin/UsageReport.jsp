@@ -65,8 +65,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DocumentDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%@ include file="/taglibs.jsp" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <link href="${ctx}/library/flatpickr/flatpickr.min.css" rel="stylesheet">
@@ -113,7 +111,7 @@
                                 selected = " selected=\"selected\" ";
                             }
                     %>
-                    <option value="<%=Encode.forHtmlAttribute(provider.getProviderNo() == null ? "" : provider.getProviderNo())%>" <%=selected%>><%=Encode.forHtmlContent(provider.getFormattedName() == null ? "" : provider.getFormattedName())%>
+                    <option value="<e:forHtmlAttribute value='<%= provider.getProviderNo() == null ? "" : provider.getProviderNo() %>' />" <%=selected%>><e:forHtmlContent value='<%= provider.getFormattedName() == null ? "" : provider.getFormattedName() %>' />
                     </option>
                     <%
                         }
@@ -125,16 +123,16 @@
             <label class="form-label">Start Date</label>
             <div>
                 <input type="text" id="startDate" name="startDate"
-                       value="<%=Encode.forHtmlAttribute(request.getParameter("startDate") != null ? request
-					.getParameter("startDate") : "")%>"/>
+                       value="<e:forHtmlAttribute value='<%= request.getParameter("startDate") != null ? request
+					.getParameter("startDate") : "" %>' />"/>
             </div>
         </div>
         <div class="mb-3">
             <label class="form-label">End Date</label>
             <div>
                 <input type="text" id="endDate" name="endDate"
-                       value="<%=Encode.forHtmlAttribute(request.getParameter("endDate") != null ? request
-					.getParameter("endDate") : "")%>"/>
+                       value="<e:forHtmlAttribute value='<%= request.getParameter("endDate") != null ? request
+					.getParameter("endDate") : "" %>' />"/>
             </div>
         </div>
         <div class="mb-3">

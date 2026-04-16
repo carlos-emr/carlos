@@ -116,7 +116,7 @@
         </tr>
         <% if (saveError != null) { %>
         <tr>
-            <td colspan="2" style="color: red; padding: 4px;"><%= Encode.forHtml(saveError) %></td>
+            <td colspan="2" style="color: red; padding: 4px;"><e:forHtmlContent value='<%= saveError %>' /></td>
         </tr>
         <% } %>
         <tr>

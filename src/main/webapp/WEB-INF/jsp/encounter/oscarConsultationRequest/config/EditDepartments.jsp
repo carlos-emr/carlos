@@ -52,8 +52,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Department" %>
 <%@page import="java.util.List" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
     DepartmentDao departmentDao = SpringUtils.getBean(DepartmentDao.class);
     List<Department> Departments = departmentDao.findAll();
@@ -79,7 +77,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><%= Encode.forHtml(error) %></li>
+                    <li><e:forHtmlContent value='<%= error %>' /></li>
                 <% } %>
             </ul>
         </div>
@@ -115,7 +113,7 @@
                             %>
                             <tr>
                                 <td><input type="checkbox" name="specialists" value="<%=i.getId()%>"></td>
-                                <td><a href="<%= url %>"><%= Encode.forHtml(i.getName()) %></a></td>
+                                <td><a href="<%= url %>"><e:forHtmlContent value='<%= i.getName() %>' /></a></td>
                             </tr>
                             <% } %>
                         </tbody>

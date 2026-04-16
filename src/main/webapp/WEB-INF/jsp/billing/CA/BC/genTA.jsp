@@ -66,7 +66,6 @@
 <%@ page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanC12Dao" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%
     TeleplanS21Dao teleplanS21Dao = SpringUtils.getBean(TeleplanS21Dao.class);
@@ -775,24 +774,24 @@
    %>
 
         <tr>
-            <td><%=Encode.forHtml(StringUtils.noNull(paymentdate))%>
+            <td><e:forHtmlContent value='<%= StringUtils.noNull(paymentdate) %>' />
             </td>
-            <td><%=Encode.forHtml(StringUtils.noNull(payable))%>
+            <td><e:forHtmlContent value='<%= StringUtils.noNull(payable) %>' />
             </td>
-            <td><%=Encode.forHtml(StringUtils.noNull(amtbilled))%>
+            <td><e:forHtmlContent value='<%= StringUtils.noNull(amtbilled) %>' />
             </td>
-            <td><%=Encode.forHtml(StringUtils.noNull(amtpaid))%>
+            <td><e:forHtmlContent value='<%= StringUtils.noNull(amtpaid) %>' />
             </td>
-            <td><%=Encode.forHtml(StringUtils.noNull(balancefwd))%>
+            <td><e:forHtmlContent value='<%= StringUtils.noNull(balancefwd) %>' />
             </td>
-            <td><%=Encode.forHtml(StringUtils.noNull(chequeamt))%>
+            <td><e:forHtmlContent value='<%= StringUtils.noNull(chequeamt) %>' />
             </td>
-            <td><%=Encode.forHtml(StringUtils.noNull(newbalance))%>
+            <td><e:forHtmlContent value='<%= StringUtils.noNull(newbalance) %>' />
             </td>
-            <td><a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS01?rano=<%=Encode.forUriComponent(raNo)%>&proNo=" target="_blank">Billed</a>
-                | <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS00?rano=<%=Encode.forUriComponent(raNo)%>&proNo=" target="_blank">Detail</a>|
-                <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS22?rano=<%=Encode.forUriComponent(raNo)%>&proNo=" target="_blank">Summary</a></td>
-            <td><%=Encode.forHtml(String.valueOf(result.getStatus()))%>
+            <td><a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS01?rano=<e:forUriComponent value='<%= raNo %>' />&proNo=" target="_blank">Billed</a>
+                | <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS00?rano=<e:forUriComponent value='<%= raNo %>' />&proNo=" target="_blank">Detail</a>|
+                <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS22?rano=<e:forUriComponent value='<%= raNo %>' />&proNo=" target="_blank">Summary</a></td>
+            <td><e:forHtmlContent value='<%= String.valueOf(result.getStatus()) %>' />
             </td>
         </tr>
 

@@ -186,7 +186,7 @@
         <div style="color: red; font-weight: bold; padding: 20px; text-align: center;">
             <p><fmt:message key="provider.providerupdatepreference.error"/></p>
             <% if (errorDetails != null && !errorDetails.isEmpty()) { %>
-            <p style="font-size: 0.9em; color: #666;"><fmt:message key="provider.providerupdatepreference.error.details"/>: <%= org.owasp.encoder.Encode.forHtml(errorDetails) %></p>
+            <p style="font-size: 0.9em; color: #666;"><fmt:message key="provider.providerupdatepreference.error.details"/>: <e:forHtmlContent value='<%= errorDetails %>' /></p>
             <% } %>
             <p><fmt:message key="provider.providerupdatepreference.error.retry"/></p>
         </div>

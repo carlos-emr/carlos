@@ -46,8 +46,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
     ReportProviderDao reportProviderDao = SpringUtils.getBean(ReportProviderDao.class);
     BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
@@ -149,9 +147,9 @@
                         proLast = p.getLastName();
                         proOHIP = p.getProviderNo();
                 %>
-                <option value="<%=Encode.forHtmlAttribute(proOHIP)%>"
-                        <%=providerview.equals(proOHIP) ? "selected" : ""%>><%=Encode.forHtml(proLast)%>,
-                    <%=Encode.forHtml(proFirst)%>
+                <option value="<e:forHtmlAttribute value='<%= proOHIP %>' />"
+                        <%=providerview.equals(proOHIP) ? "selected" : ""%>><e:forHtmlContent value='<%= proLast %>' />,
+                    <e:forHtmlContent value='<%= proFirst %>' />
                 </option>
                 <%
                     }
@@ -167,11 +165,11 @@
             <td align="right"><B>Date</B> &nbsp; <font size="1"
                                                        face="Arial, Helvetica, sans-serif"> <a href="#"
                                                                                                onClick="openBrWindow('/billing/CA/ON/ViewBillingCalendarPopup?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')">From:</a></font>
-                <input type="text" name="xml_vdate" size="10" value="<%=Encode.forHtmlAttribute(xml_vdate)%>">
+                <input type="text" name="xml_vdate" size="10" value="<e:forHtmlAttribute value='<%= xml_vdate %>' />">
                 <font size="1" face="Arial, Helvetica, sans-serif"> <a href="#"
                                                                        onClick="openBrWindow('/billing/CA/ON/ViewBillingCalendarPopup?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')">
                     To:</a></font> <input type="text" name="xml_appointment_date" size="10"
-                                          value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>"></td>
+                                          value="<e:forHtmlAttribute value='<%= xml_appointment_date %>' />"></td>
             <td></td>
         </tr>
     </form>

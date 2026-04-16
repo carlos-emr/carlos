@@ -210,8 +210,8 @@
         <h4 class="page-header-title">
             <i class="fa-solid fa-stethoscope page-header-icon"></i>
             &nbsp;<fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgConsReqFor"/>
-            <%= Encode.forHtml(demographic.getLastName()) %>, <%= Encode.forHtml(demographic.getFirstName()) %>
-            <%= Encode.forHtml(demographic.getSex()) %> <%= Encode.forHtml(demographic.getAge()) %>
+            <e:forHtmlContent value='<%= demographic.getLastName() %>' />, <e:forHtmlContent value='<%= demographic.getFirstName() %>' />
+            <e:forHtmlContent value='<%= demographic.getSex() %>' /> <e:forHtmlContent value='<%= demographic.getAge() %>' />
         </h4>
         <div>
             <%
@@ -221,7 +221,7 @@
                     + "&teamVar=" + Encode.forUriComponent(team);
             %>
             <a class="btn btn-primary btn-sm"
-               href="javascript:popupConsultation(700,960,'<%= Encode.forJavaScriptAttribute(newConsultUrl) %>')">
+               href="javascript:popupConsultation(700,960,'<e:forJavaScriptAttribute value='<%= newConsultUrl %>' />')">
                 <i class="fa-solid fa-plus me-1"></i><fmt:message key="encounter.oscarConsultationRequest.ConsultChoice.btnNewCon"/>
             </a>
             <input type="button" class="btn btn-secondary btn-sm"
@@ -284,30 +284,30 @@
                         + "&requestId=" + Encode.forUriComponent(id);
             %>
             <tr>
-                <td class="stat<%=Encode.forHtmlAttribute(status)%>">
+                <td class="stat<e:forHtmlAttribute value='<%= status %>' />">
                     <% if (!statusKey.isEmpty()) { %>
                         <fmt:message key="<%= statusKey %>"/>
                     <% } %>
                 </td>
-                <td class="stat<%=Encode.forHtmlAttribute(status)%>">
+                <td class="stat<e:forHtmlAttribute value='<%= status %>' />">
                     <% if (!urgencyKey.isEmpty()) { %>
                         <fmt:message key="<%= urgencyKey %>"/>
                     <% } %>
                 </td>
-                <td class="stat<%=Encode.forHtmlAttribute(status)%>">
-                    <a href="javascript:popupConsultation(700,960,'<%= Encode.forJavaScriptAttribute(viewRequestUrl) %>')">
-                        <%=Encode.forHtml(patient)%>
+                <td class="stat<e:forHtmlAttribute value='<%= status %>' />">
+                    <a href="javascript:popupConsultation(700,960,'<e:forJavaScriptAttribute value='<%= viewRequestUrl %>' />')">
+                        <e:forHtmlContent value='<%= patient %>' />
                     </a>
                 </td>
-                <td class="stat<%=Encode.forHtmlAttribute(status)%>"><%=Encode.forHtml(provider)%></td>
-                <td class="stat<%=Encode.forHtmlAttribute(status)%>"><%= (cProv != null) ? Encode.forHtml(cProv.getFormattedName()) : "" %></td>
-                <td class="stat<%=Encode.forHtmlAttribute(status)%>">
-                    <a href="javascript:popupConsultation(700,960,'<%= Encode.forJavaScriptAttribute(viewRequestUrl) %>')">
-                        <%=Encode.forHtml(StringUtils.trimToEmpty(service))%>
+                <td class="stat<e:forHtmlAttribute value='<%= status %>' />"><e:forHtmlContent value='<%= provider %>' /></td>
+                <td class="stat<e:forHtmlAttribute value='<%= status %>' />"><%= (cProv != null) ? Encode.forHtml(cProv.getFormattedName()) : "" %></td>
+                <td class="stat<e:forHtmlAttribute value='<%= status %>' />">
+                    <a href="javascript:popupConsultation(700,960,'<e:forJavaScriptAttribute value='<%= viewRequestUrl %>' />')">
+                        <e:forHtmlContent value='<%= StringUtils.trimToEmpty(service) %>' />
                     </a>
                 </td>
-                <td class="stat<%=Encode.forHtmlAttribute(status)%>"><%= Encode.forHtml(StringUtils.trimToEmpty(specialist)) %></td>
-                <td class="stat<%=Encode.forHtmlAttribute(status)%>"><%=Encode.forHtml(date)%></td>
+                <td class="stat<e:forHtmlAttribute value='<%= status %>' />"><e:forHtmlContent value='<%= StringUtils.trimToEmpty(specialist) %>' /></td>
+                <td class="stat<e:forHtmlAttribute value='<%= status %>' />"><e:forHtmlContent value='<%= date %>' /></td>
             </tr>
             <%}%>
         </tbody>

@@ -119,11 +119,11 @@
     <form method="post" name="titlesearch" action="<%=request.getContextPath()%>/oscarMDS/SearchPatient"
           onSubmit="return checkTypeIn();">
         <input type="hidden"
-               name="from" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("from"))) %>"/>
+               name="from" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("from")) %>' />"/>
         <input type="hidden"
-               name="labNo" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("labNo"))) %>"/> <input
+               name="labNo" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("labNo")) %>' />"/> <input
             type="hidden" name="labType"
-            value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("labType"))) %>"/> <%--@ include file="zdemographictitlesearch.htm"--%>
+            value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("labType")) %>' />"/> <%--@ include file="zdemographictitlesearch.htm"--%>
         <tr valign="top">
             <td rowspan="2" ALIGN="right" valign="middle"><font
                     face="Verdana" color="#0000FF"><b><i>Search</i></b></font></td>
@@ -136,7 +136,7 @@
                 <input type="radio" name="search_mode" value="search_dob"> <fmt:message key="oscarMDS.segmentDisplay.patientSearch.formDOB"/> </font></td>
             <td valign="middle" rowspan="2" ALIGN="left"><input type="text"
                                                                 NAME="keyword" SIZE="17" MAXLENGTH="100"
-                                                                value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("keyword"))) %>"> <INPUT
+                                                                value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' />"> <INPUT
                     TYPE="hidden" NAME="orderby" VALUE="last_name"> <INPUT
                     TYPE="hidden" NAME="dboperation" VALUE="search_titlename"> <INPUT
                     TYPE="hidden" NAME="limit1" VALUE="0"> <INPUT TYPE="hidden"
@@ -162,7 +162,7 @@
 
 <table width="95%" border="0">
     <tr>
-        <td align="left"><font size="-1"> <i><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgResults"/></i> : <%= Encode.forHtml(StringUtils.noNull(request.getParameter("keyword"))) %>
+        <td align="left"><font size="-1"> <i><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgResults"/></i> : <e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' />
         </font></td>
     </tr>
 </table>
@@ -174,7 +174,7 @@
 
     function addName(lastname, firstname, chartno) {
         fullname = lastname + "," + firstname;
-        document.addform.action = "<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("originalpage"))) %>?name=" + fullname + "&chart_no=" + chartno + "&bFirstDisp=false";  //+"\"" ;
+        document.addform.action = "<e:forJavaScript value='<%= StringUtils.noNull(request.getParameter("originalpage")) %>' />?name=" + fullname + "&chart_no=" + chartno + "&bFirstDisp=false";  //+"\"" ;
         document.addform.submit(); //
         //return;
     }
@@ -190,9 +190,9 @@
     <table width="100%" border="1" cellpadding="0" cellspacing="1"
            bgcolor="#ffffff">
         <form method="post" name="addform" action="PatientMatch"><input
-                type="hidden" name="labNo" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("labNo"))) %>">
+                type="hidden" name="labNo" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("labNo")) %>' />">
             <input type="hidden" name="labType"
-                   value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("labType"))) %>"/>
+                   value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("labType")) %>' />"/>
             <tr bgcolor="#339999">
                 <TH align="center" width="10%"><b><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgPatientId"/></b></TH>
                 <TH align="center" width="20%"><b><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgLastName"/></b></TH>
@@ -366,8 +366,8 @@
 
             <tr bgcolor="<%=bodd?"ivory":"white"%>" align="center">
                 <td><input type="submit" name="demographicNo"
-                           value="<%=Encode.forHtmlAttribute(io.github.carlos_emr.Misc.getString(rs,"demographic_no"))%>"
-                           onclick="updateOpener('<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("labNo"))) %>','<%=Encode.forJavaScriptAttribute(io.github.carlos_emr.Misc.getString(rs,"demographic_no"))%>');">
+                           value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.Misc.getString(rs,"demographic_no") %>' />"
+                           onclick="updateOpener('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(request.getParameter("labNo")) %>' />','<e:forJavaScriptAttribute value='<%= io.github.carlos_emr.Misc.getString(rs,"demographic_no") %>' />');">
                 </td>
                 <td><%=nbsp(Encode.forHtml(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "last_name"))))%>
                 </td>
@@ -403,15 +403,30 @@
         nNextPage = Integer.parseInt(strLimit2) + Integer.parseInt(strLimit1);
         nLastPage = Integer.parseInt(strLimit1) - Integer.parseInt(strLimit2);
     %>
+    <c:set var="__enc_1"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' /></c:set>
+    <c:set var="__enc_2"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' /></c:set>
+    <c:set var="__enc_3"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("displaymode")) %>' /></c:set>
+    <c:set var="__enc_4"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("dboperation")) %>' /></c:set>
+    <c:set var="__enc_5"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' /></c:set>
+    <c:set var="__enc_6"><e:forUriComponent value='<%= strLimit2 %>' /></c:set>
+    <c:set var="__enc_7"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("from")) %>' /></c:set>
     <script language="JavaScript">
         <!--
         function last() {
-            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/SearchPatient?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%= Encode.forJavaScript(Encode.forUriComponent(strLimit2)) %>&from=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("from")))) %>";
+            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/SearchPatient?keyword=<e:forJavaScript value='${__enc_1}' />&search_mode=<e:forJavaScript value='${__enc_2}' />&displaymode=<e:forJavaScript value='${__enc_3}' />&dboperation=<e:forJavaScript value='${__enc_4}' />&orderby=<e:forJavaScript value='${__enc_5}' />&limit1=<%=nLastPage%>&limit2=<e:forJavaScript value='${__enc_6}' />&from=<e:forJavaScript value='${__enc_7}' />";
             //document.nextform.submit();
         }
 
         function next() {
-            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/SearchPatient?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%= Encode.forJavaScript(Encode.forUriComponent(strLimit2)) %>&from=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("from")))) %>";
+            <c:set var="__enc_8"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' /></c:set>
+            <c:set var="__enc_9"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' /></c:set>
+            <c:set var="__enc_10"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("displaymode")) %>' /></c:set>
+            <c:set var="__enc_11"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("dboperation")) %>' /></c:set>
+            <c:set var="__enc_12"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' /></c:set>
+            <c:set var="__enc_13"><e:forUriComponent value='<%= strLimit2 %>' /></c:set>
+            <c:set var="__enc_14"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("from")) %>' /></c:set>
+            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/SearchPatient?keyword=<e:forJavaScript value='${__enc_8}' />&search_mode=<e:forJavaScript value='${__enc_9}' />&displaymode=<e:forJavaScript value='${__enc_10}' />&dboperation=<e:forJavaScript value='${__enc_11}' />&orderby=<e:forJavaScript value='${__enc_12}' />&limit1=            
+<%=nNextPage%>&limit2=<e:forJavaScript value='${__enc_13}' />&from=<e:forJavaScript value='${__enc_14}' />";
             //document.nextform.submit();
         }
 
@@ -420,9 +435,9 @@
 
     <form method="post" name="nextform"
           action="<%= request.getContextPath() %>/demographic/DemographicSearch"><input
-            type="hidden" name="labNo" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("labNo"))) %>">
+            type="hidden" name="labNo" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("labNo")) %>' />">
         <input type="hidden" name="labType"
-               value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("labType"))) %>"/> <%
+               value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("labType")) %>' />"/> <%
             if (nLastPage >= 0) {
         %> <input type="submit" name="submit"
                   value="<fmt:message key="oscarMDS.segmentDisplay.patientSearch.btnLastPage"/>"

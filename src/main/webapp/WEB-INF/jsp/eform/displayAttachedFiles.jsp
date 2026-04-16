@@ -51,14 +51,13 @@
 
     @since 2026-03-22
 --%>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager" %>
 <%@ page import="java.util.List" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page contentType="text/html; charset=UTF-8" %>
 <%
     SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -103,14 +102,14 @@
     }
 %>
 <% if (docIds != null) { for (String id : docIds) { %>
-<span class="doc">Doc #<%= Encode.forHtml(id) %></span><br>
+<span class="doc">Doc #<e:forHtmlContent value='<%= id %>' /></span><br>
 <% } } %>
 <% if (labIds != null) { for (String id : labIds) { %>
-<span class="lab">Lab #<%= Encode.forHtml(id) %></span><br>
+<span class="lab">Lab #<e:forHtmlContent value='<%= id %>' /></span><br>
 <% } } %>
 <% if (hrmIds != null) { for (String id : hrmIds) { %>
-<span class="hrm">HRM #<%= Encode.forHtml(id) %></span><br>
+<span class="hrm">HRM #<e:forHtmlContent value='<%= id %>' /></span><br>
 <% } } %>
 <% if (eformIds != null) { for (String id : eformIds) { %>
-<span class="eform">EForm #<%= Encode.forHtml(id) %></span><br>
+<span class="eform">EForm #<e:forHtmlContent value='<%= id %>' /></span><br>
 <% } } %>

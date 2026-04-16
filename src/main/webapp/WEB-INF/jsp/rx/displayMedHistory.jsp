@@ -46,7 +46,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData,java.util.*" %>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@page import="java.util.Calendar" %>
@@ -57,7 +57,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <html>
 <head>
     <link rel="stylesheet" type="text/css" href="styles.css">
@@ -82,7 +81,7 @@
 <table class="mhTable">
     <tr>
         <th colspan="3" align="center"
-            style="font-style:normal;font-weight:bold;margin:0;font-family:sans-serif;font-size:80%"><%=Encode.forHtml(drugName)%> Rx
+            style="font-style:normal;font-weight:bold;margin:0;font-family:sans-serif;font-size:80%"><e:forHtmlContent value='<%= drugName %>' /> Rx
             Examples
         </th>
     </tr>
@@ -107,16 +106,16 @@
     <%if (instructionExist && specialInstructionExist) {%>
     <tr>
         <td align="left" style=""><a id="mhInst_<%=i%>" href="javascript:void(0);"
-                                     onclick="parent.addInstruction(this.innerHTML,'<%= Encode.forJavaScriptAttribute(randomId) %>');parent.addSpecialInstruction(document.getElementById('mhSpecInst_<%=i%>').innerHTML,'<%= Encode.forJavaScriptAttribute(randomId) %>');parent.mb.hide();"><%=Encode.forHtml(ins)%>
+                                     onclick="parent.addInstruction(this.innerHTML,'<e:forJavaScriptAttribute value='<%= randomId %>' />');parent.addSpecialInstruction(document.getElementById('mhSpecInst_<%=i%>').innerHTML,'<e:forJavaScriptAttribute value='<%= randomId %>' />');parent.mb.hide();"><e:forHtmlContent value='<%= ins %>' />
         </a></td>
         <td align="left" style=""><a id="mhSpecInst_<%=i%>" href="javascript:void(0);"
-                                     onclick="parent.addSpecialInstruction(this.innerHTML,'<%= Encode.forJavaScriptAttribute(randomId) %>');parent.mb.hide();"><%=Encode.forHtml(specIns)%>
+                                     onclick="parent.addSpecialInstruction(this.innerHTML,'<e:forJavaScriptAttribute value='<%= randomId %>' />');parent.mb.hide();"><e:forHtmlContent value='<%= specIns %>' />
         </a></td>
     </tr>
     <%} else if (instructionExist && !specialInstructionExist) {%>
     <tr>
         <td align="left" style=""><a id="mhInst_<%=i%>" href="javascript:void(0);"
-                                     onclick="parent.addInstruction(this.innerHTML,'<%= Encode.forJavaScriptAttribute(randomId) %>');parent.mb.hide();"><%=Encode.forHtml(ins)%>
+                                     onclick="parent.addInstruction(this.innerHTML,'<e:forJavaScriptAttribute value='<%= randomId %>' />');parent.mb.hide();"><e:forHtmlContent value='<%= ins %>' />
         </a></td>
         <td>&nbsp;</td>
     </tr>
@@ -124,7 +123,7 @@
     <tr>
         <td>&nbsp;</td>
         <td align="left" style=""><a id="mhSpecInst_<%=i%>" href="javascript:void(0);"
-                                     onclick="parent.addSpecialInstruction(this.innerHTML,'<%= Encode.forJavaScriptAttribute(randomId) %>');parent.mb.hide();"><%=Encode.forHtml(specIns)%>
+                                     onclick="parent.addSpecialInstruction(this.innerHTML,'<e:forJavaScriptAttribute value='<%= randomId %>' />');parent.mb.hide();"><e:forHtmlContent value='<%= specIns %>' />
         </a></td>
     </tr>
     <%}%>

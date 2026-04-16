@@ -52,12 +52,11 @@
 
 <%@ page
         import="java.util.*, java.sql.*, io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.providers.data.ProviderData,io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.entities.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillActivityDAO" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     GregorianCalendar now = new GregorianCalendar();
     int curYear = now.get(Calendar.YEAR);
@@ -149,7 +148,7 @@
 <h3><fmt:message key="admin.admin.simulateSubFile2"/></h3>
 <div class="container-fluid card card-body bg-body-tertiary noprint">
 
-    <h4>Simulate Teleplan Report - <%=Encode.forHtml(thisyear)%>
+    <h4>Simulate Teleplan Report - <e:forHtmlContent value='<%= thisyear %>' />
     </h4>
     <c:if test="${!empty error}">${e:forHtml(error)}</c:if>
 
@@ -165,8 +164,8 @@
                     String provNo = (String) list.get(i);
                     ProviderData provider = new ProviderData(provNo);
             %>
-            <option value="<%=Encode.forHtmlAttribute(provider.getOhip_no())%>">
-                <%=Encode.forHtml(provider.getLast_name())%>,<%=Encode.forHtml(provider.getFirst_name())%>
+            <option value="<e:forHtmlAttribute value='<%= provider.getOhip_no() %>' />">
+                <e:forHtmlContent value='<%= provider.getLast_name() %>' />,<e:forHtmlContent value='<%= provider.getFirst_name() %>' />
             </option>
             <%}%>
         </select>

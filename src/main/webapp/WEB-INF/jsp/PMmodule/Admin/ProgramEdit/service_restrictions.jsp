@@ -1,6 +1,5 @@
-<%@ taglib uri="http://displaytag.sf.net/el" prefix="display-el" %>
-<%@ page import="org.oscarehr.PMmodule.model.ProgramClientRestriction" %>
-<%@ page import="org.oscarehr.common.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramClientRestriction" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <!--
 /*
  *
@@ -101,7 +100,7 @@ Please define the following parameters control the behaviour of new service rest
             String demographicNo = "" + ((ProgramClientRestriction)pageContext.getAttribute("restriction")).getDemographicNo();
         %>
         <caisirole:SecurityAccess accessName="Disable service restriction" accessType="access" providerNo='<%=((Provider)request.getSession().getAttribute("provider")).getProviderNo()%>' demoNo="<%=demographicNo%>" programId='<%=request.getParameter("id")%>'>
-            <a onclick="disableRestriction('<c:out value="${restriction.id}"/>');return false;" href="javascript:void(0);"> Disable </a>
+            <a onclick="disableRestriction('${e:forJavaScript(restriction.id)}');return false;" href="javascript:void(0);"> Disable </a>
         </caisirole:SecurityAccess>
     </display-el:column>
     <display-el:column property="id" sortable="true" title="Id" />
@@ -130,7 +129,7 @@ Please define the following parameters control the behaviour of new service rest
             String demographicNo = "" + ((ProgramClientRestriction)pageContext.getAttribute("restriction")).getDemographicNo();
         %>
         <caisirole:SecurityAccess accessName="Create service restriction" accessType="access" providerNo='<%=((Provider)request.getSession().getAttribute("provider")).getProviderNo()%>' demoNo="<%=demographicNo%>" programId='<%=request.getParameter("id")%>'>
-            <a onclick="enableRestriction('<c:out value="${restriction.id}"/>');return false;" href="javascript:void(0);"> Enable </a>
+            <a onclick="enableRestriction('${e:forJavaScript(restriction.id)}');return false;" href="javascript:void(0);"> Enable </a>
         </caisirole:SecurityAccess>
     </display-el:column>
     <display-el:column property="id" sortable="true" title="Id" />
@@ -140,4 +139,3 @@ Please define the following parameters control the behaviour of new service rest
     <display-el:column property="startDate" sortable="true" title="Start date" />
     <display-el:column property="endDate" sortable="true" title="End date" />
 </display-el:table>
-

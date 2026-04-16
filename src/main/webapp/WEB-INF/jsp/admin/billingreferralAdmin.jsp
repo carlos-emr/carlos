@@ -24,7 +24,6 @@
 --%>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
-<%@page import="org.owasp.encoder.Encode" %>
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -153,13 +152,13 @@
                 <form action="<%= request.getContextPath() %>/admin/ManageBillingReferral">
                     <input type="hidden" name="method" value="advancedSearch"/>
                     <input type="text" name="nameQuery" id="nameQuery" placeholder="Name or ReferralId"
-                           value="<%= Encode.forHtmlAttribute(name != null ? name : "") %>">
+                           value="<e:forHtmlAttribute value='<%= name != null ? name : "" %>' />">
                     &nbsp;
                     <input type="text" name="specialtyQuery" id="specialtyQuery" placeholder="Specialty"
-                           value="<%= Encode.forHtmlAttribute(specialty != null ? specialty : "") %>">
+                           value="<e:forHtmlAttribute value='<%= specialty != null ? specialty : "" %>' />">
                     &nbsp;
                     <input type="text" name="addressQuery" id="addressQuery" placeholder="Address"
-                           value="<%= Encode.forHtmlAttribute(addressQ != null ? addressQ : "") %>">
+                           value="<e:forHtmlAttribute value='<%= addressQ != null ? addressQ : "" %>' />">
                     &nbsp;
                     Include hidden:
                     <input type="checkbox" name="showHidden"
@@ -221,7 +220,7 @@
                                 for (ProfessionalSpecialist ps : checkedSpecs) {
                         %>
                         <tr>
-                            <td><%=Encode.forHtml(ps.getFormattedName()) %>
+                            <td><e:forHtmlContent value='<%= ps.getFormattedName() %>' />
                             </td>
                         </tr>
                         <%

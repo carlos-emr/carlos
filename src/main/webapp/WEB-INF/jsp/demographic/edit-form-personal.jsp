@@ -243,14 +243,14 @@
                                                         <td align="left"><input type="text"
                                                                                 name="last_name" <%=getDisabled("last_name")%>
                                                                                 size="30"
-                                                                                value="<%=Encode.forHtmlAttribute(demographic.getLastName())%>"
+                                                                                value="<e:forHtmlAttribute value='<%= demographic.getLastName() %>' />"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                         <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formFirstName"/>:
                                                         </b></td>
                                                         <td align="left"><input type="text"
                                                                                 name="first_name" <%=getDisabled("first_name")%>
                                                                                 size="30"
-                                                                                value="<%=Encode.forHtmlAttribute(demographic.getFirstName())%>"
+                                                                                value="<e:forHtmlAttribute value='<%= demographic.getFirstName() %>' />"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                     </tr>
                                                     <tr>
@@ -259,7 +259,7 @@
                                                         <td align="left"><input type="text"
                                                                                 name="middleNames" <%=getDisabled("middleNames")%>
                                                                                 size="30"
-                                                                                value="<%=Encode.forHtmlAttribute(demographic.getMiddleNames())%>"
+                                                                                value="<e:forHtmlAttribute value='<%= demographic.getMiddleNames() %>' />"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                         <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.msgDemoTitle"/>: </b>
                                                         </td>
@@ -337,14 +337,14 @@
                                                         <td align="left"><input type="text"
                                                                                 name="nameUsed" <%=getDisabled("nameUsed")%>
                                                                                 size="30"
-                                                                                value="<%= Encode.forHtmlAttribute(demographic.getAlias()) %>"
+                                                                                value="<e:forHtmlAttribute value='<%= demographic.getAlias() %>' />"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                         <td style="text-align: right;">
                                                             <strong><fmt:message key="demographic.demographicaddrecordhtm.formPronouns"/></strong>
                                                         </td>
                                                         <td style="text-align: left;">
                                                             <input type="text" id="patientPronouns" name="pronouns"
-                                                                   value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getPronoun()))%>"/>
+                                                                   value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demographic.getPronoun()) %>' />"/>
                                                         </td>
                                                     </tr>
                                                     <tr>
@@ -385,13 +385,13 @@
                                                         <td align="left"><input type="text"
                                                                                 name="address" <%=getDisabled("address")%>
                                                                                 size="30"
-                                                                                value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getAddress()))%>">
+                                                                                value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demographic.getAddress()) %>' />">
                                                         </td>
                                                         <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formCity"/>: </b>
                                                         </td>
                                                         <td align="left"><input type="text" name="city"
                                                                                 size="30" <%=getDisabled("city")%>
-                                                                                value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getCity()))%>">
+                                                                                value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demographic.getCity()) %>' />">
                                                         </td>
                                                     </tr>
 
@@ -660,13 +660,13 @@
                                                         <td align="left"><input type="text"
                                                                                 name="residentialAddress" <%=getDisabled("residentialAddress")%>
                                                                                 size="30"
-                                                                                value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getResidentialAddress()))%>">
+                                                                                value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demographic.getResidentialAddress()) %>' />">
                                                         </td>
                                                         <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formResidentialCity"/>: </b>
                                                         </td>
                                                         <td align="left"><input type="text" name="residentialCity"
                                                                                 size="30" <%=getDisabled("residentialCity")%>
-                                                                                value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getResidentialCity()))%>">
+                                                                                value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demographic.getResidentialCity()) %>' />">
                                                         </td>
                                                     </tr>
 
@@ -977,9 +977,9 @@
                                                         </td>
                                                         <td align="left" colspan="3">
                                                             <input type="hidden" name="phoneCommentOrig"
-                                                                   value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%>"/>
+                                                                   value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demoExt.get("phoneComment")) %>' />"/>
                                                             <textarea rows="2" cols="30"
-                                                                      name="phoneComment"><%=Encode.forHtml(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%></textarea>
+                                                                      name="phoneComment"><e:forHtmlContent value='<%= StringUtils.trimToEmpty(demoExt.get("phoneComment")) %>' /></textarea>
                                                         </td>
                                                     </tr>
                                                     <tr valign="top">
@@ -1038,7 +1038,7 @@
                                                         </td>
                                                         <td style="text-align: left;">
                                                             <input type="text" id="patientGender" name="gender"
-                                                                   value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getGender()))%>"/>
+                                                                   value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demographic.getGender()) %>' />"/>
                                                         </td>
                                                     </tr>
                                                         <%--							<tr valign="top">--%>
@@ -1084,7 +1084,7 @@
 
                                                             <label for="age"><fmt:message key="demographic.demographiceditdemographic.msgDemoAge"/>:</label>
                                                             <input type="text" name="age" id="age"
-                                                                   value="<%=Encode.forHtmlAttribute(demographic.getAgeAsOf(new Date()))%>"
+                                                                   value="<e:forHtmlAttribute value='<%= demographic.getAgeAsOf(new Date()) %>' />"
                                                                    readonly>
 
                                                         </td>
@@ -1102,7 +1102,7 @@
                                                                     default:   gnI18nKey = "global.gender.undisclosed"; break;
                                                                 }
                                                             %>
-                                                            <option value="<%= Encode.forHtmlAttribute(gn.name()) %>" <%=(StringUtils.equalsIgnoreCase(demographic.getSex(), gn.name()) ? " selected=\"selected\" " : "") %>><%= Encode.forHtml(oscarResources.getString(gnI18nKey)) %>
+                                                            <option value="<e:forHtmlAttribute value='<%= gn.name() %>' />" <%=(StringUtils.equalsIgnoreCase(demographic.getSex(), gn.name()) ? " selected=\"selected\" " : "") %>><e:forHtmlContent value='<%= oscarResources.getString(gnI18nKey) %>' />
                                                             </option>
                                                             <% } %>
                                                         </select>
@@ -1472,7 +1472,7 @@
                                                             <td colspan="8">
                                                                 <jsp:include page="/WEB-INF/jsp/demographic/manageFirstNationsModule.jsp">
                                                                     <jsp:param name="demo"
-                                                                               value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
+                                                                               value="<e:forHtmlAttribute value='<%= demographic_no %>' />"/>
                                                                 </jsp:include>
                                                             </td>
                                                         </tr>

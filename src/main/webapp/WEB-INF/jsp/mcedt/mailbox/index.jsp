@@ -38,8 +38,6 @@
 <%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
     <meta http-equiv="Content-type" content="text/html; charset=utf-8"/>
@@ -90,7 +88,7 @@
             });
 
             // setting the service Id:
-            var tabChange = '<%= Encode.forJavaScript(tabChange) %>';
+            var tabChange = '<e:forJavaScriptBlock value='<%= tabChange %>' />';
             if (tabChange == "true") {
                 var val = "<%=defaultId%>";
                 var sel = document.getElementById('serviceIdSent');

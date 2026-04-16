@@ -58,8 +58,8 @@
         <tr>
             <td bgcolor="white"><fmt:formatDate pattern="MM/dd/yy"
                                                 value="${allergy.entry_date}"/></td>
-            <td bgcolor="white"><c:out value="${allergy.description}"/></td>
-            <td bgcolor="white"><c:out value="${allergy.reaction}"/></td>
+            <td bgcolor="white">${e:forHtml(allergy.description)}</td>
+            <td bgcolor="white">${e:forHtml(allergy.reaction)}</td>
         </tr>
     </c:forEach>
 </table>

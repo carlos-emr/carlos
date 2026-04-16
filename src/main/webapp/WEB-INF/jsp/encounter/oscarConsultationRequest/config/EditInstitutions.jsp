@@ -52,8 +52,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Institution" %>
 <%@page import="java.util.List" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
     InstitutionDao institutionDao = SpringUtils.getBean(InstitutionDao.class);
     List<Institution> institutions = institutionDao.findAll();
@@ -79,7 +77,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><%= Encode.forHtml(error) %></li>
+                    <li><e:forHtmlContent value='<%= error %>' /></li>
                 <% } %>
             </ul>
         </div>
@@ -117,9 +115,9 @@
                             %>
                             <tr>
                                 <td><input type="checkbox" name="institutions" value="<%=i.getId()%>"></td>
-                                <td><a href="<%= url %>"><%= Encode.forHtml(i.getName()) %></a></td>
-                                <td><%= Encode.forHtml(i.getPhone()) %></td>
-                                <td><%= Encode.forHtml(i.getFax()) %></td>
+                                <td><a href="<%= url %>"><e:forHtmlContent value='<%= i.getName() %>' /></a></td>
+                                <td><e:forHtmlContent value='<%= i.getPhone() %>' /></td>
+                                <td><e:forHtmlContent value='<%= i.getFax() %>' /></td>
                             </tr>
                             <% } %>
                         </tbody>

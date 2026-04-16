@@ -143,16 +143,16 @@
             </table>
 
 
-            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements?method=ChartMeds&demographic_no=<%= Encode.forUriComponent(demographicNo) %><%=drugForGraph%>"/>
+            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements?method=ChartMeds&demographic_no=<e:forUriComponent value='<%= demographicNo %>' /><%=drugForGraph%>"/>
 
 
             <fieldset>
                 <legend>Med List</legend>
                 <form action="rx/chartDrugProfile.jsp">
-                    <input type="hidden" name="labType" value="<%= Encode.forHtmlAttribute(labType) %>"/>
-                    <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
-                    <input type="hidden" name="testName" value="<%= Encode.forHtmlAttribute(testName) %>"/>
-                    <input type="hidden" name="identifier" value="<%= Encode.forHtmlAttribute(identifier) %>"/>
+                    <input type="hidden" name="labType" value="<e:forHtmlAttribute value='<%= labType %>' />"/>
+                    <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demographicNo %>' />"/>
+                    <input type="hidden" name="testName" value="<e:forHtmlAttribute value='<%= testName %>' />"/>
+                    <input type="hidden" name="identifier" value="<e:forHtmlAttribute value='<%= identifier %>' />"/>
                     <input type="submit" value="Add Meds to Graph"/>
                     <ul>
                         <%
@@ -181,7 +181,7 @@
                                 }
                         %>
                         <li><input type="checkbox"  <%=getChecked(h, drug.getRegionalIdentifier())%> name="drug"
-                                   value="<%=Encode.forHtmlAttribute(drug.getRegionalIdentifier())%>"/> <%=Encode.forHtml(drug.getFullOutLine().replaceAll(";", " "))%>
+                                   value="<e:forHtmlAttribute value='<%= drug.getRegionalIdentifier() %>' />"/> <e:forHtmlContent value='<%= drug.getFullOutLine().replaceAll(";", " ") %>' />
                         </li>
                         <%
                             }

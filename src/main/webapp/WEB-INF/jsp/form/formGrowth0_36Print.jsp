@@ -14,7 +14,6 @@
 %>
 
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" import="java.util.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%
     int nS = 1;
@@ -77,17 +76,24 @@
         function go() {
             if (document.all) {
                 <% if(cfgGraphic.length>1) {%>
-                document.all.growth.action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<%=Encode.forJavaScript(Encode.forUriComponent(cfgGraphic[0]))%>&__cfgGraphicFile=<%=Encode.forJavaScript(Encode.forUriComponent(cfgGraphic[1]))%>";
+                <c:set var="__enc_1"><e:forUriComponent value='<%= cfgGraphic[0] %>' /></c:set>
+                <c:set var="__enc_2"><e:forUriComponent value='<%= cfgGraphic[1] %>' /></c:set>
+                document.all.growth.action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<e:forJavaScript value='${__enc_1}' />&__cfgGraphicFile=<e:forJavaScript value='${__enc_2}' />";
                 <% }else{%>
-                document.all.growth.action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<%=Encode.forJavaScript(Encode.forUriComponent(StringUtils.defaultString(request.getParameter("__cfgGraphicFile"))))%>";
+                <c:set var="__enc_3"><e:forUriComponent value='<%= StringUtils.defaultString(request.getParameter("__cfgGraphicFile")) %>' /></c:set>
+                document.all.growth.action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<e:forJavaScript value='${__enc_3}' />";
                 <% }%>
                 document.all.growth.submit();
             } else {
                 <% if(cfgGraphic.length>1) {%>
-                document.getElementById('growth').action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<%=Encode.forJavaScript(Encode.forUriComponent(cfgGraphic[0]))%>&__cfgGraphicFile=<%=Encode.forJavaScript(Encode.forUriComponent(cfgGraphic[1]))%>";
+                <c:set var="__enc_4"><e:forUriComponent value='<%= cfgGraphic[0] %>' /></c:set>
+                <c:set var="__enc_5"><e:forUriComponent value='<%= cfgGraphic[1] %>' /></c:set>
+                document.getElementById('growth').action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<e:forJavaScript value='${__enc_4}' />&__cfgGraphicFile=<e:forJavaScript value='${__enc_5}' />";
                 <% }else{%>
-                document.getElementById('growth').action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<%=Encode.forJavaScript(Encode.forUriComponent(StringUtils.defaultString(request.getParameter("__cfgGraphicFile"))))%>";
-                <% }%>
+                document.getElementById('growth').action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<e:forJavaScript value='${__enc_6}' />";
+                <c:set var="__enc_6"><e:forUriComponent value='<%= StringUtils.defaultString(request.getParameter("__cfgGraphicFile")) %>' /></c:set>
+                <%                 
+}%>
                 document.getElementById('growth').submit();
             }
 //	        document.growth.action="<%= request.getContextPath() %>/form/createpdf";
@@ -107,8 +113,8 @@
                 continue;
             }
     %>
-    <input type="hidden" name="<%= Encode.forHtmlAttribute(temp) %>"
-           value="<%=Encode.forHtmlAttribute(request.getParameter(temp))%>"/>
+    <input type="hidden" name="<e:forHtmlAttribute value='<%= temp %>' />"
+           value="<e:forHtmlAttribute value='<%= request.getParameter(temp) %>' />"/>
     <%
         }
     %>
@@ -133,8 +139,8 @@
         for (Enumeration e = prop.propertyNames(); e.hasMoreElements(); ) {
             String temp = e.nextElement().toString();
     %>
-    <input type="hidden" name="<%= Encode.forHtmlAttribute(temp) %>"
-           value="<%=Encode.forHtmlAttribute(prop.getProperty(temp, ""))%>"/>
+    <input type="hidden" name="<e:forHtmlAttribute value='<%= temp %>' />"
+           value="<e:forHtmlAttribute value='<%= prop.getProperty(temp, "") %>' />"/>
     <%
         }
     %>

@@ -206,7 +206,7 @@
                         var json = {};
 
                         // Build JSON with boolean values for checkboxes (Jackson expects boolean, not "on"/"off")
-                        form.find('input:enabled[name]:not([type=submit]):not([type=button]), select:enabled[name], textarea:enabled[name]')
+                        form.find('input:enabled[name]:not([type=submit]):not([type=button]), select:enabled[name], textare:enabled[name]')
                             .each(function () {
                                 const $elem = $(this);
                                 const name = $elem.attr('name');
@@ -611,22 +611,22 @@
                                                 </td>
                                                 <td><%=allergy.getLastUpdateDate() != null ? Encode.forHtml(DateUtils.formatDate(allergy.getLastUpdateDate(), request.getLocale())) : "" %>
                                                 </td>
-                                                <td <%=title%> ><%=Encode.forHtml(allergy.getDescription())%>
+                                                <td <%=title%> ><e:forHtmlContent value='<%= allergy.getDescription() %>' />
                                                 </td>
-                                                <td><%=Encode.forHtml(allergy.getTypeDesc()) %>
+                                                <td><e:forHtmlContent value='<%= allergy.getTypeDesc() %>' />
                                                 </td>
 
                                                 <td><%=allergy.getTypeCode() == 0 && allergy.isNonDrug() == null ? "<i>&lt;Not Set&gt;</i>" : ""%><%=allergy.getTypeCode() == 0 && allergy.isNonDrug() != null && allergy.isNonDrug() ? "*" : "" %>
                                                 </td>
-                                                <td bgcolor="<%=sevColour%>"><%=Encode.forHtml(allergy.getSeverityOfReactionDesc()) %>
+                                                <td bgcolor="<%=sevColour%>"><e:forHtmlContent value='<%= allergy.getSeverityOfReactionDesc() %>' />
                                                 </td>
-                                                <td><%=Encode.forHtml(allergy.getOnSetOfReactionDesc()) %>
+                                                <td><e:forHtmlContent value='<%= allergy.getOnSetOfReactionDesc() %>' />
                                                 </td>
                                                 <td><%=allergy.getReaction() != null ? Encode.forHtml(allergy.getReaction()) : "" %>
                                                 </td>
                                                 <td><%=startDate == null ? "" : Encode.forHtml(startDate) %>
                                                 </td>
-                                                <td><%=Encode.forHtml(allergy.getLifeStageDesc()) %>
+                                                <td><e:forHtmlContent value='<%= allergy.getLifeStageDesc() %>' />
                                                 </td>
                                                 <td><%=allergy.getAgeOfOnset() == null ? "" : Encode.forHtml(String.valueOf(allergy.getAgeOfOnset()))%>
                                                 </td>
@@ -636,12 +636,12 @@
                                                             if (intArchived == 0) {
                                                     %>
                                                     <a href="#" class="deleteAllergyLink"
-                                                       id="deleteAllergy:<%= labelAction %>_ID=<%=allergy.getAllergyId() %>&demographicNo=<%= Encode.forHtmlAttribute(demoNo) %>&action=<%=actionPath %>">
+                                                       id="deleteAllergy:<%= labelAction %>_ID=<%=allergy.getAllergyId() %>&demographicNo=<e:forHtmlAttribute value='<%= demoNo %>' />&action=<%=actionPath %>">
                                                         <%=labelAction%>
                                                     </a> |
                                                     <% } %>
                                                     <a href="#" class="modifyAllergyLink"
-                                                       id="modifyAllergy:<%= labelAction %>_ID=<%=allergy.getDrugrefId() %>&name=<%=Encode.forHtmlAttribute(allergy.getDescription()) %>&type=<%=allergy.getTypeCode() %>&allergyToArchive=<%=allergy.getId() %>">
+                                                       id="modifyAllergy:<%= labelAction %>_ID=<%=allergy.getDrugrefId() %>&name=<e:forHtmlAttribute value='<%= allergy.getDescription() %>' />&type=<%=allergy.getTypeCode() %>&allergyToArchive=<%=allergy.getId() %>">
                                                         <%=intArchived == 0 ? "Modify" : labelAction%>
                                                     </a>
                                                     <% } %>

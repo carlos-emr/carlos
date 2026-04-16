@@ -54,7 +54,6 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -223,9 +222,9 @@
 
     <form action="${pageContext.request.contextPath}/prevention/AddPrevention" method="post" onsubmit="return process(this);" id="injectForm">
         <input type="hidden" name="prevention" value="RH"/>
-        <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
-        <input type="hidden" name="workflowId" value="<%= Encode.forHtmlAttribute(workflowId) %>"/>
-        <input type="hidden" name="formId" value="<%=Encode.forHtmlAttribute(formIdStr)%>"/>
+        <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demographicNo %>' />"/>
+        <input type="hidden" name="workflowId" value="<e:forHtmlAttribute value='<%= workflowId %>' />"/>
+        <input type="hidden" name="formId" value="<e:forHtmlAttribute value='<%= formIdStr %>' />"/>
         <input type="hidden" name="reason" value=""/>
 
 
@@ -239,21 +238,21 @@
             <div style="float: left; margin-left: 30px;"><label
                     for="prevDate" class="fields">Date:</label> <input type="text"
                                                                        name="prevDate" id="prevDate"
-                                                                       value="<%=Encode.forHtmlAttribute(prevDate)%>" size="9">
+                                                                       value="<e:forHtmlAttribute value='<%= prevDate %>' />" size="9">
                 <a id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif"
                                   alt="Calendar" border="0"/></a> <br>
                 <label for="provider" class="fields">Provider:</label> <input
                         type="text" name="providerName" id="providerName"
-                        value="<%=Encode.forHtmlAttribute(providerName)%>"/> <select
+                        value="<e:forHtmlAttribute value='<%= providerName %>' />"/> <select
                         onchange="javascript:hideExtraName(this);" id="providerDrop"
                         name="provider">
                     <%
                         for (int i = 0; i < providers.size(); i++) {
                             Map h = (Map) providers.get(i);
                     %>
-                    <option value="<%= Encode.forHtmlAttribute(String.valueOf(h.get("providerNo"))) %>"
-                            <%= (h.get("providerNo").equals(provider) ? " selected" : "") %>><%= Encode.forHtml(String.valueOf(h.get("lastName"))) %>
-                        <%= Encode.forHtml(String.valueOf(h.get("firstName"))) %>
+                    <option value="<e:forHtmlAttribute value='<%= String.valueOf(h.get("providerNo")) %>' />"
+                            <%= (h.get("providerNo").equals(provider) ? " selected" : "") %>><e:forHtmlContent value='<%= String.valueOf(h.get("lastName")) %>' />
+                        <e:forHtmlContent value='<%= String.valueOf(h.get("firstName")) %>' />
                     </option>
                     <%}%>
                     <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %>>Other</option>
@@ -274,15 +273,15 @@
 
         <%--
                             <div class="boxed2">
-                                <label for="prevDate" class="fields" >Date:</label>    <input type="text" name="prevDate" id="prevDate" value="<%=Encode.forHtmlAttribute(prevDate)%>" size="9" > <a id="date" style="float:left;"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0" /></a>
+                                <label for="prevDate" class="fields" >Date:</label>    <input type="text" name="prevDate" id="prevDate" value="<e:forHtmlAttribute value='<%= prevDate %>' />" size="9" > <a id="date" style="float:left;"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0" /></a>
                                 <label >Hospital/Clinic:</label><input type="text" name="location" size="9"/>
                                 <br/>
 
-                                <label for="providers" class="fields">Provider:</label> <input type="text" name="providerName" id="providerName" value="<%=Encode.forHtmlAttribute(providerName)%>"/>
+                                <label for="providers" class="fields">Provider:</label> <input type="text" name="providerName" id="providerName" value="<e:forHtmlAttribute value='<%= providerName %>' />"/>
                                       <select onchange="javascript:hideExtraName(this);" id="providerDrop" name="providers">
                                           <%for (int i=0; i < providers.size(); i++) {
                                                Hashtable ph = (Hashtable) providers.get(i);%>
-                                            <option value="<%= Encode.forHtmlAttribute(String.valueOf(ph.get("providerNo"))) %>" <%= ( ph.get("providerNo").equals(providers) ? " selected" : "" ) %>><%= Encode.forHtml(String.valueOf(ph.get("lastName"))) %> <%= Encode.forHtml(String.valueOf(ph.get("firstName"))) %></option>
+                                            <option value="<e:forHtmlAttribute value='<%= String.valueOf(ph.get("providerNo")) %>' />" <%= ( ph.get("providerNo").equals(providers) ? " selected" : "" ) %>><e:forHtmlContent value='<%= String.valueOf(ph.get("lastName")) %>' /> <e:forHtmlContent value='<%= String.valueOf(ph.get("firstName")) %>' /></option>
                                           <%}%>
                                           <option value="-1" <%= ( "-1".equals(providers) ? " selected" : "" ) %> >Other</option>
                                       </select>

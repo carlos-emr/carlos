@@ -109,7 +109,7 @@
 </head>
 <body bgproperties="fixed" topmargin="0" leftmargin="1" rightmargin="1">
 <form name="planner" method="post"
-      action="<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&formId=<%=Encode.forUriComponent(form_no)%>">
+      action="<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&formId=<e:forUriComponent value='<%= form_no %>' />">
     <%
         //save risk&checklist data if required
         if (request.getParameter("submit") != null &&
@@ -240,7 +240,7 @@
                                                                                            onclick="javascript:return onExit();"/>
                 <input type="button"
                        name="action" value="Print"
-                       onclick="popupPage(700,800,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplannerprint?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&formId=<%=Encode.forUriComponent(form_no)%>');return false;"/>
+                       onclick="popupPage(700,800,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplannerprint?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&formId=<e:forUriComponent value='<%= form_no %>' />');return false;"/>
             </td>
             <td align="right"><a href=#
                                  onClick="popupPage(600,930,'<%= request.getContextPath() %>/decision/annualreview/riskedit');return false;"> Edit
@@ -272,7 +272,7 @@
                                                                                            onclick="javascript:return onExit();"/>
                 <input type="button"
                        name="action" value="Print"
-                       onclick="popupPage(700,800,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplannerprint?demographic_no=<%=Encode.forJavaScriptAttribute(demographic_no)%>&formId=<%=Encode.forJavaScriptAttribute(form_no)%>');return false;"/>
+                       onclick="popupPage(700,800,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplannerprint?demographic_no=<e:forJavaScriptAttribute value='<%= demographic_no %>' />&formId=<e:forJavaScriptAttribute value='<%= form_no %>' />');return false;"/>
             </td>
             <td align="right"><a href=#
                                  onClick="popupPage(600,930,'<%= request.getContextPath() %>/decision/annualreview/riskedit');return false;"> Edit

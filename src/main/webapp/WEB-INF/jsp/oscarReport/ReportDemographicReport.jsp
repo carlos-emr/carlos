@@ -182,7 +182,7 @@
                             RptSearchData.SearchCriteria sc = (RptSearchData.SearchCriteria) queryArray.get(i);
                             String qId = sc.id;
                             String qName = sc.queryName;%>
-                    <option value="<%=Encode.forHtmlAttribute(qId)%>"><%=Encode.forHtml(qName)%></option>
+                    <option value="<e:forHtmlAttribute value='<%= qId %>' />"><e:forHtmlContent value='<%= qName %>' /></option>
                     <%}%>
                 </select>
                 <input type="submit" value="Load Query" name="query" class="btn btn-sm btn-secondary"/>
@@ -368,7 +368,7 @@
                                     for (int i = 0; i < rosterArray.size(); i++) {
                                         String ros = (String) rosterArray.get(i);%>
                                 <label style="display:inline-block; margin-right:8px; font-weight:normal; font-size:12px;">
-                                    <input type="checkbox" name="rosterStatus" value="<%=Encode.forHtmlAttribute(ros)%>" <%= containsValue(formBean.getRosterStatus(), ros) ? "checked" : "" %>/> <%=Encode.forHtml(ros)%>
+                                    <input type="checkbox" name="rosterStatus" value="<e:forHtmlAttribute value='<%= ros %>' />" <%= containsValue(formBean.getRosterStatus(), ros) ? "checked" : "" %>/> <e:forHtmlContent value='<%= ros %>' />
                                 </label>
                                 <%}%>
                             </td>
@@ -392,8 +392,8 @@
                                             String pro = (String) providerArray.get(i);
                                             if (pro != null && !"".equals(pro)) {
                                     %>
-                                    <li><%=Encode.forHtml(providerBean.getProperty(pro, pro))%>
-                                        <input type="checkbox" name="providerNo" value="<%=Encode.forHtmlAttribute(pro)%>" <%= containsValue(formBean.getProviderNo(), pro) ? "checked" : "" %>/>
+                                    <li><e:forHtmlContent value='<%= providerBean.getProperty(pro, pro) %>' />
+                                        <input type="checkbox" name="providerNo" value="<e:forHtmlAttribute value='<%= pro %>' />" <%= containsValue(formBean.getProviderNo(), pro) ? "checked" : "" %>/>
                                     </li>
                                     <%
                                             }
@@ -409,7 +409,7 @@
                                     for (int i = 0; i < patientArray.size(); i++) {
                                         String pat = (String) patientArray.get(i);%>
                                 <label style="display:inline-block; margin-right:8px; font-weight:normal; font-size:12px;">
-                                    <input type="checkbox" name="patientStatus" value="<%=Encode.forHtmlAttribute(pat)%>" <%= containsValue(formBean.getPatientStatus(), pat) ? "checked" : "" %>/> <%=Encode.forHtml(pat)%>
+                                    <input type="checkbox" name="patientStatus" value="<e:forHtmlAttribute value='<%= pat %>' />" <%= containsValue(formBean.getPatientStatus(), pat) ? "checked" : "" %>/> <e:forHtmlContent value='<%= pat %>' />
                                 </label>
                                 <%}%>
                             </td>
@@ -486,7 +486,7 @@
             <table class="table table-sm table-striped table-bordered" style="font-size:13px;">
                 <tr>
                     <%for (int i = 0; i < selectArray.length; i++) {%>
-                    <th><%=Encode.forHtml(dcn.getColumnTitle(selectArray[i]))%></th>
+                    <th><e:forHtmlContent value='<%= dcn.getColumnTitle(selectArray[i]) %>' /></th>
                     <%}%>
                 </tr>
                 <%

@@ -50,7 +50,6 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmMentalHealthForm42Record" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <html>
@@ -58,7 +57,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Laboratory Requisition</title>
         <%-- S5131: getServerName() returns the Host header — safe when deployed behind a reverse proxy that validates the Host header (required for production) --%>
-        <base href="<%= Encode.forHtmlAttribute(request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/") %>"> <%-- NOSONAR --%>
+        <base href="<e:forHtmlAttribute value='<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>' />"> <%-- NOSONAR --%>
         <link rel="stylesheet" type="text/css" media="screen"
               href="form/labReq07Style.css">
         <link rel="stylesheet" type="text/css" media="print" href="form/print.css">
@@ -298,27 +297,27 @@
     <form action="${pageContext.request.contextPath}/form/formname" method="post">
 
         <input type="hidden" name="demographic_no"
-               value="<%= Encode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>"/>
+               value="<e:forHtmlAttribute value='<%= props.getProperty("demographic_no", "0") %>' />"/>
         <input type="hidden" name="patientLastName"
-               value="<%=Encode.forHtmlAttribute(patientNames[0].trim())%>"/>
+               value="<e:forHtmlAttribute value='<%= patientNames[0].trim() %>' />"/>
         <input type="hidden" name="patientFirstName"
-               value="<%=Encode.forHtmlAttribute(patientNames[1].trim())%>"/>
+               value="<e:forHtmlAttribute value='<%= patientNames[1].trim() %>' />"/>
         <input type="hidden" name="patientBirthYear"
-               value="<%=Encode.forHtmlAttribute(patientDOB[0].trim())%>"/>
+               value="<e:forHtmlAttribute value='<%= patientDOB[0].trim() %>' />"/>
         <input type="hidden" name="patientBirthMth"
-               value="<%=Encode.forHtmlAttribute(patientDOB[1].trim())%>"/>
+               value="<e:forHtmlAttribute value='<%= patientDOB[1].trim() %>' />"/>
         <input type="hidden" name="patientBirthDay"
-               value="<%=Encode.forHtmlAttribute(patientDOB[2].trim())%>"/>
+               value="<e:forHtmlAttribute value='<%= patientDOB[2].trim() %>' />"/>
         <input type="hidden" name="ID"
-               value="<%= Encode.forHtmlAttribute(props.getProperty("ID", "0")) %>"/>
+               value="<e:forHtmlAttribute value='<%= props.getProperty("ID", "0") %>' />"/>
         <input type="hidden" name="provider_no"
-               value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provNo"))) %>"/>
+               value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' />"/>
         <input type="hidden" name="formCreated"
-               value="<%= Encode.forHtmlAttribute(props.getProperty("formCreated", "")) %>"/>
-        <input type="hidden" name="form_class" value="<%=Encode.forHtmlAttribute(formClass)%>"/>
-        <input type="hidden" name="form_link" value="<%=Encode.forHtmlAttribute(formLink)%>"/>
+               value="<e:forHtmlAttribute value='<%= props.getProperty("formCreated", "") %>' />"/>
+        <input type="hidden" name="form_class" value="<e:forHtmlAttribute value='<%= formClass %>' />"/>
+        <input type="hidden" name="form_link" value="<e:forHtmlAttribute value='<%= formLink %>' />"/>
         <input type="hidden" name="provNo"
-               value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provNo"))) %>"/>
+               value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' />"/>
         <input type="hidden" name="submit" value="exit"/>
 
         <table class="Head" class="hidePrint">
@@ -362,7 +361,7 @@
                 <td height="40">To:
                     <label>
                         <input name="name" type="text" id="name" size="60" maxlength="60"
-                               value="<%= Encode.forHtmlAttribute(props.getProperty("name", "")) %>"/>
+                               value="<e:forHtmlAttribute value='<%= props.getProperty("name", "") %>' />"/>
                     </label>(name of person)
                 </td>
             </tr>
@@ -370,7 +369,7 @@
                 <td height="40">Of&nbsp;
                     <label>
                         <input name="homeAddress" type="text" id="homeAddress" size="150" maxlength="250"
-                               value="<%= Encode.forHtmlAttribute(props.getProperty("homeAddress", "")) %>"/>
+                               value="<e:forHtmlAttribute value='<%= props.getProperty("homeAddress", "") %>' />"/>
                     </label>(home address)
                 </td>
             </tr>
@@ -378,7 +377,7 @@
                 <td height="40">This is to inform you that
                     <label>
                         <input name="physician" type="text" id="physician" size="60" maxlength="60"
-                               value="<%= Encode.forHtmlAttribute(props.getProperty("physician", "")) %>"/>
+                               value="<e:forHtmlAttribute value='<%= props.getProperty("physician", "") %>' />"/>
                     </label>(name of physician)
                 </td>
             </tr>
@@ -386,7 +385,7 @@
                 <td height="40">examined you on
                     <label>
                         <input name="dateOfExamination" type="text" id="dateOfExamination" size="10" maxlength="10"
-                               value="<%= Encode.forHtmlAttribute(props.getProperty("dateOfExamination", "")) %>"/>
+                               value="<e:forHtmlAttribute value='<%= props.getProperty("dateOfExamination", "") %>' />"/>
                     </label>(date of examination)(day/month/year) and has made an application for you to have a
                     psychiatric assessment.
                 </td>
@@ -594,11 +593,11 @@
                 <td height="40">
                     <label>
                         <input name="dateOfSign" type="text" id="dateOfSign" size="10" maxlength="10"
-                               value="<%= Encode.forHtmlAttribute(props.getProperty("dateOfSign", "")) %>"/>
+                               value="<e:forHtmlAttribute value='<%= props.getProperty("dateOfSign", "") %>' />"/>
                     </label>(date)&nbsp;&nbsp;&nbsp;&nbsp;
                     <label>
                         <input name="signPhysician" type="text" id="signPhysician" size="60" maxlength="60"
-                               value="<%= Encode.forHtmlAttribute(props.getProperty("signPhysician", "")) %>"/>
+                               value="<e:forHtmlAttribute value='<%= props.getProperty("signPhysician", "") %>' />"/>
                     </label>(signature of attending physician)
                 </td>
             </tr>
@@ -611,7 +610,7 @@
                 <td height="40">To:
                     <label>
                         <input name="name2" type="text" id="name2" size="60" maxlength="60"
-                               value="<%= Encode.forHtmlAttribute(props.getProperty("name2", "")) %>"/>
+                               value="<e:forHtmlAttribute value='<%= props.getProperty("name2", "") %>' />"/>
                     </label>(name of person)
                 </td>
             </tr>
@@ -619,7 +618,7 @@
                 <td height="40">Of&nbsp;&nbsp;
                     <label>
                         <input name="homeAddress2" type="text" id="homeAddress2" size="150" maxlength="250"
-                               value="<%= Encode.forHtmlAttribute(props.getProperty("homeAddress2", "")) %>"/>
+                               value="<e:forHtmlAttribute value='<%= props.getProperty("homeAddress2", "") %>' />"/>
                     </label>(home address)
                 </td>
             </tr>
@@ -627,7 +626,7 @@
                 <td height="40">This is to inform you that
                     <label>
                         <input name="nameOfMinisterHealth" type="text" id="nameOfMinisterHealth" size="150"
-                               maxlength="250" value="<%= Encode.forHtmlAttribute(props.getProperty("nameOfMinisterHealth", "")) %>"/>
+                               maxlength="250" value="<e:forHtmlAttribute value='<%= props.getProperty("nameOfMinisterHealth", "") %>' />"/>
                     </label>(name of Minister of Health and Long-Term Care)
                 </td>
             </tr>
@@ -664,7 +663,7 @@
                 <td height="40">
                     <label>
                         <input name="dateOfOrder" type="text" id="dateOfOrder" size="10" maxlength="10"
-                               value="<%= Encode.forHtmlAttribute(props.getProperty("dateOfOrder", "")) %>"/>
+                               value="<e:forHtmlAttribute value='<%= props.getProperty("dateOfOrder", "") %>' />"/>
                     </label>(date of order)(day/month/year), authorized your custody in a psychiatric facility for up to
                     72 hours.
                 </td>
@@ -678,11 +677,11 @@
                 <td height="40">
                     <label>
                         <input name="dateOfSign2" type="text" id="dateOfSign2" size="10" maxlength="10"
-                               value="<%= Encode.forHtmlAttribute(props.getProperty("dateOfSign2", "")) %>"/>
+                               value="<e:forHtmlAttribute value='<%= props.getProperty("dateOfSign2", "") %>' />"/>
                     </label>(date)&nbsp;&nbsp;&nbsp;&nbsp;
                     <label>
                         <input name="signPhysician2" type="text" id="signPhysician2" size="60" maxlength="60"
-                               value="<%= Encode.forHtmlAttribute(props.getProperty("signPhysician2", "")) %>"/>
+                               value="<e:forHtmlAttribute value='<%= props.getProperty("signPhysician2", "") %>' />"/>
                     </label>(signature of attending physician)
                 </td>
             </tr>

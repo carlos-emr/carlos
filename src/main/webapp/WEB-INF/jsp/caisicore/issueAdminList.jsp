@@ -72,14 +72,13 @@
             </c:otherwise>
         </c:choose>
         <!--Not allow to edit issue
-        <td><a href="issueAdmin?method=edit&amp;id=<c:out value="${issueAdmin.id}"/>"><c:out
-            value="${issueAdmin.code}"/></a></td>
+        <td><a href="issueAdmin?method=edit&amp;id=${e:forHtmlAttribute(issueAdmin.id)}">${e:forHtml(issueAdmin.code)}</a></td>
         -->
-        <td><c:out value="${issueAdmin.code}"/></a></td>
-        <td><c:out value="${issueAdmin.description}"/></td>
-        <td><c:out value="${issueAdmin.role}"/></td>
+        <td>${e:forHtml(issueAdmin.code)}</td>
+        <td>${e:forHtml(issueAdmin.description)}</td>
+        <td>${e:forHtml(issueAdmin.role)}</td>
         <!--
-        <td><c:out value="${issueAdmin.update_date}"/></td>
+        <td>${e:forHtml(issueAdmin.update_date)}</td>
         -->
         </tr>
     </c:forEach>

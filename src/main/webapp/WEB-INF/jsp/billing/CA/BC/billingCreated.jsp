@@ -58,7 +58,6 @@
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingreferralDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="java.util.ArrayList" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager" %>
@@ -334,13 +333,13 @@
                             </tr>
                             <tr>
                                 <th>Patient Name:</th>
-                                <td><%=Encode.forHtmlContent(bean.getPatientName())%>
+                                <td><e:forHtmlContent value='<%= bean.getPatientName() %>' />
                                 </td>
                                 <th>Patient PHN:</th>
-                                <td><%=Encode.forHtmlContent(bean.getPatientPHN())%>
+                                <td><e:forHtmlContent value='<%= bean.getPatientPHN() %>' />
                                 </td>
                                 <th>Health Card Type:</th>
-                                <td><%=Encode.forHtmlContent(bean.getPatientHCType())%>
+                                <td><e:forHtmlContent value='<%= bean.getPatientHCType() %>' />
                                 </td>
                             </tr>
                             <tr>
@@ -356,13 +355,13 @@
                             </tr>
                             <tr>
                                 <th>Patient Address:</th>
-                                <td><%=Encode.forHtmlContent(bean.getPatientAddress1())%>
+                                <td><e:forHtmlContent value='<%= bean.getPatientAddress1() %>' />
                                 </td>
                                 <th>City:</th>
-                                <td><%=Encode.forHtmlContent(bean.getPatientAddress2())%>
+                                <td><e:forHtmlContent value='<%= bean.getPatientAddress2() %>' />
                                 </td>
                                 <th>Postal:</th>
-                                <td><%=Encode.forHtmlContent(bean.getPatientPostal())%>
+                                <td><e:forHtmlContent value='<%= bean.getPatientPostal() %>' />
                                 </td>
                             </tr>
 
@@ -408,18 +407,18 @@
                                 <td><%=bean.getEndTime()%>
                                 </td>
                                 <th>Billing Provider:</th>
-                                <td><%=Encode.forHtmlContent(billform.getProviderName(bean.getBillingProvider()))%>
+                                <td><e:forHtmlContent value='<%= billform.getProviderName(bean.getBillingProvider()) %>' />
                                 </td>
                                 <th>Appointment Provider:</th>
-                                <td><%=Encode.forHtmlContent(billform.getProviderName(bean.getApptProviderNo()))%>
+                                <td><e:forHtmlContent value='<%= billform.getProviderName(bean.getApptProviderNo()) %>' />
                                 </td>
                             </tr>
                             <tr>
                                 <th>Creator:</th>
-                                <td><%=Encode.forHtmlContent(billform.getProviderName(bean.getCreator()))%>
+                                <td><e:forHtmlContent value='<%= billform.getProviderName(bean.getCreator()) %>' />
                                 </td>
                                 <th>Dependent:</th>
-                                <td><%=Encode.forHtmlContent(bean.getDependent())%>
+                                <td><e:forHtmlContent value='<%= bean.getDependent() %>' />
                                 </td>
                                 <th>Sub Code:</th>
                                 <td><%=bean.getSubmissionCode()%>
@@ -429,7 +428,7 @@
                             </tr>
                             <tr>
                                 <th>Short Note:</th>
-                                <td colspan="3"><%=Encode.forHtmlContent(bean.getShortClaimNote())%>
+                                <td colspan="3"><e:forHtmlContent value='<%= bean.getShortClaimNote() %>' />
                                 </td>
                                 <th>ICBC Claim #:</th>
                                 <td colspan="3"><%=bean.getIcbc_claim_no()%>
@@ -438,11 +437,11 @@
                             <tr>
                                 <th><%=getReferralString(bean.getReferType1())%>
                                 </th>
-                                <td colspan="3"><%=Encode.forHtmlContent(billingReferralDao.getReferralDocName(bean.getReferral1())) %> <%=addBrackets(bean.getReferral1())%>
+                                <td colspan="3"><e:forHtmlContent value='<%= billingReferralDao.getReferralDocName(bean.getReferral1()) %>' /> <%=addBrackets(bean.getReferral1())%>
                                 </td>
                                 <th><%=getReferralString(bean.getReferType2())%>
                                 </th>
-                                <td colspan="3"><%=Encode.forHtmlContent(billingReferralDao.getReferralDocName(bean.getReferral2())) %> <%=addBrackets(bean.getReferral2())%>
+                                <td colspan="3"><e:forHtmlContent value='<%= billingReferralDao.getReferralDocName(bean.getReferral2()) %>' /> <%=addBrackets(bean.getReferral2())%>
                                 </td>
                             </tr>
 
@@ -525,7 +524,7 @@
                                             <td>notes</td>
                                         </tr>
                                         <tr>
-                                            <td colspan="4"><%= Encode.forHtmlContent(bean.getNotes()) %>
+                                            <td colspan="4"><e:forHtmlContent value='<%= bean.getNotes() %>' />
                                             </td>
                                         </tr>
                                     </table>
@@ -536,7 +535,7 @@
                                             <td>Internal Notes</td>
                                         </tr>
                                         <tr>
-                                            <td colspan="4"><%= Encode.forHtmlContent(bean.getMessageNotes()) %>
+                                            <td colspan="4"><e:forHtmlContent value='<%= bean.getMessageNotes() %>' />
                                             </td>
                                         </tr>
 
@@ -553,7 +552,7 @@
                                                 <%
                                                     if (bean.getBillingType().compareTo("WCB") == 0 && request.getSession().getAttribute("WCBForm") != null) {
                                                         WCBForm wcb = (WCBForm) request.getSession().getAttribute("WCBForm");
-                                                %> <%=Encode.forHtmlContent(wcb.getW_fname())%> <%}%>
+                                                %> <e:forHtmlContent value='<%= wcb.getW_fname() %>' /> <%}%>
                                             </td>
 
                                     </table>

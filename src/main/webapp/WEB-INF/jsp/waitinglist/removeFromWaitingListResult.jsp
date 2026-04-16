@@ -21,7 +21,7 @@
     https://github.com/carlos-emr/carlos
 
 --%>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%--
     Purpose:
         Render the post-remove popup result for waiting-list removals.

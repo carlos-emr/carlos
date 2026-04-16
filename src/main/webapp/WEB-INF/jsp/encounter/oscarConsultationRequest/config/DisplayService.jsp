@@ -43,8 +43,6 @@
         return;
     }
 %>
-
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -80,7 +78,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><%= Encode.forHtml(error) %></li>
+                    <li><e:forHtmlContent value='<%= error %>' /></li>
                 <% } %>
             </ul>
         </div>
@@ -131,10 +129,10 @@
                             %>
                             <tr>
                                 <td><input type="checkbox" name="specialists" value="<%=specId%>" <%=isChecked ? "checked" : ""%>></td>
-                                <td><%= Encode.forHtmlContent(lName + " " + fName + (proLetters == null ? "" : " " + proLetters)) %></td>
-                                <td><%= Encode.forHtmlContent(address) %></td>
-                                <td><%= Encode.forHtmlContent(phone) %></td>
-                                <td><%= Encode.forHtmlContent(fax) %></td>
+                                <td><e:forHtmlContent value='<%= lName + " " + fName + (proLetters == null ? "" : " " + proLetters) %>' /></td>
+                                <td><e:forHtmlContent value='<%= address %>' /></td>
+                                <td><e:forHtmlContent value='<%= phone %>' /></td>
+                                <td><e:forHtmlContent value='<%= fax %>' /></td>
                             </tr>
                             <% } %>
                         </tbody>

@@ -58,8 +58,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="java.lang.*" %>
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
-<%@page import="org.owasp.encoder.Encode" %>
-
 <%
     boolean fromMessenger = request.getParameter("fromMessenger") == null ? false : (request.getParameter("fromMessenger")).equalsIgnoreCase("true") ? true : false;
     String roleName = session.getAttribute("userrole") + "," + session.getAttribute("user");
@@ -322,7 +320,7 @@
                    placeholder="<fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/>"
                    NAME="keyword" ID="keyword"
                    aria-label="<fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/>"
-                   VALUE="<%=Encode.forHtmlAttribute(keyWord)%>" SIZE="17" MAXLENGTH="100"
+                   VALUE="<e:forHtmlContent value='<%= keyWord %>' />" SIZE="17" MAXLENGTH="100"
                    oninput="if(document.titlesearch.search_mode.value === 'search_dob') formatDateInput(this);"
                    onkeyup="if(document.titlesearch.search_mode.value === 'search_dob') formatDateInput(this);">
 

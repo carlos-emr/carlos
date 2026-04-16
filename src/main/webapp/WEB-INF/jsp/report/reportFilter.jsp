@@ -17,7 +17,6 @@
          import="java.util.*, io.github.carlos_emr.carlos.report.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportFilter" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
 // get form name
@@ -110,7 +109,7 @@
     <center>
         <table BORDER="1" CELLPADDING="0" CELLSPACING="0" WIDTH="80%">
             <tr BGCOLOR="#CCFFFF">
-                <th><%=Encode.forHtml(reportName)%>
+                <th><e:forHtmlContent value='<%= reportName %>' />
                 </th>
             </tr>
         </table>
@@ -121,7 +120,7 @@
             </td>
             <td width="10%" align="right" nowrap><a
                     href="<%= request.getContextPath() %>/report/ViewReportFormRecord">Back to Report List</a> | <a
-                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<%= Encode.forUriComponent(reportId) %>">Configuration</a></td>
+                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<e:forUriComponent value='<%= reportId %>' />">Configuration</a></td>
         </tr>
     </table>
     <table width="100%" border="0" cellspacing="2" cellpadding="2">
@@ -139,18 +138,18 @@
                 <td align="right" width="20%"><b><input type="checkbox"
                                                         name="<%="filter_" + itemId%>" <%="1".equals(itemId)?"checked":""%>></b>
                 </td>
-                <td><%=Encode.forHtml(strElt[0])%>
+                <td><e:forHtmlContent value='<%= strElt[0] %>' />
                 </td>
                 <td width="5%" align="right"><input type="hidden"
-                                                    name="<%="value_" + itemId%>" value="<%=Encode.forHtmlAttribute(strElt[1])%>"> <input
-                        type="hidden" name="<%="position_" + itemId%>" value="<%=Encode.forHtmlAttribute(strElt[2])%>">
+                                                    name="<%="value_" + itemId%>" value="<e:forHtmlAttribute value='<%= strElt[1] %>' />"> <input
+                        type="hidden" name="<%="position_" + itemId%>" value="<e:forHtmlAttribute value='<%= strElt[2] %>' />">
                     <input type="hidden" name="<%="dateFormat_" + itemId%>"
-                           value="<%=Encode.forHtmlAttribute(strElt[5])%>"></td>
+                           value="<e:forHtmlAttribute value='<%= strElt[5] %>' />"></td>
             </tr>
             <% } %>
             <tr bgcolor="silver">
                 <td colspan="2" align="center"><input type="hidden" name="id"
-                                                      value="<%= Encode.forHtmlAttribute(reportId) %>"> <input type="submit" name="submit"
+                                                      value="<e:forHtmlAttribute value='<%= reportId %>' />"> <input type="submit" name="submit"
                                                                                     value="Report in HTML"> | <input
                         type="submit" name="submit"
                         value="Report in CSV"></td>

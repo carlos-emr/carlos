@@ -50,7 +50,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -184,7 +183,7 @@
 
                         for (Provider p : providers) {
                     %>
-                    <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"><%=Encode.forHtml(p.getFormattedName())%></option>
+                    <option value="<e:forHtmlAttribute value='<%= p.getProviderNo() %>' />"><e:forHtmlContent value='<%= p.getFormattedName() %>' /></option>
                     <% } %>
                 </select>
             </div>
@@ -216,7 +215,7 @@
                         <%
                             for (Provider p : providers) {
                         %>
-                        <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"><%=Encode.forHtml(p.getFormattedName())%></option>
+                        <option value="<e:forHtmlAttribute value='<%= p.getProviderNo() %>' />"><e:forHtmlContent value='<%= p.getFormattedName() %>' /></option>
                         <% } %>
                     </select>
                 </div>

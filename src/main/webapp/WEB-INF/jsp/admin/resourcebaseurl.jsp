@@ -35,6 +35,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -220,7 +221,7 @@
 
     <%-- Load existing HTML content into the editor (OWASP-encoded for JS context, DOMPurify-sanitized by editor) --%>
     <% if (resource_helpHtml_value != null && !resource_helpHtml_value.isEmpty()) { %>
-    editor.setHTML('<%= Encode.forJavaScript(resource_helpHtml_value) %>');
+    editor.setHTML('<e:forJavaScriptBlock value='<%= resource_helpHtml_value %>' />');
     <% } %>
 
     <%-- Sync editor content to hidden input before form submit --%>

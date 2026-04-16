@@ -41,15 +41,14 @@
 	<display:column sortable="true" title="Staff">
 		<ul>
 			<c:forEach var="provider" items="${team.providers}">
-				<li><c:out value="${provider.provider.formattedName}" /> (<c:out
-					value="${provider.role.name}" />)</li>
+				<li>${e:forHtml(provider.provider.formattedName)} (${e:forHtml(provider.role.name)})</li>
 			</c:forEach>
 		</ul>
 	</display:column>
 	<display:column sortable="true" title="Clients">
 		<ul>
 			<c:forEach var="admission" items="${team.admissions}">
-				<li><c:out value="${admission.client.formattedName}" /></li>
+				<li>${e:forHtml(admission.client.formattedName)}</li>
 			</c:forEach>
 		</ul>
 	</display:column>

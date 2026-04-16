@@ -2,10 +2,9 @@
 <%@page
         import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*,io.github.carlos_emr.carlos.billing.ca.bc.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <%--
 This jsp fragment displays the Bill Type drop down which is used by the MSP and WCB "corrections" screens.
@@ -36,7 +35,7 @@ TODO: Localize Strings
         <td nowrap="nowrap"><label for="billtype">Billing Type: </label>
         </td>
         <td>
-            <div id="billtype"><%=Encode.forHtml(StringUtils.noNull(statusTypeProps.getProperty(BillType)))%>
+            <div id="billtype"><e:forHtmlContent value='<%= StringUtils.noNull(statusTypeProps.getProperty(BillType)) %>' />
             </div>
         </td>
     </tr>
@@ -52,5 +51,5 @@ TODO: Localize Strings
         </select></td>
     </tr>
 </table>
-<input type="hidden" name="xml_status" value="<%= Encode.forHtmlAttribute(BillType) %>">
+<input type="hidden" name="xml_status" value="<e:forHtmlAttribute value='<%= BillType %>' />">
 <br/>

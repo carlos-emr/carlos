@@ -30,6 +30,7 @@
 --%>
 <!DOCTYPE html>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -55,8 +56,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Flowsheet" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowsheetDao" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%-- Enable/disable mutations are handled by ManageFlowsheets2Action (PRG pattern). --%>
 
 
@@ -142,18 +141,18 @@
         %>
 
 						<tr>
-							<td><%=Encode.forHtmlContent(flowSheet.getDisplayName())%></td>
+							<td><e:forHtmlContent value='<%= flowSheet.getDisplayName() %>' /></td>
 							<td><%=flowSheet.isUniversal() %></td>
-							<td><%=Encode.forHtmlContent(flowSheet.getDxTriggersString()) %></td>
-							<td><%=Encode.forHtmlContent(flowSheet.getProgramTriggersString()) %></td>
-							<td><%=Encode.forHtmlContent(type) %></td>
+							<td><e:forHtmlContent value='<%= flowSheet.getDxTriggersString() %>' /></td>
+							<td><e:forHtmlContent value='<%= flowSheet.getProgramTriggersString() %>' /></td>
+							<td><e:forHtmlContent value='<%= type %>' /></td>
 							<td><%=enabled%></td>
 							<td>
-								<a href="<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<%=Encode.forUriComponent(flowSheet.getName())%>&displayName=<%=Encode.forUriComponent(flowSheet.getDisplayName())%>">Edit</a>&nbsp;
+								<a href="<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<e:forUriComponent value='<%= flowSheet.getName() %>' />&displayName=<e:forUriComponent value='<%= flowSheet.getDisplayName() %>' />">Edit</a>&nbsp;
 								<%if(enabled) { %>
-									<a href="javascript:void(0);" onclick="submitFlowsheetAction('disable','<%=Encode.forJavaScript(flowSheet.getName())%>');">Disable</a>
+									<a href="javascript:void(0);" onclick="submitFlowsheetAction('disable','<e:forJavaScriptAttribute value='<%= flowSheet.getName() %>' />');">Disable</a>
 								<% } else { %>
-									<a href="javascript:void(0);" onclick="submitFlowsheetAction('enable','<%=Encode.forJavaScript(flowSheet.getName())%>');">Enable</a>
+									<a href="javascript:void(0);" onclick="submitFlowsheetAction('enable','<e:forJavaScriptAttribute value='<%= flowSheet.getName() %>' />');">Enable</a>
 								<% } %>
 							</td>
 						</tr>

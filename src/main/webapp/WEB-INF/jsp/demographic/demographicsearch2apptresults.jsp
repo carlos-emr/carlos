@@ -251,7 +251,7 @@
             <%--        <li>--%>
 
             <input type="text" class="wideInput form-control" NAME="keyword"
-                   VALUE="<%=Encode.forHtmlAttribute(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>" SIZE="17" MAXLENGTH="100"/>
+                   VALUE="<e:forHtmlAttribute value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />" SIZE="17" MAXLENGTH="100"/>
             <%--        </li>--%>
             <%--        <li>--%>
             <INPUT TYPE="hidden" NAME="orderby" VALUE="last_name, first_name">
@@ -261,36 +261,36 @@
             <input type="hidden" name="displaymode" value="Search ">
             <INPUT TYPE="hidden" NAME="ptstatus" VALUE="active">
 
-            <input type="hidden" name="fromAppt" value="<%=Encode.forHtmlAttribute(request.getParameter("fromAppt") != null ? request.getParameter("fromAppt") : "")%>">
+            <input type="hidden" name="fromAppt" value="<e:forHtmlAttribute value='<%= request.getParameter("fromAppt") != null ? request.getParameter("fromAppt") : "" %>' />">
             <input type="hidden" name="originalPage"
-                   value="<%=Encode.forHtmlAttribute(request.getParameter("originalPage") != null ? request.getParameter("originalPage") : "")%>">
+                   value="<e:forHtmlAttribute value='<%= request.getParameter("originalPage") != null ? request.getParameter("originalPage") : "" %>' />">
             <input type="hidden" name="bFirstDisp"
-                   value="<%=Encode.forHtmlAttribute(request.getParameter("bFirstDisp") != null ? request.getParameter("bFirstDisp") : "")%>">
+                   value="<e:forHtmlAttribute value='<%= request.getParameter("bFirstDisp") != null ? request.getParameter("bFirstDisp") : "" %>' />">
             <input type="hidden" name="provider_no"
-                   value="<%=Encode.forHtmlAttribute(request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "")%>">
+                   value="<e:forHtmlAttribute value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' />">
             <input type="hidden" name="start_time"
-                   value="<%=Encode.forHtmlAttribute(request.getParameter("start_time") != null ? request.getParameter("start_time") : "")%>">
-            <input type="hidden" name="end_time" value="<%=Encode.forHtmlAttribute(request.getParameter("end_time") != null ? request.getParameter("end_time") : "")%>">
-            <input type="hidden" name="year" value="<%=Encode.forHtmlAttribute(request.getParameter("year") != null ? request.getParameter("year") : "")%>">
-            <input type="hidden" name="month" value="<%=Encode.forHtmlAttribute(request.getParameter("month") != null ? request.getParameter("month") : "")%>">
-            <input type="hidden" name="day" value="<%=Encode.forHtmlAttribute(request.getParameter("day") != null ? request.getParameter("day") : "")%>">
+                   value="<e:forHtmlAttribute value='<%= request.getParameter("start_time") != null ? request.getParameter("start_time") : "" %>' />">
+            <input type="hidden" name="end_time" value="<e:forHtmlAttribute value='<%= request.getParameter("end_time") != null ? request.getParameter("end_time") : "" %>' />">
+            <input type="hidden" name="year" value="<e:forHtmlAttribute value='<%= request.getParameter("year") != null ? request.getParameter("year") : "" %>' />">
+            <input type="hidden" name="month" value="<e:forHtmlAttribute value='<%= request.getParameter("month") != null ? request.getParameter("month") : "" %>' />">
+            <input type="hidden" name="day" value="<e:forHtmlAttribute value='<%= request.getParameter("day") != null ? request.getParameter("day") : "" %>' />">
             <input type="hidden" name="appointment_date"
-                   value="<%=Encode.forHtmlAttribute(request.getParameter("appointment_date") != null ? request.getParameter("appointment_date") : "")%>">
-            <input type="hidden" name="notes" value="<%=Encode.forHtmlAttribute(request.getParameter("notes") != null ? request.getParameter("notes") : "")%>">
+                   value="<e:forHtmlAttribute value='<%= request.getParameter("appointment_date") != null ? request.getParameter("appointment_date") : "" %>' />">
+            <input type="hidden" name="notes" value="<e:forHtmlAttribute value='<%= request.getParameter("notes") != null ? request.getParameter("notes") : "" %>' />">
             <input type="hidden" name="reasonCode"
-                   value="<%=Encode.forHtmlAttribute(request.getParameter("reasonCode") != null ? request.getParameter("reasonCode") : "")%>">
-            <input type="hidden" name="reason" value="<%=Encode.forHtmlAttribute(request.getParameter("reason") != null ? request.getParameter("reason") : "")%>">
-            <input type="hidden" name="location" value="<%=Encode.forHtmlAttribute(request.getParameter("location") != null ? request.getParameter("location") : "")%>">
+                   value="<e:forHtmlAttribute value='<%= request.getParameter("reasonCode") != null ? request.getParameter("reasonCode") : "" %>' />">
+            <input type="hidden" name="reason" value="<e:forHtmlAttribute value='<%= request.getParameter("reason") != null ? request.getParameter("reason") : "" %>' />">
+            <input type="hidden" name="location" value="<e:forHtmlAttribute value='<%= request.getParameter("location") != null ? request.getParameter("location") : "" %>' />">
             <input type="hidden" name="resources"
-                   value="<%=Encode.forHtmlAttribute(request.getParameter("resources") != null ? request.getParameter("resources") : "")%>">
-            <input type="hidden" name="type" value="<%=Encode.forHtmlAttribute(request.getParameter("type") != null ? request.getParameter("type") : "")%>">
-            <input type="hidden" name="style" value="<%=Encode.forHtmlAttribute(request.getParameter("style") != null ? request.getParameter("style") : "")%>">
-            <input type="hidden" name="billing" value="<%=Encode.forHtmlAttribute(request.getParameter("billing") != null ? request.getParameter("billing") : "")%>">
-            <input type="hidden" name="status" value="<%=Encode.forHtmlAttribute(request.getParameter("status") != null ? request.getParameter("status") : "")%>">
+                   value="<e:forHtmlAttribute value='<%= request.getParameter("resources") != null ? request.getParameter("resources") : "" %>' />">
+            <input type="hidden" name="type" value="<e:forHtmlAttribute value='<%= request.getParameter("type") != null ? request.getParameter("type") : "" %>' />">
+            <input type="hidden" name="style" value="<e:forHtmlAttribute value='<%= request.getParameter("style") != null ? request.getParameter("style") : "" %>' />">
+            <input type="hidden" name="billing" value="<e:forHtmlAttribute value='<%= request.getParameter("billing") != null ? request.getParameter("billing") : "" %>' />">
+            <input type="hidden" name="status" value="<e:forHtmlAttribute value='<%= request.getParameter("status") != null ? request.getParameter("status") : "" %>' />">
             <input type="hidden" name="createdatetime"
-                   value="<%=Encode.forHtmlAttribute(request.getParameter("createdatetime") != null ? request.getParameter("createdatetime") : "")%>">
-            <input type="hidden" name="creator" value="<%=Encode.forHtmlAttribute(request.getParameter("creator") != null ? request.getParameter("creator") : "")%>">
-            <input type="hidden" name="remarks" value="<%=Encode.forHtmlAttribute(request.getParameter("remarks") != null ? request.getParameter("remarks") : "")%>">
+                   value="<e:forHtmlAttribute value='<%= request.getParameter("createdatetime") != null ? request.getParameter("createdatetime") : "" %>' />">
+            <input type="hidden" name="creator" value="<e:forHtmlAttribute value='<%= request.getParameter("creator") != null ? request.getParameter("creator") : "" %>' />">
+            <input type="hidden" name="remarks" value="<e:forHtmlAttribute value='<%= request.getParameter("remarks") != null ? request.getParameter("remarks") : "" %>' />">
 
             <%
                 String temp = null;
@@ -299,8 +299,8 @@
                     if (temp.equals("keyword") || temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no") || temp.equals("ptstatus") || temp.equals("submit"))
                         continue;
             %>
-            <input type="hidden" name="<%=Encode.forHtmlAttribute(temp)%>"
-                   value="<%=Encode.forHtmlAttribute(request.getParameter(temp) != null ? request.getParameter(temp) : "")%>">
+            <input type="hidden" name="<e:forHtmlAttribute value='<%= temp %>' />"
+                   value="<e:forHtmlAttribute value='<%= request.getParameter(temp) != null ? request.getParameter(temp) : "" %>' />">
             <% }
             %>
             <div class="input-group">
@@ -331,7 +331,7 @@
             <%if (request.getParameter("keyword") != null && request.getParameter("keyword").length() == 0) { %>
             <fmt:message key="demographic.demographicsearch2apptresults.msgMostRecentPatients"/>
             <% } else { %>
-            <fmt:message key="demographic.demographicsearch2apptresults.msgKeywords"/> <%=Encode.forHtml(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%> <%}%>
+            <fmt:message key="demographic.demographicsearch2apptresults.msgKeywords"/> <e:forHtmlContent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' /> <%}%>
         </div>
         <script language="JavaScript">
 
@@ -341,7 +341,7 @@
             function addName(demographic_no, lastname, firstname, chartno, messageID, doctorNo) {
                 fullname = lastname + "," + firstname;
 
-                document.addform.action = "<%= Encode.forJavaScript(originalpage) %><%= originalPageSeparator %>" + "demographic_no=" + demographic_no + "&name=" + fullname + "&chart_no=" + chartno + "&bFirstDisp=false" + "&messageID=" + messageID + "&doctor_no=" + doctorNo;
+                document.addform.action = "<e:forJavaScript value='<%= originalpage %>' /><%= originalPageSeparator %>" + "demographic_no=" + demographic_no + "&name=" + fullname + "&chart_no=" + chartno + "&bFirstDisp=false" + "&messageID=" + messageID + "&doctor_no=" + doctorNo;
 
                 document.addform.submit();
                 return true;
@@ -351,19 +351,19 @@
 
             function addNameCaisi(demographic_no, lastname, firstname, chartno, messageID) {
                 fullname = lastname + "," + firstname;
-                if (opener.document['<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("formName"))) %>'] != null) {
-                    if (opener.document['<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("formName"))) %>'].
-                    elements['<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("elementName"))) %>'] != null
+                if (opener.document['<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("formName")) %>' />'] != null) {
+                    if (opener.document['<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("formName")) %>' />'].
+                    elements['<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("elementName")) %>' />'] != null
                 )
                     opener.document
-                ['<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("formName"))) %>'].
-                    elements['<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("elementName"))) %>'].value = fullname;
-                    if (opener.document['<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("formName"))) %>'].
-                    elements['<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("elementId"))) %>'] != null
+                ['<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("formName")) %>' />'].
+                    elements['<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("elementName")) %>' />'].value = fullname;
+                    if (opener.document['<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("formName")) %>' />'].
+                    elements['<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("elementId")) %>' />'] != null
                 )
                     opener.document
-                ['<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("formName"))) %>'].
-                    elements['<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("elementId"))) %>'].value = demographic_no;
+                ['<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("formName")) %>' />'].
+                    elements['<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("elementId")) %>' />'].value = demographic_no;
                 }
                 self.close();
             }
@@ -499,29 +499,35 @@
                             bgColor = rowCounter % 2 == 0 ? "#EEEEFF" : "white";
 
                 %>
+                <c:set var="__enc_1"><e:forUriComponent value='<%= StringUtils.noNull(demo.getLastName()) %>' /></c:set>
+                <c:set var="__enc_2"><e:forUriComponent value='<%= StringUtils.noNull(demo.getFirstName()) %>' /></c:set>
+                <c:set var="__enc_3"><e:forUriComponent value='<%= demo.getChartNo() == null ? "" : demo.getChartNo() %>' /></c:set>
                 <tr style="background-color: <%=bgColor%>"
                     onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
                     onMouseout="this.style.backgroundColor='<%=bgColor%>';"
-                    onClick="document.forms[0].demographic_no.value=<%=demo.getDemographicNo()%>;<% if(caisi) { out.print("addNameCaisi");} else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demo.getLastName())))%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demo.getFirstName())))%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demo.getChartNo() == null ? "" : demo.getChartNo()))%>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("messageId"))) %>','<%=Encode.forJavaScriptAttribute(StringUtils.noNull(demo.getProviderNo()))%>')">
+                    onClick="document.forms[0].demographic_no.value=<%=demo.getDemographicNo()%>;<% if(caisi) { out.print("addNameCaisi");} else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<e:forJavaScriptAttribute value='${__enc_1}' />','<e:forJavaScriptAttribute value='${__enc_2}' />','<e:forJavaScriptAttribute value='${__enc_3}' />','<e:forJavaScriptAttribute value='<%= StringUtils.noNull(request.getParameter("messageId")) %>' />','<e:forJavaScriptAttribute value='<%= StringUtils.noNull(demo.getProviderNo()) %>' />')">
 
+                    <c:set var="__enc_4"><e:forUriComponent value='<%= StringUtils.noNull(demo.getLastName()) %>' /></c:set>
+                    <c:set var="__enc_5"><e:forUriComponent value='<%= StringUtils.noNull(demo.getFirstName()) %>' /></c:set>
+                    <c:set var="__enc_6"><e:forUriComponent value='<%= demo.getChartNo() == null ? "" : demo.getChartNo() %>' /></c:set>
                     <td class="demoId">
                         <input type="submit" class="mbttn btn btn-secondary btn-sm" name="demographic_no"
                                value="<%=demo.getDemographicNo()%>"
-                               onClick="<% if(caisi) {out.print("addNameCaisi");} else {out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demo.getLastName())))%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demo.getFirstName())))%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demo.getChartNo() == null ? "" : demo.getChartNo()))%>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("messageId"))) %>','<%=Encode.forJavaScriptAttribute(StringUtils.noNull(demo.getProviderNo()))%>')">
+                               onClick="<% if(caisi) {out.print("addNameCaisi");} else {out.print("addName");} %>('<%=demo.getDemographicNo()%>','<e:forJavaScriptAttribute value='${__enc_4}' />','<e:forJavaScriptAttribute value='${__enc_5}' />','<e:forJavaScriptAttribute value='${__enc_6}' />','<e:forJavaScriptAttribute value='<%= StringUtils.noNull(request.getParameter("messageId")) %>' />','<e:forJavaScriptAttribute value='<%= StringUtils.noNull(demo.getProviderNo()) %>' />')">
                     </td>
-                    <td class="lastName"><%=Encode.forHtml(Misc.toUpperLowerCase(demo.getLastName()))%>
+                    <td class="lastName"><e:forHtmlContent value='<%= Misc.toUpperLowerCase(demo.getLastName()) %>' />
                     </td>
                     <td class="firstName"><%=Encode.forHtml(Misc.toUpperLowerCase(demo.getFirstName())) + " " + Encode.forHtml(Misc.toUpperLowerCase(demo.getMiddleNames()))%>
                     </td>
-                    <td class="age"><%=Encode.forHtml(demo.getAge() == null ? "" : String.valueOf(demo.getAge()))%>
+                    <td class="age"><e:forHtmlContent value='<%= demo.getAge() == null ? "" : String.valueOf(demo.getAge()) %>' />
                     </td>
-                    <td class="rosterStatus"><% if (demo.getRosterStatus() == null || demo.getRosterStatus().equals("")) { %>&nbsp;<% } else { %><%=Encode.forHtml(demo.getRosterStatus())%><% } %>
+                    <td class="rosterStatus"><% if (demo.getRosterStatus() == null || demo.getRosterStatus().equals("")) { %>&nbsp;<% } else { %><e:forHtmlContent value='<%= demo.getRosterStatus() %>' /><% } %>
                     </td>
-                    <td class="sex"><%=Encode.forHtml(demo.getSex() == null ? "" : demo.getSex())%>
+                    <td class="sex"><e:forHtmlContent value='<%= demo.getSex() == null ? "" : demo.getSex() %>' />
                     </td>
-                    <td class="dob"><%=Encode.forHtml(demo.getYearOfBirth() + "-" + demo.getMonthOfBirth() + "-" + demo.getDateOfBirth())%>
+                    <td class="dob"><e:forHtmlContent value='<%= demo.getYearOfBirth() + "-" + demo.getMonthOfBirth() + "-" + demo.getDateOfBirth() %>' />
                     </td>
-                    <td class="doctor"><%=Encode.forHtml(providerBean.getProperty(demo.getProviderNo() == null ? "" : demo.getProviderNo()) == null ? "" : providerBean.getProperty(demo.getProviderNo()))%>
+                    <td class="doctor"><e:forHtmlContent value='<%= providerBean.getProperty(demo.getProviderNo() == null ? "" : demo.getProviderNo()) == null ? "" : providerBean.getProperty(demo.getProviderNo()) %>' />
                     </td>
                 </tr>
 
@@ -533,8 +539,8 @@
                         temp = e.nextElement().toString();
                         if (temp.equals("keyword") || temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("submit") || temp.equals("chart_no"))
                             continue; %>
-                <input type="hidden" name="<%=Encode.forHtmlAttribute(temp)%>"
-                       value="<%=Encode.forHtmlAttribute(request.getParameter(temp) != null ? request.getParameter(temp) : "")%>">
+                <input type="hidden" name="<e:forHtmlAttribute value='<%= temp %>' />"
+                       value="<e:forHtmlAttribute value='<%= request.getParameter(temp) != null ? request.getParameter(temp) : "" %>' />">
                 <% }
 
                 %>
@@ -582,7 +588,7 @@
         %>
         <fmt:message key="demographic.search.noResultsWereFound"/>
         <div class="createNew">
-            <a href="<%= request.getContextPath() %>/demographic/ViewDemographicAddARecordHtm?fromAppt=1&originalPage=<%=Encode.forUriComponent(request.getParameter("originalPage") != null ? request.getParameter("originalPage") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&notes=<%=Encode.forUriComponent(request.getParameter("notes") != null ? request.getParameter("notes") : "")%>&appointment_date=<%=Encode.forUriComponent(request.getParameter("appointment_date") != null ? request.getParameter("appointment_date") : "")%>&year=<%=Encode.forUriComponent(request.getParameter("year") != null ? request.getParameter("year") : "")%>&month=<%=Encode.forUriComponent(request.getParameter("month") != null ? request.getParameter("month") : "")%>&day=<%=Encode.forUriComponent(request.getParameter("day") != null ? request.getParameter("day") : "")%>&start_time=<%=Encode.forUriComponent(request.getParameter("start_time") != null ? request.getParameter("start_time") : "")%>&end_time=<%=Encode.forUriComponent(request.getParameter("end_time") != null ? request.getParameter("end_time") : "")%>&duration=<%=Encode.forUriComponent(request.getParameter("duration") != null ? request.getParameter("duration") : "")%>&bFirstDisp=false&provider_no=<%=Encode.forUriComponent(request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "")%>&notes=<%=Encode.forUriComponent(request.getParameter("notes") != null ? request.getParameter("notes") : "")%>&reasonCode=<%=Encode.forUriComponent(request.getParameter("reasonCode") != null ? request.getParameter("reasonCode") : "")%>&reason=<%=Encode.forUriComponent(request.getParameter("reason") != null ? request.getParameter("reason") : "")%>&location=<%=Encode.forUriComponent(request.getParameter("location") != null ? request.getParameter("location") : "")%>&resources=<%=Encode.forUriComponent(request.getParameter("resources") != null ? request.getParameter("resources") : "")%>&type=<%=Encode.forUriComponent(request.getParameter("type") != null ? request.getParameter("type") : "")%>&style=<%=Encode.forUriComponent(request.getParameter("style") != null ? request.getParameter("style") : "")%>&billing=<%=Encode.forUriComponent(request.getParameter("billing") != null ? request.getParameter("billing") : "")%>&status=<%=Encode.forUriComponent(request.getParameter("status") != null ? request.getParameter("status") : "")%>&createdatetime=<%=Encode.forUriComponent(request.getParameter("createdatetime") != null ? request.getParameter("createdatetime") : "")%>&creator=<%=Encode.forUriComponent(request.getParameter("creator") != null ? request.getParameter("creator") : "")%>&remarks=<%=Encode.forUriComponent(request.getParameter("remarks") != null ? request.getParameter("remarks") : "")%>">
+            <a href="<%= request.getContextPath() %>/demographic/ViewDemographicAddARecordHtm?fromAppt=1&originalPage=<e:forUriComponent value='<%= request.getParameter("originalPage") != null ? request.getParameter("originalPage") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&notes=<e:forUriComponent value='<%= request.getParameter("notes") != null ? request.getParameter("notes") : "" %>' />&appointment_date=<e:forUriComponent value='<%= request.getParameter("appointment_date") != null ? request.getParameter("appointment_date") : "" %>' />&year=<e:forUriComponent value='<%= request.getParameter("year") != null ? request.getParameter("year") : "" %>' />&month=<e:forUriComponent value='<%= request.getParameter("month") != null ? request.getParameter("month") : "" %>' />&day=<e:forUriComponent value='<%= request.getParameter("day") != null ? request.getParameter("day") : "" %>' />&start_time=<e:forUriComponent value='<%= request.getParameter("start_time") != null ? request.getParameter("start_time") : "" %>' />&end_time=<e:forUriComponent value='<%= request.getParameter("end_time") != null ? request.getParameter("end_time") : "" %>' />&duration=<e:forUriComponent value='<%= request.getParameter("duration") != null ? request.getParameter("duration") : "" %>' />&bFirstDisp=false&provider_no=<e:forUriComponent value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' />&notes=<e:forUriComponent value='<%= request.getParameter("notes") != null ? request.getParameter("notes") : "" %>' />&reasonCode=<e:forUriComponent value='<%= request.getParameter("reasonCode") != null ? request.getParameter("reasonCode") : "" %>' />&reason=<e:forUriComponent value='<%= request.getParameter("reason") != null ? request.getParameter("reason") : "" %>' />&location=<e:forUriComponent value='<%= request.getParameter("location") != null ? request.getParameter("location") : "" %>' />&resources=<e:forUriComponent value='<%= request.getParameter("resources") != null ? request.getParameter("resources") : "" %>' />&type=<e:forUriComponent value='<%= request.getParameter("type") != null ? request.getParameter("type") : "" %>' />&style=<e:forUriComponent value='<%= request.getParameter("style") != null ? request.getParameter("style") : "" %>' />&billing=<e:forUriComponent value='<%= request.getParameter("billing") != null ? request.getParameter("billing") : "" %>' />&status=<e:forUriComponent value='<%= request.getParameter("status") != null ? request.getParameter("status") : "" %>' />&createdatetime=<e:forUriComponent value='<%= request.getParameter("createdatetime") != null ? request.getParameter("createdatetime") : "" %>' />&creator=<e:forUriComponent value='<%= request.getParameter("creator") != null ? request.getParameter("creator") : "" %>' />&remarks=<e:forUriComponent value='<%= request.getParameter("remarks") != null ? request.getParameter("remarks") : "" %>' />">
                 <fmt:message key="demographic.search.btnCreateNew"/></a>
         </div>
         <%
@@ -590,7 +596,7 @@
         %>
         <fmt:message key="demographic.search.noResultsWereFound"/>
         <div class="createNew">
-            <a href="<%= request.getContextPath() %>/demographic/ViewDemographicAddARecordHtm?fromAppt=1&originalPage=<%=Encode.forUriComponent(request.getParameter("originalPage") != null ? request.getParameter("originalPage") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&notes=<%=Encode.forUriComponent(request.getParameter("notes") != null ? request.getParameter("notes") : "")%>&appointment_date=<%=Encode.forUriComponent(request.getParameter("appointment_date") != null ? request.getParameter("appointment_date") : "")%>&year=<%=Encode.forUriComponent(request.getParameter("year") != null ? request.getParameter("year") : "")%>&month=<%=Encode.forUriComponent(request.getParameter("month") != null ? request.getParameter("month") : "")%>&day=<%=Encode.forUriComponent(request.getParameter("day") != null ? request.getParameter("day") : "")%>&start_time=<%=Encode.forUriComponent(request.getParameter("start_time") != null ? request.getParameter("start_time") : "")%>&end_time=<%=Encode.forUriComponent(request.getParameter("end_time") != null ? request.getParameter("end_time") : "")%>&duration=<%=Encode.forUriComponent(request.getParameter("duration") != null ? request.getParameter("duration") : "")%>&bFirstDisp=false&provider_no=<%=Encode.forUriComponent(request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "")%>&notes=<%=Encode.forUriComponent(request.getParameter("notes") != null ? request.getParameter("notes") : "")%>&reasonCode=<%=Encode.forUriComponent(request.getParameter("reasonCode") != null ? request.getParameter("reasonCode") : "")%>&reason=<%=Encode.forUriComponent(request.getParameter("reason") != null ? request.getParameter("reason") : "")%>&location=<%=Encode.forUriComponent(request.getParameter("location") != null ? request.getParameter("location") : "")%>&resources=<%=Encode.forUriComponent(request.getParameter("resources") != null ? request.getParameter("resources") : "")%>&type=<%=Encode.forUriComponent(request.getParameter("type") != null ? request.getParameter("type") : "")%>&style=<%=Encode.forUriComponent(request.getParameter("style") != null ? request.getParameter("style") : "")%>&billing=<%=Encode.forUriComponent(request.getParameter("billing") != null ? request.getParameter("billing") : "")%>&status=<%=Encode.forUriComponent(request.getParameter("status") != null ? request.getParameter("status") : "")%>&createdatetime=<%=Encode.forUriComponent(request.getParameter("createdatetime") != null ? request.getParameter("createdatetime") : "")%>&creator=<%=Encode.forUriComponent(request.getParameter("creator") != null ? request.getParameter("creator") : "")%>&remarks=<%=Encode.forUriComponent(request.getParameter("remarks") != null ? request.getParameter("remarks") : "")%>">
+            <a href="<%= request.getContextPath() %>/demographic/ViewDemographicAddARecordHtm?fromAppt=1&originalPage=<e:forUriComponent value='<%= request.getParameter("originalPage") != null ? request.getParameter("originalPage") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&notes=<e:forUriComponent value='<%= request.getParameter("notes") != null ? request.getParameter("notes") : "" %>' />&appointment_date=<e:forUriComponent value='<%= request.getParameter("appointment_date") != null ? request.getParameter("appointment_date") : "" %>' />&year=<e:forUriComponent value='<%= request.getParameter("year") != null ? request.getParameter("year") : "" %>' />&month=<e:forUriComponent value='<%= request.getParameter("month") != null ? request.getParameter("month") : "" %>' />&day=<e:forUriComponent value='<%= request.getParameter("day") != null ? request.getParameter("day") : "" %>' />&start_time=<e:forUriComponent value='<%= request.getParameter("start_time") != null ? request.getParameter("start_time") : "" %>' />&end_time=<e:forUriComponent value='<%= request.getParameter("end_time") != null ? request.getParameter("end_time") : "" %>' />&duration=<e:forUriComponent value='<%= request.getParameter("duration") != null ? request.getParameter("duration") : "" %>' />&bFirstDisp=false&provider_no=<e:forUriComponent value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' />&notes=<e:forUriComponent value='<%= request.getParameter("notes") != null ? request.getParameter("notes") : "" %>' />&reasonCode=<e:forUriComponent value='<%= request.getParameter("reasonCode") != null ? request.getParameter("reasonCode") : "" %>' />&reason=<e:forUriComponent value='<%= request.getParameter("reason") != null ? request.getParameter("reason") : "" %>' />&location=<e:forUriComponent value='<%= request.getParameter("location") != null ? request.getParameter("location") : "" %>' />&resources=<e:forUriComponent value='<%= request.getParameter("resources") != null ? request.getParameter("resources") : "" %>' />&type=<e:forUriComponent value='<%= request.getParameter("type") != null ? request.getParameter("type") : "" %>' />&style=<e:forUriComponent value='<%= request.getParameter("style") != null ? request.getParameter("style") : "" %>' />&billing=<e:forUriComponent value='<%= request.getParameter("billing") != null ? request.getParameter("billing") : "" %>' />&status=<e:forUriComponent value='<%= request.getParameter("status") != null ? request.getParameter("status") : "" %>' />&createdatetime=<e:forUriComponent value='<%= request.getParameter("createdatetime") != null ? request.getParameter("createdatetime") : "" %>' />&creator=<e:forUriComponent value='<%= request.getParameter("creator") != null ? request.getParameter("creator") : "" %>' />&remarks=<e:forUriComponent value='<%= request.getParameter("remarks") != null ? request.getParameter("remarks") : "" %>' />">
                 <fmt:message key="demographic.search.btnCreateNew"/></a>
         </div>
         <%
@@ -604,12 +610,22 @@
         <script language="JavaScript">
 
             function last() {
-                document.nextform.action = "<%= request.getContextPath() %>/demographic/DemographicSearch?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+                <c:set var="__enc_7"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' /></c:set>
+                <c:set var="__enc_8"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' /></c:set>
+                <c:set var="__enc_9"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("displaymode")) %>' /></c:set>
+                <c:set var="__enc_10"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("dboperation")) %>' /></c:set>
+                <c:set var="__enc_11"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' /></c:set>
+                document.nextform.action = "<%= request.getContextPath() %>/demographic/DemographicSearch?keyword=<e:forJavaScript value='${__enc_7}' />&search_mode=<e:forJavaScript value='${__enc_8}' />&displaymode=<e:forJavaScript value='${__enc_9}' />&dboperation=<e:forJavaScript value='${__enc_10}' />&orderby=<e:forJavaScript value='${__enc_11}' />&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
                 //document.nextform.submit();
             }
 
             function next() {
-                document.nextform.action = "<%= request.getContextPath() %>/demographic/DemographicSearch?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+                <c:set var="__enc_12"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' /></c:set>
+                <c:set var="__enc_13"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' /></c:set>
+                <c:set var="__enc_14"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("displaymode")) %>' /></c:set>
+                <c:set var="__enc_15"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("dboperation")) %>' /></c:set>
+                <c:set var="__enc_16"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' /></c:set>
+                document.nextform.action = "<%= request.getContextPath() %>/demographic/DemographicSearch?keyword=<e:forJavaScript value='${__enc_12}' />&search_mode=<e:forJavaScript value='${__enc_13}' />&displaymode=<e:forJavaScript value='${__enc_14}' />&dboperation=<e:forJavaScript value='${__enc_15}' />&orderby=<e:forJavaScript value='${__enc_16}' />&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
                 //document.nextform.submit();
             }
 
@@ -639,8 +655,8 @@
                         temp = e.nextElement().toString();
                         if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("submit") || temp.equals("chart_no"))
                             continue; %>
-                <input type='hidden' name="<%=Encode.forHtmlAttribute(temp)%>"
-                       value="<%=Encode.forHtmlAttribute(request.getParameter(temp) != null ? request.getParameter(temp) : "")%>">
+                <input type='hidden' name="<e:forHtmlAttribute value='<%= temp %>' />"
+                       value="<e:forHtmlAttribute value='<%= request.getParameter(temp) != null ? request.getParameter(temp) : "" %>' />">
                 <% }
                 %>
 

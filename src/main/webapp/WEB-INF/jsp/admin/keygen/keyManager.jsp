@@ -29,6 +29,7 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + ","
             + (String) session.getAttribute("user");
@@ -43,7 +44,6 @@
         return;
     }
 %>
-<%@page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.web.admin.KeyManagerUIBean" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PublicKey" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
@@ -68,7 +68,7 @@
     String uploadUrl = requestUrl.substring(0, requestUrl.length() - servletPath.length());
     uploadUrl = uploadUrl + "/lab/newLabUpload";
 %>
-<div style="border:solid grey 1px;word-wrap:break-word;font-size:12px; width:95%"><%=Encode.forHtml(uploadUrl)%>
+<div style="border:solid grey 1px;word-wrap:break-word;font-size:12px; width:95%"><e:forHtmlContent value='<%= uploadUrl %>' />
 </div>
 <div style="font-size:12px">
     (You may need to change the server name / port to the externally accessible name / port of your server.)
@@ -150,7 +150,7 @@
                 <%
                     for (ProfessionalSpecialist professionalSpecialist : KeyManagerUIBean.getProfessionalSpecialists()) {
                 %>
-                <option value="<%=Encode.forHtmlAttribute(String.valueOf(professionalSpecialist.getId()))%>"><%=KeyManagerUIBean.getProfessionalSpecialistDisplayString(professionalSpecialist)%>
+                <option value="<e:forHtmlAttribute value='<%= String.valueOf(professionalSpecialist.getId()) %>' />"><%=KeyManagerUIBean.getProfessionalSpecialistDisplayString(professionalSpecialist)%>
                 </option>
                 <%
                     }

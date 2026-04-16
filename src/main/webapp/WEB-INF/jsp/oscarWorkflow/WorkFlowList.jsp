@@ -33,7 +33,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page
         import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.ClinicalReports.*,io.github.carlos_emr.carlos.workflow.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
 <%@ page import="io.github.carlos_emr.carlos.workflow.WorkFlowDS" %>
 <%@ page import="io.github.carlos_emr.carlos.workflow.WorkFlowFactory" %>
@@ -179,7 +178,7 @@
                         <td><a
                                 href="javascript: function myFunction() {return false; }"
                                 onclick="popup(700,1000,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<%=(String) h.get("demographic_no")%>','master')"
-					title="Master File"> <%=Encode.forHtmlContent(demoHash.get("lastName"))%>, <%=Encode.forHtmlContent(demoHash.get("firstName"))%>
+					title="Master File"> <e:forHtmlContent value='<%= demoHash.get("lastName") %>' />, <e:forHtmlContent value='<%= demoHash.get("firstName") %>' />
                         </a></td>
                         <td><%=h.get("completion_date")%>
                         </td>
@@ -187,8 +186,8 @@
                         </td>
                         <td><%=gestAge%>
                         </td>
-                        <td><oscar:nextAppt
-					demographicNo='<%=Encode.forHtmlContent((String) h.get("demographic_no"))%>' /></td>
+	                        <c:set var="__enc_1"><e:forHtmlAttribute value='<%= (String) h.get("demographic_no") %>' /></c:set>
+	                        <td><oscar:nextAppt demographicNo="${__enc_1}" /></td>
                     </tr>
                     <%}%>
                 </table>

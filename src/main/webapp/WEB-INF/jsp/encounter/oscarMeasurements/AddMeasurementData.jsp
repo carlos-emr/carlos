@@ -35,7 +35,6 @@
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization,io.github.carlos_emr.carlos.commn.model.Validations" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypeBeanHandler" %>
@@ -365,7 +364,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%=Encode.forHtml(error)%></li>
+                <li><e:forHtmlContent value='<%= error %>' /></li>
             <% } %>
         </ul>
     </div>
@@ -395,7 +394,7 @@
                     <div style="float:left;margin-left:30px;">
                         <label for="prevDate<%=iDate%>" class="fields">Obs Date/Time: </label>
 
-                        <input type="text" name="date-<%=iDate%>" id="prevDate<%=iDate%>" value="<%=Encode.forHtmlAttribute(prevDate)%>"
+                        <input type="text" name="date-<%=iDate%>" id="prevDate<%=iDate%>" value="<e:forHtmlAttribute value='<%= prevDate %>' />"
                                size="17" onchange="javascript:masterDateFill(this.value);">
                         <% if (id == null) { %>
                         <a id="date<%=iDate%>"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar"
@@ -418,9 +417,9 @@
                     <input type="hidden" name="numType" value="<%= (int) measurements.length %>"/> <%-- measurements.length is a server-side int — no XSS risk --%>
                     <input type="hidden" name="groupName" value=""/>
                     <input type="hidden" name="css" value=""/>
-                    <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
+                    <input type="hidden" name="demographicNo" value="<e:forHtmlAttribute value='<%= demographic_no %>' />"/>
                     <input type="hidden" name="inputFrom" value="AddMeasurementData"/>
-                    <input type="hidden" name="template" value="<%= Encode.forHtmlAttribute(temp) %>"/>
+                    <input type="hidden" name="template" value="<e:forHtmlAttribute value='<%= temp %>' />"/>
 
                     <%
                         int ctr = 0;
@@ -449,32 +448,32 @@
                     %>
 
 
-                    <input type="hidden" name="measurement" value="<%= Encode.forHtmlAttribute(measurement) %>"/>
+                    <input type="hidden" name="measurement" value="<e:forHtmlAttribute value='<%= measurement %>' />"/>
 
-                    <input type="hidden" name="<%= "inputType-" + ctr %>" value="<%=Encode.forHtmlAttribute(mtypeBean.getType())%>"/>
+                    <input type="hidden" name="<%= "inputType-" + ctr %>" value="<e:forHtmlAttribute value='<%= mtypeBean.getType() %>' />"/>
                     <input type="hidden" name="<%= "inputTypeDisplayName-" + ctr %>"
-                           value="<%=Encode.forHtmlAttribute(mtypeBean.getTypeDisplayName())%>"/>
+                           value="<e:forHtmlAttribute value='<%= mtypeBean.getTypeDisplayName() %>' />"/>
                     <input type="hidden" name="<%= "validation-" + ctr %>"
-                           value="<%=Encode.forHtmlAttribute(mtypeBean.getValidation())%>"/>
+                           value="<e:forHtmlAttribute value='<%= mtypeBean.getValidation() %>' />"/>
 
                     <% if (id != null) { %>
-                    <input type="hidden" name="id" value="<%= Encode.forHtmlAttribute(id) %>"/>
-                    <input type="hidden" name="deleteCheckbox" id="deleteCheck" value="<%= Encode.forHtmlAttribute(id) %>"/>
+                    <input type="hidden" name="id" value="<e:forHtmlAttribute value='<%= id %>' />"/>
+                    <input type="hidden" name="deleteCheckbox" id="deleteCheck" value="<e:forHtmlAttribute value='<%= id %>' />"/>
                     <% } %>
 
                     <div class="prevention">
                         <fieldset>
-                            <legend>Measurement : <%=Encode.forHtml(mtypeBean.getTypeDisplayName())%>
+                            <legend>Measurement : <e:forHtmlContent value='<%= mtypeBean.getTypeDisplayName() %>' />
                             </legend>
                             <div style="float:left;display:none;">
                                 <input type="radio" name="<%= "inputMInstrc-" + ctr %>"
-                                       value="<%=Encode.forHtmlAttribute(mtypeBean.getMeasuringInstrc())%>" checked/>
+                                       value="<e:forHtmlAttribute value='<%= mtypeBean.getMeasuringInstrc() %>' />" checked/>
                             </div>
                             <div style="float:left;margin-left:30px;">
                                 <label for="prevDate<%=ctr%>" class="fields">Obs Date/Time:</label>
 
                                 <input type="text" name="<%= "date-" + ctr %>" id="prevDate<%=ctr%>"
-                                       value="<%=Encode.forHtmlAttribute(prevDate)%>" size="17">
+                                       value="<e:forHtmlAttribute value='<%= prevDate %>' />" size="17">
 
                                 <% if (id == null) { %>
                                 <a id="date<%=ctr%>"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar"
@@ -483,14 +482,14 @@
                                 <br/>
 
                                 <label for="<%="inputValue-"+ctr%>"
-                                       class="fields"><%=Encode.forHtmlContent(h2.get("value_name"))%>:</label>
+                                       class="fields"><e:forHtmlContent value='<%= h2.get("value_name") %>' />:</label>
                                 <% if (validations != null && validations.getRegularExp() != null && (validations.getRegularExp().contains("|") || validations.getRegularExp().equals("Yes"))) { %>
                                 <select id="<%="inputValue-"+ctr%>"
                                         name="<%= "inputValue-" + ctr %>">
                                     <option value=""></option>
                                     <% String[] opts = validations.getName().contains("/") ? validations.getName().split("/") : validations.getRegularExp().split("\\|");
                                         for (String opt : opts) {%>
-                                    <option value="<%=Encode.forHtmlAttribute(opt)%>"  <%=sel(opt, val)%>><%=Encode.forHtml(opt)%>
+                                    <option value="<e:forHtmlAttribute value='<%= opt %>' />"  <%=sel(opt, val)%>><e:forHtmlContent value='<%= opt %>' />
                                     </option>
                                     <% }%>
                                 </select>
@@ -505,7 +504,7 @@
                                 </select>
                                 <%} else {%>
                                 <input type="text" id="<%= "inputValue-" + ctr %>"
-                                       name="<%= "inputValue-" + ctr %>" size="5" value="<%=Encode.forHtmlAttribute(val)%>"/> <br/>
+                                       name="<%= "inputValue-" + ctr %>" size="5" value="<e:forHtmlAttribute value='<%= val %>' />"/> <br/>
                                 <%}%>
                             </div>
                             <br/>
@@ -517,7 +516,7 @@
                             </div>
                             <fieldset>
                                 <legend>Comments</legend>
-                                <textarea name="<%= "comments-" + ctr %>"><%=Encode.forHtmlContent(comment)%></textarea>
+                                <textarea name="<%= "comments-" + ctr %>"><e:forHtmlContent value='<%= comment %>' /></textarea>
                             </fieldset>
                         </fieldset>
 

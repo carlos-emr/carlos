@@ -47,7 +47,6 @@
 
 <%@ page import=" io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*, java.util.Properties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmBCAR2020Record" %>
@@ -112,7 +111,7 @@
                 init(3);
 
                 // Set values in drop downs
-                // $("select[name='s_investigationsABO']").val('<%= Encode.forJavaScriptBlock(props.getProperty("s_investigationsABO", "UN")) %>');
+                // $("select[name='s_investigationsABO']").val('<e:forJavaScriptBlock value='<%= props.getProperty("s_investigationsABO", "UN") %>' />');
                 $('form').areYouSure({'addRemoveFieldsMarksDirty': true});
             });
 
@@ -160,7 +159,7 @@
             <form action="${pageContext.request.contextPath}/form/BCAR2020" method="post">
                 <input type="hidden" id="demographicNo" name="demographicNo" value="<%=demoNo%>"/>
                 <input type="hidden" id="formId" name="formId" value="<%=formId%>"/>
-                <input type="hidden" name="provider_no" value=<%=Encode.forHtmlAttribute(providerNo)%>/>
+                <input type="hidden" name="provider_no" value=<e:forHtmlUnquotedAttribute value='<%= providerNo %>' />/>
                 <input type="hidden" id="user" name="provNo" value=<%=provNo%>/>
                 <input type="hidden" name="method" value="exit"/>
 
@@ -542,17 +541,17 @@
                         </td>
                         <td width="6%">
                             <input type="checkbox"
-                                   name="c_signOffsMD1" <%=Encode.forHtmlAttribute(props.getProperty("c_signOffsMD1", "").equals("X") ? "checked" : "") %> />
+                                   name="c_signOffsMD1" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsMD1", "").equals("X") ? "checked" : "" %>' /> />
                             MD
                         </td>
                         <td width="7%">
                             <input type="checkbox"
-                                   name="c_signOffsRM1" <%=Encode.forHtmlAttribute(props.getProperty("c_signOffsRM1", "").equals("X") ? "checked" : "") %> />
+                                   name="c_signOffsRM1" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsRM1", "").equals("X") ? "checked" : "" %>' /> />
                             RM
                         </td>
                         <td width="7%">
                             <input type="checkbox"
-                                   name="c_signOffsNP1" <%=Encode.forHtmlAttribute(props.getProperty("c_signOffsNP1", "").equals("X") ? "checked" : "") %> />
+                                   name="c_signOffsNP1" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsNP1", "").equals("X") ? "checked" : "" %>' /> />
                             NP
                         </td>
                     </tr>
@@ -575,17 +574,17 @@
                         </td>
                         <td width="6%">
                             <input type="checkbox"
-                                   name="c_signOffsMD2" <%=Encode.forHtmlAttribute(props.getProperty("c_signOffsMD2", "").equals("X") ? "checked" : "") %> />
+                                   name="c_signOffsMD2" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsMD2", "").equals("X") ? "checked" : "" %>' /> />
                             MD
                         </td>
                         <td width="7%">
                             <input type="checkbox"
-                                   name="c_signOffsRM2" <%=Encode.forHtmlAttribute(props.getProperty("c_signOffsRM2", "").equals("X") ? "checked" : "") %> />
+                                   name="c_signOffsRM2" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsRM2", "").equals("X") ? "checked" : "" %>' /> />
                             RM
                         </td>
                         <td width="7%">
                             <input type="checkbox"
-                                   name="c_signOffsNP2" <%=Encode.forHtmlAttribute(props.getProperty("c_signOffsNP2", "").equals("X") ? "checked" : "") %> />
+                                   name="c_signOffsNP2" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsNP2", "").equals("X") ? "checked" : "" %>' /> />
                             NP
                         </td>
                     </tr>
@@ -608,17 +607,17 @@
                         </td>
                         <td width="6%">
                             <input type="checkbox"
-                                   name="c_signOffsMD3" <%=Encode.forHtmlAttribute(props.getProperty("c_signOffsMD3", "").equals("X") ? "checked" : "") %> />
+                                   name="c_signOffsMD3" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsMD3", "").equals("X") ? "checked" : "" %>' /> />
                             MD
                         </td>
                         <td width="7%">
                             <input type="checkbox"
-                                   name="c_signOffsRM3" <%=Encode.forHtmlAttribute(props.getProperty("c_signOffsRM3", "").equals("X") ? "checked" : "") %> />
+                                   name="c_signOffsRM3" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsRM3", "").equals("X") ? "checked" : "" %>' /> />
                             RM
                         </td>
                         <td width="7%">
                             <input type="checkbox"
-                                   name="c_signOffsNP3" <%=Encode.forHtmlAttribute(props.getProperty("c_signOffsNP3", "").equals("X") ? "checked" : "") %> />
+                                   name="c_signOffsNP3" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsNP3", "").equals("X") ? "checked" : "" %>' /> />
                             NP
                         </td>
                     </tr>

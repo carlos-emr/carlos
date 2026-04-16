@@ -209,7 +209,7 @@
                             </tr>
                             <% if (!StringUtils.isNullOrEmpty(payeeInfo)) { %>
                             <tr>
-                                <td class="title4 payeeInfo"><%=Encode.forHtml(payeeInfo)%>
+                                <td class="title4 payeeInfo"><e:forHtmlContent value='<%= payeeInfo %>' />
                                 </td>
                             </tr>
                             <% }
@@ -221,11 +221,11 @@
                                 <% SystemPreferences useCustomInvoiceClinicInfo = systemPreferencesDao.findPreferenceByName(SystemPreferences.GENERAL_SETTINGS_KEYS.invoice_use_custom_clinic_info);
                                     if (useCustomInvoiceClinicInfo == null || StringUtils.isNullOrEmpty(useCustomInvoiceClinicInfo.getValue())) { %>
                                 <td class="title4">
-                                    <%=Encode.forHtml(clinic.getClinicName())%>
+                                    <e:forHtmlContent value='<%= clinic.getClinicName() %>' />
                                 </td>
                             </tr>
                             <tr>
-                                <td class="address"><%=Encode.forHtml(clinic.getClinicAddress() + ", " + clinic.getClinicCity() + ", " + clinic.getClinicProvince() + " " + clinic.getClinicPostal())%>
+                                <td class="address"><e:forHtmlContent value='<%= clinic.getClinicAddress() + ", " + clinic.getClinicCity() + ", " + clinic.getClinicProvince() + " " + clinic.getClinicPostal() %>' />
                                 </td>
                             </tr>
                             <tr>
@@ -240,7 +240,7 @@
                                 <% } else {
                                     SystemPreferences customInvoiceClinicInfo = systemPreferencesDao.findPreferenceByName(SystemPreferences.GENERAL_SETTINGS_KEYS.invoice_custom_clinic_info);
                                 %>
-                                <td class="payeeInfo"><%= Encode.forHtml(customInvoiceClinicInfo.getValue())%>
+                                <td class="payeeInfo"><e:forHtmlContent value='<%= customInvoiceClinicInfo.getValue() %>' />
                                 </td>
 
                                 <% } %>

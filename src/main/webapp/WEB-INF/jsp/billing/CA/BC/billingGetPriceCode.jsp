@@ -32,7 +32,6 @@
     String user_no = (String) session.getAttribute("user");
 %>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -62,7 +61,7 @@
             return;
             <%} else {%>
             self.close();
-            self.opener.document["<%= Encode.forJavaScript(formName) %>"]["<%= Encode.forJavaScript(formElementPrice) %>"].value = cost;
+            self.opener.document["<e:forJavaScriptBlock value='<%= formName %>' />"]["<e:forJavaScriptBlock value='<%= formElementPrice %>' />"].value = cost;
             <%}%>
         }
     </script>
@@ -85,7 +84,7 @@
             String cost = bss.get(0).getValue(); %>
     <script LANGUAGE="JavaScript">
         <!--
-        CodeAttach('<%= Encode.forJavaScript(StringUtils.noNull(cost)) %>');
+        CodeAttach('<e:forJavaScriptBlock value='<%= StringUtils.noNull(cost) %>' />');
         -->
     </script>
     <%} else {%>

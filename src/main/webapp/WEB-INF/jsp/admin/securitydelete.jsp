@@ -33,6 +33,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -48,8 +49,6 @@
         return;
     }
 %>
-
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%
     // Delete logic is handled by SecurityDelete2Action; this JSP only displays results.
@@ -70,7 +69,7 @@
             </tr>
         </table>
         <p>
-        <h2><%= Encode.forHtml(msg) %></h2>
+        <h2><e:forHtmlContent value='<%= msg %>' /></h2>
         <p></p>
 
     </center>

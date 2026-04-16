@@ -48,8 +48,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.RaDetail,io.github.carlos_emr.carlos.commn.dao.RaDetailDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingONPremium,io.github.carlos_emr.carlos.commn.dao.BillingONPremiumDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingONItem, io.github.carlos_emr.carlos.commn.service.BillingONService" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -209,10 +207,10 @@
 
 
 <div class="container-fluid">
-    <span class="float-end"><%=Encode.forHtml(today)%></span>
+    <span class="float-end"><e:forHtmlContent value='<%= today %>' /></span>
 
     <div class="row card card-body bg-body-tertiary">
-        <%=Encode.forHtml(errorMsg)%>
+        <e:forHtmlContent value='<%= errorMsg %>' />
 
         <form name="billingPaymentForm" method="get" action="/billing/CA/ON/BillingONPayment">
 
@@ -232,7 +230,7 @@
                             selected = "selected";
                         }
                     %>
-                    <option <%=selected%> value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"><%=Encode.forHtml(p.getLastName())%>, <%=Encode.forHtml(p.getFirstName())%>
+                    <option <%=selected%> value="<e:forHtmlAttribute value='<%= p.getProviderNo() %>' />"><e:forHtmlContent value='<%= p.getLastName() %>' />, <e:forHtmlContent value='<%= p.getFirstName() %>' />
                     </option>
                     <% } %>
                 </select>
@@ -243,7 +241,7 @@
                 <fmt:message key="oscar.billing.on.paymentReceived.startDate"/><br>
                 <div class="input-group">
                     <input type="text" class="form-control" style="width:90px" name="startDateText" id="startDateText"
-                           value="<%=Encode.forHtmlAttribute(DateUtils.formatDate(startDate,locale))%>"
+                           value="<e:forHtmlAttribute value='<%= DateUtils.formatDate(startDate,locale) %>' />"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -253,7 +251,7 @@
                 <fmt:message key="oscar.billing.on.paymentReceived.endDate"/><br>
                 <div class="input-group">
                     <input type="text" class="form-control" style="width:90px" name="endDateText" id="endDateText"
-                           value="<%=Encode.forHtmlAttribute(DateUtils.formatDate(endDate,locale))%>"
+                           value="<e:forHtmlAttribute value='<%= DateUtils.formatDate(endDate,locale) %>' />"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -382,44 +380,44 @@
                         }
                         String curBillingNoStr = String.valueOf(curBillingNo);
             %>
-            <tr class="<%=Encode.forHtmlAttribute(rowColor)%>">
+            <tr class="<e:forHtmlAttribute value='<%= rowColor %>' />">
                 <% if (!isSameBill) {%>
                 <td style="text-align:center"><a href="#"
-                                                 onclick="popupPage(700,700,'/billing/CA/ON/BillingONCorrection?billing_no=<%=Encode.forJavaScript(curBillingNoStr)%>');return false;"><%=Encode.forHtml(curBillingNoStr)%>
+                                                 onclick="popupPage(700,700,'/billing/CA/ON/BillingONCorrection?billing_no=<e:forJavaScript value='<%= curBillingNoStr %>' />');return false;"><e:forHtmlContent value='<%= curBillingNoStr %>' />
                 </a></td>
                 <%} else {%>
                 <td></td>
                 <%}%>
-                <td style="text-align:center"><%=Encode.forHtml(billStatus)%>
+                <td style="text-align:center"><e:forHtmlContent value='<%= billStatus %>' />
                 </td>
-                <td style="text-align:center"><%=Encode.forHtml(serviceDate)%>
+                <td style="text-align:center"><e:forHtmlContent value='<%= serviceDate %>' />
                 </td>
                 <% if (!isSameBill) {%>
                 <td style="text-align:center"><a href="#"
-                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<%=Encode.forJavaScript(String.valueOf(demoNo))%>');return false;"><%=Encode.forHtml(demographicName)%>
+                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<e:forJavaScript value='<%= String.valueOf(demoNo) %>' />');return false;"><e:forHtmlContent value='<%= demographicName %>' />
                 </a></td>
                 <%} else {%>
                 <td></td>
                 <%}%>
-                <td style="text-align:center"><%=Encode.forHtml(dxCode)%>
+                <td style="text-align:center"><e:forHtmlContent value='<%= dxCode %>' />
                 </td>
-                <td style="text-align:center"><%=Encode.forHtml(serviceCode)%>
+                <td style="text-align:center"><e:forHtmlContent value='<%= serviceCode %>' />
                 </td>
-                <td style="text-align:center"><%=Encode.forHtml(rad.getServiceCount())%>
+                <td style="text-align:center"><e:forHtmlContent value='<%= rad.getServiceCount() %>' />
                 </td>
-                <td style="text-align:right"><%=Encode.forHtml(bItemFee)%>
+                <td style="text-align:right"><e:forHtmlContent value='<%= bItemFee %>' />
                 </td>
-                <td style="text-align:right"><%=Encode.forHtml(claimAmtStr)%>
+                <td style="text-align:right"><e:forHtmlContent value='<%= claimAmtStr %>' />
                 </td>
-                <td style="text-align:right"><%=Encode.forHtml(paidAmt.toPlainString())%>
+                <td style="text-align:right"><e:forHtmlContent value='<%= paidAmt.toPlainString() %>' />
                 </td>
-                <td style="text-align:right"><%=Encode.forHtml(adjAmt.toPlainString())%>
+                <td style="text-align:right"><e:forHtmlContent value='<%= adjAmt.toPlainString() %>' />
                 </td>
-                <td style="text-align:center"><%=Encode.forHtml(rad.getBillType())%>
+                <td style="text-align:center"><e:forHtmlContent value='<%= rad.getBillType() %>' />
                 </td>
-                <td style="text-align:center"><%=Encode.forHtml(rad.getClaimNo())%>
+                <td style="text-align:center"><e:forHtmlContent value='<%= rad.getClaimNo() %>' />
                 </td>
-                <td style="text-align:center;font-weight:bold"><%=Encode.forHtml(rad.getErrorCode())%>
+                <td style="text-align:center;font-weight:bold"><e:forHtmlContent value='<%= rad.getErrorCode() %>' />
                 </td>
             </tr>
             <% }
@@ -428,17 +426,17 @@
             <tr>
                 <td colspan="2" style="font-weight:bold;"><fmt:message key="oscar.billing.on.paymentReceived.itemCount"/>:
                 </td>
-                <td colspan="4"><%=Encode.forHtml(String.valueOf(numItems))%>
+                <td colspan="4"><e:forHtmlContent value='<%= String.valueOf(numItems) %>' />
                 </td>
                 <td style="font-weight:bold"><fmt:message key="oscar.billing.on.paymentReceived.cumulativeTotal"/>:
                 </td>
-                <td style="text-align:right"><%=Encode.forHtml(feeTotal.toPlainString())%>
+                <td style="text-align:right"><e:forHtmlContent value='<%= feeTotal.toPlainString() %>' />
                 </td>
-                <td style="text-align:right"><%=Encode.forHtml(claimTotal.toPlainString())%>
+                <td style="text-align:right"><e:forHtmlContent value='<%= claimTotal.toPlainString() %>' />
                 </td>
-                <td style="text-align:right"><%=Encode.forHtml(paidTotal.toPlainString())%>
+                <td style="text-align:right"><e:forHtmlContent value='<%= paidTotal.toPlainString() %>' />
                 </td>
-                <td style="text-align:right"><%=Encode.forHtml(adjTotal.toPlainString())%>
+                <td style="text-align:right"><e:forHtmlContent value='<%= adjTotal.toPlainString() %>' />
                 </td>
                 <td colspan="5"></td>
             </tr>
@@ -490,12 +488,12 @@
                         Date payDate = bPremium.getPayDate();
                         String payDateStr = DateUtils.formatDate(payDate, request.getLocale());
             %>
-            <tr class="<%=Encode.forHtmlAttribute(rowColor)%>">
-                <td><%=Encode.forHtml(providerName)%>
+            <tr class="<e:forHtmlAttribute value='<%= rowColor %>' />">
+                <td><e:forHtmlContent value='<%= providerName %>' />
                 </td>
-                <td><%=Encode.forHtml(payDateStr)%>
+                <td><e:forHtmlContent value='<%= payDateStr %>' />
                 </td>
-                <td colspan="9" style="text-align:right"><%=Encode.forHtml(amountPaid)%>
+                <td colspan="9" style="text-align:right"><e:forHtmlContent value='<%= amountPaid %>' />
                 </td>
             </tr>
             <% totalPremiums = totalPremiums.add(new BigDecimal(amountPaid));
@@ -504,11 +502,11 @@
             <tr>
                 <td colspan="2" style="font-weight:bold;"><fmt:message key="oscar.billing.on.paymentReceived.itemCount"/>:
                 </td>
-                <td colspan="3"><%=Encode.forHtml(String.valueOf(numPremiumItems))%>
+                <td colspan="3"><e:forHtmlContent value='<%= String.valueOf(numPremiumItems) %>' />
                 </td>
                 <td style="font-weight:bold"><fmt:message key="oscar.billing.on.paymentReceived.cumulativeTotal"/>:
                 </td>
-                <td style="text-align:right;font-weight:bold"><%=Encode.forHtml(totalPremiums.toPlainString())%>
+                <td style="text-align:right;font-weight:bold"><e:forHtmlContent value='<%= totalPremiums.toPlainString() %>' />
                 </td>
                 <td colspan="4"></td>
             </tr>
@@ -560,7 +558,7 @@
                             else
                                 rowColor = "myWhite";
             %>
-            <tr class="<%=Encode.forHtmlAttribute(rowColor)%>">
+            <tr class="<e:forHtmlAttribute value='<%= rowColor %>' />">
                 <%
                     String billingDateStr = "";
                     String demographicName = "";
@@ -573,16 +571,16 @@
                     String billingNo = String.valueOf(bCh1.getId());
                     if (!isThisProviderOnly) { %>
                 <td style="text-align:center"><a href="#"
-                                                 onclick="popupPage(700,700,'/billing/CA/ON/BillingONCorrection?billing_no=<%=Encode.forJavaScript(billingNo)%>');return false;"><%=Encode.forHtml(billingNo)%>
+                                                 onclick="popupPage(700,700,'/billing/CA/ON/BillingONCorrection?billing_no=<e:forJavaScript value='<%= billingNo %>' />');return false;"><e:forHtmlContent value='<%= billingNo %>' />
                 </a></td>
                 <% } else { %>
-                <td style="text-align:center"><%=Encode.forHtml(billingNo)%>
+                <td style="text-align:center"><e:forHtmlContent value='<%= billingNo %>' />
                 </td>
                 <% } %>
-                <td style="text-align:center"><%=Encode.forHtml(billingDateStr)%>
+                <td style="text-align:center"><e:forHtmlContent value='<%= billingDateStr %>' />
                 </td>
                 <td style="text-align:center"><a href="#"
-                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<%=Encode.forJavaScript(String.valueOf(demoNo))%>');return false;"><%=Encode.forHtml(demographicName)%>
+                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<e:forJavaScript value='<%= String.valueOf(demoNo) %>' />');return false;"><e:forHtmlContent value='<%= demographicName %>' />
                 </a></td>
                 <%
                     String dxCode = "";
@@ -613,29 +611,29 @@
                         if (numBillItems > 1) {
                 %>
             </tr>
-            <tr class="<%=Encode.forHtmlAttribute(rowColor)%>">
+            <tr class="<e:forHtmlAttribute value='<%= rowColor %>' />">
                 <td colspan="3"></td>
                 <% } %>
-                <td style="text-align:center"><%=Encode.forHtml(dxCode)%>
+                <td style="text-align:center"><e:forHtmlContent value='<%= dxCode %>' />
                 </td>
-                <td style="text-align:center"><%=Encode.forHtml(serviceCode)%>
+                <td style="text-align:center"><e:forHtmlContent value='<%= serviceCode %>' />
                 </td>
-                <td style="text-align:center"><%=Encode.forHtml(serviceCount)%>
+                <td style="text-align:center"><e:forHtmlContent value='<%= serviceCount %>' />
                 </td>
-                <td style="text-align:right"><%=Encode.forHtml(amtBilled)%>
+                <td style="text-align:right"><e:forHtmlContent value='<%= amtBilled %>' />
                 </td>
-                <td style="text-align:right"><%=Encode.forHtml(amtPaid.toPlainString())%>
+                <td style="text-align:right"><e:forHtmlContent value='<%= amtPaid.toPlainString() %>' />
                 </td>
-                <td style="text-align:right"><%=Encode.forHtml(amtRefund.toPlainString())%>
+                <td style="text-align:right"><e:forHtmlContent value='<%= amtRefund.toPlainString() %>' />
                 </td>
                 <td colspan="2"></td>
 
 
                 <% } %>
             </tr>
-            <tr class="<%=Encode.forHtmlAttribute(rowColor)%>">
+            <tr class="<e:forHtmlAttribute value='<%= rowColor %>' />">
                 <td colspan="6"></td>
-                <td style="font-weight:bold;text-align:right"><%=Encode.forHtml(totalBilled.toPlainString())%>
+                <td style="font-weight:bold;text-align:right"><e:forHtmlContent value='<%= totalBilled.toPlainString() %>' />
                 </td>
 
 
@@ -655,17 +653,17 @@
                                 colSpan = "8";
                 %>
             </tr>
-            <tr class="<%=Encode.forHtmlAttribute(rowColor)%>">
+            <tr class="<e:forHtmlAttribute value='<%= rowColor %>' />">
                 <%
 
                     }
 
                 %>
-                <td colspan="<%=Encode.forHtmlAttribute(colSpan)%>" style="text-align:right"><%=Encode.forHtml(payAmt.toPlainString())%>
+                <td colspan="<e:forHtmlAttribute value='<%= colSpan %>' />" style="text-align:right"><e:forHtmlContent value='<%= payAmt.toPlainString() %>' />
                 </td>
-                <td style="text-align:right"><%=Encode.forHtml(refundAmt.toPlainString())%>
+                <td style="text-align:right"><e:forHtmlContent value='<%= refundAmt.toPlainString() %>' />
                 </td>
-                <td style="text-align:center"><%=Encode.forHtml(payDate)%>
+                <td style="text-align:center"><e:forHtmlContent value='<%= payDate %>' />
                 </td>
                 <td style="text-align:center"></td>
             </tr>
@@ -692,8 +690,8 @@
             %>
 
 
-            <tr class="<%=Encode.forHtmlAttribute(rowColor)%>">
-                <td colspan="11" style="text-align:right;<%=Encode.forHtmlAttribute(fontWeight)%>"><%=Encode.forHtml(outstandingAmt)%>
+            <tr class="<e:forHtmlAttribute value='<%= rowColor %>' />">
+                <td colspan="11" style="text-align:right;<e:forHtmlAttribute value='<%= fontWeight %>' />"><e:forHtmlContent value='<%= outstandingAmt %>' />
                 </td>
             </tr>
             <% } %>
@@ -706,15 +704,15 @@
             <tr>
                 <td colspan="2" style="font-weight:bold;"><fmt:message key="oscar.billing.on.paymentReceived.itemCount"/>:
                 </td>
-                <td colspan="3"><%=Encode.forHtml(String.valueOf(num3rdItems))%>
+                <td colspan="3"><e:forHtmlContent value='<%= String.valueOf(num3rdItems) %>' />
                 </td>
                 <td style="font-weight:bold"><fmt:message key="oscar.billing.on.paymentReceived.cumulativeTotal"/>:
                 </td>
-                <td style="text-align:right"><%=Encode.forHtml(total3rdBilled.toPlainString())%>
+                <td style="text-align:right"><e:forHtmlContent value='<%= total3rdBilled.toPlainString() %>' />
                 </td>
-                <td style="text-align:right"><%=Encode.forHtml(total3rdPaid.toPlainString())%>
+                <td style="text-align:right"><e:forHtmlContent value='<%= total3rdPaid.toPlainString() %>' />
                 </td>
-                <td style="text-align:right"><%=Encode.forHtml(total3rdRefunded.toPlainString())%>
+                <td style="text-align:right"><e:forHtmlContent value='<%= total3rdRefunded.toPlainString() %>' />
                 </td>
                 <td colspan="2"></td>
             </tr>
@@ -724,7 +722,7 @@
         <%
             BigDecimal finalAmt = paidTotal.add(total3rdPaid).subtract(total3rdRefunded).add(totalPremiums);
         %>
-        <h3><fmt:message key="oscar.billing.on.paymentReceived.totalPaid"/>: <%=Encode.forHtml(finalAmt.toPlainString())%>
+        <h3><fmt:message key="oscar.billing.on.paymentReceived.totalPaid"/>: <e:forHtmlContent value='<%= finalAmt.toPlainString() %>' />
         </h3>
 
         </form>

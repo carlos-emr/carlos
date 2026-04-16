@@ -26,7 +26,7 @@
 "http://www.w3.org/TR/html4/loose.dtd">
 <%-- This JSP is the multi-site admin page --%>
 <%@ include file="/taglibs.jsp" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

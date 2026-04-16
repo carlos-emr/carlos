@@ -34,6 +34,7 @@
 %>
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.pageUtil.*" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -96,7 +97,7 @@
                     <tr>
                         <td>
                             <c:if test="${not empty demoInfo}">
-                                <c:out value="${demoInfo}"/> years
+                                ${e:forHtml(demoInfo)} years
                             </c:if>
                         </td>
                     </tr>
@@ -105,7 +106,7 @@
         </tr>
         <tr>
             <td class="MainTableLeftColumn"><a
-                    href="<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<c:out value="${demographicNo}"/>"><fmt:message key="global.btnBack"/>&nbsp;</a></td>
+                    href="<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=${e:forHtmlAttribute(demographicNo)}"><fmt:message key="global.btnBack"/>&nbsp;</a></td>
             <td class="MainTableRightColumn">
                 <table border=0 cellspacing=4 width=700>
                     <tr>
@@ -124,13 +125,13 @@
                                 </tr>
                                 <c:forEach var="waitingListBean" items="${patientWaitingList.patientWaitingList}">
                                 <tr class="data">
-                                    <td width="100"><c:out value="${waitingListBean.waitingList}"/></td>
-                                    <td width="50"><c:out value="${waitingListBean.position}"/></td>
-                                    <td width="100"><c:out value="${waitingListBean.note}"/></td>
-                                    <td width="100"><c:out value="${waitingListBean.onListSince}"/></td>
+                                    <td width="100">${e:forHtml(waitingListBean.waitingList)}</td>
+                                    <td width="50">${e:forHtml(waitingListBean.position)}</td>
+                                    <td width="100">${e:forHtml(waitingListBean.note)}</td>
+                                    <td width="100">${e:forHtml(waitingListBean.onListSince)}</td>
                                     <td><a href=#
-                                           onClick="removePatient('<c:out value="${waitingListBean.demographicNo}"/>', 
-                                           '<c:out value="${waitingListBean.waitingListID}"/>');">Remove</a>
+                                           onClick="removePatient('${e:forHtml(waitingListBean.demographicNo)}', 
+                                           '${e:forHtml(waitingListBean.waitingListID)}');">Remove</a>
                                     </td>
                                 </tr>
                                 </c:forEach>

@@ -36,7 +36,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page import="java.util.List" %>
 <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
 <html>
@@ -120,13 +120,13 @@
                                                 <c:param name="mType" value="${measurementType.type}"/>
                                             </c:url>
                                             <a href="${e:forHtmlAttribute(exportMeasurementUrl)}" target="_blank">
-                                                <c:out value="${measurementType.type}"/>
+                                                ${e:forHtml(measurementType.type)}
                                             </a>
                                         </td>
-                                        <td width="20"><c:out value="${measurementType.typeDisplayName}"/></td>
-                                        <td width="10"><c:out value="${measurementType.typeDesc}"/></td>
-                                        <td width="300"><c:out value="${measurementType.measuringInstrc}"/></td>
-                                        <td width="300"><c:out value="${measurementType.validation}"/></td>
+                                        <td width="20">${e:forHtml(measurementType.typeDisplayName)}</td>
+                                        <td width="10">${e:forHtml(measurementType.typeDesc)}</td>
+                                        <td width="300">${e:forHtml(measurementType.measuringInstrc)}</td>
+                                        <td width="300">${e:forHtml(measurementType.validation)}</td>
                                         <td width="10">
                                             <input type="checkbox" name="deleteCheckbox" value="${measurementType.id}"/>
                                         </td>

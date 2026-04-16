@@ -34,8 +34,6 @@
 
 <%@ page
         import="io.github.carlos_emr.carlos.mds.data.ProviderData, java.util.ArrayList, io.github.carlos_emr.carlos.lab.ForwardingRules, io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
 
     ForwardingRules fr = new ForwardingRules();
@@ -98,7 +96,7 @@
 <body>
 <div class="container">
 <form method="post" name="RULES" action="ForwardingRules">
-    <input type="hidden" name="providerNo" value="<%= Encode.forHtmlAttribute(providerNo) %>">
+    <input type="hidden" name="providerNo" value="<e:forHtmlAttribute value='<%= providerNo %>' />">
     <input type="hidden" name="operation" value="update">
     <input type="hidden" name="remProviderNum" value="">
 
@@ -136,10 +134,10 @@
                     <ul class="list-unstyled ms-3 mt-1 mb-0">
                         <%for (int i = 0; i < frwdProviders.size(); i++) {%>
                         <li>
-                            <%= Encode.forHtml((String) ((ArrayList) frwdProviders.get(i)).get(1)) %>
-                            <%= Encode.forHtml((String) ((ArrayList) frwdProviders.get(i)).get(2)) %>
+                            <e:forHtmlContent value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' />
+                            <e:forHtmlContent value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' />
                             <a href="#" class="text-danger ms-2" style="font-size:12px;"
-                               onclick="return removeProvider('<%= Encode.forJavaScript((String) ((ArrayList) frwdProviders.get(i)).get(0)) %>', '<%= Encode.forJavaScript((String) ((ArrayList) frwdProviders.get(i)).get(1)) %> <%= Encode.forJavaScript((String) ((ArrayList) frwdProviders.get(i)).get(2)) %>')">Remove</a>
+                               onclick="return removeProvider('<e:forJavaScriptAttribute value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>' />', '<e:forJavaScript value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' /> <e:forJavaScript value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' />')">Remove</a>
                         </li>
                         <%}%>
                     </ul>
@@ -176,7 +174,7 @@
                                 for (int i = 0; i < providers.size(); i++) {
                                     String prov_no = (String) ((ArrayList) providers.get(i)).get(0);
                                     if (!providerNo.equals(prov_no) && !frwdProviders.contains(providers.get(i))) {%>
-                            <option value="<%= Encode.forHtmlAttribute(prov_no) %>"><%= Encode.forHtml((String) ((ArrayList) providers.get(i)).get(1)) %> <%= Encode.forHtml((String) ((ArrayList) providers.get(i)).get(2)) %></option>
+                            <option value="<e:forHtmlAttribute value='<%= prov_no %>' />"><e:forHtmlContent value='<%= (String) ((ArrayList) providers.get(i)).get(1) %>' /> <e:forHtmlContent value='<%= (String) ((ArrayList) providers.get(i)).get(2) %>' /></option>
                             <% }
                             } %>
                         </optgroup>

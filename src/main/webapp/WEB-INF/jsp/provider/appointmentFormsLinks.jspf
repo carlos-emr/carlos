@@ -52,7 +52,7 @@
 						+ "&demographic_no=" + (demographic_no != null ? URLEncoder.encode(demographic_no, "UTF-8") : "")
 						+ "&appointmentNo=" + (appointment_no != null ? URLEncoder.encode(appointment_no, "UTF-8") : "");
 				%>
-					|<a href=# onClick='popupPage2("<%=Encode.forJavaScriptAttribute(url)%>")' title='<%=Encode.forHtmlAttribute(formNameTemp)%>'><%=Encode.forHtmlContent(trimmedLinkName)%></a>
+					|<a href=# onClick='popupPage2("<e:forJavaScriptAttribute value='<%= url %>' />")' title='<e:forHtmlAttribute value='<%= formNameTemp %>' />'><e:forHtmlContent value='<%= trimmedLinkName %>' /></a>
 				<%
 			}
 
@@ -70,7 +70,7 @@
 						+ "&demographic_no=" + (demographic_no != null ? URLEncoder.encode(demographic_no, "UTF-8") : "")
 						+ "&appointment=" + (appointment_no != null ? URLEncoder.encode(appointment_no, "UTF-8") : "");
 				%>
-					|<a href=# onClick='popupPage2("<%=Encode.forJavaScriptAttribute(url)%>")' title='<%=Encode.forHtmlAttribute(eForm.getFormName())%>'><%=Encode.forHtmlContent(trimmedLinkName)%></a>
+					|<a href=# onClick='popupPage2("<e:forJavaScriptAttribute value='<%= url %>' />")' title='<e:forHtmlAttribute value='<%= eForm.getFormName() %>' />'><e:forHtmlContent value='<%= trimmedLinkName %>' /></a>
 				<%
 			}
 		}
@@ -100,11 +100,11 @@
 			if (hinExposed) {
 				String warningTitle = "WARNING-The health number is exposed in " + quickLink.getName();
 				%>
-				|<a href=# onClick='popupPage2("<%=Encode.forJavaScriptAttribute(url)%>")' title='<%=Encode.forHtmlAttribute(warningTitle)%>' style='background-color:red;color:white;'><%=Encode.forHtmlContent(trimmedLinkName)%></a>
+				|<a href=# onClick='popupPage2("<e:forJavaScriptAttribute value='<%= url %>' />")' title='<e:forHtmlAttribute value='<%= warningTitle %>' />' style='background-color:red;color:white;'><e:forHtmlContent value='<%= trimmedLinkName %>' /></a>
 				<%
 			} else {
 				%>
-				|<a href=# onClick='popupPage2("<%=Encode.forJavaScriptAttribute(url)%>")' title='<%=Encode.forHtmlAttribute(quickLink.getName())%>'><%=Encode.forHtmlContent(trimmedLinkName)%></a>
+				|<a href=# onClick='popupPage2("<e:forJavaScriptAttribute value='<%= url %>' />")' title='<e:forHtmlAttribute value='<%= quickLink.getName() %>' />'><e:forHtmlContent value='<%= trimmedLinkName %>' /></a>
 				<%
 			}
 		}

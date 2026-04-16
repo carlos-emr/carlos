@@ -31,7 +31,6 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
 <%@ page import="io.github.carlos_emr.carlos.report.pageUtil.RptFormQuery" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.ParameterizedSql" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String VALUE = "value_";
     String DATE_FORMAT = "dateFormat_";
@@ -103,7 +102,7 @@
     <center>
         <table BORDER="1" CELLPADDING="0" CELLSPACING="0" WIDTH="80%">
             <tr BGCOLOR="#CCFFFF">
-                <th><%=Encode.forHtml(reportName)%>
+                <th><e:forHtmlContent value='<%= reportName %>' />
                 </th>
             </tr>
         </table>
@@ -112,7 +111,7 @@
         <tr BGCOLOR="#CCCCFF">
             <td></td>
             <td width="10%" align="right" nowrap><a
-                    href="<%= request.getContextPath() %>/report/ViewReportFilter?id=<%= Encode.forUriComponent(reportId) %>">Back to Report Filter</a></td>
+                    href="<%= request.getContextPath() %>/report/ViewReportFilter?id=<e:forUriComponent value='<%= reportId %>' />">Back to Report Filter</a></td>
         </tr>
     </table>
 
@@ -123,7 +122,7 @@
         <thead>
         <tr BGCOLOR="#66CCCC">
             <% for (int i = 0; i < vecFieldCaption.size(); i++) { %>
-            <th><%=Encode.forHtml((String) vecFieldCaption.get(i))%>
+            <th><e:forHtmlContent value='<%= (String) vecFieldCaption.get(i) %>' />
             </th>
             <% } %>
         </tr>
@@ -134,7 +133,7 @@
         %>
         <tr BGCOLOR="<%=color%>">
             <% for (int j = 0; j < vecFieldCaption.size(); j++) { %>
-            <td><%=Encode.forHtml(prop.getProperty((String) vecFieldCaption.get(j), ""))%>&nbsp;</td>
+            <td><e:forHtmlContent value='<%= prop.getProperty((String) vecFieldCaption.get(j), "") %>' />&nbsp;</td>
             <% } %>
         </tr>
         <% } %>

@@ -47,7 +47,6 @@
 
 <%@ page import=" io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*, java.util.Properties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmBCAR2020Record" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
@@ -155,7 +154,7 @@
             <form action="${pageContext.request.contextPath}/form/BCAR2020" method="post">
                 <input type="hidden" id="demographicNo" name="demographicNo" value="<%=demoNo%>"/>
                 <input type="hidden" id="formId" name="formId" value="<%=formId%>"/>
-                <input type="hidden" name="provider_no" value=<%=Encode.forHtmlAttribute(providerNo)%>/>
+                <input type="hidden" name="provider_no" value=<e:forHtmlUnquotedAttribute value='<%= providerNo %>' />/>
                 <input type="hidden" id="user" name="provNo" value=<%=provNo%>/>
                 <input type="hidden" name="method" value="exit"/>
 
@@ -251,63 +250,63 @@
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1st3rdTrimesterNutrition" <%=Encode.forHtmlAttribute(props.getProperty("c_1st3rdTrimesterNutrition", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_1st3rdTrimesterNutrition" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterNutrition", "").equals("X") ? "checked" : "" %>' /> />
                                                     Nutrition/folic acid
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1st3rdTrimesterWeightGain" <%=Encode.forHtmlAttribute(props.getProperty("c_1st3rdTrimesterWeightGain", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_1st3rdTrimesterWeightGain" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterWeightGain", "").equals("X") ? "checked" : "" %>' /> />
                                                     Healthy weight gain
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1st3rdTrimesterPhysicalActivity" <%=Encode.forHtmlAttribute(props.getProperty("c_1st3rdTrimesterPhysicalActivity", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_1st3rdTrimesterPhysicalActivity" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterPhysicalActivity", "").equals("X") ? "checked" : "" %>' /> />
                                                     Physical activity
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1st3rdTrimesterOccupation" <%=Encode.forHtmlAttribute(props.getProperty("c_1st3rdTrimesterOccupation", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_1st3rdTrimesterOccupation" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterOccupation", "").equals("X") ? "checked" : "" %>' /> />
                                                     Occupational concerns
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1st3rdTrimesterPersonalSafety" <%=Encode.forHtmlAttribute(props.getProperty("c_1st3rdTrimesterPersonalSafety", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_1st3rdTrimesterPersonalSafety" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterPersonalSafety", "").equals("X") ? "checked" : "" %>' /> />
                                                     Personal Safety
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1st3rdTrimesterSupportSystem" <%=Encode.forHtmlAttribute(props.getProperty("c_1st3rdTrimesterSupportSystem", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_1st3rdTrimesterSupportSystem" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterSupportSystem", "").equals("X") ? "checked" : "" %>' /> />
                                                     Support system
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1st3rdTrimesterMentalHealth" <%=Encode.forHtmlAttribute(props.getProperty("c_1st3rdTrimesterMentalHealth", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_1st3rdTrimesterMentalHealth" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterMentalHealth", "").equals("X") ? "checked" : "" %>' /> />
                                                     Mental health
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1st3rdTrimesterSubstanceUse" <%=Encode.forHtmlAttribute(props.getProperty("c_1st3rdTrimesterSubstanceUse", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_1st3rdTrimesterSubstanceUse" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterSubstanceUse", "").equals("X") ? "checked" : "" %>' /> />
                                                     Substance Use (i.e. alcohol, drugs)
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1st3rdTrimesterSexualActivity" <%=Encode.forHtmlAttribute(props.getProperty("c_1st3rdTrimesterSexualActivity", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_1st3rdTrimesterSexualActivity" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterSexualActivity", "").equals("X") ? "checked" : "" %>' /> />
                                                     Sexual activity, STI risk factors, screening
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1st3rdTrimesterImmunization" <%=Encode.forHtmlAttribute(props.getProperty("c_1st3rdTrimesterImmunization", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_1st3rdTrimesterImmunization" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterImmunization", "").equals("X") ? "checked" : "" %>' /> />
                                                     Immunization
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1st3rdTrimesterVBAC" <%=Encode.forHtmlAttribute(props.getProperty("c_1st3rdTrimesterVBAC", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_1st3rdTrimesterVBAC" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterVBAC", "").equals("X") ? "checked" : "" %>' /> />
                                                     VBAC counseling (if applicable)
                                                 </div>
                                             </td>
@@ -332,63 +331,63 @@
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1stTrimesterNausea" <%=Encode.forHtmlAttribute(props.getProperty("c_1stTrimesterNausea", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_1stTrimesterNausea" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterNausea", "").equals("X") ? "checked" : "" %>' /> />
                                                     Nausea/vomiting
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1stTrimesterSafety" <%=Encode.forHtmlAttribute(props.getProperty("c_1stTrimesterSafety", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_1stTrimesterSafety" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterSafety", "").equals("X") ? "checked" : "" %>' /> />
                                                     Safety: food, medications/ vitamins/ supplements, seatbelts
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1stTrimesterOralHealth" <%=Encode.forHtmlAttribute(props.getProperty("c_1stTrimesterOralHealth", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_1stTrimesterOralHealth" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterOralHealth", "").equals("X") ? "checked" : "" %>' /> />
                                                     Oral health
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1stTrimesterExposures" <%=Encode.forHtmlAttribute(props.getProperty("c_1stTrimesterExposures", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_1stTrimesterExposures" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterExposures", "").equals("X") ? "checked" : "" %>' /> />
                                                     Exposures: infections, pets, environment, occupation
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1stTrimesterTravel" <%=Encode.forHtmlAttribute(props.getProperty("c_1stTrimesterTravel", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_1stTrimesterTravel" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterTravel", "").equals("X") ? "checked" : "" %>' /> />
                                                     Travel
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1stTrimesterGeneticScreening" <%=Encode.forHtmlAttribute(props.getProperty("c_1stTrimesterGeneticScreening", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_1stTrimesterGeneticScreening" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterGeneticScreening", "").equals("X") ? "checked" : "" %>' /> />
                                                     Prenatal genetic screening
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1stTrimesterEarlyLoss" <%=Encode.forHtmlAttribute(props.getProperty("c_1stTrimesterEarlyLoss", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_1stTrimesterEarlyLoss" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterEarlyLoss", "").equals("X") ? "checked" : "" %>' /> />
                                                     Early pregnancy loss: signs / symptoms, what to do
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1stTrimesterRoutine" <%=Encode.forHtmlAttribute(props.getProperty("c_1stTrimesterRoutine", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_1stTrimesterRoutine" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterRoutine", "").equals("X") ? "checked" : "" %>' /> />
                                                     Routine prenatal care, emergency contact/ on-call providers
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1stTrimesterBreastfeeding" <%=Encode.forHtmlAttribute(props.getProperty("c_1stTrimesterBreastfeeding", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_1stTrimesterBreastfeeding" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterBreastfeeding", "").equals("X") ? "checked" : "" %>' /> />
                                                     Breastfeeding: attitudes/beliefs
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1stTrimesterQualityEducation" <%=Encode.forHtmlAttribute(props.getProperty("c_1stTrimesterQualityEducation", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_1stTrimesterQualityEducation" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterQualityEducation", "").equals("X") ? "checked" : "" %>' /> />
                                                     Quality educational resources
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1stTrimesterPublicServices" <%=Encode.forHtmlAttribute(props.getProperty("c_1stTrimesterPublicServices", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_1stTrimesterPublicServices" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterPublicServices", "").equals("X") ? "checked" : "" %>' /> />
                                                     Public health services / programs
                                                 </div>
                                             </td>
@@ -413,59 +412,59 @@
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_2ndTrimesterBleeding" <%=Encode.forHtmlAttribute(props.getProperty("c_2ndTrimesterBleeding", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_2ndTrimesterBleeding" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterBleeding", "").equals("X") ? "checked" : "" %>' /> />
                                                     Bleeding
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_2ndTrimesterPretermLabour" <%=Encode.forHtmlAttribute(props.getProperty("c_2ndTrimesterPretermLabour", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_2ndTrimesterPretermLabour" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterPretermLabour", "").equals("X") ? "checked" : "" %>' /> />
                                                     Preterm labour: signs/symptoms
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_2ndTrimesterPROM" <%=Encode.forHtmlAttribute(props.getProperty("c_2ndTrimesterPROM", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_2ndTrimesterPROM" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterPROM", "").equals("X") ? "checked" : "" %>' /> />
                                                     PROM
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_2ndTrimesterLifestyle" <%=Encode.forHtmlAttribute(props.getProperty("c_2ndTrimesterLifestyle", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_2ndTrimesterLifestyle" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterLifestyle", "").equals("X") ? "checked" : "" %>' /> />
                                                     Lifestyle and social risk assessment
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_2ndTrimesterGestationalDiab" <%=Encode.forHtmlAttribute(props.getProperty("c_2ndTrimesterGestationalDiab", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_2ndTrimesterGestationalDiab" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterGestationalDiab", "").equals("X") ? "checked" : "" %>' /> />
                                                     Gestational diabetes screening
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_2ndTrimesterPrenatalClasses" <%=Encode.forHtmlAttribute(props.getProperty("c_2ndTrimesterPrenatalClasses", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_2ndTrimesterPrenatalClasses" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterPrenatalClasses", "").equals("X") ? "checked" : "" %>' /> />
                                                     Prenatal classes
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_2ndTrimesterBirthOptions" <%=Encode.forHtmlAttribute(props.getProperty("c_2ndTrimesterBirthOptions", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_2ndTrimesterBirthOptions" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterBirthOptions", "").equals("X") ? "checked" : "" %>' /> />
                                                     Birth options and practices that promote healthy birth
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_2ndTrimesterBirthPlan" <%=Encode.forHtmlAttribute(props.getProperty("c_2ndTrimesterBirthPlan", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_2ndTrimesterBirthPlan" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterBirthPlan", "").equals("X") ? "checked" : "" %>' /> />
                                                     Birth plan: travel to other community for delivery (if applicable)
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_2ndTrimesterBreastfeeding" <%=Encode.forHtmlAttribute(props.getProperty("c_2ndTrimesterBreastfeeding", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_2ndTrimesterBreastfeeding" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterBreastfeeding", "").equals("X") ? "checked" : "" %>' /> />
                                                     Breastfeeding and importance of immediate, uninterrupted
                                                     skin-to-skin care
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_2ndTrimesterPostpartumContra" <%=Encode.forHtmlAttribute(props.getProperty("c_2ndTrimesterPostpartumContra", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_2ndTrimesterPostpartumContra" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterPostpartumContra", "").equals("X") ? "checked" : "" %>' /> />
                                                     Postpartum contraception
                                                 </div>
                                             </td>
@@ -490,108 +489,108 @@
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterFetalMovement" <%=Encode.forHtmlAttribute(props.getProperty("c_3rdTrimesterFetalMovement", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_3rdTrimesterFetalMovement" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterFetalMovement", "").equals("X") ? "checked" : "" %>' /> />
                                                     Fetal movement
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterEmergencyContact" <%=Encode.forHtmlAttribute(props.getProperty("c_3rdTrimesterEmergencyContact", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_3rdTrimesterEmergencyContact" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterEmergencyContact", "").equals("X") ? "checked" : "" %>' /> />
                                                     Emergency contact/on-call providers
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterECV" <%=Encode.forHtmlAttribute(props.getProperty("c_3rdTrimesterECV", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_3rdTrimesterECV" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterECV", "").equals("X") ? "checked" : "" %>' /> />
                                                     ECV, breech delivery, elective Cesarean delivery (if applicable)
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterIndicationsInduction" <%=Encode.forHtmlAttribute(props.getProperty("c_3rdTrimesterIndicationsInduction", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_3rdTrimesterIndicationsInduction" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterIndicationsInduction", "").equals("X") ? "checked" : "" %>' /> />
                                                     Indications for induction of labour
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterSignsLabour" <%=Encode.forHtmlAttribute(props.getProperty("c_3rdTrimesterSignsLabour", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_3rdTrimesterSignsLabour" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterSignsLabour", "").equals("X") ? "checked" : "" %>' /> />
                                                     Signs/symptoms of labour and admission timing
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterBirthPlan" <%=Encode.forHtmlAttribute(props.getProperty("c_3rdTrimesterBirthPlan", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_3rdTrimesterBirthPlan" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterBirthPlan", "").equals("X") ? "checked" : "" %>' /> />
                                                     Birth plan: labour support, pain management
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterPotentialInterventions" <%=Encode.forHtmlAttribute(props.getProperty("c_3rdTrimesterPotentialInterventions", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_3rdTrimesterPotentialInterventions" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterPotentialInterventions", "").equals("X") ? "checked" : "" %>' /> />
                                                     Potential interventions, use of blood products
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterGenitalHerpes" <%=Encode.forHtmlAttribute(props.getProperty("c_3rdTrimesterGenitalHerpes", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_3rdTrimesterGenitalHerpes" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterGenitalHerpes", "").equals("X") ? "checked" : "" %>' /> />
                                                     Genital herpes suppression
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterGBSScreening" <%=Encode.forHtmlAttribute(props.getProperty("c_3rdTrimesterGBSScreening", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_3rdTrimesterGBSScreening" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterGBSScreening", "").equals("X") ? "checked" : "" %>' /> />
                                                     GBS screening/prophylaxis
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterCordBloodBanking" <%=Encode.forHtmlAttribute(props.getProperty("c_3rdTrimesterCordBloodBanking", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_3rdTrimesterCordBloodBanking" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterCordBloodBanking", "").equals("X") ? "checked" : "" %>' /> />
                                                     Cord blood banking
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterErythromycin" <%=Encode.forHtmlAttribute(props.getProperty("c_3rdTrimesterErythromycin", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_3rdTrimesterErythromycin" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterErythromycin", "").equals("X") ? "checked" : "" %>' /> />
                                                     Erythromycin/ophthalmia neonatorum prophylaxis/ treatment
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterVitaminK" <%=Encode.forHtmlAttribute(props.getProperty("c_3rdTrimesterVitaminK", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_3rdTrimesterVitaminK" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterVitaminK", "").equals("X") ? "checked" : "" %>' /> />
                                                     Vitamin K prophylaxis
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterNewbornCare" <%=Encode.forHtmlAttribute(props.getProperty("c_3rdTrimesterNewbornCare", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_3rdTrimesterNewbornCare" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterNewbornCare", "").equals("X") ? "checked" : "" %>' /> />
                                                     Newborn care, screening, circumcision, follow-up
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterBreastfeeding" <%=Encode.forHtmlAttribute(props.getProperty("c_3rdTrimesterBreastfeeding", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_3rdTrimesterBreastfeeding" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterBreastfeeding", "").equals("X") ? "checked" : "" %>' /> />
                                                     Breastfeeding adjustment, skills, support
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterPostpartumCare" <%=Encode.forHtmlAttribute(props.getProperty("c_3rdTrimesterPostpartumCare", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_3rdTrimesterPostpartumCare" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterPostpartumCare", "").equals("X") ? "checked" : "" %>' /> />
                                                     Postpartum care
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterPostpartumContraception" <%=Encode.forHtmlAttribute(props.getProperty("c_3rdTrimesterPostpartumContraception", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_3rdTrimesterPostpartumContraception" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterPostpartumContraception", "").equals("X") ? "checked" : "" %>' /> />
                                                     Postpartum contraception
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterDischargePlanning" <%=Encode.forHtmlAttribute(props.getProperty("c_3rdTrimesterDischargePlanning", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_3rdTrimesterDischargePlanning" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterDischargePlanning", "").equals("X") ? "checked" : "" %>' /> />
                                                     Discharge planning, car seat safety
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterInfantSleep" <%=Encode.forHtmlAttribute(props.getProperty("c_3rdTrimesterInfantSleep", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_3rdTrimesterInfantSleep" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterInfantSleep", "").equals("X") ? "checked" : "" %>' /> />
                                                     Infant safe sleep
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterWorkPlan" <%=Encode.forHtmlAttribute(props.getProperty("c_3rdTrimesterWorkPlan", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_3rdTrimesterWorkPlan" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterWorkPlan", "").equals("X") ? "checked" : "" %>' /> />
                                                     Work plan, maternity leave
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterEPDSScreening" <%=Encode.forHtmlAttribute(props.getProperty("c_3rdTrimesterEPDSScreening", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_3rdTrimesterEPDSScreening" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterEPDSScreening", "").equals("X") ? "checked" : "" %>' /> />
                                                     EPDS screening
                                                 </div>
                                             </td>

@@ -35,9 +35,6 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
-<%@page import="org.owasp.encoder.Encode" %>
-
-
 <script type="text/javascript">
     var remote = null;
     var awnd = null;
@@ -88,9 +85,9 @@
 
 
 <form id="preference_form" name="preference_form" action="<%= request.getContextPath() %>/provider/ViewPreferenceAction" method="post">
-    <input type="hidden" name="provider_no" id="provider_no" value="<%=Encode.forHtmlAttribute(provider_no)%>"/>
+    <input type="hidden" name="provider_no" id="provider_no" value="<e:forHtmlAttribute value='<%= provider_no %>' />"/>
     <input type="hidden" name="new_tickler_warning_window" id="new_tickler_warning_window"
-           value="<%=Encode.forHtmlAttribute(request.getParameter("new_tickler_warning_window") != null ? request.getParameter("new_tickler_warning_window") : "")%>"/>
+           value="<e:forHtmlAttribute value='<%= request.getParameter("new_tickler_warning_window") != null ? request.getParameter("new_tickler_warning_window") : "" %>' />"/>
 
     <table style="margin-left:auto;margin-right:auto;background-color:#f0f0f0;border-collapse:collapse">
 
@@ -98,7 +95,7 @@
         <tr>
             <td>Dx &nbsp;&nbsp;
                 <input type="text" name="dxCode" size="5" maxlength="5" ondblClick="dxScriptAttach('dxCode')"
-                       value="<%=Encode.forHtmlAttribute(defaultDxCode)%>"/>
+                       value="<e:forHtmlAttribute value='<%= defaultDxCode %>' />"/>
                 <a href=# onclick="dxScriptAttach('dxCode');">Search</a>
             </td>
         </tr>

@@ -62,8 +62,6 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%
@@ -134,7 +132,7 @@
 </table>
 <div class="alert alert-success" role="alert" style="margin-left:20px; margin-right:20px; margin-top: 20px;">
     <fmt:message
-					key="messenger.SentMessage.msgMessageSentTo" /> <%= Encode.forHtml(request.getAttribute("SentMessageProvs") != null ? request.getAttribute("SentMessageProvs").toString() : "") %>
+					key="messenger.SentMessage.msgMessageSentTo" /> <e:forHtmlContent value='<%= request.getAttribute("SentMessageProvs") != null ? request.getAttribute("SentMessageProvs").toString() : "" %>' />
 </div>
 <div style="width:100%; margin-left:10px; margin-top: 50px;">
 <a class="btn btn-outline-secondary" href="${pageContext.request.contextPath}/messenger/ViewCreateMessage">

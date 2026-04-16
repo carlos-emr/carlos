@@ -1,3 +1,4 @@
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%-- Row Three: Encounter notes, template autocomplete, consumption, action buttons --%>
 <div class="encounter-card card mb-1" id="rowThree">
     <div class="card-header d-flex align-items-center">
@@ -6,8 +7,8 @@
             <a href="#"
                onclick="popupPage(600,700,'<fmt:message key="encounter.Index.popupPage2Window"/>','${ctx}/report/ViewReportecharthistory?demographic_no=${bean.demographicNo}');return false;">
                 <fmt:message key="global.encounter"/>:
-                <e:forHtmlContent value="${bean.patientLastName}"/>,
-                <e:forHtmlContent value="${bean.patientFirstName}"/>
+                <e:forHtmlContent value='${bean.patientLastName}'/>,
+                <e:forHtmlContent value='${bean.patientFirstName}'/>
             </a>
 
             <%-- Split chart link --%>
@@ -25,7 +26,7 @@
 
         <%-- Consumption indicator --%>
         <div class="d-flex align-items-center gap-1 me-2" style="font-size: 9px; font-variant: small-caps; font-weight: bold;">
-            <span><c:out value="${consumption}"/>%</span>
+            <span>${e:forHtml(consumption)}%</span>
             <div style="width: 80px; height: 12px; background-color: white; border: 1px solid #ccc; border-radius: 2px; overflow: hidden;">
                 <div style="width: <e:forHtmlAttribute value='${consumption}'/>%; height: 100%; background-color: <e:forHtmlAttribute value='${consumptionColor}'/>;" ></div>
             </div>
@@ -44,7 +45,7 @@
     </div>
     <div class="card-body">
         <textarea name="enTextarea" tabindex="7" wrap="hard" cols="90"
-                  style="height:<e:forHtmlAttribute value='${rowThreeSize}'/>;overflow:auto"><c:out value="${encounterText}"/></textarea>
+                  style="height:<e:forHtmlAttribute value='${rowThreeSize}'/>;overflow:auto">${e:forHtml(encounterText)}</textarea>
     </div>
 </div>
 

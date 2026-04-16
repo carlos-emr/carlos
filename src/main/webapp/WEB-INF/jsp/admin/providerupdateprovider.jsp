@@ -70,7 +70,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.Gender" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     ProviderDataDao providerDao = SpringUtils.getBean(ProviderDataDao.class);
 %>
@@ -204,8 +203,8 @@
                     </td>
                     <td>
                                 <% String provider_no = provider.getId(); %>
-                                <%= Encode.forHtml(provider_no) %>
-                        <input type="hidden" name="provider_no" value="<%= Encode.forHtmlAttribute(provider_no) %>">
+                                <e:forHtmlContent value='<%= provider_no %>' />
+                        <input type="hidden" name="provider_no" value="<e:forHtmlAttribute value='<%= provider_no %>' />">
 
                 </tr>
                 <tr>
@@ -214,7 +213,7 @@
                         </div>
                     </td>
                     <td><input type="text" index="3" name="last_name"
-                               value="<%= Encode.forHtmlAttribute(provider.getLastName() == null ? "" : provider.getLastName()) %>" maxlength="30"></td>
+                               value="<e:forHtmlAttribute value='<%= provider.getLastName() == null ? "" : provider.getLastName() %>' />" maxlength="30"></td>
                 </tr>
                 <tr>
                     <td>
@@ -222,7 +221,7 @@
                         </div>
                     </td>
                     <td><input type="text" index="4" name="first_name"
-                               value="<%= Encode.forHtmlAttribute(provider.getFirstName() == null ? "" : provider.getFirstName()) %>" maxlength="30"></td>
+                               value="<e:forHtmlAttribute value='<%= provider.getFirstName() == null ? "" : provider.getFirstName() %>' />" maxlength="30"></td>
                 </tr>
 
 
@@ -240,8 +239,8 @@
                             for (int i = 0; i < sites.size(); i++) {
                         %>
                         <input type="checkbox" name="sites"
-                               value="<%= Encode.forHtmlAttribute(sites.get(i).getSiteId() == null ? "" : String.valueOf(sites.get(i).getSiteId())) %>" <%= psites.contains(sites.get(i))?"checked='checked'":"" %> <%=((!isSiteAccessPrivacy) || siteIDs.contains(sites.get(i).getSiteId()) ? "" : " disabled ") %>>
-                        <%= Encode.forHtmlContent(sites.get(i).getName() == null ? "" : sites.get(i).getName()) %><br/>
+                               value="<e:forHtmlAttribute value='<%= sites.get(i).getSiteId() == null ? "" : String.valueOf(sites.get(i).getSiteId()) %>' />" <%= psites.contains(sites.get(i))?"checked='checked'":"" %> <%=((!isSiteAccessPrivacy) || siteIDs.contains(sites.get(i).getSiteId()) ? "" : " disabled ") %>>
+                        <e:forHtmlContent value='<%= sites.get(i).getName() == null ? "" : sites.get(i).getName() %>' /><br/>
                         <%
                             }
                         %>
@@ -295,8 +294,8 @@
                     for( ProviderData p : providerL ) {
                         
                     %>
-                        <option value="<%=Encode.forHtmlAttribute(p.getId() == null ? "" : p.getId())%>"
-                                <%if( provider.getSupervisor() != null &&  provider.getSupervisor().equals(p.getId())){%>SELECTED<%}%>><%=Encode.forHtmlContent((p.getLastName() == null ? "" : p.getLastName()) + ", " + (p.getFirstName() == null ? "" : p.getFirstName()))%>
+                        <option value="<e:forHtmlAttribute value='<%= p.getId() == null ? "" : p.getId() %>' />"
+                                <%if( provider.getSupervisor() != null &&  provider.getSupervisor().equals(p.getId())){%>SELECTED<%}%>><e:forHtmlContent value='<%= (p.getLastName() == null ? "" : p.getLastName()) + ", " + (p.getFirstName() == null ? "" : p.getFirstName()) %>' />
                         </option>
 
                                 <%
@@ -309,13 +308,13 @@
                         <td align="right"><fmt:message key="admin.provider.formSpecialty"/>:
                         </td>
                         <td><input type="text" name="specialty"
-                                   value="<%= Encode.forHtmlAttribute(provider.getSpecialty() == null ? "" : provider.getSpecialty()) %>" maxlength="40"></td>
+                                   value="<e:forHtmlAttribute value='<%= provider.getSpecialty() == null ? "" : provider.getSpecialty() %>' />" maxlength="40"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formTeam"/>:
                         </td>
                         <td><input type="text" name="team"
-                                   value="<%= Encode.forHtmlAttribute(provider.getTeam() == null ? "" : provider.getTeam()) %>" maxlength="20"></td>
+                                   value="<e:forHtmlAttribute value='<%= provider.getTeam() == null ? "" : provider.getTeam() %>' />" maxlength="20"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formSex"/>:
@@ -340,82 +339,82 @@
                         <td align="right"><fmt:message key="admin.provider.formAddress"/>:
                         </td>
                         <td><input type="text" name="address"
-                                   value="<%= Encode.forHtmlAttribute(provider.getAddress()==null ? "" : provider.getAddress()) %>" size="40"
+                                   value="<e:forHtmlAttribute value='<%= provider.getAddress()==null ? "" : provider.getAddress() %>' />" size="40"
                                    maxlength="40"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formHomePhone"/>:
                         </td>
                         <td><input type="text" name="phone"
-                                   value="<%= Encode.forHtmlAttribute(provider.getPhone()==null ? "" : provider.getPhone()) %>"></td>
+                                   value="<e:forHtmlAttribute value='<%= provider.getPhone()==null ? "" : provider.getPhone() %>' />"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formWorkPhone"/>:
                         </td>
                         <td><input type="text" name="workphone"
-                                   value="<%= Encode.forHtmlAttribute(provider.getWorkPhone()==null ? "" : provider.getWorkPhone()) %>"
+                                   value="<e:forHtmlAttribute value='<%= provider.getWorkPhone()==null ? "" : provider.getWorkPhone() %>' />"
                                    maxlength="50"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formEmail"/>:</td>
                         <td><input type="text" name="email"
-                                   value="<%= Encode.forHtmlAttribute(provider.getEmail()==null ? "" : provider.getEmail()) %>"
+                                   value="<e:forHtmlAttribute value='<%= provider.getEmail()==null ? "" : provider.getEmail() %>' />"
                                    maxlength="50"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formPager"/>:
                         </td>
                         <td><input type="text" name="xml_p_pager"
-                                   value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_pager")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_pager")) %>"
+                                   value="<e:forHtmlAttribute value='<%= SxmlMisc.getXmlContent(provider.getComments(),"xml_p_pager")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_pager") %>' />"
                                    datafld='xml_p_pager'></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formCell"/>:
                         </td>
                         <td><input type="text" name="xml_p_cell"
-                                   value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_cell")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_cell")) %>"
+                                   value="<e:forHtmlAttribute value='<%= SxmlMisc.getXmlContent(provider.getComments(),"xml_p_cell")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_cell") %>' />"
                                    datafld='xml_p_cell'></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formOtherPhone"/>:
                         </td>
                         <td><input type="text" name="xml_p_phone2"
-                                   value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_phone2")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_phone2")) %>"
+                                   value="<e:forHtmlAttribute value='<%= SxmlMisc.getXmlContent(provider.getComments(),"xml_p_phone2")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_phone2") %>' />"
                                    datafld='xml_p_phone2'></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formFax"/>:
                         </td>
                         <td><input type="text" name="xml_p_fax"
-                                   value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_fax")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_fax")) %>"
+                                   value="<e:forHtmlAttribute value='<%= SxmlMisc.getXmlContent(provider.getComments(),"xml_p_fax")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_fax") %>' />"
                                    datafld='xml_p_fax'></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formOhipNo"/>:
                         </td>
                         <td><input type="text" name="ohip_no"
-                                   value="<%= Encode.forHtmlAttribute(provider.getOhipNo()==null ? "" : provider.getOhipNo()) %>" maxlength="20">
+                                   value="<e:forHtmlAttribute value='<%= provider.getOhipNo()==null ? "" : provider.getOhipNo() %>' />" maxlength="20">
                         </td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formRmaNo"/>:
                         </td>
                         <td><input type="text" name="rma_no"
-                                   value="<%= Encode.forHtmlAttribute(provider.getRmaNo()==null ? "" : provider.getRmaNo()) %>" maxlength="20">
+                                   value="<e:forHtmlAttribute value='<%= provider.getRmaNo()==null ? "" : provider.getRmaNo() %>' />" maxlength="20">
                         </td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formBillingNo"/>:
                         </td>
                         <td><input type="text" name="billing_no"
-                                   value="<%= Encode.forHtmlAttribute(provider.getBillingNo()==null ? "" : provider.getBillingNo()) %>"
+                                   value="<e:forHtmlAttribute value='<%= provider.getBillingNo()==null ? "" : provider.getBillingNo() %>' />"
                                    maxlength="20"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formHsoNo"/>:
                         </td>
                         <td><input type="text" name="hso_no"
-                                   value="<%= Encode.forHtmlAttribute(provider.getHsoNo()==null ? "" : provider.getHsoNo()) %>" maxlength="10">
+                                   value="<e:forHtmlAttribute value='<%= provider.getHsoNo()==null ? "" : provider.getHsoNo() %>' />" maxlength="10">
                         </td>
                     </tr>
                     <tr>
@@ -434,14 +433,14 @@
                         <td align="right"><fmt:message key="admin.provider.formSpecialtyCode"/>:
                         </td>
                         <td><input type="text" name="xml_p_specialty_code"
-                                   value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_specialty_code")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_specialty_code")) %>"
+                                   value="<e:forHtmlAttribute value='<%= SxmlMisc.getXmlContent(provider.getComments(),"xml_p_specialty_code")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_specialty_code") %>' />"
                                    datafld='xml_p_specialty_code'></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formBillingGroupNo"/>:
                         </td>
                         <td><input type="text" name="xml_p_billinggroup_no"
-                                   value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_billinggroup_no")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_billinggroup_no")) %>"
+                                   value="<e:forHtmlAttribute value='<%= SxmlMisc.getXmlContent(provider.getComments(),"xml_p_billinggroup_no")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_billinggroup_no") %>' />"
                                    datafld='xml_p_billinggroup_no'></td>
                     </tr>
                     <tr>
@@ -462,7 +461,7 @@
                                             }
                                 %>
 
-                                <option value="<%=Encode.forHtmlAttribute(llItem.getValue() == null ? "" : llItem.getValue())%>" <%=selected %>><%=Encode.forHtmlContent(llItem.getLabel() == null ? "" : llItem.getLabel())%>
+                                <option value="<e:forHtmlAttribute value='<%= llItem.getValue() == null ? "" : llItem.getValue() %>' />" <%=selected %>><e:forHtmlContent value='<%= llItem.getLabel() == null ? "" : llItem.getLabel() %>' />
                                 </option>
                                 <%
                                     }
@@ -482,7 +481,7 @@
                         <td align="right"><fmt:message key="admin.provider.formCPSID"/>:
                         </td>
                         <td><input type="text" name="practitionerNo"
-                                   value="<%= Encode.forHtmlAttribute(provider.getPractitionerNo()==null ? "" : provider.getPractitionerNo()) %>"
+                                   value="<e:forHtmlAttribute value='<%= provider.getPractitionerNo()==null ? "" : provider.getPractitionerNo() %>' />"
                                    maxlength="10"></td>
                     </tr>
                     <%
@@ -491,19 +490,19 @@
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formOfficialFirstName"/>:</td>
                         <td><input type="text" name="officialFirstName"
-                                   value="<%= Encode.forHtmlAttribute(StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_FIRST_NAME))) %>"
+                                   value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_FIRST_NAME)) %>' />"
                                    maxlength="255"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formOfficialSecondName"/>:</td>
                         <td><input type="text" name="officialSecondName"
-                                   value="<%= Encode.forHtmlAttribute(StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_SECOND_NAME))) %>"
+                                   value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_SECOND_NAME)) %>' />"
                                    maxlength="255"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formOfficialLastName"/>:</td>
                         <td><input type="text" name="officialLastName"
-                                   value="<%= Encode.forHtmlAttribute(StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_LAST_NAME))) %>"
+                                   value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_LAST_NAME)) %>' />"
                                    maxlength="255"></td>
                     </tr>
                     <% if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
@@ -519,7 +518,7 @@
                                         ClinicNbr tempNbr = nbrIter.next();
                                         String valueString = tempNbr.getNbrValue() + " | " + tempNbr.getNbrString();
                                 %>
-                                <option value="<%=Encode.forHtmlAttribute(tempNbr.getNbrValue() == null ? "" : tempNbr.getNbrValue())%>" <%=StringUtils.defaultString(SxmlMisc.getXmlContent(provider.getComments(), "xml_p_nbr")).startsWith(tempNbr.getNbrValue() == null ? "" : tempNbr.getNbrValue()) ? "selected" : ""%>><%=Encode.forHtmlContent(valueString)%>
+                                <option value="<e:forHtmlAttribute value='<%= tempNbr.getNbrValue() == null ? "" : tempNbr.getNbrValue() %>' />" <%=StringUtils.defaultString(SxmlMisc.getXmlContent(provider.getComments(), "xml_p_nbr")).startsWith(tempNbr.getNbrValue() == null ? "" : tempNbr.getNbrValue()) ? "selected" : ""%>><e:forHtmlContent value='<%= valueString %>' />
                                 </option>
                                 <%}%>
 
@@ -541,8 +540,8 @@
                                     billCode = (String) keys.nextElement();
                                     codeDesc = billCenter.getAllBillCenter().getProperty(billCode);
                             %>
-                            <option value="<%= Encode.forHtmlAttribute(billCode) %>"
-                                    <%=currentBillCode.compareTo(billCode) == 0 ? "selected" : ""%>><%= Encode.forHtmlContent(codeDesc)%>
+                            <option value="<e:forHtmlAttribute value='<%= billCode %>' />"
+                                    <%=currentBillCode.compareTo(billCode) == 0 ? "selected" : ""%>><e:forHtmlContent value='<%= codeDesc %>' />
                             </option>
                             <%
                                 }
@@ -558,21 +557,21 @@
                     <td align="right"><fmt:message key="admin.provider.formSlpUsername"/>:
                     </td>
                     <td><input type="text" name="xml_p_slpusername"
-                               value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_slpusername")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_slpusername")) %>"
+                               value="<e:forHtmlAttribute value='<%= SxmlMisc.getXmlContent(provider.getComments(),"xml_p_slpusername")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_slpusername") %>' />"
                                datafld='xml_p_slpusername'></td>
                 </tr>
                 <tr>
                     <td align="right"><fmt:message key="admin.provider.formSlpPassword"/>:
                     </td>
                     <td><input type="text" name="xml_p_slppassword"
-                               value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_slppassword")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_slppassword")) %>"
+                               value="<e:forHtmlAttribute value='<%= SxmlMisc.getXmlContent(provider.getComments(),"xml_p_slppassword")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_slppassword") %>' />"
                                datafld='xml_p_slppassword'></td>
                 </tr>
                 <tr>
                     <td align="right"><fmt:message key="provider.login.title.confidentiality"/>:
                     </td>
                     <td><input type="text" readonly name="signed_confidentiality"
-                               value="<%= Encode.forHtmlAttribute(provider.getSignedConfidentiality()==null ? "" : String.valueOf(provider.getSignedConfidentiality())) %>">
+                               value="<e:forHtmlAttribute value='<%= provider.getSignedConfidentiality()==null ? "" : String.valueOf(provider.getSignedConfidentiality()) %>' />">
                     </td>
                 </tr>
 

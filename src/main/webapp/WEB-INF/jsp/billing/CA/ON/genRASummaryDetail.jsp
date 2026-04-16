@@ -27,7 +27,6 @@
 <%@ page
         import="java.math.*, java.util.*, java.io.*, java.sql.*, java.net.*,io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.MyDateFormat,io.github.carlos_emr.carlos.db.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 
 <jsp:useBean id="billingLocalInvNoBean" class="java.util.Properties" scope="page"/>
@@ -198,7 +197,7 @@
     <tr bgcolor="#333333">
         <th align='CENTRE'>
             <form action="/billing/CA/ON/ViewGenRASummary"><input type="hidden"
-                                                   name="rano" value="<%=Encode.forHtmlAttribute(raNo)%>"> <select name="proNo">
+                                                   name="rano" value="<e:forHtmlAttribute value='<%= raNo %>' />"> <select name="proNo">
                 <!--option value="all"  <%--=proNo.equals("all")?"selected":""--%>>All Providers</option-->
 
                 <%
@@ -210,7 +209,7 @@
                         plast = prov.getLastName();
                         pfirst = prov.getFirstName();
                 %>
-                <option value="<%=Encode.forHtmlAttribute(pohipno)%>"<%= (proNo != null && proNo.equals(pohipno)) ? " selected=\"selected\"" : "" %>><%=Encode.forHtml(plast)%>,<%=Encode.forHtml(pfirst)%></option>
+                <option value="<e:forHtmlAttribute value='<%= pohipno %>' />"<%= (proNo != null && proNo.equals(pohipno)) ? " selected=\"selected\"" : "" %>><e:forHtmlContent value='<%= plast %>' />,<e:forHtmlContent value='<%= pfirst %>' /></option>
                 <% } %>
             </select> <input type="submit" name="submit" value="Generate"></form>
         </th>
@@ -335,29 +334,29 @@
 %>
 
         <tr>
-            <td height="16"><%=Encode.forHtml(account)%>
+            <td height="16"><e:forHtmlContent value='<%= account %>' />
             </td>
-            <td height="16"><%=Encode.forHtml(demo_docname)%>
+            <td height="16"><e:forHtmlContent value='<%= demo_docname %>' />
             </td>
-            <td height="16"><%=Encode.forHtml(demo_name)%>
+            <td height="16"><e:forHtmlContent value='<%= demo_name %>' />
             </td>
-            <td height="16"><%=Encode.forHtml(demo_hin)%>
+            <td height="16"><e:forHtmlContent value='<%= demo_hin %>' />
             </td>
-            <td height="16"><%=Encode.forHtml(servicedate)%>
+            <td height="16"><e:forHtmlContent value='<%= servicedate %>' />
             </td>
-            <td height="16"><%=Encode.forHtml(servicecode)%>
+            <td height="16"><e:forHtmlContent value='<%= servicecode %>' />
             </td>
-            <!-- <td width="8%" height="16"><%=Encode.forHtml(serviceno)%></td>-->
-            <td height="16" align=right><%=Encode.forHtml(amountsubmit)%>
+            <!-- <td width="8%" height="16"><e:forHtmlContent value='<%= serviceno %>' /></td>-->
+            <td height="16" align=right><e:forHtmlContent value='<%= amountsubmit %>' />
             </td>
-            <td height="16" align=right><%=Encode.forHtml(amountpay)%>
+            <td height="16" align=right><e:forHtmlContent value='<%= amountpay %>' />
             </td>
             <td height="16" align=right>N/A</td>
-            <td height="16" align=right><%=Encode.forHtml(amountpay)%>
+            <td height="16" align=right><e:forHtmlContent value='<%= amountpay %>' />
             </td>
-            <td height="16" align=right><%=Encode.forHtml(amountOB)%>
+            <td height="16" align=right><e:forHtmlContent value='<%= amountOB %>' />
             </td>
-            <td height="16" align=right><%=Encode.forHtml(explain)%>
+            <td height="16" align=right><e:forHtmlContent value='<%= explain %>' />
             </td>
         </tr>
 
@@ -370,29 +369,29 @@
 				BigTotal = BigTotal.add(bdFee);
 %>
         <tr>
-            <td height="16"><%=Encode.forHtml(account)%>
+            <td height="16"><e:forHtmlContent value='<%= account %>' />
             </td>
-            <td height="16"><%=Encode.forHtml(demo_docname)%>
+            <td height="16"><e:forHtmlContent value='<%= demo_docname %>' />
             </td>
-            <td height="16"><%=Encode.forHtml(demo_name)%>
+            <td height="16"><e:forHtmlContent value='<%= demo_name %>' />
             </td>
-            <td height="16"><%=Encode.forHtml(demo_hin)%>
+            <td height="16"><e:forHtmlContent value='<%= demo_hin %>' />
             </td>
-            <td height="16"><%=Encode.forHtml(servicedate)%>
+            <td height="16"><e:forHtmlContent value='<%= servicedate %>' />
             </td>
-            <td height="16"><%=Encode.forHtml(servicecode)%>
+            <td height="16"><e:forHtmlContent value='<%= servicecode %>' />
             </td>
-            <!-- <td width="8%" height="16"><%=Encode.forHtml(serviceno)%></td>-->
-            <td height="16" align=right><%=Encode.forHtml(amountsubmit)%>
+            <!-- <td width="8%" height="16"><e:forHtmlContent value='<%= serviceno %>' /></td>-->
+            <td height="16" align=right><e:forHtmlContent value='<%= amountsubmit %>' />
             </td>
-            <td height="16" align=right><%=Encode.forHtml(amountpay)%>
+            <td height="16" align=right><e:forHtmlContent value='<%= amountpay %>' />
             </td>
-            <td height="16" align=right><%=Encode.forHtml(amountpay)%>
+            <td height="16" align=right><e:forHtmlContent value='<%= amountpay %>' />
             </td>
             <td height="16" align=right>N/A</td>
-            <td height="16" align=right><%=Encode.forHtml(amountOB)%>
+            <td height="16" align=right><e:forHtmlContent value='<%= amountOB %>' />
             </td>
-            <td height="16" align=right><%=Encode.forHtml(explain)%>
+            <td height="16" align=right><e:forHtmlContent value='<%= explain %>' />
             </td>
         </tr>
 
@@ -403,28 +402,28 @@
 				BigOTotal = BigOTotal.add(bdOFee);
 %>
         <tr>
-            <td height="16"><%=Encode.forHtml(account)%>
+            <td height="16"><e:forHtmlContent value='<%= account %>' />
             </td>
-            <td height="16"><%=Encode.forHtml(demo_docname)%>
+            <td height="16"><e:forHtmlContent value='<%= demo_docname %>' />
             </td>
-            <td height="16"><%=Encode.forHtml(demo_name)%>
+            <td height="16"><e:forHtmlContent value='<%= demo_name %>' />
             </td>
-            <td height="16"><%=Encode.forHtml(demo_hin)%>
+            <td height="16"><e:forHtmlContent value='<%= demo_hin %>' />
             </td>
-            <td height="16"><%=Encode.forHtml(servicedate)%>
+            <td height="16"><e:forHtmlContent value='<%= servicedate %>' />
             </td>
-            <td height="16"><%=Encode.forHtml(servicecode)%>
+            <td height="16"><e:forHtmlContent value='<%= servicecode %>' />
             </td>
-            <!-- <td width="8%" height="16"><%=Encode.forHtml(serviceno)%></td>-->
-            <td height="16" align=right><%=Encode.forHtml(amountsubmit)%>
+            <!-- <td width="8%" height="16"><e:forHtmlContent value='<%= serviceno %>' /></td>-->
+            <td height="16" align=right><e:forHtmlContent value='<%= amountsubmit %>' />
             </td>
-            <td height="16" align=right><%=Encode.forHtml(amountpay)%>
+            <td height="16" align=right><e:forHtmlContent value='<%= amountpay %>' />
             </td>
             <td height="16" align=right>N/A</td>
             <td height="16" align=right>N/A</td>
-            <td height="16" align=right><%=Encode.forHtml(amountOB)%>
+            <td height="16" align=right><e:forHtmlContent value='<%= amountOB %>' />
             </td>
-            <td height="16" align=right><%=Encode.forHtml(explain)%>
+            <td height="16" align=right><e:forHtmlContent value='<%= explain %>' />
             </td>
         </tr>
             <%
@@ -548,29 +547,29 @@
                         }
             %>
             <tr>
-                <td height="16"><%=Encode.forHtml(account)%>
+                <td height="16"><e:forHtmlContent value='<%= account %>' />
                 </td>
-                <td height="16"><%=Encode.forHtml(demo_docname)%>
+                <td height="16"><e:forHtmlContent value='<%= demo_docname %>' />
                 </td>
-                <td height="16"><%=Encode.forHtml(demo_name)%>
+                <td height="16"><e:forHtmlContent value='<%= demo_name %>' />
                 </td>
-                <td height="16"><%=Encode.forHtml(demo_hin)%>
+                <td height="16"><e:forHtmlContent value='<%= demo_hin %>' />
                 </td>
-                <td height="16"><%=Encode.forHtml(servicedate)%>
+                <td height="16"><e:forHtmlContent value='<%= servicedate %>' />
                 </td>
-                <td height="16"><%=Encode.forHtml(servicecode)%>
+                <td height="16"><e:forHtmlContent value='<%= servicecode %>' />
                 </td>
-                <!--<td width="8%" height="16"><%=Encode.forHtml(serviceno)%></td>-->
-                <td height="16" align=right><%=Encode.forHtml(amountsubmit)%>
+                <!--<td width="8%" height="16"><e:forHtmlContent value='<%= serviceno %>' /></td>-->
+                <td height="16" align=right><e:forHtmlContent value='<%= amountsubmit %>' />
                 </td>
-                <td height="16" align=right><%=Encode.forHtml(amountpay)%>
+                <td height="16" align=right><e:forHtmlContent value='<%= amountpay %>' />
                 </td>
                 <td height="16" align=right>N/A</td>
-                <td height="16" align=right><%=Encode.forHtml(amountpay)%>
+                <td height="16" align=right><e:forHtmlContent value='<%= amountpay %>' />
                 </td>
-                <td height="16" align=right><%=Encode.forHtml(amountOB)%>
+                <td height="16" align=right><e:forHtmlContent value='<%= amountOB %>' />
                 </td>
-                <td height="16" align=right><%=Encode.forHtml(explain)%>
+                <td height="16" align=right><e:forHtmlContent value='<%= explain %>' />
                 </td>
             </tr>
 
@@ -582,29 +581,29 @@
                     BigTotal = BigTotal.add(bdFee);
             %>
             <tr>
-                <td height="16"><%=Encode.forHtml(account)%>
+                <td height="16"><e:forHtmlContent value='<%= account %>' />
                 </td>
-                <td height="16"><%=Encode.forHtml(demo_docname)%>
+                <td height="16"><e:forHtmlContent value='<%= demo_docname %>' />
                 </td>
-                <td height="16"><%=Encode.forHtml(demo_name)%>
+                <td height="16"><e:forHtmlContent value='<%= demo_name %>' />
                 </td>
-                <td height="16"><%=Encode.forHtml(demo_hin)%>
+                <td height="16"><e:forHtmlContent value='<%= demo_hin %>' />
                 </td>
-                <td height="16"><%=Encode.forHtml(servicedate)%>
+                <td height="16"><e:forHtmlContent value='<%= servicedate %>' />
                 </td>
-                <td height="16"><%=Encode.forHtml(servicecode)%>
+                <td height="16"><e:forHtmlContent value='<%= servicecode %>' />
                 </td>
-                <!-- <td width="8%" height="16"><%=Encode.forHtml(serviceno)%></td>-->
-                <td height="16" align=right><%=Encode.forHtml(amountsubmit)%>
+                <!-- <td width="8%" height="16"><e:forHtmlContent value='<%= serviceno %>' /></td>-->
+                <td height="16" align=right><e:forHtmlContent value='<%= amountsubmit %>' />
                 </td>
-                <td height="16" align=right><%=Encode.forHtml(amountpay)%>
+                <td height="16" align=right><e:forHtmlContent value='<%= amountpay %>' />
                 </td>
-                <td height="16" align=right><%=Encode.forHtml(amountpay)%>
+                <td height="16" align=right><e:forHtmlContent value='<%= amountpay %>' />
                 </td>
                 <td height="16" align=right>N/A</td>
-                <td height="16" align=right><%=Encode.forHtml(amountOB)%>
+                <td height="16" align=right><e:forHtmlContent value='<%= amountOB %>' />
                 </td>
-                <td height="16" align=right><%=Encode.forHtml(explain)%>
+                <td height="16" align=right><e:forHtmlContent value='<%= explain %>' />
                 </td>
             </tr>
 
@@ -615,28 +614,28 @@
                 BigOTotal = BigOTotal.add(bdOFee);
             %>
             <tr>
-                <td height="16"><%=Encode.forHtml(account)%>
+                <td height="16"><e:forHtmlContent value='<%= account %>' />
                 </td>
-                <td height="16"><%=Encode.forHtml(demo_docname)%>
+                <td height="16"><e:forHtmlContent value='<%= demo_docname %>' />
                 </td>
-                <td height="16"><%=Encode.forHtml(demo_name)%>
+                <td height="16"><e:forHtmlContent value='<%= demo_name %>' />
                 </td>
-                <td height="16"><%=Encode.forHtml(demo_hin)%>
+                <td height="16"><e:forHtmlContent value='<%= demo_hin %>' />
                 </td>
-                <td height="16"><%=Encode.forHtml(servicedate)%>
+                <td height="16"><e:forHtmlContent value='<%= servicedate %>' />
                 </td>
-                <td height="16"><%=Encode.forHtml(servicecode)%>
+                <td height="16"><e:forHtmlContent value='<%= servicecode %>' />
                 </td>
-                <!-- <td width="8%" height="16"><%=Encode.forHtml(serviceno)%></td>-->
-                <td height="16" align=right><%=Encode.forHtml(amountsubmit)%>
+                <!-- <td width="8%" height="16"><e:forHtmlContent value='<%= serviceno %>' /></td>-->
+                <td height="16" align=right><e:forHtmlContent value='<%= amountsubmit %>' />
                 </td>
-                <td height="16" align=right><%=Encode.forHtml(amountpay)%>
+                <td height="16" align=right><e:forHtmlContent value='<%= amountpay %>' />
                 </td>
                 <td height="16" align=right>N/A</td>
                 <td height="16" align=right>N/A</td>
-                <td height="16" align=right><%=Encode.forHtml(amountOB)%>
+                <td height="16" align=right><e:forHtmlContent value='<%= amountOB %>' />
                 </td>
-                <td height="16" align=right><%=Encode.forHtml(explain)%>
+                <td height="16" align=right><e:forHtmlContent value='<%= explain %>' />
                 </td>
             </tr>
 
@@ -660,13 +659,13 @@
                 <td height="16"></td>
                 <td height="16"></td>
                 <td height="16">Total</td>
-                <td height="16" align=right><%=Encode.forHtml(BigCTotal.toPlainString())%>
+                <td height="16" align=right><e:forHtmlContent value='<%= BigCTotal.toPlainString() %>' />
                 </td>
-                <td height="16" align=right><%=Encode.forHtml(BigPTotal.toPlainString())%><!-- <%=Encode.forHtml(BigOTotal.toPlainString())%>--></td>
-                <td height="16" align=right><%=Encode.forHtml(BigTotal.toPlainString())%><!--<%=Encode.forHtml(BigLTotal.toPlainString())%>--></td>
-                <td height="16" align=right><%=Encode.forHtml(BigHTotal.toPlainString())%>
+                <td height="16" align=right><e:forHtmlContent value='<%= BigPTotal.toPlainString() %>' /><!-- <e:forHtmlContent value='<%= BigOTotal.toPlainString() %>' />--></td>
+                <td height="16" align=right><e:forHtmlContent value='<%= BigTotal.toPlainString() %>' /><!--<e:forHtmlContent value='<%= BigLTotal.toPlainString() %>' />--></td>
+                <td height="16" align=right><e:forHtmlContent value='<%= BigHTotal.toPlainString() %>' />
                 </td>
-                <td height="16" align=right><%=Encode.forHtml(BigOBTotal.toPlainString())%>
+                <td height="16" align=right><e:forHtmlContent value='<%= BigOBTotal.toPlainString() %>' />
                 </td>
                 <td height="16"></td>
             </tr>

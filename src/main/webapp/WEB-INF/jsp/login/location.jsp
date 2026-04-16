@@ -33,7 +33,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Facility" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.LabelValueBean" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -67,7 +66,7 @@
                         for (LabelValueBean program : programs) {
                             String selected = (Integer.parseInt(program.getValue()) == defaultprogramId) ? " selected=\"selected\" " : "";
                 %>
-                <option value="<%=program.getValue()%>" <%=selected%>><%=Encode.forHtml(program.getLabel())%>
+                <option value="<%=program.getValue()%>" <%=selected%>><e:forHtmlContent value='<%= program.getLabel() %>' />
                 </option>
                 <% }
                 }

@@ -44,6 +44,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.Set, java.util.List, java.util.Iterator" %>
@@ -62,25 +63,24 @@
        scope="request"/>
 
 <c:if test="${success}">
-    <img title="Minimize Display" id='quitImg<c:out value="${Note.id}"/>'
+    <img title="Minimize Display" id='quitImg${e:forHtmlAttribute(Note.id)}'
          onclick='minView(event)' style='float: right; margin-right: 5px; margin-top: 2px;'
-         src='<c:out value="${ctx}"/>/encounter/graphics/triangle_up.gif'/>
-    <img title="Print" id='print<c:out value="${Note.id}"/>'
+         src='${e:forHtmlAttribute(ctx)}/encounter/graphics/triangle_up.gif'/>
+    <img title="Print" id='print${e:forHtmlAttribute(Note.id)}'
          alt="Toggle Print Note"
-         onclick="togglePrint(<c:out value="${Note.id}"/>, event)"
+         onclick="togglePrint(${e:forJavaScript(Note.id)}, event)"
          style='float: right; margin-right: 5px; margin-top: 2px;'
-         src='<c:out value="${ctx}"/>/encounter/graphics/printer.png'/>
-    <a title="Edit" id="edit<c:out value="${Note.id}"/>" href="#" onclick="editNote(event); return false;"
+         src='${e:forHtmlAttribute(ctx)}/encounter/graphics/printer.png'/>
+    <a title="Edit" id="edit${e:forHtmlAttribute(Note.id)}" href="#" onclick="editNote(event); return false;"
        style='float: right; margin-right: 5px; font-size:8px;'>Edit</a>
-    <span id="txt<c:out value="${Note.id}"/>"><c:out
-            escapeXml="false" value="${fmtTxt}"/></span>
-    <div id="sig<c:out value="${Note.id}"/>">
-        <div class="sig" id="summary<c:out value="${Note.id}"/>">
-            <div id="observation<c:out value="${Note.id}"/>"
+    <span id="txt${e:forHtmlAttribute(Note.id)}">${fmtTxt}</span>
+    <div id="sig${e:forHtmlAttribute(Note.id)}">
+        <div class="sig" id="summary${e:forHtmlAttribute(Note.id)}">
+            <div id="observation${e:forHtmlAttribute(Note.id)}"
                  style="float: right; margin-right: 3px;"><i>Encounter Date:&nbsp;<span
-                    id="obs<c:out value="${Note.id}"/>"><%=DateUtils.getDate(note.getObservation_date(), dateFormat)%></span>&nbsp;rev<a
+                    id="obs${e:forHtmlAttribute(Note.id)}"><%=DateUtils.getDate(note.getObservation_date(), dateFormat)%></span>&nbsp;rev<a
                     href="#"
-                    onclick="return showHistory('<c:out value="${Note.id}"/>', event);"><%=note.getRevision()%>
+                    onclick="return showHistory('${e:forJavaScript(Note.id)}', event);"><%=note.getRevision()%>
             </a></i></div>
             <div><span style="float: left;">Editors:</span>
                 <ul style="list-style: none inside none; margin: 0px;">
@@ -120,7 +120,7 @@
                     while (i.hasNext()) {
                         CaseManagementIssue iss = (CaseManagementIssue) i.next();
                 %>
-                <li><%= Encode.forHtml(iss.getIssue().getDescription()) %>
+                <li><e:forHtmlContent value='<%= iss.getIssue().getDescription() %>' />
                 </li>
                 <%
                     }
@@ -138,18 +138,18 @@
 
 </c:if>
 <c:if test="${ not success}">
-    <img title="Minimize Display" id='quitImg<c:out value="${Note.id}"/>'
+    <img title="Minimize Display" id='quitImg${e:forHtmlAttribute(Note.id)}'
          alt="Minimize Display" onclick='resetView(true, true, event)'
          style='float: right; margin-right: 5px;'
-         src='<c:out value="${ctx}"/>/encounter/graphics/triangle_up.gif'/>
-    <span id="txt<c:out value="${Note.id}"/>"><fmt:message key="encounter.Index.msgLocked"/> <%=DateUtils.getDate(note.getUpdate_date(), dateFormat)%>
-	<c:out value="${provName}"/></span>
+         src='${e:forHtmlAttribute(ctx)}/encounter/graphics/triangle_up.gif'/>
+    <span id="txt${e:forHtmlAttribute(Note.id)}"><fmt:message key="encounter.Index.msgLocked"/> <%=DateUtils.getDate(note.getUpdate_date(), dateFormat)%>
+	${e:forHtml(provName)}</span>
     <p id="passwdError" style="color: red;">Incorrect password</p>
     <p id='passwdPara' class="passwd">Password:&nbsp;<input
             onkeypress="return grabEnter('btnUnlock', event);" type='password'
             id='passwd' size='16'>&nbsp; <input id='btnUnlock'
                                                 type='button'
-                                                onclick="return unlock_ajax('<c:out value="n${Note.id}"/>');"
+                                                onclick="return unlock_ajax('n${e:forJavaScript(Note.id)}');"
                                                 value='<fmt:message key="encounter.Index.btnUnLock"/>'>
     </p>
     <script type="text/javascript">

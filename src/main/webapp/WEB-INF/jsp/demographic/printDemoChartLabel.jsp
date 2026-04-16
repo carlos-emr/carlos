@@ -81,11 +81,11 @@
     <%} else {%>
     <fmt:message key="report.printLabel.DefaultPrinter"/>
     <%}%>
-    <%=Encode.forHtml(defaultPrinterName)%>
+    <e:forHtmlContent value='<%= defaultPrinterName %>' />
     <%}%>
     <br>
     <object id="pdf" type="application/pdf"
-            data="printDemoChartLabelAction?demographic_no=<%=Encode.forUriComponent(request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "")%><%=request.getParameter("labelName")==null?"":"&labelName="+Encode.forUriComponent(request.getParameter("labelName"))%>"
+            data="printDemoChartLabelAction?demographic_no=<e:forUriComponent value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' /><%=request.getParameter("labelName")==null?"":"&labelName="+Encode.forUriComponent(request.getParameter("labelName"))%>"
             height="80%" width="100%"></object>
     </body>
 </html>

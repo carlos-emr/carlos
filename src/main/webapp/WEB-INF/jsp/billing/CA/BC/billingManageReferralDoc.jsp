@@ -53,7 +53,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Billingreferral" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingreferralDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%
     BillingreferralDao billingReferralDao = (BillingreferralDao) SpringUtils.getBean(BillingreferralDao.class);
@@ -105,7 +104,7 @@
         %>
         <form action="<%=request.getContextPath() %>/billing/CA/BC/AddReferralDoc" class="d-flex flex-wrap align-items-center gap-2"
               name="referralDocform" id="referralDocform">
-            Last Name: <input type="text" name="lastname" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(lastname)) %>"/>
+            Last Name: <input type="text" name="lastname" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(lastname) %>' />"/>
             <select name="limit" class="form-select" title="limit results">
                 <option value="10" <%=selected(limit, "10")%>>10</option>
                 <option value="50" <%=selected(limit, "50")%>>50</option>
@@ -146,19 +145,19 @@
             <tr>
                 <!--td><%=billingReferral.getBillingreferralNo()%></td-->
                 <td>
-                    <a href="<%=request.getContextPath() %>/billing/CA/BC/AddReferralDoc?id=<%= Encode.forUriComponent(String.valueOf(billingReferral.getBillingreferralNo())) %>"
-                       class="contentLink"><%= Encode.forHtml(StringUtils.noNull(billingReferral.getReferralNo())) %>
+                    <a href="<%=request.getContextPath() %>/billing/CA/BC/AddReferralDoc?id=<e:forUriComponent value='<%= String.valueOf(billingReferral.getBillingreferralNo()) %>' />"
+                       class="contentLink"><e:forHtmlContent value='<%= StringUtils.noNull(billingReferral.getReferralNo()) %>' />
                     </a></td>
-                <td><%= Encode.forHtml(StringUtils.noNull(billingReferral.getLastName())) %></td>
-                <td><%= Encode.forHtml(StringUtils.noNull(billingReferral.getFirstName())) %></td>
-                <td><%= Encode.forHtml(StringUtils.noNull(billingReferral.getSpecialty())) %></td>
-                <td><%= Encode.forHtml(StringUtils.noNull(billingReferral.getAddress1())) %></td>
-                <td><%= Encode.forHtml(StringUtils.noNull(billingReferral.getAddress2())) %></td>
-                <td><%= Encode.forHtml(StringUtils.noNull(billingReferral.getCity())) %></td>
-                <td><%= Encode.forHtml(StringUtils.noNull(billingReferral.getProvince())) %></td>
-                <td><%= Encode.forHtml(StringUtils.noNull(billingReferral.getPostal())) %></td>
-                <td><%= Encode.forHtml(StringUtils.noNull(billingReferral.getPhone())) %></td>
-                <td><%= Encode.forHtml(StringUtils.noNull(billingReferral.getFax())) %></td>
+                <td><e:forHtmlContent value='<%= StringUtils.noNull(billingReferral.getLastName()) %>' /></td>
+                <td><e:forHtmlContent value='<%= StringUtils.noNull(billingReferral.getFirstName()) %>' /></td>
+                <td><e:forHtmlContent value='<%= StringUtils.noNull(billingReferral.getSpecialty()) %>' /></td>
+                <td><e:forHtmlContent value='<%= StringUtils.noNull(billingReferral.getAddress1()) %>' /></td>
+                <td><e:forHtmlContent value='<%= StringUtils.noNull(billingReferral.getAddress2()) %>' /></td>
+                <td><e:forHtmlContent value='<%= StringUtils.noNull(billingReferral.getCity()) %>' /></td>
+                <td><e:forHtmlContent value='<%= StringUtils.noNull(billingReferral.getProvince()) %>' /></td>
+                <td><e:forHtmlContent value='<%= StringUtils.noNull(billingReferral.getPostal()) %>' /></td>
+                <td><e:forHtmlContent value='<%= StringUtils.noNull(billingReferral.getPhone()) %>' /></td>
+                <td><e:forHtmlContent value='<%= StringUtils.noNull(billingReferral.getFax()) %>' /></td>
             </tr>
             <%}%>
             </tbody>

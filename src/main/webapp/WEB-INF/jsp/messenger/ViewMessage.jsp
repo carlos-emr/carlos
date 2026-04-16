@@ -81,6 +81,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -416,23 +417,23 @@ function fmtOscarMsg() {
 					<table valign="top" class="card card-body bg-body-tertiary"  style="width:100%"><!-- the messageblock -->
 						<tr>
 							<td class="Printable emphasis" ><fmt:message key="messenger.ViewMessage.msgFrom" />:</td>
-							<td colspan="2" id="sentBy" class="Printable" ><c:out value="${ viewMessageSentby }" />
+							<td colspan="2" id="sentBy" class="Printable" >${e:forHtml(viewMessageSentby)}
 							</td>
 						</tr>
 						<tr>
 							<td class="Printable emphasis" ><fmt:message key="messenger.ViewMessage.msgTo" />:</td>
-							<td colspan="2" id="sentTo" class="Printable" ><c:out value="${ viewMessageSentto }" />
+							<td colspan="2" id="sentTo" class="Printable" >${e:forHtml(viewMessageSentto)}
 							</td>
 						</tr>
 						<tr>
 							<td class="Printable emphasis" ><fmt:message key="messenger.ViewMessage.msgSubject" />:</td>
-							<td colspan="2" id="msgSubject" class="Printable" ><c:out value="${ viewMessageSubject }" />
+							<td colspan="2" id="msgSubject" class="Printable" >${e:forHtml(viewMessageSubject)}
 							</td>
 						</tr>
 						<tr>
 							<td class="Printable emphasis" ><fmt:message key="messenger.ViewMessage.msgDate" />:</td>
 							<td colspan="2" id="sentDate" class="Printable" >
-								<c:out value="${ viewMessageDate }" /> <c:out value="${ viewMessageTime }" />
+								${e:forHtml(viewMessageDate)} ${e:forHtml(viewMessageTime)}
 							</td>
 						</tr>
 						<%-- Display file and PDF attachments if present in session --%>
@@ -443,7 +444,7 @@ function fmtOscarMsg() {
 						<tr class="DoNotPrint">
 							<td><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
 							<td colspan="2"><a
-								href="javascript:popupViewAttach(700,960,'ViewAttach?attachId=<%=Encode.forJavaScript(id)%>')">
+								href="javascript:popupViewAttach(700,960,'ViewAttach?attachId=<e:forJavaScript value='<%= id %>' />')">
 							<fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
 						</tr>
 						<%
@@ -456,7 +457,7 @@ function fmtOscarMsg() {
 						<tr class="DoNotPrint">
 							<td><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
 							<td colspan="2"><a
-								href="javascript:popupViewAttach(700,960,'ViewPDFAttach?attachId=<%=Encode.forJavaScript(id)%>')">
+								href="javascript:popupViewAttach(700,960,'ViewPDFAttach?attachId=<e:forJavaScript value='<%= id %>' />')">
 							<fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
 						</tr>
 						<%
@@ -474,9 +475,9 @@ function fmtOscarMsg() {
 							<td colspan="2" class="Printable"><p>&nbsp;</p>
 
                             <div id="viewer" class="DoNotPrint"></div>
-								<textarea id="msgBody" name="Message" wrap="hard" readonly rows="18" cols="80" class="DoNotPrint" style="display:none; min-width: 100%"><%=Encode.forHtml(bodyTextAsHTML)%></textarea>
+								<textarea id="msgBody" name="Message" wrap="hard" readonly rows="18" cols="80" class="DoNotPrint" style="display:none; min-width: 100%"><e:forHtmlContent value='<%= bodyTextAsHTML %>' /></textarea>
 
-                            <div id="print_helper"><%=Encode.forHtml(bodyTextAsHTML)%></div>
+                            <div id="print_helper"><e:forHtmlContent value='<%= bodyTextAsHTML %>' /></div>
 							</td>
 						</tr>
 
@@ -502,7 +503,7 @@ function fmtOscarMsg() {
 										<td></td>
 										<td  colspan="2">
 
-											<c:out value="${ demoattached.value }" /> <br />
+											${e:forHtml(demoattached.value)} <br />
 
 											<c:if test="${ demoattached.key eq demographic_no }">
 												<input
@@ -596,9 +597,9 @@ function fmtOscarMsg() {
 								name="selectedDemo" class="form-control" readonly
 								style="border: none" value="none">
                                 <script>
-                                if ( "<%=Encode.forJavaScript(demoName)%>" != "null" && "<%=Encode.forJavaScript(demoName)%>" != "") {
-                                    document.forms[0].selectedDemo.value = "<%=Encode.forJavaScript(demoName)%>"
-                                    document.forms[0].demographic_no.value = "<%=Encode.forJavaScript(demographic_no)%>"
+                                if ( "<e:forJavaScriptBlock value='<%= demoName %>' />" != "null" && "<e:forJavaScriptBlock value='<%= demoName %>' />" != "") {
+                                    document.forms[0].selectedDemo.value = "<e:forJavaScriptBlock value='<%= demoName %>' />"
+                                    document.forms[0].demographic_no.value = "<e:forJavaScriptBlock value='<%= demographic_no %>' />"
                                 }
                                 </script>
                             </td>
@@ -606,7 +607,7 @@ function fmtOscarMsg() {
                                 <input type="button"
 								    class="btn btn-outline-secondary" name="linkDemo"
 								    value="<fmt:message key="messenger.ViewMessage.linkToDemo" />"
-								    onclick="popup(document.forms[0].demographic_no.value,'<%=Encode.forJavaScript(viewMsgId)%>','<%=Encode.forJavaScript(viewProvNo)%>','linkToDemographic')">
+								    onclick="popup(document.forms[0].demographic_no.value,'<e:forJavaScript value='<%= viewMsgId %>' />','<e:forJavaScript value='<%= viewProvNo %>' />','linkToDemographic')">
 							    <input type="button" class="btn btn-outline-secondary"
 								    name="clearDemographic" value="<fmt:message key="messenger.ViewMessage.clearDemo" />"
 								    onclick='document.forms[0].demographic_no.value = ""; document.forms[0].selectedDemo.value = "none"' />
@@ -636,14 +637,14 @@ function fmtOscarMsg() {
                                     String demoKeyJs = Encode.forJavaScript((String) (pageContext.getAttribute("demographicNumber")+""));
                                     %>
                                     <a href="javascript:popupViewAttach(700,960,'../demographic/DemographicEdit?demographic_no=<%=demoKeyJs%>')"><fmt:message key="global.M" /></a>
-                                    <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../encounter/IncomingEncounter?demographicNo=<%=demoKeyJs%>&curProviderNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>');return false;"><fmt:message key="global.E" /></a>
-                                    <a href="javascript:popupViewAttach(700,960,'../rx/choosePatient?providerNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>&demographicNo=<%=demoKeyJs%>')">Rx</a>
+                                    <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../encounter/IncomingEncounter?demographicNo=<%=demoKeyJs%>&curProviderNo=<e:forJavaScript value='<%= (String)session.getAttribute("providerNo") %>' />');return false;"><fmt:message key="global.E" /></a>
+                                    <a href="javascript:popupViewAttach(700,960,'../rx/choosePatient?providerNo=<e:forJavaScript value='<%= (String)session.getAttribute("providerNo") %>' />&demographicNo=<%=demoKeyJs%>')">Rx</a>
                                 </span>
 								</td>
 								<td class="DoNotPrint">
 								<button type="button" class="btn btn-secondary"
 									name="writeEncounter"
-                                    onclick="popup( '<%=demoKeyJs%>','<%=Encode.forJavaScript((String)session.getAttribute("viewMessageId"))%>','<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>','writeToEncounter')" >
+                                    onclick="popup( '<%=demoKeyJs%>','<e:forJavaScriptAttribute value='<%= (String)session.getAttribute("viewMessageId") %>' />','<e:forJavaScriptAttribute value='<%= (String)session.getAttribute("providerNo") %>' />','writeToEncounter')" >
                                     <i class="fa-solid fa-pen-to-square"></i>
                                     <fmt:message key="messenger.ViewMessage.writeToE"/>
 								</button>

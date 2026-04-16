@@ -69,8 +69,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.net.URLEncoder" %>
 <%@ page import="java.util.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -298,7 +296,7 @@
         <span class="d-flex align-items-center gap-1">
             <i class="fa-solid fa-circle-question"></i>
             <%if (resourcehelpHtml.isEmpty()) { %>
-            <a href="#" ONCLICK="popupPage(600,750,'<%=Encode.forJavaScriptAttribute(resourcebaseurl)%>');return false;" title=""
+            <a href="#" ONCLICK="popupPage(600,750,'<e:forJavaScriptAttribute value='<%= resourcebaseurl %>' />');return false;" title=""
                onmouseover="window.status='';return true"><fmt:message key="global.help"/></a>
             <%} else {%>
             <div id="help-link">

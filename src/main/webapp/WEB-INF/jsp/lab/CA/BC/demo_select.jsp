@@ -97,7 +97,7 @@
     <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/oscar.css">
     <script language="JavaScript">
         function PopupReturn(index) {
-            window.opener.location = '<%=Encode.forJavaScript(postTo.replaceAll("-","&"))%>' + index;
+            window.opener.location = '<e:forJavaScriptBlock value='<%= postTo.replaceAll("-","&") %>' />' + index;
             window.opener.focus();
             window.close();
         };
@@ -114,8 +114,8 @@
     </table>
     <table>
         <tr>
-            <td><input type="hidden" name="postTo" value="<%=Encode.forHtmlAttribute(postTo)%>"/> <input
-                    type="text" name="keyword" value="<%=Encode.forHtmlAttribute(String.valueOf(keyword))%>"/> <input
+            <td><input type="hidden" name="postTo" value="<e:forHtmlAttribute value='<%= postTo %>' />"/> <input
+                    type="text" name="keyword" value="<e:forHtmlAttribute value='<%= String.valueOf(keyword) %>' />"/> <input
                     type="submit" value="Search"/></td>
         </tr>
     </table>
@@ -125,29 +125,29 @@
             <td width="10%" class="Text"><input type="radio" name="column"
                                                 value="DemographicNo"
                     <%=(column.equals("DemographicNo") ? "checked" : "")%> /><a
-                    href="<%=Encode.forHtmlAttribute(url + "&orderby=DemographicNo")%>">Demo No</a></td>
+                    href="<e:forHtmlAttribute value='<%= url + "&orderby=DemographicNo" %>' />">Demo No</a></td>
             <td width="20%" class="Text"><input type="radio" name="column"
                                                 value="LastName" <%=(column.equals("LastName") ? "checked" : "")%> /><a
-                    href="<%=Encode.forHtmlAttribute(url)%>">Last Name</a></td>
+                    href="<e:forHtmlAttribute value='<%= url %>' />">Last Name</a></td>
             <td width="15%" class="Text"><input type="radio" name="column"
                                                 value="FirstName" <%=(column.equals("FirstName") ? "checked" : "")%> /><a
-                    href="<%=Encode.forHtmlAttribute(url + "&orderby=FirstName")%>">First Name</a></td>
+                    href="<e:forHtmlAttribute value='<%= url + "&orderby=FirstName" %>' />">First Name</a></td>
             <td width="10%" class="Text" align="center"><input type="radio"
                                                                name="column" value="ChartNo"
                     <%=(column.equals("ChartNo") ? "checked" : "")%> /><a
-                    href="<%=Encode.forHtmlAttribute(url + "&orderby=ChartNo")%>">Chart#</a></td>
+                    href="<e:forHtmlAttribute value='<%= url + "&orderby=ChartNo" %>' />">Chart#</a></td>
             <td width="2%" class="Text" align="center"><input type="radio"
                                                               name="column"
                                                               value="Sex" <%=(column.equals("Sex") ? "checked" : "")%> /><a
-                    href="<%=Encode.forHtmlAttribute(url + "&orderby=Sex")%>">Sex</a></td>
+                    href="<e:forHtmlAttribute value='<%= url + "&orderby=Sex" %>' />">Sex</a></td>
             <td width="15%" class="Text" align="center"><input type="radio"
                                                                name="column" value="YearOfBirth"
                     <%=(column.equals("YearOfBirth") ? "checked" : "")%> /><a
-                    href="<%=Encode.forHtmlAttribute(url + "&orderby=YearOfBirth")%>">DOB</a></td>
+                    href="<e:forHtmlAttribute value='<%= url + "&orderby=YearOfBirth" %>' />">DOB</a></td>
             <td width="2%" class="Text" align="center"><input type="radio"
                                                               name="column" value="PatientStatus"
                     <%=(column.equals("PatientStatus") ? "checked" : "")%> /><a
-                    href="<%=Encode.forHtmlAttribute(url + "&orderby=PatientStatus")%>">Status</a></td>
+                    href="<e:forHtmlAttribute value='<%= url + "&orderby=PatientStatus" %>' />">Status</a></td>
         </tr>
         <%
             boolean other = true;
@@ -156,20 +156,20 @@
         %>
         <tr class="<%=(other? "LightBG" : "WhiteBG")%>">
             <td class="Text" align="center"><a
-                    href="javascript:PopupReturn('<%=Encode.forJavaScript(String.valueOf(d.getDemographicNo()))%>')">
-                <%=Encode.forHtml(String.valueOf(d.getDemographicNo()))%>
+                    href="javascript:PopupReturn('<e:forJavaScript value='<%= String.valueOf(d.getDemographicNo()) %>' />')">
+                <e:forHtmlContent value='<%= String.valueOf(d.getDemographicNo()) %>' />
             </a></td>
-            <td class="Text"><%=Encode.forHtml(Misc.toUpperLowerCase(d.getLastName()))%>
+            <td class="Text"><e:forHtmlContent value='<%= Misc.toUpperLowerCase(d.getLastName()) %>' />
             </td>
-            <td class="Text"><%=Encode.forHtml(Misc.toUpperLowerCase(d.getFirstName()))%>
+            <td class="Text"><e:forHtmlContent value='<%= Misc.toUpperLowerCase(d.getFirstName()) %>' />
             </td>
-            <td class="Text" align="center"><%=Encode.forHtml(Misc.check(d.getChartNo(), ""))%>
+            <td class="Text" align="center"><e:forHtmlContent value='<%= Misc.check(d.getChartNo(), "") %>' />
             </td>
-            <td class="Text" align="center"><%=Encode.forHtml(Misc.check(d.getSex(), ""))%>
+            <td class="Text" align="center"><e:forHtmlContent value='<%= Misc.check(d.getSex(), "") %>' />
             </td>
-            <td class="Text" align="center" nowrap><%=Encode.forHtml(d.getBirthDayAsString())%>
+            <td class="Text" align="center" nowrap><e:forHtmlContent value='<%= d.getBirthDayAsString() %>' />
             </td>
-            <td class="Text" align="center"><%=Encode.forHtml(Misc.check(d.getPatientStatus(), ""))%>
+            <td class="Text" align="center"><e:forHtmlContent value='<%= Misc.check(d.getPatientStatus(), "") %>' />
             </td>
         </tr>
         <%

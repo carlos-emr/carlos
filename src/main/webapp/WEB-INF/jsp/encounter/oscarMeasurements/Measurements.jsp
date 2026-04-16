@@ -37,13 +37,12 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ page
         import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasuringInstructionBeanHandler, io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasuringInstructionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MeasurementManager" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String demo = request.getParameter("demographicNo"); //bean.getDemographicNo();
     request.setAttribute("demo", demo);
@@ -218,7 +217,7 @@
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(150,200,'<%=request.getContextPath()%>/encounter/ViewCalculators?demo=<%=Encode.forUriComponent(demo)%>'); return false;"><fmt:message key="encounter.Index.calculators"/></a></td>
+                                    onClick="popupPage(150,200,'<%=request.getContextPath()%>/encounter/ViewCalculators?demo=<e:forUriComponent value='<%= demo %>' />'); return false;"><fmt:message key="encounter.Index.calculators"/></a></td>
                         </tr>
                     </table>
                 </td>
@@ -246,7 +245,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%=Encode.forHtml(error)%></li>
+                <li><e:forHtmlContent value='<%= error %>' /></li>
             <% } %>
         </ul>
     </div>

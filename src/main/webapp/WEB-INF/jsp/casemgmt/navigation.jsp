@@ -37,7 +37,6 @@
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementHelper" %>
@@ -320,7 +319,8 @@
                                       demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
                 <tr>
                     <td><a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/tickler/ViewAddTickler?demographic_no=<%=bean.demographicNo%>&name=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(bean.getPatientLastName() +"," + bean.getPatientFirstName()))%>');return false;">Add
+                           <c:set var="__enc_1"><e:forUriComponent value='<%= bean.getPatientLastName() +"," + bean.getPatientFirstName() %>' /></c:set>
+                           onClick="popupPage('<%=bsurl%>/tickler/ViewAddTickler?demographic_no=<%=bean.demographicNo%>&name=<e:forJavaScriptAttribute value='${__enc_1}' />');return false;">Add
                         Tickler</a></td>
                 </tr>
             </caisirole:SecurityAccess>

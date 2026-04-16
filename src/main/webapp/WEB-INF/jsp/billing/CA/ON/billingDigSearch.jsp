@@ -31,7 +31,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%
@@ -82,7 +81,7 @@
                 if (self.opener.callChangeCodeDesc) self.opener.callChangeCodeDesc();
 
                 <%if(targetElement != null) {%>
-                self.opener.document.forms[<%= targetFormIdx %>].elements["<%= Encode.forJavaScript(StringUtils.noNull(targetElement)) %>"].value = File2.substring(0, 3);
+                self.opener.document.forms[<%= targetFormIdx %>].elements["<e:forJavaScriptBlock value='<%= StringUtils.noNull(targetElement) %>' />"].value = File2.substring(0, 3);
                 <%} else if(name2ParseError) {%>
                 alert("Error: Unable to transfer diagnostic code to the billing form. Please close this window and try again.");
                 return;
@@ -126,7 +125,7 @@
           action="/billing/CA/ON/ViewBillingDigSearch">
         <%if (targetElement != null || name2ParseError) {%>
         <input type="hidden" name="name2"
-               value="<%=Encode.forHtmlAttribute(name2)%>"/>
+               value="<e:forHtmlAttribute value='<%= name2 %>' />"/>
         <%}%>
         <p><b><fmt:message key="billing.billingDigSearch.msgRefine"/></b><br>
             <fmt:message key="billing.billingDigSearch.msgCodeRange"/>: <select
@@ -241,13 +240,13 @@
 
             <tr>
                 <td style="width:12%"><a
-                        href="javascript:CodeAttach('<%= Encode.forJavaScriptAttribute(Dcode) %>|<%= Encode.forJavaScriptAttribute(DcodeDesc) %>')"><%= Encode.forHtml(Dcode) %>
+                        href="javascript:CodeAttach('<e:forJavaScriptAttribute value='<%= Dcode %>' />|<e:forJavaScriptAttribute value='<%= DcodeDesc %>' />')"><e:forHtmlContent value='<%= Dcode %>' />
                 </a></td>
                 <td style="width:88%"><input type="text" class="form-control" style="margin-bottom: 0px;"
-                                             name="<%= Encode.forHtmlAttribute(Dcode) %>"
-                                             value="<%= Encode.forHtmlAttribute(DcodeDesc) %>">&nbsp;<input type="submit" class="btn btn-secondary"
+                                             name="<e:forHtmlAttribute value='<%= Dcode %>' />"
+                                             value="<e:forHtmlAttribute value='<%= DcodeDesc %>' />">&nbsp;<input type="submit" class="btn btn-secondary"
                                                                                  name="update"
-                                                                                 value="<fmt:message key="billing.billingDigSearch.btnUpdate"/> <%= Encode.forHtmlAttribute(Dcode) %>">
+                                                                                 value="<fmt:message key="billing.billingDigSearch.btnUpdate"/> <e:forHtmlContent value='<%= Dcode %>' />">
                 </td>
             </tr>
             <%
@@ -269,13 +268,13 @@
 
             <tr>
                 <td style="width:12%"><a
-                        href="javascript:CodeAttach('<%= Encode.forJavaScriptAttribute(Dcode) %>|<%= Encode.forJavaScriptAttribute(DcodeDesc) %>')"><%= Encode.forHtml(Dcode) %>
+                        href="javascript:CodeAttach('<e:forJavaScriptAttribute value='<%= Dcode %>' />|<e:forJavaScriptAttribute value='<%= DcodeDesc %>' />')"><e:forHtmlContent value='<%= Dcode %>' />
                 </a></td>
                 <td style="width:88%"><input type="text" class="form-control" style="margin-bottom: 0px;"
-                                             name="<%= Encode.forHtmlAttribute(Dcode) %>"
-                                             value="<%= Encode.forHtmlAttribute(DcodeDesc) %>">&nbsp;<input type="submit" class="btn btn-secondary"
+                                             name="<e:forHtmlAttribute value='<%= Dcode %>' />"
+                                             value="<e:forHtmlAttribute value='<%= DcodeDesc %>' />">&nbsp;<input type="submit" class="btn btn-secondary"
                                                                                  name="update"
-                                                                                 value="<fmt:message key="billing.billingDigSearch.btnUpdate"/> <%= Encode.forHtmlAttribute(Dcode) %>">
+                                                                                 value="<fmt:message key="billing.billingDigSearch.btnUpdate"/> <e:forHtmlContent value='<%= Dcode %>' />">
                 </td>
             </tr>
             <%
@@ -296,13 +295,13 @@
 
             <tr>
                 <td style="width:12%"><a
-                        href="javascript:CodeAttach('<%= Encode.forJavaScriptAttribute(Dcode2) %>|<%= Encode.forJavaScriptAttribute(DcodeDesc2) %>')"><%= Encode.forHtml(Dcode2) %>
+                        href="javascript:CodeAttach('<e:forJavaScriptAttribute value='<%= Dcode2 %>' />|<e:forJavaScriptAttribute value='<%= DcodeDesc2 %>' />')"><e:forHtmlContent value='<%= Dcode2 %>' />
                 </a></td>
                 <td style="width:88%"><input type="text" class="form-control" style="margin-bottom: 0px;"
-                                             name="<%= Encode.forHtmlAttribute(Dcode2) %>"
-                                             value="<%= Encode.forHtmlAttribute(DcodeDesc2) %>">&nbsp;<input type="submit" class="btn btn-secondary"
+                                             name="<e:forHtmlAttribute value='<%= Dcode2 %>' />"
+                                             value="<e:forHtmlAttribute value='<%= DcodeDesc2 %>' />">&nbsp;<input type="submit" class="btn btn-secondary"
                                                                                   name="update"
-                                                                                  value="<fmt:message key="billing.billingDigSearch.btnUpdate"/> <%= Encode.forHtmlAttribute(Dcode2) %>">
+                                                                                  value="<fmt:message key="billing.billingDigSearch.btnUpdate"/> <e:forHtmlContent value='<%= Dcode2 %>' />">
                 </td>
             </tr>
             <%
@@ -320,7 +319,7 @@
             <% if (intCount == 1) { %>
             <script LANGUAGE="JavaScript">
                 <!--
-                CodeAttach('<%= Encode.forJavaScript(Dcode) %>|<%= Encode.forJavaScript(DcodeDesc) %>');
+                CodeAttach('<e:forJavaScript value='<%= Dcode %>' />|<e:forJavaScript value='<%= DcodeDesc %>' />');
                 -->
 
             </script>

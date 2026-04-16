@@ -69,6 +69,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <!DOCTYPE html>
 <html>
     <security:oscarSec roleName="${ sessionScope.userrole }" objectName="_admin" rights="r" reverse="${ false }">
@@ -295,10 +296,10 @@
                                             ${ contact.member ? 'checked="checked"' : '' } />
                                         <label class="form-check-label">
                                         <span id="${ contact.id.compositeId }" class="provider-name">
-									<c:out value="${ contact.lastName }"/>, <c:out value="${ contact.firstName }"/>
+									${e:forHtml(contact.lastName)}, ${e:forHtml(contact.firstName)}
 								</span>
                                         <span class="text-muted">
-									<c:out value="${ contact.providerType }"/>
+									${e:forHtml(contact.providerType)}
 								</span>
                                         </label>
                                     </div>
@@ -314,7 +315,7 @@
                         <c:forEach items="${ groups }" var="group" varStatus="count">
                             <li class="nav-item">
                                 <a class="nav-link${ count.index eq 0 ? ' active' : '' }" data-bs-toggle="tab" href="#group-${ group.key.id }">
-                                    <c:out value="${ group.key.groupDesc }"/>
+                                    ${e:forHtml(group.key.groupDesc)}
                                 </a>
                             </li>
                         </c:forEach>
@@ -338,11 +339,10 @@
                                                    title="Remove Contact"
                                                    id="${ member.id.compositeId }-${ group.key.id }"></i>
                                                 <span class="provider-name">
-											<c:out value="${ member.lastName }"/>, <c:out
-                                                        value="${ member.firstName }"/>
+											${e:forHtml(member.lastName)}, ${e:forHtml(member.firstName)}
 										</span>
                                                 <span class="text-muted">
-											<c:out value="${ member.providerType }"/>
+											${e:forHtml(member.providerType)}
 										</span>
                                             </div>
                                         </div>

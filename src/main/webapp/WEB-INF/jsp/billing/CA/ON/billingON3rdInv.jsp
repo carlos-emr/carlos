@@ -245,7 +245,7 @@
 <body>
 <form action="<%=request.getContextPath()%>/BillingInvoice" method="post">
     <input type="hidden" name="method" value=""/>
-    <input type="hidden" name="invoiceNo" id="invoiceNo" value="<%= Encode.forHtmlAttribute(invoiceNoStr) %>"/>
+    <input type="hidden" name="invoiceNo" id="invoiceNo" value="<e:forHtmlAttribute value='<%= invoiceNoStr %>' />"/>
     <div class="doNotPrint">
         <div class="titleBar">
             <input type="button" name="printInvoice" value="<fmt:message key="billing.billing3rdInv.printPDF"/>"
@@ -298,7 +298,7 @@
             <%}%>
         </td>
         <td align="right" valign="top"><font size="+2"><b>Invoice
-            - <%=Encode.forHtml(invoiceNoStr)%>
+            - <e:forHtmlContent value='<%= invoiceNoStr %>' />
         </b></font><br/>
             Print Date:<%=DateUtils.sumDate("yyyy-MM-dd HH:mm", "0") %><br/>
             <% if (props.hasProperty("invoice_due_date")) { %>

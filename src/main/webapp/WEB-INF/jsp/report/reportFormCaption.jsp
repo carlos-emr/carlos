@@ -80,7 +80,7 @@
             }
 
             function goCaption() {
-                //self.location.href = "<%= request.getContextPath() %>/report/ViewReportFormCaption?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>";
+                //self.location.href = "<%= request.getContextPath() %>/report/ViewReportFormCaption?id=<e:forUriComponent value='<%= reportId %>' />&tableName=<e:forUriComponent value='<%= tableName %>' />";
             }
 
             function goPage(id) {
@@ -96,12 +96,12 @@
     <center></center>
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr BGCOLOR="#CCCCFF">
-            <td><%=Encode.forHtml(reportName)%> Caption</td>
+            <td><e:forHtmlContent value='<%= reportName %>' /> Caption</td>
             <td width="10%" align="right" nowrap>
                 <% if ("demographic".equals(tableName)) {%> <a
-                    href="<%= request.getContextPath() %>/report/ViewReportFormDemoConfig?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>&formTableName=<%= Encode.forUriComponent(formTableName) %>&configTableName=<%= Encode.forUriComponent(configTableName) %>">Back
+                    href="<%= request.getContextPath() %>/report/ViewReportFormDemoConfig?id=<e:forUriComponent value='<%= reportId %>' />&tableName=<e:forUriComponent value='<%= tableName %>' />&formTableName=<e:forUriComponent value='<%= formTableName %>' />&configTableName=<e:forUriComponent value='<%= configTableName %>' />">Back
                 to the Configuration</a> <% } else {%> <a
-                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>">Back
+                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<e:forUriComponent value='<%= reportId %>' />&tableName=<e:forUriComponent value='<%= tableName %>' />">Back
                 to the Configuration</a> <% }%>
             </td>
         </tr>
@@ -139,11 +139,11 @@
                             <td align="center"><input type="submit" name="submit"
                                                       value="<%=action%>"/></td>
                             <input type="hidden" name="name" value="<%=fieldName%>">
-                            <input type="hidden" name="id" value="<%= Encode.forHtmlAttribute(reportId) %>">
-                            <input type="hidden" name="tableName" value="<%= Encode.forHtmlAttribute(tableName) %>">
-                            <input type="hidden" name="formTableName" value="<%= Encode.forHtmlAttribute(formTableName) %>">
+                            <input type="hidden" name="id" value="<e:forHtmlAttribute value='<%= reportId %>' />">
+                            <input type="hidden" name="tableName" value="<e:forHtmlAttribute value='<%= tableName %>' />">
+                            <input type="hidden" name="formTableName" value="<e:forHtmlAttribute value='<%= formTableName %>' />">
                             <input type="hidden" name="configTableName"
-                                   value="<%= Encode.forHtmlAttribute(configTableName) %>">
+                                   value="<e:forHtmlAttribute value='<%= configTableName %>' />">
                         </tr>
                     </form>
                     <% } %>

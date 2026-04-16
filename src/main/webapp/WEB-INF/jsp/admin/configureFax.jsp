@@ -74,7 +74,6 @@
 <%@page import="java.util.HashMap" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.fax.provider.SRFaxProviderClient" %>
 <%@ page import="io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action" %>
 
@@ -212,7 +211,7 @@
             $("#submit").click(function (e) {
                 e.preventDefault();
 
-                var url = "<%=Encode.forJavaScript(request.getContextPath()) %>/admin/ManageFax?method=configure";
+                var url = "<e:forJavaScript value='<%= request.getContextPath() %>' />/admin/ManageFax?method=configure";
                 var data = $("#configFrm").serialize();
 
                 $.ajax({
@@ -272,7 +271,7 @@
 
         function getFaxSchedularStatus() {
             $.ajax({
-                url: "<%=Encode.forJavaScript(request.getContextPath()) %>/admin/ManageFax",
+                url: "<e:forJavaScript value='<%= request.getContextPath() %>' />/admin/ManageFax",
                 method: 'POST',
                 data: 'method=getFaxSchedularStatus',
                 success: function (data) {
@@ -296,7 +295,7 @@
 
         function rebootFaxSchedular() {
             $.ajax({
-                url: "<%=Encode.forJavaScript(request.getContextPath()) %>/admin/ManageFax",
+                url: "<e:forJavaScript value='<%= request.getContextPath() %>' />/admin/ManageFax",
                 method: 'POST',
                 data: 'method=restartFaxScheduler',
                 success: function (data) {
@@ -312,7 +311,7 @@
 
         function getPendingIncomingFaxes() {
             $.ajax({
-                url: "<%=Encode.forJavaScript(request.getContextPath()) %>/admin/ManageFax",
+                url: "<e:forJavaScript value='<%= request.getContextPath() %>' />/admin/ManageFax",
                 method: 'POST',
                 data: 'method=getPendingIncomingFaxes',
                 success: function (data) {
@@ -476,7 +475,7 @@
                                 <div class="col-md-12">
                                     <label for="faxUrl"><i class="fas fa-link"></i> Middleware Relay URL</label>
                                     <input class="form-control" id="faxUrl" type="text" name="faxUrl" placeholder="https://your-middleware-server.com/fax"
-                                           value="<%=Encode.forHtmlAttribute(faxUrl)%>"/>
+                                           value="<e:forHtmlAttribute value='<%= faxUrl %>' />"/>
                                     <small class="fax-muted">URL of your middleware relay server</small>
                                 </div>
                             </div>
@@ -484,13 +483,13 @@
                                 <div class="col-md-6">
                                     <label for="faxServiceUser"><i class="fas fa-user"></i> Middleware Username</label>
                                     <input class="form-control" id="faxServiceUser" type="text" name="siteUser"
-                                           value="<%=Encode.forHtmlAttribute(siteUser)%>"/>
+                                           value="<e:forHtmlAttribute value='<%= siteUser %>' />"/>
                                     <small class="fax-muted">Username for middleware relay server</small>
                                 </div>
                                 <div class="col-md-6">
                                     <label for="faxServicePasswd"><i class="fas fa-key"></i> Middleware Password</label>
                                     <input class="form-control" id="faxServicePasswd" type="password" name="sitePasswd"
-                                           value="<%=Encode.forHtmlAttribute(sitePasswd)%>"/>
+                                           value="<e:forHtmlAttribute value='<%= sitePasswd %>' />"/>
                                     <small class="fax-muted">Password for middleware relay server</small>
                                 </div>
                             </div>
@@ -503,7 +502,7 @@
                                     <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;">SRFax API Endpoint</h6>
                                     <label><i class="fas fa-link"></i> API URL</label>
                                     <input class="form-control" type="text" readonly
-                                           value="<%=Encode.forHtmlAttribute(SRFaxProviderClient.DEFAULT_SRFAX_API_URL)%>"
+                                           value="<e:forHtmlAttribute value='<%= SRFaxProviderClient.DEFAULT_SRFAX_API_URL %>' />"
                                            style="background: #f3f4f6; color: #6b7280; cursor: not-allowed;"/>
                                     <small class="fax-muted"><i class="fas fa-lock"></i> Default endpoint &mdash; override via <code>srfax.api.url</code> in carlos.properties only</small>
                                 </div>
@@ -521,13 +520,13 @@
                             <div class="col-md-6">
                                 <label for="faxUser">SRFax Username</label>
                                 <input class="form-control" type="text" id="faxUser" name="faxUser"
-                                       value="<%=Encode.forHtmlAttribute(faxUser)%>"/>
-                                <input type="hidden" id="id" name="id" value="<%=Encode.forHtmlAttribute(configId)%>"/>
+                                       value="<e:forHtmlAttribute value='<%= faxUser %>' />"/>
+                                <input type="hidden" id="id" name="id" value="<e:forHtmlAttribute value='<%= configId %>' />"/>
                             </div>
                             <div class="col-md-6">
                                 <label for="faxPasswd">SRFax Password</label>
                                 <input class="form-control" type="password" id="faxPasswd" name="faxPassword"
-                                       value="<%=Encode.forHtmlAttribute(faxPassword)%>"/>
+                                       value="<e:forHtmlAttribute value='<%= faxPassword %>' />"/>
                             </div>
                         </div>
 
@@ -536,20 +535,20 @@
                             <div class="col-md-6">
                                 <label for="faxNumber">Fax Number</label>
                                 <input class="form-control" type="text" id="faxNumber" name="faxNumber"
-                                       value="<%=Encode.forHtmlAttribute(faxNumber)%>"/>
+                                       value="<e:forHtmlAttribute value='<%= faxNumber %>' />"/>
                             </div>
                             <div class="col-md-6">
                                 <label for="senderEmail">Email</label>
                                 <input class="form-control" type="email" id="senderEmail" name="senderEmail"
                                        placeholder="Account email"
-                                       value="<%=Encode.forHtmlAttribute(senderEmail)%>"/>
+                                       value="<e:forHtmlAttribute value='<%= senderEmail %>' />"/>
                             </div>
                         </div>
                         <div class="row">
                             <div class="col-md-6">
                                 <label>Inbox Queue</label>
                                 <input class="form-control" type="text" readonly
-                                       value="<%=Encode.forHtmlAttribute(queueMap.getOrDefault(queueId, "default"))%>"
+                                       value="<e:forHtmlAttribute value='<%= queueMap.getOrDefault(queueId, "default") %>' />"
                                        style="background: #f3f4f6; color: #6b7280; cursor: not-allowed;"/>
                                 <input type="hidden" name="inboxQueue" value="<%=queueId%>"/>
                                 <small class="fax-muted">Incoming faxes are routed to this document review queue</small>
@@ -557,7 +556,7 @@
                             <div class="col-md-6">
                                 <label for="accountName">Account Name</label>
                                 <input class="form-control" type="text" name="accountName" id="accountName"
-                                       value="<%=Encode.forHtmlAttribute(accountName)%>"/>
+                                       value="<e:forHtmlAttribute value='<%= accountName %>' />"/>
                             </div>
                         </div>
 

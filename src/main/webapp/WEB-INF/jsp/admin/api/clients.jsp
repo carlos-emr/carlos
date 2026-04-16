@@ -32,6 +32,7 @@
 "http://www.w3.org/TR/html4/loose.dtd">
 <%-- This JSP is the first page you see when you enter 'report by template' --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -50,8 +51,6 @@
 
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -233,15 +232,15 @@
     <table class="table table-bordered table-striped table-hover table-sm">
         <tr>
             <td>Temporary Credential Request:</td>
-            <td><%=Encode.forHtml(here)%>/ws/oauth/initiate</td>
+            <td><e:forHtmlContent value='<%= here %>' />/ws/oauth/initiate</td>
         </tr>
         <tr>
             <td>Resource Owner Authorization URI:</td>
-            <td><%=Encode.forHtml(here)%>/ws/oauth/authorize</td>
+            <td><e:forHtmlContent value='<%= here %>' />/ws/oauth/authorize</td>
         </tr>
         <tr>
             <td>Token Request URI:</td>
-            <td><%=Encode.forHtml(here)%>/ws/oauth/token</td>
+            <td><e:forHtmlContent value='<%= here %>' />/ws/oauth/token</td>
         </tr>
     </table>
 

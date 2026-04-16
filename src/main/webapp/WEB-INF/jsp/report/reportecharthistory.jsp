@@ -62,8 +62,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.EChartDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.EChart" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
     EChartDao eChartDao = SpringUtils.getBean(EChartDao.class);
 %>
@@ -140,12 +138,12 @@
     %>
     <tr bgcolor="<%=bgcolor%>">
         <td align="center"><a
-                href="<%= request.getContextPath() %>/encounter/ViewEcharthistoryprint?echartid=<%=eChart.getId()%>&demographic_no=<%= Encode.forUriComponent(demographic_no) %>"><%=Encode.forHtml(datetime)%>
+                href="<%= request.getContextPath() %>/encounter/ViewEcharthistoryprint?echartid=<%=eChart.getId()%>&demographic_no=<e:forUriComponent value='<%= demographic_no %>' />"><e:forHtmlContent value='<%= datetime %>' />
         </a></td>
-        <td><%=Encode.forHtml(eChart.getSubject() != null ? eChart.getSubject() : "")%>
+        <td><e:forHtmlContent value='<%= eChart.getSubject() != null ? eChart.getSubject() : "" %>' />
         </td>
         <!--td align="center"><%--=ectsize + "KB" --%></td-->
-        <td><%=Encode.forHtml(ProviderData.getProviderName(eChart.getProviderNo()))%>
+        <td><e:forHtmlContent value='<%= ProviderData.getProviderName(eChart.getProviderNo()) %>' />
         </td>
     </tr>
     <%
@@ -162,12 +160,12 @@
         nLastPage = Integer.parseInt(strLimit1) - intLimit2;
         if (nLastPage >= 0) {
     %> <a
-        href="<%= request.getContextPath() %>/report/ViewReportecharthistory?demographic_no=<%= Encode.forUriComponent(demographic_no) %>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>">Last
+        href="<%= request.getContextPath() %>/report/ViewReportecharthistory?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>">Last
     Page</a> | <%
     }
     if (nItems == intLimit2) {
 %> <a
-        href="<%= request.getContextPath() %>/report/ViewReportecharthistory?demographic_no=<%= Encode.forUriComponent(demographic_no) %>&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>&splitectsize=<%= Encode.forUriComponent(splitectsize) %>">
+        href="<%= request.getContextPath() %>/report/ViewReportecharthistory?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>&splitectsize=<e:forUriComponent value='<%= splitectsize %>' />">
     Next Page</a> <%
     }
 %>

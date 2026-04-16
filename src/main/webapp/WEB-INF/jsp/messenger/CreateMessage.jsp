@@ -98,9 +98,7 @@
 <%@ page import="java.util.Map" %>
 <%@ page import="java.util.List" %>
 <%@ page import="java.util.ResourceBundle" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -400,7 +398,7 @@ function validateFields() {
 			String createMsgError = (String) request.getAttribute("createMessageError");
 			if (createMsgError == null) { createMsgError = ""; }
 		%>
-		var submissionerror = '<%= Encode.forJavaScript(createMsgError) %>';
+		var submissionerror = '<e:forJavaScriptBlock value='<%= createMsgError %>' />';
 		if(submissionerror)
 		{
 			showAlert(submissionerror, 'danger');
@@ -414,9 +412,9 @@ function validateFields() {
 
         // Pre-populate the selected demographic display field if a patient is linked.
         // Done here (after DOM is ready) so the selectedDemo input exists before access.
-        if ('<%=Encode.forJavaScript(demoName)%>' && '<%=Encode.forJavaScript(demoName)%>' !== 'null') {
-            document.forms[0].selectedDemo.value = "<%=Encode.forJavaScript(demoName)%>";
-            document.forms[0].demographic_no.value = "<%=Encode.forJavaScript(demographic_no)%>";
+        if ('<e:forJavaScriptBlock value='<%= demoName %>' />' && '<e:forJavaScriptBlock value='<%= demoName %>' />' !== 'null') {
+            document.forms[0].selectedDemo.value = "<e:forJavaScriptBlock value='<%= demoName %>' />";
+            document.forms[0].demographic_no.value = "<e:forJavaScriptBlock value='<%= demographic_no %>' />";
         }
 
         // Initialize keyword autocomplete for inline demographic search
@@ -492,8 +490,8 @@ function validateFields() {
 								<td style="padding: 10px 5px; min-width:fit-content;"  class="d-flex flex-wrap align-items-center gap-2"><!--list of the providers cell Start-->
 									<%if(recall){ %>
 										<div>
-											<input name="provider" value="<%=Encode.forHtmlAttribute(delegate)%>" type="checkbox" checked>
-											<strong><a title="default recall delegate: <%=Encode.forHtmlAttribute(delegateName)%>">default: <%=Encode.forHtml(delegateName)%></a></strong>
+											<input name="provider" value="<e:forHtmlAttribute value='<%= delegate %>' />" type="checkbox" checked>
+											<strong><a title="default recall delegate: <e:forHtmlAttribute value='<%= delegateName %>' />">default: <e:forHtmlContent value='<%= delegateName %>' /></a></strong>
 										</div>
 									<%} %>
 
@@ -507,7 +505,7 @@ function validateFields() {
 												<summary>
 													<input type="checkbox" name="tableDFR" id="member_group_${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }"
 															value="${ fn:escapeXml(group.key.id) }" onclick="checkGroup(this)" >
-													<label for="member_group_${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }" ><c:out value="${ group.key.groupDesc }" /></label>
+													<label for="member_group_${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }" >${e:forHtml(group.key.groupDesc)}</label>
 												</summary>
 
 												<c:forEach items="${ group.value }" var="member">
@@ -516,7 +514,7 @@ function validateFields() {
 															id="${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" value="${ fn:escapeXml(member.id.compositeId) }" >
 
 														<label for="${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" >
-															<c:out value="${ member.lastName }" />, <c:out value="${ member.firstName }" />
+															${e:forHtml(member.lastName)}, ${e:forHtml(member.firstName)}
 														</label>
 													</div>
 												</c:forEach>
@@ -548,7 +546,7 @@ function validateFields() {
 													<input type="checkbox" name="provider" id="0-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }"
 														value="${ fn:escapeXml(member.id.compositeId) }"  ${ providerChecked ? 'checked' : '' }/>
 													<label for="0-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" >
-														<c:out value="${ member.lastName }" />, <c:out value="${ member.firstName }" />
+														${e:forHtml(member.lastName)}, ${e:forHtml(member.firstName)}
 													</label>
 												</div>
 
@@ -565,9 +563,9 @@ function validateFields() {
                     <div class="row"><div class="col-auto">
 					<label for="subject" class="form-label"><fmt:message key="messenger.CreateMessage.formSubject" /> :</label>
                     </div><div class="col">
-					<input type="text" name="subject" id="subject" class="form-control w-75" value="<c:out value="${messageSubject}"/>"> </div>
+					<input type="text" name="subject" id="subject" class="form-control w-75" value="${e:forHtmlAttribute(messageSubject)}"> </div>
                     <div id="messagediv"></div></div>
-					<textarea name="message" rows="15" style="min-width: 100%"><c:out value="${messageBody}"/></textarea>
+					<textarea name="message" rows="15" style="min-width: 100%">${e:forHtml(messageBody)}</textarea>
 							<table>
 								<tr>
 									<td><button type="submit" class="btn btn-primary" onclick="writeToMessage();"
@@ -602,7 +600,7 @@ function validateFields() {
 				<tr>
 					<td><br><br>&nbsp;</td>
 					<td style="width: 40%;">
-                      <input type="text" name="keyword" id="keyword" class="form-control"> <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no)%>" >
+                      <input type="text" name="keyword" id="keyword" class="form-control"> <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demographic_no %>' />" >
                     </td>
 	                <td>
                       <input type="button" class="btn btn-outline-secondary" name="searchDemo" value="<fmt:message key="messenger.CreateMessage.msgSearchDemographic" />" onclick="popupSearchDemo('${pageContext.request.contextPath}', document.forms[0].keyword.value)" >

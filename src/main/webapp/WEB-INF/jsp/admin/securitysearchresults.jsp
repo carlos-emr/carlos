@@ -32,6 +32,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" buffer="none" %>
@@ -42,7 +43,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 
@@ -137,7 +137,7 @@
     <table style="width:100%">
         <tr>
             <td style="text-align:left"><i><fmt:message key="admin.search.keywords"/></i>:
-                <%=Encode.forHtmlContent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>
+                <e:forHtmlContent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />
             </td>
         </tr>
     </table>
@@ -169,7 +169,7 @@
         %>
         <tr>
             <td>
-                <a href='${pageContext.request.contextPath}/admin/ViewSecurityUpdateSecurity?keyword=<%=securityRecord.getId()%>'><%= Encode.forHtmlContent(securityRecord.getUserName()) %>
+                <a href='${pageContext.request.contextPath}/admin/ViewSecurityUpdateSecurity?keyword=<%=securityRecord.getId()%>'><e:forHtmlContent value='<%= securityRecord.getUserName() %>' />
                 </a></td>
             <td style="text-align:center">*********</td>
             <td style="text-align:center"><%= securityRecord.getProviderNo() %>

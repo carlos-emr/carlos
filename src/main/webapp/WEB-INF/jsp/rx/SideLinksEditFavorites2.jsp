@@ -42,7 +42,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -68,7 +67,7 @@
         <p class="PropSheetLevel1CurrentItem<%=alle%>">
             <fmt:message key="oscarRx.sideLinks.msgAllergies"/>
             <a href="javascript:void(0);" name="cmdAllergies"
-               onclick="javascript:window.location.href='<%= request.getContextPath() %>/rx/showAllergy?demographicNo=<%=Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("demographicNo")))%>';"
+               onclick="javascript:window.location.href='<%= request.getContextPath() %>/rx/showAllergy?demographicNo=<e:forJavaScriptAttribute value='<%= StringUtils.noNull(request.getParameter("demographicNo")) %>' />';"
                style="width: 200px">+</a>
         </p>
         <p class="PropSheetMenuItemLevel1">
@@ -107,7 +106,7 @@
 
                 if (codeDescr != null) {
         %>
-        <p class="PropSheetMenuItemLevel1"><%=Encode.forHtml(codeDescr)%>
+        <p class="PropSheetMenuItemLevel1"><e:forHtmlContent value='<%= codeDescr %>' />
         </p>
         <%
                 }
@@ -130,7 +129,7 @@
                 if (!note.isLocked() && !note.isArchived()) {
 
         %>
-        <p class="PropSheetMenuItemLevel1"><%=Encode.forHtml(note.getNote()) %>
+        <p class="PropSheetMenuItemLevel1"><e:forHtmlContent value='<%= note.getNote() %>' />
         </p>
         <%
                 }

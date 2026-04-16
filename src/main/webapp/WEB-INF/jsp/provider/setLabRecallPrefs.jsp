@@ -66,7 +66,7 @@
                 <%if (request.getAttribute("status") == null) {%>
                 <%=bundle.getString(providermsgEdit)%>
                 <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
-                    <input type="hidden" name="method" value="<c:out value="${method}"/>">
+                    <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
                     <table>
                         <tr>
                             <td>Delegate: <font color="red">*required</font></td>
@@ -83,7 +83,7 @@
 
                         <tr>
                             <td>Default Message Subject:</td>
-                            <td><input type="text" name="labRecallMsgSubject.value" value="<c:out value='${subject.value}'/>" size="50" /></td>
+                            <td><input type="text" name="labRecallMsgSubject.value" value="${e:forHtmlAttribute(subject.value)}" size="50" /></td>
                         </tr>
 
                         <tr>

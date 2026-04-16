@@ -27,8 +27,8 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri='jakarta.tags.core' prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page import="java.util.List" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <html>
@@ -120,21 +120,21 @@
             <div class="col-md-5">
                 Patient Name: <br>
                 <div class="input-group">
-                    <input class="form-control" id="nameForlooksOnly" type="text" value="<%=Encode.forHtmlAttribute(name)%>">
+                    <input class="form-control" id="nameForlooksOnly" type="text" value="<e:forHtmlAttribute value='<%= name %>' />">
                     <button class="btn btn-primary" type="button" value="Search" onclick="demographicSearch()"><i
                             class="fa-solid fa-magnifying-glass"></i></button>
                 </div>
             </div>
 
-            <input type="hidden" name="firstNameParam" id="fname" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("firstNameParam"))) %>"/>
-            <input type="hidden" name="lastNameParam" id="lname" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("lastNameParam"))) %>"/>
+            <input type="hidden" name="firstNameParam" id="fname" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("firstNameParam")) %>' />"/>
+            <input type="hidden" name="lastNameParam" id="lname" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("lastNameParam")) %>' />"/>
 
 
             <div class="col-md-2">
                 <label>Start Date:</label>
                 <div class="input-group">
                     <input type="text" class="form-control" style="width:90px" name="fromDateParam" id="fromDateParam"
-                           value="<%= Encode.forHtmlAttribute(request.getAttribute("fromDateParam") != null ? (String)request.getAttribute("fromDateParam") : "") %>"
+                           value="<e:forHtmlAttribute value='<%= request.getAttribute("fromDateParam") != null ? (String)request.getAttribute("fromDateParam") : "" %>' />"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -145,7 +145,7 @@
                 <label>End Date:</label>
                 <div class="input-group">
                     <input type="text" class="form-control" style="width:90px" name="toDateParam" id="toDateParam"
-                           value="<%= Encode.forHtmlAttribute(request.getAttribute("toDateParam") != null ? (String)request.getAttribute("toDateParam") : "") %>"
+                           value="<e:forHtmlAttribute value='<%= request.getAttribute("toDateParam") != null ? (String)request.getAttribute("toDateParam") : "" %>' />"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -171,7 +171,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= Encode.forHtml(error) %></li>
+                <li><e:forHtmlContent value='<%= error %>' /></li>
             <% } %>
         </ul>
     </div>
@@ -187,23 +187,23 @@
                 <td width="50px">&nbsp;</td>
                 <td width="100px">Patient:</td>
                 <td>
-                    <c:out value="${summary.patientNo}"/>&nbsp;&nbsp;
-                    <c:out value="${summary.patientName}"/>&nbsp;&nbsp;
-                    <c:out value="${summary.hin}"/>&nbsp;&nbsp;
+                    ${e:forHtml(summary.patientNo)}&nbsp;&nbsp;
+                    ${e:forHtml(summary.patientName)}&nbsp;&nbsp;
+                    ${e:forHtml(summary.hin)}&nbsp;&nbsp;
                 </td>
             </tr>
             <tr>
                 <td width="50px">&nbsp;</td>
                 <td width="100px">Address :</td>
                 <td>
-                    <c:out value="${summary.address}"/>
+                    ${e:forHtml(summary.address)}
                 </td>
             </tr>
             <tr>
                 <td width="50px">&nbsp;</td>
                 <td width="100px">Phone :</td>
                 <td>
-                    <c:out value="${summary.phone}"/>
+                    ${e:forHtml(summary.phone)}
                 </td>
             </tr>
         </table>
@@ -222,18 +222,18 @@
             </tr>
             <c:forEach var="row" items="${result}" varStatus="counter">
                 <tr bgcolor="#CEF6CE">
-                    <td><c:out value="${row.invoiceNo}"/></td>
-                    <td><c:out value="${row.invoiceDate}"/></td>
+                    <td>${e:forHtml(row.invoiceNo)}</td>
+                    <td>${e:forHtml(row.invoiceDate)}</td>
                     <td>&nbsp;</td>
-                    <td><c:out value="${row.invoiced}"/></td>
-                    <td><c:out value="${row.paid}"/></td>
+                    <td>${e:forHtml(row.invoiced)}</td>
+                    <td>${e:forHtml(row.paid)}</td>
                 </tr>
                 <c:forEach var="service" items="${row.services}" varStatus="counterService">
                     <tr bgcolor="${counterService.index % 2 == 0 ? 'ivory' : '#EEEEFF'}">
                         <td>&nbsp;</td>
                         <td>&nbsp;</td>
-                        <td><c:out value="${service.code}"/></td>
-                        <td><c:out value="${service.fee}"/></td>
+                        <td>${e:forHtml(service.code)}</td>
+                        <td>${e:forHtml(service.fee)}</td>
                         <td>&nbsp;</td>
                     </tr>
                 </c:forEach>
@@ -243,12 +243,12 @@
             </tr>
             <tr bgcolor="#99FF66">
                 <td>Count: &nbsp;&nbsp;&nbsp;
-                    <c:if test="${not empty summary}"><c:out value="${summary.count}"/></c:if>
+                    <c:if test="${not empty summary}">${e:forHtml(summary.count)}</c:if>
                 </td>
                 <td>&nbsp;</td>
                 <td align="center">Total:</td>
-                <td><c:if test="${not empty summary}"><c:out value="${summary.invoiced}"/></c:if></td>
-                <td><c:if test="${not empty summary}"><c:out value="${summary.paid}"/></c:if></td>
+                <td><c:if test="${not empty summary}">${e:forHtml(summary.invoiced)}</c:if></td>
+                <td><c:if test="${not empty summary}">${e:forHtml(summary.paid)}</c:if></td>
             </tr>
         </table>
     </c:if>

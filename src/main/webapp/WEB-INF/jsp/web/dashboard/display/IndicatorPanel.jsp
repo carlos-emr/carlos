@@ -29,13 +29,13 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <div class="indicatorPanelContainer">
 
     <div class="row indicatorHeading">
         <div class="col-md-12">
-            <c:out value="${ indicatorPanel.name }"/>
+            ${e:forHtml(indicatorPanel.name)}
         </div>
     </div>
 
@@ -86,7 +86,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h4 class="modal-title" id="indicatorTitle_${indicatorPanel.id}">
-                        <c:out value="${ indicatorPanel.name }"/>
+                        ${e:forHtml(indicatorPanel.name)}
                     </h4>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
@@ -94,19 +94,19 @@
                 <div class="modal-body">
 
                     <h4>Category</h4>
-                    <p><c:out value="${ indicatorPanel.category }"/></p>
+                    <p>${e:forHtml(indicatorPanel.category)}</p>
                     <h4>Sub Category</h4>
-                    <p><c:out value="${ indicatorPanel.subCategory }"/></p>
+                    <p>${e:forHtml(indicatorPanel.subCategory)}</p>
                     <h4>Definition</h4>
-                    <p><c:out value="${ indicatorPanel.definition }"/></p>
+                    <p>${e:forHtml(indicatorPanel.definition)}</p>
                     <h4>Indicator Framework</h4>
-                    <p><c:out value="${ indicatorPanel.framework }"/></p>
+                    <p>${e:forHtml(indicatorPanel.framework)}</p>
                     <h4>Indicator Framework Version</h4>
-                    <p><c:out value="${ indicatorPanel.frameworkVersion }"/></p>
+                    <p>${e:forHtml(indicatorPanel.frameworkVersion)}</p>
                     <h4>Notes</h4>
-                    <p><c:out value="${ indicatorPanel.notes }"/></p>
+                    <p>${e:forHtml(indicatorPanel.notes)}</p>
                     <h4>Query</h4>
-                    <p><c:out value="${ indicatorPanel.queryString }"/></p>
+                    <p>${e:forHtml(indicatorPanel.queryString)}</p>
 
                 </div>
 

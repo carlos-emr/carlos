@@ -28,7 +28,6 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.WcbNoiCode" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -60,7 +59,7 @@
     return;
     <%} else {%>
     self.close();
-    opener.document["<%= Encode.forJavaScript(form) %>"]["<%= Encode.forJavaScript(field) %>"].value = index;
+    opener.document["<e:forJavaScriptBlock value='<%= form %>' />"]["<e:forJavaScriptBlock value='<%= field %>' />"].value = index;
     opener.document.focus();
     <%}%>
     }
@@ -93,12 +92,12 @@
     <tr <%=((color) ? "bgcolor=\"#F6F6F6\"" : "")%> align="left"
     valign="top">
     <td class="SmallerText"><a href=#
-    onClick="posttoText('<%= Encode.forJavaScriptAttribute(StringUtils.noNull(c.getCode())) %>');"><%= Encode.forHtml(StringUtils.noNull(c.getCode())) %></a>
+    onClick="posttoText('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(c.getCode()) %>' />');"><e:forHtmlContent value='<%= StringUtils.noNull(c.getCode()) %>' /></a>
     </td>
-    <td class="SmallerText"><%= Encode.forHtml(StringUtils.noNull(c.getLevel1())) %></td>
-    <td class="SmallerText"><%= Encode.forHtml(StringUtils.noNull(c.getLevel2())) %></td>
-    <td class="SmallerText"><%= Encode.forHtml(StringUtils.noNull(c.getLevel3())) %></td>
-    <td class="SmallerText"><%= Encode.forHtml(c.getUsagenote() != null ? new String(c.getUsagenote()) : "") %></td>
+    <td class="SmallerText"><e:forHtmlContent value='<%= StringUtils.noNull(c.getLevel1()) %>' /></td>
+    <td class="SmallerText"><e:forHtmlContent value='<%= StringUtils.noNull(c.getLevel2()) %>' /></td>
+    <td class="SmallerText"><e:forHtmlContent value='<%= StringUtils.noNull(c.getLevel3()) %>' /></td>
+    <td class="SmallerText"><e:forHtmlContent value='<%= c.getUsagenote() != null ? new String(c.getUsagenote()) : "" %>' /></td>
     </tr>
     <%
             color = !(color);

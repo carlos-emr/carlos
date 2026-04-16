@@ -126,8 +126,8 @@
                     }
                 %>
             </select></td>
-            <td class="Text"><input name="start" value="<%=Encode.forHtmlAttribute(String.valueOf(start))%>"/></td>
-            <td class="Text"><input name="end" value="<%=Encode.forHtmlAttribute(String.valueOf(end))%>"/></td>
+            <td class="Text"><input name="start" value="<e:forHtmlAttribute value='<%= String.valueOf(start) %>' />"/></td>
+            <td class="Text"><input name="end" value="<e:forHtmlAttribute value='<%= String.valueOf(end) %>' />"/></td>
             <td class="Text"><input type="submit" name="cmd_search"
                                     value="Search"/></td>
         </tr>
@@ -135,20 +135,20 @@
 </form>
 <table width="100%">
     <tr>
-        <td class="Header" nowrap><a href="<%=Encode.forHtmlAttribute(url)%>">Lab Id</a></td>
+        <td class="Header" nowrap><a href="<e:forHtmlAttribute value='<%= url %>' />">Lab Id</a></td>
         <td class="Header" nowrap><a
-                href="<%=Encode.forHtmlAttribute(url + "&orderby=patient_name")%>">Patient Name</a></td>
+                href="<e:forHtmlAttribute value='<%= url + "&orderby=patient_name" %>' />">Patient Name</a></td>
         <td class="Header" nowrap><a
-                href="<%=Encode.forHtmlAttribute(url + "&orderby=ordering_provider")%>">Ordering Provider</a></td>
+                href="<e:forHtmlAttribute value='<%= url + "&orderby=ordering_provider" %>' />">Ordering Provider</a></td>
         <td class="Header" nowrap><a
-                href="<%=Encode.forHtmlAttribute(url + "&orderby=result_copies_to")%>">Result Copies To</a></td>
-        <td class="Header" nowrap><a href="<%=Encode.forHtmlAttribute(url + "&orderby=status")%>">Status</a></td>
+                href="<e:forHtmlAttribute value='<%= url + "&orderby=result_copies_to" %>' />">Result Copies To</a></td>
+        <td class="Header" nowrap><a href="<e:forHtmlAttribute value='<%= url + "&orderby=status" %>' />">Status</a></td>
         <td class="Header" nowrap><a
-                href="<%=Encode.forHtmlAttribute(url + "&orderby=signed_on")%>">Signed</a></td>
+                href="<e:forHtmlAttribute value='<%= url + "&orderby=signed_on" %>' />">Signed</a></td>
         <td class="Header" nowrap><a
-                href="<%=Encode.forHtmlAttribute(url + "&orderby=last_name")%>">Signing Provider</a></td>
+                href="<e:forHtmlAttribute value='<%= url + "&orderby=last_name" %>' />">Signing Provider</a></td>
         <td class="Header" nowrap><a
-                href="<%=Encode.forHtmlAttribute(url + "&orderby=date_time")%>">Date Received</a></td>
+                href="<e:forHtmlAttribute value='<%= url + "&orderby=date_time" %>' />">Date Received</a></td>
     </tr>
     <%
         if (command != null) {
@@ -168,9 +168,9 @@
     %>
     <tr class="<%=(other? "LightBG" : "WhiteBG")%>">
         <td class="Text"><a href="<%= request.getContextPath() %>/lab/CA/BC/ViewSearchReports"
-                            onclick="PopupLab('<%=Encode.forJavaScriptAttribute(pid_id)%>'); return false;"><%=Encode.forHtml(pid_id)%>
+                            onclick="PopupLab('<e:forJavaScriptAttribute value='<%= pid_id %>' />'); return false;"><e:forHtmlContent value='<%= pid_id %>' />
         </a></td>
-        <td class="Text" nowrap><%=Encode.forHtml(Misc.check(patient_name, ""))%>
+        <td class="Text" nowrap><e:forHtmlContent value='<%= Misc.check(patient_name, "") %>' />
         </td>
         <td class="Text" nowrap><%=Encode.forHtml(Misc.check(ordering_provider, "")).replaceAll("~", ",<br/>")%>
         </td>
@@ -205,7 +205,7 @@
         <td class="Text"
             nowrap><%=((last_name != null && !last_name.equals("")) ? Encode.forHtml(Misc.check(last_name, "")) + ", " + Encode.forHtml(Misc.check(first_name, "")) : "&nbsp;")%>
         </td>
-        <td class="Text" nowrap><%=Encode.forHtml(date_time.substring(0, date_time.indexOf(" ")))%>
+        <td class="Text" nowrap><e:forHtmlContent value='<%= date_time.substring(0, date_time.indexOf(" ")) %>' />
         </td>
     </tr>
     <%

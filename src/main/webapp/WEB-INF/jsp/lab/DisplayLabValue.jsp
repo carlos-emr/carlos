@@ -49,7 +49,6 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
 
 
@@ -66,9 +65,9 @@
 <div class="preventionSection" id="preventionSection<%=ran%>">
     <div class="headPrevention" id="headPrevention<%=ran%>">
         <p><a id="ahead<%=ran%>"
-              title="fade=[on] header=[<%=Encode.forHtmlAttribute(testName)%>] body=[]"
+              title="fade=[on] header=[<e:forHtmlAttribute value='<%= testName %>' />] body=[]"
               href="javascript: function myFunction() {return false; }"> <span
-                title="<%=""%>" style="font-weight: bold;"> <%=Encode.forHtml(StringUtils.maxLenString(testName, 10, 8, "..."))%>
+                title="<%=""%>" style="font-weight: bold;"> <e:forHtmlContent value='<%= StringUtils.maxLenString(testName, 10, 8, "...") %>' />
 <%=""/*testName*/%> </span> </a> <!--&nbsp;
                <a href="">#</a--> <br/>
         </p>
@@ -91,11 +90,11 @@
 
     %>
     <div style="text-align: justify;"
-         title="fade=[on] header=[<%=Encode.forHtmlAttribute(String.valueOf(hMap.get("result")))%>] body=[<%=Encode.forHtmlAttribute(String.valueOf(hMap.get("units")))%> <%=Encode.forHtmlAttribute(String.valueOf(hMap.get("range")))%>]"
+         title="fade=[on] header=[<e:forHtmlAttribute value='<%= String.valueOf(hMap.get("result")) %>' />] body=[<e:forHtmlAttribute value='<%= String.valueOf(hMap.get("units")) %>' /> <e:forHtmlAttribute value='<%= String.valueOf(hMap.get("range")) %>' />]"
          class="preventionProcedure" id="preventionProcedure<%=""+k+""+ran%>"
-         onclick="javascript:popup(660,960,'<%= Encode.forJavaScriptAttribute(labDisplayLink) %>','labReport')">
-        <p <%=r(hMap.get("abn"))%>><%=Encode.forHtml(String.valueOf(hMap.get("result")))%>
-            &nbsp;&nbsp;&nbsp; <%=Encode.forHtml(String.valueOf(hMap.get("collDate")))%>
+         onclick="javascript:popup(660,960,'<e:forJavaScriptAttribute value='<%= labDisplayLink %>' />','labReport')">
+        <p <%=r(hMap.get("abn"))%>><e:forHtmlContent value='<%= String.valueOf(hMap.get("result")) %>' />
+            &nbsp;&nbsp;&nbsp; <e:forHtmlContent value='<%= String.valueOf(hMap.get("collDate")) %>' />
         </p>
     </div>
     <%}%>

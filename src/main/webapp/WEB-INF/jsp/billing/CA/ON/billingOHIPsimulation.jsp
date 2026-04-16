@@ -61,7 +61,6 @@
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <jsp:useBean id="SxmlMisc" class="io.github.carlos_emr.SxmlMisc" scope="session"/>
 
 <head>
@@ -317,8 +316,8 @@
             <input type="hidden" name="submit" value="Create Report">
 
             Bill Center:
-            <input type="hidden" name="billcenter" value="<%=Encode.forHtmlAttribute(billCenter)%>">
-            <%=Encode.forHtml(healthOffice)%>
+            <input type="hidden" name="billcenter" value="<e:forHtmlAttribute value='<%= billCenter %>' />">
+            <e:forHtmlContent value='<%= healthOffice %>' />
 
             <button type='button' name='print' value='Print' class="btn float-end" onClick='window.print()'><i
                     class="fa-solid fa-print"></i> Print
@@ -333,10 +332,10 @@
             %>
 
 
-            <input type="hidden" name="monthCode" value="<%=Encode.forHtmlAttribute(monthCode)%>">
+            <input type="hidden" name="monthCode" value="<e:forHtmlAttribute value='<%= monthCode %>' />">
             <input type="hidden" name="verCode" value="V03">
-            <input type="hidden" name="curUser" value="<%=Encode.forHtmlAttribute(user_no)%>">
-            <input type="hidden" name="curDate" value="<%=Encode.forHtmlAttribute(nowDate)%>">
+            <input type="hidden" name="curUser" value="<e:forHtmlAttribute value='<%= user_no %>' />">
+            <input type="hidden" name="curDate" value="<e:forHtmlAttribute value='<%= nowDate %>' />">
 
 
             <div class="col-md-12" style="margin:4px;">
@@ -366,10 +365,10 @@
                             for (int i = 0; i < providerStr.size(); i++) {
                                 String temp[] = ((String) providerStr.get(i)).split("\\|");
                         %>
-                        <option value="<%=Encode.forHtmlAttribute(temp[0])%>"
-                                <%=providerview.equals(temp[0]) ? "selected" : (providerStr.size() == 1 ? "selected" : "")%>><%=Encode.forHtml(temp[1])%>
+                        <option value="<e:forHtmlAttribute value='<%= temp[0] %>' />"
+                                <%=providerview.equals(temp[0]) ? "selected" : (providerStr.size() == 1 ? "selected" : "")%>><e:forHtmlContent value='<%= temp[1] %>' />
                             ,
-                            <%=Encode.forHtml(temp[2])%>
+                            <e:forHtmlContent value='<%= temp[2] %>' />
                         </option>
                         <%
                             }
@@ -381,7 +380,7 @@
                     From:<br>
                     <div class="input-group">
                         <input type="text" name="xml_vdate" id="xml_vdate" class="form-control"
-                               value="<%= Encode.forHtmlAttribute(xml_vdate) %>" style="width:90px" autocomplete="off"/>
+                               value="<e:forHtmlAttribute value='<%= xml_vdate %>' />" style="width:90px" autocomplete="off"/>
                         <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                     </div>
                 </div>
@@ -391,7 +390,7 @@
                     To:<br>
                     <div class="input-group">
                         <input type="text" name="xml_appointment_date" id="xml_appointment_date"
-                               class="form-control" value="<%= Encode.forHtmlAttribute(xml_appointment_date) %>" style="width:90px"
+                               class="form-control" value="<e:forHtmlAttribute value='<%= xml_appointment_date %>' />" style="width:90px"
                                autocomplete="off"/>
                         <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                     </div>

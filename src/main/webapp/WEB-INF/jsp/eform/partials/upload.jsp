@@ -31,7 +31,6 @@
 <!DOCTYPE html>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -57,7 +56,7 @@
                 display: inline-block;
             }
         </style>
-    <link rel="stylesheet" href="<%=Encode.forHtmlAttribute(request.getContextPath())%>/css/fontawesome-all.min.css">
+    <link rel="stylesheet" href="<e:forHtmlAttribute value='<%= request.getContextPath() %>' />/css/fontawesome-all.min.css">
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
     </head>

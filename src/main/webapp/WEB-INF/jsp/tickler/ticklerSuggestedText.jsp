@@ -30,7 +30,6 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest, io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -173,7 +172,7 @@
                             for (TicklerTextSuggest tTextSuggestActive : activeTexts) {
                         %>
                         <option
-                                value="<%=tTextSuggestActive.getId().toString()%>"><%=Encode.forHtmlContent(tTextSuggestActive.getSuggestedText())%>
+                                value="<%=tTextSuggestActive.getId().toString()%>"><e:forHtmlContent value='<%= tTextSuggestActive.getSuggestedText() %>' />
                         </option>
                         <% }
                         }
@@ -200,7 +199,7 @@
                             for (TicklerTextSuggest tTextSuggestInactive : inactiveTexts) {
                         %>
                         <option
-                                value="<%=tTextSuggestInactive.getId().toString()%>"><%=Encode.forHtmlContent(tTextSuggestInactive.getSuggestedText())%>
+                                value="<%=tTextSuggestInactive.getId().toString()%>"><e:forHtmlContent value='<%= tTextSuggestInactive.getSuggestedText() %>' />
                         </option>
                         <% }
                         }

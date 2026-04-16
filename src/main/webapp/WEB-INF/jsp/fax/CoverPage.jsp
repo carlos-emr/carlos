@@ -36,7 +36,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -201,7 +201,7 @@
                 <tr>
                     <td id="oscarFaxHeaderLeftColumn"><h1>CARLOS Fax</h1></td>
 
-                    <td id="oscarFaxHeaderCenterColumn"><e:forHtml value="${ transactionType }" /></td>
+                    <td id="oscarFaxHeaderCenterColumn"><e:forHtml value='${ transactionType }' /></td>
                     <td id="oscarFaxHeaderRightColumn" align=right>
 						<span class="HelpAboutLogout"> 
 							<a style="font-size: 10px; font-style: normal;" href="${ ctx }encounter/About.jsp"

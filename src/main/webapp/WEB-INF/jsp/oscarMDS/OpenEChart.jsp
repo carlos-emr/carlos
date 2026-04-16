@@ -31,7 +31,6 @@
 <%@ page import="java.util.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ page import="java.net.URLEncoder" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     // Check if demographicNo is present and valid
     String demographicNo = request.getParameter("demographicNo");
@@ -71,7 +70,8 @@
 
         %>
 
-        location.href = '${pageContext.request.contextPath}/encounter/IncomingEncounter?demographicNo=<%=Encode.forJavaScript(Encode.forUriComponent(demographicNo))%>&reason=Lab+Results-Notes&curDate=<%=curYear%>-<%=curMonth%>-<%=curDay%>&encType=<%=URLEncoder.encode("Lab Results","UTF-8")%>&status=';
+        <c:set var="__enc_1"><e:forUriComponent value='<%= demographicNo %>' /></c:set>
+        location.href = '${pageContext.request.contextPath}/encounter/IncomingEncounter?demographicNo=<e:forJavaScript value='${__enc_1}' />&reason=Lab+Results-Notes&curDate=<%=curYear%>-<%=curMonth%>-<%=curDay%>&encType=<%=URLEncoder.encode("Lab Results","UTF-8")%>&status=';
         window.resizeTo(980, 700);
 
     </script>
@@ -80,7 +80,9 @@
 <body>
 
 <a
-        href="javascript:popupPage(700, 980, '${pageContext.request.contextPath}/encounter/IncomingEncounter?demographicNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographicNo)) %>&reason=Lab+Results-Notes&curDate=<%=curYear%>-<%=curMonth%>-<%=curDay%>&encType=<%=URLEncoder.encode("Lab Results","UTF-8")%>&status=');window.close();">Please
+        <c:set var="__enc_2"><e:forUriComponent value='<%= demographicNo %>' /></c:set>
+        href="javascript:p        
+opupPage(700, 980, '${pageContext.request.contextPath}/encounter/IncomingEncounter?demographicNo=<e:forJavaScriptAttribute value='${__enc_2}' />&reason=Lab+Results-Notes&curDate=<%=curYear%>-<%=curMonth%>-<%=curDay%>&encType=<%=URLEncoder.encode("Lab Results","UTF-8")%>&status=');window.close();">Please
     click here to go to the patient's E-Chart.</a>
 
 </body>

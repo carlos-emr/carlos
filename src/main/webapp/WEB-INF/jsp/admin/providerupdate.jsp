@@ -28,9 +28,9 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -234,13 +234,13 @@
         %>
         <p>
         <h2><fmt:message key="admin.providerupdate.msgUpdateSuccess"/>
-            <a href="/admin/ViewProviderUpdateProvider?keyword=<%=Encode.forUriComponent(request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "")%>"><%= Encode.forHtml(request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "") %>
+            <a href="${pageContext.request.contextPath}/admin/ViewProviderUpdateProvider?keyword=<e:forUriComponent value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' />"><e:forHtmlContent value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' />
             </a>
         </h2>
         <%
         } else {
         %>
-        <h1><fmt:message key="admin.providerupdate.msgUpdateFailure"/><%= Encode.forHtml(StringUtils.noNull(request.getParameter("provider_no"))) %>.</h1>
+        <h1><fmt:message key="admin.providerupdate.msgUpdateFailure"/><e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("provider_no")) %>' />.</h1>
         <%
             }
         } else {

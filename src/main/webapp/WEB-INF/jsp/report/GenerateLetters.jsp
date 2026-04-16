@@ -47,7 +47,6 @@
 "http://www.w3.org/TR/html4/loose.dtd">
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@page
         import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.data.*,io.github.carlos_emr.carlos.prevention.pageUtil.*,java.net.*,io.github.carlos_emr.carlos.eform.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
@@ -227,7 +226,7 @@
                         for (int i = 0; i < list.size(); i++) {
                             Hashtable h = (Hashtable) list.get(i);
                     %>
-                    <option value="<%=Encode.forHtmlAttribute(String.valueOf(h.get("ID")))%>"><%=Encode.forHtml(String.valueOf(h.get("report_name")))%>
+                    <option value="<e:forHtmlAttribute value='<%= String.valueOf(h.get("ID")) %>' />"><e:forHtmlContent value='<%= String.valueOf(h.get("report_name")) %>' />
                     </option>
                     <%}%>
                 </select> <%
@@ -238,9 +237,9 @@
                     if (followUpType != null && followUpValue != null) { %>
                     Mark in patients Records: <input type="checkbox" name="addFollowUp"
                                                      value="ON" checked/> <input type="hidden" name="followupType"
-                                                                                 value="<%= Encode.forHtmlAttribute(followUpType) %>"/> <input
+                                                                                 value="<e:forHtmlAttribute value='<%= followUpType %>' />"/> <input
                             type="hidden"
-                            name="followupValue" value="<%= Encode.forHtmlAttribute(followUpValue) %>"/> <%}%>
+                            name="followupValue" value="<e:forHtmlAttribute value='<%= followUpValue %>' />"/> <%}%>
                 </div>
 
                 <input type="submit" value="Generate Letters"/>
@@ -264,11 +263,11 @@
                     <tr>
                         <td><%=i + 1%>
                         </td>
-                        <td><input type="checkbox" name="demos" value="<%=Encode.forHtmlAttribute(demos[i])%>"
+                        <td><input type="checkbox" name="demos" value="<e:forHtmlAttribute value='<%= demos[i] %>' />"
                                    checked/></td>
-					<td><%=Encode.forHtmlContent(h.get("lastName"))%>, <%=Encode.forHtmlContent(h.get("firstName"))%></td>
-					<td><%=Encode.forHtmlContent(h.get("sex"))%></td>
-					<td><%=Encode.forHtmlContent(h.get("age"))%></td>
+					<td><e:forHtmlContent value='<%= h.get("lastName") %>' />, <e:forHtmlContent value='<%= h.get("firstName") %>' /></td>
+					<td><e:forHtmlContent value='<%= h.get("sex") %>' /></td>
+					<td><e:forHtmlContent value='<%= h.get("age") %>' /></td>
                     </tr>
                     <%}%>
                 </table>

@@ -32,8 +32,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.service.FieldNoteManager" %>
 <%@ page import="java.util.*, java.text.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -133,8 +131,8 @@
             }
 
             function setDefaultDates() {
-                document.fieldNoteReportForm.date_start.value = "<%=Encode.forJavaScript(dateStartDefault)%>";
-                document.fieldNoteReportForm.date_end.value = "<%=Encode.forJavaScript(dateEndDefault)%>";
+                document.fieldNoteReportForm.date_start.value = "<e:forJavaScriptBlock value='<%= dateStartDefault %>' />";
+                document.fieldNoteReportForm.date_end.value = "<e:forJavaScriptBlock value='<%= dateEndDefault %>' />";
                 document.fieldNoteReportForm.action = "";
                 document.fieldNoteReportForm.submit();
             }
@@ -183,11 +181,11 @@
             <tr style="background-color: #F2F2F2;">
                 <td>
                     <fmt:message key="admin.fieldNote.startDate"/>:<input type="text" name="date_start" size="8"
-                                                                           value="<%= Encode.forHtmlAttribute(dateStart) %>" id="startDate"><a
+                                                                           value="<e:forHtmlAttribute value='<%= dateStart %>' />" id="startDate"><a
                         id="SCal"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
                     &nbsp;
                     <fmt:message key="admin.fieldNote.endDate"/>:<input type="text" name="date_end" size="8"
-                                                                         value="<%= Encode.forHtmlAttribute(dateEnd) %>" id="endDate"><a id="ECal"><img
+                                                                         value="<e:forHtmlAttribute value='<%= dateEnd %>' />" id="endDate"><a id="ECal"><img
                         title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
                     &nbsp;
                     <input type="submit" value="<fmt:message key="admin.fieldNote.getFieldNotes"/>"
@@ -242,7 +240,7 @@
                         %>
                         <tr>
                             <td class="bordered" rowspan="<%=residentCountList.size()%>" valign="top">
-                                <%=Encode.forHtml(supervisor)%>
+                                <e:forHtmlContent value='<%= supervisor %>' />
                             </td>
                                     <%					boolean first = true;
 					for (String resident : residentCountList.keySet()) {
@@ -257,7 +255,7 @@
                         <tr>
                             <% }
                             %>
-                            <td class="bordered"><%=Encode.forHtml(resident)%>
+                            <td class="bordered"><e:forHtmlContent value='<%= resident %>' />
                             </td>
                             <td class="bordered" align="center"><%=residentCountList.get(resident)%>
                             </td>
@@ -282,15 +280,15 @@
                     String residentId = residentNameList.get(residentName);
             %>
             <tr>
-                <td><%=Encode.forHtml(residentName)%>
+                <td><e:forHtmlContent value='<%= residentName %>' />
                 </td>
                 <td>
                     <input type="button" value="<fmt:message key="admin.fieldNote.view"/>"
                            title="<fmt:message key="admin.fieldNote.viewReport"/>"
-                           onclick="send('<%=Encode.forJavaScriptAttribute(residentId)%>','<%=Encode.forJavaScriptAttribute(residentName)%>','view');"/>
+                           onclick="send('<e:forJavaScriptAttribute value='<%= residentId %>' />','<e:forJavaScriptAttribute value='<%= residentName %>' />','view');"/>
                     <input type="button" value="<fmt:message key="admin.fieldNote.download"/>"
                            title="<fmt:message key="admin.fieldNote.downloadReport"/>"
-                           onclick="send('<%=Encode.forJavaScriptAttribute(residentId)%>','<%=Encode.forJavaScriptAttribute(residentName)%>','download');"/>
+                           onclick="send('<e:forJavaScriptAttribute value='<%= residentId %>' />','<e:forJavaScriptAttribute value='<%= residentName %>' />','download');"/>
                 </td>
             </tr>
             <% }

@@ -101,7 +101,7 @@
             }
 
             function goCaption() {
-                //self.location.href = "<%= request.getContextPath() %>/report/ViewReportFormCaption?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>";
+                //self.location.href = "<%= request.getContextPath() %>/report/ViewReportFormCaption?id=<e:forUriComponent value='<%= reportId %>' />&tableName=<e:forUriComponent value='<%= tableName %>' />";
             }
 
             function goPage(id) {
@@ -117,9 +117,9 @@
     <center></center>
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr BGCOLOR="#CCCCFF">
-            <td><%=Encode.forHtml(reportName)%> Configuration</td>
+            <td><e:forHtmlContent value='<%= reportName %>' /> Configuration</td>
             <td width="10%" align="right" nowrap><a
-                    href="<%= request.getContextPath() %>/report/ViewReportFilter?id=<%= Encode.forUriComponent(reportId) %>">Back to the Report</a></td>
+                    href="<%= request.getContextPath() %>/report/ViewReportFilter?id=<e:forUriComponent value='<%= reportId %>' />">Back to the Report</a></td>
         </tr>
     </table>
 
@@ -127,7 +127,7 @@
         <form method="post" name="baseurl0" action="<%= request.getContextPath() %>/report/ViewReportFormDemoConfig">
             <tr bgcolor="<%="#EEEEFF"%>">
                 <td align="center" width="45%"><a
-                        href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<%= Encode.forUriComponent(reportId) %>">Form</a> | Patient
+                        href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<e:forUriComponent value='<%= reportId %>' />">Form</a> | Patient
                     Profile <br/>
                     <select size=28 name="selField" ondblclick="javascript:onSelField();">
                         <%
@@ -147,7 +147,7 @@
                         <% } %>
                     </select> <br>
                     <a
-                            href="<%= request.getContextPath() %>/report/ViewReportFormCaption?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>&formTableName=<%= Encode.forUriComponent(formTableName) %>&configTableName=<%= Encode.forUriComponent(configTableName) %>">Add
+                            href="<%= request.getContextPath() %>/report/ViewReportFormCaption?id=<e:forUriComponent value='<%= reportId %>' />&tableName=<e:forUriComponent value='<%= tableName %>' />&formTableName=<e:forUriComponent value='<%= formTableName %>' />&configTableName=<e:forUriComponent value='<%= configTableName %>' />">Add
                         Caption</a></td>
 
                 <td align="center" width="20%" nowrap valign="top">
@@ -173,10 +173,10 @@
                     </option>
                     <% } %>
                 </select> <br>
-                    Change Order <input type="hidden" name="id" value="<%= Encode.forHtmlAttribute(reportId) %>">
-                    <input type="hidden" name="tableName" value="<%= Encode.forHtmlAttribute(tableName) %>">
+                    Change Order <input type="hidden" name="id" value="<e:forHtmlAttribute value='<%= reportId %>' />">
+                    <input type="hidden" name="tableName" value="<e:forHtmlAttribute value='<%= tableName %>' />">
                     <input type="hidden" name="configTableName"
-                           value="<%= Encode.forHtmlAttribute(configTableName) %>"></td>
+                           value="<e:forHtmlAttribute value='<%= configTableName %>' />"></td>
             </tr>
         </form>
     </table>
