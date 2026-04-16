@@ -193,7 +193,7 @@
                 <table class="TopStatusBar">
                     <tr>
                         <td>
-                            <div class="DivContentTitle"><h2>Messages related to <%=Encode.forHtml(demographic_name)%>
+                            <div class="DivContentTitle"><h2>Messages related to <e:forHtmlContent value='<%= demographic_name %>' />
                             </h2></div>
                         </td>
                         <td></td>
@@ -296,7 +296,7 @@
                                     %>
                                     <tr>
                                         <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'
-                                            width="75"><input type="checkbox" name="messageNo" value="<%=Encode.forHtmlAttribute(dm.getMessageId())%>"/> <%
+                                            width="75"><input type="checkbox" name="messageNo" value="<e:forHtmlAttribute value='<%= dm.getMessageId() %>' />"/> <%
                                             String atta = dm.getAttach();
                                             if (atta.equals("1")) {
                                         %><img src="img/clip4.jpg">
@@ -305,16 +305,16 @@
                                             %> &nbsp;
                                         </td>
 
-                                        <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'><%= Encode.forHtml(dm.getSentby())  %>
+                                        <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'><e:forHtmlContent value='<%= dm.getSentby() %>' />
                                         </td>
                                         <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'><a
-                                                href="<%=request.getContextPath()%>/messenger/ViewMessage?from=encounter&demographic_no=<%=Encode.forUriComponent(demographic_no)%>&msgCount=<%=Encode.forUriComponent(msgCount)%>&orderBy=<%=Encode.forUriComponent(orderby)%>&messageID=<%=Encode.forUriComponent(dm.getMessageId())%>&messagePosition=<%=Encode.forUriComponent(dm.getMessagePosition())%>">
-                                            <%=Encode.forHtml(dm.getThesubject())%>
+                                                href="<%=request.getContextPath()%>/messenger/ViewMessage?from=encounter&demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&msgCount=<e:forUriComponent value='<%= msgCount %>' />&orderBy=<e:forUriComponent value='<%= orderby %>' />&messageID=<e:forUriComponent value='<%= dm.getMessageId() %>' />&messagePosition=<e:forUriComponent value='<%= dm.getMessagePosition() %>' />">
+                                            <e:forHtmlContent value='<%= dm.getThesubject() %>' />
                                         </a></td>
-                                        <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'><%= Encode.forHtml(dm.getThedate())  %>
+                                        <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'><e:forHtmlContent value='<%= dm.getThedate() %>' />
                                         </td>
                                         <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'>
-                                            <oscar:nameage demographicNo="<%=Encode.forHtmlAttribute(dm.getDemographic_no())%>"></oscar:nameage>
+                                            <oscar:nameage demographicNo="<e:forHtmlAttribute value='<%= dm.getDemographic_no() %>' />"></oscar:nameage>
                                         </td>
                                     </tr>
                                     <%}%>

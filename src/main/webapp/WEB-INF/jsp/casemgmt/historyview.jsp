@@ -30,7 +30,6 @@
 
 
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -100,7 +99,7 @@ Client name:
     <tr>
         <td class="fieldValue">
             <textarea name="caseNote_history" cols="107" rows="29" wrap="soft">
-                <%= Encode.forHtml(caseNote_history) %>                       
+                <e:forHtmlContent value='<%= caseNote_history %>' />                       
             </textarea>
         </td>
     </tr>

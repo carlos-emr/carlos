@@ -53,13 +53,12 @@
 <%@ page
         import="java.util.*, java.sql.*, io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.providers.data.ProviderData,io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.entities.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillActivityDAO" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     GregorianCalendar now = new GregorianCalendar();
     int curYear = now.get(Calendar.YEAR);
@@ -171,7 +170,7 @@
             <% for (String year : yearArray) { %>
             <tr>
                 <td align='CENTER'><a
-                        href="<%= request.getContextPath() %>/billing/CA/BC/SimulateTeleplanFile?year=<%=Encode.forUriComponent(year)%>">YEAR <%=Encode.forHtml(year)%>
+                        href="<%= request.getContextPath() %>/billing/CA/BC/SimulateTeleplanFile?year=<e:forUriComponent value='<%= year %>' />">YEAR <e:forHtmlContent value='<%= year %>' />
                 </a></td>
             </tr>
             <% } %>
@@ -189,7 +188,7 @@
     </div>
 
 
-    <h4>Teleplan Group Report - <%=Encode.forHtml(thisyear)%>
+    <h4>Teleplan Group Report - <e:forHtmlContent value='<%= thisyear %>' />
     </h4>
     <c:if test="${!empty error}">${e:forHtml(error)}</c:if>
 
@@ -205,7 +204,7 @@
                 for (String provNo : list) {
                     ProviderData provider = new ProviderData(provNo);
             %>
-            <option value="<%=Encode.forHtmlAttribute(provider.getOhip_no())%>"><%=Encode.forHtml(provider.getLast_name())%>,<%=Encode.forHtml(provider.getFirst_name())%>
+            <option value="<e:forHtmlAttribute value='<%= provider.getOhip_no() %>' />"><e:forHtmlContent value='<%= provider.getLast_name() %>' />,<e:forHtmlContent value='<%= provider.getFirst_name() %>' />
             </option>
             <%}%>
         </select>

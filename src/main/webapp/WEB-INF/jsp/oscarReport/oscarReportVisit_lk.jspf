@@ -42,8 +42,6 @@ if(!authed) {
 <%@page import="io.github.carlos_emr.MyDateFormat" %>
 <%@page import="java.math.BigDecimal" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@page import="org.owasp.encoder.Encode" %>
-
 <%
 	String cTotal = "0", hTotal = "0", oTotal = "0", mNum = "", fNum = "";
 	String dateBegin = request.getParameter("xml_vdate");
@@ -102,11 +100,11 @@ if(!authed) {
 <div class="card card-body bg-body-tertiary">
 	<dl class="row">
 		<dt>Clinic</dt>
-		<dd><%=Encode.forHtml(clinic)%></dd>
+		<dd><e:forHtmlContent value='<%= clinic %>' /></dd>
 		<dt>Visits Between</dt>
-		<dd><%=Encode.forHtml(dateBegin)%>
+		<dd><e:forHtmlContent value='<%= dateBegin %>' />
 			and
-			<%=Encode.forHtml(dateEnd)%></dd>
+			<e:forHtmlContent value='<%= dateEnd %>' /></dd>
 		<dt>Run on</dt>
 		<dd><%=MyDateFormat.getMysqlStandardDate(curYear, curMonth,
 					curDay)%></dd>

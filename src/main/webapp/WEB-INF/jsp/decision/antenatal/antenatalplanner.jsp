@@ -46,7 +46,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Desaprisk" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DesapriskDao" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     DesapriskDao desapriskDao = SpringUtils.getBean(DesapriskDao.class);
 %>
@@ -71,7 +70,7 @@
     </script>
 </head>
 <body bgproperties="fixed" topmargin="0" leftmargin="1" rightmargin="1">
-<form name="planner" method="post" action="<%= request.getContextPath() %>/decision/antenatal/antenatalplanner?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&formId=<%=Encode.forUriComponent(form_no)%>">
+<form name="planner" method="post" action="<%= request.getContextPath() %>/decision/antenatal/antenatalplanner?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&formId=<e:forUriComponent value='<%= form_no %>' />">
     <%
         //save risk&checklist data if required
         if (request.getParameter("submit") != null && (request.getParameter("submit").equals(" Save ") || request.getParameter("submit").equals("Save and Exit"))) {
@@ -138,7 +137,7 @@
                 <input type="submit" name="submit" value="Save and Exit"/>
                 <input type="button" value="  Exit  " onclick="javascript:return onExit();"/>
                 <input type="button" name="action" value="Print"
-                       onclick="popupPage(700,800,'<%= request.getContextPath() %>/decision/antenatal/antenatalplannerprint?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&formId=<%=Encode.forUriComponent(form_no)%>');return false;"/>
+                       onclick="popupPage(700,800,'<%= request.getContextPath() %>/decision/antenatal/antenatalplannerprint?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&formId=<e:forUriComponent value='<%= form_no %>' />');return false;"/>
             </td>
             <td align="right">
                 <a href=# onClick="popupPage(600,930,'<%= request.getContextPath() %>/decision/antenatal/obarriskedit_99_12');return false;">Edit OB Risks</a> |
@@ -211,7 +210,7 @@ else {
                 <input type="submit" name="submit" value="Save and Exit"/>
                 <input type="button" value="  Exit  " onclick="javascript:return onExit();"/>
                 <input type="button" name="action" value="Print"
-                       onclick="popupPage(700,800,'<%= request.getContextPath() %>/decision/antenatal/antenatalplannerprint?demographic_no=<%=Encode.forJavaScriptAttribute(demographic_no)%>&formId=<%=Encode.forJavaScriptAttribute(form_no)%>');return false;"/>
+                       onclick="popupPage(700,800,'<%= request.getContextPath() %>/decision/antenatal/antenatalplannerprint?demographic_no=<e:forJavaScriptAttribute value='<%= demographic_no %>' />&formId=<e:forJavaScriptAttribute value='<%= form_no %>' />');return false;"/>
             </td>
             <td align="right">
                 <a href=# onClick="popupPage(600,930,'<%= request.getContextPath() %>/decision/antenatal/obarriskedit_99_12');return false;">Edit OB Risks</a> |

@@ -35,7 +35,6 @@
 
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
 <%@ page import="io.github.carlos_emr.carlos.rx.data.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@page import="java.util.List" %>
@@ -214,12 +213,12 @@
                                             <tr>
                                                 <td width=20% valign="top">
                                                     <a <%= styleColor%>
-                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<%=Encode.forUriComponent(drug.getRegionalIdentifier())%>&cn=<%=Encode.forUriComponent(drug.getCustomName())%>&bn=<%=Encode.forUriComponent(drug.getBrandName())%>"><%=drug.getRxDate()%>
+                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<e:forUriComponent value='<%= drug.getRegionalIdentifier() %>' />&cn=<e:forUriComponent value='<%= drug.getCustomName() %>' />&bn=<e:forUriComponent value='<%= drug.getBrandName() %>' />"><%=drug.getRxDate()%>
                                                     </a>
                                                 </td>
                                                 <td width=100%>
                                                     <a <%= styleColor%>
-                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<%= Encode.forUriComponent(drug.getRegionalIdentifier())%>&cn=<%= Encode.forUriComponent(drug.getCustomName())%>&bn=<%=Encode.forUriComponent(drug.getBrandName())%>"><%= Encode.forHtml(drug.getFullOutLine().replaceAll(";", " "))%>
+                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<e:forUriComponent value='<%= drug.getRegionalIdentifier() %>' />&cn=<e:forUriComponent value='<%= drug.getCustomName() %>' />&bn=<e:forUriComponent value='<%= drug.getBrandName() %>' />"><e:forHtmlContent value='<%= drug.getFullOutLine().replaceAll(";", " ") %>' />
                                                     </a>
                                                 </td>
                                             </tr>

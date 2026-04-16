@@ -37,8 +37,6 @@
 <%@ page
         import="java.util.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementMapConfig, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MeasurementMap" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
 
     MeasurementMapConfig mmc = new MeasurementMapConfig();
@@ -144,7 +142,7 @@
                                         searchstring = "";
                                 %>
                                 <input type="text" size="30" name="searchstring"
-                                       value="<%= Encode.forHtmlAttribute(searchstring) %>"/> <input type="submit" value="Search"
+                                       value="<e:forHtmlAttribute value='<%= searchstring %>' />"/> <input type="submit" value="Search"
                                                                             onclick="return reloadPage()"/></td>
                         <tr>
                             <td class="Cell" width="20%">Select code to map to:</td>

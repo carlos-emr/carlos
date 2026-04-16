@@ -50,7 +50,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%
     String curUser_no = (String) session.getAttribute("user");
@@ -80,11 +79,11 @@
     <%} else {%>
     <fmt:message key="report.printLabel.DefaultPrinter"/>
     <%}%>
-    <%=Encode.forHtml(defaultPrinterName)%>
+    <e:forHtmlContent value='<%= defaultPrinterName %>' />
     <%}%>
     <br>
     <object id="pdf" type="application/pdf"
-            data="printDemoAddressLabelAction?demographic_no=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("demographic_no"))) %>"
+            data="printDemoAddressLabelAction?demographic_no=<e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("demographic_no")) %>' />"
             height="80%" width="100%"></object>
     </body>
 </html>

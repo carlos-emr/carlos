@@ -28,8 +28,6 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
-<%@page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -216,21 +214,21 @@
                                 %>
                                 <b style="font-size:14pt"><%=firstLine %>
                                 </b><br/>
-                                <%=Encode.forHtml(provider.getSpecialty()) %><br/>
+                                <e:forHtmlContent value='<%= provider.getSpecialty() %>' /><br/>
                                 <br/>
-                                <%=Encode.forHtml(clinic.getClinicAddress()) %><br/>
-                                <%=Encode.forHtml(clinic.getClinicCity()) %>
-                                , <%=Encode.forHtml(clinic.getClinicProvince()) %>  <%=Encode.forHtml(clinic.getClinicPostal()) %>
+                                <e:forHtmlContent value='<%= clinic.getClinicAddress() %>' /><br/>
+                                <e:forHtmlContent value='<%= clinic.getClinicCity() %>' />
+                                , <e:forHtmlContent value='<%= clinic.getClinicProvince() %>' />  <e:forHtmlContent value='<%= clinic.getClinicPostal() %>' />
                                 <br/>
-                                <%=Encode.forHtml(phone) %><br/>
-                                Fax <%=Encode.forHtml(fax) %> <br/>
+                                <e:forHtmlContent value='<%= phone %>' /><br/>
+                                Fax <e:forHtmlContent value='<%= fax %>' /> <br/>
                             </td>
                         </tr>
 
                         <tr> <!-- patient name -->
                             <td colspan="2">
                                 <b>Name</b>: <span
-                                    style="text-decoration: underline;"><%=Encode.forHtml(appt.getName()) %></span>
+                                    style="text-decoration: underline;"><e:forHtmlContent value='<%= appt.getName() %>' /></span>
                             </td>
                         </tr>
 

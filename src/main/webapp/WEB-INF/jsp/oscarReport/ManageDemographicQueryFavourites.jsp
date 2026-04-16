@@ -47,8 +47,6 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptSearchData,java.util.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
     RptSearchData searchData = new RptSearchData();
     java.util.ArrayList queryArray = searchData.getQueryTypes();
@@ -83,8 +81,8 @@
                         String qName = sc.queryName;
                 %>
                 <tr>
-                    <td style="width:30px;"><input type="checkbox" name="queryFavourite" value="<%=Encode.forHtmlAttribute(qId)%>"/></td>
-                    <td><%=Encode.forHtml(qName)%></td>
+                    <td style="width:30px;"><input type="checkbox" name="queryFavourite" value="<e:forHtmlAttribute value='<%= qId %>' />"/></td>
+                    <td><e:forHtmlContent value='<%= qName %>' /></td>
                 </tr>
                 <%}%>
             </table>

@@ -47,7 +47,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
@@ -146,7 +145,7 @@
 
 <div id="patientInfop3">
     <fmt:message key="encounter.formRourke1.msgName"/>:
-    <input type="text" maxlength="60" size="30" value="<%= Encode.forHtmlAttribute(props.getProperty("c_pName", "")) %>"
+    <input type="text" maxlength="60" size="30" value="<e:forHtmlAttribute value='<%= props.getProperty("c_pName", "") %>' />"
            readonly="true"/>
     &nbsp;&nbsp;<fmt:message key="encounter.formRourke1.msgBirthDate"/> (d/m/yyyy):
     <input type="text" id="c_birthDate3" size="10" maxlength="10" value="<%= props.getProperty("c_birthDate", "") %>"
@@ -194,45 +193,45 @@
         </td>
         <td>
             <a href="javascript:void(0)"
-               onclick="displayDemographicMeasurements('p3_ht9m', 'HT', '<%=Encode.forJavaScriptAttribute(String.valueOf(demographic.getDemographicNo()))%>',
-                       '<%=Encode.forJavaScriptAttribute(demographic.getFormattedDob())%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
+               onclick="displayDemographicMeasurements('p3_ht9m', 'HT', '<e:forJavaScriptAttribute value='<%= String.valueOf(demographic.getDemographicNo()) %>' />',
+                       '<e:forJavaScriptAttribute value='<%= demographic.getFormattedDob() %>' />', '<e:forJavaScriptAttribute value='<%= appointmentNo %>' />')">
                 <fmt:message key="encounter.formRourke1.formHt"/>
             </a>
         </td>
         <td>
             <a href="javascript:void(0)"
-               onclick="displayDemographicMeasurements('p3_wt9m', 'WT', '<%=Encode.forJavaScriptAttribute(String.valueOf(demographic.getDemographicNo()))%>',
-                       '<%=Encode.forJavaScriptAttribute(demographic.getFormattedDob())%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
+               onclick="displayDemographicMeasurements('p3_wt9m', 'WT', '<e:forJavaScriptAttribute value='<%= String.valueOf(demographic.getDemographicNo()) %>' />',
+                       '<e:forJavaScriptAttribute value='<%= demographic.getFormattedDob() %>' />', '<e:forJavaScriptAttribute value='<%= appointmentNo %>' />')">
                 <fmt:message key="encounter.formRourke1.formWt"/>
             </a>
         </td>
         <td><fmt:message key="encounter.formRourke2006_3.formHdCirc"/></td>
         <td>
             <a href="javascript:void(0)"
-               onclick="displayDemographicMeasurements('p3_ht12m', 'HT', '<%=Encode.forJavaScriptAttribute(String.valueOf(demographic.getDemographicNo()))%>',
-                       '<%=Encode.forJavaScriptAttribute(demographic.getFormattedDob())%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
+               onclick="displayDemographicMeasurements('p3_ht12m', 'HT', '<e:forJavaScriptAttribute value='<%= String.valueOf(demographic.getDemographicNo()) %>' />',
+                       '<e:forJavaScriptAttribute value='<%= demographic.getFormattedDob() %>' />', '<e:forJavaScriptAttribute value='<%= appointmentNo %>' />')">
                 <fmt:message key="encounter.formRourke1.formHt"/>
             </a>
         </td>
         <td>
             <a href="javascript:void(0)"
-               onclick="displayDemographicMeasurements('p3_wt12m', 'WT', '<%=Encode.forJavaScriptAttribute(String.valueOf(demographic.getDemographicNo()))%>',
-                       '<%=Encode.forJavaScriptAttribute(demographic.getFormattedDob())%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
+               onclick="displayDemographicMeasurements('p3_wt12m', 'WT', '<e:forJavaScriptAttribute value='<%= String.valueOf(demographic.getDemographicNo()) %>' />',
+                       '<e:forJavaScriptAttribute value='<%= demographic.getFormattedDob() %>' />', '<e:forJavaScriptAttribute value='<%= appointmentNo %>' />')">
                 <fmt:message key="encounter.formRourke2006_3.formWt12m"/>
             </a>
         </td>
         <td><fmt:message key="encounter.formRourke2006_3.formHdCirc"/></td>
         <td>
             <a href="javascript:void(0)"
-               onclick="displayDemographicMeasurements('p3_ht15m', 'HT', '<%=Encode.forJavaScriptAttribute(String.valueOf(demographic.getDemographicNo()))%>',
-                       '<%=Encode.forJavaScriptAttribute(demographic.getFormattedDob())%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
+               onclick="displayDemographicMeasurements('p3_ht15m', 'HT', '<e:forJavaScriptAttribute value='<%= String.valueOf(demographic.getDemographicNo()) %>' />',
+                       '<e:forJavaScriptAttribute value='<%= demographic.getFormattedDob() %>' />', '<e:forJavaScriptAttribute value='<%= appointmentNo %>' />')">
                 <fmt:message key="encounter.formRourke1.formHt"/>
             </a>
         </td>
         <td>
             <a href="javascript:void(0)"
-               onclick="displayDemographicMeasurements('p3_wt15m', 'WT', '<%=Encode.forJavaScriptAttribute(String.valueOf(demographic.getDemographicNo()))%>',
-                       '<%=Encode.forJavaScriptAttribute(demographic.getFormattedDob())%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
+               onclick="displayDemographicMeasurements('p3_wt15m', 'WT', '<e:forJavaScriptAttribute value='<%= String.valueOf(demographic.getDemographicNo()) %>' />',
+                       '<e:forJavaScriptAttribute value='<%= demographic.getFormattedDob() %>' />', '<e:forJavaScriptAttribute value='<%= appointmentNo %>' />')">
                 <fmt:message key="encounter.formRourke1.formWt"/>
             </a>
         </td>

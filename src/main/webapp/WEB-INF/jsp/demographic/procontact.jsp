@@ -34,21 +34,20 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String id = request.getParameter("id");
     ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
     request.setAttribute("providers", providerDao.getActiveProviders());
 %>
 
-<div id="procontact_<%= Encode.forHtmlAttribute(id) %>">
-    <input type="hidden" name="procontact_<%= Encode.forHtmlAttribute(id) %>.id" id="procontact_<%= Encode.forHtmlAttribute(id) %>.id" value=""/>
+<div id="procontact_<e:forHtmlAttribute value='<%= id %>' />">
+    <input type="hidden" name="procontact_<e:forHtmlAttribute value='<%= id %>' />.id" id="procontact_<e:forHtmlAttribute value='<%= id %>' />.id" value=""/>
 
-    <a href="#" onclick="deleteProContact(<%= Encode.forJavaScriptAttribute(id) %>);">[Delete]</a>
+    <a href="#" onclick="deleteProContact(<e:forJavaScriptAttribute value='<%= id %>' />);">[Delete]</a>
 
     &nbsp;
 
-    <select name="procontact_<%= Encode.forHtmlAttribute(id) %>.role" id="procontact_<%= Encode.forHtmlAttribute(id) %>.role">
+    <select name="procontact_<e:forHtmlAttribute value='<%= id %>' />.role" id="procontact_<e:forHtmlAttribute value='<%= id %>' />.role">
         <option value="Referring Doctor">Referring Doctor</option>
         <option value="Family Doctor">Family Doctor</option>
         <option value="Specialist">Specialist</option>
@@ -57,7 +56,7 @@
 
     &nbsp;
 
-    <select name="procontact_<%= Encode.forHtmlAttribute(id) %>.consentToContact" id="procontact_<%= Encode.forHtmlAttribute(id) %>.consentToContact"
+    <select name="procontact_<e:forHtmlAttribute value='<%= id %>' />.consentToContact" id="procontact_<e:forHtmlAttribute value='<%= id %>' />.consentToContact"
             title="Consent to Contact">
         <option value="1">Consent</option>
         <option value="0">No Consent</option>
@@ -65,7 +64,7 @@
 
     &nbsp;
 
-    <select name="procontact_<%= Encode.forHtmlAttribute(id) %>.active" id="procontact_<%= Encode.forHtmlAttribute(id) %>.active" title="Active">
+    <select name="procontact_<e:forHtmlAttribute value='<%= id %>' />.active" id="procontact_<e:forHtmlAttribute value='<%= id %>' />.active" title="Active">
         <option value="1">Active</option>
         <option value="0">Inactive</option>
     </select>
@@ -74,7 +73,7 @@
 
     <!--  they can be an internal (Demographic) or external (Contact) contact -->
 
-    <select name="procontact_<%= Encode.forHtmlAttribute(id) %>.type" id="procontact_<%= Encode.forHtmlAttribute(id) %>.type">
+    <select name="procontact_<e:forHtmlAttribute value='<%= id %>' />.type" id="procontact_<e:forHtmlAttribute value='<%= id %>' />.type">
         <option value="<%=DemographicContact.TYPE_PROVIDER%>">Internal</option>
         <%if (CarlosProperties.getInstance().getProperty("NEW_CONTACTS_UI_EXTERNAL_CONTACT", "true").equals("true")) { %>
         <option value="<%=DemographicContact.TYPE_CONTACT%>">External</option>
@@ -85,8 +84,8 @@
 
     &nbsp;
 
-    <input type="hidden" name="procontact_<%= Encode.forHtmlAttribute(id) %>.contactId" value="0"/>
-    <input type="text" name="procontact_<%= Encode.forHtmlAttribute(id) %>.contactName" id="procontact_<%= Encode.forHtmlAttribute(id) %>.contactName" size="20"
+    <input type="hidden" name="procontact_<e:forHtmlAttribute value='<%= id %>' />.contactId" value="0"/>
+    <input type="text" name="procontact_<e:forHtmlAttribute value='<%= id %>' />.contactName" id="procontact_<e:forHtmlAttribute value='<%= id %>' />.contactName" size="20"
            readonly="readonly"/>
-    <a href="#" onclick="doProfessionalSearch('<%= Encode.forJavaScriptAttribute(id) %>');return false;"><%= Encode.forHtml(request.getParameter("search") != null ? request.getParameter("search") : "") %></a>
+    <a href="#" onclick="doProfessionalSearch('<e:forJavaScriptAttribute value='<%= id %>' />');return false;"><e:forHtmlContent value='<%= request.getParameter("search") != null ? request.getParameter("search") : "" %>' /></a>
 </div>

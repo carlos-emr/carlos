@@ -50,7 +50,6 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PropertyDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Property" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
@@ -215,8 +214,8 @@
 
                                 for (BillingFormData.BillingVisit billingVisit : billingVisits) {
                             %>
-                            <option value="<%=Encode.forHtmlAttribute(billingVisit.getVisitType())%>" <%= billingVisit.getVisitType().equalsIgnoreCase(defaultServiceLocation) ? "selected" : ""%>>
-                                <%=Encode.forHtmlContent(billingVisit.getDescription())%>
+                            <option value="<e:forHtmlAttribute value='<%= billingVisit.getVisitType() %>' />" <%= billingVisit.getVisitType().equalsIgnoreCase(defaultServiceLocation) ? "selected" : ""%>>
+                                <e:forHtmlContent value='<%= billingVisit.getDescription() %>' />
                             </option>
                             <% } %>a
                         </select>
@@ -237,8 +236,8 @@
                                 currentSelection = currentSelection.trim();
                                 for (BillingFormData.BillingForm billingForm : billformlist) {
                             %>
-                            <option value="<%=Encode.forHtmlAttribute(billingForm.getFormCode())%>" <%= billingForm.getFormCode().equalsIgnoreCase(currentSelection) ? "selected" : "" %> >
-                                <%=Encode.forHtmlContent(billingForm.getDescription())%>
+                            <option value="<e:forHtmlAttribute value='<%= billingForm.getFormCode() %>' />" <%= billingForm.getFormCode().equalsIgnoreCase(currentSelection) ? "selected" : "" %> >
+                                <e:forHtmlContent value='<%= billingForm.getDescription() %>' />
                             </option>
                             <% } %>
                         </select>

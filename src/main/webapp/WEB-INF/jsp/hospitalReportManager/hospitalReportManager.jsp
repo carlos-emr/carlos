@@ -33,7 +33,6 @@
 <!DOCTYPE html>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -93,7 +92,7 @@
             <div class="mb-3">
                 <label class="form-label">Provider Confidentiality Statement</label>
                 <div>
-                    <textarea name="statement"><%= Encode.forHtml(statement != null ? statement : "") %></textarea>
+                    <textarea name="statement"><e:forHtmlContent value='<%= statement != null ? statement : "" %>' /></textarea>
                 </div>
             </div>
             <div>

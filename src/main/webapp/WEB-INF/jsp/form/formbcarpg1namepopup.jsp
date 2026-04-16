@@ -21,7 +21,6 @@
 %>
 
 <%@ page import="java.sql.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <jsp:useBean id="providerNameBean" class="java.util.Properties" scope="page"/>
@@ -48,7 +47,7 @@
                 <% if(fieldName.equals("pg1_priCare") ) {%>
                 opener.document.forms[0].pg1_priCare.value = v;
                 <% } else {%>
-                opener.document.forms[0]["<%= Encode.forJavaScript(StringUtils.noNull(fieldName)) %>"].value = v;
+                opener.document.forms[0]["<e:forJavaScriptBlock value='<%= StringUtils.noNull(fieldName) %>' />"].value = v;
                 <% }%>
                 opener.recheckForm();
             }
@@ -96,10 +95,10 @@
             <tr bgcolor="<%=bgColor%>"
                 onMouseOver="this.style.backgroundColor='pink';"
                 onMouseout="this.style.backgroundColor='<%=bgColor%>';"
-                onClick='typeInData("<%= Encode.forJavaScriptAttribute(firstName + " " + lastName) %>");'>
-                <td nowrap><%= Encode.forHtml(firstName) %>
+                onClick='typeInData("<e:forJavaScriptAttribute value='<%= firstName + " " + lastName %>' />");'>
+                <td nowrap><e:forHtmlContent value='<%= firstName %>' />
                 </td>
-                <td nowrap><%= Encode.forHtml(lastName) %>
+                <td nowrap><e:forHtmlContent value='<%= lastName %>' />
                 </td>
             </tr>
             <%

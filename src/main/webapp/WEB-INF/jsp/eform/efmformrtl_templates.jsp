@@ -45,13 +45,12 @@
 
     @since 2026-03-22
 --%>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.ArrayList" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page contentType="text/html; charset=UTF-8" %>
 <%
     // Security: require _eform read privilege before listing templates
@@ -76,7 +75,7 @@
         int dotIndex = template.lastIndexOf('.');
         String displayName = (dotIndex > 0) ? template.substring(0, dotIndex) : template;
 %>
-<option value="<%= Encode.forHtmlAttribute(template) %>"><%= Encode.forHtml(displayName) %></option>
+<option value="<e:forHtmlAttribute value='<%= template %>' />"><e:forHtmlContent value='<%= displayName %>' /></option>
 <%
     }
 } %>

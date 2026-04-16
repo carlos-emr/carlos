@@ -42,7 +42,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 
 <security:oscarSec roleName="<%=roleName$%>"
@@ -157,7 +157,7 @@
                 <label><%=(x + 1)%>
                 </label>
                 <%}%>
-                <input type="hidden" class="btn btn-secondary" name="csv" value="<%=Encode.forHtmlAttribute(csvList.get(x))%>">
+                <input type="hidden" class="btn btn-secondary" name="csv" value="<e:forHtmlAttribute value='<%= csvList.get(x) %>' />">
                 <input type="submit" class="btn btn-secondary" name="getCSV" value="Export to CSV">
                 <input type="submit" class="btn btn-secondary" name="getXLS" value="Export to XLS">
             </form>

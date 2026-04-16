@@ -29,7 +29,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
@@ -46,8 +46,6 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScriptForm" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="java.util.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%long start = System.currentTimeMillis();%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -1545,7 +1543,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                 </td>
                                                 <td>
                                                     <c:set var="drugNameForFavorite" value="${rx2.custom ? rx2.customName : rx2.brandName}"/>
-                                                    <a href="javascript:addFavorite('${loopStatus.index}', '<%=Encode.forJavaScript((String)pageContext.getAttribute("drugNameForFavorite"))%>');">
+                                                    <a href="javascript:addFavorite('${loopStatus.index}', '<e:forJavaScript value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' />');">
                                                         <fmt:message key="WriteScript.msgAddtoFavorites"/>
                                                     </a>
                                                 </td>

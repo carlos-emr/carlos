@@ -30,7 +30,7 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <ul class="m-0 p-0 patient-info">
     <li class="flex justify-center items-center" style="min-width: 600px;">

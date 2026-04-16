@@ -43,8 +43,7 @@
         return;
     }
 %>
-
-<%@ page import="java.util.*,org.owasp.encoder.Encode" %>
+<%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.ManageLetters" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -78,7 +77,7 @@
 
         <form method="post" action="${pageContext.request.contextPath}/report/ManageLetters" enctype="multipart/form-data">
             <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
-            <input type="hidden" name="goto" value="<%=Encode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("goto")))%>"/>
+            <input type="hidden" name="goto" value="<e:forHtmlAttribute value='<%= StringUtils.defaultString(request.getParameter("goto")) %>' />"/>
             <table class="table table-sm" style="font-size:13px;">
                 <tr>
                     <td style="width:120px; font-weight:bold;">Select Letter:</td>
@@ -122,15 +121,15 @@
                     Hashtable h = (Hashtable) list.get(i);
                 %>
                 <tr>
-                    <td><%= Encode.forHtml(String.valueOf(h.get("ID"))) %></td>
-                    <td><%= Encode.forHtml(String.valueOf(h.get("provider_no"))) %></td>
-                    <td><%= Encode.forHtml(String.valueOf(h.get("report_name"))) %></td>
-                    <td><a href="<%= request.getContextPath() %>/report/DownloadLetter?reportID=<%= Encode.forHtmlAttribute(String.valueOf(h.get("ID")))%>"><%= Encode.forHtml(String.valueOf(h.get("file_name")))%></a></td>
-                    <td><%= Encode.forHtml(String.valueOf(h.get("date_time"))) %></td>
+                    <td><e:forHtmlContent value='<%= String.valueOf(h.get("ID")) %>' /></td>
+                    <td><e:forHtmlContent value='<%= String.valueOf(h.get("provider_no")) %>' /></td>
+                    <td><e:forHtmlContent value='<%= String.valueOf(h.get("report_name")) %>' /></td>
+                    <td><a href="<%= request.getContextPath() %>/report/DownloadLetter?reportID=<e:forHtmlAttribute value='<%= String.valueOf(h.get("ID")) %>' />"><e:forHtmlContent value='<%= String.valueOf(h.get("file_name")) %>' /></a></td>
+                    <td><e:forHtmlContent value='<%= String.valueOf(h.get("date_time")) %>' /></td>
                     <td>
                         <form method="POST" action="<%= request.getContextPath() %>/report/DeleteLetter" style="display:inline; margin:0;">
                             <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
-                            <input type="hidden" name="reportID" value="<%= Encode.forHtmlAttribute(String.valueOf(h.get("ID"))) %>"/>
+                            <input type="hidden" name="reportID" value="<e:forHtmlAttribute value='<%= String.valueOf(h.get("ID")) %>' />"/>
                             <button type="submit" class="btn btn-sm btn-danger">Delete</button>
                         </form>
                     </td>

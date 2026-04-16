@@ -43,7 +43,6 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="org.springframework.web.util.JavaScriptUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page
         import="java.lang.*,io.github.carlos_emr.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
@@ -241,7 +240,7 @@
         </table>
         <center>
 
-            <p><b><font color='red'><%=Encode.forHtml(errormsg)%>
+            <p><b><font color='red'><e:forHtmlContent value='<%= errormsg %>' />
             </font></b>
 
             <table border="0" width="100%" cellpadding="4" cellspacing="0">

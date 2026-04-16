@@ -69,7 +69,6 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Security" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MfaManager" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
@@ -267,7 +266,7 @@
                                     List<Security> s = securityDao.findByProviderNo(p.getProviderNo());
                                     if (s.size() > 0) {
                         %>
-                        <option value="<%=p.getProviderNo()%>"><%=Encode.forHtmlContent(p.getFormattedName())%>
+                        <option value="<%=p.getProviderNo()%>"><e:forHtmlContent value='<%= p.getFormattedName() %>' />
                         </option>
                         <%
                                 }
@@ -277,7 +276,7 @@
                         } else {
                             for (Provider p : providerDao.getActiveProviders()) {
                         %>
-                        <option value="<%=p.getProviderNo()%>"><%=Encode.forHtmlContent(p.getFormattedName())%>
+                        <option value="<%=p.getProviderNo()%>"><e:forHtmlContent value='<%= p.getFormattedName() %>' />
                         </option>
                         <%
                                 }

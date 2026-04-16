@@ -51,7 +51,6 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 
@@ -170,8 +169,8 @@
                             billinggroup_no = p.getBillingNo();
                             specialty_code = SxmlMisc.getXmlContent(p.getComments(), "<xml_p_specialty_code>", "</xml_p_specialty_code>");
                 %>
-                <option value="<%=Encode.forHtmlAttribute(proOHIP)%>"
-                        <%=providerview.equals(proOHIP) ? "selected" : ""%>><%=Encode.forHtml(proLast)%>,<%=Encode.forHtml(proFirst)%>
+                <option value="<e:forHtmlAttribute value='<%= proOHIP %>' />"
+                        <%=providerview.equals(proOHIP) ? "selected" : ""%>><e:forHtmlContent value='<%= proLast %>' />,<e:forHtmlContent value='<%= proFirst %>' />
                 </option>
 
                 <%
@@ -182,10 +181,10 @@
 
             </select></td>
             <td width="277"><font color="#003366"> <input
-                    type="hidden" name="monthCode" value="<%=Encode.forHtmlAttribute(monthCode)%>"> <input
+                    type="hidden" name="monthCode" value="<e:forHtmlAttribute value='<%= monthCode %>' />"> <input
                     type="hidden" name="verCode" value="V03"> <input
-                    type="hidden" name="curUser" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(user_no))%>"> <input
-                    type="hidden" name="curDate" value="<%=Encode.forHtmlAttribute(nowDate)%>"> </font></td>
+                    type="hidden" name="curUser" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(user_no) %>' />"> <input
+                    type="hidden" name="curDate" value="<e:forHtmlAttribute value='<%= nowDate %>' />"> </font></td>
         </tr>
         <tr>
             <td><font face="Arial, Helvetica, sans-serif" size="2"><b>
@@ -194,12 +193,12 @@
                     href="#"
                     onClick="openBrWindow('<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<%= request.getContextPath() %>/billing/CA/BC/ViewBillingSim&year=<%=curYear%>&month=<%=curMonth%>&param=<%=URLEncoder.encode("&formdatebox=document.forms[0].xml_vdate.value", StandardCharsets.UTF_8)%>','','top=0,left=0,width=430,height=310'); return false;">
                 From:</a></font> <input type="text" name="xml_vdate" maxlength="10"
-                                        value="<%=Encode.forHtmlAttribute(xml_vdate)%>" readonly></td>
+                                        value="<e:forHtmlAttribute value='<%= xml_vdate %>' />" readonly></td>
             <td><font size="1" face="Arial, Helvetica, sans-serif"> <a
                     href="#"
                     onClick="openBrWindow('<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<%= request.getContextPath() %>/billing/CA/BC/ViewBillingSim&year=<%=curYear%>&month=<%=curMonth%>&param=<%=URLEncoder.encode("&formdatebox=document.forms[0].xml_appointment_date.value", StandardCharsets.UTF_8)%>','','top=0,left=0,width=430,height=310'); return false;">
                 To:</a></font> <input type="text" name="xml_appointment_date" maxlength="10"
-                                      value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>" readonly></td>
+                                      value="<e:forHtmlAttribute value='<%= xml_appointment_date %>' />" readonly></td>
             <td><input type="submit" name="Submit" value="Create Report">
             </td>
         </tr>

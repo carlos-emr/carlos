@@ -438,12 +438,12 @@
                     Set<Provider> siteProviders = sites.get(i).getProviders();
                     List<Provider> siteProvidersList = new ArrayList<Provider>(siteProviders);
                     Collections.sort(siteProvidersList,(new Provider()).ComparatorName()); %>
-                _providers["<%= Encode.forJavaScript(sites.get(i).getName()) %>"] = [
+                _providers["<e:forJavaScriptBlock value='<%= sites.get(i).getName() %>' />"] = [
                     <% Iterator<Provider> iter = siteProvidersList.iterator();
                     while (iter.hasNext()) {
                         Provider p = iter.next();
                         if (reporters.contains(p.getProviderNo())) { %>
-                    {value: '<%= Encode.forJavaScript(p.getProviderNo()) %>', text: '<%= Encode.forJavaScript(p.getLastName() + ", " + p.getFirstName()) %>'},
+                    {value: '<e:forJavaScriptBlock value='<%= p.getProviderNo() %>' />', text: '<e:forJavaScriptBlock value='<%= p.getLastName() + ", " + p.getFirstName() %>' />'},
                     <% }} %>
                 ];
                 <% } %>
@@ -468,9 +468,9 @@
                 <%
                     for (int i = 0; i < sites.size(); i++) {
                 %>
-                <option value="<%= Encode.forHtmlAttribute(sites.get(i).getName()) %>"
-                        style="background-color:<%= Encode.forCssString(sites.get(i).getBgColor()) %>"
-                        <%=sites.get(i).getName().toString().equals(request.getParameter("site")) ? "selected" : "" %>><%= Encode.forHtml(sites.get(i).getName()) %>
+                <option value="<e:forHtmlAttribute value='<%= sites.get(i).getName() %>' />"
+                        style="background-color:<e:forCssString value='<%= sites.get(i).getBgColor() %>' />"
+                        <%=sites.get(i).getName().toString().equals(request.getParameter("site")) ? "selected" : "" %>><e:forHtmlContent value='<%= sites.get(i).getName() %>' />
                 </option>
                 <% } %>
             </select>
@@ -478,7 +478,7 @@
             <% if (request.getParameter("providerview") != null) { %>
             <script>
                 changeSite(document.getElementById("site"));
-                document.getElementById("providerview").value = '<%=Encode.forJavaScript(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("providerview")))%>';
+                document.getElementById("providerview").value = '<e:forJavaScriptBlock value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("providerview")) %>' />';
             </script>
             <% } // multisite end ==========================================
             } else {
@@ -499,7 +499,7 @@
                         proLast = p.getLastName();
                         proOHIP = p.getProviderNo();
                 %>
-                <option value="<%=Encode.forHtmlAttribute(proOHIP)%>" <%=providerview.equals(proOHIP) ? "selected" : ""%>><%=Encode.forHtml(proLast + ", " + proFirst)%></option>
+                <option value="<e:forHtmlAttribute value='<%= proOHIP %>' />" <%=providerview.equals(proOHIP) ? "selected" : ""%>><e:forHtmlContent value='<%= proLast + ", " + proFirst %>' /></option>
                 <%
                     }
                 %>
@@ -507,10 +507,10 @@
             <% } %>
 
             <label style="margin-left:10px;">From:
-                <input type="date" name="xml_vdate" id="xml_vdate" class="form-select form-select-sm" style="width:auto; display:inline-block;" value="<%=Encode.forHtmlAttribute(xml_vdate)%>">
+                <input type="date" name="xml_vdate" id="xml_vdate" class="form-select form-select-sm" style="width:auto; display:inline-block;" value="<e:forHtmlAttribute value='<%= xml_vdate %>' />">
             </label>
             <label>To:
-                <input type="date" name="xml_appointment_date" id="xml_appointment_date" class="form-select form-select-sm" style="width:auto; display:inline-block;" value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>">
+                <input type="date" name="xml_appointment_date" id="xml_appointment_date" class="form-select form-select-sm" style="width:auto; display:inline-block;" value="<e:forHtmlAttribute value='<%= xml_appointment_date %>' />">
             </label>
 
             <input type="submit" name="Submit" class="btn btn-sm btn-primary" value="Create Report">

@@ -40,10 +40,6 @@
 <%@page import="io.github.carlos_emr.carlos.mds.data.*"%>
 <%@page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData"%>
 <%@page import="java.util.*"%>
-<%@page import="org.owasp.encoder.Encode"%>
-
-
-
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -110,8 +106,8 @@
     <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/global.css"/>
 
     <!-- jQuery for preference AJAX calls (CSRFGuard auto-patches jQuery XHR) -->
-    <script src="<%= Encode.forHtmlAttribute(context) %>/library/jquery/jquery-3.7.1.min.js"></script>
-    <script src="<%= Encode.forHtmlAttribute(context) %>/library/jquery/jquery-compat.js"></script>
+    <script src="<e:forHtmlAttribute value='<%= context %>' />/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<e:forHtmlAttribute value='<%= context %>' />/library/jquery/jquery-compat.js"></script>
 
 	<script>
 	function setProvider(select){
@@ -203,13 +199,13 @@
        </div>
       <form
         id="fileupload"
-        action="<%= Encode.forHtmlAttribute(context) %>/documentManager/documentUpload?method=executeUpload"
+        action="<e:forHtmlAttribute value='<%= context %>' />/documentManager/documentUpload?method=executeUpload"
         method="POST"
         enctype="multipart/form-data"
       >
-            <input type="hidden" id="destination" name="destination" value="<%= Encode.forHtmlAttribute(destination) %>"/>
-            <input type="hidden" id="destFolder" name="destFolder" value="<%= Encode.forHtmlAttribute(destFolder) %>"/>
-			<input type="hidden" id="provider" name="provider" value="<%= Encode.forHtmlAttribute(provider) %>" />
+            <input type="hidden" id="destination" name="destination" value="<e:forHtmlAttribute value='<%= destination %>' />"/>
+            <input type="hidden" id="destFolder" name="destFolder" value="<e:forHtmlAttribute value='<%= destFolder %>' />"/>
+			<input type="hidden" id="provider" name="provider" value="<e:forHtmlAttribute value='<%= provider %>' />" />
 		    <input type="hidden" id="queue" name="queue" value="<%=queueId%>"/>
 
              <div class="mb-3">
@@ -227,7 +223,7 @@
 					for (int i = 0; i < providers.size(); i++) {
 	                	Provider h = providers.get(i);
 	                %>
-					<option value="<%= Encode.forHtmlAttribute(h.getProviderNo())%>" <%= (h.getProviderNo().equals(provider) ? " selected" : "")%>><%= Encode.forHtml(h.getLastName())%> <%= Encode.forHtml(h.getFirstName())%></option>
+					<option value="<e:forHtmlAttribute value='<%= h.getProviderNo() %>' />" <%= (h.getProviderNo().equals(provider) ? " selected" : "")%>><e:forHtmlContent value='<%= h.getLastName() %>' /> <e:forHtmlContent value='<%= h.getFirstName() %>' /></option>
 					<%
 					}
 					%>
@@ -242,7 +238,7 @@
 					    String value = entry.getValue();
 
 	                %>
-					<option value="<%=key%>" <%=( (key == queueId) ? " selected" : "")%>><%= Encode.forHtml(value)%></option>
+					<option value="<%=key%>" <%=( (key == queueId) ? " selected" : "")%>><e:forHtmlContent value='<%= value %>' /></option>
 					<%
 					}
 					%>
@@ -296,7 +292,7 @@
 (function () {
     'use strict';
 
-    var uploadUrl = '<%= Encode.forJavaScript(context) %>/documentManager/documentUpload?method=executeUpload';
+    var uploadUrl = '<e:forJavaScript value='<%= context %>' />/documentManager/documentUpload?method=executeUpload';
     var pendingFiles = [];
     var uploading = false;
 

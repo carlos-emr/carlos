@@ -72,7 +72,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><%= Encode.forHtml(error) %></li>
+                    <li><e:forHtmlContent value='<%= error %>' /></li>
                 <% } %>
             </ul>
         </div>
@@ -96,7 +96,7 @@
                             String url = contextPath + "/encounter/ShowAllInstitutions?id=" + i.getId()
                                 + "&name=" + Encode.forUriComponent(i.getName());
                     %>
-                    <a href="<%= url %>" class="list-group-item list-group-item-action"><%= Encode.forHtml(i.getName()) %></a>
+                    <a href="<%= url %>" class="list-group-item list-group-item-action"><e:forHtmlContent value='<%= i.getName() %>' /></a>
                     <% } %>
                 </div>
             </div>

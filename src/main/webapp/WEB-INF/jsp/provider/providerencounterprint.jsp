@@ -35,7 +35,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Encounter" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@page import="org.owasp.encoder.Encode" %>
 <%
     EncounterDao encounterDao = SpringUtils.getBean(EncounterDao.class);
 %>
@@ -81,7 +80,7 @@
                     }
                 %>
                 <xml id="xml_list">
-                    <encounter><%=Encode.forXml(content)%>
+                    <encounter><e:forXml value='<%= content %>' />
                     </encounter>
                 </xml>
                 <table width="100%" border="1" datasrc='#xml_list'>
@@ -139,8 +138,8 @@
                 <table width="100%" cellspacing="0" cellpadding="2" border="1"
                        datasrc='#xml_list'>
                     <tr>
-                        <td><%=Encode.forHtml(encounter_date)%> <%=Encode.forHtml(encounter_time)%><br>
-                            <b>Reason:</b><%=Encode.forHtml(subject.substring(2).replaceAll("\\|", " "))%><br>
+                        <td><e:forHtmlContent value='<%= encounter_date %>' /> <e:forHtmlContent value='<%= encounter_time %>' /><br>
+                            <b>Reason:</b><e:forHtmlContent value='<%= subject.substring(2).replaceAll("\\|", " ") %>' /><br>
                             <b>Content:</b>
                             <div datafld='xml_content'>
                         </td>

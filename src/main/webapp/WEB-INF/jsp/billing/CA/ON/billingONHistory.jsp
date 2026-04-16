@@ -38,7 +38,6 @@
 --%>
 <%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="java.math.BigDecimal" %>
-<%@page import="org.owasp.encoder.Encode" %>
 <%
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.htm");
@@ -91,7 +90,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <jsp:useBean id="providerBean" class="java.util.Properties"
              scope="session"/>
 <!DOCTYPE html>
@@ -148,8 +147,8 @@
     <div class="container-fluid">
         <span class="navbar-brand"><fmt:message key="billing.billingONHistory.title"/></span>
         <span class="navbar-text text-white-50">
-            <em><%=Encode.forHtml(patientDisplayName)%></em>
-            &nbsp;(<%=Encode.forHtml(demographicNoParam != null ? demographicNoParam : "")%>)
+            <em><e:forHtmlContent value='<%= patientDisplayName %>' /></em>
+            &nbsp;(<e:forHtmlContent value='<%= demographicNoParam != null ? demographicNoParam : "" %>' />)
         </span>
     </div>
 </nav>
@@ -226,40 +225,40 @@
             <tr>
                 <td class="text-center">
                     <a href="javascript:void(0)"
-                       onclick="popupPage(600,800, '/billing/CA/ON/ViewBillingONDisplay?billing_no=<%=Encode.forUriComponent(obj.getId())%>')"
-                       title="${msgBillingDisplay}"><%=Encode.forHtml(obj.getId())%>
+                       onclick="popupPage(600,800, '/billing/CA/ON/ViewBillingONDisplay?billing_no=<e:forUriComponent value='<%= obj.getId() %>' />')"
+                       title="${msgBillingDisplay}"><e:forHtmlContent value='<%= obj.getId() %>' />
                     </a>
 
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="w">
                         <a href="javascript:void(0)"
-                           onclick="popupPage(600,800, '/billing/CA/ON/BillingONCorrection?billing_no=<%=Encode.forUriComponent(obj.getId())%>')"
+                           onclick="popupPage(600,800, '/billing/CA/ON/BillingONCorrection?billing_no=<e:forUriComponent value='<%= obj.getId() %>' />')"
                            title="${msgBillingCorrection}">${msgEdit}</a>
                     </security:oscarSec>
 
                     <a href="javascript:void(0)"
-                       onclick="popupPage(600,800, '/billing/CA/ON/ViewBillingON3rdInv?billingNo=<%=Encode.forUriComponent(obj.getId())%>')">${msgPrint}</a>
+                       onclick="popupPage(600,800, '/billing/CA/ON/ViewBillingON3rdInv?billingNo=<e:forUriComponent value='<%= obj.getId() %>' />')">${msgPrint}</a>
                 </td>
-                <td class="text-center"><%=Encode.forHtml(obj.getLast_name() + ", " + obj.getFirst_name())%></td>
-                <td class="text-center"><%=Encode.forHtml(obj.getBilling_date())%></td>
-                <td class="text-center"><%=Encode.forHtml(strBillType)%></td>
-                <td class="text-center"><%=Encode.forHtml(itObj.getService_code())%></td>
-                <td class="text-center"><%=Encode.forHtml(itObj.getDx())%></td>
+                <td class="text-center"><e:forHtmlContent value='<%= obj.getLast_name() + ", " + obj.getFirst_name() %>' /></td>
+                <td class="text-center"><e:forHtmlContent value='<%= obj.getBilling_date() %>' /></td>
+                <td class="text-center"><e:forHtmlContent value='<%= strBillType %>' /></td>
+                <td class="text-center"><e:forHtmlContent value='<%= itObj.getService_code() %>' /></td>
+                <td class="text-center"><e:forHtmlContent value='<%= itObj.getDx() %>' /></td>
                 <td class="text-center">
                     <%if ("PAT".equals(strBillType) || "PAT Settled".equals(strBillType)) { %>
-                        <%=Encode.forHtml(balance.toString())%>
+                        <e:forHtmlContent value='<%= balance.toString() %>' />
                     <%} else { %>
                         &nbsp;
                     <%} %>
                 </td>
-                <td class="text-center"><%=Encode.forHtml(obj.getTotal())%></td>
+                <td class="text-center"><e:forHtmlContent value='<%= obj.getTotal() %>' /></td>
                 <td class="text-center">
                     <% if (obj.getStatus().compareTo("B") == 0 || obj.getStatus().compareTo("S") == 0) { %>
                         &nbsp;
                     <% } else if (CarlosProperties.getInstance().getBooleanProperty("warnOnDeleteBill", "true")) { %>
                         <a href="#"
-                           onclick="onUnbilled('<%=Encode.forJavaScriptAttribute(obj.getId())%>','<%=Encode.forJavaScriptAttribute(obj.getStatus())%>');return false;">${msgUnbill}</a>
+                           onclick="onUnbilled('<e:forJavaScriptAttribute value='<%= obj.getId() %>' />','<e:forJavaScriptAttribute value='<%= obj.getStatus() %>' />');return false;">${msgUnbill}</a>
                     <% } else { %>
-                        <a href="#" onclick="onUnbilled('<%=Encode.forJavaScriptAttribute(obj.getId())%>','<%=Encode.forJavaScriptAttribute(obj.getStatus())%>');return false;">${msgUnbill}</a>
+                        <a href="#" onclick="onUnbilled('<e:forJavaScriptAttribute value='<%= obj.getId() %>' />','<e:forJavaScriptAttribute value='<%= obj.getStatus() %>' />');return false;">${msgUnbill}</a>
                     <% } %>
                 </td>
             </tr>

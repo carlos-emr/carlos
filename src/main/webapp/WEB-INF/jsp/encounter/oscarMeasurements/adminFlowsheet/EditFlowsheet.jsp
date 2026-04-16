@@ -54,6 +54,7 @@
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%!
     /**
      * Represents a customization inherited from a higher scope level.
@@ -394,37 +395,37 @@
                     String flowsheetPath = "encounter/oscarMeasurements/ViewTemplateFlowSheet";
             %>
 
-            <a href="<%= request.getContextPath() %>/<%=flowsheetPath%>?demographic_no=<%= Encode.forUriComponent(demographic) %>&template=<%=Encode.forUriComponent(flowsheet)%><%=tracker%>"
-               class="btn btn-sm" title="go back to <%=Encode.forHtmlAttribute(flowsheet)%> flowsheet"><i class="fa-solid fa-backward"></i></a>
+            <a href="<%= request.getContextPath() %>/<%=flowsheetPath%>?demographic_no=<e:forUriComponent value='<%= demographic %>' />&template=<e:forUriComponent value='<%= flowsheet %>' /><%=tracker%>"
+               class="btn btn-sm" title="go back to <e:forHtmlAttribute value='<%= flowsheet %>' /> flowsheet"><i class="fa-solid fa-backward"></i></a>
 
             <%}%>
 
-Flowsheet: <span style="font-weight:normal">${e:forHtml(requestScope.displayName ? requestScope.displayName : param.displayName)}(<%=Encode.forHtml(flowsheet)%>)</span>
+Flowsheet: <span style="font-weight:normal">${e:forHtml(requestScope.displayName ? requestScope.displayName : param.displayName)}(<e:forHtmlContent value='<%= flowsheet %>' />)</span>
         </h4>
         <span class="mode-toggle">
 		  	<% if (scope == null) {
                 if (demographic != null) { %>
 							Patient
 						<security:oscarSec roleName="<%=roleName2$%>" objectName="_flowsheet" rights="w">
-                            | <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<%=Encode.forUriComponent(flowsheet)%>">Your Patients</a>
-							| <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<%=Encode.forUriComponent(flowsheet)%>&scope=clinic&displayName=<%=encodedDisplayNameForUri%>">All Patients</a>
+                            | <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<e:forUriComponent value='<%= flowsheet %>' />">Your Patients</a>
+							| <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<e:forUriComponent value='<%= flowsheet %>' />&scope=clinic&displayName=<%=encodedDisplayNameForUri%>">All Patients</a>
                         </security:oscarSec>
 
 		            <%} else {%>
 						<security:oscarSec roleName="<%=roleName2$%>" objectName="_flowsheet" rights="w">
-							<a href="#" onclick="editFlowsheetByDemographic('<%=Encode.forJavaScriptAttribute(flowsheet)%>')">Patient</a>
+							<a href="#" onclick="editFlowsheetByDemographic('<e:forJavaScriptAttribute value='<%= flowsheet %>' />')">Patient</a>
 						</security:oscarSec>
 							| Your Patients
 						<security:oscarSec roleName="<%=roleName2$%>" objectName="_flowsheet" rights="w">
-							| <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<%=Encode.forUriComponent(flowsheet)%>&scope=clinic&displayName=<%=encodedDisplayNameForUri%>">All Patients</a>
+							| <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<e:forUriComponent value='<%= flowsheet %>' />&scope=clinic&displayName=<%=encodedDisplayNameForUri%>">All Patients</a>
                         </security:oscarSec>
 		            <%
                         }
                     } else {
                     %>
 						<security:oscarSec roleName="<%=roleName2$%>" objectName="_flowsheet" rights="w">
-							<a href="#" onclick="editFlowsheetByDemographic('<%=Encode.forJavaScriptAttribute(flowsheet)%>')">Patient</a>
-							| <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<%=Encode.forUriComponent(flowsheet)%>&displayName=<%=encodedDisplayNameForUri%>">Your Patients</a>
+							<a href="#" onclick="editFlowsheetByDemographic('<e:forJavaScriptAttribute value='<%= flowsheet %>' />')">Patient</a>
+							| <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<e:forUriComponent value='<%= flowsheet %>' />&displayName=<%=encodedDisplayNameForUri%>">Your Patients</a>
 						</security:oscarSec>
 							| All Patients
 			<% } %>
@@ -444,7 +445,7 @@ Flowsheet: <span style="font-weight:normal">${e:forHtml(requestScope.displayName
             <% if (request.getAttribute("errorMessage") != null) { %>
             <div class="alert alert-danger">
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                <%= Encode.forHtml((String)request.getAttribute("errorMessage")) %>
+                <e:forHtmlContent value='<%= (String)request.getAttribute("errorMessage") %>' />
             </div>
             <% } %>
 
@@ -453,8 +454,8 @@ Flowsheet: <span style="font-weight:normal">${e:forHtml(requestScope.displayName
                     if (demographic != null) {
             %>
             <div class="alert alert-info">
-                Any changes made to this flowsheet will be applied to this patient <strong><%=Encode.forHtml(demo.getLastName())%>
-                , <%=Encode.forHtml(demo.getFirstName())%>
+                Any changes made to this flowsheet will be applied to this patient <strong><e:forHtmlContent value='<%= demo.getLastName() %>' />
+                , <e:forHtmlContent value='<%= demo.getFirstName() %>' />
             </strong> for you only.
             </div>
             <%
@@ -507,7 +508,7 @@ Flowsheet: <span style="font-weight:normal">${e:forHtml(requestScope.displayName
 		         		    if(mFlowsheet.getFlowSheetItem(mstring).getPreventionType()!=null){ %>
 		         		<i class="fa-solid fa-lock action-icon" style="opacity:0.6;" title="Prevention item - managed in Prevention module"></i>
 		                <%} else {%>
-		                <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewUpdateFlowsheet?flowsheet=<%=Encode.forUriComponent(temp)%>&measurement=<%=Encode.forUriComponent(mstring)%><%=demographicStr%><%=htQueryString%><%=scope==null?"":"&scope="+Encode.forUriComponent(scope)%>" title="Edit" class="action-icon"><i class="fa-solid fa-pencil"></i></a>
+		                <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewUpdateFlowsheet?flowsheet=<e:forUriComponent value='<%= temp %>' />&measurement=<e:forUriComponent value='<%= mstring %>' /><%=demographicStr%><%=htQueryString%><%=scope==null?"":"&scope="+Encode.forUriComponent(scope)%>" title="Edit" class="action-icon"><i class="fa-solid fa-pencil"></i></a>
 		                <%}%>
 		               <%
 		                boolean isHidden = mFlowsheet.getFlowSheetItem(mstring).isHide();
@@ -521,12 +522,12 @@ Flowsheet: <span style="font-weight:normal">${e:forHtml(requestScope.displayName
 		                } else if (isHidden) {
 		                    // Clickable restore for same-level hides
 		               %>
-		                   <a href="javascript:void(0);" onclick="submitFlowsheetCustom({method:'restore',flowsheet:'<%=Encode.forJavaScript(temp)%>',measurement:'<%=Encode.forJavaScript(mstring)%>'<%=demographic!=null?",demographic:'"+Encode.forJavaScript(demographic)+"'":""%><%=scope!=null?",scope:'"+Encode.forJavaScript(scope)+"'":""%>});" title="Show this measurement" class="action-icon"><i class="fa-solid fa-eye-slash"></i></a>
+		                   <a href="javascript:void(0);" onclick="submitFlowsheetCustom({method:'restore',flowsheet:'<e:forJavaScriptAttribute value='<%= temp %>' />',measurement:'<e:forJavaScriptAttribute value='<%= mstring %>' />'<%=demographic!=null?",demographic:'"+Encode.forJavaScript(demographic)+"'":""%><%=scope!=null?",scope:'"+Encode.forJavaScript(scope)+"'":""%>});" title="Show this measurement" class="action-icon"><i class="fa-solid fa-eye-slash"></i></a>
 		               <%
 		                } else {
 		                    // Clickable hide
 		               %>
-		                   <a href="javascript:void(0);" onclick="submitFlowsheetCustom({method:'hide',flowsheet:'<%=Encode.forJavaScript(temp)%>',measurement:'<%=Encode.forJavaScript(mstring)%>'<%=demographic!=null?",demographic:'"+Encode.forJavaScript(demographic)+"'":""%><%=scope!=null?",scope:'"+Encode.forJavaScript(scope)+"'":""%>});" title="Hide this measurement" class="action-icon"><i class="fa-solid fa-eye"></i></a>
+		                   <a href="javascript:void(0);" onclick="submitFlowsheetCustom({method:'hide',flowsheet:'<e:forJavaScriptAttribute value='<%= temp %>' />',measurement:'<e:forJavaScriptAttribute value='<%= mstring %>' />'<%=demographic!=null?",demographic:'"+Encode.forJavaScript(demographic)+"'":""%><%=scope!=null?",scope:'"+Encode.forJavaScript(scope)+"'":""%>});" title="Hide this measurement" class="action-icon"><i class="fa-solid fa-eye"></i></a>
 		               <% } %>
 		               <%
 		                // Show Revert button if current scope has an UPDATE customization
@@ -535,14 +536,14 @@ Flowsheet: <span style="font-weight:normal">${e:forHtml(requestScope.displayName
 		               %>
 		                   <a href="javascript:void(0);"
 		                      title="Revert to settings from higher scope" class="action-icon"
-		                      onclick="if(confirm('Revert this measurement to settings from higher scope?')){submitFlowsheetCustom({method:'revertUpdate',flowsheet:'<%=Encode.forJavaScript(temp)%>',measurement:'<%=Encode.forJavaScript(mstring)%>'<%=demographic!=null?",demographic:'"+Encode.forJavaScript(demographic)+"'":""%><%=!htQueryString.isEmpty()?",htracker:'"+Encode.forJavaScript(htQueryString.contains("slim")?"slim":"true")+"'":""%><%=scope!=null?",scope:'"+Encode.forJavaScript(scope)+"'":""%>});}"><i class="fa-solid fa-arrows-rotate"></i></a>
+		                      onclick="if(confirm('Revert this measurement to settings from higher scope?')){submitFlowsheetCustom({method:'revertUpdate',flowsheet:'<e:forJavaScriptAttribute value='<%= temp %>' />',measurement:'<e:forJavaScriptAttribute value='<%= mstring %>' />'<%=demographic!=null?",demographic:'"+Encode.forJavaScript(demographic)+"'":""%><%=!htQueryString.isEmpty()?",htracker:'"+Encode.forJavaScript(htQueryString.contains("slim")?"slim":"true")+"'":""%><%=scope!=null?",scope:'"+Encode.forJavaScript(scope)+"'":""%>});}"><i class="fa-solid fa-arrows-rotate"></i></a>
 		               <% } %>
 
 		                </td>
 		                <td><%=counter%></td>
-		                <td><%=Encode.forHtml(mstring)%></td>
-		                <td title="<%=Encode.forHtmlAttribute(mstring)%>"><%=Encode.forHtml(mFlowsheet.getFlowSheetItem(mstring).getDisplayName())%></td>
-		                <td title="<%=Encode.forHtmlAttribute(mstring)%>"><%=Encode.forHtml(mFlowsheet.getFlowSheetItem(mstring).getGuideline())%></td>
+		                <td><e:forHtmlContent value='<%= mstring %>' /></td>
+		                <td title="<e:forHtmlAttribute value='<%= mstring %>' />"><e:forHtmlContent value='<%= mFlowsheet.getFlowSheetItem(mstring).getDisplayName() %>' /></td>
+		                <td title="<e:forHtmlAttribute value='<%= mstring %>' />"><e:forHtmlContent value='<%= mFlowsheet.getFlowSheetItem(mstring).getGuideline() %>' /></td>
 						</tr>
 
 		            <%
@@ -605,16 +606,16 @@ Flowsheet: <span style="font-weight:normal">${e:forHtml(requestScope.displayName
                                 <tr>
                                     <td>
                                         <% if (isHigherScope) { %>
-                                        <i class="fa-solid fa-lock action-icon" style="opacity:0.4;" title="Cannot remove - created at <%=Encode.forHtmlAttribute(custLevel)%> level"></i>
+                                        <i class="fa-solid fa-lock action-icon" style="opacity:0.4;" title="Cannot remove - created at <e:forHtmlAttribute value='<%= custLevel %>' /> level"></i>
                                         <% } else { %>
-                                        <a href="javascript:void(0);" onclick="submitFlowsheetCustom({method:'archiveMod',id:'<%=cust.getId()%>',flowsheet:'<%=Encode.forJavaScriptAttribute(flowsheet)%>'<%=demographic!=null?",demographic:'"+Encode.forJavaScriptAttribute(demographic)+"'":""%><%=!htQueryString.isEmpty()?",htracker:'"+Encode.forJavaScriptAttribute(htQueryString.contains("slim")?"slim":"true")+"'":""%><%=scope!=null?",scope:'"+Encode.forJavaScriptAttribute(scope)+"'":""%>});"
+                                        <a href="javascript:void(0);" onclick="submitFlowsheetCustom({method:'archiveMod',id:'<%=cust.getId()%>',flowsheet:'<e:forJavaScriptAttribute value='<%= flowsheet %>' />'<%=demographic!=null?",demographic:'"+Encode.forJavaScriptAttribute(demographic)+"'":""%><%=!htQueryString.isEmpty()?",htracker:'"+Encode.forJavaScriptAttribute(htQueryString.contains("slim")?"slim":"true")+"'":""%><%=scope!=null?",scope:'"+Encode.forJavaScriptAttribute(scope)+"'":""%>});"
                                            class="action-icon"><i class="fa-solid fa-trash"></i></a>
                                         <% } %>
                                     </td>
 
-                                    <td><%=Encode.forHtml(cust.getAction())%>
+                                    <td><e:forHtmlContent value='<%= cust.getAction() %>' />
                                         <% if (isHigherScope) { %>
-                                        <span class="badge bg-info" title="Inherited from <%=Encode.forHtmlAttribute(custLevel)%> level">Inherited</span>
+                                        <span class="badge bg-info" title="Inherited from <e:forHtmlAttribute value='<%= custLevel %>' /> level">Inherited</span>
                                         <% } %>
                                     </td>
 
@@ -626,17 +627,17 @@ Flowsheet: <span style="font-weight:normal">${e:forHtml(requestScope.displayName
                                     %>
 
                                         <%if (cust.getMeasurement() != null) {%>
-                                        after <em><%=Encode.forHtml(cust.getMeasurement())%>
+                                        after <em><e:forHtmlContent value='<%= cust.getMeasurement() %>' />
                                         </em>
                                         <%}%>
 
                                     </td>
 
                                     <%} else { %>
-                                    <td><%=Encode.forHtml(cust.getMeasurement())%>
+                                    <td><e:forHtmlContent value='<%= cust.getMeasurement() %>' />
                                     </td>
                                     <%} %>
-                                    <td><%=Encode.forHtml(cust.getProviderNo())%>
+                                    <td><e:forHtmlContent value='<%= cust.getProviderNo() %>' />
                                     </td>
                                     <td>
 
@@ -645,8 +646,8 @@ Flowsheet: <span style="font-weight:normal">${e:forHtml(requestScope.displayName
                                         <%} else if (cust.getDemographicNo().equals("0")) { %>
                                         Your patients
                                         <%} else { %>
-                                        <a href="<%=request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<%=Encode.forUriComponent(cust.getDemographicNo())%>"
-                                           target="_blank"><%=Encode.forHtml(cust.getDemographicNo())%>
+                                        <a href="<%=request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<e:forUriComponent value='<%= cust.getDemographicNo() %>' />"
+                                           target="_blank"><e:forHtmlContent value='<%= cust.getDemographicNo() %>' />
                                         </a>
                                         <%} %>
                                     </td>
@@ -668,15 +669,15 @@ Flowsheet: <span style="font-weight:normal">${e:forHtml(requestScope.displayName
 
                     <form name="FlowSheetCustomActionForm" id="FlowSheetCustomActionForm" class="card card-body bg-body-tertiary"
                           action="FlowSheetCustomAction" method="post">
-                        <input type="hidden" name="flowsheet" value="<%=Encode.forHtmlAttribute(temp)%>"/>
+                        <input type="hidden" name="flowsheet" value="<e:forHtmlAttribute value='<%= temp %>' />"/>
                         <input type="hidden" name="method" value="save"/>
                         <%if (demographic != null) {%>
-                        <input type="hidden" name="demographic" value="<%= Encode.forHtmlAttribute(demographic) %>"/>
+                        <input type="hidden" name="demographic" value="<e:forHtmlAttribute value='<%= demographic %>' />"/>
                         <%
                             }
                             if (scope != null) {
                         %>
-                        <input type="hidden" name="scope" value="<%= Encode.forHtmlAttribute(scope) %>"/>
+                        <input type="hidden" name="scope" value="<e:forHtmlAttribute value='<%= scope %>' />"/>
                         <%}%>
 
 
@@ -684,8 +685,8 @@ Flowsheet: <span style="font-weight:normal">${e:forHtml(requestScope.displayName
                         <select name="measurement" class="measurement-select">
                             <option value="0">choose:</option>
                             <% for (EctMeasurementTypesBean measurementTypes : vec) { %>
-                            <option value="<%=Encode.forHtmlAttribute(measurementTypes.getType())%>"><%=Encode.forHtml(measurementTypes.getTypeDisplayName())%>
-                                (<%=Encode.forHtml(measurementTypes.getType())%>)
+                            <option value="<e:forHtmlAttribute value='<%= measurementTypes.getType() %>' />"><e:forHtmlContent value='<%= measurementTypes.getTypeDisplayName() %>' />
+                                (<e:forHtmlContent value='<%= measurementTypes.getType() %>' />)
                             </option>
                             <% } %>
                         </select>

@@ -35,8 +35,6 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-
-<%@page import="org.owasp.encoder.Encode" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -129,7 +127,7 @@
 
                     <tr>
                         <td>
-                            <div class="DivContentSectionHead"><%=Encode.forHtml(name)%>
+                            <div class="DivContentSectionHead"><e:forHtmlContent value='<%= name %>' />
                             </div>
                         </td>
                     </tr>
@@ -192,21 +190,21 @@
                             <table>
                                 <tr id="addReactionSubheading">
                                     <td>
-                                        Adding Allergy: <%=Encode.forHtmlContent(name)%>
+                                        Adding Allergy: <e:forHtmlContent value='<%= name %>' />
                                     </td>
                                 </tr>
                                 <tr valign="center">
                                     <td>
                                         <label for="reactionDescription" class="label">Comment: </label>
-                                        <textarea name="reactionDescription" id="reactionDescription" cols="40" rows="3"><%=Encode.forHtml(reaction)%></textarea>
-                                        <input type="hidden" name="ID" value="<%=Encode.forHtmlAttribute(drugrefId)%>"/>
-                                        <input type="hidden" name="name" id="name" value="<%=Encode.forHtmlAttribute(name)%>"/>
-                                        <input type="hidden" name="allergyToArchive" id="allergyToArchive" value="<%=Encode.forHtmlAttribute(allergyToArchive)%>"/>
+                                        <textarea name="reactionDescription" id="reactionDescription" cols="40" rows="3"><e:forHtmlContent value='<%= reaction %>' /></textarea>
+                                        <input type="hidden" name="ID" value="<e:forHtmlAttribute value='<%= drugrefId %>' />"/>
+                                        <input type="hidden" name="name" id="name" value="<e:forHtmlAttribute value='<%= name %>' />"/>
+                                        <input type="hidden" name="allergyToArchive" id="allergyToArchive" value="<e:forHtmlAttribute value='<%= allergyToArchive %>' />"/>
                                         <%-- CSRF token auto-injected by CSRFGuard (injectIntoForms=true) --%>
                                     </td>
                                 </tr>
 
-                                <input type="hidden" name="type" id="type" value="<%=Encode.forHtmlAttribute(type)%>"/>
+                                <input type="hidden" name="type" id="type" value="<e:forHtmlAttribute value='<%= type %>' />"/>
 
                                 <tr valign="center">
                                     <td>
@@ -232,14 +230,14 @@
 
                                         <span class="label">Start Date:</span>
                                         <input type="text" name="startDate" id="startDate" size="10" maxlength="10"
-                                               value="<%=Encode.forHtmlAttribute(startDate)%>" onblur="checkStartDate();"/>
+                                               value="<e:forHtmlAttribute value='<%= startDate %>' />" onblur="checkStartDate();"/>
                                         <img src="<%= request.getContextPath() %>/images/cal.gif" id="startDateCal">(yyyy-mm-dd OR yyyy-mm OR yyyy)
                                     </td>
                                 </tr>
 
                                 <tr valign="center">
                                     <td><span class="label">Age Of Onset:</span> <input type="text"
-                                            name="ageOfOnset" size="4" maxlength="4" value="<%=Encode.forHtmlAttribute(ageOfOnset)%>"
+                                            name="ageOfOnset" size="4" maxlength="4" value="<e:forHtmlAttribute value='<%= ageOfOnset %>' />"
                                             onblur="checkAgeOfOnset();"/></td>
 
                                 </tr>

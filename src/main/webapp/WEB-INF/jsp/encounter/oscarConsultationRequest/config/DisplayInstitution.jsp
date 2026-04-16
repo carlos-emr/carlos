@@ -56,7 +56,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.InstitutionDepartmentPK" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.InstitutitionDepartmentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     InstitutionDao institutionDao = SpringUtils.getBean(InstitutionDao.class);
     DepartmentDao departmentDao = SpringUtils.getBean(DepartmentDao.class);
@@ -85,7 +84,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><%= Encode.forHtml(error) %></li>
+                    <li><e:forHtmlContent value='<%= error %>' /></li>
                 <% } %>
             </ul>
         </div>
@@ -100,7 +99,7 @@
             </div>
 
             <div class="col-md-9">
-                <p>Please check off all the departments offered by <%= Encode.forHtml(name) %>.</p>
+                <p>Please check off all the departments offered by <e:forHtmlContent value='<%= name %>' />.</p>
 
                 <form action="${pageContext.request.contextPath}/encounter/UpdateInstitutionDepartment" method="post">
                     <input type="hidden" name="id" value="<%=id %>">
@@ -120,7 +119,7 @@
                             %>
                             <tr>
                                 <td><input type="checkbox" name="specialists" value="<%=i.getId()%>" <%=assoc != null ? "checked" : ""%>></td>
-                                <td><%= Encode.forHtml(i.getName()) %></td>
+                                <td><e:forHtmlContent value='<%= i.getName() %>' /></td>
                             </tr>
                             <% } %>
                         </tbody>

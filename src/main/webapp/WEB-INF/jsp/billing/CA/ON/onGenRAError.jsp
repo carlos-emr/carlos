@@ -28,8 +28,6 @@
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingRAPrep" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -70,13 +68,13 @@
                         plast = prop.getProperty("last_name", "");
                         pfirst = prop.getProperty("first_name", "");
                 %>
-                <option value="<%=Encode.forHtmlAttribute(pohipno)%>" <%=proNo.equals(pohipno) ? "selected" : ""%>><%=Encode.forHtml(plast)%>,<%=Encode.forHtml(pfirst)%>
+                <option value="<e:forHtmlAttribute value='<%= pohipno %>' />" <%=proNo.equals(pohipno) ? "selected" : ""%>><e:forHtmlContent value='<%= plast %>' />,<e:forHtmlContent value='<%= pfirst %>' />
                 </option>
                 <%
                     }
                 %>
             </select><input type=submit name='submit' value='Generate'> <input
-                    type="hidden" name="rano" value="<%=Encode.forHtmlAttribute(raNo)%>"> <input
+                    type="hidden" name="rano" value="<e:forHtmlAttribute value='<%= raNo %>' />"> <input
                     type='button' name='print' value='Print' onClick='window.print()'>
                 <input type='button' name='close' value='Close'
                        onClick='window.close()'></th>
@@ -104,21 +102,21 @@
 
         %>
     <tr>
-        <td><%=Encode.forHtml(account)%>
+        <td><e:forHtmlContent value='<%= account %>' />
         </td>
-        <td><%=Encode.forHtml(demoLast)%>
+        <td><e:forHtmlContent value='<%= demoLast %>' />
         </td>
-        <td><%=Encode.forHtml(servicedate)%>
+        <td><e:forHtmlContent value='<%= servicedate %>' />
         </td>
-        <td><%=Encode.forHtml(servicecode)%>
+        <td><e:forHtmlContent value='<%= servicecode %>' />
         </td>
-        <td><%=Encode.forHtml(serviceno)%>
+        <td><e:forHtmlContent value='<%= serviceno %>' />
         </td>
-        <td align=right><%=Encode.forHtml(amountsubmit)%>
+        <td align=right><e:forHtmlContent value='<%= amountsubmit %>' />
         </td>
-        <td align=right><%=Encode.forHtml(amountpay)%>
+        <td align=right><e:forHtmlContent value='<%= amountpay %>' />
         </td>
-        <td align=right><%=Encode.forHtml(explain)%>
+        <td align=right><e:forHtmlContent value='<%= explain %>' />
         </td>
     </tr>
 
@@ -155,21 +153,21 @@
                 amountpay = prop.getProperty("amountpay", "");
         %>
         <tr <%=i % 2 == 0 ? "class='myGreen'" : "" %>>
-            <td align="center"><%=Encode.forHtml(account)%>
+            <td align="center"><e:forHtmlContent value='<%= account %>' />
             </td>
-            <td><%=Encode.forHtml(demoLast)%>
+            <td><e:forHtmlContent value='<%= demoLast %>' />
             </td>
-            <td align="center"><%=Encode.forHtml(servicedate)%>
+            <td align="center"><e:forHtmlContent value='<%= servicedate %>' />
             </td>
-            <td align="center"><%=Encode.forHtml(servicecode)%>
+            <td align="center"><e:forHtmlContent value='<%= servicecode %>' />
             </td>
-            <td align="center"><%=Encode.forHtml(serviceno)%>
+            <td align="center"><e:forHtmlContent value='<%= serviceno %>' />
             </td>
-            <td align="right"><%=Encode.forHtml(amountsubmit)%>
+            <td align="right"><e:forHtmlContent value='<%= amountsubmit %>' />
             </td>
-            <td align="right"><%=Encode.forHtml(amountpay)%>
+            <td align="right"><e:forHtmlContent value='<%= amountpay %>' />
             </td>
-            <td align="right"><%=Encode.forHtml(explain)%>
+            <td align="right"><e:forHtmlContent value='<%= explain %>' />
             </td>
         </tr>
 

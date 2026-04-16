@@ -278,7 +278,7 @@
             <form action="${pageContext.request.contextPath}/form/BCAR2020" method="post">
                 <input type="hidden" id="demographicNo" name="demographicNo" value="<%=demoNo%>"/>
                 <input type="hidden" id="formId" name="formId" value="<%=formId%>"/>
-                <input type="hidden" name="provider_no" value=<%=Encode.forHtmlAttribute(providerNo)%>/>
+                <input type="hidden" name="provider_no" value=<e:forHtmlUnquotedAttribute value='<%= providerNo %>' />/>
                 <input type="hidden" id="user" name="provNo" value=<%=provNo%>/>
                 <input type="hidden" name="method" value="exit"/>
 
@@ -465,7 +465,7 @@
                                     <td valign="top">
                                         <!-- Medications -->
                                         <input type="checkbox"
-                                               name="c_attMedications" <%=Encode.forHtmlAttribute(props.getProperty("c_attMedications", "").equals("X") ? "checked" : "") %> />
+                                               name="c_attMedications" <e:forHtmlAttribute value='<%= props.getProperty("c_attMedications", "").equals("X") ? "checked" : "" %>' /> />
 
                                         <span class="title">Medications</span>
                                         <p>You can either click any of the buttons below to pull in any medications from
@@ -489,7 +489,7 @@
                                     <td valign="top">
                                         <!-- Allergies -->
                                         <input type="checkbox"
-                                               name="c_attAllergies" <%=Encode.forHtmlAttribute(props.getProperty("c_attAllergies", "").equals("X") ? "checked" : "") %> />
+                                               name="c_attAllergies" <e:forHtmlAttribute value='<%= props.getProperty("c_attAllergies", "").equals("X") ? "checked" : "" %>' /> />
 
                                         <span class="title">Allergies</span>
                                         <p>You can either click the button below to pull in any allergies from the
@@ -508,7 +508,7 @@
                                     <td valign="top">
                                         <!-- Additional Information -->
                                         <input type="checkbox"
-                                               name="c_attAdditionalInfo" <%=Encode.forHtmlAttribute(props.getProperty("c_attAdditionalInfo", "").equals("X") ? "checked" : "") %> />
+                                               name="c_attAdditionalInfo" <e:forHtmlAttribute value='<%= props.getProperty("c_attAdditionalInfo", "").equals("X") ? "checked" : "" %>' /> />
 
                                         <span class="title">Additional Information</span>
                                         <p>The buttons below will pull information in from the E-Chart.</p>

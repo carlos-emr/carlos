@@ -119,9 +119,9 @@
 
             function typeInData1(data) {
                 if (opener.updateElement != undefined) {
-                    opener.updateElement('<%= Encode.forJavaScript(param) %>', data);
+                    opener.updateElement('<e:forJavaScriptBlock value='<%= param %>' />', data);
                 } else {
-                    setOpenerProperty('<%= Encode.forJavaScript(param) %>', data);
+                    setOpenerProperty('<e:forJavaScriptBlock value='<%= param %>' />', data);
                 }
 
                 self.close();
@@ -130,8 +130,8 @@
             <%if(param2.length()>0) {%>
 
             function typeInData2(data1, data2) {
-                setOpenerProperty('<%= Encode.forJavaScript(param) %>', data1);
-                setOpenerProperty('<%= Encode.forJavaScript(param2) %>', data2);
+                setOpenerProperty('<e:forJavaScriptBlock value='<%= param %>' />', data1);
+                setOpenerProperty('<e:forJavaScriptBlock value='<%= param2 %>' />', data2);
                 self.close();
             }
 
@@ -171,12 +171,12 @@
             </tr>
         </table>
         <input type='hidden' name='param'
-               value="<%=Encode.forHtmlAttribute(param)%>">
+               value="<e:forHtmlAttribute value='<%= param %>' />">
         <input type='hidden' name='param2'
-               value="<%=Encode.forHtmlAttribute(param2)%>">
+               value="<e:forHtmlAttribute value='<%= param2 %>' />">
         <table width="95%" border="0">
             <tr>
-                <td align="left">Results based on keyword(s): <%= Encode.forHtml(keyword == null ? "" : keyword) %>
+                <td align="left">Results based on keyword(s): <e:forHtmlContent value='<%= keyword == null ? "" : keyword %>' />
                 </td>
             </tr>
         </table>
@@ -213,20 +213,20 @@
             <tr align="center" bgcolor="<%=bgColor%>"
                 onMouseOver="this.style.cursor='pointer';this.style.backgroundColor='pink';"
                 onMouseout="this.style.backgroundColor='<%=bgColor%>';"
-                onClick="<%=Encode.forHtmlAttribute(strOnClick)%>">
-                <td><%=Encode.forHtml(prop.getProperty("attention", ""))%>
+                onClick="<e:forJavaScriptAttribute value='<%= strOnClick %>' />">
+                <td><e:forHtmlContent value='<%= prop.getProperty("attention", "") %>' />
                 </td>
-                <td><%=Encode.forHtml(WordUtils.capitalize(prop.getProperty("company_name", "").toLowerCase()))%>
+                <td><e:forHtmlContent value='<%= WordUtils.capitalize(prop.getProperty("company_name", "").toLowerCase()) %>' />
                 </td>
-                <td><%=Encode.forHtml(WordUtils.capitalize(prop.getProperty("address", "").toLowerCase()))%>
+                <td><e:forHtmlContent value='<%= WordUtils.capitalize(prop.getProperty("address", "").toLowerCase()) %>' />
                 </td>
-                <td><%=Encode.forHtml(prop.getProperty("city", ""))%>
+                <td><e:forHtmlContent value='<%= prop.getProperty("city", "") %>' />
                 </td>
-                <td><%=Encode.forHtml(prop.getProperty("postcode", ""))%>
+                <td><e:forHtmlContent value='<%= prop.getProperty("postcode", "") %>' />
                 </td>
-                <td><%=Encode.forHtml(prop.getProperty("telephone", ""))%>
+                <td><e:forHtmlContent value='<%= prop.getProperty("telephone", "") %>' />
                 </td>
-                <!--td><%=Encode.forHtml(prop.getProperty("fax", ""))%></td-->
+                <!--td><e:forHtmlContent value='<%= prop.getProperty("fax", "") %>' /></td-->
             </tr>
             <%
                 }
@@ -249,12 +249,12 @@
         <script language="JavaScript">
             <!--
             function last() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/ON/ViewOnSearch3rdBillAddr?param=<%=Encode.forJavaScript(URLEncoder.encode(param,"UTF-8"))%>&param2=<%=Encode.forJavaScript(URLEncoder.encode(param2,"UTF-8"))%>&keyword=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8"))%>&search_mode=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8"))%>&orderby=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8"))%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/ON/ViewOnSearch3rdBillAddr?param=<e:forJavaScript value='<%= URLEncoder.encode(param,"UTF-8") %>' />&param2=<e:forJavaScript value='<%= URLEncoder.encode(param2,"UTF-8") %>' />&keyword=<e:forJavaScript value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8") %>' />&search_mode=<e:forJavaScript value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8") %>' />&orderby=<e:forJavaScript value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8") %>' />&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
                 document.nextform.submit();
             }
 
             function next() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/ON/ViewOnSearch3rdBillAddr?param=<%=Encode.forJavaScript(URLEncoder.encode(param,"UTF-8"))%>&param2=<%=Encode.forJavaScript(URLEncoder.encode(param2,"UTF-8"))%>&keyword=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8"))%>&search_mode=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8"))%>&orderby=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8"))%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/ON/ViewOnSearch3rdBillAddr?param=<e:forJavaScript value='<%= URLEncoder.encode(param,"UTF-8") %>' />&param2=<e:forJavaScript value='<%= URLEncoder.encode(param2,"UTF-8") %>' />&keyword=<e:forJavaScript value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8") %>' />&search_mode=<e:forJavaScript value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8") %>' />&orderby=<e:forJavaScript value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8") %>' />&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
                 document.nextform.submit();
             }
 

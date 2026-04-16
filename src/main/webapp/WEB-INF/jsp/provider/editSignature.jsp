@@ -39,7 +39,6 @@
 
 <%@ page import="io.github.carlos_emr.carlos.providers.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.pageUtil.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProSignatureData" %>
 
 <%
@@ -98,7 +97,7 @@
                 %>
                 <label for="signature"><fmt:message key="provider.editSignature.msgEdit"/></label>
                 <br>
-                <input type="text" name="signature" id="signature" size="40" value="<%= Encode.forHtmlAttribute(sig.getSignature(curUser_no)) %>" />
+                <input type="text" name="signature" id="signature" size="40" value="<e:forHtmlAttribute value='<%= sig.getSignature(curUser_no) %>' />" />
                 <br>
 
                 <!-- add by caisi -->

@@ -1,4 +1,5 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -287,7 +288,7 @@
                             <option value="-1">All</option>
                             <c:forEach items="${ senderAccountList }" var="senderAccount">
                                 <option value="${ senderAccount.senderEmail }">
-                                    ${e:forHtml(senderAccount.senderFirstName)} ${e:forHtml(senderAccount.senderLastName)} ${e:forHtml('(${ senderAccount.senderEmail })')}
+                                    ${e:forHtml(senderAccount.senderFirstName)} ${e:forHtml(senderAccount.senderLastName)} (${e:forHtml(senderAccount.senderEmail)})
                                 </option>
                             </c:forEach>
                         </select>

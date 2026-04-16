@@ -114,8 +114,8 @@
         </td>
         <td style="font-size: xx-small" width='1%'
             <%=dateTimeCodeBean.get("color"+hourmin.toString())!=null?("bgcolor=\""+Encode.forHtmlAttribute((String)dateTimeCodeBean.get("color"+hourmin.toString()))+"\"" ):""%>
-            title='<%=Encode.forHtmlAttribute(dateTimeCodeBean.get("description"+hourmin.toString()) != null ? (String)dateTimeCodeBean.get("description"+hourmin.toString()) : "")%>'><font
-                color='<%=(dateTimeCodeBean.get("color"+hourmin.toString())!=null && !dateTimeCodeBean.get("color"+hourmin.toString()).equals(bgcolordef) )?"black":"white" %>'><%=Encode.forHtml(hourmin.toString()) %>
+            title='<e:forHtmlAttribute value='<%= dateTimeCodeBean.get("description"+hourmin.toString()) != null ? (String)dateTimeCodeBean.get("description"+hourmin.toString()) : "" %>' />'><font
+                color='<%=(dateTimeCodeBean.get("color"+hourmin.toString())!=null && !dateTimeCodeBean.get("color"+hourmin.toString()).equals(bgcolordef) )?"black":"white" %>'><e:forHtmlContent value='<%= hourmin.toString() %>' />
         </font>
     </tr>
         <%  }%>

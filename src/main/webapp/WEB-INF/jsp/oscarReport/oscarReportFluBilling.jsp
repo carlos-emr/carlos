@@ -47,9 +47,6 @@
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptFluReportData" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
-
 <%@ include file="/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
@@ -94,7 +91,7 @@
 <div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
         <fmt:message key="oscarReport.oscarReportFluBilling.title"/>
-        <%=Encode.forHtml(years)%>
+        <e:forHtmlContent value='<%= years %>' />
     </h4>
 </div>
 
@@ -116,7 +113,7 @@
     <%
         for (Provider p : providers) {
     %>
-    <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>" <%=selled(p.getProviderNo(), pros)%>><%=Encode.forHtml(p.getFormattedName())%>
+    <option value="<e:forHtmlAttribute value='<%= p.getProviderNo() %>' />" <%=selled(p.getProviderNo(), pros)%>><e:forHtmlContent value='<%= p.getFormattedName() %>' />
     </option>
     <%
         }
@@ -149,19 +146,19 @@
             count = count + 1;
     %>
     <tr>
-        <td><%=Encode.forHtml(demoData.demoName)%>
+        <td><e:forHtmlContent value='<%= demoData.demoName %>' />
         </td>
-        <td><%=Encode.forHtml(demoData.getDemoDOB())%>
+        <td><e:forHtmlContent value='<%= demoData.getDemoDOB() %>' />
         </td>
-        <td><%=Encode.forHtml(demoData.getDemoAge())%>
+        <td><e:forHtmlContent value='<%= demoData.getDemoAge() %>' />
         </td>
-        <td><%=Encode.forHtml(demoData.demoRosterStatus)%>
+        <td><e:forHtmlContent value='<%= demoData.demoRosterStatus %>' />
         </td>
-        <td><%=Encode.forHtml(demoData.demoPatientStatus)%>
+        <td><e:forHtmlContent value='<%= demoData.demoPatientStatus %>' />
         </td>
-        <td><%=Encode.forHtml(demoData.getDemoPhone())%>
+        <td><e:forHtmlContent value='<%= demoData.getDemoPhone() %>' />
         </td>
-        <td><%=Encode.forHtml(demoData.getBillingDate(fluData.years))%>
+        <td><e:forHtmlContent value='<%= demoData.getBillingDate(fluData.years) %>' />
         </td>
     </tr>
     <%

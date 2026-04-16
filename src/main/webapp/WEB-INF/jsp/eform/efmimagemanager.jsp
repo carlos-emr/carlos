@@ -29,7 +29,6 @@
 
 --%>
 <%@page import="java.net.URLEncoder" %>
-<%@page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -102,7 +101,7 @@
             </td>
 
             <td>
-                <a href="javascript:void(0);" onclick="deleteImg('<%=Encode.forJavaScript(curimage)%>');"
+                <a href="javascript:void(0);" onclick="deleteImg('<e:forJavaScriptAttribute value='<%= curimage %>' />');"
                    class="contentLink"><fmt:message key="eform.uploadimages.btnDelete"/></a>
             </td>
         </tr>

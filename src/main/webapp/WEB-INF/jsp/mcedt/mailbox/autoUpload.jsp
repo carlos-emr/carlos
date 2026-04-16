@@ -39,7 +39,6 @@
 
 <%@ page
         import="java.io.*,java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*, io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtils, java.math.BigInteger,ca.ontario.health.edt.ResponseResult" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
 
     List<File> toEdt = ActionUtils.getUploadList();
@@ -95,7 +94,7 @@
             var files = document.getElementsByClassName("fileNames");
             var progress = document.getElementsByClassName("progress");
             var status = document.getElementsByClassName("status");
-            var connection = '<%= Encode.forJavaScript(connection) %>';
+            var connection = '<e:forJavaScriptBlock value='<%= connection %>' />';
             if (connection != "failed") {
                 for (var i = 0; i < files.length; i++) {
                     // Step 1 set all the available statuses

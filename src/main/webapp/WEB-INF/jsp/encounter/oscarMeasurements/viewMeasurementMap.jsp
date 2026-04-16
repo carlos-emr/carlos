@@ -30,6 +30,8 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -223,7 +225,9 @@
                             <% if (measurement != null && !measurement.equals("&nbsp;")) {%>
                             <%=measurement%>
                             <%} else {%>
-                            <a href="<%= Encode.forHtmlAttribute(request.getContextPath() + "/encounter/oscarMeasurements/ViewAddMeasurementMap2?loinc=" + Encode.forUriComponent(s)) %>">map</a>
+                            <c:set var="__encMeasurementMapLoinc"><e:forUriComponent value='<%= s %>' /></c:set>
+                            <c:set var="__encMeasurementMapUrl" value="${pageContext.request.contextPath}/encounter/oscarMeasurements/ViewAddMeasurementMap2?loinc=${__encMeasurementMapLoinc}" />
+                            <a href="<e:forHtmlAttribute value='${__encMeasurementMapUrl}' />">map</a>
                             <%}%>
                         </td>
                         <td class="Cell"><%=s%>

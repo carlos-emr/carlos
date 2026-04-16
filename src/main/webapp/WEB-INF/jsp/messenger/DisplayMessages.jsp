@@ -278,7 +278,7 @@
                 <fmt:message key="messenger.DisplayMessages.msgArchived"/>
         <%      break;
             case 3: %>
-                Messages related to <%=Encode.forHtml(demographic_name)%>
+                Messages related to <e:forHtmlContent value='<%= demographic_name %>' />
         <%      break;
         }%>
     </h4>
@@ -286,7 +286,7 @@
         <input name="boxType" type="hidden" value="<%=pageType%>">
         <div class="input-group input-group-sm">
             <input name="searchString" type="text" class="form-control" placeholder="<fmt:message key="messenger.DisplayMessages.btnSearch"/>"
-                   value="<%=Encode.forHtmlAttribute(DisplayMessagesBeanId.getFilter())%>">
+                   value="<e:forHtmlContent value='<%= DisplayMessagesBeanId.getFilter() %>' />">
             <button name="btnSearch" type="submit" class="btn btn-primary" title="<fmt:message key="messenger.DisplayMessages.btnSearch"/>">
                 <i class="fa-solid fa-magnifying-glass"></i>
             </button>
@@ -509,7 +509,7 @@
                                 <tr class="<%=rowClass%>">
                                     <td style="width:25px;">
                                     <%if (pageType != 1){%>
-                                       <input type="checkbox" name="messageNo" value="<%=Encode.forHtmlAttribute(dm.getMessageId()) %>">
+                                       <input type="checkbox" name="messageNo" value="<e:forHtmlAttribute value='<%= dm.getMessageId() %>' />">
                                      <% } %>
 
                                     </td>
@@ -536,8 +536,8 @@
 
                                     </td>
                                     <td>
-                                    <a href="<%=request.getContextPath()%>/messenger/ViewMessage?messageID=<%=Encode.forUriComponent(dm.getMessageId())%>&boxType=<%=pageType%>">
-                                        <%=Encode.forHtml(dm.getThesubject())%>
+                                    <a href="<%=request.getContextPath()%>/messenger/ViewMessage?messageID=<e:forUriComponent value='<%= dm.getMessageId() %>' />&boxType=<%=pageType%>">
+                                        <e:forHtmlContent value='<%= dm.getThesubject() %>' />
                                     </a>
                                     <%
                                        String atta = dm.getAttach();
@@ -546,14 +546,14 @@
                                             &nbsp;<i class="fa-solid fa-paperclip" title="attachment"></i>
                                     <% } %>
                                     </td>
-                                    <td title="<%= Encode.forHtmlAttribute(dm.getThedate()) %>&nbsp;&nbsp;<%= Encode.forHtmlAttribute(dm.getThetime()) %>">
-                                    	<%=Encode.forHtml(dm.getThedate())%>
+                                    <td title="<e:forHtmlAttribute value='<%= dm.getThedate() %>' />&nbsp;&nbsp;<e:forHtmlAttribute value='<%= dm.getThetime() %>' />">
+                                    	<e:forHtmlContent value='<%= dm.getThedate() %>' />
 
                                     </td>
                                     <td>
 
                                     <%if(dm.getDemographic_no() != null  && !dm.getDemographic_no().equalsIgnoreCase("null")) {%>
-                                        <oscar:nameage demographicNo="<%=Encode.forHtmlAttribute(dm.getDemographic_no())%>"></oscar:nameage>
+                                        <oscar:nameage demographicNo="<e:forHtmlAttribute value='<%= dm.getDemographic_no() %>' />"></oscar:nameage>
                                     <%} %>
 
                                     </td>

@@ -45,7 +45,7 @@
 
     @since 2026-03-22
 --%>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -109,10 +109,10 @@
 </head>
 <body>
     <h3>Attach Files to Letter</h3>
-    <p>Patient Demographic: <%= Encode.forHtml(demoNo) %></p>
+    <p>Patient Demographic: <e:forHtmlContent value='<%= demoNo %>' /></p>
 
     <form method="post" action="../eform/attachDoc">
-        <input type="hidden" name="demoNo" value="<%= Encode.forHtmlAttribute(demoNo) %>">
+        <input type="hidden" name="demoNo" value="<e:forHtmlAttribute value='<%= demoNo %>' />">
         <% if (fdid != null) { %>
         <input type="hidden" name="requestId" value="<%= fdid %>">
         <% } %>
@@ -127,7 +127,7 @@
                 <div class="doc-item">
                     <label>
                         <input type="checkbox" name="attachedDocs" value="<%= doc.getDocumentNo() %>">
-                        <%= Encode.forHtml(doc.getDocdesc() != null ? doc.getDocdesc() : "Document #" + doc.getDocumentNo()) %>
+                        <e:forHtmlContent value='<%= doc.getDocdesc() != null ? doc.getDocdesc() : "Document #" + doc.getDocumentNo() %>' />
                     </label>
                 </div>
                 <%  }

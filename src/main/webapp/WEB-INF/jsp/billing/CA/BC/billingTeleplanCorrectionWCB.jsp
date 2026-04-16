@@ -32,7 +32,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -49,7 +49,6 @@
 
 <%@page import="io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.*" %>
 <%@page import="java.util.*,java.io.*,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*,io.github.carlos_emr.carlos.billing.ca.bc.administration.*,java.sql.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -197,13 +196,14 @@
         <table width="100%">
             <tr>
                 <td colspan="2" class="SectionHead"><a href=#
-                                                       onClick="popup(700,900,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(form.getDemographicNumber())))%>','
+                                                       <c:set var="__enc_1"><e:forUriComponent value='<%= StringUtils.noNull(form.getDemographicNumber()) %>' /></c:set>
+                                                       onClick="popup(700,900,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<e:forJavaScriptAttribute value='${__enc_1}' />','
                                                            <fmt:message key="encounter.Index.popupPage2Window"/>');return false;"
                                                        title="<fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">Patient
-                    Information</a> <input type="hidden" name="id" id="id" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getId()))%>"/>
+                    Information</a> <input type="hidden" name="id" id="id" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getId()) %>' />"/>
                     <input type="hidden"
                            name="demographicNumber" id="demographicNumber"
-                        value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getDemographicNumber()))%>"/></td>
+                        value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getDemographicNumber()) %>' />"/></td>
             </tr>
             <tr>
                 <td width="50%" align="left" valign="top">
@@ -211,70 +211,70 @@
                         <tr>
                             <td class="FormLabel">First Name:</td>
                             <td><input type="text" name="firstName"
-                                           value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getFirstName()))%>"/></td>
+                                           value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getFirstName()) %>' />"/></td>
                         </tr>
                         <tr>
                             <td class="FormLabel">Middle Name:</td>
                             <td><input type="text" name="w_mname"
-                                           value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_mname()))%>"/></td>
+                                           value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getW_mname()) %>' />"/></td>
                         </tr>
                         <tr>
                             <td class="FormLabel">Last Name:</td>
                             <td><input type="text" name="lastName"
-                                           value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getLastName()))%>"/></td>
+                                           value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getLastName()) %>' />"/></td>
                         </tr>
                         <tr>
                             <td class="FormLabel">Date Of Birth:</td>
                             <td><input type="text" name="yearOfBirth"
-                                           value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getYearOfBirth()))%>" maxlength="4" size="4"/>
-                                <input type="text" name="monthOfBirth" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getMonthOfBirth()))%>"
+                                           value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getYearOfBirth()) %>' />" maxlength="4" size="4"/>
+                                <input type="text" name="monthOfBirth" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getMonthOfBirth()) %>' />"
                                     maxlength="2" size="2"/> <input type="text" name="dayOfBirth"
-                                                                        value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getDayOfBirth()))%>" maxlength="2"
+                                                                        value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getDayOfBirth()) %>' />" maxlength="2"
                                                                         size="2"/> Age:(
-                                <%=Encode.forHtml(StringUtils.noNull(form.getAge()))%> )
+                                <e:forHtmlContent value='<%= StringUtils.noNull(form.getAge()) %>' /> )
                             </td>
                         </tr>
                         <tr>
                             <td class="FormLabel">HIN (PHN):</td>
-                            <td><input type="checkbox" name="hin" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getHin()))%>" /></td>
+                            <td><input type="checkbox" name="hin" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getHin()) %>' />" /></td>
                         </tr>
                         <tr>
                             <td class="FormLabel">Gender:</td>
                             <td><input type="text" readonly="true" name="w_gender"
-                                           value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_gender()))%>"/></td>
+                                           value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getW_gender()) %>' />"/></td>
                         </tr>
                     </table>
                 </td>
                 <td width="50%" align="left" valign="top">
                     <table width="100%">
                         <tr>
-                            <td width="100" class="FormLabel">Area:</td>
-                            <td><input type="checkbox" name="w_area" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_area()))%>" />
+                            <td width="100" class="FormLabel">Are:</td>
+                            <td><input type="checkbox" name="w_area" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getW_area()) %>' />" />
                             </td>
                         </tr>
                         <tr>
                             <td width="100" class="FormLabel">Phone:</td>
                             <td><input type="text" name="w_phone"
-                                           value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_phone()))%>"/></td>
+                                           value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getW_phone()) %>' />"/></td>
                         </tr>
                         <tr>
                             <td width="100" class="FormLabel">Address:</td>
                             <td><input type="text" name="address"
-                                           value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getAddress()))%>"/></td>
+                                           value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getAddress()) %>' />"/></td>
                         </tr>
                         <tr>
                             <td width="100" class="FormLabel">City:</td>
-                            <td><input type="checkbox" name="city" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getCity()))%>" />
+                            <td><input type="checkbox" name="city" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getCity()) %>' />" />
                             </td>
                         </tr>
                         <tr>
                             <td class="FormLabel">Province:</td>
                             <td><input type="text" name="province"
-                                           value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getProvince()))%>"/></td>
+                                           value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getProvince()) %>' />"/></td>
                         </tr>
                         <tr>
                             <td width="100" class="FormLabel">Postal:</td>
-                            <td><input type="checkbox" name="postal" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getPostal()))%>" />
+                            <td><input type="checkbox" name="postal" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getPostal()) %>' />" />
                             </td>
                         </tr>
                     </table>
@@ -295,17 +295,17 @@
                                     <tr>
                                         <td class="FormLabel">Name:</td>
                                         <td><input type="text" name="w_empname"
-                                                       value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_empname()))%>"/></td>
+                                                       value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getW_empname()) %>' />"/></td>
                                     </tr>
                                     <tr>
-                                        <td class="FormLabel">Area:</td>
+                                        <td class="FormLabel">Are:</td>
                                         <td><input type="text" name="w_emparea"
-                                                       value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_emparea()))%>"/></td>
+                                                       value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getW_emparea()) %>' />"/></td>
                                     </tr>
                                     <tr>
                                         <td class="FormLabel">Phone:</td>
                                         <td><input type="text" name="w_empphone"
-                                                       value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_empphone()))%>"/></td>
+                                                       value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getW_empphone()) %>' />"/></td>
                                     </tr>
                                 </table>
                             </td>
@@ -314,12 +314,12 @@
                                     <tr>
                                         <td width="175" class="FormLabel">Operating Address:</td>
                                         <td><input type="text" name="w_opaddress"
-                                                       value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_opaddress()))%>"/></td>
+                                                       value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getW_opaddress()) %>' />"/></td>
                                     </tr>
                                     <tr>
                                         <td width="175" class="FormLabel">Operating City:</td>
                                         <td><input type="text" name="w_opcity"
-                                                       value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_opcity()))%>"/></td>
+                                                       value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getW_opcity()) %>' />"/></td>
                                     </tr>
                                 </table>
                             </td>
@@ -370,7 +370,7 @@
         </table>
         <table width="100%">
             <tr>
-                <td colspan="2" class="SectionHead">Claim Information ( <%=Encode.forHtml(StringUtils.noNull(form.getDataSequenceNo()))%>
+                <td colspan="2" class="SectionHead">Claim Information ( <e:forHtmlContent value='<%= StringUtils.noNull(form.getDataSequenceNo()) %>' />
                     )
                 </td>
             </tr>
@@ -380,7 +380,7 @@
                         <tr>
                             <td class="FormLabel">WCB Claim No:</td>
                             <td><input type="text" name="w_wcbno"
-                                           value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_wcbno()))%>"/></td>
+                                           value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getW_wcbno()) %>' />"/></td>
                         </tr>
                         <tr>
                             <td class="FormLabel">Billing Physician</td>
@@ -393,9 +393,9 @@
                                             proLast = p.getLastName();
                                             proOHIP = p.getProviderNo();
                                 %>
-                                <option value="<%=Encode.forHtmlAttribute(proOHIP)%>" <%=proOHIP.equals(form.getProviderNo()) ? "selected" : ""%>><%=Encode.forHtml(proOHIP)%>                    |
-                                    <%=Encode.forHtml(proLast)%>                    ,
-                                    <%=Encode.forHtml(proFirst)%>
+                                <option value="<e:forHtmlAttribute value='<%= proOHIP %>' />" <%=proOHIP.equals(form.getProviderNo()) ? "selected" : ""%>><e:forHtmlContent value='<%= proOHIP %>' />                    |
+                                    <e:forHtmlContent value='<%= proLast %>' />                    ,
+                                    <e:forHtmlContent value='<%= proFirst %>' />
                                 </option>
                                 <%
                                         }
@@ -405,12 +405,12 @@
                         </tr>
                         <tr>
                             <td class="FormLabel">Practioner Num:</td>
-                            <td><%=Encode.forHtml(StringUtils.noNull(form.getW_pracno()))%>
+                            <td><e:forHtmlContent value='<%= StringUtils.noNull(form.getW_pracno()) %>' />
                             </td>
                         </tr>
                         <tr>
                             <td class="FormLabel">Payee Num:</td>
-                            <td><%=Encode.forHtml(StringUtils.noNull(form.getW_payeeno()))%>
+                            <td><e:forHtmlContent value='<%= StringUtils.noNull(form.getW_payeeno()) %>' />
                             </td>
                         </tr>
                         <tr>
@@ -432,7 +432,7 @@
                         <tr>
                             <td class="FormLabel">Billing Unit:</td>
                             <td><input type="text" name="billingUnit"
-                                           value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getBillingUnit()))%>"/></td>
+                                           value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getBillingUnit()) %>' />"/></td>
                         </tr>
                         <%--<tr>
 
@@ -448,7 +448,7 @@
                         <tr>
                             <td class="FormLabel">Bill Amount:</td>
                             <td><input type="text" name="billingAmount"
-                                           value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getBillingAmount()))%>"/></td>
+                                           value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getBillingAmount()) %>' />"/></td>
                         </tr>
                         <tr>
                             <td class="FormLabel" title="Internal Adjustment">Int. Adj.</td>
@@ -458,13 +458,13 @@
                         </tr>
                         <tr>
                             <td class="FormLabel">ICD 9:</td>
-                            <td><input type="checkbox" name="w_icd9" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_icd9()))%>" />
+                            <td><input type="checkbox" name="w_icd9" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getW_icd9()) %>' />" />
                                 <a onClick="popICD9List('TeleplanCorrectionFormWCB','w_icd9');">Codes</a>
                             </td>
                         </tr>
                         <tr>
                             <td class="FormLabel">Body Part:</td>
-                            <td><input type="checkbox" name="w_bp" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_bp()))%>" />
+                            <td><input type="checkbox" name="w_bp" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getW_bp()) %>' />" />
                                 <a onClick="popBodyPartList('TeleplanCorrectionFormWCB','w_bp');">Codes</a>
                             </td>
                         </tr>
@@ -479,14 +479,14 @@
                         </tr>
                         <tr>
                             <td class="FormLabel">Nature Of Injury:</td>
-                            <td><input type="checkbox" name="w_noi" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_noi()))%>" />
+                            <td><input type="checkbox" name="w_noi" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getW_noi()) %>' />" />
                                 <a onClick="popNOIList('TeleplanCorrectionFormWCB','w_noi');">Codes</a>
                             </td>
                         </tr>
                         <tr>
                             <td class="FormLabel">Fee Item:</td>
                             <td><input type="text" name="w_feeitem"
-                                           value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_feeitem()))%>"/> <a
+                                           value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getW_feeitem()) %>' />"/> <a
                                     onClick="popFeeItemList('TeleplanCorrectionFormWCB','w_feeitem');">Codes</a>
                             </td>
                         </tr>
@@ -513,7 +513,7 @@
                         <tr>
                             <td class="FormLabel">Report Type:</td>
                             <td><input type="text" name="w_reporttype"
-                                           value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_reporttype()))%>"/></td>
+                                           value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getW_reporttype()) %>' />"/></td>
                         </tr>
                         <tr>
 
@@ -550,7 +550,7 @@
                                     <tr>
                                         <td class="FormLabel">Date Of Injury:</td>
                                         <td>
-                                            <input type="text" readonly="readonly" name="w_doi" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_doi()))%>"
+                                            <input type="text" readonly="readonly" name="w_doi" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getW_doi()) %>' />"
                                                        id="w_doi"/>
                                             <a id="hlIDate">Date</a>
                                         </td>
@@ -559,7 +559,7 @@
                                         <td class="FormLabel">Service Date:</td>
                                         <td>
                                             <input type="text" readonly="readonly" name="w_servicedate"
-                                                       value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_servicedate()))%>" id="w_servicedate"/>
+                                                       value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getW_servicedate()) %>' />" id="w_servicedate"/>
                                             <a id="hlSDate">Date</a>
                                         </td>
                                     </tr>
@@ -567,7 +567,7 @@
                                         <td class="FormLabel">Work Date:</td>
                                         <td>
                                             <input type="text" readonly="readonly" name="w_workdate"
-                                                       value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_workdate()))%>" id="w_workdate"/>
+                                                       value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getW_workdate()) %>' />" id="w_workdate"/>
                                             <a id="hlWDate">Date</a>
                                         </td>
                                     </tr>
@@ -587,36 +587,36 @@
                                     <tr>
                                         <td class="FormLabel">Estimate Date:</td>
                                         <td><input type="text" readonly="true" name="w_estimatedate"
-                                                       value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_estimatedate()))%>" id="w_estimatedate"/>
+                                                       value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getW_estimatedate()) %>' />" id="w_estimatedate"/>
                                             <a id="hlEDate">Date</a></td>
                                     </tr>
                                     <tr>
                                         <td class="FormLabel">First Treatment:</td>
                                         <td><input type="text" name="w_ftreatment"
-                                                       value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_ftreatment()))%>"/></td>
+                                                       value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getW_ftreatment()) %>' />"/></td>
                                     </tr>
                                     <tr>
                                         <td class="FormLabel">Problem:</td>
                                         <td><textarea style="width:100%" name="w_problem" id="w_problem">
-                                            <%=Encode.forHtml(StringUtils.noNull(form.getW_problem()))%>
+                                            <e:forHtmlContent value='<%= StringUtils.noNull(form.getW_problem()) %>' />
                                         </textarea></td>
                                     </tr>
                                     <tr>
                                         <td class="FormLabel">Diagnosis:</td>
                                         <td><textarea style="width:100%" name="w_diagnosis" id="w_diagnosis">
-                                                           <%=Encode.forHtml(StringUtils.noNull(form.getW_diagnosis()))%>
+                                                           <e:forHtmlContent value='<%= StringUtils.noNull(form.getW_diagnosis()) %>' />
                                         </textarea></td>
                                     </tr>
                                     <tr>
                                         <td class="FormLabel">Clinical Info:</td>
                                         <td><textarea style="width:100%" name="w_clinicinfo" id="w_clinicinfo">
-                                            <%=Encode.forHtml(StringUtils.noNull(form.getW_clinicinfo()))%>
+                                            <e:forHtmlContent value='<%= StringUtils.noNull(form.getW_clinicinfo()) %>' />
                                         </textarea></td>
                                     </tr>
                                     <tr>
                                         <td class="FormLabel">Problem:</td>
                                         <td><textarea style="width:100%" name="w_capreason" id="w_capreason">
-                                            <%=Encode.forHtml(StringUtils.noNull(form.getW_capreason()))%>
+                                            <e:forHtmlContent value='<%= StringUtils.noNull(form.getW_capreason()) %>' />
                                         </textarea></td>
                                     </tr>
                                 </table>
@@ -649,43 +649,43 @@
 
                                                 if (result.getExp1() != null && codes.get(result.getExp1()) != null && !((String) codes.get(result.getExp1())).trim().equals("")) {
                                     %>
-                                    <li><%=Encode.forHtml(seqNum + " " + result.getExp1() + " - " + codes.get(result.getExp1()))%>
+                                    <li><e:forHtmlContent value='<%= seqNum + " " + result.getExp1() + " - " + codes.get(result.getExp1()) %>' />
                                     </li>
                                     <%
                                         }
                                         if (result.getExp2() != null && codes.get(result.getExp2()) != null && !((String) codes.get(result.getExp2())).trim().equals("")) {
                                     %>
-                                    <li><%=Encode.forHtml(seqNum + " " + result.getExp2() + " - " + codes.get(result.getExp2()))%>
+                                    <li><e:forHtmlContent value='<%= seqNum + " " + result.getExp2() + " - " + codes.get(result.getExp2()) %>' />
                                     </li>
                                     <%
                                         }
                                         if (result.getExp3() != null && codes.get(result.getExp3()) != null && !((String) codes.get(result.getExp3())).trim().equals("")) {
                                     %>
-                                    <li><%=Encode.forHtml(seqNum + " " + result.getExp3() + " - " + codes.get(result.getExp3()))%>
+                                    <li><e:forHtmlContent value='<%= seqNum + " " + result.getExp3() + " - " + codes.get(result.getExp3()) %>' />
                                     </li>
                                     <%
                                         }
                                         if (result.getExp4() != null && codes.get(result.getExp4()) != null && !((String) codes.get(result.getExp4())).trim().equals("")) {
                                     %>
-                                    <li><%=Encode.forHtml(seqNum + " " + result.getExp4() + " - " + codes.get(result.getExp4()))%>
+                                    <li><e:forHtmlContent value='<%= seqNum + " " + result.getExp4() + " - " + codes.get(result.getExp4()) %>' />
                                     </li>
                                     <%
                                         }
                                         if (result.getExp5() != null && codes.get(result.getExp5()) != null && !((String) codes.get(result.getExp5())).trim().equals("")) {
                                     %>
-                                    <li><%=Encode.forHtml(seqNum + " " + result.getExp5() + " - " + codes.get(result.getExp5()))%>
+                                    <li><e:forHtmlContent value='<%= seqNum + " " + result.getExp5() + " - " + codes.get(result.getExp5()) %>' />
                                     </li>
                                     <%
                                         }
                                         if (result.getExp6() != null && codes.get(result.getExp6()) != null && !((String) codes.get(result.getExp6())).trim().equals("")) {
                                     %>
-                                    <li><%=Encode.forHtml(seqNum + " " + result.getExp6() + " - " + codes.get(result.getExp6()))%>
+                                    <li><e:forHtmlContent value='<%= seqNum + " " + result.getExp6() + " - " + codes.get(result.getExp6()) %>' />
                                     </li>
                                     <%
                                         }
                                         if (result.getExp7() != null && codes.get(result.getExp7()) != null && !((String) codes.get(result.getExp7())).trim().equals("")) {
                                     %>
-                                    <li><%=Encode.forHtml(seqNum + " " + result.getExp7() + " - " + codes.get(result.getExp7()))%>
+                                    <li><e:forHtmlContent value='<%= seqNum + " " + result.getExp7() + " - " + codes.get(result.getExp7()) %>' />
                                     </li>
                                     <%
                                                 }
@@ -709,12 +709,12 @@
         </table>
         <table width="100%">
         </table>
-        <input type="hidden" name="billingNo" id="billingNo" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getBillingNo()))%>"/>
-        <input type="hidden" name="id" id="id" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getId()))%>"/>
+        <input type="hidden" name="billingNo" id="billingNo" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getBillingNo()) %>' />"/>
+        <input type="hidden" name="id" id="id" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(form.getId()) %>' />"/>
         <table width="100%">
             <tr>
                 <td colspan="2" align="center" class="SectionHead"><a
-                        href="<%= request.getContextPath() %>/billing/CA/BC/billingTeleplanCorrectionWCB?billing_no=<%=Encode.forUriComponent(StringUtils.noNull(form.getId()))%>">Refresh</a>
+                        href="<%= request.getContextPath() %>/billing/CA/BC/billingTeleplanCorrectionWCB?billing_no=<e:forUriComponent value='<%= StringUtils.noNull(form.getId()) %>' />">Refresh</a>
                     | <input type="button" name="Button" value="Close"
                              onClick="window.close();"> | <input type="button"
                                                                  name="Button" value="Print" onClick="window.print();">

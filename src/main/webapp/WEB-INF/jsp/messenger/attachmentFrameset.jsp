@@ -53,8 +53,6 @@
 
 
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -70,7 +68,7 @@ String demographic_no = request.getParameter("demographic_no");
     <frameset rows="300,0">
         <%-- Main frame: Shows the PDF preview for the selected demographic --%>
         <frame name="main"
-               src="<%= request.getContextPath() %>/messenger/PreviewPDF?demographic_no=<%= Encode.forUriComponent(demographic_no) %>"
+               src="<%= request.getContextPath() %>/messenger/PreviewPDF?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />"
                noresize scrolling=auto marginheight=5 marginwidth=5>
         <%-- Hidden source frame: Used for background processing --%>
         <frame name="srcFrame" src="">

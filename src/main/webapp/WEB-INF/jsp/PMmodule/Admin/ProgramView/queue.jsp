@@ -24,13 +24,11 @@
 -->
 
 <%@ page import="java.util.*"%>
-<%@ page import="org.oscarehr.PMmodule.model.ProgramQueue"%>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramQueue"%>
 <%@ page import="java.net.URLEncoder"%>
-<%@page import="org.apache.commons.lang.time.DateFormatUtils"%>
-<%@page import="org.oscarehr.util.SpringUtils"%>
-<%@page import="org.oscarehr.common.model.Demographic"%>
-<%@page import="org.oscarehr.PMmodule.dao.ProgramProviderDAO"%>
-<%@page import="org.oscarehr.PMmodule.model.Program"%>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO"%>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program"%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi"%>
 <%@ include file="/taglibs.jsp"%>

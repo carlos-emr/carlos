@@ -237,7 +237,7 @@
                     List<SecRole> secRoles = secRoleDao.findAll();
                     for(SecRole secRole:secRoles) {
                         %>
-                    "<%=Encode.forHtmlAttribute(secRole.getName())%>",
+                    "<e:forJavaScriptBlock value='<%= secRole.getName() %>' />",
                     <%}%>
                     ""
                 ];
@@ -262,7 +262,7 @@
                 <label class="form-label" for="role_name"><fmt:message key="admin.provideraddrole.rolename"/></label>
                 <div>
                     <input type="text" name="role_name" id="role_name"
-                           value="<%=Encode.forHtmlAttribute(prop.getProperty("role_name", ""))%>"
+                           value="<e:forHtmlAttribute value='<%= prop.getProperty("role_name", "") %>' />"
                            maxlength='30'>
                     <input type="submit" name="submit" value="Search" class="btn btn-secondary"
                            onclick="javascript:return onSearch();">
@@ -271,7 +271,7 @@
             <div class="mb-3">
                 <div>
                     <input
-                            type="hidden" name="action" value='<%=Encode.forHtmlAttribute(action)%>'/> <% if (!"search".equals(action)) {%>
+                            type="hidden" name="action" value='<e:forHtmlAttribute value='<%= action %>' />'/> <% if (!"search".equals(action)) {%>
                     <input type="submit" name="submit" class="btn btn-primary"
                            value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
                            onclick="javascript:return onSave();"> <% }%>

@@ -171,7 +171,7 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
     <script language="JavaScript">
-        if ('<%=Encode.forJavaScript(StringUtils.noNull((String) request.getAttribute("close")))%>' == 'true') {
+        if ('<e:forJavaScriptBlock value='<%= StringUtils.noNull((String) request.getAttribute("close")) %>' />' == 'true') {
             window.close();
         }
 
@@ -454,14 +454,14 @@
             Office Claim No
         </td>
         <td class="bCellData">
-            <%= Encode.forHtml(billingmasterNo != null ? billingmasterNo : "") %>
+            <e:forHtmlContent value='<%= billingmasterNo != null ? billingmasterNo : "" %>' />
         </td>
         <td align="left" class="bCellData">
-            <font color="#000000">Last update: <%=Encode.forHtml(MyDateFormat.getMyStandardDate(bill.getUpdateDate()))%>
+            <font color="#000000">Last update: <e:forHtmlContent value='<%= MyDateFormat.getMyStandardDate(bill.getUpdateDate()) %>' />
             </font>
         </td>
         <td align="right" class="bCellData">
-            Creator:  <%=Encode.forHtml(providerBean.getProperty(bill.getCreator(), bill.getCreator()))%>
+            Creator:  <e:forHtmlContent value='<%= providerBean.getProperty(bill.getCreator(), bill.getCreator()) %>' />
         </td>
     </tr>
 
@@ -487,7 +487,7 @@
             String rejReason = (String) li.get(i);
     %>
     <tr>
-        <td><%=Encode.forHtml(rejReason)%>
+        <td><e:forHtmlContent value='<%= rejReason %>' />
         </td>
     </tr>
 
@@ -535,17 +535,18 @@
 
 %>
 <form style="reprocessBilling" action="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill" method="post" onsubmit="return checkSubmitType()">
-    <input type="hidden" name="update_date" value="<%=Encode.forHtmlAttribute(UpdateDate)%>"/>
-    <input type="hidden" name="demoNo" value="<%=Encode.forHtmlAttribute(DemoNo)%>"/>
-    <input type="hidden" name="billNumber" value="<%=Encode.forHtmlAttribute(allFields.getProperty("billingNo", ""))%>"/>
+    <input type="hidden" name="update_date" value="<e:forHtmlAttribute value='<%= UpdateDate %>' />"/>
+    <input type="hidden" name="demoNo" value="<e:forHtmlAttribute value='<%= DemoNo %>' />"/>
+    <input type="hidden" name="billNumber" value="<e:forHtmlAttribute value='<%= allFields.getProperty("billingNo", "") %>' />"/>
     <table width="100%" border="0">
         <tr bgcolor="#CCCCFF">
             <td height="21" colspan="2" class="bCellData">Patient Information<input type="hidden" name="billingmasterNo"
-                                                                                    value="<%= Encode.forHtmlAttribute(billingmasterNo) %>"/>
+                                                                                    value="<e:forHtmlAttribute value='<%= billingmasterNo %>' />"/>
+                   <c:set var="__enc_1"><e:forUriComponent value='<%= StringUtils.noNull((String) request.getAttribute("invoiceNo")) %>' /></c:set>
 
                 <%if (BillType.equals("A") || BillType.equals("P")) {%>
                 <a href="#"
-                   onClick="popupPage(800,800, '<%=request.getContextPath()%>/billing/CA/BC/billingView?billing_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull((String) request.getAttribute("invoiceNo"))))%>&receipt=yes')">View
+                   onClick="popupPage(800,800, '<%=request.getContextPath()%>/billing/CA/BC/billingView?billing_no=<e:forJavaScriptAttribute value='${__enc_1}' />&receipt=yes')">View
                     Invoice</a>
                 <%}%>
             </td>
@@ -554,52 +555,53 @@
         <tr>
             <td width="54%" class="bCellData">
                 Patient Name:
+                   <c:set var="__enc_2"><e:forUriComponent value='<%= DemoNo %>' /></c:set>
                 <a href=#
-                   onClick="popupPage2('<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(DemoNo))%>');return false;"
+                   onClick="popupPage2('<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<e:forJavaScriptAttribute value='${__enc_2}' />');return false;"
                    title="<fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">
-                    <%=Encode.forHtml(DemoName)%>
+                    <e:forHtmlContent value='<%= DemoName %>' />
                 </a>
-                <input type="hidden" name="demo_name" value="<%=Encode.forHtmlAttribute(DemoName)%>">
+                <input type="hidden" name="demo_name" value="<e:forHtmlAttribute value='<%= DemoName %>' />">
             </td>
             <td width="46%" class="bCellData">Health# :
                 <% if (HCTYPE != null && HCTYPE.equals("BC")) { %>
-                <%=Encode.forHtml(allFields.getProperty("phn", ""))%>
+                <e:forHtmlContent value='<%= allFields.getProperty("phn", "") %>' />
                 <%} else {%>
-                <%=Encode.forHtml(allFields.getProperty("oinRegistrationNo", ""))%>
+                <e:forHtmlContent value='<%= allFields.getProperty("oinRegistrationNo", "") %>' />
                 <%}%>
                 Type
-                <%=Encode.forHtml(HCTYPE)%>
+                <e:forHtmlContent value='<%= HCTYPE %>' />
             </td>
         </tr>
         <tr bgcolor="#EEEEFF">
             <td class="bCellData">
-                Sex: <%=Encode.forHtml(DemoSex)%>
-                <input type="hidden" name="demo_sex" value="<%=Encode.forHtmlAttribute(DemoSex)%>">
-                <input type="hidden" name="hc_sex" value="<%=Encode.forHtmlAttribute(HCSex)%>">
+                Sex: <e:forHtmlContent value='<%= DemoSex %>' />
+                <input type="hidden" name="demo_sex" value="<e:forHtmlAttribute value='<%= DemoSex %>' />">
+                <input type="hidden" name="hc_sex" value="<e:forHtmlAttribute value='<%= HCSex %>' />">
             </td>
             <td class="bCellData">
-                D.O.B. : <%=Encode.forHtml(DemoDOB)%>
-                <input type="hidden" name="xml_dob" value="<%=Encode.forHtmlAttribute(DemoDOB)%>">
+                D.O.B. : <e:forHtmlContent value='<%= DemoDOB %>' />
+                <input type="hidden" name="xml_dob" value="<e:forHtmlAttribute value='<%= DemoDOB %>' />">
             </td>
         </tr>
         <tr>
             <td class="bCellData">
-                Address: <%=Encode.forHtml(DemoAddress)%>
-                <input type="hidden" name="demo_address" value="<%=Encode.forHtmlAttribute(DemoAddress)%>">
+                Address: <e:forHtmlContent value='<%= DemoAddress %>' />
+                <input type="hidden" name="demo_address" value="<e:forHtmlAttribute value='<%= DemoAddress %>' />">
             </td>
             <td class="bCellData">
-                City: <%=Encode.forHtml(DemoCity)%>
-                <input type="hidden" name="demo_city" value="<%=Encode.forHtmlAttribute(DemoCity)%>">
+                City: <e:forHtmlContent value='<%= DemoCity %>' />
+                <input type="hidden" name="demo_city" value="<e:forHtmlAttribute value='<%= DemoCity %>' />">
             </td>
         </tr>
         <tr bgcolor="#EEEEFF">
             <td class="bCellData">
-                Province: <%=Encode.forHtml(DemoProvince)%>
-                <input type="hidden" name="demo_province" value="<%=Encode.forHtmlAttribute(DemoProvince)%>">
+                Province: <e:forHtmlContent value='<%= DemoProvince %>' />
+                <input type="hidden" name="demo_province" value="<e:forHtmlAttribute value='<%= DemoProvince %>' />">
             </td>
             <td class="bCellData">
-                Postal Code: <%=Encode.forHtml(DemoPostal)%>
-                <input type="hidden" name="demo_postal" value="<%=Encode.forHtmlAttribute(DemoPostal)%>">
+                Postal Code: <e:forHtmlContent value='<%= DemoPostal %>' />
+                <input type="hidden" name="demo_postal" value="<e:forHtmlAttribute value='<%= DemoPostal %>' />">
             </td>
         </tr>
     </table>
@@ -608,10 +610,10 @@
     <table width="100%" border="0">
         <tr bgcolor="#CCCCFF">
             <td colspan="2" class="bCellData">
-                Billing Information Data Center <%=Encode.forHtml(allFields.getProperty("datacenter", ""))%> Payee
-                Number: <%=Encode.forHtml(allFields.getProperty("payeeNo", ""))%> Practitioner
-                Number: <%=Encode.forHtml(allFields.getProperty("practitionerNo", ""))%>
-                Bill Type: <%=Encode.forHtml(StringUtils.noNull(bill.getBillingtype()))%>
+                Billing Information Data Center <e:forHtmlContent value='<%= allFields.getProperty("datacenter", "") %>' /> Payee
+                Number: <e:forHtmlContent value='<%= allFields.getProperty("payeeNo", "") %>' /> Practitioner
+                Number: <e:forHtmlContent value='<%= allFields.getProperty("practitionerNo", "") %>' />
+                Bill Type: <e:forHtmlContent value='<%= StringUtils.noNull(bill.getBillingtype()) %>' />
             </td>
         </tr>
 
@@ -638,11 +640,11 @@
                     <tr>
                         <td>
                             <input type="text" style="font-size:80%;" id="serviceDate" name="serviceDate"
-                                   value="<%=Encode.forHtmlAttribute(allFields.getProperty("serviceDate", ""))%>">
+                                   value="<e:forHtmlAttribute value='<%= allFields.getProperty("serviceDate", "") %>' />">
                             <%--<%=allFields.getProperty("serviceDate")%>"/><%=BillDate%>--%>
                         </td>
                         <td>
-                            <input type="text" name="serviceToDay" value="<%=Encode.forHtmlAttribute(allFields.getProperty("serviceToDay", ""))%>"
+                            <input type="text" name="serviceToDay" value="<e:forHtmlAttribute value='<%= allFields.getProperty("serviceToDay", "") %>' />"
                                    size="2" maxlength="2"/>
                         </td>
                     </tr>
@@ -652,7 +654,7 @@
         <tr bgcolor="#EEEEFF">
             <td width="54%" class="bCellData">
                 Clarification Code:
-                <input type="text" name="locationVisit" value="<%=Encode.forHtmlAttribute(allFields.getProperty("clarificationCode", ""))%>"
+                <input type="text" name="locationVisit" value="<e:forHtmlAttribute value='<%= allFields.getProperty("clarificationCode", "") %>' />"
                        maxlength="2" size="2"/>
             </td>
             <td width="46%" class="bCellData">
@@ -670,24 +672,24 @@
                     proOHIP = p.getProviderNo();
 
             %>
-                    <option value="<%=Encode.forHtmlAttribute(proOHIP)%>" <%=Provider.equals(proOHIP) ? "selected" : ""%>><%=Encode.forHtml(proOHIP)%>
-                        | <%=Encode.forHtml(proLast + ", " + proFirst)%>
+                    <option value="<e:forHtmlAttribute value='<%= proOHIP %>' />" <%=Provider.equals(proOHIP) ? "selected" : ""%>><e:forHtmlContent value='<%= proOHIP %>' />
+                        | <e:forHtmlContent value='<%= proLast + ", " + proFirst %>' />
                     </option>
                             <% } }%>
-                    <input type="hidden" name="xml_provider_no" value="<%=Encode.forHtmlAttribute(Provider)%>">
+                    <input type="hidden" name="xml_provider_no" value="<e:forHtmlAttribute value='<%= Provider %>' />">
             </td>
         </tr>
         <tr>
             <%visittype = allFields.getProperty("serviceLocation");%>
             <td width="54%" class="bCellData">
                 Visit Type:
-                <input type="hidden" name="xml_visittype" value="<%=Encode.forHtmlAttribute(visittype)%>">
+                <input type="hidden" name="xml_visittype" value="<e:forHtmlAttribute value='<%= visittype %>' />">
                 <select name="serviceLocation" style="font-size:80%;max-width:300px;">
                     <%
                         for (BillingFormData.BillingVisit billingVisit : billvisit) {
                             String selected = serviceLocation.equals(billingVisit.getVisitType()) ? "selected" : "";
                     %>
-                    <option value="<%=Encode.forHtmlAttribute(billingVisit.getVisitType())%>" <%=selected%>><%=Encode.forHtml(billingVisit.getDisplayName())%>
+                    <option value="<e:forHtmlAttribute value='<%= billingVisit.getVisitType() %>' />" <%=selected%>><e:forHtmlContent value='<%= billingVisit.getDisplayName() %>' />
                     </option>
                     <%
                         }
@@ -697,12 +699,12 @@
 
             </td>
             <td width="46%" class="bCellData">
-                <input type="hidden" name="xml_visitdate" value="<%=Encode.forHtmlAttribute(visitdate)%>">
+                <input type="hidden" name="xml_visitdate" value="<e:forHtmlAttribute value='<%= visitdate %>' />">
                 <a href="#"
-                   onClick='rs("billingcalendar","<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup?year=<%=Encode.forJavaScriptAttribute(String.valueOf(curYear))%>&month=<%=Encode.forJavaScriptAttribute(String.valueOf(curMonth))%>&type=&returnForm=serviceform&returnItem=xml_vdate","380","300","0")'>
+                   onClick='rs("billingcalendar","<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup?year=<e:forJavaScriptAttribute value='<%= String.valueOf(curYear) %>' />&month=<e:forJavaScriptAttribute value='<%= String.valueOf(curMonth) %>' />&type=&returnForm=serviceform&returnItem=xml_vdate","380","300","0")'>
                     Admission Date:
                 </a>
-                <input type="text" style="font-size:80%;" name="xml_vdate" value="<%=Encode.forHtmlAttribute(visitdate)%>">
+                <input type="text" style="font-size:80%;" name="xml_vdate" value="<e:forHtmlAttribute value='<%= visitdate %>' />">
             </td>
         </tr>
         <tr>
@@ -715,7 +717,7 @@
                 </select>
             </td>
             <td class="bCellData">New Program Ind:
-                <input type="text" name="newProgram" value="<%=Encode.forHtmlAttribute(allFields.getProperty("newProgram", ""))%>" size="2"
+                <input type="text" name="newProgram" value="<e:forHtmlAttribute value='<%= allFields.getProperty("newProgram", "") %>' />" size="2"
                        maxlength="2"/>
             </td>
         </tr>
@@ -734,20 +736,20 @@
                 </select>
             </td>
             <td class="bCellData">Time Call Received<!--TIME-CALL-RECVD-SRV-->
-                <input type="text" name="timeCallRec" value="<%=Encode.forHtmlAttribute(allFields.getProperty("timeCall", ""))%>" size="4"
+                <input type="text" name="timeCallRec" value="<e:forHtmlAttribute value='<%= allFields.getProperty("timeCall", "") %>' />" size="4"
                        maxlength="4"/>
-                <input type="hidden" name="anatomicalArea" value="<%=Encode.forHtmlAttribute(allFields.getProperty("anatomicalArea", ""))%>"/>
+                <input type="hidden" name="anatomicalArea" value="<e:forHtmlAttribute value='<%= allFields.getProperty("anatomicalArea", "") %>' />"/>
             </td>
         </tr>
 
         <tr>
 
             <td class="bCellData">Service Time Start<%! /*SERVICE-TIME-START*/ %>
-                <input type="text" name="startTime" value="<%=Encode.forHtmlAttribute(allFields.getProperty("serviceStartTime", ""))%>" size="4"
+                <input type="text" name="startTime" value="<e:forHtmlAttribute value='<%= allFields.getProperty("serviceStartTime", "") %>' />" size="4"
                        maxlength="4"/></td>
 
             <td class="bCellData">Service Time Finish <%! /*SERVICE-TIME-FINISH*/ %>
-                <input type="text" name="finishTime" value="<%=Encode.forHtmlAttribute(allFields.getProperty("serviceEndTime", ""))%>" size="4"
+                <input type="text" name="finishTime" value="<e:forHtmlAttribute value='<%= allFields.getProperty("serviceEndTime", "") %>' />" size="4"
                        maxlength="4"/></td>
 
         </tr>
@@ -761,18 +763,18 @@
                 </select>
             </td>
             <td class="bCellData">ICBC Claim Num:
-                <input type="text" name="icbcClaim" value="<%=Encode.forHtmlAttribute(allFields.getProperty("icbcClaimNo", ""))%>" size="8"
+                <input type="text" name="icbcClaim" value="<e:forHtmlAttribute value='<%= allFields.getProperty("icbcClaimNo", "") %>' />" size="8"
                        maxlength="8"/></td>
         </tr>
         <tr>
 
 
             <td class="bCellData">Facility Number
-                <input type="text" name="facilityNum" value="<%=Encode.forHtmlAttribute(allFields.getProperty("facilityNo", ""))%>" size="5"
+                <input type="text" name="facilityNum" value="<e:forHtmlAttribute value='<%= allFields.getProperty("facilityNo", "") %>' />" size="5"
                        maxlength="5"/></td>
 
             <td class="bCellData">Facility Sub Number
-                <input type="text" name="facilitySubNum" value="<%=Encode.forHtmlAttribute(allFields.getProperty("facilitySubNo", ""))%>" size="5"
+                <input type="text" name="facilitySubNum" value="<e:forHtmlAttribute value='<%= allFields.getProperty("facilitySubNo", "") %>' />" size="5"
                        maxlength="5"/></td>
         </tr>
     </table>
@@ -800,32 +802,32 @@
             <td class="bCellData">
 
                 <input type="text" style="font-size:80%;" name="service_code"
-                       value="<%=Encode.forHtmlAttribute(allFields.getProperty("billingCode", ""))%>" size="10">
+                       value="<e:forHtmlAttribute value='<%= allFields.getProperty("billingCode", "") %>' />" size="10">
                 <input type="button"
                        onClick="javascript:popFeeItemList('reprocessBilling','service_code');return false;"
                        value="Search/Update"/>
             </td>
             <td width="50%" class="bCellData">
-                <span id="description"><%=Encode.forHtml(billform.getServiceDesc(allFields.getProperty("billingCode"), billRegion))%></span>
-                ($<span id="valueDisplay"><%=Encode.forHtml(billValue)%></span>)
-                <input type="hidden" value="<%=Encode.forHtmlAttribute(billValue)%>" id="billValue"/>
+                <span id="description"><e:forHtmlContent value='<%= billform.getServiceDesc(allFields.getProperty("billingCode"), billRegion) %>' /></span>
+                ($<span id="valueDisplay"><e:forHtmlContent value='<%= billValue %>' /></span>)
+                <input type="hidden" value="<e:forHtmlAttribute value='<%= billValue %>' />" id="billValue"/>
                 <input type="hidden" value="<%=gstFlag%>" id="isGst"/>
                 <input type="button" value="Recalculate" onclick="calculateFee()"/>
                 <small style="float: right; display: <%=gstFlag? "" : "none"%>"
                        id="currentGST"><%=("+ " + Encode.forHtml(gstPercent) + "% GST")%>
                 </small>
-                <input type="hidden" name="gstTotal" id="gstTotal" value="<%=Encode.forHtmlAttribute(allFields.getProperty("gst", "0.00"))%>"/>
+                <input type="hidden" name="gstTotal" id="gstTotal" value="<e:forHtmlAttribute value='<%= allFields.getProperty("gst", "0.00") %>' />"/>
             </td>
             <td class="bCellData">
-                <input type="hidden" name="billing_unit" value="<%=Encode.forHtmlAttribute(allFields.getProperty("billingUnit", ""))%>">
+                <input type="hidden" name="billing_unit" value="<e:forHtmlAttribute value='<%= allFields.getProperty("billingUnit", "") %>' />">
                 <input type="text" style="font-size:80%;" name="billingUnit"
-                       value="<%=Encode.forHtmlAttribute(allFields.getProperty("billingUnit", ""))%>" size="6" maxlength="6" id="billingUnit">
+                       value="<e:forHtmlAttribute value='<%= allFields.getProperty("billingUnit", "") %>' />" size="6" maxlength="6" id="billingUnit">
             </td>
             <td class="bCellData" nowrap>
                 <div align="right">
-                    <input type="hidden" name="billing_amount" value="<%=Encode.forHtmlAttribute(allFields.getProperty("bilAmount", ""))%>">
+                    <input type="hidden" name="billing_amount" value="<e:forHtmlAttribute value='<%= allFields.getProperty("bilAmount", "") %>' />">
                     <input type="text" style="font-size:80%;" size="8" maxlength="8" name="billingAmount"
-                           value="<%=Encode.forHtmlAttribute(allFields.getProperty("billAmount", ""))%>"
+                           value="<e:forHtmlAttribute value='<%= allFields.getProperty("billAmount", "") %>' />"
                            onChange="javascript:validateNum(this); calculateGst()" id="billingAmount">
                 </div>
             </td>
@@ -857,30 +859,30 @@
                         <td class="bCellData">
                             <a href="javascript:ScriptAttach('dx1')">DX 1</a><input type="text" name="dx1"
                                                                                     onClick="checkSubmitType()"
-                                                                                    value="<%=Encode.forHtmlAttribute(allFields.getProperty("dxCode1", ""))%>"
+                                                                                    value="<e:forHtmlAttribute value='<%= allFields.getProperty("dxCode1", "") %>' />"
                                                                                     size="10">
                         </td>
-                        <td><%=Encode.forHtml(billform.getDiagDesc(allFields.getProperty("dxCode1"), billRegion))%>
+                        <td><e:forHtmlContent value='<%= billform.getDiagDesc(allFields.getProperty("dxCode1"), billRegion) %>' />
                         </td>
                     </tr>
                     <tr>
                         <td class="bCellData">
                             <a href="javascript:ScriptAttach('dx2')">DX 2</a><input type="text" name="dx2"
                                                                                     onClick="checkSubmitType()"
-                                                                                    value="<%=Encode.forHtmlAttribute(allFields.getProperty("dxCode2", ""))%>"
+                                                                                    value="<e:forHtmlAttribute value='<%= allFields.getProperty("dxCode2", "") %>' />"
                                                                                     size="10">
                         </td>
-                        <td><%=Encode.forHtml(billform.getDiagDesc(allFields.getProperty("dxCode2"), billRegion))%>
+                        <td><e:forHtmlContent value='<%= billform.getDiagDesc(allFields.getProperty("dxCode2"), billRegion) %>' />
                         </td>
                     </tr>
                     <tr>
                         <td class="bCellData">
                             <a href="javascript:ScriptAttach('dx3')">DX 3</a><input type="text" name="dx3"
                                                                                     onClick="checkSubmitType()"
-                                                                                    value="<%=Encode.forHtmlAttribute(allFields.getProperty("dxCode3", ""))%>"
+                                                                                    value="<e:forHtmlAttribute value='<%= allFields.getProperty("dxCode3", "") %>' />"
                                                                                     size="10">
                         </td>
-                        <td><%=Encode.forHtml(billform.getDiagDesc(allFields.getProperty("dxCode3"), billRegion))%>
+                        <td><e:forHtmlContent value='<%= billform.getDiagDesc(allFields.getProperty("dxCode3"), billRegion) %>' />
                         </td>
                     </tr>
                 </table>
@@ -914,7 +916,7 @@
                         <td class="bCellData">
                             <input type="button" onClick="javascript:ReferralScriptAttach('referalPrac1')"
                                    value="Search"/>
-                            <input type="text" name="referalPrac1" value="<%=Encode.forHtmlAttribute(allFields.getProperty("referralNo1", ""))%>"
+                            <input type="text" name="referalPrac1" value="<e:forHtmlAttribute value='<%= allFields.getProperty("referralNo1", "") %>' />"
                                    size="5" maxlength="5"/>
                         </td>
                     </tr>
@@ -929,7 +931,7 @@
                         <td class="bCellData">
                             <input type="button" onClick="javascript:ReferralScriptAttach('referalPrac2')"
                                    value="Search"/>
-                            <input type="text" name="referalPrac2" value="<%=Encode.forHtmlAttribute(allFields.getProperty("referralNo2", ""))%>"
+                            <input type="text" name="referalPrac2" value="<e:forHtmlAttribute value='<%= allFields.getProperty("referralNo2", "") %>' />"
                                    size="5" maxlength="5"/>
                         </td>
                     </tr>
@@ -1010,10 +1012,10 @@
                 <div id="DEBITREQUEST">
                     Select sequence number you would like to debit <input name="debitRequestSeqNum" type="text"
                                                                           maxlength="7" size="7"
-                                                                          value="<%=Encode.forHtmlAttribute(getDebitRequestSeqNum(allFields.getProperty("originalClaim")))%>"/>
+                                                                          value="<e:forHtmlAttribute value='<%= getDebitRequestSeqNum(allFields.getProperty("originalClaim")) %>' />"/>
                     </br>Select date MSP received claim (if not known, fill with zeros) (YYYYMMDD): <input
                         id="debitRequestDate" name="debitRequestDate" type="text" maxlength="8" size="8"
-                        value="<%=Encode.forHtmlAttribute(getDebitRequestDate(allFields.getProperty("originalClaim")))%>"/>
+                        value="<e:forHtmlAttribute value='<%= getDebitRequestDate(allFields.getProperty("originalClaim")) %>' />"/>
                     <a id="hlADate"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
                     <!--Date Received MSP <input type="text" />-->
                 </div>
@@ -1058,13 +1060,13 @@
         </tr>
         <tr>
             <td class="bCellData">Claim Short Comment</td><!--CLAIM-SHORT-COMMENT-->
-            <td><input type="text" name="shortComment" value="<%=Encode.forHtmlAttribute(allFields.getProperty("claimComment", ""))%>" size="20"
+            <td><input type="text" name="shortComment" value="<e:forHtmlAttribute value='<%= allFields.getProperty("claimComment", "") %>' />" size="20"
                        maxlength="20"/></td>
             <td class="bCellData">Note</td>
             <td>
                 <div id="CORRESPONDENCENOTE">
                     <textarea cols="60" rows="5" name="notes"
-                              onKeyUp="checkTextLimit(this.form.notes,400);"><%=Encode.forHtml(StringUtils.noNull(corrNote))%></textarea>
+                              onKeyUp="checkTextLimit(this.form.notes,400);"><e:forHtmlContent value='<%= StringUtils.noNull(corrNote) %>' /></textarea>
                 </div>
             </td>
 
@@ -1079,7 +1081,10 @@
 
                         <!--CLAIM-SHORT-COMMENT-->
                         <td colspan="3">
-                            <textarea cols="60" rows="5" name="messageNotes"><%=Encode.forHtml(StringUtils.noNull(messageNotes))%></textarea>
+                            <c:set var="__enc_3"><e:forUriComponent value='<%= String.valueOf(bill.getDemographicNo()) %>' /></c:set>
+                            <c:set var="__enc_4"><e:forUriComponent value='<%= allFields.getProperty("billingCode", "") %>' /></c:set>
+                            <textarea cols="60" rows="5" name="messageNotes"><e:forHtmlContent value="            
+<%= StringUtils.noNull(messageNotes) %>" /></textarea>
                         </td>
                         <td></td>
 
@@ -1097,7 +1102,7 @@
         function callReplacementWebService(url, id) {
             var ran_number = Math.round(Math.random() * 1000000);
             // forUriComponent encodes URL parameter values, forJavaScript wraps for JS string context; rand busts cache
-            var params = "demographicNo=<%=Encode.forJavaScript(Encode.forUriComponent(String.valueOf(bill.getDemographicNo())))%>&wcb=&billingcode=<%=Encode.forJavaScript(Encode.forUriComponent(allFields.getProperty("billingCode", "")))%>&rand=" + ran_number;
+            var params = "demographicNo=<e:forJavaScript value='${__enc_3}' />&wcb=&billingcode=<e:forJavaScript value='${__enc_4}' />&rand=" + ran_number;
             CarlosAjax.updater(id, url, {method: 'get', parameters: params});
         }
 
@@ -1124,7 +1129,7 @@
 
         <%if(bill.getBillingtype().equals("WCB")){ %>
         oscarLog("DOES THIS LOG");
-        replaceWCB('<%=Encode.forJavaScript(String.valueOf(billingmaster.getWcbId()))%>');
+        replaceWCB('<e:forJavaScriptBlock value='<%= String.valueOf(billingmaster.getWcbId()) %>' />');
 
         <%}%>
     </script>
@@ -1224,7 +1229,7 @@
         <tr>
             <!--REC-CODE-IN-->
             <td>Data-Center</td><!--DATA-CENTRE-NUM-->
-            <td><%=Encode.forHtml(allFields.getProperty("datacenter", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("datacenter", "") %>' />
             </td>
             <td>5</td>
             <td>Y</td>
@@ -1233,21 +1238,21 @@
 
             <!--DATA-CENTER-SEQNUM-->
             <td>PAYEE-NUM</td><!--PAYEE-NUM-->
-            <td><%=Encode.forHtml(allFields.getProperty("payeeNo", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("payeeNo", "") %>' />
             </td>
             <td>5</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>Practitioner Number</td><!--PRACTITIONER-NUM-->
-            <td><%=Encode.forHtml(allFields.getProperty("practitionerNo", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("practitionerNo", "") %>' />
             </td><!--MSP PHN-->
             <td>5</td>
             <td></td>
         </tr>
         <tr>
             <td>PHN</td><!--PRACTITIONER-NUM-->
-            <td><%=Encode.forHtml(allFields.getProperty("phn", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("phn", "") %>' />
             </td><!--MSP PHN-->
             <td>10</td>
             <td>Y</td>
@@ -1255,7 +1260,7 @@
         <tr>
 
             <td>Name Verify</td><!--NAME-VERIFY-->
-            <td><%=Encode.forHtml(allFields.getProperty("nameVerify", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("nameVerify", "") %>' />
             </td>
             <td>4</td>
             <td>Y</td>
@@ -1263,7 +1268,7 @@
         <tr>
 
             <td>Dependent Number</td><!--DEPENDENT-NUM-->
-            <td><%=Encode.forHtml(allFields.getProperty("dependentNum", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("dependentNum", "") %>' />
             </td>
             <td>2</td>
             <td>Y</td>
@@ -1271,7 +1276,7 @@
         <tr>
 
             <td>Billed Units</td><!--BILLED-SRV-UNITS-->
-            <td><%=Encode.forHtml(allFields.getProperty("billingUnit", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("billingUnit", "") %>' />
             </td>
             <td>3</td>
             <td>Y</td>
@@ -1279,7 +1284,7 @@
         <tr>
 
             <td>Service Clarification code</td><!--SERVICE CLARIFICATION CODE-->
-            <Td><%=Encode.forHtml(allFields.getProperty("clarificationCode", ""))%>
+            <Td><e:forHtmlContent value='<%= allFields.getProperty("clarificationCode", "") %>' />
             </td>
             <td>2</td>
             <td>Y</td>
@@ -1287,7 +1292,7 @@
         <tr>
 
             <td>Anatomical Area</td><!--MSP SERVICE ANATOMICAL AREA-->
-            <td><%=Encode.forHtml(allFields.getProperty("anatomicalArea", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("anatomicalArea", "") %>' />
             </td>
             <td>2</td>
             <td>Y</td>
@@ -1295,7 +1300,7 @@
         <tr>
 
             <td>After Hours</td><!--AFTER HOURS SERVICE IND-->
-            <td><%=Encode.forHtml(allFields.getProperty("afterHour", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("afterHour", "") %>' />
             </td>
             <td>1</td>
             <td>Y</td>
@@ -1303,7 +1308,7 @@
         <tr>
 
             <td>New Program Ind</td><!--NEW PROGRAM IND-->
-            <td><%=Encode.forHtml(allFields.getProperty("newProgram", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("newProgram", "") %>' />
             </td>
             <td>2</td>
             <td>Y</td>
@@ -1311,7 +1316,7 @@
         <tr>
 
             <td>Billed Fee Item</td><!--BILLED-FEE-ITEM-->
-            <td><%=Encode.forHtml(allFields.getProperty("billingCode", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("billingCode", "") %>' />
             </td>
             <td>5</td>
             <td>Y</td>
@@ -1319,35 +1324,35 @@
         <tr>
 
             <td>Billed Amount</td><!--BILLED-AMOUNT-->
-            <td><%=Encode.forHtml(allFields.getProperty("billAmount", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("billAmount", "") %>' />
             </td>
             <td>5</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>Payment Mode</td><!--PAYMENT MODE-->
-            <td><%=Encode.forHtml(allFields.getProperty("paymentMode", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("paymentMode", "") %>' />
             </td>
             <td>1</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>Service Date</td><!--SERVICE-DATE-->
-            <td><%=Encode.forHtml(allFields.getProperty("serviceDate", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("serviceDate", "") %>' />
             </td>
             <td>8</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>Service to Day</td><!--SERVICE-TO-DAY-->
-            <td><%=Encode.forHtml(allFields.getProperty("serviceToDay", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("serviceToDay", "") %>' />
             </td>
             <td>2</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>Submission Code</td><!--SUBMISSION-CODE-->
-            <td><%=Encode.forHtml(allFields.getProperty("submissionCode", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("submissionCode", "") %>' />
             </td>
             <td>1</td>
             <td>Y</td>
@@ -1355,7 +1360,7 @@
         <tr>
 
             <td>Ex Submission Code</td><!--EXTENDED SUBMISSION CODE-->
-            <td><%=Encode.forHtml(allFields.getProperty("extendedSubmissionCode", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("extendedSubmissionCode", "") %>' />
             </td>
             <td>1</td>
             <td></td>
@@ -1363,7 +1368,7 @@
         <tr>
 
             <td>Diag Code 1</td><!--DIAGNOSTIC-CODE-1-->
-            <td><%=Encode.forHtml(allFields.getProperty("dxCode1", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("dxCode1", "") %>' />
             </td>
             <td>5</td>
             <td>Y</td>
@@ -1371,7 +1376,7 @@
         <tr>
 
             <td>Diag Code 2</td><!--DIAGNOSTIC-CODE-2-->
-            <td><%=Encode.forHtml(allFields.getProperty("dxCode2", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("dxCode2", "") %>' />
             </td>
             <td>5</td>
             <td>Y</td>
@@ -1379,7 +1384,7 @@
         <tr>
 
             <td>Diag Code 3</td><!--DIAGNOSTIC-CODE-3-->
-            <td><%=Encode.forHtml(allFields.getProperty("dxCode3", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("dxCode3", "") %>' />
             </td>
             <td>5</td>
             <td>Y</td>
@@ -1387,7 +1392,7 @@
         <tr>
 
             <td>Diag Expansion</td><!--DIAGNOSTIC EXPANSION-->
-            <td><%=Encode.forHtml(allFields.getProperty("dxExpansion", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("dxExpansion", "") %>' />
             </td>
             <td>15</td>
             <td></td>
@@ -1395,7 +1400,7 @@
         <tr>
 
             <td>Service Location</td><!--SERVICE-LOCATION-CD-->
-            <td><%=Encode.forHtml(allFields.getProperty("serviceLocation", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("serviceLocation", "") %>' />
             </td>
             <td>1</td>
             <td></td>
@@ -1403,7 +1408,7 @@
         <tr>
 
             <td>Referal Practitioner CD</td><!--REF-PRACT-1-CD-->
-            <Td><%=Encode.forHtml(allFields.getProperty("referralFlag1", ""))%>
+            <Td><e:forHtmlContent value='<%= allFields.getProperty("referralFlag1", "") %>' />
             </td>
             <td>1</td>
             <td>Y</td>
@@ -1411,7 +1416,7 @@
         <tr>
 
             <td>Referal Practitioner</td><!--REF-PRACT-1-->
-            <td><%=Encode.forHtml(allFields.getProperty("referralNo1", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("referralNo1", "") %>' />
             </td>
             <td>5</td>
             <td>Y</td>
@@ -1419,7 +1424,7 @@
         <tr>
 
             <td>Referal Practitioner CD</td><!--REF-PRACT-2-CD-->
-            <Td><%=Encode.forHtml(allFields.getProperty("referralFlag2", ""))%>
+            <Td><e:forHtmlContent value='<%= allFields.getProperty("referralFlag2", "") %>' />
             </td>
             <td>1</td>
             <td>Y</td>
@@ -1427,14 +1432,14 @@
         <tr>
 
             <td>Referal Practitioner</td><!--REF-PRACT-2-->
-            <td><%=Encode.forHtml(allFields.getProperty("referralNo2", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("referralNo2", "") %>' />
             </td>
             <td>5</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>Time Call Received</td><!--TIME-CALL-RECVD-SRV-->
-            <td><%=Encode.forHtml(allFields.getProperty("timeCall", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("timeCall", "") %>' />
             </td>
             <td>4</td>
             <td>Y</td>
@@ -1442,7 +1447,7 @@
         <tr>
 
             <td>Service Time Start</td><!--SERVICE-TIME-START-->
-            <td><%=Encode.forHtml(allFields.getProperty("serviceStartTime", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("serviceStartTime", "") %>' />
             </td>
             <td>4</td>
             <td>Y</td>
@@ -1450,7 +1455,7 @@
         <tr>
 
             <td>Service Time Finish</td><!--SERVICE-TIME-FINISH-->
-            <td><%=Encode.forHtml(allFields.getProperty("serviceEndTime", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("serviceEndTime", "") %>' />
             </td>
             <td>4</td>
             <td>Y</td>
@@ -1458,7 +1463,7 @@
         <tr>
 
             <td>Birth Date</td><!--BIRTH-DATE-->
-            <td><%=Encode.forHtml(allFields.getProperty("birthDate", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("birthDate", "") %>' />
             </td>
             <td>8</td>
             <td>Y</td>
@@ -1466,7 +1471,7 @@
         <tr>
 
             <td>Office Number</td><!--OFFICE-FOLIO-NUMBER-->
-            <td><%=Encode.forHtml(allFields.getProperty("officeNumber", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("officeNumber", "") %>' />
             </td>
             <td>7</td>
             <td>Y</td>
@@ -1474,7 +1479,7 @@
         <tr>
 
             <td>Correspondence Code</td><!--CORRESPONDENCE-CODE-->
-            <td><%=Encode.forHtml(allFields.getProperty("correspondenceCode", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("correspondenceCode", "") %>' />
             </td>
             <td>1</td>
             <td>Y</td>
@@ -1482,7 +1487,7 @@
         <tr>
 
             <td>Claim Short Comment</td><!--CLAIM-SHORT-COMMENT-->
-            <td><%=Encode.forHtml(allFields.getProperty("claimComment", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("claimComment", "") %>' />
             </td>
             <td>20</td>
             <td>Y</td>
@@ -1490,7 +1495,7 @@
         <tr>
 
             <td>MVA Claim Code</td><!--MVA-CLAIM-CODE-->
-            <td><%=Encode.forHtml(allFields.getProperty("mvaClaimCode", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("mvaClaimCode", "") %>' />
             </td>
             <td>1</td>
             <td>Y</td>
@@ -1498,63 +1503,63 @@
         <tr>
 
             <td>ICBC Claim Num</td><!--ICBC-CLAIM-NUM-->
-            <td><%=Encode.forHtml(allFields.getProperty("icbcClaimNo", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("icbcClaimNo", "") %>' />
             </td>
             <td>8</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>MSP File Num</td><!--ORG-MSP-FILE-NUM-->
-            <td><%=Encode.forHtml(allFields.getProperty("originalClaim", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("originalClaim", "") %>' />
             </td>
             <td>20</td>
             <td></td>
         </tr>
         <tr>
             <td>Facility Num</td><!--FACILITY-NUM-->facility_no
-            <td><%=Encode.forHtml(allFields.getProperty("facilityNo", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("facilityNo", "") %>' />
             </td>
             <td>5</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>Facility Sub Num</td><!--FACILITY-SUB-NUM-->
-            <td><%=Encode.forHtml(allFields.getProperty("facilitySubNo", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("facilitySubNo", "") %>' />
             </td>
             <td>5</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>Insurer Code</td><!--OIN-INSURER-C0DE-->
-            <td><%=Encode.forHtml(allFields.getProperty("oinInsurerCode", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("oinInsurerCode", "") %>' />
             </td>
             <td>2</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>Registration Num</td><!--OIN-REGISTRATION-NUM-->
-            <td><%=Encode.forHtml(allFields.getProperty("oinRegistrationNo", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("oinRegistrationNo", "") %>' />
             </td>
             <td>12</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>Birth date</td><!--OIN-BIRTHDATE-->
-            <td><%=Encode.forHtml(allFields.getProperty("oinBirthdate", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("oinBirthdate", "") %>' />
             </td>
             <td>8</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>First Name</td><!--OIN-FIRST-NAME-->
-            <td><%=Encode.forHtml(allFields.getProperty("oinFirstName", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("oinFirstName", "") %>' />
             </td>
             <td>12</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>Second Name</td><!--OIN-SECOND-NAME-INITIAL-->
-            <td><%=Encode.forHtml(allFields.getProperty("oinSecondName", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("oinSecondName", "") %>' />
             </td>
             <td>1</td>
             <td>Y</td>
@@ -1562,7 +1567,7 @@
         <tr>
 
             <td>Surname</td><!--OIN-SURNAME-->
-            <td><%=Encode.forHtml(allFields.getProperty("oinSurname", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("oinSurname", "") %>' />
             </td>
             <td>18</td>
             <td>Y</td>
@@ -1570,7 +1575,7 @@
         <tr>
 
             <td>SEX</td>
-            <td><%=Encode.forHtml(allFields.getProperty("oinSexCode", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("oinSexCode", "") %>' />
             </td>
             <td>1</td>
             <td>Y</td>
@@ -1578,7 +1583,7 @@
         <tr>
 
             <td>Address 1 WCB Date Of Injury</td><!--OIN-ADDRESS-1		WCB DATE OF INJURY-->
-            <td><%=Encode.forHtml(allFields.getProperty("oinAddress", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("oinAddress", "") %>' />
             </td>
             <td>25</td>
             <td>Y</td>
@@ -1586,7 +1591,7 @@
         <tr>
 
             <td>Address 2 WCB AREA OF INJURY</td><!--OIN-ADDRESS-2 WCB AREA OF INJURY ANATOMICAL-POSITION-->
-            <td><%=Encode.forHtml(allFields.getProperty("oinAddress2", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("oinAddress2", "") %>' />
             </td>
             <td>25</td>
             <td>Y</td>
@@ -1594,7 +1599,7 @@
         <tr>
 
             <Td>Address 3 WCB NATURE OF INJURY</td><!--OIN-ADDRESS-3 WCB NATURE OF INJURY-->
-            <td><%=Encode.forHtml(allFields.getProperty("oinAddress3", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("oinAddress3", "") %>' />
             </td>
             <td>25</td>
             <td>Y</td>
@@ -1602,7 +1607,7 @@
         <tr>
 
             <td>Address 4 WCB Claim Number</td><!--OIN-ADDRESS-4 WCB CLAIM NUMBER-->
-            <td><%=Encode.forHtml(allFields.getProperty("oinAddress4", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("oinAddress4", "") %>' />
             </td>
             <td>25</td>
             a
@@ -1611,7 +1616,7 @@
         <tr>
 
             <td>Postal Code</td><!--OIN-POSTAL-CODE-->
-            <td><%=Encode.forHtml(allFields.getProperty("oinPostalcode", ""))%>
+            <td><e:forHtmlContent value='<%= allFields.getProperty("oinPostalcode", "") %>' />
             </td>
             <td>6</td>
             <td>Y</td>

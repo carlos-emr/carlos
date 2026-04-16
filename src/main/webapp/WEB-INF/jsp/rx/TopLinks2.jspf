@@ -27,9 +27,9 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.log.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.RxUtil" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <jsp:include page="/images/spinner.jsp" flush="true"/>
 <fmt:setBundle basename="oscarResources"/>
@@ -99,9 +99,9 @@ document.addEventListener("DOMContentLoaded", () => {
               (RxPatientData.Patient) request.getSession().getAttribute("Patient");
           %>
           <span class="text-nowrap"><b><fmt:message key="SearchDrug.nameText"/></b>
-          <%=Encode.forHtmlContent(patient2.getFirstName()) %> <%= Encode.forHtmlContent(patient2.getSurname()) %>
-          </span><span class="text-nowrap" title="<%= Encode.forHtmlAttribute(String.valueOf(patient2.getAge())) %>y"><b><fmt:message key="SearchDrug.DOBtext"/></b>
-          <%= Encode.forHtmlContent(RxUtil.DateToString(patient2.getDOB(), "MMM d, yyyy")) %></span>
+          <e:forHtmlContent value='<%= patient2.getFirstName() %>' /> <e:forHtmlContent value='<%= patient2.getSurname() %>' />
+          </span><span class="text-nowrap" title="<e:forHtmlAttribute value='<%= String.valueOf(patient2.getAge()) %>' />y"><b><fmt:message key="SearchDrug.DOBtext"/></b>
+          <e:forHtmlContent value='<%= RxUtil.DateToString(patient2.getDOB(), "MMM d, yyyy") %>' /></span>
          <span><label for="Calcs">
             <a class="text-black fw-bold text-decoration-underline" href="<%= request.getContextPath() %>/rx/managePharmacy"
                onclick="ShowSpin(true); return true;" data-bs-toggle="tooltip" title="<fmt:message key='SearchDrug.pharmacyClickToEdit'/>">
@@ -119,8 +119,8 @@ document.addEventListener("DOMContentLoaded", () => {
                       mapper.writeValue(sw, pi);
                       String json = sw.toString();
             %>
-              <option value="<%= Encode.forHtmlAttribute(json) %>" title="<%= Encode.forHtmlAttribute(pi.getAddress()) %>, <%= Encode.forHtmlAttribute(pi.getCity()) %>, Fax: <%= Encode.forHtmlAttribute(pi.getFax()) %>">
-                <%= Encode.forHtmlContent(pi.getName()) %>
+              <option value="<e:forHtmlAttribute value='<%= json %>' />" title="<e:forHtmlAttribute value='<%= pi.getAddress() %>' />, <e:forHtmlAttribute value='<%= pi.getCity() %>' />, Fax: <e:forHtmlAttribute value='<%= pi.getFax() %>' />">
+                <e:forHtmlContent value='<%= pi.getName() %>' />
               </option>
             <%
                   }

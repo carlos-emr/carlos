@@ -44,7 +44,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.Set, java.util.List, java.util.Iterator" %>
@@ -68,7 +68,7 @@
          src='${e:forHtmlAttribute(ctx)}/encounter/graphics/triangle_up.gif'/>
     <img title="Print" id='print${e:forHtmlAttribute(Note.id)}'
          alt="Toggle Print Note"
-         onclick="togglePrint(${e:forJavaScriptAttribute(Note.id)}, event)"
+         onclick="togglePrint(${e:forJavaScript(Note.id)}, event)"
          style='float: right; margin-right: 5px; margin-top: 2px;'
          src='${e:forHtmlAttribute(ctx)}/encounter/graphics/printer.png'/>
     <a title="Edit" id="edit${e:forHtmlAttribute(Note.id)}" href="#" onclick="editNote(event); return false;"
@@ -120,7 +120,7 @@
                     while (i.hasNext()) {
                         CaseManagementIssue iss = (CaseManagementIssue) i.next();
                 %>
-                <li><%= Encode.forHtml(iss.getIssue().getDescription()) %>
+                <li><e:forHtmlContent value='<%= iss.getIssue().getDescription() %>' />
                 </li>
                 <%
                     }

@@ -703,8 +703,8 @@
         }
 
         function onNext() {
-            var codeToAddStr = "<%=Encode.forJavaScript(codeToAddPatientDx)%>";
-            var codeToMatchStr = "<%=Encode.forJavaScript(codeToMatchPatientDx)%>";
+            var codeToAddStr = "<e:forJavaScriptBlock value='<%= codeToAddPatientDx %>' />";
+            var codeToMatchStr = "<e:forJavaScriptBlock value='<%= codeToMatchPatientDx %>' />";
 
             var codeToAdd = codeToAddStr.split(",");
             var codeToMatch = {};
@@ -997,9 +997,9 @@
                 }
             }
             if (document.forms[0].dxCode.value == "" && document.forms[0].dxCode1.value == "" && document.forms[0].dxCode2.value == "") {
-                document.forms[0].dxCode.value = '<%= Encode.forJavaScript(request.getParameter("dxCode")!=null?request.getParameter("dxCode"):dxCode) %>';
-                document.forms[0].dxCode1.value = '<%= Encode.forJavaScript(request.getParameter("dxCode1")!=null?request.getParameter("dxCode1"):"") %>';
-                document.forms[0].dxCode2.value = '<%= Encode.forJavaScript(request.getParameter("dxCode2")!=null?request.getParameter("dxCode2"):"") %>';
+                document.forms[0].dxCode.value = '<e:forJavaScriptBlock value='<%= request.getParameter("dxCode")!=null?request.getParameter("dxCode"):dxCode %>' />';
+                document.forms[0].dxCode1.value = '<e:forJavaScriptBlock value='<%= request.getParameter("dxCode1")!=null?request.getParameter("dxCode1"):"" %>' />';
+                document.forms[0].dxCode2.value = '<e:forJavaScriptBlock value='<%= request.getParameter("dxCode2")!=null?request.getParameter("dxCode2"):"" %>' />';
             }
         }
 
@@ -1018,21 +1018,37 @@
                 document.forms[0].referralCode.value = "";
                 document.forms[0].referralDocName.value = "";
             } else {
-                document.forms[0].referralCode.value = "<%=Encode.forJavaScript(r_doctor_ohip)%>";
-                document.forms[0].referralDocName.value = "<%=Encode.forJavaScript(r_doctor)%>";
+                document.forms[0].referralCode.value = "<e:forJavaScriptBlock value='<%= r_doctor_ohip %>' />";
+                document.forms[0].referralDocName.value = "<e:forJavaScriptBlock value='<%= r_doctor %>' />";
             }
         }
 
         function onChangePrivate() {
             var n = document.forms[0].xml_billtype.selectedIndex;
             var val = document.forms[0].xml_billtype[n].value;
-            if (val.substring(0, 3) == "PAT" || val.substring(0, 3) == "OCF" || val.substring(0, 3) == "ODS" || val.substring(0, 3) == "CPP" || val.substring(0, 3) == "STD") {
-                self.location.href = "/billing?curBillForm=<%="PRI"%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")))) %>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))) %>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&providerview=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&appointment_date=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")))) %>&status=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")))) %>&start_time=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")))) %>&bNewForm=1";
+            <c:set var="__enc_1"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")) %>' /></c:set>
+            <c:set var="__enc_2"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' /></c:set>
+            <c:set var="__enc_3"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' /></c:set>
+            <c:set var="__enc_4"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' /></c:set>
+            <c:set var="__enc_5"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' /></c:set>
+            <c:set var="__enc_6"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")) %>' /></c:set>
+            <c:set var="__enc_7"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' /></c:set>
+            if (val.substring(0, 3) == "PAT" || val.substring(0, 3) == "OCF" || val.substri                
+ng(0, 3) == "ODS" || val.substring(0, 3) == "CPP" || val.substring(0, 3) == "STD") {
+                self.location.href = "/billing?curBillForm=<%="PRI"%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<e:forJavaScript value='${__enc_1}' />&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<e:forJavaScript value='${__enc_2}' />&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<e:forJavaScript value='${__enc_3}' />&providerview=<e:forJavaScript value='${__enc_4}' />&appointment_date=<e:forJavaScript value='${__enc_5}' />&status=<e:forJavaScript value='${__enc_6}' />&start_time=<e:forJavaScript value='${__enc_7}' />&bNewForm=1";
             } else if (val.substring(0, 3) == "BON") {
-                self.location.href = "/billing?curBillForm=<%=oscarVariables.getProperty("primary_care_incentive", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")))) %>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))) %>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&providerview=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&appointment_date=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")))) %>&status=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")))) %>&start_time=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")))) %>&bNewForm=1";
+                <c:set var="__enc_8"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")) %>' /></c:set>
+                <c:set var="__enc_9"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' /></c:set>
+                <c:set var="__enc_10"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' /></c:set>
+                <c:set var="__enc_11"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' /></c:set>
+                <c:set var="__enc_12"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' /></c:set>
+                <c:set var="__enc_13"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")) %>' /></c:set>
+                <c:set var="__enc_14"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' /></c:set>
+                self.location.href = "/billing?curBillForm=<%=oscarVariables.getProperty("primary_care_incentive", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<e:forJavaScript value='${__enc_8}' />&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<e:forJavaScript value='${__enc_9}' />&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<e:forJavaScript value='${__enc_10}' />&providerview=<e:forJavaScript value='${__enc_11}' />&appointment_date=<e:forJavaScript value='${__enc_12}' />&status=<e:forJavaScript value='${__enc_13}' />&start_time=<e:forJavaScript value='${__enc_14}' />&bNewFo                
+rm=1";
             } else {
                 <% if(ctlBillForm.equals("PRI") ) {%>
-                self.location.href = "/billing?curBillForm=<%=oscarVariables.getProperty("default_view", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")))) %>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))) %>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&providerview=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&appointment_date=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")))) %>&status=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")))) %>&start_time=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")))) %>&bNewForm=1";
+                self.location.href = "/billing?curBillForm=<%=oscarVariables.getProperty("default_view", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<e:forJavaScript value='${__enc_15}' />&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<e:forJavaScript value='${__enc_16}' />&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<e:forJavaScript value='${__enc_17}' />&providerview=<e:forJavaScript value='${__enc_18}' />&appointment_date=<e:forJavaScript value='${__enc_19}' />&status=<e:forJavaScript value='${__enc_20}' />&start_time=<e:forJavaScript value='${__enc_21}' />&bNewForm=1";
                 <% } %>
             }
         }
@@ -1051,18 +1067,25 @@
         function onHistory() {
             var dd = document.forms[0].day.value;
             //alert(dd);
-            popupPage("800", "1000", "/billing/CA/ON/ViewBillingONHistorySpec?demographic_no=<%=Encode.forJavaScript(demo_no)%>&demo_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&orderby=appointment_date&day=" + dd);
+                          <c:set var="__enc_15"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")) %>' /></c:set>
+                <c:set var="__enc_16"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' /></c:set>
+                <c:set var="__enc_17"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' /></c:set>
+                <c:set var="__enc_18"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' /></c:set>
+                <c:set var="__enc_19"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' /></c:set>
+                <c:set var="__enc_20"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")) %>' /></c:set>
+                <c:set var="__enc_21"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' /></c:set>
+  popupPage("800", "1000", "/billing/CA/ON/ViewBillingONHistorySpec?demographic_no=<e:forJavaScript value='<%= demo_no %>' />&demo_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&orderby=appointment_date&day=" + dd);
         }
 
         function prepareBack() {
-            document.forms[0].services_checked.value = "<%= Encode.forJavaScript(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("services_checked"))) %>";
+            document.forms[0].services_checked.value = "<e:forJavaScriptBlock value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("services_checked")) %>' />";
             if (document.forms[0].services_checked.value == "") document.forms[0].services_checked.value = 0;
             document.forms[0].url_back.value = location.href;
 
-            showBillFormDiv("group1_", "<%=Encode.forJavaScript(ctlBillForm)%>");
-            showBillFormDiv("group2_", "<%=Encode.forJavaScript(ctlBillForm)%>");
-            showBillFormDiv("group3_", "<%=Encode.forJavaScript(ctlBillForm)%>");
-            showBillFormDiv("dxCodeSearchDiv_", "<%=Encode.forJavaScript(ctlBillForm)%>");
+            showBillFormDiv("group1_", "<e:forJavaScriptBlock value='<%= ctlBillForm %>' />");
+            showBillFormDiv("group2_", "<e:forJavaScriptBlock value='<%= ctlBillForm %>' />");
+            showBillFormDiv("group3_", "<e:forJavaScriptBlock value='<%= ctlBillForm %>' />");
+            showBillFormDiv("dxCodeSearchDiv_", "<e:forJavaScriptBlock value='<%= ctlBillForm %>' />");
 
         }
 
@@ -1194,7 +1217,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
     <script>
     jQuery(document).ready(function () {
         var ctx = "${pageContext.request.contextPath}";
-        var searchLabel = '<%=Encode.forJavaScript((String) pageContext.getAttribute("searchLabelMsg"))%>';
+        var searchLabel = '<e:forJavaScriptBlock value='<%= (String) pageContext.getAttribute("searchLabelMsg") %>' />';
 
         // Safe HTML escaping for autocomplete rendering
         function escHtml(s) {
@@ -1313,7 +1336,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
     </script>
 </head>
 
-<body onload="prepareBack();changeCodeDesc();getDays();toggleDiv('<%=Encode.forJavaScriptAttribute(ctlBillForm)%>', '<%=Encode.forJavaScriptAttribute(defaultBillFormName)%>', document.forms[0].xml_billtype.value.substring(0, 3));">
+<body onload="prepareBack();changeCodeDesc();getDays();toggleDiv('<e:forJavaScriptAttribute value='<%= ctlBillForm %>' />', '<e:forJavaScriptAttribute value='<%= defaultBillFormName %>' />', document.forms[0].xml_billtype.value.substring(0, 3));">
 <div id="Instrdiv" class="demo1">
 
     <table style="width: 99%;">
@@ -1358,7 +1381,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
         <tr>
             <td colspan="2" style="background-color:lightgray;"><b>
                 <a href="javascript:void(0);"
-                   onclick="toggleDiv('<%=Encode.forJavaScriptAttribute(ctlcode)%>', '<%=Encode.forJavaScriptAttribute(ctlcodename)%>','<%=Encode.forJavaScriptAttribute(billType)%>');showHideLayers('Layer1','','hide');"><%=Encode.forHtml(ctlcodename)%>
+                   onclick="toggleDiv('<e:forJavaScriptAttribute value='<%= ctlcode %>' />', '<e:forJavaScriptAttribute value='<%= ctlcodename %>' />','<e:forJavaScriptAttribute value='<%= billType %>' />');showHideLayers('Layer1','','hide');"><e:forHtmlContent value='<%= ctlcodename %>' />
                 </a>
             </b></td>
         </tr>
@@ -1381,7 +1404,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
     }
     if (!_bfFirst) { out.print(","); }
     _bfFirst = false;
-%>{"code":"<%=Encode.forJavaScript(_bfCode)%>","name":"<%=Encode.forJavaScript(_bfName)%>","billType":"<%=Encode.forJavaScript(_bfBillType)%>","label":"<%=Encode.forJavaScript(_bfName)%>","value":"<%=Encode.forJavaScript(_bfName)%>"}
+%>{"code":"<e:forJavaScriptBlock value='<%= _bfCode %>' />","name":"<e:forJavaScriptBlock value='<%= _bfName %>' />","billType":"<e:forJavaScriptBlock value='<%= _bfBillType %>' />","label":"<e:forJavaScriptBlock value='<%= _bfName %>' />","value":"<e:forJavaScriptBlock value='<%= _bfName %>' />"}
 <%}%>
 ];
 </script>
@@ -1447,7 +1470,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
         if (checkFlag == null) checkFlag = "0";
     %>
     <input type="hidden" name="checkFlag" id="checkFlag"
-           value="<%=Encode.forHtmlAttribute(checkFlag)%>"/>
+           value="<e:forHtmlAttribute value='<%= checkFlag %>' />"/>
     <input type="hidden" name="addToPatientDx"/>
     <input type="hidden" name="codeMatchToPatientDx"/>
 
@@ -1484,19 +1507,19 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
 					<table  style="width: 100%;">
                     <tr>
                         <td style="white-space:nowrap; width: 10%; text-align: center"><b>&nbsp;<oscar:nameage
-                                demographicNo="<%=demo_no%>"/> <%=Encode.forHtml(roster_status)%>
+                                demographicNo="<%=demo_no%>"/> <e:forHtmlContent value='<%= roster_status %>' />
                         </b>
                             <%if (appt_no.compareTo("0") == 0) {%>
                             <span class="input-group">
 								<input type="text" class="form-control" id="service_date" name="service_date" readonly
-                                       value="<%= Encode.forHtmlAttribute(request.getParameter("service_date")!=null? request.getParameter("service_date"):strToday) %>"
+                                       value="<e:forHtmlAttribute value='<%= request.getParameter("service_date")!=null? request.getParameter("service_date"):strToday %>' />"
                                        style="width: 80px; height:14px;  vertical-align: bottom;">
                                 <span class="input-group-text" id="service_date_cal" style="cursor:pointer;">
                                     <img src="${ pageContext.request.contextPath }/images/cal.gif"
                                          style="height:14px;" alt="cal"></span></span>
                             <%} else {%>
                                 <input type="text" id="service_date" name="service_date" readonly
-								value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date"))) %>"
+								value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' />"
                                    maxlength="10" style="width: 80px;"> <%}%></td>
                         <%
                             String warningClass = "";
@@ -1540,21 +1563,21 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                                 <td><input type="text" name="dxCode" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5"
                                                            onchange="changeCodeDesc();"
-                                                           value="<%= Encode.forHtmlAttribute(request.getParameter("dxCode")!=null?request.getParameter("dxCode"):dxCode) %>"/>
+                                                           value="<e:forHtmlAttribute value='<%= request.getParameter("dxCode")!=null?request.getParameter("dxCode"):dxCode %>' />"/>
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td><fmt:message key="oscar.billing.ca.on.billingON.dx1"/></td>
                                                 <td><input type="text" name="dxCode1" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5"
-                                                           value="<%= Encode.forHtmlAttribute(request.getParameter("dxCode1")!=null?request.getParameter("dxCode1"):"") %>"/>
+                                                           value="<e:forHtmlAttribute value='<%= request.getParameter("dxCode1")!=null?request.getParameter("dxCode1"):"" %>' />"/>
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td><fmt:message key="oscar.billing.ca.on.billingON.dx2"/></td>
                                                 <td><input type="text" name="dxCode2" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5"
-                                                           value="<%= Encode.forHtmlAttribute(request.getParameter("dxCode2")!=null?request.getParameter("dxCode2"):"") %>"/>
+                                                           value="<e:forHtmlAttribute value='<%= request.getParameter("dxCode2")!=null?request.getParameter("dxCode2"):"" %>' />"/>
                                                 </td>
                                             </tr>
                                         </table>
@@ -1579,34 +1602,34 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                         <input
                                                 type="text" name="referralCode" class="form-control form-control-sm d-inline-block w-auto" maxlength="6"
                                                 placeholder="<fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.referralNo"/>"
-                                                value="<%=Encode.forHtmlAttribute(refNo)%>"><br/>
+                                                value="<e:forHtmlContent value='<%= refNo %>' />"><br/>
                                         <input placeholder="<fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>"
                                                type="text" name="referralDocName" class="form-control" maxlength="60"
-                                               value="<%=Encode.forHtmlAttribute(refName)%>">
+                                               value="<e:forHtmlContent value='<%= refName %>' />">
                                     </td>
                                 </tr>
                                 <tr>
                                     <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/> <% for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM / 2; i++) { %>
                                         <input type="text" name="serviceCode<%=i%>" class="form-control form-control-sm d-inline-block w-auto"
-                                               value="<%= Encode.forHtmlAttribute(request.getParameter("serviceCode"+i)!=null?request.getParameter("serviceCode"+i):"") %>"
+                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceCode"+i)!=null?request.getParameter("serviceCode"+i):"" %>' />"
                                                onBlur="upCaseCtrl(this)"/>x
                                         <input type="text" name="serviceUnit<%=i%>" size="2" maxlength="4"
                                                style="width: 20px;"
-                                               value="<%= Encode.forHtmlAttribute(request.getParameter("serviceUnit"+i)!=null?request.getParameter("serviceUnit"+i):"") %>"/>@
+                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceUnit"+i)!=null?request.getParameter("serviceUnit"+i):"" %>' />"/>@
                                         <input type="text" name="serviceAt<%=i%>" size="3" maxlength="4"
                                                style="width: 30px"
-                                               value="<%= Encode.forHtmlAttribute(request.getParameter("serviceAt"+i)!=null?request.getParameter("serviceAt"+i):"") %>"/><br/>
+                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceAt"+i)!=null?request.getParameter("serviceAt"+i):"" %>' />"/><br/>
                                         <% } %></td>
                                     <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/> <% for (int i = BillingDataHlp.FIELD_SERVICE_NUM / 2; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) { %>
                                         <input type="text" name="serviceCode<%=i%>" class="form-control form-control-sm d-inline-block w-auto"
-                                               value="<%= Encode.forHtmlAttribute(request.getParameter("serviceCode"+i)!=null?request.getParameter("serviceCode"+i):"") %>"
+                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceCode"+i)!=null?request.getParameter("serviceCode"+i):"" %>' />"
                                                onBlur="upCaseCtrl(this)"/>x
                                         <input type="text" name="serviceUnit<%=i%>" size="2" maxlength="2"
                                                style="width: 20px;"
-                                               value="<%= Encode.forHtmlAttribute(request.getParameter("serviceUnit"+i)!=null?request.getParameter("serviceUnit"+i):"") %>"/>@
+                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceUnit"+i)!=null?request.getParameter("serviceUnit"+i):"" %>' />"/>@
                                         <input type="text" name="serviceAt<%=i%>" size="3" maxlength="4"
                                                style="width: 30px"
-                                               value="<%= Encode.forHtmlAttribute(request.getParameter("serviceAt"+i)!=null?request.getParameter("serviceAt"+i):"") %>"/><br/>
+                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceAt"+i)!=null?request.getParameter("serviceAt"+i):"" %>' />"/><br/>
                                         <% } %></td>
                                 </tr>
                             </table>
@@ -1627,11 +1650,11 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                                 Set<Provider> siteProviders = sites.get(i).getProviders();
                                                 List<Provider>  siteProvidersList = new ArrayList<Provider> (siteProviders);
                                                  Collections.sort(siteProvidersList,(new Provider()).ComparatorName());%>
-                                            _providers["<%= Encode.forJavaScript(sites.get(i).getName()) %>"] = "<% Iterator<Provider> iter = siteProvidersList.iterator();
+                                            _providers["<e:forJavaScriptBlock value='<%= sites.get(i).getName() %>' />"] = "<% Iterator<Provider> iter = siteProvidersList.iterator();
 	while (iter.hasNext()) {
 		Provider p=iter.next();
 		if ("1".equals(p.getStatus()) && StringUtils.isNotBlank(p.getOhipNo())) {
-	%><option value='<%= Encode.forJavaScript(Encode.forHtmlAttribute(p.getProviderNo())) %>|<%= Encode.forJavaScript(Encode.forHtmlAttribute(p.getOhipNo())) %>' ><%=Encode.forJavaScript(Encode.forHtml(p.getLastName()))%>, <%=Encode.forJavaScript(Encode.forHtml(p.getFirstName()))%></option><%}}%>";
+	%><c:set var="__enc_22"><e:forHtmlAttribute value='<%= p.getProviderNo() %>' /></c:set><c:set var="__enc_23"><e:forHtmlAttribute value='<%= p.getOhipNo() %>' /></c:set><c:set var="__enc_24"><e:forHtmlContent value='<%= p.getLastName() %>' /></c:set><c:set var="__enc_25"><e:forHtmlContent value='<%= p.getFirstName() %>' /></c:set><option value='<e:forJavaScript value='${__enc_22}' />|<e:forJavaScript value='${__enc_23}' />' ><e:forJavaScript value='${__enc_24}' />, <e:forJavaScript value='${__enc_25}' /></option><%}}%>";
                                             <%}%>
 
                                             function changeSite(sel) {
@@ -1660,7 +1683,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                             %>
                                             <option value="<%=sites.get(i).getName()%>"
                                                     style="background-color:<%=sites.get(i).getBgColor()%>"
-                                                    <%=sites.get(i).getName().toString().equals(selectedSite) ? "selected" : ""%>><%=Encode.forHtmlContent(sites.get(i).getName())%>
+                                                    <%=sites.get(i).getName().toString().equals(selectedSite) ? "selected" : ""%>><e:forHtmlContent value='<%= sites.get(i).getName() %>' />
                                             </option>
                                             <%
                                                 }
@@ -1669,7 +1692,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                     ></select>
                                         <script>
                                             changeSite(document.getElementById("site"));
-                                            document.getElementById("xml_provider").value = '<%=Encode.forJavaScript(request.getParameter("xml_provider")==null?xmlp:request.getParameter("xml_provider"))%>';
+                                            document.getElementById("xml_provider").value = '<e:forJavaScriptBlock value='<%= request.getParameter("xml_provider")==null?xmlp:request.getParameter("xml_provider") %>' />';
                                         </script>
                                         <%
                                             // multisite end ==========================================
@@ -1683,7 +1706,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                         %>
                                         <option value="<%=propT.getProperty("proOHIP")%>"
                                                 <%=providerview.equals(tmp[0].trim()) ? "selected" : ""%>>
-                                            <b><%=Encode.forHtmlContent(propT.getProperty("last_name") + ", " + propT.getProperty("first_name"))%>
+                                            <b><e:forHtmlContent value='<%= propT.getProperty("last_name") + ", " + propT.getProperty("first_name") %>' />
                                             </b>
                                         </option>
                                         <%
@@ -1703,7 +1726,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
 
                                         <option value="<%=propT.getProperty("proOHIP")%>"
                                                 <%=providerview.equalsIgnoreCase(prov) ? "selected" : ""%>>
-                                            <b><%=Encode.forHtmlContent(propT.getProperty("last_name") + ", " + propT.getProperty("first_name"))%>
+                                            <b><e:forHtmlContent value='<%= propT.getProperty("last_name") + ", " + propT.getProperty("first_name") %>' />
                                             </b>
                                         </option>
                                         <%
@@ -1716,9 +1739,9 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
 
                                     </td>
                                     <td style="white-space:nowrap; width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.assignedPhysician"/></b></td>
-                                    <td style="width: 20%"><%= Encode.forHtml(providerBean.getProperty(assgProvider_no, "").length() > 15
+                                    <td style="width: 20%"><e:forHtmlContent value='<%= providerBean.getProperty(assgProvider_no, "").length() > 15
                                             ? providerBean.getProperty(assgProvider_no, "").substring(0, 14)
-                                            : providerBean.getProperty(assgProvider_no, "")) %>
+                                            : providerBean.getProperty(assgProvider_no, "") %>' />
                                     </td>
                                 </tr>
                                 <tr>
@@ -1900,7 +1923,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                         %>
 											<div class="input-group input-group-sm">
 											    <input type="text" name="xml_vdate" id="xml_vdate" onchange="getDays();"
-                                               value="<%= Encode.forHtmlAttribute(request.getParameter("xml_vdate")!=null? request.getParameter("xml_vdate"):admDate) %>"
+                                               value="<e:forHtmlAttribute value='<%= request.getParameter("xml_vdate")!=null? request.getParameter("xml_vdate"):admDate %>' />"
 											class="form-control" readonly>
 											<button type="button" class="btn btn-outline-secondary" id="xml_vdate_cal" title="<fmt:message key="oscar.billing.ca.on.billingON.chooseDate"/>">
 											    <img alt="cal" style="height:14px;"
@@ -1914,7 +1937,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
 											id="billFormName" readonly
                                                                  value="<%=currentFormName.length() < 40 ? currentFormName : currentFormName.substring(0, 40)%>"/>
                                         <input type="hidden" name="billForm" id="billForm"
-                                               value="<%=Encode.forHtmlAttribute(ctlBillForm)%>"/></td>
+                                               value="<e:forHtmlAttribute value='<%= ctlBillForm %>' />"/></td>
                                 </tr>
                                 <%
                                     if (!IsPropertiesOn.isMultisitesEnable()) {
@@ -2214,46 +2237,46 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
         </tr>
 
         <input type="hidden" name="clinic_no" value="<%=clinicNo%>"/>
-        <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demo_no)%>"/>
-        <input type="hidden" name="appointment_no" value="<%=Encode.forHtmlAttribute(appt_no)%>"/>
+        <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demo_no %>' />"/>
+        <input type="hidden" name="appointment_no" value="<e:forHtmlAttribute value='<%= appt_no %>' />"/>
 
         <input type="hidden" name="ohip_version" value="V03G"/>
         <input type="hidden" name="hin" value="<%=demoHIN%>"/>
         <input type="hidden" name="ver" value="<%=demoVer%>"/>
         <input type="hidden" name="hc_type" value="<%=demoHCTYPE%>"/>
-        <input type="hidden" name="sex" value="<%= Encode.forHtmlAttribute(demoSex) %>"/>
+        <input type="hidden" name="sex" value="<e:forHtmlAttribute value='<%= demoSex %>' />"/>
 
         <input type="hidden" name="start_time"
-               value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time"))) %>"/>
+               value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' />"/>
 
         <input type="hidden" name="demographic_dob" value="<%=demoDOB%>"/>
 
         <input type="hidden" name="apptProvider_no"
-               value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no"))) %>"/>
+               value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' />"/>
         <input type="hidden" name="asstProvider_no"
-               value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("asstProvider_no"))) %>"/>
+               value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("asstProvider_no")) %>' />"/>
 
-        <input type="hidden" name="demographic_name" value="<%=Encode.forHtmlAttribute(demoname)%>"/>
-        <input type="hidden" name="providerview" value="<%=Encode.forHtmlAttribute(providerview)%>"/>
+        <input type="hidden" name="demographic_name" value="<e:forHtmlAttribute value='<%= demoname %>' />"/>
+        <input type="hidden" name="providerview" value="<e:forHtmlAttribute value='<%= providerview %>' />"/>
         <input type="hidden" name="appointment_date"
-               value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date"))) %>"/>
+               value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' />"/>
         <input type="hidden" name="assgProvider_no"
-               value="<%= Encode.forHtmlAttribute(assgProvider_no) %>"/>
-        <input type="hidden" name="billForm" value="<%=Encode.forHtmlAttribute(ctlBillForm)%>"/>
-        <input type="hidden" name="curBillForm" value="<%=Encode.forHtmlAttribute(ctlBillForm)%>"/>
+               value="<e:forHtmlAttribute value='<%= assgProvider_no %>' />"/>
+        <input type="hidden" name="billForm" value="<e:forHtmlAttribute value='<%= ctlBillForm %>' />"/>
+        <input type="hidden" name="curBillForm" value="<e:forHtmlAttribute value='<%= ctlBillForm %>' />"/>
         <input type="hidden" name="services_checked">
         <input type="hidden" name="url_back">
         <input type="hidden" name="billNo_old" id="billNo_old"
-               value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("billNo_old"))) %>"/>
+               value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("billNo_old")) %>' />"/>
         <input type="hidden" name="billStatus_old" id="billStatus_old"
-               value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("billStatus_old"))) %>"/>
+               value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("billStatus_old")) %>' />"/>
 
     </table>
 
     <table style="width: 100%; border-spacing:2px;"
     >
         <tr style="background-color: silver;">
-            <td><%=Encode.forHtml(demoname)%> - <b><fmt:message key="oscar.billing.ca.on.billingON.billingHistory"/></b> (last 5 records)</td>
+            <td><e:forHtmlContent value='<%= demoname %>' /> - <b><fmt:message key="oscar.billing.ca.on.billingON.billingHistory"/></b> (last 5 records)</td>
             <td style="width: 20%; text-align: right"><fmt:message key="oscar.billing.ca.on.billingON.last"/> <input type="text"
                                                                   name="day" value="365" class="form-control form-control-sm d-inline-block w-auto"/> <fmt:message key="oscar.billing.ca.on.billingON.days"/>
                 <input type="button"

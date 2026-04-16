@@ -41,7 +41,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour" %>
-<%@page import="org.owasp.encoder.Encode" %>
 <%@page import="java.util.List, java.util.Random" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt" %>
@@ -195,8 +194,8 @@
                      paramValue = request.getParameter(paramName);
 
                  %>
-                params += "&" + encodeURIComponent("<%=Encode.forJavaScript(paramName)%>")
-                        + "=" + encodeURIComponent("<%=Encode.forJavaScript(paramValue)%>");
+                params += "&" + encodeURIComponent("<e:forJavaScriptBlock value='<%= paramName %>' />")
+                        + "=" + encodeURIComponent("<e:forJavaScriptBlock value='<%= paramValue %>' />");
                 <%
 
                  }
@@ -309,7 +308,7 @@
             // Listen for tickler refresh broadcasts from ticklerAdd/ticklerEdit popup windows
             var ticklerChannel = null;
             try {
-                ticklerChannel = new BroadcastChannel('carlos_tickler_refresh_<%=Encode.forJavaScript(request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "0")%>');
+                ticklerChannel = new BroadcastChannel('carlos_tickler_refresh_<e:forJavaScript value='<%= request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "0" %>' />');
                 ticklerChannel.onmessage = function(event) {
                     var data = event.data;
                     if (data === 'refresh' || (data && data.action === 'refresh')) {
@@ -382,7 +381,7 @@
             int randomNo = new Random().nextInt();%>
         <script id="mainScript"
                 src="${ pageContext.request.contextPath }/js/custom/ocean/cme.js?no-cache=<%=randomNo%>&autoRefresh=true"
-                ocean-host=<%=Encode.forUriComponent(CarlosProperties.getInstance().getProperty("ocean_host"))%>></script>
+                ocean-host=<e:forUriComponent value='<%= CarlosProperties.getInstance().getProperty("ocean_host") %>' />></script>
         <% } %>
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
@@ -506,22 +505,22 @@
 
                 const socialHxPosition = '${e:forHtmlAttribute(cppPreferences.socialHxPosition)}';
                 const medicalHxPosition = '${e:forHtmlAttribute(cppPreferences.medicalHxPosition)}';
-                const ongoingConcernsPosition = '${e:forJavaScriptAttribute(cppPreferences.ongoingConcernsPosition)}';
+                const ongoingConcernsPosition = '${e:forJavaScript(cppPreferences.ongoingConcernsPosition)}';
                 const remindersPosition = '${e:forHtmlAttribute(cppPreferences.remindersPosition)}';
                 showCustomIssueNotes(socialHxPosition, medicalHxPosition, ongoingConcernsPosition, remindersPosition);
 
-                const preventionsDisplay = '${e:forJavaScriptAttribute(cppPreferences.preventionsDisplay)}';
+                const preventionsDisplay = '${e:forJavaScript(cppPreferences.preventionsDisplay)}';
                 const dxRegistryDisplay = '${e:forHtmlAttribute(cppPreferences.dxRegistryDisplay)}';
                 const formsDisplay = '${e:forHtmlAttribute(cppPreferences.formsDisplay)}';
                 const eformsDisplay = '${e:forHtmlAttribute(cppPreferences.eformsDisplay)}';
                 const documentsDisplay = '${e:forHtmlAttribute(cppPreferences.documentsDisplay)}';
                 const labsDisplay = '${e:forHtmlAttribute(cppPreferences.labsDisplay)}';
                 const measurementsDisplay = '${e:forHtmlAttribute(cppPreferences.measurementsDisplay)}';
-                const consultationsDisplay = '${e:forJavaScriptAttribute(cppPreferences.consultationsDisplay)}';
+                const consultationsDisplay = '${e:forJavaScript(cppPreferences.consultationsDisplay)}';
                 const hrmDisplay = '${e:forHtmlAttribute(cppPreferences.hrmDisplay)}';
 
                 const allergiesDisplay = '${e:forHtmlAttribute(cppPreferences.allergiesDisplay)}';
-                const medicationsDisplay = '${e:forJavaScriptAttribute(cppPreferences.medicationsDisplay)}';
+                const medicationsDisplay = '${e:forJavaScript(cppPreferences.medicationsDisplay)}';
                 const otherMedsDisplay = '${e:forHtmlAttribute(cppPreferences.otherMedsDisplay)}';
                 const riskFactorsDisplay = '${e:forHtmlAttribute(cppPreferences.riskFactorsDisplay)}';
                 const familyHxDisplay = '${e:forHtmlAttribute(cppPreferences.familyHxDisplay)}';

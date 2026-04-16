@@ -1,3 +1,4 @@
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%-- Row One: Social History, Family History, Medical History --%>
 <div class="encounter-card card mb-1" id="rowOne">
     <div class="card-header d-flex align-items-center">

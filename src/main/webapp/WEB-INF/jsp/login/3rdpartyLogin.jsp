@@ -30,7 +30,7 @@
 
 --%>
 
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>

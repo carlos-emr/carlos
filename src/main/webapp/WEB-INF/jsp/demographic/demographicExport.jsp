@@ -56,13 +56,12 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.PGPEncrypt" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.DemographicSets" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
 <%
@@ -400,8 +399,8 @@
             <form id="DemographicExportForm" name="DemographicExportForm" action="${pageContext.request.contextPath}/demographic/DemographicExport" method="post" onsubmit="return handleExportSubmit();">
 
                 <% if (demographicNo != null) { %>
-                <input type="hidden" name="demographicNo" id="demographicNo" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
-                <fmt:message key="demographic.demographicexport.exportingdemographicno"/><%=Encode.forHtml(demographicNo)%>
+                <input type="hidden" name="demographicNo" id="demographicNo" value="<e:forHtmlAttribute value='<%= demographicNo %>' />"/>
+                <fmt:message key="demographic.demographicexport.exportingdemographicno"/><e:forHtmlContent value='<%= demographicNo %>' />
                 <%} else {%>
                 <fmt:message key="demographic.demographicexport.patientset"/><br>
                 <select style="width: 189px" name="patientSet" id="patientSet">

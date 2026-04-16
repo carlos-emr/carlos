@@ -14,7 +14,6 @@
 
 --%>
 <%@page import="java.nio.charset.Charset" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page language="java" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -71,7 +70,7 @@
                 var cpath = "<%=request.getContextPath()%>";
                 sname = cpath + "/billing/CA/ON/<%= (filename != null && filename.length() >= 4 && "OU".equals(filename.substring(2, 4))) ? "OU" : "ES" %>.xsl";
 
-                xml = '<%=Encode.forJavaScript(fileContents)%>';
+                xml = '<e:forJavaScriptBlock value='<%= fileContents %>' />';
                 try {
                     xsl = loadXMLDoc(sname);
 

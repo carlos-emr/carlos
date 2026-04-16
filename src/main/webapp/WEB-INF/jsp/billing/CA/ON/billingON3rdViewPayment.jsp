@@ -24,7 +24,7 @@
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingONPayment" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingPaymentType" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao" %>

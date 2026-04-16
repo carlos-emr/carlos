@@ -29,7 +29,6 @@
 
 --%>
 <%@page import="java.net.URLEncoder" %>
-<%@page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -139,18 +138,18 @@
                     <%}%>
                     <td>
                         <form method="post" action="<%= request.getContextPath() %>/eforms/delGroup" style="display:inline;">
-                            <input type="hidden" name="group_name" value="<%=Encode.forHtmlAttribute(groupName)%>"/>
+                            <input type="hidden" name="group_name" value="<e:forHtmlAttribute value='<%= groupName %>' />"/>
                             <a href="javascript:void(0);"
                                class="btn btn-sm btn-secondary" title="delete this group"
-                               data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to delete group: <strong><%=Encode.forHtmlAttribute(groupName)%></strong>?"
+                               data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to delete group: <strong><e:forHtmlAttribute value='<%= groupName %>' /></strong>?"
 ><i
                                     class="fa-solid fa-trash"></i></a>
                         </form></td>
-                    <td title="<%=Encode.forHtmlAttribute(groupName)%>"><a
+                    <td title="<e:forHtmlAttribute value='<%= groupName %>' />"><a
                             href='<%= request.getContextPath() %>/eform/efmmanageformgroups?orderby=form_name&group_view=<%=URLEncoder.encode(groupName, "UTF-8")%>'
-                            class="contentLink"><%=Encode.forHtml(groupName)%>
+                            class="contentLink"><e:forHtmlContent value='<%= groupName %>' />
                     </a></td>
-                    <td><%= Encode.forHtml((String) curhash.get("count")) %>
+                    <td><e:forHtmlContent value='<%= (String) curhash.get("count") %>' />
                     </td>
 
                 </tr>
@@ -164,7 +163,7 @@
         <!--EFORMS IN GROUP-->
 
         <div class="card card-body bg-body-tertiary col-md-6">
-            <h4><fmt:message key="eform.groups.contents"/>: <%=Encode.forHtml(groupView)%>
+            <h4><fmt:message key="eform.groups.contents"/>: <e:forHtmlContent value='<%= groupView %>' />
             </h4>
 
             <table class="table table-sm table-striped">
@@ -174,14 +173,14 @@
                     </th>
 
                     <th>
-                        <a href="<%= request.getContextPath() %>/eform/efmmanageformgroups?orderby=form_name&group_view=<%= Encode.forUriComponent(groupView) %>"
+                        <a href="<%= request.getContextPath() %>/eform/efmmanageformgroups?orderby=form_name&group_view=<e:forUriComponent value='<%= groupView %>' />"
                            class="contentLink">
                             <fmt:message key="eform.uploadhtml.btnFormName"/>
                         </a>
                     </th>
 
                     <th>
-                        <a href="<%= request.getContextPath() %>/eform/efmmanageformgroups?group_view=<%= Encode.forUriComponent(groupView) %>"
+                        <a href="<%= request.getContextPath() %>/eform/efmmanageformgroups?group_view=<e:forUriComponent value='<%= groupView %>' />"
                            class="contentLink">
                             <fmt:message key="eform.uploadhtml.btnDate"/>
                         </a>
@@ -198,14 +197,17 @@
                             for (int i = 0; i < eForms.size(); i++) {
                                 HashMap<String, ? extends Object> curForm = eForms.get(i);
                 %>
-                <tr data-bs-toggle="popover" data-bs-html="true" data-bs-title="<%=Encode.forHtmlAttribute(Encode.forHtml((String) curForm.get("formName")))%>"
-                    data-bs-content="<strong><fmt:message key="eform.uploadhtml.btnSubject"/>:</strong><br> <%=Encode.forHtmlAttribute(Encode.forHtml((String) curForm.get("formSubject")))%> <br> <small><fmt:message key="eform.uploadhtml.btnFile"/>: <%=Encode.forHtmlAttribute(Encode.forHtml((String) curForm.get("formFileName")))%></small>"
+                <c:set var="__enc_1"><e:forHtmlContent value='<%= (String) curForm.get("formName") %>' /></c:set>
+                <c:set var="__enc_2"><e:forHtmlContent value='<%= (String) curForm.get("formSubject") %>' /></c:set>
+                <c:set var="__enc_3"><e:forHtmlContent value='<%= (String) curForm.get("formFileName") %>' /></c:set>
+                <tr data-bs-toggle="popover" data-bs-html="true" data-bs-title="<e:forHtmlAttribute value='${__enc_1}' />"
+                    data-bs-content="<strong><fmt:message key="eform.uploadhtml.btnSubject"/>:</strong><br> <e:forHtmlAttribute value='${__enc_2}' /> <br> <small><fmt:message key="eform.uploadhtml.btnFile"/>: <e:forHtmlAttribute value='${__enc_3}' /></small>"
                     data-bs-trigger="hover" data-bs-placement="bottom">
 
                     <td>
                         <form method="post" action="<%= request.getContextPath() %>/eforms/removeFromGroup" style="display:inline;">
-                            <input type="hidden" name="fid" value="<%=Encode.forHtmlAttribute((String) curForm.get("fid"))%>"/>
-                            <input type="hidden" name="groupName" value="<%=Encode.forHtmlAttribute(groupView)%>"/>
+                            <input type="hidden" name="fid" value="<e:forHtmlAttribute value='<%= (String) curForm.get("fid") %>' />"/>
+                            <input type="hidden" name="groupName" value="<e:forHtmlAttribute value='<%= groupView %>' />"/>
                             <a href="javascript:void(0);"
                                title="remove from group" class="btn btn-sm btn-secondary"
                                data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to remove this eform from this group?"
@@ -215,10 +217,10 @@
                     </td>
 
                     <td><a href="#"
-                           onclick="newWindow('<%= request.getContextPath() %>/eform/efmshowform_data?fid=<%=Encode.forUriComponent((String) curForm.get("fid"))%>', '<%="FormG" + i%>'); return false;"><%=Encode.forHtml((String) curForm.get("formName"))%>
+                           onclick="newWindow('<%= request.getContextPath() %>/eform/efmshowform_data?fid=<e:forUriComponent value='<%= (String) curForm.get("fid") %>' />', '<%="FormG" + i%>'); return false;"><e:forHtmlContent value='<%= (String) curForm.get("formName") %>' />
                     </a></td>
 
-                    <td align='center'><%=Encode.forHtml((String) curForm.get("formDate"))%>
+                    <td align='center'><e:forHtmlContent value='<%= (String) curForm.get("formDate") %>' />
                     </td>
 
 
@@ -250,7 +252,7 @@
              aria-hidden="true">
             <div class="modal-dialog"><div class="modal-content">
             <div class="modal-header">
-                <h3 id="myModalLabel"><fmt:message key="eform.groups.addToGroup"/> <%=Encode.forHtml(groupView)%>
+                <h3 id="myModalLabel"><fmt:message key="eform.groups.addToGroup"/> <e:forHtmlContent value='<%= groupView %>' />
                 </h3>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -264,13 +266,13 @@
                                 HashMap<String, ? extends Object> curhash = forms.get(i);
                         %>
                         <option
-                                value='<%= Encode.forHtmlAttribute((String) curhash.get("fid"))%>'><%= Encode.forHtml((String) curhash.get("formName"))%> | <%= Encode.forHtml((String) curhash.get("formDate"))%>
+                                value="<e:forHtmlAttribute value='<%= (String) curhash.get("fid") %>' />"><e:forHtmlContent value='<%= (String) curhash.get("formName") %>' /> | <e:forHtmlContent value='<%= (String) curhash.get("formDate") %>' />
                         </option>
                         <% } %>
                     </select>
 
 
-                    <input type="hidden" name="groupName" value="<%= Encode.forHtmlAttribute(groupView) %>">
+                    <input type="hidden" name="groupName" value="<e:forHtmlAttribute value='<%= groupView %>' />">
 
                 </div>
 

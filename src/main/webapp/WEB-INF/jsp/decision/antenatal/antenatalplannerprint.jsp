@@ -38,8 +38,6 @@
 <%@ page
         import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*,java.io.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <jsp:useBean id="riskDataBean" class="java.util.Properties" scope="page"/>
 <jsp:useBean id="risks"
              class="io.github.carlos_emr.carlos.decision.DesAntenatalPlannerRisks_99_12" scope="page"/>
@@ -131,7 +129,7 @@
 %>
 <table bgcolor='silver' width='100%' cellspacing=0 cellpadding=0>
     <tr>
-        <td><font color='blue'><%=Encode.forHtml(patientName)%> | EDB: <%=Encode.forHtml(finalEDB)%>
+        <td><font color='blue'><e:forHtmlContent value='<%= patientName %>' /> | EDB: <e:forHtmlContent value='<%= finalEDB %>' />
         </font></td>
         <td align="right"><input type="button" name="submit"
                                  value="Print" onclick="window.print();"/> <input type="button"

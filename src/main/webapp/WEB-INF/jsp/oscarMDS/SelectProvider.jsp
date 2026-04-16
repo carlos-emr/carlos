@@ -30,13 +30,12 @@
 --%>
 <%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page
         import="io.github.carlos_emr.carlos.providers.data.ProviderData, java.util.ArrayList,java.util.Map, java.util.List, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page
         import="io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingFavoritesDao, io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingFavorite" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao, io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -80,9 +79,9 @@
             }
         }
 
-        var isListView = '<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("isListView"))) %>';
-        var docId = '<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("docId"))) %>';
-        var labDisplay = '<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("labDisplay"))) %>';
+        var isListView = '<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("isListView")) %>' />';
+        var docId = '<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("docId")) %>' />';
+        var labDisplay = '<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("labDisplay")) %>' />';
         var frm = "reassignForm";
 
         if (docId != "" && labDisplay == "") {
@@ -155,7 +154,7 @@
                     for (ProviderLabRoutingFavorite fav : currentFavorites) {
                         Provider prov = providerDao.getProvider(fav.getRoute_to_provider_no());
                 %>
-                <option id="<%=Encode.forHtmlAttribute(prov.getProviderNo())%>" value="<%=Encode.forHtmlAttribute(prov.getProviderNo())%>"><%=Encode.forHtml(prov.getFormattedName())%>
+                <option id="<e:forHtmlAttribute value='<%= prov.getProviderNo() %>' />" value="<e:forHtmlAttribute value='<%= prov.getProviderNo() %>' />"><e:forHtmlContent value='<%= prov.getFormattedName() %>' />
                 </option>
                 <%
                     }

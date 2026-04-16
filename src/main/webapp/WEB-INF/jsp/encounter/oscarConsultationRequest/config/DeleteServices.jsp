@@ -45,8 +45,6 @@
 %>
 
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -78,7 +76,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><%= Encode.forHtml(error) %></li>
+                    <li><e:forHtmlContent value='<%= error %>' /></li>
                 <% } %>
             </ul>
         </div>
@@ -114,7 +112,7 @@
                             %>
                             <tr>
                                 <td><input type="checkbox" name="service" value="<%=serId%>"></td>
-                                <td><%= Encode.forHtml(serName) %></td>
+                                <td><e:forHtmlContent value='<%= serName %>' /></td>
                             </tr>
                             <% } %>
                         </tbody>

@@ -74,7 +74,6 @@
 
 
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <html>
 <head>
@@ -181,20 +180,20 @@
    %>
 
      <tr>
-        <td ><%=Encode.forHtml(StringUtils.noNull(paymentdate))%>  </td>
-        <td align="right"><%=Encode.forHtml(StringUtils.noNull(payable))%> </td>
-        <td align="right"><%=Encode.forHtml(moneyFormat(amtbilled))%></td>
-        <td align="right"><%=Encode.forHtml(moneyFormat(amtpaid))%></td>
-        <td align="right"><%=Encode.forHtml(moneyFormat(balancefwd))%></td>
-        <td align="right"><%=Encode.forHtml(moneyFormat(chequeamt))%></td>
-        <td align="right"><%=Encode.forHtml(moneyFormat(newbalance))%></td>
+        <td ><e:forHtmlContent value='<%= StringUtils.noNull(paymentdate) %>' />  </td>
+        <td align="right"><e:forHtmlContent value='<%= StringUtils.noNull(payable) %>' /> </td>
+        <td align="right"><e:forHtmlContent value='<%= moneyFormat(amtbilled) %>' /></td>
+        <td align="right"><e:forHtmlContent value='<%= moneyFormat(amtpaid) %>' /></td>
+        <td align="right"><e:forHtmlContent value='<%= moneyFormat(balancefwd) %>' /></td>
+        <td align="right"><e:forHtmlContent value='<%= moneyFormat(chequeamt) %>' /></td>
+        <td align="right"><e:forHtmlContent value='<%= moneyFormat(newbalance) %>' /></td>
         <td >&nbsp;&nbsp;
-           Billed( <a href="createBillingReportAction?docFormat=pdf&repType=REP_MSPREM&rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&selPayee=<%=Encode.forUriComponent(StringUtils.noNull(payeeNo))%>" target="_blank">PDF</a>|<a href="createBillingReportAction?docFormat=csv&repType=REP_MSPREM&rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&selPayee=<%=Encode.forUriComponent(StringUtils.noNull(payeeNo))%>" target="_blank">CSV</a>) |
-           <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS00?rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&proNo=" target="_blank">Detail</a> |
-           <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS22?rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&proNo=" target="_blank">Summary</a>
-           ( <a href="createBillingReportAction?docFormat=pdf&repType=REP_MSPREMSUM&rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&proNo=" target="_blank">PDF</a>|<a href="createBillingReportAction?docFormat=csv&repType=REP_MSPREMSUM&rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&proNo=" target="_blank">CSV</a>)
+           Billed( <a href="createBillingReportAction?docFormat=pdf&repType=REP_MSPREM&rano=<e:forUriComponent value='<%= StringUtils.noNull(raNo) %>' />&selPayee=<e:forUriComponent value='<%= StringUtils.noNull(payeeNo) %>' />" target="_blank">PDF</a>|<a href="createBillingReportAction?docFormat=csv&repType=REP_MSPREM&rano=<e:forUriComponent value='<%= StringUtils.noNull(raNo) %>' />&selPayee=<e:forUriComponent value='<%= StringUtils.noNull(payeeNo) %>' />" target="_blank">CSV</a>) |
+           <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS00?rano=<e:forUriComponent value='<%= StringUtils.noNull(raNo) %>' />&proNo=" target="_blank">Detail</a> |
+           <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS22?rano=<e:forUriComponent value='<%= StringUtils.noNull(raNo) %>' />&proNo=" target="_blank">Summary</a>
+           ( <a href="createBillingReportAction?docFormat=pdf&repType=REP_MSPREMSUM&rano=<e:forUriComponent value='<%= StringUtils.noNull(raNo) %>' />&proNo=" target="_blank">PDF</a>|<a href="createBillingReportAction?docFormat=csv&repType=REP_MSPREMSUM&rano=<e:forUriComponent value='<%= StringUtils.noNull(raNo) %>' />&proNo=" target="_blank">CSV</a>)
         </td>
-        <td ><%=Encode.forHtml(String.valueOf(result.getStatus()))%></td>
+        <td ><e:forHtmlContent value='<%= String.valueOf(result.getStatus()) %>' /></td>
      </tr>
      <tr>
         <td colspan="10" bgcolor="#EBF4F5">&nbsp;</td>

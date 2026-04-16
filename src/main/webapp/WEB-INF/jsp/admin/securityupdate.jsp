@@ -28,8 +28,6 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -133,12 +131,12 @@
                         request.getParameter("security_no") + "->" + request.getParameter("user_name"), request.getRemoteAddr());
         %>
         <p>
-        <h2><fmt:message key="admin.securityupdate.msgUpdateSuccess"/> <%=Encode.forHtml(request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "")%>
+        <h2><fmt:message key="admin.securityupdate.msgUpdateSuccess"/> <e:forHtmlContent value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' />
         </h2>
         <%
         } else {
         %>
-        <h1><fmt:message key="admin.securityupdate.msgUpdateFailure"/><%= Encode.forHtml(StringUtils.noNull(request.getParameter("provider_no"))) %>.</h1>
+        <h1><fmt:message key="admin.securityupdate.msgUpdateFailure"/><e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("provider_no")) %>' />.</h1>
         <%
             }
         %>

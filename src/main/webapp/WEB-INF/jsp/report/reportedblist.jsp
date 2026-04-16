@@ -173,20 +173,20 @@
             <td align="center"><%=nItems%>
             </td>
             <td align="center"
-                nowrap><%=Encode.forHtml(ConversionUtils.toDateString(rt.getId().getEdb()).replace('-', '/'))%>
+                nowrap><e:forHtmlContent value='<%= ConversionUtils.toDateString(rt.getId().getEdb()).replace('-', '/') %>' />
             </td>
-            <td><%=Encode.forHtml(rt.getDemoName())%>
+            <td><e:forHtmlContent value='<%= rt.getDemoName() %>' />
             </td>
             <!--td align="center" ><%=rt.getId().getDemographicNo()%> </td-->
-            <td><%=Encode.forHtml(SxmlMisc.getXmlContent(rt.getAddress(), "age"))%>
+            <td><e:forHtmlContent value='<%= SxmlMisc.getXmlContent(rt.getAddress(), "age") %>' />
             </td>
-            <td><%=Encode.forHtml(SxmlMisc.getXmlContent(rt.getAddress(), "gravida"))%>
+            <td><e:forHtmlContent value='<%= SxmlMisc.getXmlContent(rt.getAddress(), "gravida") %>' />
             </td>
-            <td><%=Encode.forHtml(SxmlMisc.getXmlContent(rt.getAddress(), "term"))%>
+            <td><e:forHtmlContent value='<%= SxmlMisc.getXmlContent(rt.getAddress(), "term") %>' />
             </td>
-            <td nowrap><%=Encode.forHtml(SxmlMisc.getXmlContent(rt.getAddress(), "phone"))%>
+            <td nowrap><e:forHtmlContent value='<%= SxmlMisc.getXmlContent(rt.getAddress(), "phone") %>' />
             </td>
-            <td><%=Encode.forHtml(providerNameBean.getShortDef(rt.getProviderNo(), "", 11))%>
+            <td><e:forHtmlContent value='<%= providerNameBean.getShortDef(rt.getProviderNo(), "", 11) %>' />
             </td>
         </tr>
         <%

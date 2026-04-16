@@ -261,7 +261,7 @@
                 String sortBaseUrl = request.getContextPath() + "/report/ViewReportdaysheet?provider_no=" + encodedProviderNo + "&sdate=" + encodedSdate + "&edate=" + encodedEdate;
     %>
     <div class="section-header" style="font-weight:bold; font-size:14px; padding:6px 10px; background:#eee; border-bottom:1px solid #ddd; margin:15px 0 0 0;">
-        <%=Encode.forHtml(providerBean.getProperty(rsdemo.getString("provider_no")) + " - " + dateTemp + (request.getParameter("sTime") != null ? (" " + sTime + "-" + eTime) : "")) %>
+        <e:forHtmlContent value='<%= providerBean.getProperty(rsdemo.getString("provider_no")) + " - " + dateTemp + (request.getParameter("sTime") != null ? (" " + sTime + "-" + eTime) : "") %>' />
     </div>
     <table class="table table-sm table-bordered table-striped" style="font-size:13px; margin-bottom:0;">
         <thead>
@@ -288,19 +288,19 @@
             count++;
         %>
         <tr class="<%=rsdemo.getString("bookingSource")==null?"oscar":"self"%>" id="r<%=count %>">
-            <td title="<%=Encode.forHtmlAttribute("End Time: "+rsdemo.getString("end_time"))%>"><%=Encode.forHtml(rsdemo.getString("start_time").substring(0, 5))%></td>
-            <td><%=rsdemo.getString("name") == null ? "." : ""%><%=Encode.forHtml(Misc.toUpperLowerCase(rsdemo.getString("name")))%></td>
-            <td><%=Encode.forHtml(rsdemo.getString("phone") == null ? "" : rsdemo.getString("phone"))%></td>
-            <td><%=Encode.forHtml(rsdemo.getString("sex") == null ? "" : rsdemo.getString("sex"))%></td>
-            <td><%=Encode.forHtml(rsdemo.getString("hin") == null ? "" : rsdemo.getString("hin"))%></td>
-            <td><%=Encode.forHtml(rsdemo.getString("ver") == null ? "" : rsdemo.getString("ver"))%></td>
-            <td><%=Encode.forHtml(rsdemo.getString("chart_no") == null ? "" : rsdemo.getString("chart_no"))%></td>
+            <td title="<e:forHtmlAttribute value='<%= "End Time: "+rsdemo.getString("end_time") %>' />"><e:forHtmlContent value='<%= rsdemo.getString("start_time").substring(0, 5) %>' /></td>
+            <td><%=rsdemo.getString("name") == null ? "." : ""%><e:forHtmlContent value='<%= Misc.toUpperLowerCase(rsdemo.getString("name")) %>' /></td>
+            <td><e:forHtmlContent value='<%= rsdemo.getString("phone") == null ? "" : rsdemo.getString("phone") %>' /></td>
+            <td><e:forHtmlContent value='<%= rsdemo.getString("sex") == null ? "" : rsdemo.getString("sex") %>' /></td>
+            <td><e:forHtmlContent value='<%= rsdemo.getString("hin") == null ? "" : rsdemo.getString("hin") %>' /></td>
+            <td><e:forHtmlContent value='<%= rsdemo.getString("ver") == null ? "" : rsdemo.getString("ver") %>' /></td>
+            <td><e:forHtmlContent value='<%= rsdemo.getString("chart_no") == null ? "" : rsdemo.getString("chart_no") %>' /></td>
             <% if (!bDob) {%>
-            <td><%=Encode.forHtml(rsdemo.getString("roster_status") == null ? "" : rsdemo.getString("roster_status"))%></td>
+            <td><e:forHtmlContent value='<%= rsdemo.getString("roster_status") == null ? "" : rsdemo.getString("roster_status") %>' /></td>
             <% } else {
                 String dob = rsdemo.getString("dob");
             %>
-            <td><%=Encode.forHtml(dob == null ? "" : dob)%></td>
+            <td><e:forHtmlContent value='<%= dob == null ? "" : dob %>' /></td>
             <% }%>
             <td>
                 <%if (rsdemo.getString("bookingSource") == null) {%>
@@ -317,11 +317,11 @@
                         initial = doc_first_name.charAt(0);
                     }
                 %>
-                [<%=Encode.forHtml(daySheetBean.getString(rsdemo, "doc_last_name"))%>, <%=initial%>]
+                [<e:forHtmlContent value='<%= daySheetBean.getString(rsdemo, "doc_last_name") %>' />, <%=initial%>]
                 &nbsp; <% } %> <% if (bDob && daySheetBean.getString(rsdemo, "family_doctor") != null) {
                 String rd = SxmlMisc.getXmlContent(daySheetBean.getString(rsdemo, "family_doctor"), "rd");
                 rd = rd != null ? rd : "";
-            %> [<%=Encode.forHtml(rd)%>]&nbsp; <% } %> <%=Encode.forHtml(daySheetBean.getString(rsdemo, "reason"))%>&nbsp;
+            %> [<e:forHtmlContent value='<%= rd %>' />]&nbsp; <% } %> <e:forHtmlContent value='<%= daySheetBean.getString(rsdemo, "reason") %>' />&nbsp;
             </td>
         </tr>
         <%

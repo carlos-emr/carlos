@@ -27,7 +27,6 @@
         import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.db.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.DateRange" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data" %>
@@ -80,19 +79,19 @@
 <form method="post" name="titlesearch" action="/billing/CA/ON/ViewBillingONHistorySpec">
     <table style="width:95%; margin:auto;">
         <tr>
-            <td style="text-align:left"><%=Encode.forHtml(request.getParameter("demo_name") != null ? request.getParameter("demo_name") : "")%>
-                (<%=Encode.forHtml(request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "")%>)
+            <td style="text-align:left"><e:forHtmlContent value='<%= request.getParameter("demo_name") != null ? request.getParameter("demo_name") : "" %>' />
+                (<e:forHtmlContent value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' />)
                 <%=strToday + " - " + strStartDay %>
             </td>
             <td style="text-align:right">Service Code <input type="text"
                                                              name="serviceCode"
-                                                             value="<%=Encode.forHtmlAttribute(serviceCode) %>" maxlength="5"
+                                                             value="<e:forHtmlAttribute value='<%= serviceCode %>' />" maxlength="5"
                                                              onBlur="upCaseCtrl(this)"/> <input type="hidden" name="day"
-                                                                                                value="<%=Encode.forHtmlAttribute(strDay) %>"/>
+                                                                                                value="<e:forHtmlAttribute value='<%= strDay %>' />"/>
                 <input type="hidden" name="demo_name"
-                       value="<%=Encode.forHtmlAttribute(request.getParameter("demo_name") != null ? request.getParameter("demo_name") : "") %>"/> <input
+                       value="<e:forHtmlAttribute value='<%= request.getParameter("demo_name") != null ? request.getParameter("demo_name") : "" %>' />"/> <input
                         type="hidden" name="demographic_no"
-                        value="<%=Encode.forHtmlAttribute(request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "") %>"/> <input
+                        value="<e:forHtmlAttribute value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' />"/> <input
                         type="submit" name="submit" value="Search"/></td>
         </tr>
     </table>
@@ -128,16 +127,16 @@ for(int i=0; i<aL.size(); i=i+2) {
 	}
 %>
     <tr>
-        <td style="text-align:center"><%=Encode.forHtml(String.valueOf(obj.getId()))%>
+        <td style="text-align:center"><e:forHtmlContent value='<%= String.valueOf(obj.getId()) %>' />
         </td>
-        <td style="text-align:center"><%=Encode.forHtml(obj.getBilling_date())%> <%--=obj.getBilling_time()--%></td>
-        <td style="text-align:center"><%=Encode.forHtml(BillingDataHlp.propBillingType.getProperty(obj.getStatus(), ""))%>
+        <td style="text-align:center"><e:forHtmlContent value='<%= obj.getBilling_date() %>' /> <%--=obj.getBilling_time()--%></td>
+        <td style="text-align:center"><e:forHtmlContent value='<%= BillingDataHlp.propBillingType.getProperty(obj.getStatus(), "") %>' />
         </td>
-        <td style="text-align:center"><%=Encode.forHtml(strServiceCode)%>
+        <td style="text-align:center"><e:forHtmlContent value='<%= strServiceCode %>' />
         </td>
-        <td style="text-align:center"><%=Encode.forHtml(itObj.getDx())%>
+        <td style="text-align:center"><e:forHtmlContent value='<%= itObj.getDx() %>' />
         </td>
-        <td style="text-align:center"><%=Encode.forHtml(obj.getTotal())%>
+        <td style="text-align:center"><e:forHtmlContent value='<%= obj.getTotal() %>' />
         </td>
     </tr>
         <%

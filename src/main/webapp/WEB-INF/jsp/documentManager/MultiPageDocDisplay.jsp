@@ -235,17 +235,17 @@
             </td>
             <td align="left" valign="top" class="docTable">
                 <fieldset>
-                    <legend>Patient: <%=Encode.forHtml(demoName)%>
+                    <legend>Patient: <e:forHtmlContent value='<%= demoName %>' />
                     </legend>
                     <table border="0">
                         <tr>
                             <td><fmt:message key="inboxmanager.document.DocumentUploaded"/></td>
-                            <td><%=Encode.forHtml(StringUtils.noNull(curdoc.getDateTimeStamp()))%>
+                            <td><e:forHtmlContent value='<%= StringUtils.noNull(curdoc.getDateTimeStamp()) %>' />
                             </td>
                         </tr>
                         <tr>
                             <td><fmt:message key="inboxmanager.document.ContentType"/></td>
-                            <td><%=Encode.forHtml(contentType)%>
+                            <td><e:forHtmlContent value='<%= contentType %>' />
                             </td>
                         </tr>
                         <tr>
@@ -261,9 +261,9 @@
                     <form id="forms_<%=docId%>" onsubmit="return updateDocument(this.id);">
                         <input type="hidden" name="method" value="documentUpdate"/>
                         <input type="hidden" name="documentId" value="<%=docId%>"/>
-                        <input type="hidden" name="providerNo" value="<%=Encode.forHtmlAttribute(providerNo)%>"/>
-                        <input type="hidden" name="searchProviderNo" value="<%=Encode.forHtmlAttribute(searchProviderNo)%>"/>
-                        <input type="hidden" name="status" value="<%=Encode.forHtmlAttribute(status)%>"/>
+                        <input type="hidden" name="providerNo" value="<e:forHtmlAttribute value='<%= providerNo %>' />"/>
+                        <input type="hidden" name="searchProviderNo" value="<e:forHtmlAttribute value='<%= searchProviderNo %>' />"/>
+                        <input type="hidden" name="status" value="<e:forHtmlAttribute value='<%= status %>' />"/>
                         <table border="0">
                             <tr>
                                 <td><fmt:message key="dms.documentReport.msgDocType"/>:</td>
@@ -274,7 +274,7 @@
                                             for (int j = 0; j < doctypes.size(); j++) {
                                                 String doctype = (String) doctypes.get(j);
                                         %>
-                                        <option value="<%= Encode.forHtmlAttribute(doctype)%>" <%=(curdoc.getType().equals(doctype)) ? " selected" : ""%>><%= Encode.forHtml(doctype)%>
+                                        <option value="<e:forHtmlAttribute value='<%= doctype %>' />" <%=(curdoc.getType().equals(doctype)) ? " selected" : ""%>><e:forHtmlContent value='<%= doctype %>' />
                                         </option>
                                         <%}%>
                                     </select>
@@ -283,13 +283,13 @@
                             <tr>
                                 <td><fmt:message key="dms.documentReport.msgDocDesc"/>:</td>
                                 <td><input tabindex="<%=tabindex++%>" type="text" name="documentDescription"
-                                           value="<%=Encode.forHtmlAttribute(curdoc.getDescription())%>"/></td>
+                                           value="<e:forHtmlAttribute value='<%= curdoc.getDescription() %>' />"/></td>
                             </tr>
                             <tr>
                                 <td>Observation Date:</td>
                                 <td>
                                     <input tabindex="<%=tabindex++%>" id="observationDate<%=docId%>"
-                                           name="observationDate" type="text" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(curdoc.getObservationDate()))%>">
+                                           name="observationDate" type="text" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(curdoc.getObservationDate()) %>' />">
                                     <a id="obsdate<%=docId%>"
                                        onmouseover="renderCalendar(this.id,'observationDate<%=docId%>' );"
                                        href="javascript:void(0);"><img title="Calendar"
@@ -302,11 +302,11 @@
                                 </td>
                                 <td><%if (!demographicID.equals("-1")) {%>
                                     <input id="saved<%=docId%>" type="hidden" name="saved" value="true"/>
-                                    <input type="hidden" value="<%=Encode.forHtmlAttribute(demographicID)%>" name="demog"
+                                    <input type="hidden" value="<e:forHtmlAttribute value='<%= demographicID %>' />" name="demog"
                                            id="demofind<%=docId%>"/>
-                                    <%=Encode.forHtml(demoName)%><%} else {%>
+                                    <e:forHtmlContent value='<%= demoName %>' /><%} else {%>
                                     <input id="saved<%=docId%>" type="hidden" name="saved" value="false"/>
-                                    <input type="hidden" name="demog" value="<%=Encode.forHtmlAttribute(demographicID)%>"
+                                    <input type="hidden" name="demog" value="<e:forHtmlAttribute value='<%= demographicID %>' />"
                                            id="demofind<%=docId%>"/>
                                     <input tabindex="<%=tabindex++%>" type="text" id="autocompletedemo<%=docId%>"
                                            onchange="checkSave('<%=docId%>')" name="demographicKeyword"/>
@@ -699,7 +699,7 @@
 
                             <tr>
                                 <td><fmt:message key="dms.documentReport.msgCreator"/>:</td>
-                                <td><%=Encode.forHtml(StringUtils.noNull(curdoc.getCreatorName()))%>
+                                <td><e:forHtmlContent value='<%= StringUtils.noNull(curdoc.getCreatorName()) %>' />
                                 </td>
                             </tr>
 
@@ -725,7 +725,7 @@
                                                 String s = p.getProperty(pItem.getProviderNo(), pItem.getProviderNo());
                                                 if (!s.equals("0")) {
                                         %>
-                                        <li><%=Encode.forHtml(s)%>
+                                        <li><e:forHtmlContent value='<%= s %>' />
                                         </li>
                                         <%
                                                 }
@@ -752,7 +752,7 @@
                                     <!--center-->
                                     <% for (int i = 0; i < ackList.size(); i++) {
                                         ReportStatus report = (ReportStatus) ackList.get(i); %>
-                                    <%= Encode.forHtml(report.getProviderName()) %> :
+                                    <e:forHtmlContent value='<%= report.getProviderName() %>' /> :
 
                                     <% String ackStatus = report.getStatus();
                                         if (providerNo.equals(report.getOscarProviderNo())) {
@@ -766,11 +766,11 @@
                                             ackStatus = "Not Acknowledged";
                                         }
                                     %>
-                                    <font color="red"><%= Encode.forHtml(ackStatus) %>
+                                    <font color="red"><e:forHtmlContent value='<%= ackStatus %>' />
                                     </font>
                                     &nbsp;
                                     <%= report.getTimestamp() == null ? "" : Encode.forHtml(String.valueOf(report.getTimestamp())) %>,&nbsp;
-                                    comment: <%= Encode.forHtml(report.getComment() == null || report.getComment().equals("") ? "no comment" : report.getComment()) %>
+                                    comment: <e:forHtmlContent value='<%= report.getComment() == null || report.getComment().equals("") ? "no comment" : report.getComment() %>' />
 
                                     <br>
                                     <% }
@@ -792,20 +792,20 @@
                 <fieldset>
                     <legend><span class="FieldData"><i>Next Appointment: <oscar:nextAppt
                             demographicNo="<%=demographicID%>"/></i></span></legend>
-                    <form id="reassignForm_<%=Encode.forHtmlAttribute(docId)%>" name="reassignForm_<%=Encode.forHtmlAttribute(docId)%>" method="post" action="">
-                        <input type="hidden" name="flaggedLabs" value="<%=Encode.forHtmlAttribute(docId)%>"/>
+                    <form id="reassignForm_<e:forHtmlAttribute value='<%= docId %>' />" name="reassignForm_<e:forHtmlAttribute value='<%= docId %>' />" method="post" action="">
+                        <input type="hidden" name="flaggedLabs" value="<e:forHtmlAttribute value='<%= docId %>' />"/>
                         <input type="hidden" name="selectedProviders" value=""/>
                         <input type="hidden" name="labType" value="DOC"/>
-                        <input type="hidden" name="labType<%=Encode.forHtmlAttribute(docId)%>DOC" value="imNotNull"/>
-                        <input type="hidden" name="providerNo" value="<%=Encode.forHtmlAttribute(providerNo)%>"/>
+                        <input type="hidden" name="labType<e:forHtmlAttribute value='<%= docId %>' />DOC" value="imNotNull"/>
+                        <input type="hidden" name="providerNo" value="<e:forHtmlAttribute value='<%= providerNo %>' />"/>
                         <input type="hidden" name="favorites" value=""/>
                         <input type="hidden" name="ajax" value="yes"/>
                     </form>
                 </fieldset>
                 <fieldset>
                     <legend><fmt:message key="inboxmanager.document.Comment"/></legend>
-                    <form name="acknowledgeForm_<%=Encode.forHtmlAttribute(docId)%>" id="acknowledgeForm_<%=Encode.forHtmlAttribute(docId)%>"
-                          onsubmit="updateStatus('acknowledgeForm_<%=Encode.forJavaScriptAttribute(docId)%>');" method="post"
+                    <form name="acknowledgeForm_<e:forHtmlAttribute value='<%= docId %>' />" id="acknowledgeForm_<e:forHtmlAttribute value='<%= docId %>' />"
+                          onsubmit="updateStatus('acknowledgeForm_<e:forJavaScriptAttribute value='<%= docId %>' />');" method="post"
                           action="javascript:void(0);">
 
                         <table width="100%" height="100%" border="0" cellspacing="0" cellpadding="0">
@@ -814,9 +814,9 @@
                                     <table width="100%" border="0" cellspacing="0" cellpadding="3">
                                         <tr>
                                             <td align="left" class="" width="100%">
-                                                <input type="hidden" name="segmentID" value="<%= Encode.forHtmlAttribute(docId)%>"/>
-                                                <input type="hidden" name="multiID" value="<%= Encode.forHtmlAttribute(docId)%>"/>
-                                                <input type="hidden" name="providerNo" value="<%= Encode.forHtmlAttribute(providerNo)%>"/>
+                                                <input type="hidden" name="segmentID" value="<e:forHtmlAttribute value='<%= docId %>' />"/>
+                                                <input type="hidden" name="multiID" value="<e:forHtmlAttribute value='<%= docId %>' />"/>
+                                                <input type="hidden" name="providerNo" value="<e:forHtmlAttribute value='<%= providerNo %>' />"/>
                                                 <input type="hidden" name="status" value="A" id="ackStatus"/>
                                                 <input type="hidden" name="labType" value="DOC"/>
                                                 <input type="hidden" name="ajaxcall" value="yes"/>
@@ -830,13 +830,13 @@
                                                        value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>">
                                                 <input type="button" tabindex="<%=tabindex++%>" class="smallButton"
                                                        value="Comment"
-                                                       onclick="addDocComment('<%=Encode.forJavaScriptAttribute(docId)%>','<%=curAckStatus%>')"/>
+                                                       onclick="addDocComment('<e:forJavaScriptAttribute value='<%= docId %>' />','<%=curAckStatus%>')"/>
                                                 <input type="button" tabindex="<%=tabindex++%>" class="smallButton"
                                                        value="<fmt:message key="oscarMDS.index.btnForward"/>"
-                                                       onClick="ForwardSelectedRows(<%=Encode.forJavaScriptAttribute(docId)%> + ':DOC', null, null);">
+                                                       onClick="ForwardSelectedRows(<e:forJavaScriptAttribute value='<%= docId %>' /> + ':DOC', null, null);">
                                                 <input type="button" tabindex="<%=tabindex++%>" class="smallButton"
                                                        value="<fmt:message key="oscarMDS.index.btnFile"/>"
-                                                       onclick="fileDoc('<%=Encode.forJavaScriptAttribute(documentNo)%>');">
+                                                       onclick="fileDoc('<e:forJavaScriptAttribute value='<%= documentNo %>' />');">
                                                 <input type="button" tabindex="<%=tabindex++%>"
                                                        value=" <fmt:message key="global.btnClose"/> "
                                                        onClick="window.close()">
@@ -846,17 +846,21 @@
                                                 <% if (demographicID != null && !demographicID.equals("") && !demographicID.equalsIgnoreCase("null") && !demographicID.equals("-1")) {
                                                     String eURL = request.getContextPath() + "/encounter/IncomingEncounter?providerNo=" + Encode.forUriComponent(providerNo) + "&appointmentNo=&demographicNo=" + Encode.forUriComponent(demographicID) + "&curProviderNo=&reason=" + java.net.URLEncoder.encode("Document Notes", "UTF-8") + "&encType=" + java.net.URLEncoder.encode("encounter without client", "UTF-8") + "&userName=" + java.net.URLEncoder.encode(provider.getFullName(), StandardCharsets.UTF_8) + "&curDate=" + UtilDateUtilities.getToday("yyyy-MM-dd") + "&appointmentDate=&startTime=&status=";
                                                 %>
+                                                <c:set var="__enc_1"><e:forUriComponent value='<%= demographicID %>' /></c:set>
                                                 <input type="button" tabindex="<%=tabindex++%>" value="Msg"
-                                                       onclick="popup(700,960,'<%=request.getContextPath()%>/messenger/SendDemoMessage?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographicID))%>','msg')"/>
+                                                       onclick="popup(700,960,'<%=request.getContextPath()%>/messenger/SendDemoMessage?demographic_no=<e:forJavaScriptAttribute value='${__enc_1}' />','msg')"/>
+                                                <c:set var="__enc_2"><e:forUriComponent value='<%= docId %>' /></c:set>
+                                                <c:set var="__enc_3"><e:forUriComponent value='<%= demographicID %>' /></c:set>
+                                                <c:set var="__enc_4"><e:forUriComponent value='<%= providerNo %>' /></c:set>
                                                 <input type="button" tabindex="<%=tabindex++%>" value="Tickler"
-                                                       onclick="popup(450,600,'<%=request.getContextPath()%>/tickler/ForwardDemographicTickler?docType=DOC&docId=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(docId))%>&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographicID))%>&providerNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(providerNo))%>','tickler')"/>
+                                                       onclick="popup(450,600,'<%=request.getContextPath()%>/tickler/ForwardDemographicTickler?docType=DOC&docId=<e:forJavaScriptAttribute value='${__enc_2}' />&demographic_no=<e:forJavaScriptAttribute value='${__enc_3}' />&providerNo=<e:forJavaScriptAttribute value='${__enc_4}' />','tickler')"/>
                                                 <input type="button" tabindex="<%=tabindex++%>" value="eChart"
-                                                       onclick="popup(710,1024,'<%=Encode.forJavaScriptAttribute(eURL)%>','encounter')"/>
+                                                       onclick="popup(710,1024,'<e:forJavaScriptAttribute value='<%= eURL %>' />','encounter')"/>
                                                 <%
                                                     if (curdoc.getCreatorId().equals(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo())) {
                                                 %>
                                                 <input type="button" tabindex="<%=tabindex++%>" value="Delete"
-                                                       onClick="javascript: checkDelete('<%=Encode.forJavaScriptAttribute(curdoc.getDocId())%>','<%=Encode.forJavaScriptAttribute(curdoc.getDescription())%>')"/>
+                                                       onClick="javascript: checkDelete('<e:forJavaScriptAttribute value='<%= curdoc.getDocId() %>' />','<e:forJavaScriptAttribute value='<%= curdoc.getDescription() %>' />')"/>
 
                                                 <%
                                                 } else {
@@ -864,7 +868,7 @@
                                                 <security:oscarSec roleName="<%=roleName$%>"
                                                                    objectName="_admin,_admin.edocdelete" rights="r">
                                                     <input type="button" tabindex="<%=tabindex++%>" value="Delete"
-                                                           onClick="javascript: checkDelete('<%=Encode.forJavaScriptAttribute(curdoc.getDocId())%>','<%=Encode.forJavaScriptAttribute(curdoc.getDescription())%>')"/>
+                                                           onClick="javascript: checkDelete('<e:forJavaScriptAttribute value='<%= curdoc.getDocId() %>' />','<e:forJavaScriptAttribute value='<%= curdoc.getDescription() %>' />')"/>
                                                 </security:oscarSec>
                                                 <% } %>
                                                 <%}

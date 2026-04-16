@@ -1,3 +1,4 @@
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%-- Row Two: Ongoing Concerns, Reminders --%>
 <div class="encounter-card card mb-1" id="rowTwo">
     <div class="card-header d-flex align-items-center">

@@ -41,7 +41,6 @@
 <%@page import="io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.lab.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseCode" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseLookup" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%
@@ -60,11 +59,11 @@
         <%for (LimitedUseCode limitedUseCode : luList) {%>
         <tr>
             <td valign="top">
-                <a onclick="javascript:addLuCode('instructions_<%=Encode.forJavaScriptAttribute(randomId)%>','<%=Encode.forJavaScriptAttribute(limitedUseCode.getUseId())%>')"
-                   href="javascript: return void();"><%=Encode.forHtml(limitedUseCode.getUseId())%>
+                <a onclick="javascript:addLuCode('instructions_<e:forJavaScriptAttribute value='<%= randomId %>' />','<e:forJavaScriptAttribute value='<%= limitedUseCode.getUseId() %>' />')"
+                   href="javascript: return void();"><e:forHtmlContent value='<%= limitedUseCode.getUseId() %>' />
                 </a>&nbsp;
             </td>
-            <td><%=Encode.forHtml(limitedUseCode.getTxt())%>
+            <td><e:forHtmlContent value='<%= limitedUseCode.getTxt() %>' />
             </td>
         </tr>
         <%}%>

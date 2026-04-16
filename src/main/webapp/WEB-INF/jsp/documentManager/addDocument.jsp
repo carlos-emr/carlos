@@ -52,8 +52,6 @@
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%--This is included in documentReport.jsp - wasn't meant to be displayed as a separate page --%>
 <%
     String user_no = (String) session.getAttribute("user");
@@ -189,7 +187,7 @@
 
     function checkSel(sel) {
         theForm = sel.form;
-        if ((theForm.docDesc.value === "") || (theForm.docDesc.value === "<%=Encode.forJavaScript(defaultDesc)%>")) {
+        if ((theForm.docDesc.value === "") || (theForm.docDesc.value === "<e:forJavaScriptBlock value='<%= defaultDesc %>' />")) {
             theForm.docDesc.value = theForm.docType.value;
             theForm.docDesc.focus();
             theForm.docDesc.select();
@@ -197,9 +195,9 @@
     }
 
     function checkDefaultValue(object) {
-        if ((object.value === "<%=Encode.forJavaScript(defaultDesc)%>")
-                || (object.value === "<%=Encode.forJavaScript(defaultType)%>")
-                || (object.value === "<%=Encode.forJavaScript(defaultHtml)%>")) {
+        if ((object.value === "<e:forJavaScriptBlock value='<%= defaultDesc %>' />")
+                || (object.value === "<e:forJavaScriptBlock value='<%= defaultType %>' />")
+                || (object.value === "<e:forJavaScriptBlock value='<%= defaultHtml %>' />")) {
             object.value = "";
         }
     }
@@ -279,7 +277,7 @@
             <fmt:message key="dms.addDocument.AddLink"/>
         </button>
         <button type="button" class="btn btn-secondary"
-                onclick="popup1(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&mode=addHtml', 'addhtml')">
+                onclick="popup1(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml?function=<e:forUriComponent value='<%= module %>' />&functionid=<e:forUriComponent value='<%= moduleid %>' />&mode=addHtml', 'addhtml')">
             <fmt:message key="dms.addDocument.AddHTML"/>
         </button>
     </div>
@@ -297,12 +295,12 @@
                 </div>
             </c:forEach>
 
-            <input type="hidden" name="function" value="<%=Encode.forHtmlAttribute(formdata.getFunction())%>">
-            <input type="hidden" name="functionId" value="<%=Encode.forHtmlAttribute(formdata.getFunctionId())%>">
-            <input type="hidden" name="functionid" value="<%=Encode.forHtmlAttribute(moduleid)%>">
-            <input type="hidden" name="parentAjaxId" value="<%=Encode.forHtmlAttribute(parentAjaxId)%>">
-            <input type="hidden" name="curUser" value="<%=Encode.forHtmlAttribute(curUser)%>">
-            <input type="hidden" name="appointmentNo" value="<%=Encode.forHtmlAttribute(formdata.getAppointmentNo())%>"/>
+            <input type="hidden" name="function" value="<e:forHtmlAttribute value='<%= formdata.getFunction() %>' />">
+            <input type="hidden" name="functionId" value="<e:forHtmlAttribute value='<%= formdata.getFunctionId() %>' />">
+            <input type="hidden" name="functionid" value="<e:forHtmlAttribute value='<%= moduleid %>' />">
+            <input type="hidden" name="parentAjaxId" value="<e:forHtmlAttribute value='<%= parentAjaxId %>' />">
+            <input type="hidden" name="curUser" value="<e:forHtmlAttribute value='<%= curUser %>' />">
+            <input type="hidden" name="appointmentNo" value="<e:forHtmlAttribute value='<%= formdata.getAppointmentNo() %>' />"/>
 
             <div class="mb-3">
                 <label for="docType"><fmt:message key="dms.addDocument.labelType"/></label>
@@ -312,8 +310,8 @@
                         <%
                             for (int i = 0; i < doctypes.size(); i++) {
                                 String doctype = (String) doctypes.get(i); %>
-                        <option value="<%=Encode.forHtmlAttribute(doctype)%>"
-                                <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><%=Encode.forHtmlContent(doctype)%>
+                        <option value="<e:forHtmlAttribute value='<%= doctype %>' />"
+                                <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><e:forHtmlContent value='<%= doctype %>' />
                         </option>
                         <%}%>
                     </select>
@@ -328,16 +326,16 @@
                 <label for="docDesc"><fmt:message key="dms.addDocument.labelDescription"/></label>
                 <input type="text"
                        class="form-control<c:if test='${ docerrors["descmissing"] != null}'> is-invalid</c:if>"
-                       id="docDesc" name="docDesc" value="<%=Encode.forHtmlAttribute(formdata.getDocDesc())%>"
+                       id="docDesc" name="docDesc" value="<e:forHtmlContent value='<%= formdata.getDocDesc() %>' />"
                        onfocus="checkDefaultValue(this)"/>
-                <input type="hidden" name="docCreator" value="<%=Encode.forHtmlAttribute(formdata.getDocCreator())%>"/>
+                <input type="hidden" name="docCreator" value="<e:forHtmlAttribute value='<%= formdata.getDocCreator() %>' />"/>
             </div>
 
             <div class="mb-3">
                 <label for="observationDate"><fmt:message key="dms.addDocument.labelObservationDate"/></label>
                 <input class="form-control" type="date" name="observationDate" id="observationDate"
-                       value="<%=Encode.forHtmlAttribute(formdata.getObservationDate())%>"
-                       onclick="checkDefaultDate(this, '<%=Encode.forJavaScriptAttribute(UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd"))%>')">
+                       value="<e:forHtmlAttribute value='<%= formdata.getObservationDate() %>' />"
+                       onclick="checkDefaultDate(this, '<e:forJavaScriptAttribute value='<%= UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd") %>' />')">
             </div>
 
             <div class="mb-3">
@@ -352,7 +350,7 @@
                                 consult1Shown = true;
                             }
                     %>
-                    <option value="<%=Encode.forHtmlAttribute(reportClass)%>"><%=Encode.forHtmlContent(reportClass)%>
+                    <option value="<e:forHtmlAttribute value='<%= reportClass %>' />"><e:forHtmlContent value='<%= reportClass %>' />
                     </option>
                     <% } %>
                 </select>
@@ -393,7 +391,7 @@
                        value="<fmt:message key='dms.addDocument.btnAdd'/>">
                 <input type="button" name="Button" class="btn btn-warning"
                        value="<fmt:message key='global.btnCancel'/>"
-                       onclick="window.location='<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>'">
+                       onclick="window.location='<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=<e:forUriComponent value='<%= module %>' />&functionid=<e:forUriComponent value='<%= moduleid %>' />'">
             </div>
         </form>
     </div>
@@ -412,12 +410,12 @@
                 </div>
             </c:forEach>
 
-            <input type="hidden" name="function" value="<%=Encode.forHtmlAttribute(formdata.getFunction())%>">
-            <input type="hidden" name="functionId" value="<%=Encode.forHtmlAttribute(formdata.getFunctionId())%>">
-            <input type="hidden" name="functionid" value="<%=Encode.forHtmlAttribute(moduleid)%>">
-            <input type="hidden" name="observationDate" value="<%=Encode.forHtmlAttribute(formdata.getObservationDate())%>">
-            <input type="hidden" name="appointmentNo" value="<%=Encode.forHtmlAttribute(formdata.getAppointmentNo())%>"/>
-            <input type="hidden" name="docCreator" value="<%=Encode.forHtmlAttribute(formdata.getDocCreator())%>">
+            <input type="hidden" name="function" value="<e:forHtmlAttribute value='<%= formdata.getFunction() %>' />">
+            <input type="hidden" name="functionId" value="<e:forHtmlAttribute value='<%= formdata.getFunctionId() %>' />">
+            <input type="hidden" name="functionid" value="<e:forHtmlAttribute value='<%= moduleid %>' />">
+            <input type="hidden" name="observationDate" value="<e:forHtmlAttribute value='<%= formdata.getObservationDate() %>' />">
+            <input type="hidden" name="appointmentNo" value="<e:forHtmlAttribute value='<%= formdata.getAppointmentNo() %>' />"/>
+            <input type="hidden" name="docCreator" value="<e:forHtmlAttribute value='<%= formdata.getDocCreator() %>' />">
 
             <div class="mb-3">
                 <label for="docType1"><fmt:message key="dms.addDocument.labelLinkType"/></label>
@@ -427,8 +425,8 @@
                         <%
                             for (int i1 = 0; i1 < doctypes.size(); i1++) {
                                 String doctype = (String) doctypes.get(i1); %>
-                        <option value="<%=Encode.forHtmlAttribute(doctype)%>"
-                                <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><%=Encode.forHtmlContent(doctype)%>
+                        <option value="<e:forHtmlAttribute value='<%= doctype %>' />"
+                                <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><e:forHtmlContent value='<%= doctype %>' />
                         </option>
                         <%}%>
                     </select>
@@ -443,7 +441,7 @@
                 <label for="docDesc2"><fmt:message key="dms.addDocument.labelDescription"/></label>
                 <input type="text" name="docDesc" id="docDesc2"
                        class="form-control<c:if test="${ linkhtmlerrors['descmissing'] != null }"> is-invalid</c:if>"
-                       value="<%=Encode.forHtmlAttribute(formdata.getDocDesc())%>" onfocus="checkDefaultValue(this)">
+                       value="<e:forHtmlContent value='<%= formdata.getDocDesc() %>' />" onfocus="checkDefaultValue(this)">
             </div>
 
             <div class="mb-3">
@@ -458,7 +456,7 @@
                                 consult2Shown = true;
                             }
                     %>
-                    <option value="<%=Encode.forHtmlAttribute(reportClass)%>"><%=Encode.forHtmlContent(reportClass)%>
+                    <option value="<e:forHtmlAttribute value='<%= reportClass %>' />"><e:forHtmlContent value='<%= reportClass %>' />
                     </option>
                     <% } %>
                 </select>
@@ -484,7 +482,7 @@
                 <label for="html"><fmt:message key="dms.addDocument.labelLink"/></label>
                 <div class="input-group">
                     <input type="text" id="html" name="html" class="form-control"
-                           value="<%=Encode.forHtmlAttribute(formdata.getHtml())%>" onfocus="checkDefaultValue(this)">
+                           value="<e:forHtmlAttribute value='<%= formdata.getHtml() %>' />" onfocus="checkDefaultValue(this)">
                     <input type="hidden" name="mode" value="addLink">
                     <input class="btn btn-primary" type="submit" name="Submit"
                            value="<fmt:message key='dms.addDocument.btnAdd'/>">
@@ -494,7 +492,7 @@
             <div class="d-flex gap-2 mb-2">
                 <input class="btn btn-warning" type="button" name="Button"
                        value="<fmt:message key='global.btnCancel'/>"
-                       onclick="window.location='<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>'">
+                       onclick="window.location='<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=<e:forUriComponent value='<%= module %>' />&functionid=<e:forUriComponent value='<%= moduleid %>' />'">
             </div>
 
         </form>

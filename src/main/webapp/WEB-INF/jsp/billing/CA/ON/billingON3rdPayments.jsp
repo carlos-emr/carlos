@@ -50,7 +50,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page import="java.math.*,java.util.*,java.sql.*,io.github.carlos_emr.*,java.net.*,java.text.*"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site,io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
@@ -72,8 +72,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingPaymentType" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
     List<String> errors = new ArrayList<String>();
     String datetime = new SimpleDateFormat("yyyy-MM-dd").format(Calendar.getInstance().getTime());
@@ -280,7 +278,7 @@
 <c:if test="${not empty paymentTypeList}">
     <form name="editPayment" id="editPayment" method="POST" action="">
         <input type="hidden" name="method" value="savePayment"/>
-        <input type="hidden" name="billingNo" value="<%= Encode.forHtmlAttribute(billingNo) %>"/>
+        <input type="hidden" name="billingNo" value="<e:forHtmlAttribute value='<%= billingNo %>' />"/>
         <input type="hidden" name="id" id="paymentId" value=""/>
         <table border=0 cellspacing=0 cellpadding=0 width="100%">
             <tr bgcolor="#CCCCFF">

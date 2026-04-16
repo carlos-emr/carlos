@@ -59,10 +59,9 @@
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*,java.net.*, java.sql.*, io.github.carlos_emr.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ClinicNbr" %>
@@ -706,7 +705,7 @@
         %>
         <tr bgcolor=<%=ctlCount % 2 == 0 ? "#FFFFFF" : "#EEEEFF"%>>
             <td colspan="2"><b><font size="-2" color="#7A388D"><a
-                    href="billingShortcutPg1.jsp?billForm=<%=ctlcode%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no"))) %>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&user_no=<%=user_no%>&apptProvider_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no"))) %>&providerview=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no"))) %>&appointment_date=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date"))) %>&status=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status"))) %>&start_time=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time"))) %>&bNewForm=1"
+                    href="billingShortcutPg1.jsp?billForm=<%=ctlcode%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")) %>' />&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' />&user_no=<%=user_no%>&apptProvider_no=<e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' />&providerview=<e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' />&appointment_date=<e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' />&status=<e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")) %>' />&start_time=<e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' />&bNewForm=1"
                     onClick="showHideLayers('Layer1','','hide');"><%=ctlcodename%>
             </a></font></b></td>
         </tr>
@@ -777,7 +776,7 @@
             <td>
                 <table border="0" cellspacing="0" cellpadding="0" width="100%">
                     <tr bgcolor="#33CCCC">
-                        <td nowrap bgcolor="#FFCC99" width="10%" align="center"><%= Encode.forHtml(demoname) %>
+                        <td nowrap bgcolor="#FFCC99" width="10%" align="center"><e:forHtmlContent value='<%= demoname %>' />
                         </td>
                         <td bgcolor="#99CCCC" align="center"><font color="black"><%= msg %>
                         </font>
@@ -798,34 +797,34 @@
                                     <td nowrap width="30%" align="center"><a id="trigger"
                                                                              href="#">[<fmt:message key="billing.servicedate"/>]</a><br>
                                         <textarea name="billDate" cols="11" rows="5"
-                                                  readonly><%= Encode.forHtml(request.getParameter("billDate") != null ? request.getParameter("billDate") : "") %></textarea>
+                                                  readonly><e:forHtmlContent value='<%= request.getParameter("billDate") != null ? request.getParameter("billDate") : "" %>' /></textarea>
                                     </td>
                                     <td nowrap align="center"><fmt:message key="billing.billingCorrection.formServiceCode"/> x <fmt:message key="billing.billingCorrection.formUnit"/><br>
                                         <input type="text" name="serviceDate0" size="5" maxlength="5"
-                                               value="<%= Encode.forHtmlAttribute(request.getParameter("serviceDate0")!=null?request.getParameter("serviceDate0"):"") %>">x
+                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceDate0")!=null?request.getParameter("serviceDate0"):"" %>' />">x
                                         <input type="text" name="serviceUnit0" size="2" maxlength="2"
                                                style=""
-                                               value="<%= Encode.forHtmlAttribute(request.getParameter("serviceUnit0")!=null?request.getParameter("serviceUnit0"):"") %>"><br>
+                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceUnit0")!=null?request.getParameter("serviceUnit0"):"" %>' />"><br>
                                         <input type="text" name="serviceDate1" size="5" maxlength="5"
-                                               value="<%= Encode.forHtmlAttribute(request.getParameter("serviceDate1")!=null?request.getParameter("serviceDate1"):"") %>">x
+                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceDate1")!=null?request.getParameter("serviceDate1"):"" %>' />">x
                                         <input type="text" name="serviceUnit1" size="2" maxlength="2"
                                                style=""
-                                               value="<%= Encode.forHtmlAttribute(request.getParameter("serviceUnit1")!=null?request.getParameter("serviceUnit1"):"") %>"><br>
+                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceUnit1")!=null?request.getParameter("serviceUnit1"):"" %>' />"><br>
                                         <input type="text" name="serviceDate2" size="5" maxlength="5"
-                                               value="<%= Encode.forHtmlAttribute(request.getParameter("serviceDate2")!=null?request.getParameter("serviceDate2"):"") %>">x
+                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceDate2")!=null?request.getParameter("serviceDate2"):"" %>' />">x
                                         <input type="text" name="serviceUnit2" size="2" maxlength="2"
                                                style=""
-                                               value="<%= Encode.forHtmlAttribute(request.getParameter("serviceUnit2")!=null?request.getParameter("serviceUnit2"):"") %>"><br>
+                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceUnit2")!=null?request.getParameter("serviceUnit2"):"" %>' />"><br>
                                         <input type="text" name="serviceDate3" size="5" maxlength="5"
-                                               value="<%= Encode.forHtmlAttribute(request.getParameter("serviceDate3")!=null?request.getParameter("serviceDate3"):"") %>">x
+                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceDate3")!=null?request.getParameter("serviceDate3"):"" %>' />">x
                                         <input type="text" name="serviceUnit3" size="2" maxlength="2"
                                                style=""
-                                               value="<%= Encode.forHtmlAttribute(request.getParameter("serviceUnit3")!=null?request.getParameter("serviceUnit3"):"") %>"><br>
+                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceUnit3")!=null?request.getParameter("serviceUnit3"):"" %>' />"><br>
                                         <input type="text" name="serviceDate4" size="5" maxlength="5"
-                                               value="<%= Encode.forHtmlAttribute(request.getParameter("serviceDate4")!=null?request.getParameter("serviceDate4"):"") %>">x
+                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceDate4")!=null?request.getParameter("serviceDate4"):"" %>' />">x
                                         <input type="text" name="serviceUnit4" size="2" maxlength="2"
                                                style=""
-                                               value="<%= Encode.forHtmlAttribute(request.getParameter("serviceUnit4")!=null?request.getParameter("serviceUnit4"):"") %>">
+                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceUnit4")!=null?request.getParameter("serviceUnit4"):"" %>' />">
                                     </td>
                                     <td valign="top">
                                         <table border="0" cellspacing="0" cellpadding="0" width="100%">
@@ -834,7 +833,7 @@
                                                        onClick="showHideLayers('Layer2','','show','Layer1','','hide'); return false;"><fmt:message key="billing.hospitalBilling.formDx"/></a><br>
                                                     <input type="text" name="dxCode" size="5" maxlength="5"
                                                            onDblClick="dxScriptAttach('dxCode')"
-                                                           value="<%= Encode.forHtmlAttribute(request.getParameter("dxCode")!=null?request.getParameter("dxCode"):dxCode) %>">
+                                                           value="<e:forHtmlAttribute value='<%= request.getParameter("dxCode")!=null?request.getParameter("dxCode"):dxCode %>' />">
                                                 </td>
                                                 <td>Cal.% mode<br>
                                                     <select name="rulePerc">
@@ -855,9 +854,9 @@
                                                 href="javascript:referralScriptAttach2('referralCode','referralDocName')"><fmt:message key="billing.hospitalBilling.btnReferral"/>
                                         </a> <input type="text" name="referralCode" size="5"
                                                     maxlength="6"
-                                                    value="<%= Encode.forHtmlAttribute(request.getParameter("referralCode")!=null?request.getParameter("referralCode"):r_doctor_ohip) %>"><br>
+                                                    value="<e:forHtmlAttribute value='<%= request.getParameter("referralCode")!=null?request.getParameter("referralCode"):r_doctor_ohip %>' />"><br>
                                         <input type="text" name="referralDocName" size="22" maxlength="30"
-                                               value="<%= Encode.forHtmlAttribute(request.getParameter("referralDocName")!=null?request.getParameter("referralDocName"):r_doctor) %>">
+                                               value="<e:forHtmlAttribute value='<%= request.getParameter("referralDocName")!=null?request.getParameter("referralDocName"):r_doctor %>' />">
                                     </td>
                                 </tr>
                             </table>
@@ -899,7 +898,7 @@
                                         %>
                                     </select></td>
                                     <td nowrap width="30%" align="center"><b><fmt:message key="billing.hospitalBilling.frmAssgnPhysician"/></b></td>
-                                    <td width="20%"><%= Encode.forHtml(providerBean.getProperty(assgProvider_no, "")) %>
+                                    <td width="20%"><e:forHtmlContent value='<%= providerBean.getProperty(assgProvider_no, "") %>' />
                                     </td>
                                 </tr>
                                 <tr>
@@ -1086,7 +1085,7 @@
                                             } %>
                                         <!--input type="text" name="xml_vdate" id="xml_vdate" value="<%--=request.getParameter("xml_vdate")!=null? request.getParameter("xml_vdate"):visitdate--%>" size='10' maxlength='10' -->
                                         <input type="text" name="xml_vdate" id="xml_vdate"
-                                               value="<%= Encode.forHtmlAttribute(request.getParameter("xml_vdate")!=null? request.getParameter("xml_vdate"):admDate) %>"
+                                               value="<e:forHtmlAttribute value='<%= request.getParameter("xml_vdate")!=null? request.getParameter("xml_vdate"):admDate %>' />"
                                                size='10' maxlength='10'> <img
                                             src="<%= request.getContextPath() %>/images/cal.gif" id="xml_vdate_cal"></td>
                                     <td colspan="2"><a href="#"
@@ -1142,7 +1141,7 @@
                                                 id="sc<%=(""+i).substring(0,1)+serviceCode%>"
                                                 onDblClick="onDblClickServiceCode(this)"><%=serviceCode%></span></font></b>
                                         <input type="text" name="unit_xml_<%=serviceCode%>"
-                                               value="<%= Encode.forHtmlAttribute(request.getParameter("unit_xml_"+serviceCode)!=null? request.getParameter("unit_xml_"+serviceCode):"") %>"
+                                               value="<e:forHtmlAttribute value='<%= request.getParameter("unit_xml_"+serviceCode)!=null? request.getParameter("unit_xml_"+serviceCode):"" %>' />"
                                                size="1" maxlength="2" style="width: 20px; height: 12px;"></td>
                                     <td <%=serviceDesc.length() > 30 ? "title=\"" + serviceDesc + "\"" : ""%>><font
                                             size="-1"><%=serviceDesc.length() > 30 ? serviceDesc.substring(0, 30) + "..." : serviceDesc%>
@@ -1193,7 +1192,7 @@
                                                 id="sc<%=(""+i).substring(0,1)+serviceCode%>"
                                                 onDblClick="onDblClickServiceCode(this)"><%=serviceCode%></span></font></b>
                                         <input type="text" name="unit_xml_<%=serviceCode%>"
-                                               value="<%= Encode.forHtmlAttribute(request.getParameter("unit_xml_"+serviceCode)!=null? request.getParameter("unit_xml_"+serviceCode):"") %>"
+                                               value="<e:forHtmlAttribute value='<%= request.getParameter("unit_xml_"+serviceCode)!=null? request.getParameter("unit_xml_"+serviceCode):"" %>' />"
                                                size="1" maxlength="2" style="width: 20px; height: 12px;"/></td>
                                     <td <%=serviceDesc.length() > 30 ? "title=\"" + serviceDesc + "\"" : ""%>><font
                                             size="-1"><%=serviceDesc.length() > 30 ? serviceDesc.substring(0, 30) + "..." : serviceDesc%>
@@ -1244,7 +1243,7 @@
                                                 id="sc<%=(""+i).substring(0,1)+serviceCode%>"
                                                 onDblClick="onDblClickServiceCode(this)"><%=serviceCode%></span></font></b>
                                         <input type="text" name="unit_xml_<%=serviceCode%>"
-                                               value="<%= Encode.forHtmlAttribute(request.getParameter("unit_xml_"+serviceCode)!=null? request.getParameter("unit_xml_"+serviceCode):"") %>"
+                                               value="<e:forHtmlAttribute value='<%= request.getParameter("unit_xml_"+serviceCode)!=null? request.getParameter("unit_xml_"+serviceCode):"" %>' />"
                                                size="1" maxlength="2" style="width: 20px; height: 12px;"/></td>
                                     <td <%=serviceDesc.length() > 30 ? "title=\"" + serviceDesc + "\"" : ""%>><font
                                             size="-1"><%=serviceDesc.length() > 30 ? serviceDesc.substring(0, 30) + "..." : serviceDesc%>
@@ -1272,29 +1271,29 @@
         </tr>
 
         <input type="hidden" name="clinic_no" value="<%=clinicNo%>"/>
-        <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demo_no)%>"/>
-        <input type="hidden" name="appointment_no" value="<%=Encode.forHtmlAttribute(appt_no)%>"/>
+        <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demo_no %>' />"/>
+        <input type="hidden" name="appointment_no" value="<e:forHtmlAttribute value='<%= appt_no %>' />"/>
 
         <input type="hidden" name="ohip_version" value="V03G"/>
         <input type="hidden" name="hin" value="<%=demoHIN%>"/>
 
         <input type="hidden" name="start_time"
-               value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time"))) %>"/>
+               value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' />"/>
 
         <input type="hidden" name="demographic_dob" value="<%=demoDOB%>"/>
 
         <input type="hidden" name="apptProvider_no"
-               value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no"))) %>"/>
+               value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' />"/>
         <input type="hidden" name="asstProvider_no"
-               value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("asstProvider_no"))) %>"/>
+               value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("asstProvider_no")) %>' />"/>
 
-        <input type="hidden" name="demographic_name" value="<%=Encode.forHtmlAttribute(demoname)%>"/>
-        <input type="hidden" name="providerview" value="<%=Encode.forHtmlAttribute(providerview)%>"/>
+        <input type="hidden" name="demographic_name" value="<e:forHtmlAttribute value='<%= demoname %>' />"/>
+        <input type="hidden" name="providerview" value="<e:forHtmlAttribute value='<%= providerview %>' />"/>
         <input type="hidden" name="appointment_date"
-               value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date"))) %>"/>
+               value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' />"/>
         <input type="hidden" name="assgProvider_no"
-               value="<%=Encode.forHtmlAttribute(assgProvider_no)%>"/>
-        <input type="hidden" name="billForm" value="<%=Encode.forHtmlAttribute(ctlBillForm)%>"/>
+               value="<e:forHtmlAttribute value='<%= assgProvider_no %>' />"/>
+        <input type="hidden" name="billForm" value="<e:forHtmlAttribute value='<%= ctlBillForm %>' />"/>
 
     </table>
 </form>
@@ -1306,7 +1305,7 @@
 <table border="0" cellpadding="0" cellspacing="2" width="100%"
        bgcolor="#CCCCFF">
     <tr>
-        <td colspan="6" class="RowTop"><%= Encode.forHtml(demoname) %> - <b><fmt:message key="billing.hospitalBilling.frmBillHistory"/>
+        <td colspan="6" class="RowTop"><e:forHtmlContent value='<%= demoname %>' /> - <b><fmt:message key="billing.hospitalBilling.frmBillHistory"/>
         </b> <fmt:message key="billing.hospitalBilling.frmLastFive"/></td>
     </tr>
     <tr>
@@ -1352,7 +1351,7 @@
 <table border="0" cellpadding="1" cellspacing="2" width="100%"
        class="myIvory">
     <tr class="myYellow">
-        <td colspan="6"><%=Encode.forHtml(demoname)%> - <b><fmt:message key="billing.hospitalBilling.frmBillHistory"/></b>
+        <td colspan="6"><e:forHtmlContent value='<%= demoname %>' /> - <b><fmt:message key="billing.hospitalBilling.frmBillHistory"/></b>
             <fmt:message key="billing.hospitalBilling.frmLastFive"/>
         </td>
     </tr>

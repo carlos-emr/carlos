@@ -48,7 +48,6 @@
     String curUser_no = (String) session.getAttribute("user");
 %>
 <%@ page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -78,7 +77,7 @@
         function CodeAttach(File0, File1, File2) {
 
             self.close();
-            self.opener.document["<%= Encode.forJavaScript(StringUtils.noNull(formName)) %>"]["<%= Encode.forJavaScript(StringUtils.noNull(formElement)) %>"].value = File0;
+            self.opener.document["<e:forJavaScriptBlock value='<%= StringUtils.noNull(formName) %>' />"]["<e:forJavaScriptBlock value='<%= StringUtils.noNull(formElement) %>' />"].value = File0;
         }
 
         <%}else{%>
@@ -133,7 +132,7 @@
 %>
 <script LANGUAGE="JavaScript">
     <!--
-    CodeAttach('<%=Encode.forJavaScript(param[0])%>', '<%=Encode.forJavaScript(param[1])%>', '<%=Encode.forJavaScript(param[2])%>');
+    CodeAttach('<e:forJavaScriptBlock value='<%= param[0] %>' />', '<e:forJavaScriptBlock value='<%= param[1] %>' />', '<e:forJavaScriptBlock value='<%= param[2] %>' />');
     -->
 
 </script>

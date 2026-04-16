@@ -27,8 +27,8 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri='jakarta.tags.core' prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page import="java.util.List" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <html>
@@ -120,21 +120,21 @@
             <div class="col-md-5">
                 Patient Name: <br>
                 <div class="input-group">
-                    <input class="form-control" id="nameForlooksOnly" type="text" value="<%=Encode.forHtmlAttribute(name)%>">
+                    <input class="form-control" id="nameForlooksOnly" type="text" value="<e:forHtmlAttribute value='<%= name %>' />">
                     <button class="btn btn-primary" type="button" value="Search" onclick="demographicSearch()"><i
                             class="fa-solid fa-magnifying-glass"></i></button>
                 </div>
             </div>
 
-            <input type="hidden" name="firstNameParam" id="fname" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("firstNameParam"))) %>"/>
-            <input type="hidden" name="lastNameParam" id="lname" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("lastNameParam"))) %>"/>
+            <input type="hidden" name="firstNameParam" id="fname" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("firstNameParam")) %>' />"/>
+            <input type="hidden" name="lastNameParam" id="lname" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("lastNameParam")) %>' />"/>
 
 
             <div class="col-md-2">
                 <label>Start Date:</label>
                 <div class="input-group">
                     <input type="text" class="form-control" style="width:90px" name="fromDateParam" id="fromDateParam"
-                           value="<%= Encode.forHtmlAttribute(request.getAttribute("fromDateParam") != null ? (String)request.getAttribute("fromDateParam") : "") %>"
+                           value="<e:forHtmlAttribute value='<%= request.getAttribute("fromDateParam") != null ? (String)request.getAttribute("fromDateParam") : "" %>' />"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -145,7 +145,7 @@
                 <label>End Date:</label>
                 <div class="input-group">
                     <input type="text" class="form-control" style="width:90px" name="toDateParam" id="toDateParam"
-                           value="<%= Encode.forHtmlAttribute(request.getAttribute("toDateParam") != null ? (String)request.getAttribute("toDateParam") : "") %>"
+                           value="<e:forHtmlAttribute value='<%= request.getAttribute("toDateParam") != null ? (String)request.getAttribute("toDateParam") : "" %>' />"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -171,7 +171,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= Encode.forHtml(error) %></li>
+                <li><e:forHtmlContent value='<%= error %>' /></li>
             <% } %>
         </ul>
     </div>

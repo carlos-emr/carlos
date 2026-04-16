@@ -48,7 +48,6 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <html>
@@ -85,7 +84,7 @@
 
                 <table class="TopStatusBar">
                     <tr>
-                        <td>Edit Billing Code <%= Encode.forHtml(StringUtils.noNull(request.getParameter("code"))) %> -- <%= Encode.forHtml(StringUtils.noNull(request.getParameter("desc"))) %>
+                        <td>Edit Billing Code <e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("code")) %>' /> -- <e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("desc")) %>' />
                         </td>
                         <td>&nbsp;</td>
                         <td style="text-align: right">
@@ -103,7 +102,7 @@
             <td class="MainTableRightColumn">
                 <table border="1" width="600px">
                     <tr>
-                        <th colspan="5"><%= Encode.forHtml(StringUtils.noNull(request.getParameter("code"))) %> -- <%= Encode.forHtml(StringUtils.noNull(request.getParameter("desc"))) %>
+                        <th colspan="5"><e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("code")) %>' /> -- <e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("desc")) %>' />
                         </th>
                     </tr>
                     <tr>
@@ -122,26 +121,26 @@
                     %>
                     <tr>
 
-                        <td><%=Encode.forHtml(String.valueOf(bs.getBillingserviceNo()))%>
-                            <input type="hidden" name="id<%=i%>" id="id<%=i%>" value="<%=Encode.forHtmlAttribute(String.valueOf(bs.getBillingserviceNo()))%>"/>
+                        <td><e:forHtmlContent value='<%= String.valueOf(bs.getBillingserviceNo()) %>' />
+                            <input type="hidden" name="id<%=i%>" id="id<%=i%>" value="<e:forHtmlAttribute value='<%= String.valueOf(bs.getBillingserviceNo()) %>' />"/>
                         </td>
                             <%-- td><%=bs.getDescription()%></td --%>
-                        <td><span id="val<%=i%>"><%=Encode.forHtml(bs.getValue())%></span>
-                            <input type="text" name="value" id="ival<%=i%>" value="<%=Encode.forHtmlAttribute(bs.getValue())%>"
+                        <td><span id="val<%=i%>"><e:forHtmlContent value='<%= bs.getValue() %>' /></span>
+                            <input type="text" name="value" id="ival<%=i%>" value="<e:forHtmlAttribute value='<%= bs.getValue() %>' />"
                                    style="display:none;"/>
                         </td>
-                        <td><span id="billservice<%=i%>"><%=Encode.forHtml(String.valueOf(bs.getBillingserviceDate()))%></span>
+                        <td><span id="billservice<%=i%>"><e:forHtmlContent value='<%= String.valueOf(bs.getBillingserviceDate()) %>' /></span>
                             <input type="text" name="billservice" id="ibillservice<%=i%>"
-                                   value="<%=Encode.forHtmlAttribute(String.valueOf(bs.getBillingserviceDate()))%>" style="display:none;"/>
+                                   value="<e:forHtmlAttribute value='<%= String.valueOf(bs.getBillingserviceDate()) %>' />" style="display:none;"/>
                         </td>
-                        <td><span id="termdate<%=i%>"><%=Encode.forHtml(String.valueOf(bs.getTerminationDate()))%></span>
-                            <input type="text" name="termdate" id="itermdate<%=i%>" value="<%=Encode.forHtmlAttribute(String.valueOf(bs.getTerminationDate()))%>"
+                        <td><span id="termdate<%=i%>"><e:forHtmlContent value='<%= String.valueOf(bs.getTerminationDate()) %>' /></span>
+                            <input type="text" name="termdate" id="itermdate<%=i%>" value="<e:forHtmlAttribute value='<%= String.valueOf(bs.getTerminationDate()) %>' />"
                                    style="display:none;"/>
                         </td>
                         <td><a id="edit<%=i%>" href="javascript: void(0);"
-                               onclick="editCode('<%=i%>','<%=Encode.forJavaScript(String.valueOf(bs.getBillingserviceNo()))%>','<%=Encode.forJavaScript(bs.getValue())%>','<%=Encode.forJavaScript(String.valueOf(bs.getBillingserviceDate()))%>','<%=Encode.forJavaScript(String.valueOf(bs.getTerminationDate()))%>');">edit</a>
+                               onclick="editCode('<%=i%>','<e:forJavaScriptAttribute value='<%= String.valueOf(bs.getBillingserviceNo()) %>' />','<e:forJavaScriptAttribute value='<%= bs.getValue() %>' />','<e:forJavaScriptAttribute value='<%= String.valueOf(bs.getBillingserviceDate()) %>' />','<e:forJavaScriptAttribute value='<%= String.valueOf(bs.getTerminationDate()) %>' />');">edit</a>
                             <a id="save<%=i%>" style="display:none;" href="javascript: void(0);"
-                               onclick="saveCode('<%=i%>','<%=Encode.forJavaScript(String.valueOf(bs.getBillingserviceNo()))%>','<%=Encode.forJavaScript(bs.getValue())%>','<%=Encode.forJavaScript(String.valueOf(bs.getBillingserviceDate()))%>','<%=Encode.forJavaScript(String.valueOf(bs.getTerminationDate()))%>');">save</a>
+                               onclick="saveCode('<%=i%>','<e:forJavaScriptAttribute value='<%= String.valueOf(bs.getBillingserviceNo()) %>' />','<e:forJavaScriptAttribute value='<%= bs.getValue() %>' />','<e:forJavaScriptAttribute value='<%= String.valueOf(bs.getBillingserviceDate()) %>' />','<e:forJavaScriptAttribute value='<%= String.valueOf(bs.getTerminationDate()) %>' />');">save</a>
                             <span id="working<%=i%>" style="display:none;">...</span>
                         </td>
                     </tr>
@@ -150,7 +149,7 @@
 
 
                 <form action="${pageContext.request.contextPath}/billing/CA/BC/billingEditCode" method="post">
-                    <input type="hidden" name="whereTo" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("whereTo"))) %>"/>
+                    <input type="hidden" name="whereTo" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("whereTo")) %>' />"/>
                     <input type="hidden" name="method" value="returnToSearch"/>
                     <input type="submit" name="submit" value="Back"/>
                 </form>

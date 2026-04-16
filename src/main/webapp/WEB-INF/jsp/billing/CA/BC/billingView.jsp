@@ -57,7 +57,6 @@
 <%@ page import="java.util.*" %>
 <%@ page
         import="io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingViewBean" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>
@@ -241,12 +240,12 @@
                 </tr>
                 <tr>
                     <td width="12%" height="16">Patient Name:</td>
-                    <td width="12%"><%=Encode.forHtml(bean.getPatientLastName() + ", " + bean.getPatientFirstName())%>&nbsp;</td>
+                    <td width="12%"><e:forHtmlContent value='<%= bean.getPatientLastName() + ", " + bean.getPatientFirstName() %>' />&nbsp;</td>
                     <td width="16%">Patient PHN:</td>
-                    <td width="17%"><%=Encode.forHtmlContent(bean.getPatientPHN())%>
+                    <td width="17%"><e:forHtmlContent value='<%= bean.getPatientPHN() %>' />
                     </td>
                     <td width="19%">Health Card Type:</td>
-                    <td width="24%"><%=Encode.forHtmlContent(bean.getPatientHCType())%>
+                    <td width="24%"><e:forHtmlContent value='<%= bean.getPatientHCType() %>' />
                     </td>
                 </tr>
                 <tr>
@@ -262,13 +261,13 @@
                 </tr>
                 <tr>
                     <td height="16">Patient Address:</td>
-                    <td><%=Encode.forHtmlContent(bean.getPatientAddress1())%>
+                    <td><e:forHtmlContent value='<%= bean.getPatientAddress1() %>' />
                     </td>
                     <td>City:</td>
-                    <td><%=Encode.forHtmlContent(bean.getPatientAddress2())%>
+                    <td><e:forHtmlContent value='<%= bean.getPatientAddress2() %>' />
                     </td>
                     <td>Postal:</td>
-                    <td><%=Encode.forHtmlContent(bean.getPatientPostal())%>
+                    <td><e:forHtmlContent value='<%= bean.getPatientPostal() %>' />
                     </td>
                 </tr>
                 <tr>
@@ -310,13 +309,13 @@
                 </tr>
                 <tr>
                     <td height="16">Billing Provider:</td>
-                    <td><%=Encode.forHtmlContent(billform.getProviderName(bean.getBillingProvider()))%>
+                    <td><e:forHtmlContent value='<%= billform.getProviderName(bean.getBillingProvider()) %>' />
                     </td>
                     <td>Appointment Provider:</td>
-                    <td><%=Encode.forHtmlContent(billform.getProviderName(bean.getApptProviderNo()))%>
+                    <td><e:forHtmlContent value='<%= billform.getProviderName(bean.getApptProviderNo()) %>' />
                     </td>
                     <td>Creator:</td>
-                    <td><%=Encode.forHtmlContent(billform.getProviderName(bean.getCreator()))%>
+                    <td><e:forHtmlContent value='<%= billform.getProviderName(bean.getCreator()) %>' />
                     </td>
                 </tr>
                 <tr>
@@ -411,7 +410,7 @@
                                 <td height="14" colspan="4">Correspondence Note</td>
                             </tr>
                             <tr>
-                                <td height="14" colspan="4"><%=Encode.forHtmlContent(bean.getMSPBillingNote())%>
+                                <td height="14" colspan="4"><e:forHtmlContent value='<%= bean.getMSPBillingNote() %>' />
                                 </td>
                             </tr>
 
@@ -419,7 +418,7 @@
                                 <td height="14" colspan="4">Messages</td>
                             </tr>
                             <tr>
-                                <td height="14" colspan="4"><%=Encode.forHtmlContent(bean.getMessageNotes())%>
+                                <td height="14" colspan="4"><e:forHtmlContent value='<%= bean.getMessageNotes() %>' />
                                 </td>
                             </tr>
                         </table>

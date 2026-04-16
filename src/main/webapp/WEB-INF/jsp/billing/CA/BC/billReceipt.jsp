@@ -68,6 +68,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
@@ -316,15 +317,15 @@
                                                 <tr>
                                                     <td colspan="2" class="title4">
                                                         <div align="left"
-                                                             class="style1"><%=Encode.forHtmlContent(clinic.getClinicName())%>
+                                                             class="style1"><e:forHtmlContent value='<%= clinic.getClinicName() %>' />
                                                         </div>
                                                     </td>
                                                 </tr>
                                                 <tr>
                                                     <td colspan="2"
-                                                        class="address"><%=Encode.forHtmlContent(clinic.getClinicAddress())%>
-                                                        , <%=Encode.forHtmlContent(clinic.getClinicCity())%>
-                                                        , <%=Encode.forHtmlContent(clinic.getClinicProvince())%> <%=Encode.forHtmlContent(clinic.getClinicPostal())%>
+                                                        class="address"><e:forHtmlContent value='<%= clinic.getClinicAddress() %>' />
+                                                        , <e:forHtmlContent value='<%= clinic.getClinicCity() %>' />
+                                                        , <e:forHtmlContent value='<%= clinic.getClinicProvince() %>' /> <e:forHtmlContent value='<%= clinic.getClinicPostal() %>' />
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -417,10 +418,10 @@
                                                         <strong>Address:</strong>
 
                                                         <div style="padding-left: 5px;">
-                                                            <%= org.owasp.encoder.Encode.forHtml(demo.getAddress()) %><br>
-                                                            <%= org.owasp.encoder.Encode.forHtml(demo.getCity()) %>,
+                                                            <e:forHtmlContent value='<%= demo.getAddress() %>' /><br>
+                                                            <e:forHtmlContent value='<%= demo.getCity() %>' />,
                                                             <%=demo.getProvince()%><br>
-                                                            <%=Encode.forHtmlContent(demo.getPostal())%>
+                                                            <e:forHtmlContent value='<%= demo.getPostal() %>' />
                                                         </div>
                                                         <strong>Gender:</strong>
                                                         <%=demo.getSex()%>                              <br>
@@ -450,8 +451,8 @@
                                                 </tr>
                                                 <tr align="center">
                                                     <td>${e:forHtml(billingViewBean.serviceDate)}</td>
-                                                    <td><%= org.owasp.encoder.Encode.forHtml(billform.getProviderName(bean.getApptProviderNo())) %></td>
-                                                    <td><%= org.owasp.encoder.Encode.forHtml(billform.getProviderName(bean.getBillingProvider())) %></td>
+                                                    <td><e:forHtmlContent value='<%= billform.getProviderName(bean.getApptProviderNo()) %>' /></td>
+                                                    <td><e:forHtmlContent value='<%= billform.getProviderName(bean.getBillingProvider()) %>' /></td>
                                                     <td>${e:forHtml(billingViewBean.referral1)}</td>
                                                     <td>${e:forHtml(billingViewBean.referType1)}</td>
                                                     <td>${e:forHtml(billingViewBean.referral2)}</td>
@@ -485,13 +486,14 @@
                                                 <tr align="center">
                                                     <td>
                                                             <span class="rcvPayment">
-                                                            <a href="#"
-                                                               onClick="popupPage(300,450,'viewReceivePaymentAction?lineNo=<%=Encode.forJavaScriptAttribute(String.valueOf(bi.getLineNo()))%>&amp;billNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(bean.getBillingNo())))%>')">Receive Payment</a>
+                                                                                                           <c:set var="__enc_1"><e:forUriComponent value='<%= StringUtils.noNull(bean.getBillingNo()) %>' /></c:set>
+                <a href="#"
+                                                               onClick="popupPage(300,450,'viewReceivePaymentAction?lineNo=<e:forJavaScriptAttribute value='<%= String.valueOf(bi.getLineNo()) %>' />&amp;billNo=<e:forJavaScriptAttribute value='${__enc_1}' />')">Receive Payment</a>
                                                             </span>
                                                     </td>
                                                     <td><%=bi.getLineNo()%>
                                                     </td>
-                                                    <td><%=Encode.forHtmlContent(bi.getDescription())%>
+                                                    <td><e:forHtmlContent value='<%= bi.getDescription() %>' />
                                                     </td>
                                                     <td><%=bi.getServiceCode()%>
                                                     </td>
@@ -499,9 +501,9 @@
                                                     </td>
                                                     <td align="right"><%=bean.getDx1()%>&nbsp;<%=bean.getDx2()%>&nbsp;<%=bean.getDx3()%>
                                                     </td>
-                                                    <td align="right"><%=Encode.forHtml(java.text.NumberFormat.getCurrencyInstance().format(unitTotal).replace('$', ' '))%>
+                                                    <td align="right"><e:forHtmlContent value='<%= java.text.NumberFormat.getCurrencyInstance().format(unitTotal).replace("$", " ") %>' />
                                                     </td>
-                                                    <td align="right"><%=Encode.forHtml(java.text.NumberFormat.getCurrencyInstance().format(lnTotal).replace('$', ' '))%>
+                                                    <td align="right"><e:forHtmlContent value='<%= java.text.NumberFormat.getCurrencyInstance().format(lnTotal).replace("$", " ") %>' />
                                                     </td>
                                                 </tr>
                                                 <%
@@ -529,7 +531,7 @@
                                                     <td colspan="2"><%=item.getArchiveDate()%>
                                                     </td>
 
-                                                    <td align="right"><%=Encode.forHtml(java.text.NumberFormat.getCurrencyInstance().format(amtReceived * -1.0).replace('$', ' '))%>
+                                                    <td align="right"><e:forHtmlContent value='<%= java.text.NumberFormat.getCurrencyInstance().format(amtReceived * -1.0).replace("$", " ") %>' />
                                                     </td>
                                                 </tr>
                                                 <%
@@ -578,22 +580,22 @@
                                                                 <% SystemPreferences invoiceClinicInfo = systemPreferencesDao.findPreferenceByName(SystemPreferences.GENERAL_SETTINGS_KEYS.invoice_use_custom_clinic_info);
                                                                     if (invoiceClinicInfo == null || StringUtils.isNullOrEmpty(invoiceClinicInfo.getValue())) { %>
                                                                 <td class="title4">
-                                                                    <%= org.owasp.encoder.Encode.forHtml(clinic.getClinicName()) %>
+                                                                    <e:forHtmlContent value='<%= clinic.getClinicName() %>' />
                                                                 </td>
                                                             </tr>
                                                             <tr>
-                                                                <td class="address"><%= org.owasp.encoder.Encode.forHtml(clinic.getClinicAddress()+", "+clinic.getClinicCity()+", "+clinic.getClinicProvince()+" "+clinic.getClinicPostal()) %></td>
+                                                                <td class="address"><e:forHtmlContent value='<%= clinic.getClinicAddress()+", "+clinic.getClinicCity()+", "+clinic.getClinicProvince()+" "+clinic.getClinicPostal() %>' /></td>
                                                             </tr>
                                                             <tr>
-                                                                <td class="address" id="Phone"> Telephone: <%= org.owasp.encoder.Encode.forHtml(vecPhones.size() >= 1 ? vecPhones.elementAt(0) : clinic.getClinicPhone()) %></td>
+                                                                <td class="address" id="Phone"> Telephone: <e:forHtmlContent value='<%= java.util.Objects.toString(vecPhones.size() >= 1 ? vecPhones.elementAt(0) : clinic.getClinicPhone(), "") %>' /></td>
                                                             </tr>
                                                             <tr>
-                                                                <td class="address" id="Fax"> Fax: <%= org.owasp.encoder.Encode.forHtml(vecFaxes.size() >= 1 ? vecFaxes.elementAt(0) : clinic.getClinicFax()) %></td>
+                                                                <td class="address" id="Fax"> Fax: <e:forHtmlContent value='<%= java.util.Objects.toString(vecFaxes.size() >= 1 ? vecFaxes.elementAt(0) : clinic.getClinicFax(), "") %>' /></td>
                                                                 <% } else {
                                                                     SystemPreferences customInvoiceClinicInfo = systemPreferencesDao.findPreferenceByName(SystemPreferences.GENERAL_SETTINGS_KEYS.invoice_custom_clinic_info);
                                                                 %>
 
-                                                                <td class="payeeInfo"><%= org.owasp.encoder.Encode.forHtml(customInvoiceClinicInfo.getValue()) %></td>
+                                                                <td class="payeeInfo"><e:forHtmlContent value='<%= customInvoiceClinicInfo.getValue() %>' /></td>
 
                                                                 <% } %>
                                                             </tr>
@@ -601,22 +603,22 @@
                                                         </table>
                                                     </td>
                                                     <td align="right">Subtotal:</td>
-                                                    <td align="right"><%=Encode.forHtml(java.text.NumberFormat.getCurrencyInstance().format(bean.calculateSubtotal()).replace('$', ' '))%>
+                                                    <td align="right"><e:forHtmlContent value='<%= java.text.NumberFormat.getCurrencyInstance().format(bean.calculateSubtotal()).replace("$", " ") %>' />
                                                     </td>
                                                 </tr>
                                                 <tr>
                                                     <td align="right">Total:</td>
-                                                    <td align="right"><%=Encode.forHtml(java.text.NumberFormat.getCurrencyInstance().format(bean.calculateTotal()).replace('$', ' '))%>
+                                                    <td align="right"><e:forHtmlContent value='<%= java.text.NumberFormat.getCurrencyInstance().format(bean.calculateTotal()).replace("$", " ") %>' />
                                                     </td>
                                                 </tr>
                                                 <tr>
                                                     <td align="right">Payments:</td>
-                                                    <td align="right"><%=Encode.forHtml(java.text.NumberFormat.getCurrencyInstance().format(totalPayments).replace('$', ' '))%>
+                                                    <td align="right"><e:forHtmlContent value='<%= java.text.NumberFormat.getCurrencyInstance().format(totalPayments).replace("$", " ") %>' />
                                                     </td>
                                                 </tr>
                                                 <tr>
                                                     <td align="right">Refunds:</td>
-                                                    <td align="right"><%=Encode.forHtml(java.text.NumberFormat.getCurrencyInstance().format(totalRefunds).replace('$', ' '))%>
+                                                    <td align="right"><e:forHtmlContent value='<%= java.text.NumberFormat.getCurrencyInstance().format(totalRefunds).replace("$", " ") %>' />
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -628,7 +630,7 @@
                                                     </td>
                                                     <%double gtotal = bean.calculateTotal() - totalPayments - totalRefunds;%>
                                                     <td align="right">
-                                                        <strong><%=Encode.forHtml(java.text.NumberFormat.getCurrencyInstance().format(gtotal).replace('$', ' '))%>
+                                                        <strong><e:forHtmlContent value='<%= java.text.NumberFormat.getCurrencyInstance().format(gtotal).replace("$", " ") %>' />
                                                         </strong></td>
                                                 </tr>
                                                 <tr>
@@ -662,7 +664,7 @@
                                                                 <td colspan="2" align="left" valign="bottom">
                                                                     <input type="submit" name="submit" class="header" value="Update Invoice" />
                                                                     <button class="header" value="Edit Invoice"
-                                                                            onclick="editInvoice('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(bean.getBillingMasterNo()))%>')">
+                                                                            onclick="editInvoice('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(bean.getBillingMasterNo()) %>' />')">
                                                                         Edit Invoice
                                                                     </button>
                                                                     <button class="header" onclick="printInvoiceWithoutNotes()">Print</button>

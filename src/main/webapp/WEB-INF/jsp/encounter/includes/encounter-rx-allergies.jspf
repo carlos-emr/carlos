@@ -1,3 +1,4 @@
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%-- Row: Allergies and Prescriptions --%>
 <div class="encounter-card card mb-1" id="presTopTable">
     <div class="card-header d-flex align-items-center">
@@ -32,7 +33,7 @@
                 <div class="presBox" id="allergyBox">
                     <ul>
                         <c:forEach var="allergy" items="${allergies}">
-                            <li><e:forHtmlContent value="${allergy.description}"/></li>
+                            <li><e:forHtmlContent value='${allergy.description}'/></li>
                         </c:forEach>
                     </ul>
                 </div>

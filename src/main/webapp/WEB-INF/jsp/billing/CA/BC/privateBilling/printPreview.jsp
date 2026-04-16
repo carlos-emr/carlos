@@ -377,7 +377,7 @@
 
                     %>
                     <% if (!StringUtils.isNullOrEmpty(payeeInfo)) { %>
-                    <div class="payeeInfo"><%=Encode.forHtml(payeeInfo)%>
+                    <div class="payeeInfo"><e:forHtmlContent value='<%= payeeInfo %>' />
                     </div>
                     <% }
                         //Default to true when not found
@@ -388,9 +388,9 @@
                     <% SystemPreferences invoiceClinicInfo = systemPreferencesDao.findPreferenceByName(SystemPreferences.GENERAL_SETTINGS_KEYS.invoice_custom_clinic_info);
                         if (invoiceClinicInfo == null || StringUtils.isNullOrEmpty(invoiceClinicInfo.getValue())) { %>
                     <div>
-                        <%=Encode.forHtml(clinic.getClinicName())%>
+                        <e:forHtmlContent value='<%= clinic.getClinicName() %>' />
                     </div>
-                    <div><%=Encode.forHtml(clinic.getClinicAddress() + ", " + clinic.getClinicCity() + ", " + clinic.getClinicProvince() + " " + clinic.getClinicPostal())%>
+                    <div><e:forHtmlContent value='<%= clinic.getClinicAddress() + ", " + clinic.getClinicCity() + ", " + clinic.getClinicProvince() + " " + clinic.getClinicPostal() %>' />
                     </div>
                     <div id="clinicPhone">
                         Telephone: <%=vecPhones.size() >= 1 ? vecPhones.elementAt(0) : clinic.getClinicPhone()%>
@@ -399,7 +399,7 @@
                     </div>
                     <% } else { %>
 
-                    <div class="payeeInfo"><%= Encode.forHtml(invoiceClinicInfo.getValue())%>
+                    <div class="payeeInfo"><e:forHtmlContent value='<%= invoiceClinicInfo.getValue() %>' />
                     </div>
 
                     <% } %>

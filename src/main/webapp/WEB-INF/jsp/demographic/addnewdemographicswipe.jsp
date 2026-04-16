@@ -28,8 +28,6 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
-<%@ page import="org.owasp.encoder.Encode" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -97,13 +95,13 @@
         }
 
     %>
-    <td>HIN: <%=Encode.forHtml(hin)%> FName: <%=Encode.forHtml(firstname)%> LName: <%=Encode.forHtml(lastname)%>
-        DOBYEAR: <%=Encode.forHtml(dobyear)%>-<%=Encode.forHtml(dobmonth)%>-<%=Encode.forHtml(dobdate)%> End Date: <%=Encode.forHtml(endyear)%>-<%=Encode.forHtml(endmonth)%>-<%=Encode.forHtml(enddate)%>
-        EFF Date: <%=Encode.forHtml(effyear)%>-<%=Encode.forHtml(effmonth)%>-<%=Encode.forHtml(effdate)%>
+    <td>HIN: <e:forHtmlContent value='<%= hin %>' /> FName: <e:forHtmlContent value='<%= firstname %>' /> LName: <e:forHtmlContent value='<%= lastname %>' />
+        DOBYEAR: <e:forHtmlContent value='<%= dobyear %>' />-<e:forHtmlContent value='<%= dobmonth %>' />-<e:forHtmlContent value='<%= dobdate %>' /> End Date: <e:forHtmlContent value='<%= endyear %>' />-<e:forHtmlContent value='<%= endmonth %>' />-<e:forHtmlContent value='<%= enddate %>' />
+        EFF Date: <e:forHtmlContent value='<%= effyear %>' />-<e:forHtmlContent value='<%= effmonth %>' />-<e:forHtmlContent value='<%= effdate %>' />
     </td>
     <script LANGUAGE="JavaScript">
         <!--
-        Attach('<%=Encode.forJavaScript(lastname)%>', '<%=Encode.forJavaScript(firstname)%>', '<%=Encode.forJavaScript(hin)%>', '<%=Encode.forJavaScript(dobyear)%>', '<%=Encode.forJavaScript(dobmonth)%>', '<%=Encode.forJavaScript(dobdate)%>', '<%=Encode.forJavaScript(vercode)%>', '<%=Encode.forJavaScript(sex)%>', '<%=Encode.forJavaScript(effyear)%>', '<%=Encode.forJavaScript(effmonth)%>', '<%=Encode.forJavaScript(effdate)%>', '<%=Encode.forJavaScript(endyear)%>', '<%=Encode.forJavaScript(endmonth)%>', '<%=Encode.forJavaScript(enddate)%>');
+        Attach('<e:forJavaScriptBlock value='<%= lastname %>' />', '<e:forJavaScriptBlock value='<%= firstname %>' />', '<e:forJavaScriptBlock value='<%= hin %>' />', '<e:forJavaScriptBlock value='<%= dobyear %>' />', '<e:forJavaScriptBlock value='<%= dobmonth %>' />', '<e:forJavaScriptBlock value='<%= dobdate %>' />', '<e:forJavaScriptBlock value='<%= vercode %>' />', '<e:forJavaScriptBlock value='<%= sex %>' />', '<e:forJavaScriptBlock value='<%= effyear %>' />', '<e:forJavaScriptBlock value='<%= effmonth %>' />', '<e:forJavaScriptBlock value='<%= effdate %>' />', '<e:forJavaScriptBlock value='<%= endyear %>' />', '<e:forJavaScriptBlock value='<%= endmonth %>' />', '<e:forJavaScriptBlock value='<%= enddate %>' />');
 
         -->
 

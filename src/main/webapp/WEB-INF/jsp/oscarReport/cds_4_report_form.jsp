@@ -55,8 +55,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="java.util.GregorianCalendar" %>
 <%@page import="java.text.DateFormatSymbols" %>
-<%@page import="org.owasp.encoder.Encode" %>
-
 <%@ include file="/taglibs.jsp" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"
        scope="request"/>
@@ -175,7 +173,7 @@
                             if (provider.getProviderNo().equals(Provider.SYSTEM_PROVIDER_NO)) continue;
 
                     %>
-                    <option value="<%=provider.getProviderNo()%>"><%=Encode.forHtml(provider.getFormattedName())%>
+                    <option value="<%=provider.getProviderNo()%>"><e:forHtmlContent value='<%= provider.getFormattedName() %>' />
                     </option>
                     <%
                         }
@@ -197,7 +195,7 @@
 
                         for (Program program : programs) {
                     %>
-                    <option value="<%=program.getId()%>"><%=Encode.forHtml(program.getName() + " (" + program.getType() + ")")%>
+                    <option value="<%=program.getId()%>"><e:forHtmlContent value='<%= program.getName() + " (" + program.getType() + ")" %>' />
                     </option>
                     <%
                         }

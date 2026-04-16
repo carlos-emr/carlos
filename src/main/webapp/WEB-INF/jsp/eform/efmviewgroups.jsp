@@ -31,7 +31,6 @@
 
 <%@ page import="java.util.*, io.github.carlos_emr.carlos.eform.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -68,12 +67,12 @@
         groups = EFormUtil.getEFormGroups();
     }
 %>
-<form action="<%=Encode.forHtmlAttribute(url)%>" name="groupselect" method="get">
+<form action="<e:forHtmlAttribute value='<%= url %>' />" name="groupselect" method="get">
     <input type="hidden" id="group_view" name="group_view" value="">
-    <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no)%>">
-    <input type="hidden" name="apptProvider" value="<%=Encode.forHtmlAttribute(apptProvider)%>">
-    <input type="hidden" name="appointment" value="<%=Encode.forHtmlAttribute(appointment)%>">
-    <input type="hidden" name="parentAjaxId" value="<%= Encode.forHtmlAttribute(parentAjaxId) %>">
+    <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demographic_no %>' />">
+    <input type="hidden" name="apptProvider" value="<e:forHtmlAttribute value='<%= apptProvider %>' />">
+    <input type="hidden" name="appointment" value="<e:forHtmlAttribute value='<%= appointment %>' />">
+    <input type="hidden" name="parentAjaxId" value="<e:forHtmlAttribute value='<%= parentAjaxId %>' />">
     <div class="grouplist">
         <div class="grouplistHeader"><fmt:message key="eform.showmyform.msgViewGroup"/>:</div>
         <ul class="grouplist">
@@ -87,8 +86,8 @@
                     if (group.equals(groupView)) selected = "selected";
             %>
             <li class="<%=selected%>"><a href="#"
-                                         onclick="document.getElementById('group_view').value='<%=Encode.forJavaScriptAttribute(group)%>'; document.forms['groupselect'].submit();"><%=Encode.forHtml(group)%>
-                (<%=Encode.forHtml(size)%>)</a></li>
+                                         onclick="document.getElementById('group_view').value='<e:forJavaScriptAttribute value='<%= group %>' />'; document.forms['groupselect'].submit();"><e:forHtmlContent value='<%= group %>' />
+                (<e:forHtmlContent value='<%= size %>' />)</a></li>
             <% } %>
         </ul>
         <security:oscarSec roleName="<%=roleName$%>"

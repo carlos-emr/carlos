@@ -1,4 +1,4 @@
-<%@ page import="org.owasp.encoder.Encode" %><%--
+<%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -73,7 +73,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><%= Encode.forHtml(error) %></li>
+                    <li><e:forHtmlContent value='<%= error %>' /></li>
                 <% } %>
             </ul>
         </div>
@@ -119,10 +119,10 @@
                             %>
                             <tr>
                                 <td><input type="checkbox" name="specialists" value="<%=specId%>"></td>
-                                <td><a href="<%= url %>"><%= Encode.forHtmlContent(lName + " " + fName + " " + (proLetters == null ? "" : proLetters)) %></a></td>
-                                <td><%= Encode.forHtmlContent(address) %></td>
-                                <td><%= Encode.forHtmlContent(phone) %></td>
-                                <td><%= Encode.forHtmlContent(fax) %></td>
+                                <td><a href="<%= url %>"><e:forHtmlContent value='<%= lName + " " + fName + " " + (proLetters == null ? "" : proLetters) %>' /></a></td>
+                                <td><e:forHtmlContent value='<%= address %>' /></td>
+                                <td><e:forHtmlContent value='<%= phone %>' /></td>
+                                <td><e:forHtmlContent value='<%= fax %>' /></td>
                             </tr>
                             <% } %>
                         </tbody>

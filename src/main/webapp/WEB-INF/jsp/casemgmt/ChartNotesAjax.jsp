@@ -413,7 +413,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             <textarea tabindex="7" cols="84" rows="10"
                       class="txtArea boxsizingBorder <%= note.isSigned() ? "" : "unsigned-textarea"%>" wrap="soft"
                       style="line-height: 1.1em;" name="caseNote_note"
-                      id="caseNote_note<%=savedId%>"><%=Encode.forHtml(cform.getCaseNote_note())%></textarea>
+                      id="caseNote_note<%=savedId%>"><e:forHtmlContent value='<%= cform.getCaseNote_note() %>' /></textarea>
 
             <div class="sig <%= note.isSigned() ? "" : "note-unsigned"%>" id="sig<%=globalNoteId%>">
                 <%@ include file="/WEB-INF/jsp/casemgmt/noteIssueList.jsp" %>
@@ -426,7 +426,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 if (false) {
             %>
             <div id="txt<%=globalNoteId%>">
-                <fmt:message key="encounter.Index.msgLocked"/> <%=Encode.forHtml(DateUtils.getDate(note.getUpdateDate(), dateFormat, request.getLocale()) + " " + note.getProviderName())%>
+                <fmt:message key="encounter.Index.msgLocked"/> <e:forHtmlContent value='<%= DateUtils.getDate(note.getUpdateDate(), dateFormat, request.getLocale()) + " " + note.getProviderName() %>' />
             </div>
             <%
             } else {
@@ -505,7 +505,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             %>
             <div class="view-links"
                  style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
-                <a class="links" title="<%=Encode.forHtmlAttribute(rx.getSpecial())%>" id="view<%=globalNoteId%>" href="javascript:void(0);"
+                <a class="links" title="<e:forHtmlAttribute value='<%= rx.getSpecial() %>' />" id="view<%=globalNoteId%>" href="javascript:void(0);"
                    onclick="<%=url%>" style="float: right; margin-right: 5px; "> <fmt:message key="encounter.view.rxView"/> </a>
             </div>
             <%
@@ -598,7 +598,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             <div class="view-links"
                  style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
                 <a class="links" title="<fmt:message key="encounter.view.eformView"/>" id="view<%=globalNoteId%>"
-                   href="javascript:void(0)" onclick="<%=Encode.forHtmlAttribute(url)%>"><fmt:message key="encounter.view"/></a>
+                   href="javascript:void(0)" onclick="<e:forHtmlContent value='<%= url %>' />"><fmt:message key="encounter.view"/></a>
             </div>
             <%
             } else if (note.isEmailNote()) {
@@ -647,13 +647,13 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                             if (globalNoteId.contains("EFORM")) {
                     %>
                     <a style="color:#ddddff;" href="javascript:void(0)"
-                       onclick="return showHistory('<%=globalNoteId.replace("EFORM","")%>', event);"><%=Encode.forHtml(rev)%>
+                       onclick="return showHistory('<%=globalNoteId.replace("EFORM","")%>', event);"><e:forHtmlContent value='<%= rev %>' />
                     </a>
                     <%
                     } else {
                     %>
                     <a style="color:#ddddff;" href="javascript:void(0)"
-                       onclick="return showHistory('<%=globalNoteId%>', event);"><%=Encode.forHtml(rev)%>
+                       onclick="return showHistory('<%=globalNoteId%>', event);"><e:forHtmlContent value='<%= rev %>' />
                     </a>
                     <%
                         }
@@ -687,13 +687,13 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 								<div id="sumary<%=globalNoteId%>" style="<%=note.isEmailNote()?"color: #FFF !important":""%>">
                     <div id="observation<%=globalNoteId%>" style="float: right; margin-right: 3px;">
                         <fmt:message key="encounter.encounterDate.title"/>:&nbsp;
-                        <span id="obs<%=globalNoteId%>"><%=Encode.forHtml(DateUtils.getDate(note.getObservationDate(), dateFormat, request.getLocale()))%></span>&nbsp;
+                        <span id="obs<%=globalNoteId%>"><e:forHtmlContent value='<%= DateUtils.getDate(note.getObservationDate(), dateFormat, request.getLocale()) %>' /></span>&nbsp;
                         <%if (!note.isEmailNote()) {%>
                             <fmt:message key="encounter.noteRev.title"/>
                         <%
                             if (rev != null) {
                         %>
-                        <a href="javascript:void(0)" onclick="return showHistory('<%=globalNoteId%>', event);"><%=Encode.forHtml(rev)%>
+                        <a href="javascript:void(0)" onclick="return showHistory('<%=globalNoteId%>', event);"><e:forHtmlContent value='<%= rev %>' />
                         </a>
                         <%
                         } else {
@@ -738,7 +738,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                     %>
                     <div style="clear: right; margin-right: 3px; float: right;">
                         <fmt:message key="encounter.encounterTime.title"/>:&nbsp;<span
-                            id="encTime<%=globalNoteId%>"><%=Encode.forHtml(note.getEncounterTime())%></span>
+                            id="encTime<%=globalNoteId%>"><e:forHtmlContent value='<%= note.getEncounterTime() %>' /></span>
                     </div>
                     <% } %>
                     <%
@@ -746,7 +746,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                     %>
                     <div style="clear: right; margin-right: 3px; float: right;">
                         <fmt:message key="encounter.encounterTransportation.title"/>:&nbsp;<span
-                            id="encTransTime<%=globalNoteId%>"><%=Encode.forHtml(note.getEncounterTransportationTime())%></span>
+                            id="encTransTime<%=globalNoteId%>"><e:forHtmlContent value='<%= note.getEncounterTransportationTime() %>' /></span>
                     </div>
                     <% } %>
 
@@ -767,7 +767,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                             <%
                                 for (String issueDescription : issueDescriptions) {
                             %>
-                            <li><%=Encode.forHtml(issueDescription.trim())%>
+                            <li><e:forHtmlContent value='<%= issueDescription.trim() %>' />
                             </li>
                             <%
                                 }
@@ -839,7 +839,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     <div id="n<%=savedId%>">
         <textarea tabindex="7" cols="84" rows="10" class="txtArea boxsizingBorder" wrap="soft"
                   style="line-height: 1.1em;" name="caseNote_note"
-                  id="caseNote_note<%=savedId%>"><%=Encode.forHtml(cform.getCaseNote_note()) %></textarea>
+                  id="caseNote_note<%=savedId%>"><e:forHtmlContent value='<%= cform.getCaseNote_note() %>' /></textarea>
         <div class="sig" id="sig<%=savedId%>">
             <%@ include file="/WEB-INF/jsp/casemgmt/noteIssueList.jsp" %>
         </div> <!-- end of div sig<%=savedId%> -->
@@ -876,7 +876,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
         else if( casemgmtNoteLock.isLockedBySameUser() && !casemgmtNoteLock.getSessionId().equals(request.getRequestedSessionId()) ) {
             //note is locked by same user so offer to unlock note and view locked note in progress
     %>
-    var viewEditedNote = confirm("You have started to edit this note in another window at <%=Encode.forJavaScript(casemgmtNoteLock.getIpAddress())%>.\nDo you wish to continue?");
+    var viewEditedNote = confirm("You have started to edit this note in another window at <e:forJavaScript value='<%= casemgmtNoteLock.getIpAddress() %>' />.\nDo you wish to continue?");
     if (viewEditedNote) {
         doscroll();
         var params = "method=updateNoteLock&demographicNo=" + demographicNo;
@@ -930,7 +930,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
     <%if (!bean.oscarMsg.equals(""))
              {%>
-    document.getElementById(caseNote).value += "\n\n<%=Encode.forJavaScript(bean.oscarMsg)%>";
+    document.getElementById(caseNote).value += "\n\n<e:forJavaScript value='<%= bean.oscarMsg %>' />";
     <%bean.reason = "";
                  bean.oscarMsg = "";
              }
@@ -939,7 +939,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
              {
                  String noteBody = request.getParameter("noteBody");
                  noteBody = noteBody.replaceAll("<br>|<BR>", "\n");%>
-    document.getElementById(caseNote).value += "\n\n<%=Encode.forJavaScript(noteBody)%>";
+    document.getElementById(caseNote).value += "\n\n<e:forJavaScript value='<%= noteBody %>' />";
     <%}
 
              if (found != true)

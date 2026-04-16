@@ -73,7 +73,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve all variables from request attributes (set by DemographicEdit2Action) --%>
@@ -824,7 +824,7 @@
                                                             for (int k = 0; k < propDemoExt.length; k = k + 2) {
                                                     %>
                                                     <tr valign="top">
-                                                        <td align="right"><b><%=Encode.forHtmlContent(propDemoExt[k])%>
+                                                        <td align="right"><b><e:forHtmlContent value='<%= propDemoExt[k] %>' />
                                                             : </b></td>
                                                         <td align="left">
                                                             <% if (bExtForm) {
@@ -835,8 +835,8 @@
                                                                 }
                                                             } else { %>
                                                             <input type="text"
-                                                                   name="<%= Encode.forHtmlAttribute(propDemoExt[k].replace(' ', '_')) %>"
-                                                                   value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get(propDemoExt[k].replace(' ', '_'))))%>"/>
+                                                                   name="<e:forHtmlAttribute value='<%= propDemoExt[k].replace(\" \", \"_\") %>' />"
+                                                                   value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demoExt.get(propDemoExt[k].replace(\" \", \"_\"))) %>' />"/>
                                                             <% } %>
                                                             <input type="hidden"
                                                                    name="<%=propDemoExt[k].replace(' ', '_')%>Orig"
@@ -854,11 +854,11 @@
                                                                     out.println(propDemoExtForm[k + 1].replaceAll("value=\"\"", "value=\"" + StringUtils.trimToEmpty(demoExt.get(propDemoExt[k + 1].replace(' ', '_'))) + "\""));
                                                                 }
                                                             } else { %> <input type="text"
-                                                                               name="<%=Encode.forHtmlAttribute(propDemoExt[k+1].replace(' ', '_'))%>"
-                                                                               value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get(propDemoExt[k+1].replace(' ', '_'))))%>"/>
+                                                                               name="<e:forHtmlAttribute value='<%= propDemoExt[k+1].replace(\" \", \"_\") %>' />"
+                                                                               value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demoExt.get(propDemoExt[k+1].replace(\" \", \"_\"))) %>' />"/>
                                                             <% } %> <input type="hidden"
-                                                                           name="<%=Encode.forHtmlAttribute(propDemoExt[k+1].replace(' ', '_'))%>Orig"
-                                                                           value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get(propDemoExt[k+1].replace(' ', '_'))))%>"/>
+                                                                           name="<e:forHtmlAttribute value='<%= propDemoExt[k+1].replace(\" \", \"_\") %>' />Orig"
+                                                                           value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demoExt.get(propDemoExt[k+1].replace(\" \", \"_\"))) %>' />"/>
                                                         </td>
                                                         <% } else {%>
                                                         <td>&nbsp;</td>
@@ -1171,7 +1171,7 @@
                                                             <td colspan="4">
                                                                 <jsp:include page="/WEB-INF/jsp/demographic/manageHealthCareTeam.jsp">
                                                                     <jsp:param name="demographicNo"
-                                                                               value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
+                                                                               value="<e:forHtmlAttribute value='<%= demographic_no %>' />"/>
                                                                 </jsp:include>
                                                             </td>
                                                         </tr>
@@ -1357,9 +1357,10 @@
                                                                    value="<fmt:message key="demographic.demographiceditdemographic.msgExport"/>"
                                                                    onclick="window.open('<%= request.getContextPath() %>/demographic/DemographicExport?demographicNo=<%=demographic.getDemographicNo()%>');"/>
                                                         </security:oscarSec>
+                                                        <c:set var="__enc_1"><e:forUriComponent value='<%= demographic.getDemographicNo().toString() %>' /></c:set>
                                                         <input type="button" class="btn-toolbar-secondary"
                                                                value="<fmt:message key="demographic.demographiceditdemographic.btnAuditInfo"/>"
-                                                               onclick="window.open('<%= Encode.forJavaScriptAttribute(request.getContextPath()) %>/demographic/ViewDemographicAudit?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic.getDemographicNo().toString())) %>');"/>
+                                                               onclick="window.open('<e:forJavaScriptAttribute value='<%= request.getContextPath() %>' />/demographic/ViewDemographicAudit?demographic_no=<e:forJavaScriptAttribute value='${__enc_1}' />');"/>
                                                     </div>
                                                     <div class="toolbar-right">
                                                         <span id="swipeButtonBottom" style="display: none;">
@@ -1373,7 +1374,7 @@
                                                             </button>
                                                             <ul class="dropdown-menu dropdown-menu-end">
                                                                 <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printEnvelope%><%=demographic.getDemographicNo()%>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFEnvelope"/></a></li>
-                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printLbl%><%=demographic.getDemographicNo()%>&appointment_no=<%=Encode.forUriComponent(appointment != null ? appointment : "")%>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFLabel"/></a></li>
+                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printLbl%><%=demographic.getDemographicNo()%>&appointment_no=<e:forUriComponent value='<%= appointment != null ? appointment : "" %>' />');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFLabel"/></a></li>
                                                                 <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printAddressLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFAddressLabel"/></a></li>
                                                                 <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printChartLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFChartLabel"/></a></li>
                                                                 <% if (oscarProps.getProperty("showSexualHealthLabel", "false").equals("true")) { %>

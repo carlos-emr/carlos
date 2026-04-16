@@ -67,7 +67,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleHoliday" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleHolidayDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%
     ScheduleHolidayDao scheduleHolidayDao = SpringUtils.getBean(ScheduleHolidayDao.class);
@@ -262,7 +261,7 @@
                             <input type="checkbox" name="sdate_<%=month+"_"+dateGrid[i][j]%>"
                                    value="<%=year+"-"+MyDateFormat.getDigitalXX(month)+"-"+MyDateFormat.getDigitalXX(dateGrid[i][j])%>">
                             <font size="-2"> <br>
-                                &nbsp;<%=Encode.forHtml(strHolidayName.toString())%>
+                                &nbsp;<e:forHtmlContent value='<%= strHolidayName.toString() %>' />
                             </font></td>
                         <%
                                     }

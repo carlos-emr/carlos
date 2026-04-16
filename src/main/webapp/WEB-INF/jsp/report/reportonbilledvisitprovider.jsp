@@ -196,11 +196,11 @@
                 }
         %>
         <tr bgcolor="<%=i%2==0?"white":color%>">
-            <td><%= Encode.forHtml(((Properties) vec.get(i)).getProperty("provider_no", "")) %>
+            <td><e:forHtmlContent value='<%= ((Properties) vec.get(i)).getProperty("provider_no", "") %>' />
             </td>
-            <td><%= Encode.forHtml(((Properties) vec.get(i)).getProperty("first_name", "")) %>
+            <td><e:forHtmlContent value='<%= ((Properties) vec.get(i)).getProperty("first_name", "") %>' />
             </td>
-            <td><%= Encode.forHtml(((Properties) vec.get(i)).getProperty("last_name", "")) %>
+            <td><e:forHtmlContent value='<%= ((Properties) vec.get(i)).getProperty("last_name", "") %>' />
             </td>
             <!--td>
               <%= ((Properties)vec.get(i)).getProperty("provider_type", "") %>
@@ -213,23 +213,23 @@
             </td-->
             <td align="center" <%=bDoc ? "bgcolor=\"silver\"" : ""%> title="Doctor">
                 <input type="radio"
-                       name="type<%=Encode.forHtmlAttribute(((Properties)vec.get(i)).getProperty("provider_no", ""))%>"
+                       name="type<e:forHtmlAttribute value='<%= ((Properties)vec.get(i)).getProperty("provider_no", "") %>' />"
                        value="<%=ROLE[0]%>" <%=bDoc?"checked":""%>></td>
             <td align="center" <%=bRes ? "bgcolor=\"silver\"" : ""%> title="Resident">
                 <input type="radio"
-                       name="type<%=Encode.forHtmlAttribute(((Properties)vec.get(i)).getProperty("provider_no", ""))%>"
+                       name="type<e:forHtmlAttribute value='<%= ((Properties)vec.get(i)).getProperty("provider_no", "") %>' />"
                        value="<%=ROLE[1]%>" <%=bRes?"checked":""%>></td>
             <td align="center" <%=bNp ? "bgcolor=\"silver\"" : ""%> title="Nurse">
                 <input type="radio"
-                       name="type<%=Encode.forHtmlAttribute(((Properties)vec.get(i)).getProperty("provider_no", ""))%>"
+                       name="type<e:forHtmlAttribute value='<%= ((Properties)vec.get(i)).getProperty("provider_no", "") %>' />"
                        value="<%=ROLE[2]%>" <%=bNp?"checked":""%>></td>
             <td align="center" <%=bSw ? "bgcolor=\"silver\"" : ""%>
                 title="Social Worker"><input type="radio"
-                                             name="type<%=Encode.forHtmlAttribute(((Properties)vec.get(i)).getProperty("provider_no", ""))%>"
+                                             name="type<e:forHtmlAttribute value='<%= ((Properties)vec.get(i)).getProperty("provider_no", "") %>' />"
                                              value="<%=ROLE[3]%>" <%=bSw?"checked":""%>></td>
             <td align="center" <%=bOt ? "bgcolor=\"silver\"" : ""%> title="Other">
                 <input type="radio"
-                       name="type<%=Encode.forHtmlAttribute(((Properties)vec.get(i)).getProperty("provider_no", ""))%>"
+                       name="type<e:forHtmlAttribute value='<%= ((Properties)vec.get(i)).getProperty("provider_no", "") %>' />"
                        value="<%=ROLE[4]%>" <%=bOt?"checked":""%>></td>
         </tr>
         <%
@@ -267,11 +267,11 @@
     <tr bgcolor="<%=k%2==0?"white":color%>">
         <form name="mySecform<%=i%>" action="<%= request.getContextPath() %>/report/ViewReportonbilledvisitprovider"
               method="POST">
-            <td><%= Encode.forHtml(oldRoleList.get(i + 3).toString()) %>
+            <td><e:forHtmlContent value='<%= oldRoleList.get(i + 3).toString() %>' />
             </td>
-            <td><%= Encode.forHtml(oldRoleList.get(i).toString()) %>
+            <td><e:forHtmlContent value='<%= oldRoleList.get(i).toString() %>' />
             </td>
-            <td><%= Encode.forHtml(oldRoleList.get(i + 1).toString()) %>
+            <td><e:forHtmlContent value='<%= oldRoleList.get(i + 1).toString() %>' />
             </td>
             <td align="center"><select
                     name="<%="name" + Encode.forHtmlAttribute(oldRoleList.get(i + 3).toString())%>">
@@ -287,7 +287,7 @@
                 %>
             </select></td>
             <td align="center"><input type="hidden" name="providerId"
-                                      value="<%= Encode.forHtmlAttribute(oldRoleList.get(i + 3).toString()) %>"> <input type="submit"
+                                      value="<e:forHtmlAttribute value='<%= oldRoleList.get(i + 3).toString() %>' />"> <input type="submit"
                                                                                     name="buttonUpdate" value="Update">
             </td>
         </form>

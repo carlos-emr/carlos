@@ -220,7 +220,7 @@
 
     <%-- Load existing HTML content into the editor (OWASP-encoded for JS context, DOMPurify-sanitized by editor) --%>
     <% if (resource_helpHtml_value != null && !resource_helpHtml_value.isEmpty()) { %>
-    editor.setHTML('<%= Encode.forJavaScript(resource_helpHtml_value) %>');
+    editor.setHTML('<e:forJavaScriptBlock value='<%= resource_helpHtml_value %>' />');
     <% } %>
 
     <%-- Sync editor content to hidden input before form submit --%>

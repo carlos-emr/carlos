@@ -53,12 +53,11 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@page import="java.util.*, io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.entities.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingreferralDao" %>
 <%@ page import="io.github.carlos_emr.carlos.dxresearch.util.dxResearchCodingSystem" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PropertyDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Property" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager,io.github.carlos_emr.carlos.billings.ca.bc.MSP.ServiceCodeValidationLogic" %>
@@ -1017,7 +1016,7 @@
             });
 
             jQuery(document).on('change', '#xml_provider', function () {
-                let url = '${pageContext.servletContext.contextPath}/billing?demographic_no=' + '<%=Encode.forUriComponent(bean.getPatientNo())%>' + '&appointment_no=' + '<%=Encode.forUriComponent(bean.getApptNo())%>' + '&apptProvider_no=' + '<%=Encode.forUriComponent(bean.getApptProviderNo())%>' + '&demographic_name=' + '<%=URLEncoder.encode(bean.getPatientName(), StandardCharsets.UTF_8)%>' + '&billRegion=BC&xml_provider=' + this.value;
+                let url = '${pageContext.servletContext.contextPath}/billing?demographic_no=' + '<e:forUriComponent value='<%= bean.getPatientNo() %>' />' + '&appointment_no=' + '<e:forUriComponent value='<%= bean.getApptNo() %>' />' + '&apptProvider_no=' + '<e:forUriComponent value='<%= bean.getApptProviderNo() %>' />' + '&demographic_name=' + '<%=URLEncoder.encode(bean.getPatientName(), StandardCharsets.UTF_8)%>' + '&billRegion=BC&xml_provider=' + this.value;
 
                 jQuery("#billingPatientInfoWrapper").load(url + " #billingPatientInfo", function () {
                     // re-bind all the javascript
@@ -1042,7 +1041,7 @@
             /* New billing form selection method*/
             jQuery(document).on('change', "#selectBillingForm", function () {
                 let selectedValue = this.value;
-                let url = ctx + '/billing?demographic_no=' + '<%=Encode.forUriComponent(bean.getPatientNo())%>' + '&appointment_no=' + '<%=Encode.forUriComponent(bean.getApptNo())%>' + '&apptProvider_no=' + '<%=Encode.forUriComponent(bean.getApptProviderNo())%>' + '&demographic_name=' + '<%=URLEncoder.encode(bean.getPatientName(), StandardCharsets.UTF_8)%>' + '&xml_provider=none&billRegion=BC&billForm=' + selectedValue;
+                let url = ctx + '/billing?demographic_no=' + '<e:forUriComponent value='<%= bean.getPatientNo() %>' />' + '&appointment_no=' + '<e:forUriComponent value='<%= bean.getApptNo() %>' />' + '&apptProvider_no=' + '<e:forUriComponent value='<%= bean.getApptProviderNo() %>' />' + '&demographic_name=' + '<%=URLEncoder.encode(bean.getPatientName(), StandardCharsets.UTF_8)%>' + '&xml_provider=none&billRegion=BC&billForm=' + selectedValue;
                 jQuery("#billingFormTableWrapper").load(url + " #billingFormTable", function () {
                     // if the selected billing type is private, then change the billing type to private
                     if (selectedValue === 'PRI') {
@@ -1275,8 +1274,8 @@
     </div>
     <h3><fmt:message key="billing.bc.title"/></h3>
     <span class="badge bg-primary"><fmt:message key="billing.patient"/></span>
-    <label class="label-text"><%=Encode.forHtmlContent(demo.getLastName())%>
-        , <%=Encode.forHtmlContent(demo.getFirstName())%>
+    <label class="label-text"><e:forHtmlContent value='<%= demo.getLastName() %>' />
+        , <e:forHtmlContent value='<%= demo.getFirstName() %>' />
     </label>
 
     <span class="badge bg-primary"><fmt:message key="billing.patient.age"/></span>
@@ -1310,8 +1309,11 @@
         </button>
     </security:oscarSec>
 
-    <button type="button" class="btn btn-link" title="View previous invoices for this patient"
-            onclick="popup(800, 1000, '<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?lastName=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.defaultString(demo.getLastName()))) %>&firstName=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.defaultString(demo.getFirstName()))) %>&filterPatient=true&demographicNo=<%= Encode.forJavaScriptAttribute(String.valueOf(demo.getDemographicNo())) %>','InvoiceList');return false;">
+    <c:set var="__enc_1"><e:forUriComponent value='<%= StringUtils.defaultString(demo.getLastName()) %>' /></c:set>
+    <c:set var="__enc_2"><e:forUriComponent value='<%= StringUtils.defaultString(demo.getFirstName()) %>' /></c:set>
+    <button type="button" class            
+="btn btn-link" title="View previous invoices for this patient"
+            onclick="popup(800, 1000, '<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?lastName=<e:forJavaScriptAttribute value='${__enc_1}' />&firstName=<e:forJavaScriptAttribute value='${__enc_2}' />&filterPatient=true&demographicNo=<e:forJavaScriptAttribute value='<%= String.valueOf(demo.getDemographicNo()) %>' />','InvoiceList');return false;">
         <fmt:message key="demographic.demographiceditdemographic.msgInvoiceList"/>
     </button>
 
@@ -1442,8 +1444,8 @@
                                                 <option <% if (bean.getBillForm().equalsIgnoreCase(billformlist[i].getFormCode())) {%>
                                                         selected
                                                         <% } %>
-                                                        value="<%=Encode.forHtmlAttribute(billformlist[i].getFormCode())%>">
-                                                    <%= Encode.forHtmlContent(billformlist[i].getDescription()) %>
+                                                        value="<e:forHtmlAttribute value='<%= billformlist[i].getFormCode() %>' />">
+                                                    <e:forHtmlContent value='<%= billformlist[i].getDescription() %>' />
                                                 </option>
                                                 <%} %>
                                             </select>
@@ -1464,7 +1466,7 @@
                                                 </option>
                                                 <% for (int j = 0; j < billphysician.length; j++) { %>
                                                 <option
-                                                        value="<%=billphysician[j].getProviderNo()%>"><%=Encode.forHtmlContent(billphysician[j].getProviderName())%>
+                                                        value="<%=billphysician[j].getProviderNo()%>"><e:forHtmlContent value='<%= billphysician[j].getProviderName() %>' />
                                                 </option>
                                                 <%} %>
                                             </select>
@@ -1501,7 +1503,7 @@
                                                         ;
                                                 %>
                                                 <option
-                                                        value="<%=Encode.forHtmlAttribute(locationDescription)%>"><%=Encode.forHtmlContent(billlocation[i].getDescription())%>
+                                                        value="<e:forHtmlAttribute value='<%= locationDescription %>' />"><e:forHtmlContent value='<%= billlocation[i].getDescription() %>' />
                                                 </option>
                                                 <%} %>
                                             </select>
@@ -1519,8 +1521,8 @@
                                                     for (BillingFormData.BillingVisit billingVisit : billvisit) {
                                                 %>
                                                 <option
-                                                        value="<%=Encode.forHtmlAttribute(billingVisit.getVisitType())%>">
-                                                    <%=Encode.forHtmlContent(billingVisit.getDescription())%>
+                                                        value="<e:forHtmlAttribute value='<%= billingVisit.getVisitType() %>' />">
+                                                    <e:forHtmlContent value='<%= billingVisit.getDescription() %>' />
                                                 </option>
                                                 <%}%>
                                             </select>

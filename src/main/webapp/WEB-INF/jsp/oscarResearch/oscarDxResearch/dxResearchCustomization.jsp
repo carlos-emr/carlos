@@ -44,9 +44,6 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ page import="org.owasp.encoder.Encode" %>
-
-
 <!DOCTYPE html>
 <html>
     <head>
@@ -65,7 +62,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= Encode.forHtml(error) %></li>
+                <li><e:forHtmlContent value='<%= error %>' /></li>
             <% } %>
         </ul>
     </div>

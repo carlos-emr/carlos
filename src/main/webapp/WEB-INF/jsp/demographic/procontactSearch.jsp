@@ -133,11 +133,11 @@
                     // split contact type [0] from contact id [1]
                     data1 = data1.split("_")[1].trim();
                     opener.document
-                ['<%= Encode.forJavaScript(form) %>'].
-                    elements['<%= Encode.forJavaScript(elementId) %>'].value = data1;
+                ['<e:forJavaScriptBlock value='<%= form %>' />'].
+                    elements['<e:forJavaScriptBlock value='<%= elementId %>' />'].value = data1;
                     opener.document
-                ['<%= Encode.forJavaScript(form) %>'].
-                    elements['<%= Encode.forJavaScript(elementName) %>'].value = data2;
+                ['<e:forJavaScriptBlock value='<%= form %>' />'].
+                    elements['<e:forJavaScriptBlock value='<%= elementName %>' />'].value = data2;
                     self.close();
                 }
 
@@ -145,8 +145,8 @@
 
             function serializePopupData(data1, data2) {
 
-                var id1 = '<%= Encode.forJavaScript(elementId) %>';
-                var id2 = '<%= Encode.forJavaScript(elementName) %>';
+                var id1 = '<e:forJavaScriptBlock value='<%= elementId %>' />';
+                var id2 = '<e:forJavaScriptBlock value='<%= elementName %>' />';
                 var contactType = data1.split("_")[0].trim();
                 var contactId = data1.split("_")[1].trim();
 
@@ -208,13 +208,13 @@
 
         <!-- table width="95%" border="0">
 	<tr>
-		<td align="left">Results based on keyword(s): <%=Encode.forHtml(keyword == null ? "" : keyword)%></td>
+		<td align="left">Results based on keyword(s): <e:forHtmlContent value='<%= keyword == null ? "" : keyword %>' /></td>
 	</tr>
 </table  -->
 
-        <input type='hidden' name='form' value="<%=Encode.forHtmlAttribute(form)%>"/>
-        <input type='hidden' name='elementName' value="<%=Encode.forHtmlAttribute(elementName)%>"/>
-        <input type='hidden' name='elementId' value="<%=Encode.forHtmlAttribute(elementId)%>"/>
+        <input type='hidden' name='form' value="<e:forHtmlAttribute value='<%= form %>' />"/>
+        <input type='hidden' name='elementName' value="<e:forHtmlAttribute value='<%= elementName %>' />"/>
+        <input type='hidden' name='elementId' value="<e:forHtmlAttribute value='<%= elementId %>' />"/>
 
     </form>
 
@@ -224,7 +224,7 @@
 
         <tr style="background-color:white;border:white;">
             <td colspan="3">
-                <strong>Results based on keyword(s):</strong> <%= Encode.forHtml(keyword == null ? "" : keyword) %>
+                <strong>Results based on keyword(s):</strong> <e:forHtmlContent value='<%= keyword == null ? "" : keyword %>' />
             </td>
         </tr>
 
@@ -245,7 +245,7 @@
             %>
             <tr bgcolor="<%=bgColor%>"
                 onMouseOver="this.style.cursor='pointer';this.style.backgroundColor='pink';"
-                onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<%=Encode.forHtmlAttribute(strOnClick)%>">
+                onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<e:forJavaScriptAttribute value='<%= strOnClick %>' />">
                 <td>${e:forHtml(contact.lastName)}</td>
                 <td>${e:forHtml(contact.firstName)}</td>
                 <td>${e:forHtml(contact.residencePhone)}</td>
@@ -291,10 +291,16 @@
 
         <tr>
             <td>
-                <a href="<%= request.getContextPath() %>/demographic/Contact?method=addProContact&keyword=<%= Encode.forUriComponent(StringUtils.noNull(keyword)) %>&contactRole=<%= Encode.forUriComponent(contactRole) %>&contactType=3"
+                <a href="<%= request.getContextPath() %>/demographic/Contact?method=addProContact&keyword=<e:forUriComponent value='<%= StringUtils.noNull(keyword) %>' />&contactRole=<e:forUriComponent value='<%= contactRole %>' />&contactType=3"
                    style="font:inherit;display:block;margin:10px;">
                     Add/Edit Professional Contact
-                </a>
+             <c:set var="__enc_1"><e:forUriComponent value='<%= form %>' /></c:set>
+            <c:set var="__enc_2"><e:forUriComponent value='<%= elementName %>' /></c:set>
+            <c:set var="__enc_3"><e:forUriComponent value='<%= elementId %>' /></c:set>
+            <c:set var="__enc_4"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' /></c:set>
+            <c:set var="__enc_5"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' /></c:set>
+            <c:set var="__enc_6"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' /></c:set>
+               </a>
             </td>
         </tr>
     </table>
@@ -303,12 +309,24 @@
     <script type="text/javascript">
         //<!--
         function last() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProContactSearch?form=<%=Encode.forJavaScript(Encode.forUriComponent(form))%>&elementName=<%=Encode.forJavaScript(Encode.forUriComponent(elementName))%>&elementId=<%=Encode.forJavaScript(Encode.forUriComponent(elementId))%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=Encode.forJavaScript(strLimit2)%>";
+            <c:set var="__enc_1"><e:forUriComponent value='<%= form %>' /></c:set>
+            <c:set var="__enc_2"><e:forUriComponent value='<%= elementName %>' /></c:set>
+            <c:set var="__enc_3"><e:forUriComponent value='<%= elementId %>' /></c:set>
+            <c:set var="__enc_4"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' /></c:set>
+            <c:set var="__enc_5"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' /></c:set>
+            <c:set var="__enc_6"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' /></c:set>
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProContactSearch?form=<e:forJavaScript value='${__enc_1}' />&elementName=<e:forJavaScript value='${__enc_2}' />&elementId=<e:forJavaScript value='${__enc_3}' />&keyword=<e:forJavaScript value='${__enc_4}' />&search_mode=<e:forJavaScript value='${__enc_5}' />&orderby=<e:forJavaScript value='${__enc_6}' />&limit1=<%=nLastPage%>&limit2=<e:forJavaScript value='<%= strLimit2 %>' />";
             document.nextform.submit();
         }
 
         function next() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProContactSearch?form=<%=Encode.forJavaScript(Encode.forUriComponent(form))%>&elementName=<%=Encode.forJavaScript(Encode.forUriComponent(elementName))%>&elementId=<%=Encode.forJavaScript(Encode.forUriComponent(elementId))%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=Encode.forJavaScript(strLimit2)%>";
+            <c:set var="__enc_7"><e:forUriComponent value='<%= form %>' /></c:set>
+            <c:set var="__enc_8"><e:forUriComponent value='<%= elementName %>' /></c:set>
+            <c:set var="__enc_9"><e:forUriComponent value='<%= elementId %>' /></c:set>
+            <c:set var="__enc_10"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' /></c:set>
+            <c:set var="__enc_11"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' /></c:set>
+            <c:set var="__enc_12"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' /></c:set>
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProContactSearch?form=<e:forJavaScript value='${__enc_7}' />&elementName=<e:forJavaScript value='${__enc_8}' />&elementId=<e:forJavaScript value='${__enc_9}' />&keyword=<e:forJavaScript value='${__enc_10}' />&search_mode=<e:forJavaScript value='${__enc_11}' />&orderby=<e:forJavaScript value='${__enc_12}' />&limit1=<%=nNextPage%>&limit2=<e:forJavaScript value='<%= strLimit2 %>' />";
             document.nextform.submit();
         }
 

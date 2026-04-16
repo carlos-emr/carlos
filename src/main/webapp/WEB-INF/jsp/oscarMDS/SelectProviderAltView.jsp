@@ -33,10 +33,8 @@
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.ProviderData, java.util.ArrayList" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <link rel="stylesheet" type="text/css" href="encounterStyles.css">
 <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
@@ -53,7 +51,7 @@
 <script language='JavaScript'>
 
     function doStuff() {
-        var docId = '<%= Encode.forJavaScript(docId) %>';
+        var docId = '<e:forJavaScriptBlock value='<%= docId %>' />';
         var allSelected = "";
         if (document.providerSelectForm.selectedProviders.selectedIndex == -1) {
             alert("Please select at least one providers");

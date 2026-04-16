@@ -59,7 +59,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
@@ -75,9 +75,6 @@
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
-
 <%
 String rx_enhance = CarlosProperties.getInstance().getProperty("rx_enhance");
 RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
@@ -643,8 +640,8 @@ function addEvent(elm, evType, fn, useCapture)
 }
 function checkFav(){
     //oscarLog("****** in checkFav");
-    var usefav='<%= Encode.forJavaScript(usefav) %>';
-    var favid='<%= Encode.forJavaScript(favid) %>';
+    var usefav='<e:forJavaScriptBlock value='<%= usefav %>' />';
+    var favid='<e:forJavaScriptBlock value='<%= favid %>' />';
     if(usefav=="true" && favid!=null && favid!='null'){
         //oscarLog("****** favid "+favid);
         useFav2(favid);
@@ -805,7 +802,7 @@ function renderRxStage() {
                        float:left;
                    }
         </style>
-      <title>Rx-<%= Encode.forHtml(patient.getSurname()) %></title>
+      <title>Rx-<e:forHtmlContent value='<%= patient.getSurname() %>' /></title>
     </head>
 
     <%
@@ -1129,7 +1126,7 @@ function renderRxStage() {
                             					%>
                             						<tr>
                             							<td><%=formatter.format(note.getCreate_date()) %></td>
-                                                    <td><%=Encode.forHtml(str)%>
+                                                    <td><e:forHtmlContent value='<%= str %>' />
                                                     </td>
                             						</tr>
                             					<% 

@@ -82,7 +82,7 @@
 <%@ page import="org.owasp.csrfguard.CsrfGuard" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 
 <%
@@ -491,11 +491,11 @@
 
         <div class="d-flex justify-content-between align-items-center bg-light border rounded p-2 mb-2">
             <div class="d-flex align-items-center gap-2">
-                <span class="badge bg-secondary"><%=Encode.forHtml(eApptDate == null ? "" : eApptDate)%></span>
-                <span class="badge bg-info text-dark"><%=Encode.forHtml(eStartTime == null ? "" : eStartTime)%> - <%=Encode.forHtml(eEndTime == null ? "" : eEndTime)%></span>
-                <span class="fw-bold"><%=Encode.forHtml(UtilMisc.toUpperLowerCase(eName == null ? "" : eName))%></span>
+                <span class="badge bg-secondary"><e:forHtmlContent value='<%= eApptDate == null ? "" : eApptDate %>' /></span>
+                <span class="badge bg-info text-dark"><e:forHtmlContent value='<%= eStartTime == null ? "" : eStartTime %>' /> - <e:forHtmlContent value='<%= eEndTime == null ? "" : eEndTime %>' /></span>
+                <span class="fw-bold"><e:forHtmlContent value='<%= UtilMisc.toUpperLowerCase(eName == null ? "" : eName) %>' /></span>
             </div>
-            <span class="badge bg-primary"><fmt:message key="appointment.appointmentgrouprecords.legendGroup"/> <%=Encode.forHtml(mygroupno)%></span>
+            <span class="badge bg-primary"><fmt:message key="appointment.appointmentgrouprecords.legendGroup"/> <e:forHtmlContent value='<%= mygroupno %>' /></span>
         </div>
 
         <div class="d-flex gap-3 mb-2 small">
@@ -535,16 +535,16 @@
                         bDefProvider = curProvider_no.equals(provider.getProviderNo()) ? true : false;
             %>
             <tr class="<%=bDefProvider?"provider-current":(bAvailProvider?"provider-available":"provider-unavailable")%>">
-                <td class="text-end"><%=Encode.forHtml(provider.getFormattedName())%></td>
+                <td class="text-end"><e:forHtmlContent value='<%= provider.getFormattedName() %>' /></td>
                 <td class="text-center">
                     <input type="checkbox" class="form-check-input" name="one<%=i%>"
                            value="<%=i%>"
                         <%=bEdit ? (otherAppt.getProperty(provider.getProviderNo()+"one")
 		!= null ? otherAppt.getProperty(provider.getProviderNo()+"one") : "") : (bDefProvider? "checked":"")%>
                            onclick="onCheck(this)">
-                    <input type="hidden" name="provider_no<%=i%>" value="<%=Encode.forHtmlAttribute(provider.getProviderNo())%>">
-                    <input type="hidden" name="last_name<%=i%>" value="<%=Encode.forHtmlAttribute(provider.getLastName())%>">
-                    <input type="hidden" name="first_name<%=i%>" value="<%=Encode.forHtmlAttribute(provider.getFirstName())%>">
+                    <input type="hidden" name="provider_no<%=i%>" value="<e:forHtmlAttribute value='<%= provider.getProviderNo() %>' />">
+                    <input type="hidden" name="last_name<%=i%>" value="<e:forHtmlAttribute value='<%= provider.getLastName() %>' />">
+                    <input type="hidden" name="first_name<%=i%>" value="<e:forHtmlAttribute value='<%= provider.getFirstName() %>' />">
                     <% if (otherAppt.getProperty(provider.getProviderNo() + "apptno") != null) {%>
                     <input type="hidden" name="appointment_no<%=i%>"
                            value="<%=otherAppt.getProperty(provider.getProviderNo()+"apptno")%>">

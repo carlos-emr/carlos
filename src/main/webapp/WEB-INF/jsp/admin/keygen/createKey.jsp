@@ -178,7 +178,7 @@
                                         if (error.equals("false")) {
                                             out.print(Encode.forHtml(message));
                                         } else {
-                                %><font color="red"><%= Encode.forHtml(message) %>
+                                %><font color="red"><e:forHtmlContent value='<%= message %>' />
                             </font>
                                 <%
                                         }

@@ -37,7 +37,7 @@
         response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid fid");
         return;
     }
-%><input type="hidden" name="oscarAPCacheLookupType" value="<%= Encode.forHtmlAttribute(request.getParameter("oscarAPCacheLookupType") != null ? request.getParameter("oscarAPCacheLookupType") : "") %>"/><%
+%><input type="hidden" name="oscarAPCacheLookupType" value="<e:forHtmlAttribute value='<%= request.getParameter("oscarAPCacheLookupType") != null ? request.getParameter("oscarAPCacheLookupType") : "" %>' />"/><%
     String[] keys = request.getParameterValues("key");
     if (keys == null) {
         keys = new String[0];
@@ -83,13 +83,13 @@
                         }
                     }
                 }
-%><input type="hidden" name="<%= Encode.forHtmlAttribute(key) %>" value="<%= Encode.forHtmlAttribute(output) %>"/><%
+%><input type="hidden" name="<e:forHtmlAttribute value='<%= key %>' />" value="<e:forHtmlAttribute value='<%= output %>' />"/><%
 } catch (Exception e) {
     io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("AP config lookup failed for key=" + key + " fid=" + fid, e);
-%><input type="hidden" name="<%= Encode.forHtmlAttribute(key) %>" value=""/><%
+%><input type="hidden" name="<e:forHtmlAttribute value='<%= key %>' />" value=""/><%
     }
 } else {
-%><input type="hidden" name="<%= Encode.forHtmlAttribute(key) %>" value=""/><%
+%><input type="hidden" name="<e:forHtmlAttribute value='<%= key %>' />" value=""/><%
         }
     }
 %>

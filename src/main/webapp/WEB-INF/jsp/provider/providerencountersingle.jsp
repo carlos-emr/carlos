@@ -78,13 +78,13 @@
         xmlContent = SxmlMisc.getXmlContent(content, "xml_content");
         xmlUsername = SxmlMisc.getXmlContent(content, "xml_username");
 %>
-<font size="-1"><%=Encode.forHtml(ConversionUtils.toDateString(enc.getEncounterDate()))%> <%=Encode.forHtml(ConversionUtils.toTimeString(enc.getEncounterTime()))%>
-    &nbsp;<font color="green"><%=Encode.forHtml(StringUtils.noNull(enc.getSubject()).isEmpty() ? "Unknown" : enc.getSubject())%>
+<font size="-1"><e:forHtmlContent value='<%= ConversionUtils.toDateString(enc.getEncounterDate()) %>' /> <e:forHtmlContent value='<%= ConversionUtils.toTimeString(enc.getEncounterTime()) %>' />
+    &nbsp;<font color="green"><e:forHtmlContent value='<%= StringUtils.noNull(enc.getSubject()).isEmpty() ? "Unknown" : enc.getSubject() %>' />
     </font></font>
 <br>
 <xml id="xml_list">
     <encounter>
-        <%=Encode.forXml(content)%>
+        <e:forXml value='<%= content %>' />
     </encounter>
 </xml>
 <%
@@ -97,15 +97,15 @@
             while (st.hasMoreTokens()) {
                 temp = st.nextToken(">").substring(1);
         %> <a href=#
-              onClick="popupPage(600,800, '<%=Encode.forJavaScript(st.nextToken("<").substring(1))%>')">
-            <%=Encode.forHtml(temp)%>
+              onClick="popupPage(600,800, '<e:forJavaScriptAttribute value='<%= st.nextToken("<").substring(1) %>' />')">
+            <e:forHtmlContent value='<%= temp %>' />
         </a> <%
                 st.nextToken(">");
             }
         %>
         </td>
         <td align='right' width='20%' nowrap>
-            <%=Encode.forHtml(xmlUsername)%>
+            <e:forHtmlContent value='<%= xmlUsername %>' />
         </td>
     </tr>
 </table>
@@ -126,7 +126,7 @@
 %>
 
 <center><input type="button" value="Print Preview"
-               onClick="popupPage(600,800, '<%= request.getContextPath() %>/provider/ViewProviderEncounterPrint?encounter_no=<%=Encode.forUriComponent(request.getParameter("encounter_no") != null ? request.getParameter("encounter_no") : "")%>&demographic_no=<%=Encode.forUriComponent(request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "")%>&username=<%=Encode.forUriComponent(request.getParameter("username") != null ? request.getParameter("username") : "")%>')">
+               onClick="popupPage(600,800, '<%= request.getContextPath() %>/provider/ViewProviderEncounterPrint?encounter_no=<e:forUriComponent value='<%= request.getParameter("encounter_no") != null ? request.getParameter("encounter_no") : "" %>' />&demographic_no=<e:forUriComponent value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' />&username=<e:forUriComponent value='<%= request.getParameter("username") != null ? request.getParameter("username") : "" %>' />')">
     <input type="button" value="Close this window" onClick="self.close()">
 </center>
 </body>

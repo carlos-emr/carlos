@@ -31,8 +31,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.EFormDao" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -124,7 +123,7 @@
                         Department d = departmentDao.find(deptId);
                         if(d != null) {
                         %>
-                    $('#department').append($("<option></option>").attr("value", '<%=deptId%>').text('<%= Encode.forJavaScript(d.getName()) %>'));
+                    $('#department').append($("<option></option>").attr("value", '<%=deptId%>').text('<e:forJavaScriptBlock value='<%= d.getName() %>' />'));
                     <%
                 } }
                 %>
@@ -338,7 +337,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><%= Encode.forHtml(error) %></li>
+                    <li><e:forHtmlContent value='<%= error %>' /></li>
                 <% } %>
             </ul>
         </div>
@@ -397,9 +396,9 @@
                     %>
                     <script>
                         document.addEventListener('DOMContentLoaded', function () {
-                            document.getElementById('institution').value = '<%= Encode.forJavaScript(String.valueOf(request.getAttribute("institution"))) %>';
+                            document.getElementById('institution').value = '<e:forJavaScriptBlock value='<%= String.valueOf(request.getAttribute("institution")) %>' />';
                             changeInstitution();
-                            document.getElementById('department').value = '<%= Encode.forJavaScript(String.valueOf(request.getAttribute("department"))) %>';
+                            document.getElementById('department').value = '<e:forJavaScriptBlock value='<%= String.valueOf(request.getAttribute("department")) %>' />';
                         });
                     </script>
                     <% } %>
@@ -554,7 +553,7 @@
                                     for (Institution institution : institutionDao.findAll()) {
                                         String instSelected = String.valueOf(institution.getId()).equals(selectedInst) ? " selected" : "";
                                 %>
-                                <option value="<%=institution.getId()%>"<%=instSelected%>><%= Encode.forHtml(institution.getName()) %></option>
+                                <option value="<%=institution.getId()%>"<%=instSelected%>><e:forHtmlContent value='<%= institution.getName() %>' /></option>
                                 <% } %>
                             </select>
                         </div>

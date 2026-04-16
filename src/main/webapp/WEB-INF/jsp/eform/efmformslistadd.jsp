@@ -126,7 +126,7 @@ Ontario, Canada
 			}
 
 			function updateAjax() {
-				var parentAjaxId = "<%=Encode.forJavaScript(parentAjaxId)%>";
+				var parentAjaxId = "<e:forJavaScriptBlock value='<%= parentAjaxId %>' />";
 				if (parentAjaxId != "null") {
 					window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
 					window.opener.updateNeeded = true;
@@ -192,24 +192,24 @@ Ontario, Canada
                 <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5z"></path>
             </svg>
             Add eForm
-        </h2> <span><%= Encode.forHtml(demographic.getDisplayName()) %></span>
+        </h2> <span><e:forHtmlContent value='<%= demographic.getDisplayName() %>' /></span>
         </div>
         <div class="menu-columns">
 
             <div class="left-column">
 
-                <a href="${pageContext.request.contextPath}/demographic/DemographicEdit?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&appointment=<%=Encode.forUriComponent(appointment)%>">
+                <a href="${pageContext.request.contextPath}/demographic/DemographicEdit?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&appointment=<e:forUriComponent value='<%= appointment %>' />">
                     <fmt:message key="demographic.demographiceditdemographic.btnMasterFile"/></a>
-                <a href="efmformslistadd?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&appointment=<%=Encode.forUriComponent(appointment)%>&parentAjaxId=<%=Encode.forUriComponent(parentAjaxId)%>"
+                <a href="efmformslistadd?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&appointment=<e:forUriComponent value='<%= appointment %>' />&parentAjaxId=<e:forUriComponent value='<%= parentAjaxId %>' />"
                    class="current"> <fmt:message key="eform.showmyform.btnAddEForm"/></a>
                 <jsp:include page="efmviewgroups.jsp">
                     <jsp:param name="url" value="${pageContext.request.contextPath}/eform/efmformslistadd"/>
                     <jsp:param name="groupView" value="<%= groupView %>"/>
                 </jsp:include>
 
-                <a href="efmpatientformlist?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&appointment=<%=Encode.forUriComponent(appointment)%>&parentAjaxId=<%=Encode.forUriComponent(parentAjaxId)%>">
+                <a href="efmpatientformlist?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&appointment=<e:forUriComponent value='<%= appointment %>' />&parentAjaxId=<e:forUriComponent value='<%= parentAjaxId %>' />">
                     <fmt:message key="eform.calldeletedformdata.btnGoToForm"/></a>
-                <a href="efmpatientformlistdeleted?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&appointment=<%=Encode.forUriComponent(appointment)%>&parentAjaxId=<%=Encode.forUriComponent(parentAjaxId)%>">
+                <a href="efmpatientformlistdeleted?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&appointment=<e:forUriComponent value='<%= appointment %>' />&parentAjaxId=<e:forUriComponent value='<%= parentAjaxId %>' />">
                     <fmt:message key="eform.showmyform.btnDeleted"/></a>
 
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.eform" rights="w"
@@ -241,16 +241,18 @@ Ontario, Canada
                             for (int i = 0; i < eForms.size(); i++) {
                                 HashMap<String, ? extends Object> curForm = eForms.get(i);
                     %>
+                    <c:set var="__enc_1"><e:forUriComponent value='<%= demographic_no %>' /></c:set>
+                    <c:set var="__enc_2"><e:forUriComponent value='<%= appointment %>' /></c:set>
                     <tr>
                         <td>
                             <a HREF="#"
-                               ONCLICK="popupPage('efmformadd_data?fid=<%=Encode.forUriComponent((String) curForm.get("fid"))%>&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>&appointment=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(appointment))%>','<%=Encode.forJavaScriptAttribute((String) curForm.get("fid")) + "_" + Encode.forJavaScriptAttribute(demographic_no) %>'); return true;"
+                               ONCLICK="popupPage('efmformadd_data?fid=<e:forUriComponent value='<%= (String) curForm.get("fid") %>' />&demographic_no=<e:forJavaScriptAttribute value='${__enc_1}' />&appointment=<e:forJavaScriptAttribute value='${__enc_2}' />','<%=Encode.forJavaScriptAttribute((String) curForm.get("fid")) + "_" + Encode.forJavaScriptAttribute(demographic_no) %>'); return true;"
                                TITLE='Add This eForm' OnMouseOver="window.status='Add This eForm' ; return true">
-                                <%= Encode.forHtmlContent((String) curForm.get("formName")) %>
+                                <e:forHtmlContent value='<%= (String) curForm.get("formName") %>' />
                             </a></td>
-                        <td><%=Encode.forHtmlContent((String) curForm.get("formSubject"))%>
+                        <td><e:forHtmlContent value='<%= (String) curForm.get("formSubject") %>' />
                         </td>
-                        <td><%=Encode.forHtml((String) curForm.get("formDate"))%>
+                        <td><e:forHtmlContent value='<%= (String) curForm.get("formDate") %>' />
                         </td>
                     </tr>
                     <%

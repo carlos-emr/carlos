@@ -32,8 +32,6 @@
 <!DOCTYPE HTML>
 
 <%@page import="io.github.carlos_emr.carlos.providers.data.*,java.util.*,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -104,7 +102,7 @@
                         List<Hashtable> queues=queueDao.getQueues();
                         for(Hashtable qht:queues){
                         %>                            
-                                <li><%= Encode.forHtml((String) qht.get("queue")) %></li>
+                                <li><e:forHtmlContent value='<%= (String) qht.get("queue") %>' /></li>
                         <%}%>
                         </ol>
  

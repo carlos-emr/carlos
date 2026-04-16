@@ -49,7 +49,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.DemographicSets, io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="java.util.ArrayList" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -127,8 +126,8 @@
                 demoSets.addDemographicSet(setName, arrDemo);
                 arrCurDemoSets.add(setName);
     %>
-    <p style="font-size:small; font-variant:small-caps"><fmt:message key="demographic.demographiccohort.saved"/> <%=Encode.forHtml(demoData.getDemographic(loggedInInfo, demoNo).getFirstName() + " " + demoData.getDemographic(loggedInInfo, demoNo).getLastName())%>
-        <fmt:message key="demographic.demographiccohort.to"/> <%=Encode.forHtml(setName)%>
+    <p style="font-size:small; font-variant:small-caps"><fmt:message key="demographic.demographiccohort.saved"/> <e:forHtmlContent value='<%= demoData.getDemographic(loggedInInfo, demoNo).getFirstName() + " " + demoData.getDemographic(loggedInInfo, demoNo).getLastName() %>' />
+        <fmt:message key="demographic.demographiccohort.to"/> <e:forHtmlContent value='<%= setName %>' />
     </p>
     <%
             }
@@ -145,12 +144,12 @@
     <h3><fmt:message key="demographic.demographiccohort.addtopatientset"/></h3>
     <ul>
         <c:forEach var="set" items="${arrDemoSets}">
-            <li><a href="<%= request.getContextPath() %>/demographic/ViewDemographicCohort?demographic_no=<%= Encode.forUriComponent(demoNo) %>&setName=<%= Encode.forUriComponent((String) pageContext.getAttribute("set")) %>">${e:forHtml(set)}</a></li>
+            <li><a href="<%= request.getContextPath() %>/demographic/ViewDemographicCohort?demographic_no=<e:forUriComponent value='<%= demoNo %>' />&setName=<e:forUriComponent value='<%= (String) pageContext.getAttribute("set") %>' />">${e:forHtml(set)}</a></li>
         </c:forEach>
     </ul>
     <br>
     <form method="get" action="<%= request.getContextPath() %>/demographic/ViewDemographicCohort">
-        <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demoNo) %>">
+        <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demoNo %>' />">
         <h3><fmt:message key="demographic.demographiccohort.newpatientset"/></h3>
         <input type="text" name="setName">&nbsp;<input type="submit"
                                                        value="<fmt:message key="demographic.demographiccohort.save"/>">

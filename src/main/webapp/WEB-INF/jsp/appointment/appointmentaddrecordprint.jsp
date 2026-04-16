@@ -62,7 +62,6 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%
     OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
@@ -137,7 +136,9 @@
 
         <script LANGUAGE="JavaScript">
             self.opener.refresh();
-            popupPage(350, 750, '<%= request.getContextPath() %>/report/ViewReportdaysheet?dsmode=new&provider_no=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("provider_no")))) %>&sdate=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("appointment_date")))) %>');
+            <c:set var="__enc_1"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("provider_no")) %>' /></c:set>
+            <c:set var="__enc_2"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("appointment_date")) %>' /></c:set>
+            popupPage(350, 750, '<%= request.getContextPath() %>/report/ViewReportdaysheet?dsmode=new&provider_no=<e:forJavaScript value='${__enc_1}' />&sdate=<e:forJavaScript value='${__enc_2}' />');
             self.close();
         </script>
         <%

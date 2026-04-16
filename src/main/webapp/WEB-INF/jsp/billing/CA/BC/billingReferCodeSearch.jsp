@@ -33,7 +33,6 @@
     String user_no = (String) session.getAttribute("user");
 %>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -140,7 +139,7 @@
 
         function CodeAttach(File0) {
             self.close();
-            self.opener.document["<%= Encode.forJavaScript(StringUtils.noNull(formName)) %>"]["<%= Encode.forJavaScript(StringUtils.noNull(formElement)) %>"].value = File0;
+            self.opener.document["<e:forJavaScriptBlock value='<%= StringUtils.noNull(formName) %>' />"]["<e:forJavaScriptBlock value='<%= StringUtils.noNull(formElement) %>' />"].value = File0;
         }
 
     </script>
@@ -159,9 +158,9 @@
 </table>
 <form name="servicecode" id="servicecode" method="post"
       action="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingReferCodeUpdate"><input type="hidden"
-                                                 name="formName" value="<%=Encode.forHtmlAttribute(formName)%>"/> <input type="hidden"
+                                                 name="formName" value="<e:forHtmlAttribute value='<%= formName %>' />"/> <input type="hidden"
                                                                                                 name="formElement"
-                                                                                                value="<%=Encode.forHtmlAttribute(formElement)%>"/>
+                                                                                                value="<e:forHtmlAttribute value='<%= formElement %>' />"/>
     <table width="600" border="1">
         <tr bgcolor="#CCCCFF">
             <td width="12%"><b><font face="Arial, Helvetica, sans-serif"
@@ -210,21 +209,21 @@
             <td width="12%"><font face="Arial, Helvetica, sans-serif"
                                   size="2">
                 <% if (Dcode.compareTo(xcodeName) == 0 || Dcode.compareTo(xcodeName1) == 0 || Dcode.compareTo(xcodeName2) == 0) { %><input
-                    type="checkbox" name="code_<%=Encode.forHtmlAttribute(Dcode)%>" checked>
-                <%} else {%><input type="checkbox" name="code_<%=Encode.forHtmlAttribute(Dcode)%>">
-                <%}%><%=Encode.forHtml(Dcode)%>
+                    type="checkbox" name="code_<e:forHtmlAttribute value='<%= Dcode %>' />" checked>
+                <%} else {%><input type="checkbox" name="code_<e:forHtmlAttribute value='<%= Dcode %>' />">
+                <%}%><e:forHtmlContent value='<%= Dcode %>' />
             </font></td>
             <td width="22%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><%=Encode.forHtml(DcodeDesc)%>
+                                  size="2"><e:forHtmlContent value='<%= DcodeDesc %>' />
             </font></td>
             <td width="22%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><%=Encode.forHtml(DcodeSpecialty)%>
+                                  size="2"><e:forHtmlContent value='<%= DcodeSpecialty %>' />
             </font></td>
             <td width="22%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><%=Encode.forHtml(DcodeCity)%>
+                                  size="2"><e:forHtmlContent value='<%= DcodeCity %>' />
             </font></td>
             <td width="22%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><%=Encode.forHtml(DcodePhone)%>
+                                  size="2"><e:forHtmlContent value='<%= DcodePhone %>' />
             </font></td>
         </tr>
         <%
@@ -234,7 +233,7 @@
         <% if (intCount == 0) { %>
         <tr bgcolor="<%=color%>">
             <td colspan="5"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><%=Encode.forHtml(desc)%>No match found. <%=Encode.forHtml(fdesc)%>
+                                  size="2"><e:forHtmlContent value='<%= desc %>' />No match found. <e:forHtmlContent value='<%= fdesc %>' />
                 <%// =i%>
             </font></td>
 
@@ -244,7 +243,7 @@
         <% if (intCount == 1) { %>
         <script LANGUAGE="JavaScript">
             <!--
-            CodeAttach('<%=Encode.forJavaScript(Dcode)%>');
+            CodeAttach('<e:forJavaScriptBlock value='<%= Dcode %>' />');
             -->
 
         </script>

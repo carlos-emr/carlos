@@ -32,8 +32,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="java.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="org.owasp.encoder.Encode" %>
-
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -121,11 +119,11 @@
                 prevName = h.get("name");
                 prevDesc = h.get("desc");
         %>
-        <tr class="prevention-item" id="<%=Encode.forHtmlAttribute(prevId)%>" prevention-data="<%=Encode.forHtmlAttribute(prevName)%>">
+        <tr class="prevention-item" id="<e:forHtmlAttribute value='<%= prevId %>' />" prevention-data="<e:forHtmlAttribute value='<%= prevName %>' />">
             <td class="item-active" title="Available on master list"></td>
-            <td><%=Encode.forHtml(prevName)%>
+            <td><e:forHtmlContent value='<%= prevName %>' />
             </td>
-            <td><%=Encode.forHtml(prevDesc)%>
+            <td><e:forHtmlContent value='<%= prevDesc %>' />
             </td>
         </tr>
 
@@ -166,7 +164,7 @@
 
 
 <!-- property value from database: hidden-->
-<input type="hidden" name="property-bin" id="property-bin" style="width:1200px" value="<%=Encode.forHtmlAttribute(customPreventionItems)%>">
+<input type="hidden" name="property-bin" id="property-bin" style="width:1200px" value="<e:forHtmlAttribute value='<%= customPreventionItems %>' />">
 
 
 <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>

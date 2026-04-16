@@ -24,7 +24,6 @@
 --%>
 
 <%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.model.BillingInr" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
@@ -149,9 +148,9 @@
                                                   color="#000000" size="1">Demographic Name </font></td>
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
-                                    type="hidden" name="demono" value="<%=Encode.forHtmlAttribute(demono)%>" size="20">
-                                <input type="hidden" name="billinginr_no" value="<%=Encode.forHtmlAttribute(billinginr_no)%>">
-                                <input type="text" name="demo_name" value="<%=Encode.forHtmlAttribute(demo_name)%>"
+                                    type="hidden" name="demono" value="<e:forHtmlAttribute value='<%= demono %>' />" size="20">
+                                <input type="hidden" name="billinginr_no" value="<e:forHtmlAttribute value='<%= billinginr_no %>' />">
+                                <input type="text" name="demo_name" value="<e:forHtmlAttribute value='<%= demo_name %>' />"
                                        size="20" readonly> </font></td>
                             <td rowspan="9" width="21%" valign="middle">
                                 <p><br>
@@ -162,13 +161,13 @@
                             <td width="29%"><font size="1"
                                                   face="Arial, Helvetica, sans-serif">Demographic HIN</font></td>
                             <td width="50%"><input type="text" name="demo_hin"
-                                                   value="<%=Encode.forHtmlAttribute(demo_hin)%> " size="20" readonly></td>
+                                                   value="<e:forHtmlAttribute value='<%= demo_hin %>' /> " size="20" readonly></td>
                         </tr>
                         <tr>
                             <td width="29%"><font size="1"
                                                   face="Arial, Helvetica, sans-serif">Demographic DOB</font></td>
                             <td width="50%"><input type="text" name="demo_dob"
-                                                   value="<%=Encode.forHtmlAttribute(demo_dob)%> " size="20" readonly></td>
+                                                   value="<e:forHtmlAttribute value='<%= demo_dob %>' /> " size="20" readonly></td>
                         </tr>
                         <tr>
                             <td width="29%"><font face="Arial, Helvetica, sans-serif"
@@ -176,14 +175,14 @@
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="text" name="service_code" size="10"
-                                    value="<%=Encode.forHtmlAttribute(request.getParameter("servicecode") != null ? request.getParameter("servicecode") : "")%>"> <input
+                                    value="<e:forHtmlAttribute value='<%= request.getParameter("servicecode") != null ? request.getParameter("servicecode") : "" %>' />"> <input
                                     type="hidden" name="service_unit" value="1"> </font></td>
                         </tr>
                         <tr>
                             <td width="29%"><font size="1"
                                                   face="Arial, Helvetica, sans-serif">Diagnostic Code</font></td>
                             <td width="50%"><input type="text" name="diag_code" size="20"
-                                                   value="<%=Encode.forHtmlAttribute(request.getParameter("dxcode") != null ? request.getParameter("dxcode") : "")%>"></td>
+                                                   value="<e:forHtmlAttribute value='<%= request.getParameter("dxcode") != null ? request.getParameter("dxcode") : "" %>' />"></td>
                         </tr>
                         <tr>
                             <td width="29%"><font

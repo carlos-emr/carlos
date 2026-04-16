@@ -180,7 +180,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 <html>
 
     <head>
-        <title><oscar:nameage demographicNo="<%=demographic_no%>"/> - <%=Encode.forHtml(flowSheet)%> Custom Print</title><!--I18n-->
+        <title><oscar:nameage demographicNo="<%=demographic_no%>"/> - <e:forHtmlContent value='<%= flowSheet %>' /> Custom Print</title><!--I18n-->
 
         <meta name="viewport" content="width=device-width, user-scalable=false;">
 
@@ -475,21 +475,21 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
     <body class="BodyStyle" id="printFlowsheetBody">
 
     <form action="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheetPrint" id="flowsheetPrintForm" method="post" class="d-flex flex-wrap align-items-center gap-2">
-        <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no)%>"/>
-        <input type="hidden" name="template" value="<%=Encode.forHtmlAttribute(temp)%>"/>
+        <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demographic_no %>' />"/>
+        <input type="hidden" name="template" value="<e:forHtmlAttribute value='<%= temp %>' />"/>
         <input type="hidden" name="printView" value="true"/>
 
         <div id="wrapper-header">
 
             <div class="module-block DoNotPrint">
                 <%if (!printView) {%>
-                <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheet?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&template=<%=Encode.forUriComponent(temp)%>"
-                   title="go back to <%=Encode.forHtmlAttribute(temp)%>">&lt;&lt; <%=Encode.forHtml(flowSheet)%>
+                <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheet?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&template=<e:forUriComponent value='<%= temp %>' />"
+                   title="go back to <e:forHtmlAttribute value='<%= temp %>' />">&lt;&lt; <e:forHtmlContent value='<%= flowSheet %>' />
                 </a> <br/>
-                <a href="JavaScript:void(0);" class="back" title="go back to <%=Encode.forHtmlAttribute(flowSheet)%>"></a>
+                <a href="JavaScript:void(0);" class="back" title="go back to <e:forHtmlAttribute value='<%= flowSheet %>' />"></a>
 
                 <%} else {%>
-                <a href="JavaScript:void(0);" class="back" title="go back to custom print"> << <%=Encode.forHtml(flowSheet)%> -
+                <a href="JavaScript:void(0);" class="back" title="go back to custom print"> << <e:forHtmlContent value='<%= flowSheet %>' /> -
                     Print</a>
                 <%}%>
 
@@ -538,11 +538,11 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
                     view:
                     <div class="btn-group">
-                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheetPrint?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&template=<%=Encode.forUriComponent(temp)%>"
+                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheetPrint?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&template=<e:forUriComponent value='<%= temp %>' />"
                            id="all-btn" class="btn btn-sm loading" data-bs-loading-text="Loading...">All</a>
-                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheetPrint?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&template=<%=Encode.forUriComponent(temp)%>&show=lastOnly"
+                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheetPrint?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&template=<e:forUriComponent value='<%= temp %>' />&show=lastOnly"
                            id="lastOnly-btn" class="btn btn-sm loading" data-bs-loading-text="Loading...">Last Only</a>
-                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheetPrint?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&template=<%=Encode.forUriComponent(temp)%>&show=outOfRange"
+                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheetPrint?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&template=<e:forUriComponent value='<%= temp %>' />&show=outOfRange"
                            id="outOfRange-btn" class="btn btn-sm loading" data-bs-loading-text="Loading...">Out of
                             Range</a>
                     </div>
@@ -598,9 +598,9 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     <%if (!printView) {%>
                     <div style="position: relative; float: left; padding-right: 10px;" class="DoNotPrint">
 
-                        <input type="checkbox" name="printHP" id="printHP<%=Encode.forHtmlAttribute(measure)%>" class="css-checkbox"
-                               value="<%=Encode.forHtmlAttribute(measure)%>"  <%=setToPrint ? "checked" : ""%>/>
-                        <label for="printHP<%=Encode.forHtmlAttribute(measure)%>" class="css-label"></label><!--needed for chkbox effect-->
+                        <input type="checkbox" name="printHP" id="printHP<e:forHtmlAttribute value='<%= measure %>' />" class="css-checkbox"
+                               value="<e:forHtmlAttribute value='<%= measure %>' />"  <%=setToPrint ? "checked" : ""%>/>
+                        <label for="printHP<e:forHtmlAttribute value='<%= measure %>' />" class="css-label"></label><!--needed for chkbox effect-->
 
                     </div>
                     <%}%>
@@ -610,38 +610,38 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     <div class="headPrevention">
 
                         <p>
-                            <span style=""><%=Encode.forHtml(item.getDisplayName())%></span>
+                            <span style=""><e:forHtmlContent value='<%= item.getDisplayName() %>' /></span>
                             <br/>
 
                         </p>
 
-                        <div id="refine-results-<%=Encode.forHtmlAttribute(measure)%>" style="display:none;position:relative;">
+                        <div id="refine-results-<e:forHtmlAttribute value='<%= measure %>' />" style="display:none;position:relative;">
 
-                            <select name="printStyle<%=Encode.forHtmlAttribute(measure)%>" id="refineSelect-<%=Encode.forHtmlAttribute(measure)%>" style="width:110px"
-                                    rel="<%=Encode.forHtmlAttribute(measure)%>">
-                                <option value="all" selected>all <%=Encode.forHtml(measure)%>
+                            <select name="printStyle<e:forHtmlAttribute value='<%= measure %>' />" id="refineSelect-<e:forHtmlAttribute value='<%= measure %>' />" style="width:110px"
+                                    rel="<e:forHtmlAttribute value='<%= measure %>' />">
+                                <option value="all" selected>all <e:forHtmlContent value='<%= measure %>' />
                                 </option>
                                 <option value="num"># Elements</option>
                                 <option value="range">date range</option>
                             </select>
 
 
-                            <input type="text" name="numEle<%=Encode.forHtmlAttribute(measure)%>" class="num-<%=Encode.forHtmlAttribute(measure)%>"
+                            <input type="text" name="numEle<e:forHtmlAttribute value='<%= measure %>' />" class="num-<e:forHtmlAttribute value='<%= measure %>' />"
                                    style="display:none;width:20px" placeholder=""/>
 
 
-                            <div class="range-<%=Encode.forHtmlAttribute(measure)%>" style="display:none">
-                                <div class="input-group date" id="dp-startDate-<%=Encode.forHtmlAttribute(measure)%>" data-date="<%=date%>"
+                            <div class="range-<e:forHtmlAttribute value='<%= measure %>' />" style="display:none">
+                                <div class="input-group date" id="dp-startDate-<e:forHtmlAttribute value='<%= measure %>' />" data-date="<%=date%>"
                                      title="Start Date">
-                                    <input style="width:90px" name="sDate<%=Encode.forHtmlAttribute(measure)%>" id="sDate-<%=Encode.forHtmlAttribute(measure)%>" size="16"
+                                    <input style="width:90px" name="sDate<e:forHtmlAttribute value='<%= measure %>' />" id="sDate-<e:forHtmlAttribute value='<%= measure %>' />" size="16"
                                            type="text" value="" placeholder="start" data-input
                                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$">
                                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                                 </div>
 
-                                <div class="input-group date" id="dp-endDate-<%=Encode.forHtmlAttribute(measure)%>" data-date="<%=date%>"
+                                <div class="input-group date" id="dp-endDate-<e:forHtmlAttribute value='<%= measure %>' />" data-date="<%=date%>"
                                      title="End Date">
-                                    <input style="width:90px" name="eDate<%=Encode.forHtmlAttribute(measure)%>" id="eDate-<%=Encode.forHtmlAttribute(measure)%>" size="16"
+                                    <input style="width:90px" name="eDate<e:forHtmlAttribute value='<%= measure %>' />" id="eDate-<e:forHtmlAttribute value='<%= measure %>' />" size="16"
                                            type="text" value="" placeholder="end" data-input
                                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$">
                                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
@@ -718,9 +718,9 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                              onclick="javascript:popup(465,635,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData?measurement=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(measure))%>&amp;id=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(String.valueOf(hdata.get("id"))))%>&amp;demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>&amp;template=<%= Encode.forJavaScriptAttribute(URLEncoder.encode(temp,"UTF-8")) %>','addMeasurementData')">
 
                             <p <%=indColour%>
-                                    title="Entered By: <%=Encode.forHtmlAttribute(mdb.getProviderFirstName())%> <%=Encode.forHtmlAttribute(mdb.getProviderLastName())%>">
-                                <%=Encode.forHtml(String.valueOf(h2.get("value_name")))%>: <%=Encode.forHtml(String.valueOf(hdata.get("age")))%> <br/>
-                                <%=Encode.forHtml(String.valueOf(hdata.get("prevention_date")))%>&nbsp;<%=Encode.forHtml(String.valueOf(mdb.getNumMonthSinceObserved()))%>M
+                                    title="Entered By: <e:forHtmlAttribute value='<%= mdb.getProviderFirstName() %>' /> <e:forHtmlAttribute value='<%= mdb.getProviderLastName() %>' />">
+                                <e:forHtmlContent value='<%= String.valueOf(h2.get("value_name")) %>' />: <e:forHtmlContent value='<%= String.valueOf(hdata.get("age")) %>' /> <br/>
+                                <e:forHtmlContent value='<%= String.valueOf(hdata.get("prevention_date")) %>' />&nbsp;<e:forHtmlContent value='<%= String.valueOf(mdb.getNumMonthSinceObserved()) %>' />M
                                 <%if (comb) {%>
                                 <span class="footnote"><%=comments.size()%></span>
                                 <%}%>
@@ -747,15 +747,15 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                 <div class="preventionSection" style="<%=hidden%>">
                     <%if (!printView) {%>
                     <div style="position: relative; float: left; padding-right: 10px;" class="DoNotPrint">
-                        <input type="checkbox" name="printHP" id="printHP<%=Encode.forHtmlAttribute(measure)%>" class="css-checkbox"
-                               value="<%=Encode.forHtmlAttribute(measure)%>"  <%=setToPrint ? "checked" : ""%>/>
-                        <label for="printHP<%=Encode.forHtmlAttribute(measure)%>" class="css-label"></label><!--needed for chkbox effect-->
+                        <input type="checkbox" name="printHP" id="printHP<e:forHtmlAttribute value='<%= measure %>' />" class="css-checkbox"
+                               value="<e:forHtmlAttribute value='<%= measure %>' />"  <%=setToPrint ? "checked" : ""%>/>
+                        <label for="printHP<e:forHtmlAttribute value='<%= measure %>' />" class="css-label"></label><!--needed for chkbox effect-->
                     </div>
                     <%}%>
 
                     <div class="headPrevention">
-                        <p title="<%=Encode.forHtmlAttribute(String.valueOf(h2.get("display_name")))%>">
-                            <span title="<%=Encode.forHtmlAttribute(String.valueOf(h2.get("guideline")))%>"><%=Encode.forHtml(String.valueOf(h2.get("display_name")))%></span>
+                        <p title="<e:forHtmlAttribute value='<%= String.valueOf(h2.get("display_name")) %>' />">
+                            <span title="<e:forHtmlAttribute value='<%= String.valueOf(h2.get("guideline")) %>' />"><e:forHtmlContent value='<%= String.valueOf(h2.get("display_name")) %>' /></span>
                         </p>
                     </div><!--headPrevention-->
                     <%
@@ -809,9 +809,9 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     <div class="preventionProcedure" <%=hider%>
                          onclick="javascript:popup(465,635,'<%= request.getContextPath() %>/prevention/AddPrevention?id=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(String.valueOf(hdata.get("id"))))%>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no)) %>','addPreventionData')">
                         <p <%=r(hdata.get("refused"))%>
-                                title="fade=[on] header=[<%=Encode.forHtmlAttribute(String.valueOf(hdata.get("age")))%> -- Date:<%=Encode.forHtmlAttribute(String.valueOf(hdata.get("prevention_date")))%>] body=[<%=Encode.forHtmlAttribute(com)%>]">
-                            Age: <%=Encode.forHtml(String.valueOf(hdata.get("age")))%> <br/>
-                            <!--<%=refused(hdata.get("refused"))%>-->Date: <%=Encode.forHtml(String.valueOf(hdata.get("prevention_date")))%>
+                                title="fade=[on] header=[<e:forHtmlAttribute value='<%= String.valueOf(hdata.get("age")) %>' /> -- Date:<e:forHtmlAttribute value='<%= String.valueOf(hdata.get("prevention_date")) %>' />] body=[<e:forHtmlAttribute value='<%= com %>' />]">
+                            Age: <e:forHtmlContent value='<%= String.valueOf(hdata.get("age")) %>' /> <br/>
+                            <!--<%=refused(hdata.get("refused"))%>-->Date: <e:forHtmlContent value='<%= String.valueOf(hdata.get("prevention_date")) %>' />
                             <%if (comb) {%>
                             <span class="footnote"><%=comments.size()%></span>
                             <%}%>
@@ -842,9 +842,9 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     <%if (!printView) {%>
                     <div style="position: relative; float: left; padding-right: 10px;" class="DoNotPrint">
 
-                        <input type="checkbox" name="printHP" id="printHP<%=Encode.forHtmlAttribute(fsd.getAtcCode())%>" class="css-checkbox"
-                               value="<%=Encode.forHtmlAttribute(fsd.getAtcCode())%>"/>
-                        <label for="printHP<%=Encode.forHtmlAttribute(fsd.getAtcCode())%>" name="printHP<%=Encode.forHtmlAttribute(fsd.getAtcCode())%>" class="css-label"></label>
+                        <input type="checkbox" name="printHP" id="printHP<e:forHtmlAttribute value='<%= fsd.getAtcCode() %>' />" class="css-checkbox"
+                               value="<e:forHtmlAttribute value='<%= fsd.getAtcCode() %>' />"/>
+                        <label for="printHP<e:forHtmlAttribute value='<%= fsd.getAtcCode() %>' />" name="printHP<e:forHtmlAttribute value='<%= fsd.getAtcCode() %>' />" class="css-label"></label>
                         <!--needed for chkbox effect-->
 
 
@@ -853,7 +853,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
                     <div class="headPrevention">
                         <p title="">
-                            <span title=""><%=Encode.forHtml(arr[0].getGenericName())%></span>
+                            <span title=""><e:forHtmlContent value='<%= arr[0].getGenericName() %>' /></span>
                             <br/>
                         </p>
                     </div> <!--headPrevention-->
@@ -900,9 +900,9 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     <div class="preventionProcedure" <%=hider%>
                          onclick="javascript:popup(465,635,'','addPreventionData')">
                         <p <%=""/*r(hdata.get("refused"))*/%>
-                                title="fade=[on] header=[<%=""/*hdata.get("age")*/%> -- Date:<%=""/*hdata.get("prevention_date")*/%>] body=[<%=""/*com*/%>]"><%=Encode.forHtml(pres.getBrandName())%>
+                                title="fade=[on] header=[<%=""/*hdata.get("age")*/%> -- Date:<%=""/*hdata.get("prevention_date")*/%>] body=[<%=""/*com*/%>]"><e:forHtmlContent value='<%= pres.getBrandName() %>' />
                             <br/>
-                            Date: <%=Encode.forHtml(String.valueOf(pres.getRxDate()))%>
+                            Date: <e:forHtmlContent value='<%= String.valueOf(pres.getRxDate()) %>' />
                                 <%-- if (comb) {%>
                                 <span class="footnote"><%=comments.size()%></span>
                                 <%} --%>
@@ -955,7 +955,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     <% for (int i = 0; i < comments.size(); i++) {
                         String str = (String) comments.get(i);
                     %>
-                    <li><%=Encode.forHtml(str)%>
+                    <li><e:forHtmlContent value='<%= str %>' />
                     </li>
                     <% }%>
                 </ol>
@@ -966,15 +966,15 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
             <% if (warnings.size() > 0 || recomendations.size() > 0 || dsProblems) { %>
             <div class="card card-body bg-body-tertiary" id="recommendations-list" <%=noPrint2%> >
 
-                <h4><%=Encode.forHtml(flowSheet)%> Recommendations</h4>
+                <h4><e:forHtmlContent value='<%= flowSheet %>' /> Recommendations</h4>
 
                 <ul id="recomList">
                     <% for (String warn : warnings) { %>
-                    <li><%=Encode.forHtml(warn)%>
+                    <li><e:forHtmlContent value='<%= warn %>' />
                     </li>
                     <%}%>
                     <% for (String warn : recomendations) {%>
-                    <li><%=Encode.forHtml(warn)%>
+                    <li><e:forHtmlContent value='<%= warn %>' />
                     </li>
                     <%}%>
                     <!--li style="color: red;">6 month TD overdue</li>
@@ -1049,7 +1049,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
             $("[id$=-btn]").removeClass("btn-primary active");
             <%if (request.getParameter("show") !=null ){%>
-            $('#<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("show")))%>-btn').addClass("btn-primary active");
+            $('#<e:forJavaScript value='<%= StringUtils.noNull(request.getParameter("show")) %>' />-btn').addClass("btn-primary active");
             <%}else{%>
             $('#all-btn').addClass("btn-primary active");
             <%}%>

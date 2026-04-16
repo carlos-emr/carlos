@@ -94,7 +94,7 @@
     tmp1 = tmp;
     while (tmp1.length() > 80) {
 %>
-<%=Encode.forHtml(tmp1.substring(0, 80))%>
+<e:forHtmlContent value='<%= tmp1.substring(0, 80) %>' />
 <%
         tmp1 = tmp1.substring(80);
 
@@ -102,7 +102,7 @@
 
 
 %>
-<%=Encode.forHtml(tmp1)%>
+<e:forHtmlContent value='<%= tmp1 %>' />
 </pre>
 
 

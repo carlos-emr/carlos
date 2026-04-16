@@ -30,7 +30,6 @@
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -139,8 +138,8 @@
             alert("Error: Missing form configuration. Cannot transfer the selected provider.");
             return;
             <%} else {%>
-            opener.document["<%= Encode.forJavaScript(form) %>"].elements["<%= Encode.forJavaScript(elementName) %>"].value = pn;
-            opener.document["<%= Encode.forJavaScript(form) %>"].elements["<%= Encode.forJavaScript(elementId) %>"].value = p;
+            opener.document["<e:forJavaScriptBlock value='<%= form %>' />"].elements["<e:forJavaScriptBlock value='<%= elementName %>' />"].value = pn;
+            opener.document["<e:forJavaScriptBlock value='<%= form %>' />"].elements["<e:forJavaScriptBlock value='<%= elementId %>' />"].value = p;
             self.close();
             <%}%>
         }
@@ -157,7 +156,7 @@
 
 <table width="100%" border="0">
     <tr>
-        <td align="left"><i><fmt:message key="receptionist.receptionistfindprovider.keywords"/></i> <%= Encode.forHtml(StringUtils.noNull(providername)) %>
+        <td align="left"><i><fmt:message key="receptionist.receptionistfindprovider.keywords"/></i> <e:forHtmlContent value='<%= StringUtils.noNull(providername) %>' />
         </td>
         <td align="right"><INPUT TYPE="SUBMIT" NAME="displaymode"
                                  VALUE="<fmt:message key="receptionist.receptionistfindprovider.btnExit"/>"

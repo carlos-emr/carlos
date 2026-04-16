@@ -50,8 +50,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -303,7 +301,7 @@
                     %>
 
                     <li>
-                        <a href="<%=request.getContextPath()%>/prevention/AddPrevention?snomedId=<%=Encode.forUriComponent(String.valueOf(mapping.getCvcSnomedId()))%>&prevention=<%= Encode.forUriComponent(prevention) %>&demographic_no=<%=Encode.forUriComponent(demographicNo)%>&prevResultDesc=<%=Encode.forUriComponent(prevResultDesc)%>"><%=i.getPicklistName()%>
+                        <a href="<%=request.getContextPath()%>/prevention/AddPrevention?snomedId=<e:forUriComponent value='<%= String.valueOf(mapping.getCvcSnomedId()) %>' />&prevention=<e:forUriComponent value='<%= prevention %>' />&demographic_no=<e:forUriComponent value='<%= demographicNo %>' />&prevResultDesc=<e:forUriComponent value='<%= prevResultDesc %>' />"><%=i.getPicklistName()%>
                         </a></li>
                     <% }
                     } %>

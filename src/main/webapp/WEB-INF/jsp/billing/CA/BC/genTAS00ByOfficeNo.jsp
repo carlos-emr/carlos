@@ -52,7 +52,6 @@
 <%@ page import="io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS00" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanS00Dao" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%
@@ -155,7 +154,8 @@
           %>
         <tr>
             <td width="5%" height="16"><a
-                    href="javascript: popupPage(700,750,'<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?billingmaster_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(result.getOfficeNo())))%>')"><%=Encode.forHtml(StringUtils.noNull(result.getOfficeNo()))%>
+                    <c:set var="__enc_1"><e:forUriComponent value='<%= StringUtils.noNull(result.getOfficeNo()) %>' /></c:set>
+                    href="javascript: popupPage(700,750,'<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?billingmaster_no=<e:forJavaScriptAttribute value='${__enc_1}' />')"><e:forHtmlContent value='<%= StringUtils.noNull(result.getOfficeNo()) %>' />
             </a>&nbsp;
             </td>
             <td width="5%" height="16"><%=result.getPractitionerNo()%>&nbsp;

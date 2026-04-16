@@ -207,7 +207,6 @@
 
 
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@page import="org.owasp.encoder.Encode" %>
 <html>
 <head>
     <title>Link to Lab Requisition</title>
@@ -221,12 +220,12 @@
 <body <%=(close) ? "onLoad=\"closeItUp()\" " : "" %>>
 
 <form action="<%=request.getContextPath()%>/lab/ViewLinkReq" method="post">
-    <input type="hidden" name="table" value="<%=Encode.forHtmlAttribute(table != null ? table : "")%>"/>
-    <input type="hidden" name="rptid" value="<%=Encode.forHtmlAttribute(rptId != null ? rptId : "")%>"/>
-    <input type="hidden" name="reqid" value="<%=Encode.forHtmlAttribute(reqId != null ? reqId : "")%>"/>
+    <input type="hidden" name="table" value="<e:forHtmlAttribute value='<%= table != null ? table : "" %>' />"/>
+    <input type="hidden" name="rptid" value="<e:forHtmlAttribute value='<%= rptId != null ? rptId : "" %>' />"/>
+    <input type="hidden" name="reqid" value="<e:forHtmlAttribute value='<%= reqId != null ? reqId : "" %>' />"/>
 
     <p>&nbsp;</p>
-    Requisition Date: <%=Encode.forHtml(reqDateLink)%>
+    Requisition Date: <e:forHtmlContent value='<%= reqDateLink %>' />
     <p>
         Link to Lab Requisition:
         <select name="linkReqId">
@@ -245,8 +244,8 @@
 
                 for (int i = 0; i < req_id.size(); i++) {
             %>
-            <option value="<%=Encode.forHtmlAttribute(req_id.get(i))%>" <%=req_id.get(i).equals(matchingId) ? "selected" : ""%>><%=Encode.forHtml(formDisplayName.get(i))%>
-                : <%=Encode.forHtml(formCreated.get(i))%> : <%=Encode.forHtml(patientName.get(i))%>
+            <option value="<e:forHtmlAttribute value='<%= req_id.get(i) %>' />" <%=req_id.get(i).equals(matchingId) ? "selected" : ""%>><e:forHtmlContent value='<%= formDisplayName.get(i) %>' />
+                : <e:forHtmlContent value='<%= formCreated.get(i) %>' /> : <e:forHtmlContent value='<%= patientName.get(i) %>' />
             </option>
             <% } %>
         </select>

@@ -156,16 +156,16 @@
             <td width="12%"><font face="Arial, Helvetica, sans-serif"
                                   size="2">
                 <% if (Dcode.compareTo(xcodeName) == 0 || Dcode.compareTo(xcodeName1) == 0 || Dcode.compareTo(xcodeName2) == 0) { %><input
-                    type="checkbox" name="code_<%=Encode.forHtmlAttribute(Dcode)%>" checked>
-                <%} else {%><input type="checkbox" name="code_<%=Encode.forHtmlAttribute(Dcode)%>">
-                <%}%><%=Encode.forHtml(Dcode)%>
+                    type="checkbox" name="code_<e:forHtmlAttribute value='<%= Dcode %>' />" checked>
+                <%} else {%><input type="checkbox" name="code_<e:forHtmlAttribute value='<%= Dcode %>' />">
+                <%}%><e:forHtmlContent value='<%= Dcode %>' />
             </font></td>
             <td width="88%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><input type="hidden" name="codedesc_<%=Encode.forHtmlAttribute(Dcode)%>"
-                                                  value="<%=Encode.forHtmlAttribute(DcodeDesc)%>"><input type="text" name="<%=Encode.forHtmlAttribute(Dcode)%>"
-                                                                                value="<%=Encode.forHtmlAttribute(DcodeDesc)%>" size="50"><input
+                                  size="2"><input type="hidden" name="codedesc_<e:forHtmlAttribute value='<%= Dcode %>' />"
+                                                  value="<e:forHtmlAttribute value='<%= DcodeDesc %>' />"><input type="text" name="<e:forHtmlAttribute value='<%= Dcode %>' />"
+                                                                                value="<e:forHtmlAttribute value='<%= DcodeDesc %>' />" size="50"><input
                     type="submit"
-                    name="update" value="update <%=Encode.forHtmlAttribute(Dcode)%>"></font></td>
+                    name="update" value="update <e:forHtmlAttribute value='<%= Dcode %>' />"></font></td>
         </tr>
         <%
             }
@@ -183,7 +183,7 @@
         <% if (intCount == 1) { %>
         <script LANGUAGE="JavaScript">
             <!--
-            CodeAttach('<%=Encode.forJavaScript(Dcode)%>');
+            CodeAttach('<e:forJavaScriptBlock value='<%= Dcode %>' />');
             -->
 
         </script>

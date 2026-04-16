@@ -41,7 +41,6 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar"%>
 <%@ taglib uri="jakarta.tags.core" prefix="c"%>
@@ -104,7 +103,7 @@
 			}
 
 			function updateAjax() {
-				let parentAjaxId = "<%=Encode.forJavaScript(parentAjaxId)%>";
+				let parentAjaxId = "<e:forJavaScriptBlock value='<%= parentAjaxId %>' />";
 				if( parentAjaxId !== "null" ) {
 					window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
 					window.opener.updateNeeded = true;
@@ -188,19 +187,19 @@
 			</svg>
 			<fmt:message key="eform.independent.btnDeleted" />
 		</h2>
-		<span><%= Encode.forHtml(demographic.getDisplayName()) %></span>
+		<span><e:forHtmlContent value='<%= demographic.getDisplayName() %>' /></span>
 	</div>
 		<div class="menu-columns">
 			<div class="left-column">
 
-				<a href="${pageContext.request.contextPath}/demographic/DemographicEdit?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&appointment=<%=Encode.forUriComponent(appointment)%>"><fmt:message key="demographic.demographiceditdemographic.btnMasterFile" /></a>
+				<a href="${pageContext.request.contextPath}/demographic/DemographicEdit?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&appointment=<e:forUriComponent value='<%= appointment %>' />"><fmt:message key="demographic.demographiceditdemographic.btnMasterFile" /></a>
 
 				
-				<a href="efmformslistadd?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&appointment=<%=Encode.forUriComponent(appointment)%>&parentAjaxId=<%=Encode.forUriComponent(parentAjaxId)%>" class="current">
+				<a href="efmformslistadd?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&appointment=<e:forUriComponent value='<%= appointment %>' />&parentAjaxId=<e:forUriComponent value='<%= parentAjaxId %>' />" class="current">
                     <fmt:message key="eform.showmyform.btnAddEForm"/></a>
-				<a href="efmpatientformlist?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&appointment=<%=Encode.forUriComponent(appointment)%>&parentAjaxId=<%=Encode.forUriComponent(parentAjaxId)%>">
+				<a href="efmpatientformlist?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&appointment=<e:forUriComponent value='<%= appointment %>' />&parentAjaxId=<e:forUriComponent value='<%= parentAjaxId %>' />">
                     <fmt:message key="eform.calldeletedformdata.btnGoToForm"/></a>
-<%--			<a href="efmpatientformlistdeleted?demographic_no=<%= Encode.forUriComponent(demographic_no) %>&appointment=<%=appointment%>&parentAjaxId=<%=parentAjaxId%>">
+<%--			<a href="efmpatientformlistdeleted?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&appointment=<%=appointment%>&parentAjaxId=<%=parentAjaxId%>">
                     <fmt:message key="eform.showmyform.btnDeleted"/></a>--%>
 				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.eform" rights="r" reverse="<%=false%>" >
 					<a href="#" onclick="javascript: return popup(600, 1200, '${pageContext.request.contextPath}/administration/?show=Forms', 'manageeforms');" style="color: #835921;">
@@ -237,11 +236,11 @@
 						<td><a href="#"
 						       ONCLICK="popupPage('efmshowform_data?fdid=<%= curform.get("fdid")%>', '<%="FormPD" + i%>'); return false;"
 						       TITLE="View Form"
-						       onmouseover="window.status='View This Form'; return true"><%=Encode.forHtmlContent((String)curform.get("formName"))%></a></td>
-						<td><%=Encode.forHtmlContent((String)curform.get("formSubject"))%></td>
+						       onmouseover="window.status='View This Form'; return true"><e:forHtmlContent value='<%= (String)curform.get("formName") %>' /></a></td>
+						<td><e:forHtmlContent value='<%= (String)curform.get("formSubject") %>' /></td>
 						<td ><%=curform.get("formDate")%></td>
 						<td ><a
-								href="javascript:void(0);" onClick="if(confirm('Are you sure you want to restore this eform?')){unRemoveEForm('<%=curform.get("fdid")%>','<%=Encode.forJavaScriptAttribute(demographic_no)%>','<%=Encode.forJavaScriptAttribute(parentAjaxId)%>');}">
+								href="javascript:void(0);" onClick="if(confirm('Are you sure you want to restore this eform?')){unRemoveEForm('<%=curform.get("fdid")%>','<e:forJavaScriptAttribute value='<%= demographic_no %>' />','<e:forJavaScriptAttribute value='<%= parentAjaxId %>' />');}">
                                     <fmt:message key="global.btnRestore" /></a></td>
 					</tr>
 					<%

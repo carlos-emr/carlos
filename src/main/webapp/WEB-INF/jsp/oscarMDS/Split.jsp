@@ -16,12 +16,11 @@
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.commn.model.Document" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DocumentDao" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -104,7 +103,7 @@
                 %>
                 <li>
                     <img class="page"
-                         src='<%=Encode.forHtmlAttribute(request.getContextPath() + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + java.net.URLEncoder.encode(documentId != null ? documentId : "", StandardCharsets.UTF_8) + "&curPage=" + i)%>'/>
+                         src='<e:forHtmlAttribute value='<%= request.getContextPath() + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + java.net.URLEncoder.encode(documentId != null ? documentId : "", StandardCharsets.UTF_8) + "&curPage=" + i %>' />'/>
                 </li>
                 <%
                     }
@@ -114,8 +113,8 @@
     </div>
 </div>
 
-<input type="hidden" id="document_no" value="<%= Encode.forHtmlAttribute(documentId != null ? documentId : "") %>"/>
+<input type="hidden" id="document_no" value="<e:forHtmlAttribute value='<%= documentId != null ? documentId : "" %>' />"/>
 <input type="hidden" id="queueID" value="${ e:forHtmlAttribute(param.queueID) }"/>
-<input type="hidden" id="demoName" value="<%= Encode.forHtmlAttribute(demoName != null ? demoName : "") %>"/>
+<input type="hidden" id="demoName" value="<e:forHtmlAttribute value='<%= demoName != null ? demoName : "" %>' />"/>
 </body>
 </html>

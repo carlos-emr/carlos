@@ -27,7 +27,6 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
 
@@ -56,7 +55,7 @@
     return;
     <%} else {%>
     self.close();
-    opener.document["<%= Encode.forJavaScript(form) %>"]["<%= Encode.forJavaScript(field) %>"].value = index;
+    opener.document["<e:forJavaScriptBlock value='<%= form %>' />"]["<e:forJavaScriptBlock value='<%= field %>' />"].value = index;
     opener.focus();
     <%}%>
     }
@@ -86,9 +85,9 @@
     <tr <%=((color) ? "bgcolor=\"#F6F6F6\"" : "")%> align="left"
     valign="top">
     <td class="SmallerText"><a href=#
-    onClick="posttoText('<%= Encode.forJavaScriptAttribute(StringUtils.noNull(bs.getServiceCode())) %>');"><%= Encode.forHtml(StringUtils.noNull(bs.getServiceCode())) %></a>
+    onClick="posttoText('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(bs.getServiceCode()) %>' />');"><e:forHtmlContent value='<%= StringUtils.noNull(bs.getServiceCode()) %>' /></a>
     </td>
-    <td class="SmallerText"><%= Encode.forHtml(StringUtils.noNull(bs.getDescription())) %></td>
+    <td class="SmallerText"><e:forHtmlContent value='<%= StringUtils.noNull(bs.getDescription()) %>' /></td>
     </tr>
     <%
             color = !(color);

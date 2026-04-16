@@ -408,7 +408,7 @@
         function setfocus() {
             this.focus();
             document.forms[0].keyword.select();
-	    window.scrollTo( 0,  '<%= Encode.forJavaScript(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("scrollPosition"))) %>');
+	    window.scrollTo( 0,  '<e:forJavaScriptBlock value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("scrollPosition")) %>' />');
         }
 
         function submit(form) {
@@ -423,7 +423,7 @@
         item = {
             providerNo: "<%=prop.get("provider_no")%>",
             role_id: "<%=prop.get("role_id")%>",
-            roleName: "<%=Encode.forJavaScript((String)prop.get("role_name"))%>"
+            roleName: "<e:forJavaScriptBlock value='<%= (String)prop.get("role_name") %>' />"
         };
         items.push(item);
         <%
@@ -497,7 +497,7 @@
         <div>
             <div class="input-group">
                 <input type="text" placeholder="<fmt:message key="admin.providerrole.formSearch"/>" name="keyword"
-                       value="<%=Encode.forHtmlAttribute(keyword)%>"/>
+                       value="<e:forHtmlContent value='<%= keyword %>' />"/>
                 <input type="submit" class="btn btn-primary" name="search" value="Filter" >
             </div>
         </div>
@@ -533,21 +533,21 @@
             Properties item = vec.get(i);
             String providerNo = item.getProperty("provider_no", "");
     %>
-      <form name="myform" class="myform myform-<%= Encode.forHtmlAttribute(providerNo) %>" action="${pageContext.request.contextPath}/admin/ProviderRole" method="POST" onSubmit="this.scrollPosition.value=window.scrollY">
+      <form name="myform" class="myform myform-<e:forHtmlAttribute value='<%= providerNo %>' />" action="${pageContext.request.contextPath}/admin/ProviderRole" method="POST" onSubmit="this.scrollPosition.value=window.scrollY">
         <tr>
 
-              <td><%= Encode.forHtml(providerNo) %></td>
-              <td><%= Encode.forHtml(item.getProperty("first_name", "")) %></td>
-              <td><%= Encode.forHtml(item.getProperty("last_name", "")) %></td>
+              <td><e:forHtmlContent value='<%= providerNo %>' /></td>
+              <td><e:forHtmlContent value='<%= item.getProperty("first_name", "") %>' /></td>
+              <td><e:forHtmlContent value='<%= item.getProperty("last_name", "") %>' /></td>
             <td>
               <select name="roleNew" onchange="enableAddRoleButton(this)" data-org="<%= item.getProperty("role_name", "") %>">
                     <option value="-">-</option>
                     <%
                         for (int j = 0; j < vecRoleName.size(); j++) {
                     %>
-                      <option value="<%=Encode.forHtmlAttribute(String.valueOf(vecRoleName.get(j)))%>"
+                      <option value="<e:forHtmlAttribute value='<%= String.valueOf(vecRoleName.get(j)) %>' />"
                               <%= vecRoleName.get(j).equals(item.getProperty("role_name", ""))?"selected":"" %>>
-                        <%= Encode.forHtml(String.valueOf(vecRoleName.get(j))) %>
+                        <e:forHtmlContent value='<%= String.valueOf(vecRoleName.get(j)) %>' />
                     </option>
                     <%
                         }
@@ -568,11 +568,11 @@
                     Changing the index order will cause the button to fail
                 --%>
                 <input type="hidden" name="scrollPosition" class="scrollPosition" />
-                <input type="hidden" name="keyword" value="<%=Encode.forHtmlAttribute(keyword)%>"/>
-              <input type="hidden" name="providerId" value="<%=Encode.forHtmlAttribute(providerNo)%>">
+                <input type="hidden" name="keyword" value="<e:forHtmlAttribute value='<%= keyword %>' />"/>
+              <input type="hidden" name="providerId" value="<e:forHtmlAttribute value='<%= providerNo %>' />">
                 <input type="hidden" name="roleId" value="<%= item.getProperty("role_id", "")%>">
                 <input type="hidden" name="roleOld"
-                       value="<%= Encode.forHtmlAttribute(item.getProperty("role_name", ""))%>">
+                       value="<e:forHtmlAttribute value='<%= item.getProperty("role_name", "") %>' />">
                 <div class="button-group">
                     <input type="submit" name="submit" class="btn btn-primary"
                            value="<fmt:message key="global.btnAdd"/>" disabled="disabled">
@@ -609,7 +609,7 @@
                                 String providerNo = prop.getProperty("provider_no");
                                 if (!temp1.contains(providerNo)) {
                         %>
-                        <option value="<%= Encode.forHtmlAttribute(providerNo) %>"><%=Encode.forHtml(prop.getProperty("last_name") + "," + prop.getProperty("first_name")) %>
+                        <option value="<e:forHtmlAttribute value='<%= providerNo %>' />"><e:forHtmlContent value='<%= prop.getProperty("last_name") + "," + prop.getProperty("first_name") %>' />
                         </option>
                         <%
                                     temp1.add(providerNo);

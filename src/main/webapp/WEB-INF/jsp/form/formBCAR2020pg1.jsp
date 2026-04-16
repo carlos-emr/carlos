@@ -47,7 +47,6 @@
 
 <%@ page import=" io.github.carlos_emr.carlos.form.*, java.util.Properties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="java.sql.SQLException" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
@@ -123,14 +122,14 @@
                 init(1);
 
                 // Set values in drop downs
-                $("select[name='s_relationshipStatus']").val('<%= Encode.forJavaScriptBlock(props.getProperty("s_relationshipStatus", "UN")) %>');
-                $("select[name='s_highestEducation']").val('<%= Encode.forJavaScriptBlock(props.getProperty("s_highestEducation", "UN")) %>');
-                $("select[name='s_languagePreferred']").val('<%= Encode.forJavaScriptBlock(props.getProperty("s_languagePreferred", "")) %>');
-                $("select[name='s_obHistorySex1']").val('<%= Encode.forJavaScriptBlock(props.getProperty("s_obHistorySex1", "")) %>');
-                $("select[name='s_obHistorySex2']").val('<%= Encode.forJavaScriptBlock(props.getProperty("s_obHistorySex2", "")) %>');
-                $("select[name='s_obHistorySex3']").val('<%= Encode.forJavaScriptBlock(props.getProperty("s_obHistorySex3", "")) %>');
-                $("select[name='s_obHistorySex4']").val('<%= Encode.forJavaScriptBlock(props.getProperty("s_obHistorySex4", "")) %>');
-                $("select[name='s_obHistorySex5']").val('<%= Encode.forJavaScriptBlock(props.getProperty("s_obHistorySex5", "")) %>');
+                $("select[name='s_relationshipStatus']").val('<e:forJavaScriptBlock value='<%= props.getProperty("s_relationshipStatus", "UN") %>' />');
+                $("select[name='s_highestEducation']").val('<e:forJavaScriptBlock value='<%= props.getProperty("s_highestEducation", "UN") %>' />');
+                $("select[name='s_languagePreferred']").val('<e:forJavaScriptBlock value='<%= props.getProperty("s_languagePreferred", "") %>' />');
+                $("select[name='s_obHistorySex1']").val('<e:forJavaScriptBlock value='<%= props.getProperty("s_obHistorySex1", "") %>' />');
+                $("select[name='s_obHistorySex2']").val('<e:forJavaScriptBlock value='<%= props.getProperty("s_obHistorySex2", "") %>' />');
+                $("select[name='s_obHistorySex3']").val('<e:forJavaScriptBlock value='<%= props.getProperty("s_obHistorySex3", "") %>' />');
+                $("select[name='s_obHistorySex4']").val('<e:forJavaScriptBlock value='<%= props.getProperty("s_obHistorySex4", "") %>' />');
+                $("select[name='s_obHistorySex5']").val('<e:forJavaScriptBlock value='<%= props.getProperty("s_obHistorySex5", "") %>' />');
 
                 $('form').areYouSure({'addRemoveFieldsMarksDirty': true});
             });
@@ -193,12 +192,12 @@
             <form action="${pageContext.request.contextPath}/form/BCAR2020" method="post">
                 <input type="hidden" id="demographicNo" name="demographicNo" value="<%=demoNo%>"/>
                 <input type="hidden" id="formId" name="formId" value="<%=formId%>"/>
-                <input type="hidden" name="provider_no" value=<%=Encode.forHtmlAttribute(providerNo)%>/>
+                <input type="hidden" name="provider_no" value=<e:forHtmlUnquotedAttribute value='<%= providerNo %>' />/>
                 <input type="hidden" id="user" name="provNo" value=<%=provNo%>/>
                 <input type="hidden" name="method" value="exit"/>
 
-                <input type="hidden" name="forwardTo" value="<%=Encode.forHtmlAttribute(pageNo)%>"/>
-                <input type="hidden" name="pageNo" value="<%=Encode.forHtmlAttribute(pageNo)%>"/>
+                <input type="hidden" name="forwardTo" value="<e:forHtmlAttribute value='<%= pageNo %>' />"/>
+                <input type="hidden" name="pageNo" value="<e:forHtmlAttribute value='<%= pageNo %>' />"/>
                 <input type="hidden" name="formCreated" value="<%= props.getProperty("formCreated", "") %>"/>
 
                 <input type="hidden" id="printPg1" name="printPg1" value=""/>
@@ -551,29 +550,29 @@
                                                             </td>
                                                             <td width="45%">
                                                                 <input type="checkbox"
-                                                                       name="c_indIdentFirstNations" <%= Encode.forHtmlAttribute(props.getProperty("c_indIdentFirstNations", "").equals("X") ? "checked" : "") %> />First
+                                                                       name="c_indIdentFirstNations" <e:forHtmlAttribute value='<%= props.getProperty("c_indIdentFirstNations", "").equals("X") ? "checked" : "" %>' /> />First
                                                                 Nations
                                                             </td>
                                                         </tr>
                                                         <tr>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_indIdentNoResponse" <%=Encode.forHtmlAttribute(props.getProperty("c_indIdentNoResponse", "").equals("X") ? "checked" : "") %> />No
+                                                                       name="c_indIdentNoResponse" <e:forHtmlAttribute value='<%= props.getProperty("c_indIdentNoResponse", "").equals("X") ? "checked" : "" %>' /> />No
                                                                 response
                                                             </td>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_indIdentMetis" <%= Encode.forHtmlAttribute(props.getProperty("c_indIdentMetis", "").equals("X") ? "checked" : "") %> />M&eacute;tis
+                                                                       name="c_indIdentMetis" <e:forHtmlAttribute value='<%= props.getProperty("c_indIdentMetis", "").equals("X") ? "checked" : "" %>' /> />M&eacute;tis
                                                             </td>
                                                         </tr>
                                                         <tr>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_indIdentNone" <%= Encode.forHtmlAttribute(props.getProperty("c_indIdentNone", "").equals("X") ? "checked" : "") %> />None
+                                                                       name="c_indIdentNone" <e:forHtmlAttribute value='<%= props.getProperty("c_indIdentNone", "").equals("X") ? "checked" : "" %>' /> />None
                                                             </td>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_indIdentInuk" <%= Encode.forHtmlAttribute(props.getProperty("c_indIdentInuk", "").equals("X") ? "checked" : "") %> />Inuk
+                                                                       name="c_indIdentInuk" <e:forHtmlAttribute value='<%= props.getProperty("c_indIdentInuk", "").equals("X") ? "checked" : "" %>' /> />Inuk
                                                                 (Inuit)
                                                             </td>
                                                         </tr>
@@ -581,20 +580,20 @@
                                                 </td>
                                                 <td width="15%" class="alignTop borderRight">
                                                     <input type="checkbox"
-                                                           name="c_indIdentStatus" <%=Encode.forHtmlAttribute(props.getProperty("c_indIdentStatus", "").equals("X") ? "checked" : "") %> />Status
+                                                           name="c_indIdentStatus" <e:forHtmlAttribute value='<%= props.getProperty("c_indIdentStatus", "").equals("X") ? "checked" : "" %>' /> />Status
                                                     <br/>
                                                     <input type="checkbox"
-                                                           name="c_indIdentNonStatus" <%= Encode.forHtmlAttribute(props.getProperty("c_indIdentNonStatus", "").equals("X") ? "checked" : "") %> />Non-status
+                                                           name="c_indIdentNonStatus" <e:forHtmlAttribute value='<%= props.getProperty("c_indIdentNonStatus", "").equals("X") ? "checked" : "" %>' /> />Non-status
                                                 </td>
                                                 <td width="25%" class="alignTop borderRight">
                                                     <input type="checkbox"
-                                                           name="c_indIdentLiveOnReserve" <%=Encode.forHtmlAttribute(props.getProperty("c_indIdentLiveOnReserve", "").equals("X") ? "checked" : "") %> />Live
+                                                           name="c_indIdentLiveOnReserve" <e:forHtmlAttribute value='<%= props.getProperty("c_indIdentLiveOnReserve", "").equals("X") ? "checked" : "" %>' /> />Live
                                                     on reserve <br/>
                                                     <input type="checkbox"
-                                                           name="c_indIdentLiveOffReserve" <%= Encode.forHtmlAttribute(props.getProperty("c_indIdentLiveOffReserve", "").equals("X") ? "checked" : "") %> />Live
+                                                           name="c_indIdentLiveOffReserve" <e:forHtmlAttribute value='<%= props.getProperty("c_indIdentLiveOffReserve", "").equals("X") ? "checked" : "" %>' /> />Live
                                                     off reserve <br/>
                                                     <input type="checkbox"
-                                                           name="c_indIdentLiveOnOffReserve" <%= Encode.forHtmlAttribute(props.getProperty("c_indIdentLiveOnOffReserve", "").equals("X") ? "checked" : "") %> />Live
+                                                           name="c_indIdentLiveOnOffReserve" <e:forHtmlAttribute value='<%= props.getProperty("c_indIdentLiveOnOffReserve", "").equals("X") ? "checked" : "" %>' /> />Live
                                                     on & off reserve
                                                 </td>
                                                 <td width="25%">
@@ -813,7 +812,7 @@
                                                 </div>
                                                 <div>
                                                     <input type="checkbox"
-                                                           name="c_allergiesNone" <%=Encode.forHtmlAttribute(props.getProperty("c_allergiesNone", "").equals("X") ? "checked" : "") %> />None
+                                                           name="c_allergiesNone" <e:forHtmlAttribute value='<%= props.getProperty("c_allergiesNone", "").equals("X") ? "checked" : "" %>' /> />None
                                                 </div>
                                             </div>
                                             <div class="flex-row">
@@ -834,12 +833,12 @@
                                             <div class="flex-stack">
                                                 <div>
                                                     <input type="checkbox"
-                                                           name="c_preconceptionFolicAcid" <%=Encode.forHtmlAttribute(props.getProperty("c_preconceptionFolicAcid", "").equals("X") ? "checked" : "") %> />Preconception
+                                                           name="c_preconceptionFolicAcid" <e:forHtmlAttribute value='<%= props.getProperty("c_preconceptionFolicAcid", "").equals("X") ? "checked" : "" %>' /> />Preconception
                                                     folic acid
                                                 </div>
                                                 <div>
                                                     <input type="checkbox"
-                                                           name="c_t1FolicAcid" <%=Encode.forHtmlAttribute(props.getProperty("c_t1FolicAcid", "").equals("X") ? "checked" : "") %> />T1
+                                                           name="c_t1FolicAcid" <e:forHtmlAttribute value='<%= props.getProperty("c_t1FolicAcid", "").equals("X") ? "checked" : "" %>' /> />T1
                                                     folic acid
                                                 </div>
                                             </div>
@@ -889,9 +888,9 @@
                                         Pregnancy planned:<br/>
                                         <div class="div-center">
                                             <input type="checkbox"
-                                                   name="c_pregnancyPlannedYes" <%=Encode.forHtmlAttribute(props.getProperty("c_pregnancyPlannedYes", "").equals("X") ? "checked" : "") %> />Yes
+                                                   name="c_pregnancyPlannedYes" <e:forHtmlAttribute value='<%= props.getProperty("c_pregnancyPlannedYes", "").equals("X") ? "checked" : "" %>' /> />Yes
                                             <input type="checkbox"
-                                                   name="c_pregnancyPlannedNo" <%=Encode.forHtmlAttribute(props.getProperty("c_pregnancyPlannedNo", "").equals("X") ? "checked" : "") %> />No
+                                                   name="c_pregnancyPlannedNo" <e:forHtmlAttribute value='<%= props.getProperty("c_pregnancyPlannedNo", "").equals("X") ? "checked" : "" %>' /> />No
                                         </div>
                                     </td>
                                     <td width="11%">
@@ -1417,11 +1416,11 @@
                                             <tr>
                                                 <td>
                                                     <input type="checkbox"
-                                                           name="c_presentPregnancyARTNo" <%=Encode.forHtmlAttribute(props.getProperty("c_presentPregnancyARTNo", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_presentPregnancyARTNo" <e:forHtmlAttribute value='<%= props.getProperty("c_presentPregnancyARTNo", "").equals("X") ? "checked" : "" %>' /> />
                                                 </td>
                                                 <td>
                                                     <input type="checkbox"
-                                                           name="c_presentPregnancyARTYes" <%=Encode.forHtmlAttribute(props.getProperty("c_presentPregnancyARTYes", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_presentPregnancyARTYes" <e:forHtmlAttribute value='<%= props.getProperty("c_presentPregnancyARTYes", "").equals("X") ? "checked" : "" %>' /> />
                                                 </td>
                                                 <td>
                                                     ART: <span class="sub-text">(select one only)</span>
@@ -1431,7 +1430,7 @@
                                                 <td></td>
                                                 <td></td>
                                                 <td><input type="checkbox"
-                                                           name="c_presentPregnancyARTOvaStim" <%=Encode.forHtmlAttribute(props.getProperty("c_presentPregnancyARTOvaStim", "").equals("X") ? "checked" : "") %> />Ovarian
+                                                           name="c_presentPregnancyARTOvaStim" <e:forHtmlAttribute value='<%= props.getProperty("c_presentPregnancyARTOvaStim", "").equals("X") ? "checked" : "" %>' /> />Ovarian
                                                     stimulation only
                                                 </td>
                                             </tr>
@@ -1439,7 +1438,7 @@
                                                 <td></td>
                                                 <td></td>
                                                 <td><input type="checkbox"
-                                                           name="c_presentPregnancyARTIUIOnly" <%=Encode.forHtmlAttribute(props.getProperty("c_presentPregnancyARTIUIOnly", "").equals("X") ? "checked" : "") %> />IUI
+                                                           name="c_presentPregnancyARTIUIOnly" <e:forHtmlAttribute value='<%= props.getProperty("c_presentPregnancyARTIUIOnly", "").equals("X") ? "checked" : "" %>' /> />IUI
                                                     only
                                                 </td>
                                             </tr>
@@ -1447,7 +1446,7 @@
                                                 <td></td>
                                                 <td></td>
                                                 <td><input type="checkbox"
-                                                           name="c_presentPregnancyARTOvaStimIUI" <%=Encode.forHtmlAttribute(props.getProperty("c_presentPregnancyARTOvaStimIUI", "").equals("X") ? "checked" : "") %> />Ovarian
+                                                           name="c_presentPregnancyARTOvaStimIUI" <e:forHtmlAttribute value='<%= props.getProperty("c_presentPregnancyARTOvaStimIUI", "").equals("X") ? "checked" : "" %>' /> />Ovarian
                                                     stimulation + IUI
                                                 </td>
                                             </tr>
@@ -1457,7 +1456,7 @@
                                                 <td>
                                                     <div class="divFlex">
                                                         <input type="checkbox"
-                                                               name="c_presentPregnancyARTIVF" <%=Encode.forHtmlAttribute(props.getProperty("c_presentPregnancyARTIVF", "").equals("X") ? "checked" : "") %> />
+                                                               name="c_presentPregnancyARTIVF" <e:forHtmlAttribute value='<%= props.getProperty("c_presentPregnancyARTIVF", "").equals("X") ? "checked" : "" %>' /> />
                                                         IVF <span class="sub-text">(# of embryos transferred)</span>
                                                         <input type="text" name="t_presentPregnancyARTIVFDetails"
                                                                size="10" maxlength="150"
@@ -1471,7 +1470,7 @@
                                                 <td>
                                                     <div class="divFlex">
                                                         <input type="checkbox"
-                                                               name="c_presentPregnancyARTICSI" <%=Encode.forHtmlAttribute(props.getProperty("c_presentPregnancyARTICSI", "").equals("X") ? "checked" : "") %> />
+                                                               name="c_presentPregnancyARTICSI" <e:forHtmlAttribute value='<%= props.getProperty("c_presentPregnancyARTICSI", "").equals("X") ? "checked" : "" %>' /> />
                                                         ICSI <span class="sub-text">(# of embryos transferred)</span>
                                                         <input type="text" name="t_presentPregnancyARTICSIDetails"
                                                                size="10" maxlength="150"
@@ -1485,7 +1484,7 @@
                                                 <td>
                                                     <div class="divFlex">
                                                         <input type="checkbox"
-                                                               name="c_presentPregnancyARTOther" <%=Encode.forHtmlAttribute(props.getProperty("c_presentPregnancyARTOther", "").equals("X") ? "checked" : "") %> />
+                                                               name="c_presentPregnancyARTOther" <e:forHtmlAttribute value='<%= props.getProperty("c_presentPregnancyARTOther", "").equals("X") ? "checked" : "" %>' /> />
                                                         Other
                                                         <input type="text" name="t_presentPregnancyARTOtherDetails"
                                                                size="20" maxlength="150"
@@ -1519,18 +1518,18 @@
                                             <tr>
                                                 <td>
                                                     <input type="checkbox"
-                                                           name="c_medicalHistoryCVNo" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryCVNo", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_medicalHistoryCVNo" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryCVNo", "").equals("X") ? "checked" : "" %>' /> />
                                                 </td>
                                                 <td>
                                                     <input type="checkbox"
-                                                           name="c_medicalHistoryCVYes" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryCVYes", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_medicalHistoryCVYes" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryCVYes", "").equals("X") ? "checked" : "" %>' /> />
                                                 </td>
                                                 <td>
                                                     CV:
                                                     <input type="checkbox"
-                                                           name="c_medicalHistoryCVHypert" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryCVHypert", "").equals("X") ? "checked" : "") %> />Hypertension
+                                                           name="c_medicalHistoryCVHypert" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryCVHypert", "").equals("X") ? "checked" : "" %>' /> />Hypertension
                                                     <input type="checkbox"
-                                                           name="c_medicalHistoryCVPrevHypert" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryCVPrevHypert", "").equals("X") ? "checked" : "") %> />Prev.
+                                                           name="c_medicalHistoryCVPrevHypert" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryCVPrevHypert", "").equals("X") ? "checked" : "" %>' /> />Prev.
                                                     hypert. in preg.
                                                 </td>
                                             </tr>
@@ -1540,7 +1539,7 @@
                                                 <td style="padding-left:25px;">
                                                     <div class="divFlex">
                                                         <input type="checkbox"
-                                                               name="c_medicalHistoryCVOther" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryCVOther", "").equals("X") ? "checked" : "") %> />
+                                                               name="c_medicalHistoryCVOther" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryCVOther", "").equals("X") ? "checked" : "" %>' /> />
                                                         Other
                                                         <input type="text" name="t_medicalHistoryCVOtherDetails"
                                                                size="30" maxlength="150"
@@ -1553,11 +1552,11 @@
                                             <tr>
                                                 <td>
                                                     <input type="checkbox"
-                                                           name="c_medicalHistoryHematologyNo" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryHematologyNo", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_medicalHistoryHematologyNo" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryHematologyNo", "").equals("X") ? "checked" : "" %>' /> />
                                                 </td>
                                                 <td>
                                                     <input type="checkbox"
-                                                           name="c_medicalHistoryHematologyYes" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryHematologyYes", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_medicalHistoryHematologyYes" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryHematologyYes", "").equals("X") ? "checked" : "" %>' /> />
                                                 </td>
                                                 <td>
                                                     Hematology (eg.transfusion,thromboembolic/coag)
@@ -1576,11 +1575,11 @@
                                             <tr>
                                                 <td>
                                                     <input type="checkbox"
-                                                           name="c_medicalHistoryEndocrineNo" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryEndocrineNo", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_medicalHistoryEndocrineNo" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryEndocrineNo", "").equals("X") ? "checked" : "" %>' /> />
                                                 </td>
                                                 <td>
                                                     <input type="checkbox"
-                                                           name="c_medicalHistoryEndocrineYes" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryEndocrineYes", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_medicalHistoryEndocrineYes" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryEndocrineYes", "").equals("X") ? "checked" : "" %>' /> />
                                                 </td>
                                                 <td>
                                                     <div class="flex-container">
@@ -1596,17 +1595,17 @@
                                                             </div>
                                                             <div class="flex-column">
                                                                 <input type="checkbox"
-                                                                       name="c_medicalHistoryEndocrineT1DM" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryEndocrineT1DM", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_medicalHistoryEndocrineT1DM" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryEndocrineT1DM", "").equals("X") ? "checked" : "" %>' /> />
                                                                 T1DM
                                                             </div>
                                                             <div class="flex-column">
                                                                 <input type="checkbox"
-                                                                       name="c_medicalHistoryEndocrineT2DM" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryEndocrineT2DM", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_medicalHistoryEndocrineT2DM" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryEndocrineT2DM", "").equals("X") ? "checked" : "" %>' /> />
                                                                 T2DM
                                                             </div>
                                                             <div class="flex-double-column">
                                                                 <input type="checkbox"
-                                                                       name="c_medicalHistoryEndocrinePrevGDM" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryEndocrinePrevGDM", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_medicalHistoryEndocrinePrevGDM" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryEndocrinePrevGDM", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Prev. GDM
                                                             </div>
                                                         </div>
@@ -1614,7 +1613,7 @@
                                                             <div class="flex-column-title"></div>
                                                             <div class="flex-quad-column">
                                                                 <input type="checkbox"
-                                                                       name="c_medicalHistoryEndocrineThyroid" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryEndocrineThyroid", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_medicalHistoryEndocrineThyroid" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryEndocrineThyroid", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Thyroid
                                                             </div>
                                                         </div>
@@ -1623,7 +1622,7 @@
                                                             <div class="flex-quad-column">
                                                                 <div class="divFlex">
                                                                     <input type="checkbox"
-                                                                           name="c_medicalHistoryEndocrineOther" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryEndocrineOther", "").equals("X") ? "checked" : "") %> />
+                                                                           name="c_medicalHistoryEndocrineOther" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryEndocrineOther", "").equals("X") ? "checked" : "" %>' /> />
                                                                     Other
                                                                     <input type="text"
                                                                            name="t_medicalHistoryEndocrineOtherDetails"
@@ -1638,11 +1637,11 @@
                                             <tr>
                                                 <td>
                                                     <input type="checkbox"
-                                                           name="c_medicalHistoryMentalNo" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryMentalNo", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_medicalHistoryMentalNo" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryMentalNo", "").equals("X") ? "checked" : "" %>' /> />
                                                 </td>
                                                 <td>
                                                     <input type="checkbox"
-                                                           name="c_medicalHistoryMentalYes" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryMentalYes", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_medicalHistoryMentalYes" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryMentalYes", "").equals("X") ? "checked" : "" %>' /> />
                                                 </td>
                                                 <td>
                                                     <div class="flex-container">
@@ -1658,7 +1657,7 @@
                                                             </div>
                                                             <div class="flex-quad-column">
                                                                 <input type="checkbox"
-                                                                       name="c_medicalHistoryMHAnxiety" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryMHAnxiety", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_medicalHistoryMHAnxiety" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryMHAnxiety", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Anxiety
                                                             </div>
                                                         </div>
@@ -1666,12 +1665,12 @@
                                                             <div class="flex-column-title"></div>
                                                             <div class="flex-double-column">
                                                                 <input type="checkbox"
-                                                                       name="c_medicalHistoryMHDepression" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryMHDepression", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_medicalHistoryMHDepression" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryMHDepression", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Depression
                                                             </div>
                                                             <div class="flex-double-column">
                                                                 <input type="checkbox"
-                                                                       name="c_medicalHistoryMHPrevPPD" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryMHPrevPPD", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_medicalHistoryMHPrevPPD" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryMHPrevPPD", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Prev. PPD
                                                             </div>
                                                         </div>
@@ -1680,7 +1679,7 @@
                                                             </div>
                                                             <div class="flex-quad-column">
                                                                 <input type="checkbox"
-                                                                       name="c_medicalHistoryMHBipolar" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryMHBipolar", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_medicalHistoryMHBipolar" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryMHBipolar", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Bipolar
                                                             </div>
                                                         </div>
@@ -1689,7 +1688,7 @@
                                                             </div>
                                                             <div class="flex-quad-column">
                                                                 <input type="checkbox"
-                                                                       name="c_medicalHistoryMHEatingDisorder" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryMHEatingDisorder", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_medicalHistoryMHEatingDisorder" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryMHEatingDisorder", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Eating disorder
                                                             </div>
                                                         </div>
@@ -1698,7 +1697,7 @@
                                                             </div>
                                                             <div class="flex-quad-column">
                                                                 <input type="checkbox"
-                                                                       name="c_medicalHistoryMHSubstanceUse" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryMHSubstanceUse", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_medicalHistoryMHSubstanceUse" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryMHSubstanceUse", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Substance use disorder:
                                                             </div>
                                                         </div>
@@ -1707,7 +1706,7 @@
                                                             </div>
                                                             <div class="flex-quad-column">
                                                                 <input type="checkbox"
-                                                                       name="c_medicalHistoryMHMethadone" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryMHMethadone", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_medicalHistoryMHMethadone" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryMHMethadone", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Methadone
                                                             </div>
                                                         </div>
@@ -1716,7 +1715,7 @@
                                                             </div>
                                                             <div class="flex-quad-column">
                                                                 <input type="checkbox"
-                                                                       name="c_medicalHistoryMHSuboxone" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryMHSuboxone", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_medicalHistoryMHSuboxone" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryMHSuboxone", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Suboxone
                                                             </div>
                                                         </div>
@@ -1726,7 +1725,7 @@
                                                             <div class="flex-quad-column">
                                                                 <div class="divFlex">
                                                                     <input type="checkbox"
-                                                                           name="c_medicalHistoryMHOther" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryMHOther", "").equals("X") ? "checked" : "") %> />
+                                                                           name="c_medicalHistoryMHOther" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryMHOther", "").equals("X") ? "checked" : "" %>' /> />
                                                                     Other
                                                                     <input type="text"
                                                                            name="t_medicalHistoryMHOtherDetails"
@@ -1741,11 +1740,11 @@
                                             <tr>
                                                 <td>
                                                     <input type="checkbox"
-                                                           name="c_medicalHistoryInfectiousNo" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryInfectiousNo", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_medicalHistoryInfectiousNo" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryInfectiousNo", "").equals("X") ? "checked" : "" %>' /> />
                                                 </td>
                                                 <td>
                                                     <input type="checkbox"
-                                                           name="c_medicalHistoryInfectiousYes" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryInfectiousYes", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_medicalHistoryInfectiousYes" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryInfectiousYes", "").equals("X") ? "checked" : "" %>' /> />
                                                 </td>
                                                 <td>
                                                     <div class="flex-container">
@@ -1761,7 +1760,7 @@
                                                             </div>
                                                             <div class="flex-quad-column">
                                                                 <input type="checkbox"
-                                                                       name="c_medicalHistoryIDVaricella" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryIDVaricella", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_medicalHistoryIDVaricella" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryIDVaricella", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Varicella
                                                             </div>
                                                         </div>
@@ -1770,7 +1769,7 @@
                                                             </div>
                                                             <div class="flex-quad-column">
                                                                 <input type="checkbox"
-                                                                       name="c_medicalHistoryIDHSV" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryIDHSV", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_medicalHistoryIDHSV" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryIDHSV", "").equals("X") ? "checked" : "" %>' /> />
                                                                 HSV
                                                             </div>
                                                         </div>
@@ -1780,7 +1779,7 @@
                                                             <div class="flex-quad-column">
                                                                 <div class="divFlex">
                                                                     <input type="checkbox"
-                                                                           name="c_medicalHistoryIDOther" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryIDOther", "").equals("X") ? "checked" : "") %> />
+                                                                           name="c_medicalHistoryIDOther" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryIDOther", "").equals("X") ? "checked" : "" %>' /> />
                                                                     Other
                                                                     <input type="text"
                                                                            name="t_medicalHistoryIDOtherDetails"
@@ -1795,11 +1794,11 @@
                                             <tr>
                                                 <td>
                                                     <input type="checkbox"
-                                                           name="c_medicalHistoryImmunizationsNo" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryImmunizationsNo", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_medicalHistoryImmunizationsNo" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryImmunizationsNo", "").equals("X") ? "checked" : "" %>' /> />
                                                 </td>
                                                 <td>
                                                     <input type="checkbox"
-                                                           name="c_medicalHistoryImmunizationsYes" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryImmunizationsYes", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_medicalHistoryImmunizationsYes" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryImmunizationsYes", "").equals("X") ? "checked" : "" %>' /> />
                                                 </td>
                                                 <td>
                                                     <div class="flex-container">
@@ -1815,7 +1814,7 @@
                                                             </div>
                                                             <div class="flex-quad-column">
                                                                 <input type="checkbox"
-                                                                       name="c_medicalHistoryImmunizationsFlu" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryImmunizationsFlu", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_medicalHistoryImmunizationsFlu" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryImmunizationsFlu", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Flu
                                                                 <span class="sub-text">(dd/mm/yyyy)</span>
                                                                 <input type="text"
@@ -1833,7 +1832,7 @@
                                                             </div>
                                                             <div class="flex-quad-column">
                                                                 <input type="checkbox"
-                                                                       name="c_medicalHistoryImmunizationsTDAP" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryImmunizationsTDAP", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_medicalHistoryImmunizationsTDAP" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryImmunizationsTDAP", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Tdap
                                                                 <span class="sub-text">(dd/mm/yyyy)</span>
                                                                 <input type="text"
@@ -1852,7 +1851,7 @@
                                                             <div class="flex-quad-column">
                                                                 <div class="divFlex">
                                                                     <input type="checkbox"
-                                                                           name="c_medicalHistoryImmunizationsOther" <%=Encode.forHtmlAttribute(props.getProperty("c_medicalHistoryImmunizationsOther", "").equals("X") ? "checked" : "") %> />
+                                                                           name="c_medicalHistoryImmunizationsOther" <e:forHtmlAttribute value='<%= props.getProperty("c_medicalHistoryImmunizationsOther", "").equals("X") ? "checked" : "" %>' /> />
                                                                     Other
                                                                     <input type="text"
                                                                            name="t_medicalHistoryImmunizationsOtherDetails"
@@ -1893,11 +1892,11 @@
                                                         <tr>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_lifestyleGenderViolNo" <%=Encode.forHtmlAttribute(props.getProperty("c_lifestyleGenderViolNo", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_lifestyleGenderViolNo" <e:forHtmlAttribute value='<%= props.getProperty("c_lifestyleGenderViolNo", "").equals("X") ? "checked" : "" %>' /> />
                                                             </td>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_lifestyleGenderViolYes" <%=Encode.forHtmlAttribute(props.getProperty("c_lifestyleGenderViolYes", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_lifestyleGenderViolYes" <e:forHtmlAttribute value='<%= props.getProperty("c_lifestyleGenderViolYes", "").equals("X") ? "checked" : "" %>' /> />
                                                             </td>
                                                             <td>
                                                                 <div class="flex-container">
@@ -1911,12 +1910,12 @@
                                                                         </div>
                                                                         <div class="flex-double-column">
                                                                             <input type="checkbox"
-                                                                                   name="c_lifestyleGenderViolPartner" <%=Encode.forHtmlAttribute(props.getProperty("c_lifestyleGenderViolPartner", "").equals("X") ? "checked" : "") %> />
+                                                                                   name="c_lifestyleGenderViolPartner" <e:forHtmlAttribute value='<%= props.getProperty("c_lifestyleGenderViolPartner", "").equals("X") ? "checked" : "" %>' /> />
                                                                             Partner
                                                                         </div>
                                                                         <div class="flex-double-column">
                                                                             <input type="checkbox"
-                                                                                   name="c_lifestyleGenderViolNonPartner" <%=Encode.forHtmlAttribute(props.getProperty("c_lifestyleGenderViolNonPartner", "").equals("X") ? "checked" : "") %> />
+                                                                                   name="c_lifestyleGenderViolNonPartner" <e:forHtmlAttribute value='<%= props.getProperty("c_lifestyleGenderViolNonPartner", "").equals("X") ? "checked" : "" %>' /> />
                                                                             Non-partner
                                                                         </div>
                                                                     </div>
@@ -1947,18 +1946,18 @@
                                                             </td>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_substance3MoAlcoholNo" <%=Encode.forHtmlAttribute(props.getProperty("c_substance3MoAlcoholNo", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substance3MoAlcoholNo" <e:forHtmlAttribute value='<%= props.getProperty("c_substance3MoAlcoholNo", "").equals("X") ? "checked" : "" %>' /> />
                                                                 No
                                                                 <input type="checkbox"
-                                                                       name="c_substance3MoAlcoholYes" <%=Encode.forHtmlAttribute(props.getProperty("c_substance3MoAlcoholYes", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substance3MoAlcoholYes" <e:forHtmlAttribute value='<%= props.getProperty("c_substance3MoAlcoholYes", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Yes
                                                             </td>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_substancePregAlcoholNo" <%=Encode.forHtmlAttribute(props.getProperty("c_substancePregAlcoholNo", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substancePregAlcoholNo" <e:forHtmlAttribute value='<%= props.getProperty("c_substancePregAlcoholNo", "").equals("X") ? "checked" : "" %>' /> />
                                                                 No
                                                                 <input type="checkbox"
-                                                                       name="c_substancePregAlcoholYes" <%=Encode.forHtmlAttribute(props.getProperty("c_substancePregAlcoholYes", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substancePregAlcoholYes" <e:forHtmlAttribute value='<%= props.getProperty("c_substancePregAlcoholYes", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Yes
                                                             </td>
                                                         </tr>
@@ -1984,18 +1983,18 @@
                                                             </td>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_substance3MoAlcohol4DrinksNo" <%=Encode.forHtmlAttribute(props.getProperty("c_substance3MoAlcohol4DrinksNo", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substance3MoAlcohol4DrinksNo" <e:forHtmlAttribute value='<%= props.getProperty("c_substance3MoAlcohol4DrinksNo", "").equals("X") ? "checked" : "" %>' /> />
                                                                 No
                                                                 <input type="checkbox"
-                                                                       name="c_substance3MoAlcohol4DrinksYes" <%=Encode.forHtmlAttribute(props.getProperty("c_substance3MoAlcohol4DrinksYes", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substance3MoAlcohol4DrinksYes" <e:forHtmlAttribute value='<%= props.getProperty("c_substance3MoAlcohol4DrinksYes", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Yes
                                                             </td>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_substancePregAlcohol4DrinksNo" <%=Encode.forHtmlAttribute(props.getProperty("c_substancePregAlcohol4DrinksNo", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substancePregAlcohol4DrinksNo" <e:forHtmlAttribute value='<%= props.getProperty("c_substancePregAlcohol4DrinksNo", "").equals("X") ? "checked" : "" %>' /> />
                                                                 No
                                                                 <input type="checkbox"
-                                                                       name="c_substancePregAlcohol4DrinksYes" <%=Encode.forHtmlAttribute(props.getProperty("c_substancePregAlcohol4DrinksYes", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substancePregAlcohol4DrinksYes" <e:forHtmlAttribute value='<%= props.getProperty("c_substancePregAlcohol4DrinksYes", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Yes
                                                             </td>
                                                         </tr>
@@ -2003,10 +2002,10 @@
                                                             <td colspan="3">
                                                                 Quit alcohol:
                                                                 <input type="checkbox"
-                                                                       name="c_substanceQuitAlcoholNo" <%=Encode.forHtmlAttribute(props.getProperty("c_substanceQuitAlcoholNo", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substanceQuitAlcoholNo" <e:forHtmlAttribute value='<%= props.getProperty("c_substanceQuitAlcoholNo", "").equals("X") ? "checked" : "" %>' /> />
                                                                 No
                                                                 <input type="checkbox"
-                                                                       name="c_substanceQuitAlcoholYes" <%=Encode.forHtmlAttribute(props.getProperty("c_substanceQuitAlcoholYes", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substanceQuitAlcoholYes" <e:forHtmlAttribute value='<%= props.getProperty("c_substanceQuitAlcoholYes", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Yes
                                                                 <span class="sub-text">(dd/mm/yyyy)</span>
                                                                 <input type="text" id="d_substanceQuitAlcoholDate"
@@ -2032,18 +2031,18 @@
                                                             </td>
                                                             <td width="33%">
                                                                 <input type="checkbox"
-                                                                       name="c_substance3MoTobaccoNo" <%=Encode.forHtmlAttribute(props.getProperty("c_substance3MoTobaccoNo", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substance3MoTobaccoNo" <e:forHtmlAttribute value='<%= props.getProperty("c_substance3MoTobaccoNo", "").equals("X") ? "checked" : "" %>' /> />
                                                                 No
                                                                 <input type="checkbox"
-                                                                       name="c_substance3MoTobaccoYes" <%=Encode.forHtmlAttribute(props.getProperty("c_substance3MoTobaccoYes", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substance3MoTobaccoYes" <e:forHtmlAttribute value='<%= props.getProperty("c_substance3MoTobaccoYes", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Yes
                                                             </td>
                                                             <td width="29%">
                                                                 <input type="checkbox"
-                                                                       name="c_substancePregTobaccoNo" <%=Encode.forHtmlAttribute(props.getProperty("c_substancePregTobaccoNo", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substancePregTobaccoNo" <e:forHtmlAttribute value='<%= props.getProperty("c_substancePregTobaccoNo", "").equals("X") ? "checked" : "" %>' /> />
                                                                 No
                                                                 <input type="checkbox"
-                                                                       name="c_substancePregTobaccoYes" <%=Encode.forHtmlAttribute(props.getProperty("c_substancePregTobaccoYes", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substancePregTobaccoYes" <e:forHtmlAttribute value='<%= props.getProperty("c_substancePregTobaccoYes", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Yes
                                                             </td>
                                                         </tr>
@@ -2068,18 +2067,18 @@
                                                             </td>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_substance3MoTobaccoSecHndSmkNo" <%=Encode.forHtmlAttribute(props.getProperty("c_substance3MoTobaccoSecHndSmkNo", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substance3MoTobaccoSecHndSmkNo" <e:forHtmlAttribute value='<%= props.getProperty("c_substance3MoTobaccoSecHndSmkNo", "").equals("X") ? "checked" : "" %>' /> />
                                                                 No
                                                                 <input type="checkbox"
-                                                                       name="c_substance3MoTobaccoSecHndSmkYes" <%=Encode.forHtmlAttribute(props.getProperty("c_substance3MoTobaccoSecHndSmkYes", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substance3MoTobaccoSecHndSmkYes" <e:forHtmlAttribute value='<%= props.getProperty("c_substance3MoTobaccoSecHndSmkYes", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Yes
                                                             </td>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_substancePregTobaccoSecHndSmkNo" <%=Encode.forHtmlAttribute(props.getProperty("c_substancePregTobaccoSecHndSmkNo", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substancePregTobaccoSecHndSmkNo" <e:forHtmlAttribute value='<%= props.getProperty("c_substancePregTobaccoSecHndSmkNo", "").equals("X") ? "checked" : "" %>' /> />
                                                                 No
                                                                 <input type="checkbox"
-                                                                       name="c_substancePregTobaccoSecHndSmkYes" <%=Encode.forHtmlAttribute(props.getProperty("c_substancePregTobaccoSecHndSmkYes", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substancePregTobaccoSecHndSmkYes" <e:forHtmlAttribute value='<%= props.getProperty("c_substancePregTobaccoSecHndSmkYes", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Yes
                                                             </td>
                                                         </tr>
@@ -2087,10 +2086,10 @@
                                                             <td colspan="3">
                                                                 Quit tobacco:
                                                                 <input type="checkbox"
-                                                                       name="c_substanceQuitTobaccoNo" <%=Encode.forHtmlAttribute(props.getProperty("c_substanceQuitTobaccoNo", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substanceQuitTobaccoNo" <e:forHtmlAttribute value='<%= props.getProperty("c_substanceQuitTobaccoNo", "").equals("X") ? "checked" : "" %>' /> />
                                                                 No
                                                                 <input type="checkbox"
-                                                                       name="c_substanceQuitTobaccoYes" <%=Encode.forHtmlAttribute(props.getProperty("c_substanceQuitTobaccoYes", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substanceQuitTobaccoYes" <e:forHtmlAttribute value='<%= props.getProperty("c_substanceQuitTobaccoYes", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Yes
                                                                 <span class="sub-text">(dd/mm/yyyy)</span>
                                                                 <input type="text" id="d_substanceQuitTobaccoDate"
@@ -2115,18 +2114,18 @@
                                                             </td>
                                                             <td width="33%">
                                                                 <input type="checkbox"
-                                                                       name="c_substance3MoCannabisNo" <%=Encode.forHtmlAttribute(props.getProperty("c_substance3MoCannabisNo", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substance3MoCannabisNo" <e:forHtmlAttribute value='<%= props.getProperty("c_substance3MoCannabisNo", "").equals("X") ? "checked" : "" %>' /> />
                                                                 No
                                                                 <input type="checkbox"
-                                                                       name="c_substance3MoCannabisYes" <%=Encode.forHtmlAttribute(props.getProperty("c_substance3MoCannabisYes", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substance3MoCannabisYes" <e:forHtmlAttribute value='<%= props.getProperty("c_substance3MoCannabisYes", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Yes
                                                             </td>
                                                             <td width="29%">
                                                                 <input type="checkbox"
-                                                                       name="c_substancePregCannabisNo" <%=Encode.forHtmlAttribute(props.getProperty("c_substancePregCannabisNo", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substancePregCannabisNo" <e:forHtmlAttribute value='<%= props.getProperty("c_substancePregCannabisNo", "").equals("X") ? "checked" : "" %>' /> />
                                                                 No
                                                                 <input type="checkbox"
-                                                                       name="c_substancePregCannabisYes" <%=Encode.forHtmlAttribute(props.getProperty("c_substancePregCannabisYes", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substancePregCannabisYes" <e:forHtmlAttribute value='<%= props.getProperty("c_substancePregCannabisYes", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Yes
                                                             </td>
                                                         </tr>
@@ -2136,18 +2135,18 @@
                                                             </td>
                                                             <td width="33%">
                                                                 <input type="checkbox"
-                                                                       name="c_substance3MoCannabisCBDOnlyNo" <%=Encode.forHtmlAttribute(props.getProperty("c_substance3MoCannabisCBDOnlyNo", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substance3MoCannabisCBDOnlyNo" <e:forHtmlAttribute value='<%= props.getProperty("c_substance3MoCannabisCBDOnlyNo", "").equals("X") ? "checked" : "" %>' /> />
                                                                 No
                                                                 <input type="checkbox"
-                                                                       name="c_substance3MoCannabisCBDOnlyYes" <%=Encode.forHtmlAttribute(props.getProperty("c_substance3MoCannabisCBDOnlyYes", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substance3MoCannabisCBDOnlyYes" <e:forHtmlAttribute value='<%= props.getProperty("c_substance3MoCannabisCBDOnlyYes", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Yes
                                                             </td>
                                                             <td width="29%">
                                                                 <input type="checkbox"
-                                                                       name="c_substancePregCannabisCBDOnlyNo" <%=Encode.forHtmlAttribute(props.getProperty("c_substancePregCannabisCBDOnlyNo", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substancePregCannabisCBDOnlyNo" <e:forHtmlAttribute value='<%= props.getProperty("c_substancePregCannabisCBDOnlyNo", "").equals("X") ? "checked" : "" %>' /> />
                                                                 No
                                                                 <input type="checkbox"
-                                                                       name="c_substancePregCannabisCBDOnlyYes" <%=Encode.forHtmlAttribute(props.getProperty("c_substancePregCannabisCBDOnlyYes", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substancePregCannabisCBDOnlyYes" <e:forHtmlAttribute value='<%= props.getProperty("c_substancePregCannabisCBDOnlyYes", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Yes
                                                             </td>
                                                         </tr>
@@ -2173,36 +2172,36 @@
                                                             </td>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_substance3MoCannabisSmoke" <%=Encode.forHtmlAttribute(props.getProperty("c_substance3MoCannabisSmoke", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substance3MoCannabisSmoke" <e:forHtmlAttribute value='<%= props.getProperty("c_substance3MoCannabisSmoke", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Smoke
                                                                 <br/>
                                                                 <input type="checkbox"
-                                                                       name="c_substance3MoCannabisVapo" <%=Encode.forHtmlAttribute(props.getProperty("c_substance3MoCannabisVapo", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substance3MoCannabisVapo" <e:forHtmlAttribute value='<%= props.getProperty("c_substance3MoCannabisVapo", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Vaporize
                                                                 <br/>
                                                                 <input type="checkbox"
-                                                                       name="c_substance3MoCannabisEdi" <%=Encode.forHtmlAttribute(props.getProperty("c_substance3MoCannabisEdi", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substance3MoCannabisEdi" <e:forHtmlAttribute value='<%= props.getProperty("c_substance3MoCannabisEdi", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Edible/oral
                                                                 <br/>
                                                                 <input type="checkbox"
-                                                                       name="c_substance3MoCannabisOther" <%=Encode.forHtmlAttribute(props.getProperty("c_substance3MoCannabisOther", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substance3MoCannabisOther" <e:forHtmlAttribute value='<%= props.getProperty("c_substance3MoCannabisOther", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Other
                                                             </td>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_substancePregCannabisSmoke" <%=Encode.forHtmlAttribute(props.getProperty("c_substancePregCannabisSmoke", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substancePregCannabisSmoke" <e:forHtmlAttribute value='<%= props.getProperty("c_substancePregCannabisSmoke", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Smoke
                                                                 <br/>
                                                                 <input type="checkbox"
-                                                                       name="c_substancePregCannabisVapo" <%=Encode.forHtmlAttribute(props.getProperty("c_substancePregCannabisVapo", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substancePregCannabisVapo" <e:forHtmlAttribute value='<%= props.getProperty("c_substancePregCannabisVapo", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Vaporize
                                                                 <br/>
                                                                 <input type="checkbox"
-                                                                       name="c_substancePregCannabisEdi" <%=Encode.forHtmlAttribute(props.getProperty("c_substancePregCannabisEdi", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substancePregCannabisEdi" <e:forHtmlAttribute value='<%= props.getProperty("c_substancePregCannabisEdi", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Edible/oral
                                                                 <br/>
                                                                 <input type="checkbox"
-                                                                       name="c_substancePregCannabisOther" <%=Encode.forHtmlAttribute(props.getProperty("c_substancePregCannabisOther", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substancePregCannabisOther" <e:forHtmlAttribute value='<%= props.getProperty("c_substancePregCannabisOther", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Other
                                                             </td>
                                                         </tr>
@@ -2210,10 +2209,10 @@
                                                             <td colspan="3">
                                                                 Quit cannabis:
                                                                 <input type="checkbox"
-                                                                       name="c_substanceQuitCannabisNo" <%=Encode.forHtmlAttribute(props.getProperty("c_substanceQuitCannabisNo", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substanceQuitCannabisNo" <e:forHtmlAttribute value='<%= props.getProperty("c_substanceQuitCannabisNo", "").equals("X") ? "checked" : "" %>' /> />
                                                                 No
                                                                 <input type="checkbox"
-                                                                       name="c_substanceQuitCannabisYes" <%=Encode.forHtmlAttribute(props.getProperty("c_substanceQuitCannabisYes", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substanceQuitCannabisYes" <e:forHtmlAttribute value='<%= props.getProperty("c_substanceQuitCannabisYes", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Yes
                                                                 <span class="sub-text">(dd/mm/yyyy)</span>
                                                                 <input type="text" id="d_substanceQuitCannabisDate"
@@ -2238,10 +2237,10 @@
                                                             </td>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_substanceOthersNo" <%=Encode.forHtmlAttribute(props.getProperty("c_substanceOthersNo", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substanceOthersNo" <e:forHtmlAttribute value='<%= props.getProperty("c_substanceOthersNo", "").equals("X") ? "checked" : "" %>' /> />
                                                                 No
                                                                 <input type="checkbox"
-                                                                       name="c_substanceOthersYes" <%=Encode.forHtmlAttribute(props.getProperty("c_substanceOthersYes", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substanceOthersYes" <e:forHtmlAttribute value='<%= props.getProperty("c_substanceOthersYes", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Yes:
                                                                 <span class="sub-text">(check all that apply)</span>
                                                             </td>
@@ -2249,29 +2248,29 @@
                                                         <tr>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_substanceOthersCocaine" <%=Encode.forHtmlAttribute(props.getProperty("c_substanceOthersCocaine", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substanceOthersCocaine" <e:forHtmlAttribute value='<%= props.getProperty("c_substanceOthersCocaine", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Cocaine
                                                                 <input type="checkbox"
-                                                                       name="c_substanceOthersOpioids" <%=Encode.forHtmlAttribute(props.getProperty("c_substanceOthersOpioids", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substanceOthersOpioids" <e:forHtmlAttribute value='<%= props.getProperty("c_substanceOthersOpioids", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Opioids
                                                             </td>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_substanceOthersMeth" <%=Encode.forHtmlAttribute(props.getProperty("c_substanceOthersMeth", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substanceOthersMeth" <e:forHtmlAttribute value='<%= props.getProperty("c_substanceOthersMeth", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Methamphetamines
                                                             </td>
                                                         </tr>
                                                         <tr>
                                                             <td colspan="2">
                                                                 <input type="checkbox"
-                                                                       name="c_substanceOthersIVDrugs" <%=Encode.forHtmlAttribute(props.getProperty("c_substanceOthersIVDrugs", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substanceOthersIVDrugs" <e:forHtmlAttribute value='<%= props.getProperty("c_substanceOthersIVDrugs", "").equals("X") ? "checked" : "" %>' /> />
                                                                 IV Drugs
                                                                 <input type="checkbox"
-                                                                       name="c_substanceOthersPrescDrugs" <%=Encode.forHtmlAttribute(props.getProperty("c_substanceOthersPrescDrugs", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_substanceOthersPrescDrugs" <e:forHtmlAttribute value='<%= props.getProperty("c_substanceOthersPrescDrugs", "").equals("X") ? "checked" : "" %>' /> />
                                                                 Prescription Drugs
                                                                 <div class="divFlex">
                                                                     <input type="checkbox"
-                                                                           name="c_substanceOthersOther" <%=Encode.forHtmlAttribute(props.getProperty("c_substanceOthersOther", "").equals("X") ? "checked" : "") %> />
+                                                                           name="c_substanceOthersOther" <e:forHtmlAttribute value='<%= props.getProperty("c_substanceOthersOther", "").equals("X") ? "checked" : "" %>' /> />
                                                                     Other(s)
                                                                     <input type="text"
                                                                            name="t_substanceOthersOtherDetails"
@@ -2308,11 +2307,11 @@
                                             <tr>
                                                 <td>
                                                     <input type="checkbox"
-                                                           name="c_familyHistoryInheritedConditionsNo" <%=Encode.forHtmlAttribute(props.getProperty("c_familyHistoryInheritedConditionsNo", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_familyHistoryInheritedConditionsNo" <e:forHtmlAttribute value='<%= props.getProperty("c_familyHistoryInheritedConditionsNo", "").equals("X") ? "checked" : "" %>' /> />
                                                 </td>
                                                 <td>
                                                     <input type="checkbox"
-                                                           name="c_familyHistoryInheritedConditionsYes" <%=Encode.forHtmlAttribute(props.getProperty("c_familyHistoryInheritedConditionsYes", "").equals("X") ? "checked" : "") %> />
+                                                           name="c_familyHistoryInheritedConditionsYes" <e:forHtmlAttribute value='<%= props.getProperty("c_familyHistoryInheritedConditionsYes", "").equals("X") ? "checked" : "" %>' /> />
                                                 </td>
                                                 <td>
                                                     Inherited conditions/defects<br/>
@@ -2435,11 +2434,11 @@
                                                         <tr>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_initialExamHeadNorm" <%=Encode.forHtmlAttribute(props.getProperty("c_initialExamHeadNorm", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_initialExamHeadNorm" <e:forHtmlAttribute value='<%= props.getProperty("c_initialExamHeadNorm", "").equals("X") ? "checked" : "" %>' /> />
                                                             </td>
                                                             <td width="30px">
                                                                 <input type="checkbox"
-                                                                       name="c_initialExamHeadAbNorm" <%=Encode.forHtmlAttribute(props.getProperty("c_initialExamHeadAbNorm", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_initialExamHeadAbNorm" <e:forHtmlAttribute value='<%= props.getProperty("c_initialExamHeadAbNorm", "").equals("X") ? "checked" : "" %>' /> />
                                                             </td>
                                                             <td colspan="2">
                                                                 <div class="divFlex">
@@ -2453,11 +2452,11 @@
                                                         <tr>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_initialExamBreastsNorm" <%=Encode.forHtmlAttribute(props.getProperty("c_initialExamBreastsNorm", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_initialExamBreastsNorm" <e:forHtmlAttribute value='<%= props.getProperty("c_initialExamBreastsNorm", "").equals("X") ? "checked" : "" %>' /> />
                                                             </td>
                                                             <td width="30px">
                                                                 <input type="checkbox"
-                                                                       name="c_initialExamBreastsAbNorm" <%=Encode.forHtmlAttribute(props.getProperty("c_initialExamBreastsAbNorm", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_initialExamBreastsAbNorm" <e:forHtmlAttribute value='<%= props.getProperty("c_initialExamBreastsAbNorm", "").equals("X") ? "checked" : "" %>' /> />
                                                             </td>
                                                             <td colspan="2">
                                                                 <div class="divFlex">
@@ -2472,11 +2471,11 @@
                                                         <tr>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_initialExamHeartNorm" <%=Encode.forHtmlAttribute(props.getProperty("c_initialExamHeartNorm", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_initialExamHeartNorm" <e:forHtmlAttribute value='<%= props.getProperty("c_initialExamHeartNorm", "").equals("X") ? "checked" : "" %>' /> />
                                                             </td>
                                                             <td width="30px">
                                                                 <input type="checkbox"
-                                                                       name="c_initialExamHeartAbNorm" <%=Encode.forHtmlAttribute(props.getProperty("c_initialExamHeartAbNorm", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_initialExamHeartAbNorm" <e:forHtmlAttribute value='<%= props.getProperty("c_initialExamHeartAbNorm", "").equals("X") ? "checked" : "" %>' /> />
                                                             </td>
                                                             <td colspan="2">
                                                                 <div class="divFlex">
@@ -2490,11 +2489,11 @@
                                                         <tr>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_initialExamAbdomenNorm" <%=Encode.forHtmlAttribute(props.getProperty("c_initialExamAbdomenNorm", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_initialExamAbdomenNorm" <e:forHtmlAttribute value='<%= props.getProperty("c_initialExamAbdomenNorm", "").equals("X") ? "checked" : "" %>' /> />
                                                             </td>
                                                             <td width="30px">
                                                                 <input type="checkbox"
-                                                                       name="c_initialExamAbdomenAbNorm" <%=Encode.forHtmlAttribute(props.getProperty("c_initialExamAbdomenAbNorm", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_initialExamAbdomenAbNorm" <e:forHtmlAttribute value='<%= props.getProperty("c_initialExamAbdomenAbNorm", "").equals("X") ? "checked" : "" %>' /> />
                                                             </td>
                                                             <td colspan="2">
                                                                 <div class="divFlex">
@@ -2509,11 +2508,11 @@
                                                         <tr>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_initialExamMusculoNorm" <%=Encode.forHtmlAttribute(props.getProperty("c_initialExamMusculoNorm", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_initialExamMusculoNorm" <e:forHtmlAttribute value='<%= props.getProperty("c_initialExamMusculoNorm", "").equals("X") ? "checked" : "" %>' /> />
                                                             </td>
                                                             <td width="30px">
                                                                 <input type="checkbox"
-                                                                       name="c_initialExamMusculoAbNorm" <%=Encode.forHtmlAttribute(props.getProperty("c_initialExamMusculoAbNorm", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_initialExamMusculoAbNorm" <e:forHtmlAttribute value='<%= props.getProperty("c_initialExamMusculoAbNorm", "").equals("X") ? "checked" : "" %>' /> />
                                                             </td>
                                                             <td colspan="2">
                                                                 <div class="divFlex">
@@ -2542,11 +2541,11 @@
                                                         <tr>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_initialExamSkinNorm" <%=Encode.forHtmlAttribute(props.getProperty("c_initialExamSkinNorm", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_initialExamSkinNorm" <e:forHtmlAttribute value='<%= props.getProperty("c_initialExamSkinNorm", "").equals("X") ? "checked" : "" %>' /> />
                                                             </td>
                                                             <td width="30px">
                                                                 <input type="checkbox"
-                                                                       name="c_initialExamSkinAbNorm" <%=Encode.forHtmlAttribute(props.getProperty("c_initialExamSkinAbNorm", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_initialExamSkinAbNorm" <e:forHtmlAttribute value='<%= props.getProperty("c_initialExamSkinAbNorm", "").equals("X") ? "checked" : "" %>' /> />
                                                             </td>
                                                             <td colspan="2">
                                                                 <div class="flex-container">
@@ -2557,7 +2556,7 @@
                                                                         </div>
                                                                         <div class="flex-quad-column">
                                                                             <input type="checkbox"
-                                                                                   name="c_initialExamSkinVaricosities" <%=Encode.forHtmlAttribute(props.getProperty("c_initialExamSkinVaricosities", "").equals("X") ? "checked" : "") %> />
+                                                                                   name="c_initialExamSkinVaricosities" <e:forHtmlAttribute value='<%= props.getProperty("c_initialExamSkinVaricosities", "").equals("X") ? "checked" : "" %>' /> />
                                                                             Varicosities
                                                                         </div>
                                                                     </div>
@@ -2568,7 +2567,7 @@
                                                                         <div class="flex-quad-column">
                                                                             <div class="divFlex">
                                                                                 <input type="checkbox"
-                                                                                       name="c_initialExamSkinOther" <%=Encode.forHtmlAttribute(props.getProperty("c_initialExamSkinOther", "").equals("X") ? "checked" : "") %> />
+                                                                                       name="c_initialExamSkinOther" <e:forHtmlAttribute value='<%= props.getProperty("c_initialExamSkinOther", "").equals("X") ? "checked" : "" %>' /> />
                                                                                 Other
                                                                                 <input type="text"
                                                                                        name="t_initialExamSkinOtherDetails"
@@ -2583,11 +2582,11 @@
                                                         <tr>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_initialExamPelvicNorm" <%=Encode.forHtmlAttribute(props.getProperty("c_initialExamPelvicNorm", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_initialExamPelvicNorm" <e:forHtmlAttribute value='<%= props.getProperty("c_initialExamPelvicNorm", "").equals("X") ? "checked" : "" %>' /> />
                                                             </td>
                                                             <td width="30px">
                                                                 <input type="checkbox"
-                                                                       name="c_initialExamPelvicAbNorm" <%=Encode.forHtmlAttribute(props.getProperty("c_initialExamPelvicAbNorm", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_initialExamPelvicAbNorm" <e:forHtmlAttribute value='<%= props.getProperty("c_initialExamPelvicAbNorm", "").equals("X") ? "checked" : "" %>' /> />
                                                             </td>
                                                             <td colspan="2">
                                                                 <div class="divFlex">
@@ -2635,11 +2634,11 @@
                                                         <tr>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_initialExamOtherNorm" <%=Encode.forHtmlAttribute(props.getProperty("c_initialExamOtherNorm", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_initialExamOtherNorm" <e:forHtmlAttribute value='<%= props.getProperty("c_initialExamOtherNorm", "").equals("X") ? "checked" : "" %>' /> />
                                                             </td>
                                                             <td width="30px">
                                                                 <input type="checkbox"
-                                                                       name="c_initialExamOtherAbNorm" <%=Encode.forHtmlAttribute(props.getProperty("c_initialExamOtherAbNorm", "").equals("X") ? "checked" : "") %> />
+                                                                       name="c_initialExamOtherAbNorm" <e:forHtmlAttribute value='<%= props.getProperty("c_initialExamOtherAbNorm", "").equals("X") ? "checked" : "" %>' /> />
                                                             </td>
                                                             <td colspan="2">
                                                                 <div class="divFlex">
@@ -2668,13 +2667,13 @@
                                             <input type="text" name="t_commentsCareProvider" size="10" maxlength="150"
                                                    value="<%= UtilMisc.htmlEscape(props.getProperty("t_commentsCareProvider", "")) %>"/>
                                             <input type="checkbox"
-                                                   name="c_commentsMD" <%=Encode.forHtmlAttribute(props.getProperty("c_commentsMD", "").equals("X") ? "checked" : "") %> />
+                                                   name="c_commentsMD" <e:forHtmlAttribute value='<%= props.getProperty("c_commentsMD", "").equals("X") ? "checked" : "" %>' /> />
                                             MD
                                             <input type="checkbox"
-                                                   name="c_commentsRM" <%=Encode.forHtmlAttribute(props.getProperty("c_commentsRM", "").equals("X") ? "checked" : "") %> />
+                                                   name="c_commentsRM" <e:forHtmlAttribute value='<%= props.getProperty("c_commentsRM", "").equals("X") ? "checked" : "" %>' /> />
                                             RM
                                             <input type="checkbox"
-                                                   name="c_commentsNP" <%=Encode.forHtmlAttribute(props.getProperty("c_commentsNP", "").equals("X") ? "checked" : "") %> />
+                                                   name="c_commentsNP" <e:forHtmlAttribute value='<%= props.getProperty("c_commentsNP", "").equals("X") ? "checked" : "" %>' /> />
                                             NP
                                         </div>
                                     </td>

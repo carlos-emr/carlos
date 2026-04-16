@@ -98,9 +98,7 @@
 <%@ page import="java.util.Map" %>
 <%@ page import="java.util.List" %>
 <%@ page import="java.util.ResourceBundle" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -400,7 +398,7 @@ function validateFields() {
 			String createMsgError = (String) request.getAttribute("createMessageError");
 			if (createMsgError == null) { createMsgError = ""; }
 		%>
-		var submissionerror = '<%= Encode.forJavaScript(createMsgError) %>';
+		var submissionerror = '<e:forJavaScriptBlock value='<%= createMsgError %>' />';
 		if(submissionerror)
 		{
 			showAlert(submissionerror, 'danger');
@@ -414,9 +412,9 @@ function validateFields() {
 
         // Pre-populate the selected demographic display field if a patient is linked.
         // Done here (after DOM is ready) so the selectedDemo input exists before access.
-        if ('<%=Encode.forJavaScript(demoName)%>' && '<%=Encode.forJavaScript(demoName)%>' !== 'null') {
-            document.forms[0].selectedDemo.value = "<%=Encode.forJavaScript(demoName)%>";
-            document.forms[0].demographic_no.value = "<%=Encode.forJavaScript(demographic_no)%>";
+        if ('<e:forJavaScriptBlock value='<%= demoName %>' />' && '<e:forJavaScriptBlock value='<%= demoName %>' />' !== 'null') {
+            document.forms[0].selectedDemo.value = "<e:forJavaScriptBlock value='<%= demoName %>' />";
+            document.forms[0].demographic_no.value = "<e:forJavaScriptBlock value='<%= demographic_no %>' />";
         }
 
         // Initialize keyword autocomplete for inline demographic search
@@ -492,8 +490,8 @@ function validateFields() {
 								<td style="padding: 10px 5px; min-width:fit-content;"  class="d-flex flex-wrap align-items-center gap-2"><!--list of the providers cell Start-->
 									<%if(recall){ %>
 										<div>
-											<input name="provider" value="<%=Encode.forHtmlAttribute(delegate)%>" type="checkbox" checked>
-											<strong><a title="default recall delegate: <%=Encode.forHtmlAttribute(delegateName)%>">default: <%=Encode.forHtml(delegateName)%></a></strong>
+											<input name="provider" value="<e:forHtmlAttribute value='<%= delegate %>' />" type="checkbox" checked>
+											<strong><a title="default recall delegate: <e:forHtmlAttribute value='<%= delegateName %>' />">default: <e:forHtmlContent value='<%= delegateName %>' /></a></strong>
 										</div>
 									<%} %>
 
@@ -602,7 +600,7 @@ function validateFields() {
 				<tr>
 					<td><br><br>&nbsp;</td>
 					<td style="width: 40%;">
-                      <input type="text" name="keyword" id="keyword" class="form-control"> <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no)%>" >
+                      <input type="text" name="keyword" id="keyword" class="form-control"> <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demographic_no %>' />" >
                     </td>
 	                <td>
                       <input type="button" class="btn btn-outline-secondary" name="searchDemo" value="<fmt:message key="messenger.CreateMessage.msgSearchDemographic" />" onclick="popupSearchDemo('${pageContext.request.contextPath}', document.forms[0].keyword.value)" >

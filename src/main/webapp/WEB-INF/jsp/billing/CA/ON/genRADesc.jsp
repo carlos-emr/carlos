@@ -38,7 +38,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.RaHeader" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.RaHeaderDao" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     RaHeaderDao dao = SpringUtils.getBean(RaHeaderDao.class);
 %>
@@ -208,18 +207,18 @@
 </table>
 
 Cheque amount:
-<%=Encode.forHtml(total)%>
+<e:forHtmlContent value='<%= total %>' />
 <br>
 <%="Local clinic "%>:
-<%=Encode.forHtml(local_total)%>
+<e:forHtmlContent value='<%= local_total %>' />
 <br>
 Other clinic :
-<%=Encode.forHtml(other_total)%><br>
+<e:forHtmlContent value='<%= other_total %>' /><br>
 
 OB Total :
-<%=Encode.forHtml(ob_total)%><br>
+<e:forHtmlContent value='<%= ob_total %>' /><br>
 Colposcopy Total :
-<%=Encode.forHtml(co_total)%><br>
+<e:forHtmlContent value='<%= co_total %>' /><br>
 
 <br>
 <br>
@@ -246,7 +245,7 @@ Colposcopy Total :
     if (!bPremiumList.isEmpty()) {
 %>
 <form action="<%=request.getContextPath() %>/billing/CA/ON/ApplyPractitionerPremium" method="post">
-    <input type="hidden" name="rano" value="<%=Encode.forHtmlAttribute(raNo)%>"/>
+    <input type="hidden" name="rano" value="<e:forHtmlAttribute value='<%= raNo %>' />"/>
     <input type="hidden" name="method" value="applyPremium"/>
     <h3><fmt:message key="oscar.billing.on.genRADesc.premiumTitle"/></h3>
     <table>
@@ -270,7 +269,7 @@ Colposcopy Total :
         %>
         <tr>
             <td><input name="choosePremium<%=premiumId%>" type="checkbox" value="Y" <%=isChecked%>/>
-            <td><%=Encode.forHtml(premium.getProviderOHIPNo())%>
+            <td><e:forHtmlContent value='<%= premium.getProviderOHIPNo() %>' />
             </td>
             <td><select name="providerNo<%=premiumId%>">
                 <%
@@ -282,14 +281,14 @@ Colposcopy Total :
                             selectedChoice = "selected=\"selected\"";
                         }
                 %>
-                <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>" <%=selectedChoice%>><%=Encode.forHtml(p.getFormattedName())%>
+                <option value="<e:forHtmlAttribute value='<%= p.getProviderNo() %>' />" <%=selectedChoice%>><e:forHtmlContent value='<%= p.getFormattedName() %>' />
                 </option>
                 <% } %>
             </select>
             </td>
-            <td><%=Encode.forHtml(premium.getAmountPay())%>
+            <td><e:forHtmlContent value='<%= premium.getAmountPay() %>' />
             </td>
-            <td><%=Encode.forHtml(DateUtils.formatDate(premium.getPayDate(), request.getLocale()))%>
+            <td><e:forHtmlContent value='<%= DateUtils.formatDate(premium.getPayDate(), request.getLocale()) %>' />
             </td>
         </tr>
         <%
@@ -304,7 +303,7 @@ Colposcopy Total :
     </table>
 </form>
 <% } %><%--  --%>
-<pre><%=Encode.forHtml(message_txt)%></pre>
+<pre><e:forHtmlContent value='<%= message_txt %>' /></pre>
 
 </body>
 </html>

@@ -28,10 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
-<%@page
-        import="io.github.carlos_emr.CarlosProperties,
-                org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     String errormsg = request.getParameter("errormsg");
@@ -46,7 +43,7 @@
     <body>
     <!--h2>OSCAR has encountered the following fatal error:</h2>
       <hr-->
-    <p><%= Encode.forHtml(errormsg) %>
+    <p><e:forHtmlContent value='<%= errormsg %>' />
     <p>Please correct and try again.
     </body>
 </html>

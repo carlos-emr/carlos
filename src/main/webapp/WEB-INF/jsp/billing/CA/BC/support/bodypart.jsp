@@ -27,7 +27,6 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.WcbBpCode" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -65,7 +64,7 @@
     return;
     <%} else {%>
     self.close();
-    opener.document["<%= Encode.forJavaScript(form) %>"]["<%= Encode.forJavaScript(field) %>"].value = index;
+    opener.document["<e:forJavaScriptBlock value='<%= form %>' />"]["<e:forJavaScriptBlock value='<%= field %>' />"].value = index;
     opener.document.focus();
     <%}%>
     }

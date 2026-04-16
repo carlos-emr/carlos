@@ -138,16 +138,16 @@
                     <tr>
 
                         <td><a href="#"
-                               ONCLICK="popupPage('<%=request.getContextPath() %>/hospitalReportManager/Display?id=<%=Encode.forUriComponent(String.valueOf(curhrmdoc.get("id")))%>', 'HRM Report'); return false;"
-                        ><%=Encode.forHtml(String.valueOf(curhrmdoc.get("report_type")))%>
+                               ONCLICK="popupPage('<%=request.getContextPath() %>/hospitalReportManager/Display?id=<e:forUriComponent value='<%= String.valueOf(curhrmdoc.get("id")) %>' />', 'HRM Report'); return false;"
+                        ><e:forHtmlContent value='<%= String.valueOf(curhrmdoc.get("report_type")) %>' />
                         </a></td>
-                        <td><%=Encode.forHtml(String.valueOf(curhrmdoc.get("description")))%>
+                        <td><e:forHtmlContent value='<%= String.valueOf(curhrmdoc.get("description")) %>' />
                         </td>
-                        <td><%=Encode.forHtml(String.valueOf(curhrmdoc.get("report_status")))%>
+                        <td><e:forHtmlContent value='<%= String.valueOf(curhrmdoc.get("report_status")) %>' />
                         </td>
-                        <td style="text-align: center;"><%=Encode.forHtml(String.valueOf(curhrmdoc.get("report_date")))%>
+                        <td style="text-align: center;"><e:forHtmlContent value='<%= String.valueOf(curhrmdoc.get("report_date")) %>' />
                         </td>
-                        <td style="text-align: center;"><%=Encode.forHtml(String.valueOf(curhrmdoc.get("time_received")))%>
+                        <td style="text-align: center;"><e:forHtmlContent value='<%= String.valueOf(curhrmdoc.get("time_received")) %>' />
                         </td>
                         <td><%=curhrmdoc.get("category") != null ? Encode.forHtml(String.valueOf(curhrmdoc.get("category"))) : "" %>
                         <td><%=curhrmdoc.get("class_subclass") != null ? Encode.forHtml(String.valueOf(curhrmdoc.get("class_subclass"))) : "" %>

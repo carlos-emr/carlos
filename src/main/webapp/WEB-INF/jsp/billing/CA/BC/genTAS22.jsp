@@ -50,7 +50,6 @@
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS00" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanS22Dao" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS22" %>
-<%@page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanS23Dao" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS23" %>
@@ -111,7 +110,7 @@
     <tr bgcolor="#333333">
         <th align='CENTRE'>
             <form action="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS22"><input type="hidden" name="rano"
-                                               value="<%=Encode.forHtmlAttribute(StringUtils.noNull(raNo))%>"> <select name="proNo">
+                                               value="<e:forHtmlAttribute value='<%= StringUtils.noNull(raNo) %>' />"> <select name="proNo">
                 <option value="all" <%=proNo.equals("all") ? "selected" : ""%>>All
                     Providers
                 </option>
@@ -124,7 +123,7 @@
                         plast = (String) result[1];
                         pfirst = (String) result[2];
                 %>
-                <option value="<%=Encode.forHtmlAttribute(StringUtils.noNull(pohipno))%>" <%=proNo.equals(pohipno) ? "selected" : ""%>><%=Encode.forHtml(StringUtils.noNull(plast))%>,<%=Encode.forHtml(StringUtils.noNull(pfirst))%>
+                <option value="<e:forHtmlAttribute value='<%= StringUtils.noNull(pohipno) %>' />" <%=proNo.equals(pohipno) ? "selected" : ""%>><e:forHtmlContent value='<%= StringUtils.noNull(plast) %>' />,<e:forHtmlContent value='<%= StringUtils.noNull(pfirst) %>' />
                 </option>
                 <% } %>
             </select> <input type=submit name=submit value=Generate></form>
@@ -158,15 +157,15 @@
     <tr>
 
 
-        <td width="10%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getPayment()))%>
+        <td width="10%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getPayment()) %>' />
         </td>
-        <td width="10%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getPractitionerNo()))%>
+        <td width="10%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getPractitionerNo()) %>' />
         </td>
-        <td width="10%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getPractitionerName()))%>
+        <td width="10%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getPractitionerName()) %>' />
         </td>
-        <td width="10%" height="16" align="right"><%=Encode.forHtml(moneyFormat(result.getAmountBilled()))%>
+        <td width="10%" height="16" align="right"><e:forHtmlContent value='<%= moneyFormat(result.getAmountBilled()) %>' />
         </td>
-        <td width="10%" height="16" align="right"><%=Encode.forHtml(moneyFormat(result.getAmountPaid()))%>
+        <td width="10%" height="16" align="right"><e:forHtmlContent value='<%= moneyFormat(result.getAmountPaid()) %>' />
         </td>
         <td width="50%"
             height="16"><%=String.valueOf(result.getLineCode()).compareTo("Y") == 0 ? "Practitioner Totals within Payee" : ""%>
@@ -208,20 +207,20 @@
     %>
     <tr>
 
-        <td width="10%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getPayment()))%>&nbsp;</td>
-        <td width="5%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getPayeeNo()))%>&nbsp;</td>
-        <td width="5%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getAjc()))%>&nbsp;</td>
-        <td width="10%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getAji()))%>&nbsp;</td>
-        <td width="10%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getAjm()))%>&nbsp;</td>
-        <td width="10%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getCalcMethod()))%>&nbsp;</td>
-        <td width="5%" height="16" align="right"><%=Encode.forHtml(moneyFormat(result.getrPercent()))%>&nbsp;</td>
-        <td width="5%" height="16" align="right"><%=Encode.forHtml(moneyFormat(result.getoPercent()))%>&nbsp;</td>
-        <td width="5%" height="16" align="right"><%=Encode.forHtml(moneyFormat(result.getgAmount()))%>&nbsp;</td>
-        <td width="5%" height="16" align="right"><%=Encode.forHtml(moneyFormat(result.getrAmount()))%>&nbsp;</td>
-        <td width="5%" height="16" align="right"><%=Encode.forHtml(moneyFormat(result.getoAmount()))%>&nbsp;</td>
-        <td width="5%" height="16" align="right"><%=Encode.forHtml(moneyFormat(result.getBalanceForward()))%>&nbsp;</td>
-        <td width="10%" height="16" align="right"><%=Encode.forHtml(moneyFormat(result.getAdjMade()))%>&nbsp;</td>
-        <td width="10%" height="16" align="right"><%=Encode.forHtml(moneyFormat(result.getAdjOutstanding()))%>&nbsp;</td>
+        <td width="10%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getPayment()) %>' />&nbsp;</td>
+        <td width="5%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getPayeeNo()) %>' />&nbsp;</td>
+        <td width="5%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getAjc()) %>' />&nbsp;</td>
+        <td width="10%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getAji()) %>' />&nbsp;</td>
+        <td width="10%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getAjm()) %>' />&nbsp;</td>
+        <td width="10%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getCalcMethod()) %>' />&nbsp;</td>
+        <td width="5%" height="16" align="right"><e:forHtmlContent value='<%= moneyFormat(result.getrPercent()) %>' />&nbsp;</td>
+        <td width="5%" height="16" align="right"><e:forHtmlContent value='<%= moneyFormat(result.getoPercent()) %>' />&nbsp;</td>
+        <td width="5%" height="16" align="right"><e:forHtmlContent value='<%= moneyFormat(result.getgAmount()) %>' />&nbsp;</td>
+        <td width="5%" height="16" align="right"><e:forHtmlContent value='<%= moneyFormat(result.getrAmount()) %>' />&nbsp;</td>
+        <td width="5%" height="16" align="right"><e:forHtmlContent value='<%= moneyFormat(result.getoAmount()) %>' />&nbsp;</td>
+        <td width="5%" height="16" align="right"><e:forHtmlContent value='<%= moneyFormat(result.getBalanceForward()) %>' />&nbsp;</td>
+        <td width="10%" height="16" align="right"><e:forHtmlContent value='<%= moneyFormat(result.getAdjMade()) %>' />&nbsp;</td>
+        <td width="10%" height="16" align="right"><e:forHtmlContent value='<%= moneyFormat(result.getAdjOutstanding()) %>' />&nbsp;</td>
     </tr>
 
 
@@ -249,10 +248,10 @@
     %>
     <tr>
 
-        <td width="10%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getPayment()))%>&nbsp;</td>
-        <td width="10%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getPayeeNo()))%>&nbsp;</td>
-        <td width="10%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getPractitionerNo()))%>&nbsp;</td>
-        <td width="70%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getMessage()))%>&nbsp;</td>
+        <td width="10%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getPayment()) %>' />&nbsp;</td>
+        <td width="10%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getPayeeNo()) %>' />&nbsp;</td>
+        <td width="10%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getPractitionerNo()) %>' />&nbsp;</td>
+        <td width="70%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getMessage()) %>' />&nbsp;</td>
     </tr>
 
 

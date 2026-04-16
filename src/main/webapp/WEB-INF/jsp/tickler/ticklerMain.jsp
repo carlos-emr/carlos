@@ -49,7 +49,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
 <%
@@ -284,12 +284,12 @@
             <fmt:message key="encounter.LeftNavBar.AllLabs" var="msgAllLabs"/>
             <fmt:message key="tickler.ticklerMain.errorLoadFailed" var="msgErrorLoadFailed"/>
             <fmt:message key="tickler.ticklerMain.errorSaveViewFailed" var="msgErrorSaveViewFailed"/>
-            const i18nAllLabs = '<%=org.owasp.encoder.Encode.forJavaScript((String) pageContext.getAttribute("msgAllLabs"))%>';
-            const i18nErrorLoadFailed = '<%=org.owasp.encoder.Encode.forJavaScript((String) pageContext.getAttribute("msgErrorLoadFailed"))%>';
-            const i18nErrorSaveViewFailed = '<%=org.owasp.encoder.Encode.forJavaScript((String) pageContext.getAttribute("msgErrorSaveViewFailed"))%>';
-            const i18nEditTickler = '<%=org.owasp.encoder.Encode.forJavaScript((String) pageContext.getAttribute("msgTooltipEdit"))%>';
-            const i18nAddNote = '<%=org.owasp.encoder.Encode.forJavaScript((String) pageContext.getAttribute("msgTooltipAddNote"))%>';
-            const i18nViewAttachment = '<%=org.owasp.encoder.Encode.forJavaScript((String) pageContext.getAttribute("msgTooltipViewAttachment"))%>';
+            const i18nAllLabs = '<e:forJavaScriptBlock value='<%= (String) pageContext.getAttribute("msgAllLabs") %>' />';
+            const i18nErrorLoadFailed = '<e:forJavaScriptBlock value='<%= (String) pageContext.getAttribute("msgErrorLoadFailed") %>' />';
+            const i18nErrorSaveViewFailed = '<e:forJavaScriptBlock value='<%= (String) pageContext.getAttribute("msgErrorSaveViewFailed") %>' />';
+            const i18nEditTickler = '<e:forJavaScriptBlock value='<%= (String) pageContext.getAttribute("msgTooltipEdit") %>' />';
+            const i18nAddNote = '<e:forJavaScriptBlock value='<%= (String) pageContext.getAttribute("msgTooltipAddNote") %>' />';
+            const i18nViewAttachment = '<e:forJavaScriptBlock value='<%= (String) pageContext.getAttribute("msgTooltipViewAttachment") %>' />';
             let ticklerResultsTable;
             document.addEventListener('DOMContentLoaded', function () {
                 jQuery("#note-form").dialog({
@@ -545,7 +545,7 @@
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
                         console.error('[ticklerMain] Failed to load note for dialog (HTTP ' + jqXHR.status + '):', errorThrown);
-                        alert('<%=Encode.forJavaScript(oscarBundle.getString("tickler.ticklerMain.errorNoteLoadFailed"))%>');
+                        alert('<e:forJavaScriptBlock value='<%= oscarBundle.getString("tickler.ticklerMain.errorNoteLoadFailed") %>' />');
                     }
                 });
             }
@@ -570,7 +570,7 @@
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
                         console.error('[ticklerMain] Failed to save note (HTTP ' + jqXHR.status + '):', errorThrown);
-                        alert('<%=Encode.forJavaScript(oscarBundle.getString("tickler.ticklerMain.errorNoteSaveFailed"))%>');
+                        alert('<e:forJavaScriptBlock value='<%= oscarBundle.getString("tickler.ticklerMain.errorNoteSaveFailed") %>' />');
                     }
                 });
             }
@@ -627,8 +627,8 @@
                 let params = {
                     method: 'save',
                     view_name: 'tickler',
-                    userrole: '<%= Encode.forJavaScript(userRole) %>',
-                    providerno: '<%= Encode.forJavaScript(user_no) %>',
+                    userrole: '<e:forJavaScriptBlock value='<%= userRole %>' />',
+                    providerno: '<e:forJavaScriptBlock value='<%= user_no %>' />',
                     ticklerview: document.getElementById('ticklerview').value,
                     providerview: document.getElementById('providerview').value,
                     assignedTo: document.getElementById('assignedTo').value,
@@ -647,7 +647,7 @@
             // Listen for tickler refresh broadcasts from ticklerAdd/ticklerEdit popup windows
             var ticklerChannel = null;
             try {
-                ticklerChannel = new BroadcastChannel('carlos_tickler_refresh_<%=Encode.forJavaScript(demographic_no)%>');
+                ticklerChannel = new BroadcastChannel('carlos_tickler_refresh_<e:forJavaScript value='<%= demographic_no %>' />');
                 ticklerChannel.onmessage = function(event) {
                     var data = event.data;
                     if (data && (data === 'refresh' || data.action === 'refresh')) {
@@ -688,7 +688,7 @@
 
         <form name="serviceform" method="get" action="<%= request.getContextPath() %>/tickler/ViewTicklerMain">
             <input type="hidden" name="Submit" value="">
-            <input type="hidden" name="demoview" value="<%=org.owasp.encoder.Encode.forHtmlAttribute(isDemoView ? demographic_no : "")%>">
+            <input type="hidden" name="demoview" value="<e:forHtmlAttribute value='<%= isDemoView ? demographic_no : "" %>' />">
 
             <c:if test="${not hasDemoView}">
                 <div class="row mb-2">
@@ -705,14 +705,14 @@
                     <label for="xml_vdate" class="col-sm-3 col-form-label"><fmt:message key="tickler.ticklerMain.formFrom"/></label>
                     <div class="col-sm-9">
                         <input type="date" class="form-control" name="xml_vdate" id="xml_vdate"
-                               value="<%=org.owasp.encoder.Encode.forHtmlAttribute(xml_vdate)%>">
+                               value="<e:forHtmlAttribute value='<%= xml_vdate %>' />">
                     </div>
                 </div>
                 <div class="row mb-2">
                     <label for="xml_appointment_date" class="col-sm-3 col-form-label"><fmt:message key="tickler.ticklerMain.formTo"/></label>
                     <div class="col-sm-9">
                         <input type="date" class="form-control" name="xml_appointment_date" id="xml_appointment_date"
-                               value="<%=org.owasp.encoder.Encode.forHtmlAttribute(xml_appointment_date)%>">
+                               value="<e:forHtmlAttribute value='<%= xml_appointment_date %>' />">
                     </div>
                 </div>
                 <div class="row mb-2">
@@ -725,7 +725,7 @@
                             <%
                                 for (Provider p : providers) {
                             %>
-                            <option value="<%=org.owasp.encoder.Encode.forHtmlAttribute(p.getProviderNo())%>" <%=mrpview.equals(p.getProviderNo()) ? "selected" : ""%>><%=org.owasp.encoder.Encode.forHtml(p.getLastName())%>,<%=org.owasp.encoder.Encode.forHtml(p.getFirstName())%></option>
+                            <option value="<e:forHtmlAttribute value='<%= p.getProviderNo() %>' />" <%=mrpview.equals(p.getProviderNo()) ? "selected" : ""%>><e:forHtmlContent value='<%= p.getLastName() %>' />,<e:forHtmlContent value='<%= p.getFirstName() %>' /></option>
                             <%
                                 }
                             %>
@@ -742,7 +742,7 @@
                             <%
                                 for (Provider p : providers) {
                             %>
-                            <option value="<%=org.owasp.encoder.Encode.forHtmlAttribute(p.getProviderNo())%>" <%=providerview.equals(p.getProviderNo()) ? "selected" : ""%>><%=org.owasp.encoder.Encode.forHtml(p.getLastName())%>,<%=org.owasp.encoder.Encode.forHtml(p.getFirstName())%></option>
+                            <option value="<e:forHtmlAttribute value='<%= p.getProviderNo() %>' />" <%=providerview.equals(p.getProviderNo()) ? "selected" : ""%>><e:forHtmlContent value='<%= p.getLastName() %>' />,<e:forHtmlContent value='<%= p.getFirstName() %>' /></option>
                             <%
                                 }
                             %>
@@ -777,7 +777,7 @@
                             <%
                                 for (int i = 0; i < sites.size(); i++) {
                             %>
-                            <option value="<%=org.owasp.encoder.Encode.forHtmlAttribute(sites.get(i).getSiteId().toString())%>" <%=sites.get(i).getSiteId().toString().equals(request.getParameter("site")) ? "selected" : ""%>><%=org.owasp.encoder.Encode.forHtml(sites.get(i).getName())%></option>
+                            <option value="<e:forHtmlAttribute value='<%= sites.get(i).getSiteId().toString() %>' />" <%=sites.get(i).getSiteId().toString().equals(request.getParameter("site")) ? "selected" : ""%>><e:forHtmlContent value='<%= sites.get(i).getName() %>' /></option>
                             <%
                                 }
                             %>
@@ -788,7 +788,7 @@
                         %>
                         <script>
                             changeSite(document.getElementById("site"));
-                            document.getElementById("assignedTo").value = '<%=org.owasp.encoder.Encode.forJavaScript(StringUtils.noNull(request.getParameter("assignedTo")))%>';
+                            document.getElementById("assignedTo").value = '<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("assignedTo")) %>' />';
                         </script>
                         <%
                             }
@@ -808,7 +808,7 @@
                             <%
                                 for (Provider p : providers) {
                             %>
-                            <option value="<%=org.owasp.encoder.Encode.forHtmlAttribute(p.getProviderNo())%>" <%=assignedTo.equals(p.getProviderNo()) ? "selected" : ""%>><%=org.owasp.encoder.Encode.forHtml(p.getLastName())%>, <%=org.owasp.encoder.Encode.forHtml(p.getFirstName())%></option>
+                            <option value="<e:forHtmlAttribute value='<%= p.getProviderNo() %>' />" <%=assignedTo.equals(p.getProviderNo()) ? "selected" : ""%>><e:forHtmlContent value='<%= p.getLastName() %>' />, <e:forHtmlContent value='<%= p.getFirstName() %>' /></option>
                             <%
                                 }
                             %>
@@ -901,7 +901,7 @@
                         %>
                         <input type="button" class="btn btn-primary"
                                value="<fmt:message key='tickler.ticklerMain.btnAddTickler'/>"
-                               onClick="popupPage('500','800', '<%= request.getContextPath() %>/tickler/ViewAddTickler?updateParent=true&parentAjaxId=<%= Encode.forUriComponent(parentAjaxId != null ? parentAjaxId : "") %>&bFirstDisp=false&messageID=null&demographic_no=<%= Encode.forUriComponent(demoviewParam != null ? demoviewParam : "") %>')">
+                               onClick="popupPage('500','800', '<%= request.getContextPath() %>/tickler/ViewAddTickler?updateParent=true&parentAjaxId=<e:forUriComponent value='<%= parentAjaxId != null ? parentAjaxId : "" %>' />&bFirstDisp=false&messageID=null&demographic_no=<e:forUriComponent value='<%= demoviewParam != null ? demoviewParam : "" %>' />')">
                         <%-- Back: tries opener reload (if opened as popup), then history back,
                              then window close as last resort. Matches search.jsp pattern. --%>
                         <input type="button" name="button" class="btn btn-secondary"

@@ -35,7 +35,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
@@ -119,14 +118,14 @@
     <form method="post" name="baseurl" action="${pageContext.request.contextPath}/admin/UnLock">
         <% if (!msg.isEmpty()) { %>
         <div class="alert alert-success">
-            <%= Encode.forHtml(msg) %>
+            <e:forHtmlContent value='<%= msg %>' />
         </div>
         <% } %>
         <div class="card card-body bg-body-tertiary">
             <b><fmt:message key="admin.providersearchresults.ID"/></b>
             <select name="userName">
                 <% for (int i = 0; i < vec.size(); i++) { %>
-                <option value="<%=Encode.forHtmlAttribute((String) vec.get(i))%>"><%=Encode.forHtmlContent((String) vec.get(i))%>
+                <option value="<e:forHtmlAttribute value='<%= (String) vec.get(i) %>' />"><e:forHtmlContent value='<%= (String) vec.get(i) %>' />
                 </option>
                 <% } %>
             </select> <input type="submit" name="submit" class="btn btn-primary"

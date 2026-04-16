@@ -32,7 +32,7 @@
         import="io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.clinic.ClinicData, java.util.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -292,7 +292,7 @@
                 useSC = true;
                 <%for(int i=0; i<vecAddressName.size(); i++) {%>
                 if (document.getElementById("addressSel").value == "<%=i%>") {
-                    scAddress = "<%=Encode.forUriComponent(StringEscapeUtils.unescapeHtml4((String)vecAddress.get(i)))%>";
+                    scAddress = "<e:forUriComponent value='<%= StringEscapeUtils.unescapeHtml4((String)vecAddress.get(i)) %>' />";
                 }
                 <%}
             }%>
@@ -307,7 +307,7 @@
             }
 
             function setComment() {
-                frames['preview'].document.getElementById('additNotes').innerHTML = '<%=Encode.forJavaScript(comment.replaceAll("\n", "<br>"))%>';
+                frames['preview'].document.getElementById('additNotes').innerHTML = '<e:forJavaScriptBlock value='<%= comment.replaceAll("\n", "<br>") %>' />';
                 frames['preview'].document.getElementsByName('additNotes')[0].value = frames['preview'].document.getElementById('additNotes').innerHTML;
             }
 
@@ -376,7 +376,7 @@
                     <% } %>
 
                     if (print) {
-                        text += "Prescribed and printed by <%= Encode.forJavaScript(loggedInInfo.getLoggedInProvider().getFormattedName())%>\n";
+                        text += "Prescribed and printed by <e:forJavaScript value='<%= loggedInInfo.getLoggedInProvider().getFormattedName() %>' />\n";
                     } else if (fax) {
                         <%--    	 <% if(echartPreferencesMap.getOrDefault("echart_paste_fax_note", false)) {--%>
                         <% String timeStamp = new SimpleDateFormat("dd-MMM-yyyy hh:mm a").format(Calendar.getInstance().getTime()); %>
@@ -384,7 +384,7 @@
                         text = "[Rx faxed to " + '<%= pharmacy!=null?Encode.forJavaScript(pharmacy.getName()):""%>' + " Fax#: " + '<%= pharmacy!=null?pharmacy.getFax():""%>';
 
                         <%--    	 <% if (rxPreferencesMap.getOrDefault("rx_paste_provider_to_echart", false)) { %>--%>
-                        text += " prescribed by <%= Encode.forJavaScript(loggedInInfo.getLoggedInProvider().getFormattedName())%>";
+                        text += " prescribed by <e:forJavaScript value='<%= loggedInInfo.getLoggedInProvider().getFormattedName() %>' />";
                         <%--    	 <% } %>--%>
                         text += ", <%= timeStamp %>]\n";
                         <%--   		 <%--%>
@@ -405,9 +405,9 @@
                     }
                     <% if (props.isPropertyActive("rx_paste_asterisk")) {
                             if(prefPharmacy!=null && prefPharmacy.trim()!=""){ %>
-                    text += "<%=Encode.forJavaScript(prefPharmacy)%>\n"
+                    text += "<e:forJavaScript value='<%= prefPharmacy %>' />\n"
                     <% } %>
-                    text += "****<%=Encode.forJavaScript(ProviderData.getProviderName(bean.getProviderNo()))%>********************************************************************************\n";
+                    text += "****<e:forJavaScript value='<%= ProviderData.getProviderName(bean.getProviderNo()) %>' />********************************************************************************\n";
                     <% } %>
 
                     //we support pasting into orig encounter and new casemanagement
@@ -480,7 +480,7 @@
             function openEncounter() {
                 var windowprops = "height=710,width=1024,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=20,left=20";
                 var currentDate = new Date().toISOString().substring(0, 10);
-                var url = "<%= request.getContextPath() %>/encounter/IncomingEncounter?providerNo=<%= bean.getProviderNo() %>&demographicNo=<%= bean.getDemographicNo() %>&curProviderNo=<%= bean.getProviderNo() %>&userName=<%=Encode.forUriComponent(ProviderData.getProviderName(bean.getProviderNo()))%>&curDate=" + currentDate;
+                var url = "<%= request.getContextPath() %>/encounter/IncomingEncounter?providerNo=<%= bean.getProviderNo() %>&demographicNo=<%= bean.getDemographicNo() %>&curProviderNo=<%= bean.getProviderNo() %>&userName=<e:forUriComponent value='<%= ProviderData.getProviderName(bean.getProviderNo()) %>' />&curDate=" + currentDate;
 
                 if (window.parent.opener && window.parent.opener.document.forms["caseManagementEntryForm"] != undefined) {
                     // redirect if encounter window open
@@ -560,7 +560,7 @@
                 let faxNumber = document.getElementById('faxNumber');
                 frames['preview'].document.getElementById('finalFax').value = faxNumber.options[faxNumber.selectedIndex].value;
                 frames['preview'].document.getElementById('pdfId').value = '<%=signatureRequestId%>';
-                onPrint2('oscarRxFax', "<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("scriptId")))%>");
+                onPrint2('oscarRxFax', "<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("scriptId")) %>' />");
 
             }
 
@@ -684,7 +684,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
                                         <iframe id='preview' name='preview' width=420px height=890px
-							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%=bean.getStashItem(0).getScript_no()%>&rePrint=<%=reprint%>&pharmacyId=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("pharmacyId"))) %>"
+							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%=bean.getStashItem(0).getScript_no()%>&rePrint=<%=reprint%>&pharmacyId=<e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' />"
 							align=center border=0 frameborder=0></iframe></div>
 					<% } %>
                                 </td>

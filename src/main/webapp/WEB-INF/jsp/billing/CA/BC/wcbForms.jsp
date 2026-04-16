@@ -93,7 +93,7 @@
         <tr>
             <td><input type="radio" name="WCBid" value="<%=wcb.getId()%>" <%=checked(wcbid, wcb.getId())%> /></td>
             <td><a href="javascript:void(0);"
-                   onclick="checkifSet('<%= Encode.forJavaScriptAttribute(StringUtils.noNull(wcb.getW_icd9())) %>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(wcb.getW_feeitem())) %>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(wcb.getW_extrafeeitem())) %>');">Populate</a>
+                   onclick="checkifSet('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(wcb.getW_icd9()) %>' />','<e:forJavaScriptAttribute value='<%= StringUtils.noNull(wcb.getW_feeitem()) %>' />','<e:forJavaScriptAttribute value='<%= StringUtils.noNull(wcb.getW_extrafeeitem()) %>' />');">Populate</a>
             </td>
             <td align="middle">
                 <a onclick="popup(700,960,'viewformwcb?demographic_no=<%= encodedDemoNo %>&formId=<%=wcb.getId()%>&provNo=<%= encodedProvNo %>&parentAjaxId=forms&billingcode=<%= encodedBillingCode %>&hideToBill=true','<%= encodedDemoNoJs %>NEWWCB'); return false;"
@@ -101,7 +101,7 @@
 
             </td>
             <td><fmt:formatDate pattern="yyyy-MM-dd HH:mm" value="${wcb.formCreated}"/></td>
-            <td><%= Encode.forHtml(StringUtils.noNull(wcb.getW_diagnosis())) %>&nbsp;</td>
+            <td><e:forHtmlContent value='<%= StringUtils.noNull(wcb.getW_diagnosis()) %>' />&nbsp;</td>
 
 
             <%

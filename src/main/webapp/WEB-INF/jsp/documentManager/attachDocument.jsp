@@ -52,7 +52,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 
 <!DOCTYPE html >
@@ -359,7 +359,7 @@
                                         <input class="document_check" type="checkbox" name="docNo"
                                                id="docNo${document.docId}" value="${document.docId}"
                                                title="${ document.description }"/>
-                                        <label for="docNo${document.docId}">${e:forHtml(document.description } ${ document.observationDate)}</label>
+                                        <label for="docNo${document.docId}">${e:forHtml(document.description)} ${e:forHtml(document.observationDate)}</label>
                                         <button class="preview-button" type="button" title="Preview"
                                                 onclick="getPdf('DOC', '${document.docId}', 'method=renderEDocPDF&eDocId=${document.docId}')">
                                             Preview
@@ -457,7 +457,7 @@
                                         <input class="hrm_check" type="checkbox" name="hrmNo" id="hrmNo${ hrm['id'] }"
                                                value="${hrm['id']}" title="${hrm['name']}"/>
                                         <label for="hrmNo${hrm['id']}">
-                                            ${e:forHtml(hrm['name'] } ${ hrm['report_date'])}
+                                            ${e:forHtml(hrm['name'])} ${e:forHtml(hrm['report_date'])}
                                         </label>
                                         <button class="preview-button" type="button" title="Preview"
                                                 onclick="getPdf('HRM', '${hrm.id}', 'method=renderHrmPDF&hrmId=${hrm.id}')">
@@ -492,7 +492,7 @@
                                                id="formNo${ form.formId }" value="${form.formId}"
                                                title="${form.formName}"/>
                                         <label for="formNo${form.formId}">
-                                            ${e:forHtml(form.formName } ${ form.getEdited())}
+                                            ${e:forHtml(form.formName)} ${e:forHtml(form.getEdited())}
                                         </label>
                                         <button class="preview-button" type="button" title="Preview"
                                                 onclick="getPdf('FORM', '${form.formId}', 'method=renderFormPDF&formId=${form.formId}&formName=${form.formName}&demographicNo=${form.getDemoNo()}')">

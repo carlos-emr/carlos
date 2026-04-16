@@ -40,7 +40,6 @@
         import="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO,io.github.carlos_emr.carlos.commn.model.Dxresearch,io.github.carlos_emr.carlos.commn.dao.Icd9Dao,io.github.carlos_emr.carlos.commn.model.Icd9" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     CodingSystemManager codingSystemManager = SpringUtils.getBean(CodingSystemManager.class);
 %>
@@ -178,8 +177,8 @@
                         <tr>
                             <td>
                                 <a href="javascript:void(0);"
-                                   onclick="assignPatientDxLink('<%=Encode.forJavaScriptAttribute(dx.getDxresearchCode())%>', '<%=Encode.forJavaScriptAttribute(idc9Desc)%>')"
-                                   title="<%=Encode.forHtmlAttribute(dx.getDxresearchCode())%> - <%=Encode.forHtmlAttribute(idc9Desc)%>">
+                                   onclick="assignPatientDxLink('<e:forJavaScriptAttribute value='<%= dx.getDxresearchCode() %>' />', '<e:forJavaScriptAttribute value='<%= idc9Desc %>' />')"
+                                   title="<e:forHtmlAttribute value='<%= dx.getDxresearchCode() %>' /> - <e:forHtmlAttribute value='<%= idc9Desc %>' />">
                                     <%=dx.getDxresearchCode()%>
                                     - <%=StringUtils.maxLenString(idc9Desc, 10, 6, StringUtils.ELLIPSIS)%>
                                 </a>
@@ -220,8 +219,8 @@
 
                     <fieldset>
                         <input type="hidden" name="method" value="addDrugReason"/>
-                        <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(demoStr) %>"/>
-                        <input type="hidden" name="drugId" value="<%= Encode.forHtmlAttribute(drugIdStr) %>"/>
+                        <input type="hidden" name="demographicNo" value="<e:forHtmlAttribute value='<%= demoStr %>' />"/>
+                        <input type="hidden" name="drugId" value="<e:forHtmlAttribute value='<%= drugIdStr %>' />"/>
 
                         <legend>Assign Indication</legend>
 
@@ -289,7 +288,7 @@
                                                 String descr = codingSystemManager.getCodeDescription(drugReason.getCodingSystem(), drugReason.getCode());
                                                 descr = org.apache.commons.lang3.StringUtils.trimToEmpty(descr);
                                             %>
-                                            <%=Encode.forHtml(descr) %>
+                                            <e:forHtmlContent value='<%= descr %>' />
                                         </td>
                                         <td><%=drugReason.getComments() %>
                                         </td>

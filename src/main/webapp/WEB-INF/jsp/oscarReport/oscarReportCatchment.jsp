@@ -74,7 +74,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     DemographicDao demographicDao = SpringUtils
             .getBean(DemographicDao.class);
@@ -135,19 +134,19 @@
             nItems++;
     %>
     <tr>
-        <td><%=Encode.forHtml(d.getLastName())%>,<%=Encode.forHtml(d.getFirstName())%>
+        <td><e:forHtmlContent value='<%= d.getLastName() %>' />,<e:forHtmlContent value='<%= d.getFirstName() %>' />
         </td>
-        <td><%=Encode.forHtml(d.getSex())%>
+        <td><e:forHtmlContent value='<%= d.getSex() %>' />
         </td>
-        <td><%=Encode.forHtml(d.getDateOfBirth())%>-<%=Encode.forHtml(d.getMonthOfBirth())%>-<%=Encode.forHtml(d.getYearOfBirth())%>
+        <td><e:forHtmlContent value='<%= d.getDateOfBirth() %>' />-<e:forHtmlContent value='<%= d.getMonthOfBirth() %>' />-<e:forHtmlContent value='<%= d.getYearOfBirth() %>' />
         </td>
-        <td><%=Encode.forHtml(d.getCity())%>
+        <td><e:forHtmlContent value='<%= d.getCity() %>' />
         </td>
-        <td><%=Encode.forHtml(d.getProvince())%>
+        <td><e:forHtmlContent value='<%= d.getProvince() %>' />
         </td>
-        <td><%=Encode.forHtml(d.getPostal())%>
+        <td><e:forHtmlContent value='<%= d.getPostal() %>' />
         </td>
-        <td><%=Encode.forHtml(d.getPatientStatus())%>
+        <td><e:forHtmlContent value='<%= d.getPatientStatus() %>' />
         </td>
     </tr>
     <%
@@ -166,13 +165,13 @@
 <nav>
 <ul class="pagination justify-content-between">
     <li class="page-item <%=nLastPage >= 0 ? "" : "disabled"%>"><a
-            href="${ctx}/oscarReport/ViewOscarReportCatchment?limit1=<%=nLastPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>"
+            href="${ctx}/oscarReport/ViewOscarReportCatchment?limit1=<%=nLastPage%>&limit2=<e:forUriComponent value='<%= strLimit2 %>' />"
             class="page-link contentLink"> &larr; Previous Page
     </a></li>
     <li
             class="page-item <%=nItems == Integer.parseInt(strLimit2) ? "" : "disabled"%>">
         <a
-                href="${ctx}/oscarReport/ViewOscarReportCatchment?limit1=<%=nNextPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>"
+                href="${ctx}/oscarReport/ViewOscarReportCatchment?limit1=<%=nNextPage%>&limit2=<e:forUriComponent value='<%= strLimit2 %>' />"
                 class="page-link contentLink"> <fmt:message key="oscarReport.oscarReportCatchment.msgNextPage"/> &rarr;
         </a>
     </li>

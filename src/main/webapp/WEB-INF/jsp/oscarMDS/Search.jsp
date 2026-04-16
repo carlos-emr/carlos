@@ -30,7 +30,6 @@
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 
@@ -58,7 +57,8 @@
                 return false;
             }
 
-            var url = "<%=request.getContextPath()%>/documentManager/inboxManage?method=prepareForIndexPage&providerNo=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo")))) %>";
+            <c:set var="__enc_1"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("providerNo")) %>' /></c:set>
+            var url = "<%=request.getContextPath()%>/documentManager/inboxManage?method=prepareForIndexPage&providerNo=<e:forJavaScript value='${__enc_1}' />";
             if ($("#provfind").val().trim() != "") {
                 url += "&searchProviderNo=" + $("#provfind").val().trim();
             } else {
@@ -187,7 +187,7 @@
                                        ondblclick="this.checked = false;">
                                 <label for="searchProviderAll-unclaimed"><fmt:message key="oscarMDS.search.formPhysicianUnclaimed"/></label>
                                 <input type="hidden" name="providerNo"
-                                       value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>">
+                                       value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("providerNo")) %>' />">
                             </td>
                         </tr>
                         <tr>

@@ -79,7 +79,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
 
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title><%=Encode.forHtml(pd.getPatientName())%> - <fmt:message key="oscarMDS.segmentDisplay.title"/></title>
+    <title><e:forHtmlContent value='<%= pd.getPatientName() %>' /> - <fmt:message key="oscarMDS.segmentDisplay.title"/></title>
     <script language="javascript" type="text/javascript"
             src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
     <script type="text/javascript"
@@ -139,13 +139,13 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
 <!-- form forwarding of the lab -->
 <form name="reassignForm" method="post" action="<%= request.getContextPath() %>/oscarMDS/Forward"><input
         type="hidden" name="flaggedLabs"
-        value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("segmentID"))) %>"/> <input
+        value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("segmentID")) %>' />"/> <input
         type="hidden" name="selectedProviders" value=""/>
     <input type="hidden" name="favorites" value=""/>
     <input type="hidden" name="labType" value="MDS"/> <input type="hidden"
-                                                             name="labType<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("segmentID"))) %>MDS"
+                                                             name="labType<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("segmentID")) %>' />MDS"
                                                              value="imNotNull"/> <input type="hidden" name="providerNo"
-                                                                                        value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>"/>
+                                                                                        value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("providerNo")) %>' />"/>
 </form>
 <form name="acknowledgeForm" method="post" action="UpdateStatus">
 
@@ -157,10 +157,10 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                     <tr>
                         <td align="left" class="MainTableTopRowRightColumn" width="100%">
                             <input type="hidden" name="segmentID"
-                                   value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("segmentID"))) %>"> <input
-                                type="hidden" name="multiID" value="<%= Encode.forHtmlAttribute(multiLabId) %>"/> <input
+                                   value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("segmentID")) %>' />"> <input
+                                type="hidden" name="multiID" value="<e:forHtmlAttribute value='<%= multiLabId %>' />"/> <input
                                 type="hidden" name="providerNo"
-                                value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>"> <input
+                                value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("providerNo")) %>' />"> <input
                                 type="hidden" name="status" value="A"> <input type="hidden"
                                                                               name="comment" value=""> <input
                                 type="hidden"
@@ -177,18 +177,20 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                                                     value=" <fmt:message key="global.btnPrint"/> "
                                                                     onClick="window.print()"> <% if (demoNo != null && !demoNo.equals("") && !demoNo.equalsIgnoreCase("null")) { %>
                             <input type="button" value="Msg"
-                                   onclick="popup(700,960,'${pageContext.request.contextPath}/messenger/SendDemoMessage?demographic_no=<%=Encode.forJavaScriptAttribute(demoNo)%>','msg')"/>
+                                   onclick="popup(700,960,'${pageContext.request.contextPath}/messenger/SendDemoMessage?demographic_no=<e:forJavaScriptAttribute value='<%= demoNo %>' />','msg')"/>
                             <input type="button" value="Tickler"
-                                   onclick="popup(450,600,'${pageContext.request.contextPath}/tickler/ForwardDemographicTickler?demographic_no=<%=Encode.forJavaScriptAttribute(demoNo)%>','tickler')"/>
+                                   onclick="popup(450,600,'${pageContext.request.contextPath}/tickler/ForwardDemographicTickler?demographic_no=<e:forJavaScriptAttribute value='<%= demoNo %>' />','tickler')"/>
                             <% } %> <% if (request.getParameter("searchProviderNo") == null) { // we were called from e-chart %>
                             <input type="button"
                                    value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
                                    onClick="window.close()"> <% } else { // we were called from lab module %>
                             <input type="button"
                                    value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
-                                   onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=MDS&segmentID=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("segmentID"))) %>&name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
+                                   <c:set var="__enc_1"><e:forUriComponent value='<%= demoNo %>' /></c:set>
+                                   onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=MDS&segmentID=<e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("segmentID")) %>' />&name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8)%>'                                
+, 'searchPatientWindow')">
                             <% } %> &nbsp; <a
-                                href="javascript:popupStart(400,850,'${pageContext.request.contextPath}/demographic/DemographicApptHistory?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demoNo)) %>&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25','ApptHist')"
+                                href="javascript:popupStart(400,850,'${pageContext.request.contextPath}/demographic/DemographicApptHistory?demographic_no=<e:forJavaScriptAttribute value='${__enc_1}' />&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25','ApptHist')"
                                 style="font-size: 12px;" title="Click to see appointment history"><span
                                 class="Field2"><i>Next Appointment: <oscar:nextAppt
                                 demographicNo="<%=demoNo%>"/></i></span></a></td>
@@ -212,11 +214,11 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                             } else {
                                 if (request.getParameter("searchProviderNo") != null) { // null if we were called from e-chart
                             %><a
-                                    href="<%=request.getContextPath()%>/oscarMDS/ViewSegmentDisplay?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))) %>&searchProviderNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("searchProviderNo"))) %>&status=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("status"))) %>">v<%= i + 1 %>
+                                    href="<%=request.getContextPath()%>/oscarMDS/ViewSegmentDisplay?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("providerNo")) %>' />&searchProviderNo=<e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("searchProviderNo")) %>' />&status=<e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("status")) %>' />">v<%= i + 1 %>
                             </a>&#160;<%
                             } else {
                             %><a
-                                    href="<%=request.getContextPath()%>/oscarMDS/ViewSegmentDisplay?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))) %>&status=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("status"))) %>">v<%= i + 1 %>
+                                    href="<%=request.getContextPath()%>/oscarMDS/ViewSegmentDisplay?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("providerNo")) %>' />&status=<e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("status")) %>' />">v<%= i + 1 %>
                             </a>&#160;<%
                                         }
                                     }
@@ -260,8 +262,8 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                                                     <a href="javascript:window.close()"> <% } else { // we were called from lab module %>
 
                                                                         <a
-                                                                                href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=MDS&segmentID=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("segmentID"))) %>&name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8) %>', 'searchPatientWindow')">
-                                                                            <% } %> <%=Encode.forHtml(pd.getPatientName())%>
+                                                                                href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=MDS&segmentID=<e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("segmentID")) %>' />&name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8) %>', 'searchPatientWindow')">
+                                                                            <% } %> <e:forHtmlContent value='<%= pd.getPatientName() %>' />
                                                                         </a></div>
                                                             </td>
                                                         </tr>
@@ -271,17 +273,17 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                                                 </div>
                                                             </td>
                                                             <td colspan="2" nowrap>
-                                                                <div class="FieldData" nowrap="nowrap"><%=Encode.forHtml(pd.getDOB())%>
+                                                                <div class="FieldData" nowrap="nowrap"><e:forHtmlContent value='<%= pd.getDOB() %>' />
                                                                 </div>
                                                             </td>
                                                         </tr>
                                                         <tr>
                                                             <td colspan="2" nowrap>
-                                                                <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong><%=Encode.forHtml(pd.getAge())%>
+                                                                <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong><e:forHtmlContent value='<%= pd.getAge() %>' />
                                                                 </div>
                                                             </td>
                                                             <td colspan="2" nowrap>
-                                                                <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong><%=Encode.forHtml(pd.getSex())%>
+                                                                <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong><e:forHtmlContent value='<%= pd.getSex() %>' />
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -296,7 +298,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                                             </td>
                                                             <td colspan="2" nowrap>
                                                                 <div class="FieldData"
-                                                                     nowrap="nowrap"><%=Encode.forHtml(hn.length() > 1 ? hn.substring(1) : hn)%>
+                                                                     nowrap="nowrap"><e:forHtmlContent value='<%= hn.length() > 1 ? hn.substring(1) : hn %>' />
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -313,7 +315,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                                             </td>
                                                             <td nowrap>
                                                                 <div align="left" class="FieldData"
-                                                                     nowrap="nowrap"><%=Encode.forHtml(pd.getHomePhone())%>
+                                                                     nowrap="nowrap"><e:forHtmlContent value='<%= pd.getHomePhone() %>' />
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -325,7 +327,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                                             </td>
                                                             <td nowrap>
                                                                 <div align="left" class="FieldData"
-                                                                     nowrap="nowrap"><%=Encode.forHtml(pd.getWorkPhone())%>
+                                                                     nowrap="nowrap"><e:forHtmlContent value='<%= pd.getWorkPhone() %>' />
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -347,7 +349,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                                             </td>
                                                             <td nowrap>
                                                                 <div align="left" class="FieldData"
-                                                                     nowrap="nowrap"><%=Encode.forHtml(pd.getPatientLocation())%>
+                                                                     nowrap="nowrap"><e:forHtmlContent value='<%= pd.getPatientLocation() %>' />
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -366,7 +368,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                         <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formDateService"/>:</strong></div>
                                     </td>
                                     <td>
-                                        <div class="FieldData" nowrap="nowrap"><%= Encode.forHtml(mDSSegmentData.reportDate) %>
+                                        <div class="FieldData" nowrap="nowrap"><e:forHtmlContent value='<%= mDSSegmentData.reportDate %>' />
                                         </div>
                                     </td>
                                 </tr>
@@ -375,7 +377,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                         <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formReportStatus"/>:</strong></div>
                                     </td>
                                     <td>
-                                        <div class="FieldData" nowrap="nowrap"><%= Encode.forHtml(mDSSegmentData.reportStatus) %>
+                                        <div class="FieldData" nowrap="nowrap"><e:forHtmlContent value='<%= mDSSegmentData.reportStatus %>' />
                                         </div>
                                     </td>
                                 </tr>
@@ -387,7 +389,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                         <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formClientRefer"/>:</strong></div>
                                     </td>
                                     <td nowrap>
-                                        <div class="FieldData" nowrap="nowrap"><%= Encode.forHtml(mDSSegmentData.clientNo) %>
+                                        <div class="FieldData" nowrap="nowrap"><e:forHtmlContent value='<%= mDSSegmentData.clientNo %>' />
                                         </div>
                                     </td>
                                 </tr>
@@ -396,7 +398,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                         <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formAccession"/>:</strong></div>
                                     </td>
                                     <td>
-                                        <div class="FieldData" nowrap="nowrap"><%= Encode.forHtml(mDSSegmentData.accessionNo) %>
+                                        <div class="FieldData" nowrap="nowrap"><e:forHtmlContent value='<%= mDSSegmentData.accessionNo %>' />
                                         </div>
                                     </td>
                                 </tr>
@@ -417,15 +419,15 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                    bordercolor="#CCCCCC">
                                 <tr>
                                     <td bgcolor="white">
-                                        <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formRequestingClient"/>: </strong> <%= Encode.forHtml(mDSSegmentData.providers.referringDoctor) %>
+                                        <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formRequestingClient"/>: </strong> <e:forHtmlContent value='<%= mDSSegmentData.providers.referringDoctor %>' />
                                         </div>
                                     </td>
                                     <td bgcolor="white">
-                                        <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formReportToClient"/>: </strong> <%= Encode.forHtml(mDSSegmentData.providers.admittingDoctor) %>
+                                        <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formReportToClient"/>: </strong> <e:forHtmlContent value='<%= mDSSegmentData.providers.admittingDoctor %>' />
                                         </div>
                                     </td>
                                     <td bgcolor="white" align="right">
-                                        <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formCCClient"/>: </strong> <%= Encode.forHtml(mDSSegmentData.providers.consultingDoctor) %>
+                                        <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formCCClient"/>: </strong> <e:forHtmlContent value='<%= mDSSegmentData.providers.consultingDoctor %>' />
                                         </div>
                                     </td>
                                 </tr>
@@ -462,10 +464,10 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                         <div class="FieldData">
                                             <!--center--> <% for (int i = 0; i < currentData.statusArray.size(); i++) {
                                             ReportStatus rs = (ReportStatus) currentData.statusArray.get(i); %>
-                                            <%= Encode.forHtml(rs.getProviderName()) %> : <font color="red"><%= Encode.forHtml(rs.getStatus()) %>
+                                            <e:forHtmlContent value='<%= rs.getProviderName() %>' /> : <font color="red"><e:forHtmlContent value='<%= rs.getStatus() %>' />
                                         </font>
-                                            <% if (rs.getStatus().equals("Acknowledged")) { %> <%= Encode.forHtml(rs.getTimestamp()) %>,
-                                            <%= Encode.forHtml(rs.getComment() == null || rs.getComment().isEmpty() ? "no comment" : "comment : " + rs.getComment()) %>
+                                            <% if (rs.getStatus().equals("Acknowledged")) { %> <e:forHtmlContent value='<%= rs.getTimestamp() %>' />,
+                                            <e:forHtmlContent value='<%= rs.getComment() == null || rs.getComment().isEmpty() ? "no comment" : "comment : " + rs.getComment() %>' />
                                             <% } %> <br>
                                             <% }
                                                 if (currentData.statusArray.size() == 0) {
@@ -507,7 +509,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                     </tr>
                     <tr>
                         <td bgcolor="#FFCC00" width="200" height="22" valign="bottom">
-                            <div class="Title2"><%=Encode.forHtml(((Headers) mDSSegmentData.headersArray.get(i)).reportFlag)%>
+                            <div class="Title2"><e:forHtmlContent value='<%= ((Headers) mDSSegmentData.headersArray.get(i)).reportFlag %>' />
                             </div>
                         </td>
                         <td align="right" bgcolor="#FFCC00" width="100">&nbsp;</td>
@@ -561,7 +563,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                         <td align="right"><fmt:message key="oscarMDS.segmentDisplay.msgORG"/> <%=m - firstorgindex + 1%>
                         </td>
                         <td align="left"
-                            colspan="7"><%=Encode.forHtml(((Results) ((GroupedReports) ((Headers) mDSSegmentData.headersArray.get(i)).groupedReportsArray.get(m)).resultsArray.get(0)).getLabNotes(0))%>
+                            colspan="7"><e:forHtmlContent value='<%= ((Results) ((GroupedReports) ((Headers) mDSSegmentData.headersArray.get(i)).groupedReportsArray.get(m)).resultsArray.get(0)).getLabNotes(0) %>' />
                         </td>
 
 
@@ -592,13 +594,13 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                     <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>"
                         class="NormalRes">
                         <td valign="top"
-                            align="left"><%= Encode.forHtml(((Results) thisGroup.resultsArray.get(n)).name) %>
+                            align="left"><e:forHtmlContent value='<%= ((Results) thisGroup.resultsArray.get(n)).name %>' />
                         </td>
                         <% for (int p = firstorgindex; p <= lastorgindex; p++) { // iter over organisms to print their results for this antibiotic
                             boolean foundResult = false;
                             for (int q = 1; q < ((GroupedReports) ((Headers) mDSSegmentData.headersArray.get(i)).groupedReportsArray.get(p)).resultsArray.size(); q++) { // search the results for this organism for this particular antibiotic
                                 if (((Results) ((GroupedReports) ((Headers) mDSSegmentData.headersArray.get(i)).groupedReportsArray.get(p)).resultsArray.get(q)).name.equals(aName)) { %>
-                        <td align="middle"><%=Encode.forHtml(((Results) ((GroupedReports) ((Headers) mDSSegmentData.headersArray.get(i)).groupedReportsArray.get(p)).resultsArray.get(q)).observationValue)%>
+                        <td align="middle"><e:forHtmlContent value='<%= ((Results) ((GroupedReports) ((Headers) mDSSegmentData.headersArray.get(i)).groupedReportsArray.get(p)).resultsArray.get(q)).observationValue %>' />
                         </td>
                         <% ((Results) ((GroupedReports) ((Headers) mDSSegmentData.headersArray.get(i)).groupedReportsArray.get(p)).resultsArray.get(q)).observationValue = magicWord; // signal that we've displayed this result
                             foundResult = true;
@@ -628,23 +630,23 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                         class="<%=thisResult.resultStatus.startsWith("Corrected")?"CorrectedRes":AbnFlag.compareTo("HI")==0?"AbnormalRes":AbnFlag.compareTo("LO")==0?"HiLoRes":"NormalRes"%>">
                         <!--td valign="top" align="right"><%=thisResult.name %></td-->
                         <td valign="top" align="left"><a
-                                href="<%= request.getContextPath() %>/lab/CA/ON/ViewLabValues?testName=<%=Encode.forUriComponent(thisResult.name)%>&demo=<%= Encode.forUriComponent(demoNo) %>&labType=MDS"><%=Encode.forHtml(thisResult.name)%>
+                                href="<%= request.getContextPath() %>/lab/CA/ON/ViewLabValues?testName=<e:forUriComponent value='<%= thisResult.name %>' />&demo=<e:forUriComponent value='<%= demoNo %>' />&labType=MDS"><e:forHtmlContent value='<%= thisResult.name %>' />
                         </a></td>
                         <% if (thisResult.observationValue.equals("") && thisResult.notes != null) {
                             lineContinued = true;
                         } else { %>
-                        <td align="left"><%=Encode.forHtml(thisResult.observationValue)%>
+                        <td align="left"><e:forHtmlContent value='<%= thisResult.observationValue %>' />
                         </td>
-                        <td align="center"><%=Encode.forHtml(thisResult.abnormalFlags)%>
+                        <td align="center"><e:forHtmlContent value='<%= thisResult.abnormalFlags %>' />
                         </td>
-                        <td align="left"><%=Encode.forHtml(thisResult.referenceRange)%>
+                        <td align="left"><e:forHtmlContent value='<%= thisResult.referenceRange %>' />
                         </td>
-                        <td align="left"><%=Encode.forHtml(thisResult.units)%>
+                        <td align="left"><e:forHtmlContent value='<%= thisResult.units %>' />
                         </td>
                         <td align="center"></td>
-                        <td align="center"><%=Encode.forHtml(thisResult.labID)%>
+                        <td align="center"><e:forHtmlContent value='<%= thisResult.labID %>' />
                         </td>
-                        <td align="center"><%=Encode.forHtml(thisResult.resultStatus)%>
+                        <td align="center"><e:forHtmlContent value='<%= thisResult.resultStatus %>' />
                         </td>
                     </tr>
                     <% }
@@ -659,12 +661,12 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                         class="<%=thisResult.resultStatus.startsWith("Corrected")?"CorrectedRes":AbnFlag.compareTo("HI")==0?"AbnormalRes":AbnFlag.compareTo("LO")==0?"HiLoRes":"NormalRes"%>">
                         <td>&nbsp;</td>
                         <% } // end if !lineContinued %>
-                        <td align="left" colspan="5"><%= Encode.forHtml(notetext) %>
+                        <td align="left" colspan="5"><e:forHtmlContent value='<%= notetext %>' />
                         </td>
                         <% if (lineContinued) { %>
-                        <td align="center"><%=Encode.forHtml(thisResult.labID)%>
+                        <td align="center"><e:forHtmlContent value='<%= thisResult.labID %>' />
                         </td>
-                        <td align="center"><%=Encode.forHtml(thisResult.resultStatus)%>
+                        <td align="center"><e:forHtmlContent value='<%= thisResult.resultStatus %>' />
                         </td>
                         <% } else { %>
                         <td></td>
@@ -693,7 +695,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                     </tr>
                     <tr>
                         <td bgcolor="#FFCC00" width="200" height="22" valign="bottom">
-                            <div class="Title2"><%=Encode.forHtml(((Headers) mDSSegmentData.headersArray.get(i)).reportFlag)%>
+                            <div class="Title2"><e:forHtmlContent value='<%= ((Headers) mDSSegmentData.headersArray.get(i)).reportFlag %>' />
                             </div>
                         </td>
                         <td align="right" bgcolor="#FFCC00" width="100">&nbsp;</td>
@@ -742,24 +744,24 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                         class="<%=thisResult.resultStatus.startsWith("Corrected")?"CorrectedRes":AbnFlag.startsWith("HI", AbnFlag.indexOf("~") + 1)?"AbnormalRes":AbnFlag.startsWith("LO", AbnFlag.indexOf("~") + 1)?"HiLoRes":"NormalRes"%>">
                         <!--td valign="top" align="left"><%=thisResult.name %></td-->
                         <td valign="top" align="left"><a
-                                href="<%= request.getContextPath() %>/lab/CA/ON/ViewLabValues?testName=<%=Encode.forUriComponent(thisResult.name)%>&demo=<%= Encode.forUriComponent(demoNo) %>&labType=MDS"><%=Encode.forHtml(thisResult.name)%>
+                                href="<%= request.getContextPath() %>/lab/CA/ON/ViewLabValues?testName=<e:forUriComponent value='<%= thisResult.name %>' />&demo=<e:forUriComponent value='<%= demoNo %>' />&labType=MDS"><e:forHtmlContent value='<%= thisResult.name %>' />
                         </a></td>
                         <% if (thisResult.observationValue.equals("") && thisResult.notes != null) {
                             lineContinued = true;
                         } else { %>
-                        <td align="right"><%=Encode.forHtml(thisResult.observationValue)%>
+                        <td align="right"><e:forHtmlContent value='<%= thisResult.observationValue %>' />
                         </td>
-                        <td align="center"><%=Encode.forHtml(thisResult.abnormalFlags)%>
+                        <td align="center"><e:forHtmlContent value='<%= thisResult.abnormalFlags %>' />
                         </td>
-                        <td align="left"><%=Encode.forHtml(thisResult.referenceRange)%>
+                        <td align="left"><e:forHtmlContent value='<%= thisResult.referenceRange %>' />
                         </td>
-                        <td align="left"><%=Encode.forHtml(thisResult.units)%>
+                        <td align="left"><e:forHtmlContent value='<%= thisResult.units %>' />
                         </td>
-                        <td align="center"><%=Encode.forHtml(thisGroup.timeStamp)%>
+                        <td align="center"><e:forHtmlContent value='<%= thisGroup.timeStamp %>' />
                         </td>
-                        <td align="center"><%=Encode.forHtml(thisResult.labID)%>
+                        <td align="center"><e:forHtmlContent value='<%= thisResult.labID %>' />
                         </td>
-                        <td align="center"><%=Encode.forHtml(thisResult.resultStatus)%>
+                        <td align="center"><e:forHtmlContent value='<%= thisResult.resultStatus %>' />
                         </td>
                     </tr>
                     <% }
@@ -774,12 +776,12 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                         class="<%=thisResult.resultStatus.startsWith("Corrected")?"CorrectedRes":AbnFlag.compareTo("HI")==0?"AbnormalRes":AbnFlag.compareTo("LO")==0?"HiLoRes":"NormalRes"%>">
                         <td>&nbsp;</td>
                         <% } // end if !lineContinued %>
-                        <td align="left" colspan="5"><%= Encode.forHtml(notetext) %>
+                        <td align="left" colspan="5"><e:forHtmlContent value='<%= notetext %>' />
                         </td>
                         <% if (lineContinued) { %>
-                        <td align="center"><%=Encode.forHtml(thisResult.labID)%>
+                        <td align="center"><e:forHtmlContent value='<%= thisResult.labID %>' />
                         </td>
-                        <td align="center"><%=Encode.forHtml(thisResult.resultStatus)%>
+                        <td align="center"><e:forHtmlContent value='<%= thisResult.resultStatus %>' />
                         </td>
                         <% } else { %>
                         <td></td>
@@ -827,16 +829,16 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                                                     value=" <fmt:message key="global.btnPrint"/> "
                                                                     onClick="window.print()"> <% if (demoNo != null && !demoNo.equals("") && !demoNo.equalsIgnoreCase("null")) { %>
                             <input type="button" value="Msg"
-                                   onclick="popup(700,960,'<%=request.getContextPath()%>/messenger/SendDemoMessage?demographic_no=<%=Encode.forJavaScriptAttribute(demoNo)%>','msg')"/>
+                                   onclick="popup(700,960,'<%=request.getContextPath()%>/messenger/SendDemoMessage?demographic_no=<e:forJavaScriptAttribute value='<%= demoNo %>' />','msg')"/>
                             <input type="button" value="Tickler"
-                                   onclick="popup(450,600,'<%=request.getContextPath()%>/tickler/ForwardDemographicTickler?demographic_no=<%=Encode.forJavaScriptAttribute(demoNo)%>','tickler')"/>
+                                   onclick="popup(450,600,'<%=request.getContextPath()%>/tickler/ForwardDemographicTickler?demographic_no=<e:forJavaScriptAttribute value='<%= demoNo %>' />','tickler')"/>
                             <% } %> <% if (request.getParameter("searchProviderNo") == null) { // we were called from e-chart %>
                             <input type="button"
                                    value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
                                    onClick="window.close()"> <% } else { // we were called from lab module %>
                             <input type="button"
                                    value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
-                                   onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=MDS&segmentID=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("segmentID"))) %>&name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
+                                   onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=MDS&segmentID=<e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("segmentID")) %>' />&name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
                             <% } %>
                         </td>
                         <td width="50%" valign="center" align="left"><span
