@@ -1,0 +1,4 @@
+## 2024-11-20 - Prevent SQL Injection in Dynamic EForm Report Table Insertion
+**Vulnerability:** The `populateReportTableItem` method in `EFormReportToolDaoImpl.java` used raw string concatenation to insert dynamic EForm values directly into a native SQL query (`sb.append("\'" + v.getVarValue() + "\'")`), which creates a severe SQL injection vulnerability.
+**Learning:** Dynamic table interactions and complex form data require parameterized queries even when the number of columns is unknown beforehand. Building a dynamic values clause with `?` placeholders and subsequently iterating to bind values with `setParameter` is a safe pattern.
+**Prevention:** Always construct parameterized queries. For dynamically generated SQL inserting a variable number of fields, iterate to append positional `?` placeholders (or named parameters), and then iterate again to bind the user data utilizing `Query.setParameter()`. Never concatenate user input directly into SQL strings.
