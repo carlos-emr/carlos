@@ -106,31 +106,28 @@ public class AuditLogManager {
         filenameBuilder.append(outputDirectory).append("/OSCAR_AUDIR_LOG_PURGE_FILE_").append(formatter3.format(endDateToPurge)).append(".sql");
         String filename = filenameBuilder.toString();
 
-        java.util.List<String> commandList = new java.util.ArrayList<>();
-        commandList.add(mysqldump);
-        commandList.add("--user");
-        commandList.add(user);
-        // Do not add password to arguments to prevent leaking in process monitors (e.g. ps -ef)
-        commandList.add("-w");
-
         // Use StringBuilder for the dynamically constructed query to bypass static analyzer false positives
         StringBuilder whereClause = new StringBuilder();
         whereClause.append("dateTime < '").append(formatter2.format(endDateToPurge)).append("'");
-        commandList.add(whereClause.toString());
-
-        commandList.add("-t");
-        commandList.add("--result-file");
-        commandList.add(filename);
-        commandList.add(dbName);
-        commandList.add("log");
 
         Integer exitValue = null;
-
 
         try {
             String s = null;
 
-            ProcessBuilder pb = new ProcessBuilder(commandList);
+            ProcessBuilder pb = new ProcessBuilder(
+                mysqldump,
+                "--user",
+                user,
+                // Do not add password to arguments to prevent leaking in process monitors (e.g. ps -ef)
+                "-w",
+                whereClause.toString(),
+                "-t",
+                "--result-file",
+                filename,
+                dbName,
+                "log"
+            );
             if (password != null) {
                 pb.environment().put("MYSQL_PWD", password);
             }
