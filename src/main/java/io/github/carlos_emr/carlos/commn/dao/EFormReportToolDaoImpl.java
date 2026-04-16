@@ -53,8 +53,8 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
     private static final java.util.regex.Pattern INVALID_SQL_IDENTIFIER = java.util.regex.Pattern.compile(".*[`].*");
 
     private void validateIdentifier(String identifier) {
-        if (identifier == null || INVALID_SQL_IDENTIFIER.matcher(identifier).matches()) {
-            throw new IllegalArgumentException("Invalid SQL identifier: " + identifier);
+        if (identifier == null || INVALID_SQL_IDENTIFIER.matcher(identifier).matches() || identifier.contains(";")) {
+            throw new IllegalArgumentException("Invalid SQL identifier");
         }
     }
 
