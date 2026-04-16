@@ -333,10 +333,13 @@
                                     <c:forEach items="${ group.value }" var="member">
                                         <div class="row contact-entry">
                                             <div class="form-check">
-                                                <i class="fa-solid fa-trash group-member"
+                                                <button type="button" class="btn btn-link p-0 m-0 text-dark"
                                                    onclick="removeGroupMember('${ member.id.compositeId }', '${ group.key.id }')"
                                                    title="Remove Contact"
-                                                   id="${ member.id.compositeId }-${ group.key.id }"></i>
+                                                   aria-label="Remove Contact"
+                                                   id="${ member.id.compositeId }-${ group.key.id }">
+                                                    <i class="fa-solid fa-trash group-member" aria-hidden="true"></i>
+                                                </button>
                                                 <span class="provider-name">
 											<c:out value="${ member.lastName }"/>, <c:out
                                                         value="${ member.firstName }"/>
