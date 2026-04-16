@@ -63,7 +63,7 @@ public class FormTransportContainer {
     private String providerNo;
     private String demographicNo;
     private String formName;
-    private static String FORM_FORWARD_PATH = "/form/forwardshortcutname.do";
+    private static String FORM_FORWARD_PATH = "/form/forwardshortcutname";
 
 //	private final Map<String, String[]> modifiableParameters;
 //	private Map<String, String[]> allParameters = new TreeMap<>();

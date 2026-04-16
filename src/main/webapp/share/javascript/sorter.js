@@ -197,12 +197,12 @@ $(document).ready(function () {
 
         $.ajax({
             type: 'POST',
-            url: ctx + '/documentManager/SplitDocument.do',
+            url: ctx + '/documentManager/SplitDocument',
             data: serialized + '&method=split&document=' + docnum + '&queueID=' + queueId,
             dataType: 'json',
             success: function (data) {
                 $("#tool_savecontinue span").html("Save &amp; Continue");
-                popup(screen.height, screen.width, ctx + "/documentManager/ViewShowDocument.do?segmentID=" + data["newDocNum"] + '&demoName=' + encodeURIComponent(demoName) + "&inWindow=true", "assignDoc");
+                popup(screen.height, screen.width, ctx + "/documentManager/ViewShowDocument?segmentID=" + data["newDocNum"] + '&demoName=' + encodeURIComponent(demoName) + "&inWindow=true", "assignDoc");
                 return false;
             }
         });

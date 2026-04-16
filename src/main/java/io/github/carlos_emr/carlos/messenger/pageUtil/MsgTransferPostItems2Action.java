@@ -95,7 +95,7 @@ public final class MsgTransferPostItems2Action extends ActionSupport {
         if (bean == null || !bean.isValid()) {
             logger.warn("MsgTransferPostItems2Action: missing/invalid msgSessionBean for provider={}; redirecting to DisplayMessages",
                     providerNoOf(loggedInInfo));
-            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.do");
+            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages");
             return NONE;
         }
 
@@ -146,7 +146,7 @@ public final class MsgTransferPostItems2Action extends ActionSupport {
 
         bean.setAttachment(sXML);
 
-        response.sendRedirect(request.getContextPath() + "/messenger/ViewCreateMessage.do");
+        response.sendRedirect(request.getContextPath() + "/messenger/ViewCreateMessage");
         return NONE;
     }
 

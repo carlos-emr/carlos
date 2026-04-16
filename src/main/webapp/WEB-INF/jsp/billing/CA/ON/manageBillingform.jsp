@@ -84,7 +84,7 @@
 
             function valid(form) {
                 if (validateServiceType(form)) {
-                    form.action = "<%= request.getContextPath() %>/billing/CA/ON/DbManageBillingformAdd.do";
+                    form.action = "<%= request.getContextPath() %>/billing/CA/ON/DbManageBillingformAdd";
                     form.submit();
                 }
             }
@@ -112,7 +112,7 @@
             }
 
             function manageType(stype, stype_name) {
-                url = "/billing/CA/ON/ManageBillingformBilltype.do";
+                url = "/billing/CA/ON/ManageBillingformBilltype";
                 pars = "type_id=" + stype + "&type_name=" + stype_name;
 
                 fetch(url + "?" + pars, {method: "get"})
@@ -144,7 +144,7 @@
 
             function onUnbilled(servicetype) {
                 if (confirm("<fmt:message key="billing.manageBillingform.msgDeleteBillingConfirm"/>")) {
-                    postToPopup('<%= request.getContextPath() %>/billing/CA/ON/DbManageBillingformDelete.do',
+                    postToPopup('<%= request.getContextPath() %>/billing/CA/ON/DbManageBillingformDelete',
                         {servicetype: servicetype}, 'deletePopup', 700, 720);
                 }
             }
@@ -159,7 +159,7 @@
             }
 
             function manageBillType(id, oldtype, newtype) {
-                postToPopup('<%= request.getContextPath() %>/billing/CA/ON/DbManageBillingformBilltype.do',
+                postToPopup('<%= request.getContextPath() %>/billing/CA/ON/DbManageBillingformBilltype',
                     {servicetype: id, billtype_old: oldtype, billtype: newtype},
                     'billtypePopup', 700, 720);
             }
@@ -169,7 +169,7 @@
     <body onload="showManageType(false);">
     <h4><b>oscar<fmt:message key="billing.manageBillingform.msgBilling"/></h4>
 
-    <form name="serviceform" method="post" action="/billing/CA/ON/ManageBillingform.do">
+    <form name="serviceform" method="post" action="/billing/CA/ON/ManageBillingform">
 
         <div class="card card-body bg-body-tertiary">
             <table width="100%">

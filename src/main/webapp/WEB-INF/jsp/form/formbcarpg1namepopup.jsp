@@ -5,7 +5,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -20,7 +20,7 @@
     String fieldName = request.getParameter("fieldname") != null ? request.getParameter("fieldname") : "pg1_priCare";
 %>
 
-<%@ page import="java.sql.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.sql.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
@@ -77,9 +77,9 @@
                cellpadding="2">
             <tr bgcolor='<%=deepcolor%>'>
                 <TH align="center" width="50%" nowrap><a
-                        href="formbcarpg1namepopup.do?orderby=first_name">First Name</a></TH>
+                        href="formbcarpg1namepopup?orderby=first_name">First Name</a></TH>
                 <TH align="center" width="50%"><a
-                        href="formbcarpg1namepopup.do?orderby=last_name">Last Name</a></TH>
+                        href="formbcarpg1namepopup?orderby=last_name">Last Name</a></TH>
             </tr>
             <%
                 int nItems = 0;

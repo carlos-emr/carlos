@@ -48,7 +48,7 @@
                 Contact c = (Contact)request.getAttribute("contact");
                 %>
                 var id = '<%=c.getId()%>';
-                location.href = '<%=request.getContextPath()%>/demographic/Contact.do?method=editContact&contact.id=' + id;
+                location.href = '<%=request.getContextPath()%>/demographic/Contact?method=editContact&contact.id=' + id;
             }
         </script>
         <title>View Contact</title>
@@ -70,7 +70,7 @@
             </tr>
         </table>
     </center>
-    <form action="${pageContext.request.contextPath}/demographic/Contact.do" method="post">
+    <form action="${pageContext.request.contextPath}/demographic/Contact" method="post">
         <input type="hidden" name="contact.id" value="<c:out value="${contact.id}"/>"/>
         <input type="hidden" name="method" value="saveContact"/>
         <table width="100%" border="0" cellspacing="2" cellpadding="2">

@@ -46,7 +46,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * creator-undelete path while closing the GET-triggerable vector.
  *
  * Redirects back to the caller's view: {@code source=browser} returns to
- * {@code ViewDocumentBrowser.do}, otherwise to {@code ViewDocumentReport.do}.
+ * {@code ViewDocumentBrowser}, otherwise to {@code ViewDocumentReport}.
  */
 public class DocumentUndelete2Action extends ActionSupport {
 
@@ -101,8 +101,8 @@ public class DocumentUndelete2Action extends ActionSupport {
         }
 
         String target = "browser".equalsIgnoreCase(source)
-                ? "/documentManager/ViewDocumentBrowser.do"
-                : "/documentManager/ViewDocumentReport.do";
+                ? "/documentManager/ViewDocumentBrowser"
+                : "/documentManager/ViewDocumentReport";
         String redirect = new RedirectUrlBuilder(request.getContextPath() + target)
                 .param("function", function)
                 .param("doctype", doctype)

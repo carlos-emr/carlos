@@ -177,7 +177,7 @@
 
                 %>
 
-                <form action="${pageContext.request.contextPath}/EditAddress.do" method="post">
+                <form action="${pageContext.request.contextPath}/EditAddress" method="post">
 
 			<span style="color:blue">By entering in values, you will 
 			<ul>

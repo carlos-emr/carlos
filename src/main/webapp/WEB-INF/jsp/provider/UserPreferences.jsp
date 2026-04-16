@@ -92,7 +92,7 @@
             var ff = eval("document.forms[0].elements['pref.<%=UserProperty.DEFAULT_DX_CODE%>']");
             var f0 = ff.value;
             var f1 = escape("document.forms[0].elements[\'pref.<%=UserProperty.DEFAULT_DX_CODE%>\'].value");
-            awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch.do?name=' + f0 + '&search=&name2=' + f1, 600, 600, 1);
+            awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch?name=' + f0 + '&search=&name2=' + f1, 600, 600, 1);
             awnd.focus();
         }
     </script>
@@ -153,7 +153,7 @@
 </head>
 
 <body style="font-family:sans-serif;margin:0px 5px 0px 5px">
-<form id="preferenceForm" action="<%=request.getContextPath()%>/provider/UserPreference.do" method="post"
+<form id="preferenceForm" action="<%=request.getContextPath()%>/provider/UserPreference" method="post"
       onSubmit="return validateForm();">
     <input type="hidden" name="method" value="saveGeneral"/>
     <div style="background-color:#CCCCFF;text-align:center;font-weight:bold;">

@@ -32,7 +32,7 @@
     </tr>
 </table>
 
-<form action="${pageContext.request.contextPath}/billing/CA/ON/ViewBillingCorrection.do">
+<form action="${pageContext.request.contextPath}/billing/CA/ON/ViewBillingCorrection">
     <input type="hidden" name="billing_no" value="">
     <% if (request.getAttribute("correctionError") == null) { %>
     <input type="submit" value="<fmt:message key='billing.billingCorrectionSubmit.btnCorrectAnother'/>" name="submit">

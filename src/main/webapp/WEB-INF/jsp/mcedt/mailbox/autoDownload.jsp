@@ -30,7 +30,7 @@
 --%>
 
 <!DOCTYPE html>
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
@@ -135,7 +135,7 @@
             <h1>MCEDT Documents to Download</h1>
 
             <div>
-                <form action="${pageContext.request.contextPath}/mcedt/kaiautodl.do" method="post" id="form">
+                <form action="${pageContext.request.contextPath}/mcedt/kaiautodl" method="post" id="form">
 
                     <input id="method" name="method" type="hidden" value=""/>
 

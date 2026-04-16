@@ -85,7 +85,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_msg");%>
 </security:oscarSec>
 <%
     // Exit if user is not authorized
@@ -118,12 +118,12 @@
 %>
 
 <c:if test="${empty sessionScope.msgSessionBean}">
-    <c:redirect url="index.jsp"/>
+    <c:redirect url="/index"/>
 </c:if>
 <c:if test="${not empty sessionScope.msgSessionBean}">
     <c:set var="bean" value="${sessionScope.msgSessionBean}" scope="page"/>
     <c:if test="${bean.valid == false}">
-        <c:redirect url="index.jsp"/>
+        <c:redirect url="/index"/>
     </c:if>
 </c:if>
 <%
@@ -151,7 +151,7 @@
     if (bean == null) {
         bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
         if (bean == null) {
-            response.sendRedirect(request.getContextPath() + "/errorpage.jsp?message=Session expired");
+            response.sendRedirect(request.getContextPath() + "/errorpage?message=Session expired");
             return;
         }
     }
@@ -200,7 +200,7 @@
                         <td style="text-align: right">
 
                             <a href="javascript:void(0)"
-                               onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/encounter/ViewAbout.do')"><fmt:message key="global.about"/></a>
+                               onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/encounter/ViewAbout')"><fmt:message key="global.about"/></a>
                         </td>
                     </tr>
                 </table>
@@ -233,7 +233,7 @@
                         <td>
                             <%
                                 String contextPath = request.getContextPath();
-                                String strutsAction = contextPath + "/messenger/DisplayDemographicMessages.do?demographic_no=" + Encode.forUriComponent(demographic_no);
+                                String strutsAction = contextPath + "/messenger/DisplayDemographicMessages?demographic_no=" + Encode.forUriComponent(demographic_no);
                             %>
 
                             <form action="<%=strutsAction%>" method="post">
@@ -243,40 +243,40 @@
                                         <th bgcolor="#DDDDFF" width="75">&nbsp;</th>
                                         <th align="left" bgcolor="#DDDDFF">
                                             <% if (moreMessages.equals("true")) {%> <a
-                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.do?orderby=from&moreMessages=true">
+                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages?orderby=from&moreMessages=true">
                                             <fmt:message key="messenger.DisplayMessages.msgFrom"/>
                                         </a> <%} else {%> <a
-                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.do?orderby=from&moreMessages=false">
+                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages?orderby=from&moreMessages=false">
                                             <fmt:message key="messenger.DisplayMessages.msgFrom"/>
                                         </a> <%}%>
                                         </th>
                                         <th align="left" bgcolor="#DDDDFF">
                                             <% if (moreMessages.equals("true")) {%> <a
-                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.do?orderby=subject&moreMessages=true">
+                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages?orderby=subject&moreMessages=true">
                                             <fmt:message key="messenger.DisplayMessages.msgSubject"/>
                                         </a> <%} else {%> <a
-                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.do?orderby=subject&moreMessages=false">
+                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages?orderby=subject&moreMessages=false">
                                             <fmt:message key="messenger.DisplayMessages.msgSubject"/>
                                         </a> <%}%>
                                         </th>
                                         <th align="left" bgcolor="#DDDDFF">
                                             <% if (moreMessages.equals("true")) {%> <a
-                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.do?orderby=date&moreMessages=true">
+                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages?orderby=date&moreMessages=true">
                                             <fmt:message key="messenger.DisplayMessages.msgDate"/>
                                         </a> <%} else {%> <a
-                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.do?orderby=date&moreMessages=false">
+                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages?orderby=date&moreMessages=false">
                                             <fmt:message key="messenger.DisplayMessages.msgDate"/>
                                         </a> <%}%>
                                         </th>
                                         <th align="left" bgcolor="#DDDDFF">
                                             <% if (moreMessages.equals("true")) {%>
                                             <a
-                                                    href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.do?orderby=linked&moreMessages=true">
+                                                    href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages?orderby=linked&moreMessages=true">
                                                 <fmt:message key="messenger.DisplayMessages.msgLinked"/>
                                             </a>
                                             <%} else {%>
                                             <a
-                                                    href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.do?orderby=linked&moreMessages=false">
+                                                    href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages?orderby=linked&moreMessages=false">
                                                 <fmt:message key="messenger.DisplayMessages.msgLinked"/>
                                             </a>
                                             <%}%>
@@ -308,7 +308,7 @@
                                         <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'><%= Encode.forHtml(dm.getSentby())  %>
                                         </td>
                                         <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'><a
-                                                href="<%=request.getContextPath()%>/messenger/ViewMessage.do?from=encounter&demographic_no=<%=Encode.forUriComponent(demographic_no)%>&msgCount=<%=Encode.forUriComponent(msgCount)%>&orderBy=<%=Encode.forUriComponent(orderby)%>&messageID=<%=Encode.forUriComponent(dm.getMessageId())%>&messagePosition=<%=Encode.forUriComponent(dm.getMessagePosition())%>">
+                                                href="<%=request.getContextPath()%>/messenger/ViewMessage?from=encounter&demographic_no=<%=Encode.forUriComponent(demographic_no)%>&msgCount=<%=Encode.forUriComponent(msgCount)%>&orderBy=<%=Encode.forUriComponent(orderby)%>&messageID=<%=Encode.forUriComponent(dm.getMessageId())%>&messagePosition=<%=Encode.forUriComponent(dm.getMessagePosition())%>">
                                             <%=Encode.forHtml(dm.getThesubject())%>
                                         </a></td>
                                         <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'><%= Encode.forHtml(dm.getThedate())  %>
@@ -328,7 +328,7 @@
                                         %>
                                         <td width="60%"></td>
                                         <td align="left"><a
-                                                href="${pageContext.request.contextPath}/messenger/DisplayMessages.do?moreMessages=true">
+                                                href="${pageContext.request.contextPath}/messenger/DisplayMessages?moreMessages=true">
                                             <fmt:message key="messenger.DisplayMessages.msgAllMessage"/>
                                         </a></td>
                                         <%}%>

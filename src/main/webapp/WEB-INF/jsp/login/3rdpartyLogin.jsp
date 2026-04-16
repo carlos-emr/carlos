@@ -143,7 +143,7 @@
             const pin      = el("pin")?.value || "";
             const oauthToken = el("oauth_token")?.value || "";
 
-            const loginUrl = "${pageContext.request.contextPath}/login.do;jsessionid=${pageContext.session.id}";
+            const loginUrl = "${pageContext.request.contextPath}/login;jsessionid=${pageContext.session.id}";
 
             const formData = new URLSearchParams();
             formData.set("username", username);

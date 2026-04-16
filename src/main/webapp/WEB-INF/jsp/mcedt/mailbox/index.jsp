@@ -131,19 +131,19 @@
         }
 
         function userUpload() {
-            window.location.href = "<%= request.getContextPath() %>/mcedt/upload.do";
+            window.location.href = "<%= request.getContextPath() %>/mcedt/upload";
             return false;
         }
 
         function changePass() {
-            window.location.href = "<%= request.getContextPath() %>/mcedt/kaichpass.do";
+            window.location.href = "<%= request.getContextPath() %>/mcedt/kaichpass";
             return false;
         }
 
         function autoDownload(control) {
             var form = document.createElement('form');
             form.method = 'post';
-            form.action = '<%= request.getContextPath() %>/mcedt/kaiautodl.do';
+            form.action = '<%= request.getContextPath() %>/mcedt/kaiautodl';
             document.body.appendChild(form);
             form.submit();
             return false;
@@ -156,7 +156,7 @@
         function submitSelected(control) {
             var form = document.createElement('form');
             form.method = 'post';
-            form.action = '<%= request.getContextPath() %>/mcedt/autoUpload.do';
+            form.action = '<%= request.getContextPath() %>/mcedt/autoUpload';
             document.body.appendChild(form);
             form.submit();
             return false;
@@ -167,7 +167,7 @@
             if (control) {
                 control.disabled = true;
             }
-            window.location.href = "<%= request.getContextPath() %>/mcedt/info.do?resourceId=" + resourceId;
+            window.location.href = "<%= request.getContextPath() %>/mcedt/info?resourceId=" + resourceId;
             return false;
         } */
 
@@ -202,7 +202,7 @@
     <div id="first"
          class="greyBox" <%=((tab == null || tab.equals("first")) ? "style='display:block;'" : "style='display:none;'") %> >
         <div class="center">
-            <form action="${pageContext.request.contextPath}/mcedt/kaimcedt.do" method="post" id="form">
+            <form action="${pageContext.request.contextPath}/mcedt/kaimcedt" method="post" id="form">
                 <table>
                     <tr>
                         <input id="method" name="method" type="hidden" value=""/>

@@ -33,7 +33,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -86,7 +86,7 @@
 </table>
 
 <br/>
-<form name="issueForm" action="<%=request.getContextPath()%>/DefaultEncounterIssue.do" method="post"
+<form name="issueForm" action="<%=request.getContextPath()%>/DefaultEncounterIssue" method="post"
       onsubmit="return validaeIssues();">
     <input type="hidden" name="method" value="save"/>
     <input type="hidden" name="issuenotempty"
@@ -103,7 +103,7 @@
             <td class="filedValue" colspan="3"><input id="issuesNames" type="text" name="issueNames"/></td>
             <td class="fieldValue" width="80%"><input type="submit" name="submit" value="Save" />
                 <input type="button" value="Cancel"
-                       onclick="location.href='DefaultEncounterIssue.do'"/></td>
+                       onclick="location.href='DefaultEncounterIssue'"/></td>
         </tr>
         <tr>
             <td class="filedValue" colspan="4"><small><b>Tips:</b><br/>Enter default issue codes separated by commas,

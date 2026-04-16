@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -250,7 +250,7 @@
 
     <BODY bgproperties="fixed" onLoad="javascript:window.focus()"
           topmargin="0" leftmargin="0" rightmargin="0">
-    <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post">
 
 
     <input type="hidden" name="demographic_no"
@@ -279,11 +279,11 @@
                 <input type="button" value="Print"
                        onclick="javascript:return onPrint();"/> <input type="button"
                                                                        value="Consult"
-                                                                       onclick="javascript:popupOscarCon(700,960,'<%= request.getContextPath() %>/encounter/oscarConsultationRequest/ViewConsultationFormRequest.do?de=<%=demoNo%>');"/>
+                                                                       onclick="javascript:popupOscarCon(700,960,'<%= request.getContextPath() %>/encounter/oscarConsultationRequest/ViewConsultationFormRequest?de=<%=demoNo%>');"/>
 
             </td>
             <td align='right'><a
-                    href="javascript: popupPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');">Annual
+                    href="javascript: popupPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');">Annual
                 Review Planner</a></td>
         </tr>
     </table>
@@ -1471,7 +1471,7 @@
                                                                                   onclick="javascript:return onPrint();"/>
                         </td>
                         <td align='right'><a
-                                href="javascript: popupPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');">Annual
+                                href="javascript: popupPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');">Annual
                             Review Planner</a></td>
                     </tr>
                 </table>

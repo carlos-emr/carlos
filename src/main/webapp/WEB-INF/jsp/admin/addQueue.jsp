@@ -43,7 +43,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -134,7 +134,7 @@
 
                 if (qn.length > 0) {
                     var data = "method=addNewQueue&newQueueName=" + qn;
-                    var url = "${ctx}/documentManager/inboxManage.do";
+                    var url = "${ctx}/documentManager/inboxManage";
 
                     $.ajax({
                         url: url,

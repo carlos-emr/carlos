@@ -135,21 +135,21 @@
     String demoPath = rootContextPath + "/demographic/";
     String printEnvelope, printLbl, printAddressLbl, printChartLbl, printSexHealthLbl, printHtmlLbl, printLabLbl;
     if (oscarProps != null && "true".equals(oscarProps.getProperty("new_label_print"))) {
-        printEnvelope = demoPath + "ViewPrintEnvelope.do?demos=";
-        printLbl = demoPath + "ViewPrintDemoLabel.do?demographic_no=";
-        printAddressLbl = demoPath + "ViewPrintAddressLabel.do?demographic_no=";
-        printChartLbl = demoPath + "ViewPrintDemoChartLabel.do?demographic_no=";
-        printSexHealthLbl = demoPath + "ViewPrintDemoChartLabel.do?labelName=SexualHealthClinicLabel&demographic_no=";
-        printHtmlLbl = demoPath + "ViewDemographicLabelPrintSetting.do?demographic_no=";
-        printLabLbl = demoPath + "ViewPrintClientLabLabel.do?demographic_no=";
+        printEnvelope = demoPath + "ViewPrintEnvelope?demos=";
+        printLbl = demoPath + "ViewPrintDemoLabel?demographic_no=";
+        printAddressLbl = demoPath + "ViewPrintAddressLabel?demographic_no=";
+        printChartLbl = demoPath + "ViewPrintDemoChartLabel?demographic_no=";
+        printSexHealthLbl = demoPath + "ViewPrintDemoChartLabel?labelName=SexualHealthClinicLabel&demographic_no=";
+        printHtmlLbl = demoPath + "ViewDemographicLabelPrintSetting?demographic_no=";
+        printLabLbl = demoPath + "ViewPrintClientLabLabel?demographic_no=";
     } else {
-        printEnvelope = rootContextPath + "/report/GenerateEnvelopes.do?demos=";
-        printLbl = demoPath + "printDemoLabelAction.do?demographic_no=";
-        printAddressLbl = demoPath + "printDemoAddressLabelAction.do?demographic_no=";
-        printChartLbl = demoPath + "printDemoChartLabelAction.do?demographic_no=";
-        printSexHealthLbl = demoPath + "printDemoChartLabelAction.do?labelName=SexualHealthClinicLabel&demographic_no=";
-        printHtmlLbl = demoPath + "ViewDemographicLabelPrintSetting.do?demographic_no=";
-        printLabLbl = demoPath + "printClientLabLabelAction.do?demographic_no=";
+        printEnvelope = rootContextPath + "/report/GenerateEnvelopes?demos=";
+        printLbl = demoPath + "printDemoLabelAction?demographic_no=";
+        printAddressLbl = demoPath + "printDemoAddressLabelAction?demographic_no=";
+        printChartLbl = demoPath + "printDemoChartLabelAction?demographic_no=";
+        printSexHealthLbl = demoPath + "printDemoChartLabelAction?labelName=SexualHealthClinicLabel&demographic_no=";
+        printHtmlLbl = demoPath + "ViewDemographicLabelPrintSetting?demographic_no=";
+        printLabLbl = demoPath + "printClientLabLabelAction?demographic_no=";
     }
 
     String wLReadonly = "";
@@ -363,7 +363,7 @@
                                                             <div class="demographicSection" id="otherContacts">
                                                                 <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.msgOtherContacts"/>
                                                                     <a class="h3-pill" href="javascript: function myFunction() {return false; }"
-                                                                            onClick="popup(700,960,'<%= request.getContextPath() %>/demographic/AddRelation.do?demo=<%=demographic.getDemographicNo()%>','AddRelation')">
+                                                                            onClick="popup(700,960,'<%= request.getContextPath() %>/demographic/AddRelation?demo=<%=demographic.getDemographicNo()%>','AddRelation')">
                                                                         <fmt:message key="demographic.demographiceditdemographic.msgAddRelation"/></a>
                                                                 </h3>
                                                                 <ul>
@@ -380,8 +380,8 @@
                                                                             String formattedCellPhone = (cellPhone != null && cellPhone.length() > 0 && !cellPhone.equals("null")) ? "  C:" + cellPhone : "";
                                                                             String sdb = relHash.get("subDecisionMaker") == null ? "" : ((Boolean) relHash.get("subDecisionMaker")).booleanValue() ? "<span title=\"SDM\" >/SDM</span>" : "";
                                                                             String ec = relHash.get("emergencyContact") == null ? "" : ((Boolean) relHash.get("emergencyContact")).booleanValue() ? "<span title=\"Emergency Contact\">/EC</span>" : "";
-                                                                            String masterLink = "<a target=\"demographic" + dNo + "\" href=\"" + request.getContextPath() + "/demographic/DemographicEdit.do?demographic_no=" + dNo + "\">M</a>";
-                                                                            String encounterLink = "<a target=\"encounter" + dNo + "\" href=\"javascript: function myFunction() {return false; }\" onClick=\"popupEChart(710,1024,'" + request.getContextPath() + "/encounter/IncomingEncounter.do?demographicNo=" + dNo + "&providerNo=" + loggedInInfo.getLoggedInProviderNo() + "&appointmentNo=&curProviderNo=&reason=&appointmentDate=&startTime=&status=&userName=" + URLEncoder.encode(userfirstname + " " + userlastname, StandardCharsets.UTF_8) + "&curDate=" + dateString + "');return false;\">E</a>";
+                                                                            String masterLink = "<a target=\"demographic" + dNo + "\" href=\"" + request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + dNo + "\">M</a>";
+                                                                            String encounterLink = "<a target=\"encounter" + dNo + "\" href=\"javascript: function myFunction() {return false; }\" onClick=\"popupEChart(710,1024,'" + request.getContextPath() + "/encounter/IncomingEncounter?demographicNo=" + dNo + "&providerNo=" + loggedInInfo.getLoggedInProviderNo() + "&appointmentNo=&curProviderNo=&reason=&appointmentDate=&startTime=&status=&userName=" + URLEncoder.encode(userfirstname + " " + userlastname, StandardCharsets.UTF_8) + "&curDate=" + dateString + "');return false;\">E</a>";
                                                                     %>
                                                                     <li><span
                                                                             class="label"><%=relHash.get("relation")%><%=sdb%><%=ec%>:</span>
@@ -398,7 +398,7 @@
                                                                 <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.msgOtherContacts"/>:
                                                                     <b><a
                                                                             href="javascript: function myFunction() {return false; }"
-                                                                            onClick="popup(700,960,'Contact.do?method=manage&demographic_no=<%=demographic.getDemographicNo()%>','ManageContacts')">
+                                                                            onClick="popup(700,960,'Contact?method=manage&demographic_no=<%=demographic.getDemographicNo()%>','ManageContacts')">
                                                                         <fmt:message key="demographic.demographiceditdemographic.msgManageContacts"/><!--i18n--></a></b>
                                                                 </h3>
                                                                 <ul>
@@ -412,10 +412,10 @@
                                                                             String ec = (dContact.getEc() != null && dContact.getEc().equals("true")) ? "<span title=\"Emergency Contact\" >/EC</span>" : "";
                                                                             String masterLink = null;
                                                                             if (DemographicContact.CATEGORY_PERSONAL.equals(dContact.getCategory()) && DemographicContact.TYPE_DEMOGRAPHIC == dContact.getType()) {
-                                                                                masterLink = "<a target=\"demographic" + dContact.getContactId() + "\" href=\"" + request.getContextPath() + "/demographic/DemographicEdit.do?demographic_no=" + dContact.getContactId() + "\">M</a>";
+                                                                                masterLink = "<a target=\"demographic" + dContact.getContactId() + "\" href=\"" + request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + dContact.getContactId() + "\">M</a>";
                                                                             }
                                                                             if (DemographicContact.CATEGORY_PERSONAL.equals(dContact.getCategory()) && DemographicContact.TYPE_CONTACT == dContact.getType()) {
-                                                                                masterLink = "<a target=\"_blank\" href=\"" + request.getContextPath() + "/demographic/Contact.do?method=viewContact&contact.id=" + dContact.getContactId() + "\">details</a>";
+                                                                                masterLink = "<a target=\"_blank\" href=\"" + request.getContextPath() + "/demographic/Contact?method=viewContact&contact.id=" + dContact.getContactId() + "\">details</a>";
                                                                             }
                                                                     %>
 
@@ -433,7 +433,7 @@
                                                             <div class="demographicSection" id="clinicStatus">
                                                                 <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.msgClinicStatus"/>
                                                                     <a class="h3-pill" href="#"
-                                                                        onclick="popup(1000, 650, '<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/demographic/ViewEnrollmentHistory.do?demographicNo=" + Encode.forUriComponent(demographic_no)) %>', 'enrollmentHistory'); return false;"><fmt:message key="demographic.demographiceditdemographic.msgEnrollmentHistory"/></a>
+                                                                        onclick="popup(1000, 650, '<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/demographic/ViewEnrollmentHistory?demographicNo=" + Encode.forUriComponent(demographic_no)) %>', 'enrollmentHistory'); return false;"><fmt:message key="demographic.demographiceditdemographic.msgEnrollmentHistory"/></a>
                                                                 </h3>
                                                                 <ul>
                                                                     <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formRosterStatus"/>:</span>
@@ -980,7 +980,7 @@
                                                                                                         startTimeStr = String.format("%02d", startHour) + ":" + String.format("%02d", startMin);
                                                                                                         endTimeStr = String.format("%02d", startHour) + ":" + String.format("%02d", startMin + timecodeInterval - 1);
 
-                                                                                                        provMap.get(thisProv).get(sortDateStr + "," + qApptWkDay + " " + qApptMonth + "-" + qApptDay).put(startTimeStr + "," + timecodeChar, request.getContextPath() + "/appointment/addappointment.do?demographic_no=" + demographic.getDemographicNo() + "&name=" + Encode.forUriComponent(demographic.getLastName() + "," + demographic.getFirstName()) + "&provider_no=" + thisProvNo + "&bFirstDisp=true&year=" + qApptYear + "&month=" + qApptMonth + "&day=" + qApptDay + "&start_time=" + startTimeStr + "&end_time=" + endTimeStr + "&duration=" + templateDuration + "&search=true");
+                                                                                                        provMap.get(thisProv).get(sortDateStr + "," + qApptWkDay + " " + qApptMonth + "-" + qApptDay).put(startTimeStr + "," + timecodeChar, request.getContextPath() + "/appointment/addappointment?demographic_no=" + demographic.getDemographicNo() + "&name=" + Encode.forUriComponent(demographic.getLastName() + "," + demographic.getFirstName()) + "&provider_no=" + thisProvNo + "&bFirstDisp=true&year=" + qApptYear + "&month=" + qApptMonth + "&day=" + qApptDay + "&start_time=" + startTimeStr + "&end_time=" + endTimeStr + "&duration=" + templateDuration + "&search=true");
                                                                                                     }
                                                                                                 }
                                                                                             }

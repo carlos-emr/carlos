@@ -30,7 +30,7 @@
 --%>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -65,7 +65,7 @@
         </ul>
     </div>
 <% } %>
-    <form action="${pageContext.request.contextPath}/encounter/oscarMeasurements/DeleteMeasurementTypes.do" method="post">
+    <form action="${pageContext.request.contextPath}/encounter/oscarMeasurements/DeleteMeasurementTypes" method="post">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
                 <td class="MainTableTopRowLeftColumn"><fmt:message key="encounter.Measurements.msgMeasurements"/></td>
@@ -116,7 +116,7 @@
                                     <c:forEach var="measurementType" items="${measurementTypes.measurementTypeVector}" varStatus="ctr">
                                     <tr class="data">
                                         <td width="5">
-                                            <c:url var="exportMeasurementUrl" value="/encounter/oscarMeasurements/ViewExportMeasurement.do">
+                                            <c:url var="exportMeasurementUrl" value="/encounter/oscarMeasurements/ViewExportMeasurement">
                                                 <c:param name="mType" value="${measurementType.type}"/>
                                             </c:url>
                                             <a href="${e:forHtmlAttribute(exportMeasurementUrl)}" target="_blank">

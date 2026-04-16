@@ -42,7 +42,7 @@
 </div>
 <display:table class="simple" cellspacing="2" cellpadding="3"
 	id="access" name="accesses" export="false" pagesize="0"
-	requestURI="/PMmodule/ProgramManager.do">
+	requestURI="/PMmodule/ProgramManager">
 	<display:setProperty name="paging.banner.placement" value="bottom" />
 	<display:setProperty name="basic.msg.empty_list"
 		value="No access currently defined for this program." />

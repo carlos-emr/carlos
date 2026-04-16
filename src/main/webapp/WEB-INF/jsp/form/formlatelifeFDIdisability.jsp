@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -83,7 +83,7 @@
             126, 130, 131, 135, 136, 140, 141, 145, 146, 150, 151, 155, 156, 160, 161, 165);
         var allNumericField = null;
         var allMatch = null;
-        var action = "/<%=project_home%>/form/formname.do";
+        var action = "/<%=project_home%>/form/formname";
 
         function goToInstructions() {
             document.getElementById('instruction').style.display = 'block';
@@ -98,14 +98,14 @@
             var vheight = 500;
             var vwidth = 640;
             var windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=600,screenY=200,top=0,left=0";
-            window.open("form/formlatelifedisabilityvisualAid1.do", "", windowprops);
+            window.open("form/formlatelifedisabilityvisualAid1", "", windowprops);
         }
 
         function goToVisualAid2() {
             var vheight = 768;
             var vwidth = 640;
             var windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=600,screenY=200,top=0,left=0";
-            window.open("form/formlatelifedisabilityvisualAid2.do", "", windowprops);
+            window.open("form/formlatelifedisabilityvisualAid2", "", windowprops);
         }
 
         function goToPage1() {
@@ -185,7 +185,7 @@
     @oscar.formDB Field="formCreated" Type="date" Null="" Default="NULL"
     @oscar.formDB Field="formEdited" Type="timestamp"
     -->
-    <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post">
         <input type="hidden" name="demographic_no"
                value="<%= props.getProperty("demographic_no", "0") %>"/>
         <input type="hidden" name="formCreated"

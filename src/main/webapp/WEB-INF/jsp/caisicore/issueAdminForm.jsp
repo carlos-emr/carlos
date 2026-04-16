@@ -34,7 +34,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -45,7 +45,7 @@
 <title>MyIssues ~ Issue Details</title>
 <p>Please fill in issue's information below:</p>
 <!-- form action="/issueAdmin" focus="issueAdmin.code" onsubmit="return validateIssueAdminForm(this)" -->
-<form action="${pageContext.request.contextPath}/issueAdmin.do" method="post" focus="issueAdmin.code">
+<form action="${pageContext.request.contextPath}/issueAdmin" method="post" focus="issueAdmin.code">
     <input type="hidden" name="method" value="save"/>
     <input type="hidden" name="id" id="id"/>
     <input type="hidden" name="update_date_web" id="update_date_web"/>

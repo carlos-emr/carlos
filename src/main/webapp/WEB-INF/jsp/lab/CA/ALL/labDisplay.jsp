@@ -152,7 +152,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -606,20 +606,20 @@ input[id^='acklabel_']{
             var frm = "acknowledgeForm_" + labid;
             var form = document.forms[frm];
             if (form) {
-                form.action = "lab/CA/ALL/PrintPDF.do";
+                form.action = "lab/CA/ALL/PrintPDF";
                 form.submit();
             }
         }
 
         function linkreq(rptId, reqId) {
-            var link = "<%= request.getContextPath() %>/lab/ViewLinkReq.do?table=hl7TextMessage&rptid=" + rptId + "&reqid=" + reqId + "<%=demographicID != null ? "&demographicNo=" + Encode.forJavaScript(demographicID) : ""%>";
+            var link = "<%= request.getContextPath() %>/lab/ViewLinkReq?table=hl7TextMessage&rptid=" + rptId + "&reqid=" + reqId + "<%=demographicID != null ? "&demographicNo=" + Encode.forJavaScript(demographicID) : ""%>";
             window.open(link, "linkwin", "width=500, height=200");
         }
 
 
         function matchMe() {
             <% if ( !isLinkedToDemographic) { %>
-            popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScript(segmentID) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow');
+            popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&segmentID=<%= Encode.forJavaScript(segmentID) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow');
             <% } %>
         }
 
@@ -634,7 +634,7 @@ input[id^='acklabel_']{
         }
 
         function handleLab(formid, labid, action) {
-            var url = '<%= request.getContextPath() %>/documentManager/inboxManage.do';
+            var url = '<%= request.getContextPath() %>/documentManager/inboxManage';
             var data = 'method=isLabLinkedToDemographic&labid=' + labid + '&CSRF-TOKEN=' + encodeURIComponent(getCsrfToken());
             fetch(url, {
                 method: 'POST',
@@ -662,19 +662,19 @@ input[id^='acklabel_']{
                             console.log("Sending message about lab. Demoid: " + demoid);
                             demoid = json.demoId;
                             if (demoid != null && demoid.length > 0) {
-                                window.popup(700, 960, '${pageContext.request.contextPath}/messenger/SendDemoMessage.do?demographic_no=' + encodeURIComponent(demoid), 'msg');
+                                window.popup(700, 960, '${pageContext.request.contextPath}/messenger/SendDemoMessage?demographic_no=' + encodeURIComponent(demoid), 'msg');
                             }
                         } else if (action === 'msgLabRecall') {
                             demoid = json.demoId;
                             if (demoid != null && demoid.length > 0) {
-                                window.popup(700, 980, '${pageContext.request.contextPath}/messenger/SendDemoMessage.do?demographic_no=' + encodeURIComponent(demoid) + "&recall", 'msgRecall');
-                                window.popup(450, 600, '${pageContext.request.contextPath}/tickler/ForwardDemographicTickler.do?docType=HL7&docId=' + encodeURIComponent(labid) + '&demographic_no=' + encodeURIComponent(demoid) + '<%=Encode.forJavaScript(ticklerAssignee)%>&priority=<%=Encode.forJavaScript(recallTicklerPriority)%>&recall', 'ticklerRecall');
+                                window.popup(700, 980, '${pageContext.request.contextPath}/messenger/SendDemoMessage?demographic_no=' + encodeURIComponent(demoid) + "&recall", 'msgRecall');
+                                window.popup(450, 600, '${pageContext.request.contextPath}/tickler/ForwardDemographicTickler?docType=HL7&docId=' + encodeURIComponent(labid) + '&demographic_no=' + encodeURIComponent(demoid) + '<%=Encode.forJavaScript(ticklerAssignee)%>&priority=<%=Encode.forJavaScript(recallTicklerPriority)%>&recall', 'ticklerRecall');
                             }
                         } else if (action === 'ticklerLab') {
                             console.log("Setting lab Tickler. Labid: " + labid + " Demoid: " + demoid);
                             demoid = json.demoId;
                             if (demoid != null && demoid.length > 0) {
-                                window.popup(450, 600, '${pageContext.request.contextPath}/tickler/ForwardDemographicTickler.do?docType=HL7&docId=' + encodeURIComponent(labid) + '&demographic_no=' + encodeURIComponent(demoid), 'tickler')
+                                window.popup(450, 600, '${pageContext.request.contextPath}/tickler/ForwardDemographicTickler?docType=HL7&docId=' + encodeURIComponent(labid) + '&demographic_no=' + encodeURIComponent(demoid), 'tickler')
                             }
                         } else if (action === 'addComment') {
                             console.log("Adding comment. Formid: " + formid + " labid: " + labid);
@@ -731,7 +731,7 @@ input[id^='acklabel_']{
                 return false;
             }
 
-            var urlStr = '<%=request.getContextPath()%>' + "/lab/CA/ALL/UnlinkDemographic.do";
+            var urlStr = '<%=request.getContextPath()%>' + "/lab/CA/ALL/UnlinkDemographic";
             var dataStr = "reason=" + encodeURIComponent(reason) + "&labNo=" + encodeURIComponent(labNo) + "&CSRF-TOKEN=" + encodeURIComponent(getCsrfToken());
             fetch(urlStr, {
                 method: 'POST',
@@ -754,7 +754,7 @@ input[id^='acklabel_']{
         }
 
         function addComment(formid, labid) {
-            var url = '<%=request.getContextPath()%>' + "/oscarMDS/UpdateStatus.do?method=addComment";
+            var url = '<%=request.getContextPath()%>' + "/oscarMDS/UpdateStatus?method=addComment";
 
             var labStatusEl = document.getElementById("labStatus_" + labid);
             if (labStatusEl && labStatusEl.value === "") {
@@ -855,7 +855,7 @@ input[id^='acklabel_']{
                 params.append('ajaxcall', 'true');
                 var csrfToken = getCsrfToken();
                 if (csrfToken) params.append('CSRF-TOKEN', csrfToken);
-                fetch('<%=request.getContextPath()%>/lab/CA/ALL/createLabLabel.do', {
+                fetch('<%=request.getContextPath()%>/lab/CA/ALL/createLabLabel', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                     body: params.toString()
@@ -885,7 +885,7 @@ input[id^='acklabel_']{
 <script>
     //first check to see if lab is linked, if it is, we can send the demographicNo to the macro
     function runMacro(name, formid, closeOnSuccess) {
-        var url = '<%=request.getContextPath()%>/documentManager/inboxManage.do';
+        var url = '<%=request.getContextPath()%>/documentManager/inboxManage';
         var data = 'method=isLabLinkedToDemographic&labid=<%= Encode.forJavaScript(segmentID) %>&CSRF-TOKEN=' + encodeURIComponent(getCsrfToken());
         fetch(url, {
             method: 'POST',
@@ -911,7 +911,7 @@ input[id^='acklabel_']{
     }
 
     function runMacroInternal(name, formid, closeOnSuccess, demographicNo) {
-        var url = '<%=request.getContextPath()%>' + "/oscarMDS/RunMacro.do?name=" + encodeURIComponent(name) + (demographicNo.length > 0 ? "&demographicNo=" + encodeURIComponent(demographicNo) : "");
+        var url = '<%=request.getContextPath()%>' + "/oscarMDS/RunMacro?name=" + encodeURIComponent(name) + (demographicNo.length > 0 ? "&demographicNo=" + encodeURIComponent(demographicNo) : "");
         var formEl = document.getElementById(formid);
         var params = new URLSearchParams(new FormData(formEl));
         if (!params.has('CSRF-TOKEN')) { params.append('CSRF-TOKEN', getCsrfToken()); }
@@ -945,7 +945,7 @@ input[id^='acklabel_']{
 
 
 
-    <form name="reassignForm_<%= Encode.forHtmlAttribute(segmentID) %>" method="post" action="<%= request.getContextPath() %>/lab/CA/ALL/Forward.do">
+    <form name="reassignForm_<%= Encode.forHtmlAttribute(segmentID) %>" method="post" action="<%= request.getContextPath() %>/lab/CA/ALL/Forward">
         <input type="hidden" name="flaggedLabs" value="<%= Encode.forHtmlAttribute(segmentID) %>">
         <input type="hidden" name="selectedProviders" value="">
         <input type="hidden" name="favorites" value="">
@@ -966,7 +966,7 @@ input[id^='acklabel_']{
     </form>
 
     <form name="labLabelForm_<%= Encode.forHtmlAttribute(segmentID) %>" method='POST'
-          action="<%=request.getContextPath()%>/lab/CA/ALL/createLabLabel.do">
+          action="<%=request.getContextPath()%>/lab/CA/ALL/createLabLabel">
         <input type="hidden" id="labellabNum_<%= Encode.forHtmlAttribute(segmentID) %>" name="lab_no" value="<%=Encode.forHtmlAttribute(String.valueOf(lab_no))%>">
         <input type="hidden" id="label_<%= Encode.forHtmlAttribute(segmentID) %>" name="label" value="<%= Encode.forHtmlAttribute(label) %>">
     </form>
@@ -1054,7 +1054,7 @@ input[id^='acklabel_']{
 
                                 <% if (searchProviderNo != null) { // null if we were called from e-chart%>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/>"
-                                       onClick="popupStart(360, 680, '<%= request.getContextPath() %>/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(segmentID)) %>&name=<%=Encode.forJavaScriptAttribute(java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8))%>', 'encounter')">
+                                       onClick="popupStart(360, 680, '<%= request.getContextPath() %>/oscarMDS/SearchPatient?labType=HL7&segmentID=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(segmentID)) %>&name=<%=Encode.forJavaScriptAttribute(java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8))%>', 'encounter')">
                                 <% } %>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="Req# <%=Encode.forHtmlAttribute(reqTableID)%>" title="Link to Requisition"
                                        onclick="linkreq('<%=Encode.forJavaScriptAttribute(segmentID)%>','<%=Encode.forJavaScriptAttribute(reqID)%>');">
@@ -1062,11 +1062,11 @@ input[id^='acklabel_']{
 
                                 <% if (bShortcutForm) { %>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="<%=Encode.forHtmlAttribute(formNameShort)%>"
-                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(formName))%>&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.defaultString(demographicID)))%>', '<%=Encode.forJavaScriptAttribute(formNameShort)%>')">
+                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname?formname=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(formName))%>&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.defaultString(demographicID)))%>', '<%=Encode.forJavaScriptAttribute(formNameShort)%>')">
                                 <% } %>
                                 <% if (bShortcutForm2) { %>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="<%=Encode.forHtmlAttribute(formName2Short)%>"
-                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(formName2))%>&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.defaultString(demographicID)))%>', '<%=Encode.forJavaScriptAttribute(formName2Short)%>')">
+                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname?formname=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(formName2))%>&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.defaultString(demographicID)))%>', '<%=Encode.forJavaScriptAttribute(formName2Short)%>')">
                                 <% } %>
 
                                 <% if (recall) {%>
@@ -1131,19 +1131,19 @@ input[id^='acklabel_']{
                                     %>v<%= i + 1 %>&#160;<%
                                 } else {
                                     if (searchProviderNo != null) { // null if we were called from e-chart
-                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay.do?segmentID=<%=Encode.forUriComponent(multiID[i])%>&multiID=<%=Encode.forUriComponent(multiLabId)%>&providerNo=<%= Encode.forUriComponent(providerNo) %>&searchProviderNo=<%= Encode.forUriComponent(searchProviderNo) %>">v<%= i + 1 %>
+                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay?segmentID=<%=Encode.forUriComponent(multiID[i])%>&multiID=<%=Encode.forUriComponent(multiLabId)%>&providerNo=<%= Encode.forUriComponent(providerNo) %>&searchProviderNo=<%= Encode.forUriComponent(searchProviderNo) %>">v<%= i + 1 %>
                                 </a>&#160;<%
                                 } else {
-                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay.do?segmentID=<%=Encode.forUriComponent(multiID[i])%>&multiID=<%=Encode.forUriComponent(multiLabId)%>&providerNo=<%= Encode.forUriComponent(providerNo) %>">v<%= i + 1 %>
+                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay?segmentID=<%=Encode.forUriComponent(multiID[i])%>&multiID=<%=Encode.forUriComponent(multiLabId)%>&providerNo=<%= Encode.forUriComponent(providerNo) %>">v<%= i + 1 %>
                                 </a>&#160;<%
                                             }
                                         }
                                     }
 //                                                if( multiID.length > 1 ) {
                                     if (searchProviderNo != null) { // null if we were called from e-chart
-                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay.do?segmentID=<%= Encode.forUriComponent(segmentID) %>&multiID=<%=Encode.forUriComponent(multiLabId)%>&providerNo=<%= Encode.forUriComponent(providerNo) %>&searchProviderNo=<%= Encode.forUriComponent(searchProviderNo) %>&all=true">All</a>&#160;<%
+                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay?segmentID=<%= Encode.forUriComponent(segmentID) %>&multiID=<%=Encode.forUriComponent(multiLabId)%>&providerNo=<%= Encode.forUriComponent(providerNo) %>&searchProviderNo=<%= Encode.forUriComponent(searchProviderNo) %>&all=true">All</a>&#160;<%
                                 } else {
-                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay.do?segmentID=<%= Encode.forUriComponent(segmentID) %>&multiID=<%=Encode.forUriComponent(multiLabId)%>&providerNo=<%= Encode.forUriComponent(providerNo) %>&all=true">All</a>&#160;<%
+                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay?segmentID=<%= Encode.forUriComponent(segmentID) %>&multiID=<%=Encode.forUriComponent(multiLabId)%>&providerNo=<%= Encode.forUriComponent(providerNo) %>&all=true">All</a>&#160;<%
                                     }
 //                                                }
                                 %>
@@ -1188,7 +1188,7 @@ input[id^='acklabel_']{
                                                                         <% if (searchProviderNo == null) { // we were called from e-chart%>
                                                                         <a href="javascript:window.close()">
                                                                                 <% } else { // we were called from lab module%>
-                                                                            <a href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(segmentID)) %>&name=<%=Encode.forJavaScriptAttribute(java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8))%>', 'searchPatientWindow')">
+                                                                            <a href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&segmentID=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(segmentID)) %>&name=<%=Encode.forJavaScriptAttribute(java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8))%>', 'searchPatientWindow')">
                                                                                 <% } %>
                                                                                 <%=Encode.forHtml(handler.getPatientName())%>
                                                                             </a>
@@ -1564,12 +1564,12 @@ input[id^='acklabel_']{
         <table style="width:100%;">
             <tr>
                 <td class="alert alert-info alert-dismissible fade show"><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    <strong>INFO</strong> The following <%=numTickler%> <a class="alert-link" onclick="popup(450, 1200, '<%=request.getContextPath()%>/tickler/ViewTicklerDemoMain.do?demoview=<%=Encode.forUriComponent(demographicID)%>', 'openTicklers')">ticklers</a>
+                    <strong>INFO</strong> The following <%=numTickler%> <a class="alert-link" onclick="popup(450, 1200, '<%=request.getContextPath()%>/tickler/ViewTicklerDemoMain?demoview=<%=Encode.forUriComponent(demographicID)%>', 'openTicklers')">ticklers</a>
                     are marked pending:
                     <c:forEach items="${pendingTicklers}" var="tickler" varStatus="loop">
                     <c:if test="${not loop.first}">, </c:if>
                     <a class="alert-link"
-                       href="${pageContext.request.contextPath}/tickler/ViewTicklerEdit.do?tickler_no=${e:forUriComponent(tickler.id)}"
+                       href="${pageContext.request.contextPath}/tickler/ViewTicklerEdit?tickler_no=${e:forUriComponent(tickler.id)}"
                        target="_blank" rel="noopener noreferrer">${e:forHtml(tickler.message)}</a>
                     </c:forEach>
                 </td>
@@ -1884,7 +1884,7 @@ input[id^='acklabel_']{
 
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues.do?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>')"><%= Encode.forHtml(obxName) %>
+                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>')"><%= Encode.forHtml(obxName) %>
                 </a>
                     &nbsp;<%if (loincCode != null) { %>
                     <a href="javascript:popupStart('660','1000','https://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&mainSearchCriteria.v.c=<%= URLEncoder.encode(loincCode, "UTF-8") %>&informationRecipient.languageCode.c=en')">
@@ -1921,7 +1921,7 @@ input[id^='acklabel_']{
                 if (!obxName.equals("")) { %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues.do?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>')"><%= Encode.forHtml(obxName) %>
+                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>')"><%= Encode.forHtml(obxName) %>
                 </a>
                     &nbsp;
                     <%if (loincCode != null) { %>
@@ -1976,7 +1976,7 @@ input[id^='acklabel_']{
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues.do?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>')"><%= Encode.forHtml(obxName) %>
+                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>')"><%= Encode.forHtml(obxName) %>
                 </a>
                     &nbsp;<%if (loincCode != null) { %>
                     <a href="javascript:popupStart('660','1000','https://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&mainSearchCriteria.v.c=<%= URLEncoder.encode(loincCode, "UTF-8") %>&informationRecipient.languageCode.c=en')">
@@ -2052,10 +2052,10 @@ input[id^='acklabel_']{
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%="NarrativeRes"%>"><%
                                    			if(handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k-1)) && (obxCount>1) && ! handler.getMsgType().equals("MEDITECH") ){%>
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues.do?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier='<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8")%>')"></a><%
+                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier='<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8")%>')"></a><%
                                    			}else if(! handler.getMsgType().equals("MEDITECH") ) {%>
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues.do?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>')"><%= Encode.forHtml(obxName) %>
+                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>')"><%= Encode.forHtml(obxName) %>
                 </a>
                         <%}%>
                         <%if(isVIHARtf){
@@ -2092,7 +2092,7 @@ input[id^='acklabel_']{
 
                     <% if(handler.getMsgType().equals("PATHL7") && !isAllowedDuplicate && (obxCount>1) && handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k-1)) && (handler.getOBXValueType(j, k).equals("TX") || handler.getOBXValueType(j, k).equals("FT"))){%>
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues.do?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>')"></a><%
+                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>')"></a><%
                                    			} else {
 
 
@@ -2101,7 +2101,7 @@ input[id^='acklabel_']{
                 <td></td>
                     <% } else { %>
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues.do?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>')"><%= Encode.forHtml(obxName) %>
+                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>')"><%= Encode.forHtml(obxName) %>
                 </a>
 
                     <% if (loincCode != null) { %>
@@ -2183,7 +2183,7 @@ input[id^='acklabel_']{
 
             %>
             <td style="text-align:<%=align%>"><a
-                    href="<%=request.getContextPath() %>/lab/DownloadEmbeddedDocumentFromLab.do?labNo=<%= Encode.forUriComponent(segmentID) %>&segment=<%=j%>&group=<%=k%><%=legacy%>">PDF
+                    href="<%=request.getContextPath() %>/lab/DownloadEmbeddedDocumentFromLab?labNo=<%= Encode.forUriComponent(segmentID) %>&segment=<%=j%>&group=<%=k%><%=legacy%>">PDF
                 Report</a></td>
             <%
             } else {
@@ -2375,7 +2375,7 @@ input[id^='acklabel_']{
                            onClick="printPDF('<%=Encode.forJavaScriptAttribute(segmentID)%>')">
                     <% if (searchProviderNo != null) { // we were called from e-chart %>
                     <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
-                           onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScript(segmentID) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'encounter')">
+                           onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&segmentID=<%= Encode.forJavaScript(segmentID) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'encounter')">
 
                     <% } %>
                 </td>

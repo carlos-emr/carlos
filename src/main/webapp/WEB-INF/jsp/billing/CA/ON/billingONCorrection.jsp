@@ -27,7 +27,7 @@
 <%@page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="java.math.*,java.util.*,java.sql.*,io.github.carlos_emr.*,java.net.*" %>
-<!-- errorPage="/errorpage.jsp" -->
+<!-- errorPage="/WEB-INF/jsp/error/errorpage.jsp" -->
 <%@page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@page import="io.github.carlos_emr.carlos.demographic.data.*" %>
@@ -81,10 +81,10 @@
 
 
     if (userProvider == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
 
     if (session.getAttribute("userrole") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
 
     String roleName$ = (String) session.getAttribute("userrole") + "," + userProviderNo;
 
@@ -226,7 +226,7 @@
                 f1 = document.forms[1].xml_dig_search1.value;
                 // f2 = escape(document.serviceform.elements["File2Data"].value);
                 // fname = escape(document.Compose.elements["FName"].value);
-                awnd = rs('att', '/billing/CA/ON/ViewBillingDigSearch.do?name=' + f0 + '&search=' + f1, 600, 600, 1);
+                awnd = rs('att', '/billing/CA/ON/ViewBillingDigSearch?name=' + f0 + '&search=' + f1, 600, 600, 1);
                 awnd.focus();
             }
 
@@ -234,21 +234,21 @@
                 var d = elementName;
                 t0 = escape("document.forms[1].elements[\'" + d + "\'].value");
                 t1 = escape("document.forms[1].elements[\'" + name2 + "\'].value");
-                awnd = rs('att', ('/billing/CA/ON/ViewSearchRefDoc.do?param=' + t0 + '&param2=' + t1), 600, 600, 1);
+                awnd = rs('att', ('/billing/CA/ON/ViewSearchRefDoc?param=' + t0 + '&param2=' + t1), 600, 600, 1);
                 awnd.focus();
             }
 
             function scScriptAttach(nameF) {
                 f0 = document.forms[1].elements[nameF].value;
                 f1 = escape("document.forms[1].elements[\'" + nameF + "\'].value");
-                awnd = rs('att', '/billing/CA/ON/ViewBillingCodeSearch.do?name=' + f0 + '&search=&name1=&name2=&nameF=' + f1, 600, 600, 1);
+                awnd = rs('att', '/billing/CA/ON/ViewBillingCodeSearch?name=' + f0 + '&search=&name1=&name2=&nameF=' + f1, 600, 600, 1);
                 awnd.focus();
             }
 
             function search3rdParty(elementName) {
                 var d = elementName;
                 t0 = escape("document.forms[1].elements[\'" + d + "\'].value");
-                popupPage('600', '700', '/billing/CA/ON/ViewOnSearch3rdBillAddr.do?param=' + t0);
+                popupPage('600', '700', '/billing/CA/ON/ViewOnSearch3rdBillAddr?param=' + t0);
             }
 
             function validateNum(el) {
@@ -355,7 +355,7 @@
 
             function sanityCheck(id, billNoErr) {
                 if (id != "" && !billNoErr) {
-                    location.href = "/billing/CA/ON/ViewBillingON3rdInv.do?billingNo=" + id;
+                    location.href = "/billing/CA/ON/ViewBillingON3rdInv?billingNo=" + id;
                 } else {
                     alert("Please search a valid invoice number");
                 }
@@ -741,7 +741,7 @@
         %>
 
 
-        <form action="<%=request.getContextPath() %>/billing/CA/ON/BillingONCorrection.do" method="post">
+        <form action="<%=request.getContextPath() %>/billing/CA/ON/BillingONCorrection" method="post">
             <input type="hidden" name="method" value="updateInvoice"/>
             <input type="hidden" name="xml_billing_no" value="<%= Encode.forHtmlAttribute(billNo) %>"/>
             <input type="hidden" name="update_date" value="<%=nullToEmpty(createTimestamp)%>"/>
@@ -757,7 +757,7 @@
                         </tr>
                         <tr>
                             <td style="width:54%"><fmt:message key="billing.billingCorrection.msgPatientName"/>: <a href=#
-                                                                                         onclick="popupPage(720,860,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=DemoNo %>');return false;">
+                                                                                         onclick="popupPage(720,860,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<%=DemoNo %>');return false;">
                                 <%=DemoName%>
                             </a> <input type="hidden" name="demo_name"
                                         value="<%=DemoName%>"></td>
@@ -1255,7 +1255,7 @@
 
                     <%if (billNo != null) {%>
 
-                    <a id="reprintLink" onclick="return sanityCheck('<%= Encode.forJavaScriptAttribute(nullToEmpty(billNo)) %>', <%=billNoErr%>)" href="/billing/CA/ON/ViewBillingON3rdInv.do?billingNo=<%= Encode.forUriComponent(billNo) %>" class="btn btn-secondary"><i
+                    <a id="reprintLink" onclick="return sanityCheck('<%= Encode.forJavaScriptAttribute(nullToEmpty(billNo)) %>', <%=billNoErr%>)" href="/billing/CA/ON/ViewBillingON3rdInv?billingNo=<%= Encode.forUriComponent(billNo) %>" class="btn btn-secondary"><i
                             class="fa-solid fa-print"></i> Reprint</a>
                     <a id="rebillLink"
                        onclick="document.querySelector(&quot;select[name='status']&quot;).value = 'O'; document.getElementsByName(&quot;submit&quot;)[1].click();"
@@ -1360,7 +1360,7 @@
         }, 5000);
 
         function display3rdPartyPayments() {
-            popupPage('800', '860', 'billingON3rdPayments.do?method=listPayments&billingNo=<%= Encode.forJavaScript(Encode.forUriComponent(billNo)) %>');
+            popupPage('800', '860', 'billingON3rdPayments?method=listPayments&billingNo=<%= Encode.forJavaScript(Encode.forUriComponent(billNo)) %>');
         }
 
         document.addEventListener('DOMContentLoaded', function () {

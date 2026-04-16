@@ -41,7 +41,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -94,7 +94,7 @@
 </div>
 
 <div class="container-fluid mt-3">
-    <form action="${pageContext.request.contextPath}/ClientImage.do" enctype="multipart/form-data"
+    <form action="${pageContext.request.contextPath}/ClientImage" enctype="multipart/form-data"
           method="post" onsubmit="return onPicUpload();">
         <input type="hidden" name="method" value="saveImage"/>
         <%
@@ -119,7 +119,7 @@
     </div>
 
     <div class="d-flex gap-2">
-        <form action="${pageContext.request.contextPath}/ClientImage.do" method="post"
+        <form action="${pageContext.request.contextPath}/ClientImage" method="post"
               onsubmit="return confirm('Are you sure you want to remove the client photo?');">
             <input type="hidden" name="method" value="deleteImage"/>
             <button type="submit" class="btn btn-danger btn-sm">Clear Photo</button>

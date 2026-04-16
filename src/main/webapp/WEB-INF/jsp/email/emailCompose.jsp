@@ -170,10 +170,10 @@
 
             <c:choose>
                 <c:when test="${transactionType eq 'EFORM'}">
-                    <c:set var="emailSendAction" value="${ctx}/email/emailSendAction.do?method=sendEFormEmail"/>
+                    <c:set var="emailSendAction" value="${ctx}/email/emailSendAction?method=sendEFormEmail"/>
                 </c:when>
                 <c:when test="${transactionType eq 'DIRECT'}">
-                    <c:set var="emailSendAction" value="${ctx}/email/emailSendAction.do?method=sendDirectEmail"/>
+                    <c:set var="emailSendAction" value="${ctx}/email/emailSendAction?method=sendDirectEmail"/>
                 </c:when>
             </c:choose>
 
@@ -499,7 +499,7 @@
                                                  data-bs-parent="#emailAttachmentList">
                                                 <div class="accordion-body">
                                                     <object id="emailAttachmentPDF${loop.index + 1}"
-                                                            data="${ctx}/previewDocs.do?method=renderPDF&pdfPath=${emailAttachment.filePath}"
+                                                            data="${ctx}/previewDocs?method=renderPDF&pdfPath=${emailAttachment.filePath}"
                                                             type="application/pdf" width="100%" height="500">
                                                     </object>
                                                 </div>
@@ -727,7 +727,7 @@
     function openEFormAfterSend() {
         const isOpenEForm = "${isOpenEForm}" === "true";
         if (isOpenEForm) {
-            window.open("${ctx}/eform/efmshowform_data.jsp?fdid=${fdid}", "_blank", "width=800,height=600");
+            window.open("${ctx}/eform/efmshowform_data?fdid=${fdid}", "_blank", "width=800,height=600");
         }
     }
 
@@ -805,7 +805,7 @@
 
     function openDemographicPage(event) {
         event.preventDefault();
-        window.open("${ctx}/demographic/DemographicEdit.do?demographic_no=${demographicId}", "_blank", "width=1027,height=700");
+        window.open("${ctx}/demographic/DemographicEdit?demographic_no=${demographicId}", "_blank", "width=1027,height=700");
     }
 
     function cancelEmail() {
@@ -814,7 +814,7 @@
             window.close();
         }
         const emailComposeForm = document.getElementById("emailComposeForm");
-        emailComposeForm.action = "${ctx}/email/emailSendAction.do?method=cancel";
+        emailComposeForm.action = "${ctx}/email/emailSendAction?method=cancel";
         emailComposeForm.submit();
     }
 

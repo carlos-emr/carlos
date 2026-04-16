@@ -29,7 +29,7 @@
 
 --%>
 
-<%@ page import="java.util.*,java.sql.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*,java.sql.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -88,7 +88,7 @@
                 myGroupDao.deleteGroupMember(param[0], param[1]);
                 rowsAffected = 1;
             }
-            response.sendRedirect(request.getContextPath() + "/provider/providercontrol.do?displaymode=displaymygroup");
+            response.sendRedirect(request.getContextPath() + "/provider/providercontrol?displaymode=displaymygroup");
             return;
         }
     %>
@@ -105,7 +105,7 @@
             </h4>
         </div>
 
-    <form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/providercontrol.do"
+    <form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/providercontrol"
           onSubmit="return checkForm();">
         <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
         <input type="hidden" name="displaymode" value="savemygroup">

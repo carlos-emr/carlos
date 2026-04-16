@@ -37,7 +37,7 @@
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_admin.misc,_admin.flowsheet" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.misc&type=_admin.flowsheet");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.misc&type=_admin.flowsheet");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -100,7 +100,7 @@
 
     <body>
 
-<form id="flowsheetActionForm" method="post" action="${pageContext.request.contextPath}/admin/ManageFlowsheets.do" style="display:none;">
+<form id="flowsheetActionForm" method="post" action="${pageContext.request.contextPath}/admin/ManageFlowsheets" style="display:none;">
 	<input type="hidden" name="method" value=""/>
 	<input type="hidden" name="name" value=""/>
 </form>
@@ -149,7 +149,7 @@
 							<td><%=Encode.forHtmlContent(type) %></td>
 							<td><%=enabled%></td>
 							<td>
-								<a href="<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet.do?flowsheet=<%=Encode.forUriComponent(flowSheet.getName())%>&displayName=<%=Encode.forUriComponent(flowSheet.getDisplayName())%>">Edit</a>&nbsp;
+								<a href="<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<%=Encode.forUriComponent(flowSheet.getName())%>&displayName=<%=Encode.forUriComponent(flowSheet.getDisplayName())%>">Edit</a>&nbsp;
 								<%if(enabled) { %>
 									<a href="javascript:void(0);" onclick="submitFlowsheetAction('disable','<%=Encode.forJavaScript(flowSheet.getName())%>');">Disable</a>
 								<% } else { %>
@@ -168,7 +168,7 @@
 				<h4>Upload Custom Flowsheet</h4>
 			</div>
 		<div class="card-body">
-			<form enctype="multipart/form-data" method="POST" action="${pageContext.request.contextPath}/admin/ManageFlowsheetsUpload.do">
+			<form enctype="multipart/form-data" method="POST" action="${pageContext.request.contextPath}/admin/ManageFlowsheetsUpload">
         <input type="file" name="flowsheet_file">
 				<span title="<fmt:message key="global.uploadWarningBody"/>" style="vertical-align:middle;cursor:pointer"><img alt="alert" src="<%=request.getContextPath()%>/images/icon_alertsml.gif"/></span>
         <input type="submit" value="Upload" class="btn btn-primary">

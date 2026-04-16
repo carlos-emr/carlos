@@ -53,7 +53,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="w" reverse="<%=true%>">
 	<%authed=false; %>
-	<%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_edoc");%>
+	<%response.sendRedirect(request.getContextPath() + "/securityError?type=_edoc");%>
 </security:oscarSec>
 <%
 	if(!authed) {
@@ -126,13 +126,13 @@
         var destination=select.options[select.selectedIndex].value;
 		document.getElementById("destination").value = destination;
         setDropList();
-        jQuery.ajax({type:'POST', url:'${pageContext.request.contextPath}/documentManager/documentUpload.do', data:{method:'setUploadDestination', destination:destination}, success:function(data) {}});
+        jQuery.ajax({type:'POST', url:'${pageContext.request.contextPath}/documentManager/documentUpload', data:{method:'setUploadDestination', destination:destination}, success:function(data) {}});
 	}
 
     function setDestFolder(select){
         var destFolder=select.options[select.selectedIndex].value;
 		document.getElementById("destFolder").value = destFolder;
-        jQuery.ajax({type:'POST', url:'${pageContext.request.contextPath}/documentManager/documentUpload.do', data:{method:'setUploadIncomingDocumentFolder', destFolder:destFolder}, success:function(data) {}});
+        jQuery.ajax({type:'POST', url:'${pageContext.request.contextPath}/documentManager/documentUpload', data:{method:'setUploadIncomingDocumentFolder', destFolder:destFolder}, success:function(data) {}});
 	}
 
     function setDropList(){
@@ -203,7 +203,7 @@
        </div>
       <form
         id="fileupload"
-        action="<%= Encode.forHtmlAttribute(context) %>/documentManager/documentUpload.do?method=executeUpload"
+        action="<%= Encode.forHtmlAttribute(context) %>/documentManager/documentUpload?method=executeUpload"
         method="POST"
         enctype="multipart/form-data"
       >
@@ -296,7 +296,7 @@
 (function () {
     'use strict';
 
-    var uploadUrl = '<%= Encode.forJavaScript(context) %>/documentManager/documentUpload.do?method=executeUpload';
+    var uploadUrl = '<%= Encode.forJavaScript(context) %>/documentManager/documentUpload?method=executeUpload';
     var pendingFiles = [];
     var uploading = false;
 

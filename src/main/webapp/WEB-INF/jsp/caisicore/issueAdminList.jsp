@@ -34,7 +34,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -44,7 +44,7 @@
 <title>MyIssues ~ Issue List</title>
 <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
-<button onclick="location.href='issueAdmin.do?method=edit'">Add
+<button onclick="location.href='issueAdmin?method=edit'">Add
     Issue
 </button>
 <table border="0" cellpadding="0" cellspacing="1" bgcolor="#C0C0C0">
@@ -72,7 +72,7 @@
             </c:otherwise>
         </c:choose>
         <!--Not allow to edit issue
-        <td><a href="issueAdmin.do?method=edit&amp;id=<c:out value="${issueAdmin.id}"/>"><c:out
+        <td><a href="issueAdmin?method=edit&amp;id=<c:out value="${issueAdmin.id}"/>"><c:out
             value="${issueAdmin.code}"/></a></td>
         -->
         <td><c:out value="${issueAdmin.code}"/></a></td>

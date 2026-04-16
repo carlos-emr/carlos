@@ -44,7 +44,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -125,7 +125,7 @@
                             <span class="bad"><fmt:message key="encounter.guidelinelist.failed"/></span>
                         </c:otherwise>
                     </c:choose>
-                    - <a href="${pageContext.request.contextPath}/encounter/decisionSupport/guidelineAction.do?method=detail&guidelineId=${guideline.id}&provider_no=${provider_no}&demographic_no=${demographic_no}">
+                    - <a href="${pageContext.request.contextPath}/encounter/decisionSupport/guidelineAction?method=detail&guidelineId=${guideline.id}&provider_no=${provider_no}&demographic_no=${demographic_no}">
                     <fmt:message key="encounter.guidelinelist.moreinfo"/>
                 </a>
                 </td>

@@ -60,7 +60,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%
     if (session.getAttribute("userrole") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     }
 
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -224,14 +224,14 @@
 
         showPageImg = function (curdocid, doctype) {
             if (curdocid != "0") {
-                var url2 = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument.do?method=display&doc_no='
+                var url2 = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument?method=display&doc_no='
                     + curdocid;
                 document.getElementById('docdisp').innerHTML = '<iframe	src="' + url2 + '"  width="' + (getWidth() - 40) + '" height="' + (getHeight() - 50) + '"></iframe>';
 
-                var url4 = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument.do?method=viewDocumentDescription&doc_no=' + curdocid;
+                var url4 = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument?method=viewDocumentDescription&doc_no=' + curdocid;
                 document.getElementById('docextrainfo').innerHTML = '<object data="' + url4 + '"  height=250px width="100%" type="text/html" ></object>';
 
-                var url5 = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument.do?method=viewAnnotationAcknowledgementTickler&doc_no=' + curdocid;
+                var url5 = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument?method=viewAnnotationAcknowledgementTickler&doc_no=' + curdocid;
                 document.getElementById('docinfo').innerHTML = '<object data="' + url5 + '"  height=100px width="100%" type="text/html" ></object>';
 
                 document.getElementById('printnotesbutton').style.visibility = 'hidden';
@@ -244,7 +244,7 @@
         }
         showPageCombineImg = function (doclist) {
 
-            var url2 = '<%=request.getContextPath()%>' + '/documentManager/combinePDFs.do?ContentDisposition=inline' + doclist;
+            var url2 = '<%=request.getContextPath()%>' + '/documentManager/combinePDFs?ContentDisposition=inline' + doclist;
             document.getElementById('docdisp').innerHTML = '<object	data="' + url2 + '" type="application/pdf" width="' + (getWidth() - 40) + '" height="' + (getHeight() - 50) + '"></object>';
             document.getElementById('docinfo').innerHTML = '';
             document.getElementById('docextrainfo').innerHTML = '';
@@ -253,7 +253,7 @@
         }
 
         function showEncounter(encList) {
-            var url2 = '<%=request.getContextPath()%>' + '/CaseManagementEntry.do?method=displayNotes&demographicNo=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>' + encList + '&printCPP=false&printRx=false';
+            var url2 = '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=displayNotes&demographicNo=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>' + encList + '&printCPP=false&printRx=false';
             var iframe = document.createElement('iframe');
             iframe.src = url2;
             iframe.width = (getWidth() - 40);
@@ -415,12 +415,12 @@
                     }
                 }
 
-                popup(700, 960, '<%=request.getContextPath()%>' + '/CaseManagementEntry.do?method=print&demographicNo=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>' + encList + '&printCPP=false&printRx=false', 'PrintEncounter');
+                popup(700, 960, '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=print&demographicNo=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>' + encList + '&printCPP=false&printRx=false', 'PrintEncounter');
             }
         }
 
         function AddTickler() {
-            popup(450, 600, '<%=request.getContextPath()%>/tickler/ForwardDemographicTickler.do?docType=DOC&docId=' + docid + '&demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'tickler');
+            popup(450, 600, '<%=request.getContextPath()%>/tickler/ForwardDemographicTickler?docType=DOC&docId=' + docid + '&demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'tickler');
         }
 
 
@@ -433,10 +433,10 @@
             var doctype = selected[0].value.substring(docidindexend + 1, selected[0].value.length);
 
             if (doctype == 'text/html') {
-                popup(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml.do?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'EditDoc');
+                popup(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'EditDoc');
             } else {
 
-                popup(350, 500, '<%= request.getContextPath() %>/documentManager/ViewEditDocument.do?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'EditDoc');
+                popup(350, 500, '<%= request.getContextPath() %>/documentManager/ViewEditDocument?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'EditDoc');
             }
         }
 
@@ -466,7 +466,7 @@
     </script>
 </head>
 <body onload="OnLoad();">
-<form name="DisplayDoc" method="post" action="<%= request.getContextPath() %>/casemgmt/ViewNoteBrowser.do">
+<form name="DisplayDoc" method="post" action="<%= request.getContextPath() %>/casemgmt/ViewNoteBrowser">
 
     <table>
         <%if (errorMessage.length() > 0) {%>

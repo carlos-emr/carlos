@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -115,7 +115,7 @@
         alert('not yet implemented... will show term definitions');
     }
 </script>
-<form action="${pageContext.request.contextPath}/PMmodule/ClientSearch2.do" method="post">
+<form action="${pageContext.request.contextPath}/PMmodule/ClientSearch2" method="post">
     <input type="hidden" name="method" value="attachSearch"/>
     <input type="hidden" name="method" value="attachSearch"/>
 
@@ -215,10 +215,10 @@
 </form>
 <br/>
 <c:if test="${requestScope.clients != null}">
-    <form method="post" name="mergeform" action="<%=request.getContextPath()%>/admin/MergeRecords.do">
+    <form method="post" name="mergeform" action="<%=request.getContextPath()%>/admin/MergeRecords">
         <display:table class="simple" cellspacing="2" cellpadding="3"
                        id="client" name="clients" export="false" pagesize="10"
-                       requestURI="/PMmodule/ClientSearch2.do">
+                       requestURI="/PMmodule/ClientSearch2">
             <display:setProperty name="paging.banner.placement" value="bottom"/>
             <display:setProperty name="basic.msg.empty_list"
                                  value="No clients found."/>
@@ -226,12 +226,12 @@
 
             <display:column sortable="true" title="Client No" sortProperty="demographicNo" defaultorder="ascending">
                 <a
-                        href="<%=request.getContextPath() %><%=request.getContextPath() %>/encounter/IncomingEncounter.do?selectId=<c:out value="${client.demographicNo}"/>&demographicNo=<c:out value="${client.demographicNo}"/>&PEAttach=yes&appointmentNo=0&noteId=<%=noteId$%>"><c:out
+                        href="<%=request.getContextPath() %><%=request.getContextPath() %>/encounter/IncomingEncounter?selectId=<c:out value="${client.demographicNo}"/>&demographicNo=<c:out value="${client.demographicNo}"/>&PEAttach=yes&appointmentNo=0&noteId=<%=noteId$%>"><c:out
                         value="${client.demographicNo}"/></a>
             </display:column>
             <display:column sortable="true" title="Name" sortProperty="formattedName">
                 <a
-                        href="javascript:popupPage(600,800,'client','<%=request.getContextPath() %>/PMmodule/ClientManager.do?id=<c:out value="${client.currentRecord}"/>&consent=<c:out value="${consent}"/>')"><c:out
+                        href="javascript:popupPage(600,800,'client','<%=request.getContextPath() %>/PMmodule/ClientManager?id=<c:out value="${client.currentRecord}"/>&consent=<c:out value="${consent}"/>')"><c:out
                         value="${client.formattedName}"/></a>
             </display:column>
             <display:column sortable="true" title="Date of Birth">

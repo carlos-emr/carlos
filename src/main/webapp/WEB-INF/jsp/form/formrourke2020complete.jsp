@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -266,7 +266,7 @@
 
         function reset() {
             document.forms[0].target = "";
-            document.forms[0].action = "/<%=project_home%>/form/formname.do";
+            document.forms[0].action = "/<%=project_home%>/form/formname";
         }
 
         function onGraph(url, name) {
@@ -282,7 +282,7 @@
         }
 
         function onPrintAll() {
-            document.forms["frmP1"].action = "<%= request.getContextPath() %>/form/formname.do?__title=Rourke+Baby+Report&__cfgfile=Rourke2020printCfgPg1&__cfgfile=Rourke2020printCfgPg2&__cfgfile=Rourke2020printCfgPg3&__cfgfile=Rourke2020printCfgPg4&__template=Rourke2020";
+            document.forms["frmP1"].action = "<%= request.getContextPath() %>/form/formname?__title=Rourke+Baby+Report&__cfgfile=Rourke2020printCfgPg1&__cfgfile=Rourke2020printCfgPg2&__cfgfile=Rourke2020printCfgPg3&__cfgfile=Rourke2020printCfgPg4&__template=Rourke2020";
             document.forms["frmP1"].action += "&submit=printAllJasperReport";
             document.forms["frmP1"].target = "_blank";
 
@@ -737,7 +737,7 @@
     </style>
 </head>
 <body onload="init()">
-<form id="frmP1" name="frmP1" action="${pageContext.request.contextPath}/form/formname.do" method="post">
+<form id="frmP1" name="frmP1" action="${pageContext.request.contextPath}/form/formname" method="post">
     <div id="rourke2020-tabs">
         <ul id="tab-list">
             <li><a href="#tab-cp1">Page I</a></li>
@@ -767,7 +767,7 @@
 <form id="graph" method="post" action=""></form>
 <script type="text/javascript">
     let validationFailedMessage = 'Unable to autosave: Measurements must be numeric and observation dates for each measurement are required.';
-    let formsTimedAutosaver = new FormsTimedAutosave('frmP1', 10000, '<%=request.getContextPath()%>/form/formname.do', checkMeasures, validationFailedMessage, 'saveMessageDiv', true);
+    let formsTimedAutosaver = new FormsTimedAutosave('frmP1', 10000, '<%=request.getContextPath()%>/form/formname', checkMeasures, validationFailedMessage, 'saveMessageDiv', true);
 
     function onSave() {
         if (checkMeasures()) {

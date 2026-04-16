@@ -29,7 +29,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_hrm" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_hrm");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_hrm");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -398,7 +398,7 @@
         }
 
         function openReport(id) {
-            popupPage(700, 1200, 'Display.do?id=' + id);
+            popupPage(700, 1200, 'Display?id=' + id);
 
         }
 
@@ -415,19 +415,19 @@
 <div id="hrmdoc_<%=hrmReportId%>">
     <div id="buttonBox">
         <input type="button" id="msgBtn_<%=hrmReportId%>" value="Msg"
-               onclick="popupPatient(700,960,'<%= request.getContextPath() %>/messenger/SendDemoMessage.do?demographic_no=','msg', '<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>/>
+               onclick="popupPatient(700,960,'<%= request.getContextPath() %>/messenger/SendDemoMessage?demographic_no=','msg', '<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>/>
         <input type="button" id="mainTickler_<%=hrmReportId%>" value="Tickler"
-               onClick="popupPatient(710, 1024,'<%= request.getContextPath() %>/tickler/ForwardDemographicTickler.do?docType=HRM&docId=<%=hrmReportId%>&demographic_no=', 'Tickler','<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
+               onClick="popupPatient(710, 1024,'<%= request.getContextPath() %>/tickler/ForwardDemographicTickler?docType=HRM&docId=<%=hrmReportId%>&demographic_no=', 'Tickler','<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
         <input type="button" id="mainEchart_<%=hrmReportId%>"
                value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
-               onClick="popupPatient(710, 1024,'<%= request.getContextPath() %>/encounter/IncomingEncounter.do?updateParent=false&reason=
+               onClick="popupPatient(710, 1024,'<%= request.getContextPath() %>/encounter/IncomingEncounter?updateParent=false&reason=
                <fmt:message key="oscarMDS.segmentDisplay.labResults"/>&curDate=<%=currentDate%>>&appointmentNo=&appointmentDate=&startTime=&status=&demographicNo=', 'encounter', '<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
         <input type="button" id="mainMaster_<%=hrmReportId%>"
                value=" <fmt:message key="oscarMDS.segmentDisplay.btnMaster"/>"
-               onClick="popupPatient(710,1024,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=','master','<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
+               onClick="popupPatient(710,1024,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=','master','<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
         <input type="button" id="mainApptHistory_<%=hrmReportId%>"
                value=" <fmt:message key="oscarMDS.segmentDisplay.btnApptHist"/>"
-               onClick="popupPatient(710,1024,'<%= request.getContextPath() %>/demographic/DemographicApptHistory.do?orderby=appttime&dboperation=appt_history&limit1=0&limit2=25&demographic_no=','ApptHist','<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
+               onClick="popupPatient(710,1024,'<%= request.getContextPath() %>/demographic/DemographicApptHistory?orderby=appttime&dboperation=appt_history&limit1=0&limit2=25&demographic_no=','ApptHist','<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
         <%-- formONAREnhancedRecord deprecated and removed - ONAR shortcut buttons disabled
         <% if (obgynShortcuts && demographicLink != null) {%>
         <input type="button" value="AR1-ILI"
@@ -469,7 +469,7 @@
 			<span class="documentLink_status<%=relationshipDocument.getReportStatus() %>"
                   title="<%=relationshipDocument.getReportDate().toString() %>">
 			<% if (relationshipDocument.getId().intValue() != hrmReportId.intValue()) { %><a
-                    href="<%=request.getContextPath() %>/hospitalReportManager/Display.do?id=<%=relationshipDocument.getId() %>&segmentId=<%=relationshipDocument.getId() %> "><% } %>[<%=relationshipDocument.getId() %>]<% if (relationshipDocument.getId().intValue() != hrmReportId.intValue()) { %></a><% } %>
+                    href="<%=request.getContextPath() %>/hospitalReportManager/Display?id=<%=relationshipDocument.getId() %>&segmentId=<%=relationshipDocument.getId() %> "><% } %>[<%=relationshipDocument.getId() %>]<% if (relationshipDocument.getId().intValue() != hrmReportId.intValue()) { %></a><% } %>
 			</span>&nbsp;&nbsp;
 		<% seenBefore.add(relationshipDocument.getId().intValue());
         }
@@ -490,11 +490,11 @@
 
                     if (hrmReport.getFileExtension() != null && (".gif".equals(hrmReport.getFileExtension()) || ".jpg".equals(hrmReport.getFileExtension()) || ".png".equals(hrmReport.getFileExtension()))) {
             %><img
-                src="<%=request.getContextPath() %>/hospitalReportManager/HRMDownloadFile.do?hash=<%=noMessageIdHash%>"/><br/><%
+                src="<%=request.getContextPath() %>/hospitalReportManager/HRMDownloadFile?hash=<%=noMessageIdHash%>"/><br/><%
             }
             if (hrmReport.getFileExtension() != null && ".pdf".equals(hrmReport.getFileExtension())) {
         %>
-            <object data="<%=request.getContextPath() %>/hospitalReportManager/HRMDownloadFile.do?hash=<%=noMessageIdHash%>"
+            <object data="<%=request.getContextPath() %>/hospitalReportManager/HRMDownloadFile?hash=<%=noMessageIdHash%>"
                     width="100%" height="600" type="application/pdf">
                 <p>(Your browser could not display the pdf)</p>
             </object>
@@ -502,7 +502,7 @@
             <%
                 }
             %><a
-                href="<%=request.getContextPath() %>/hospitalReportManager/HRMDownloadFile.do?hash=<%=noMessageIdHash%>"><%=(hrmReport.getLegalLastName() + "-" + hrmReport.getLegalFirstName() + "-" + hrmReport.getFirstReportClass() + hrmReport.getFileExtension()).replaceAll("\\s", "_") %>
+                href="<%=request.getContextPath() %>/hospitalReportManager/HRMDownloadFile?hash=<%=noMessageIdHash%>"><%=(hrmReport.getLegalLastName() + "-" + hrmReport.getLegalFirstName() + "-" + hrmReport.getFirstReportClass() + hrmReport.getFileExtension()).replaceAll("\\s", "_") %>
         </a>&nbsp;&nbsp;
             <br/>
             <%
@@ -764,13 +764,13 @@
                 </tr>
                 <tr>
                     <td colspan=2>
-                        <form action="<%=request.getContextPath() %>/hospitalReportManager/PrintHRMReport.do">
+                        <form action="<%=request.getContextPath() %>/hospitalReportManager/PrintHRMReport">
                             <input type="hidden" value="<%=hrmReportId %>" name="hrmReportId"/>
                             <%
                                 // When included from oscarMDS/Page.jsp (the inbox view) via <jsp:include>,
                                 // the Servlet spec exposes the included path in the jakarta.servlet.include.servlet_path
                                 // request attribute. Page.jsp is now under /WEB-INF/jsp/oscarMDS/ (gated), so the
-                                // browser-visible request URI is /documentManager/inboxManage.do rather than the
+                                // browser-visible request URI is /documentManager/inboxManage rather than the
                                 // old /oscarMDS/Page.jsp — we must check the include-path attribute instead.
                                 String hrmIncludePath = (String) request.getAttribute("jakarta.servlet.include.servlet_path");
                                 boolean hrmFromInboxPage = hrmIncludePath != null && hrmIncludePath.contains("oscarMDS/Page.jsp");

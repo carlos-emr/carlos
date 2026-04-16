@@ -29,7 +29,7 @@
 
 --%>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
@@ -46,7 +46,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -156,7 +156,7 @@
         </div><!-- col-md-2 -->
 
         <div class="col-md-8" style="background-color:">
-            <form method="post" name="baseurl" id="websiteForm" action="${pageContext.request.contextPath}/admin/ResourceBaseUrl.do" class="d-flex flex-wrap align-items-center gap-2">
+            <form method="post" name="baseurl" id="websiteForm" action="${pageContext.request.contextPath}/admin/ResourceBaseUrl" class="d-flex flex-wrap align-items-center gap-2">
 
                 <h4>Website</h4>
                 <!--<fmt:message key="admin.resourcebaseurl.formBaseUrl"/><br>-->
@@ -181,7 +181,7 @@
         </div><!-- col-md-2 -->
 
         <div class="col-md-8" style="background-color:">
-            <form method="post" name="baseurl" id="detailsForm" action="${pageContext.request.contextPath}/admin/ResourceBaseUrl.do">
+            <form method="post" name="baseurl" id="detailsForm" action="${pageContext.request.contextPath}/admin/ResourceBaseUrl">
                 <h4>Details</h4>
                 <input type="hidden" name="resource_helpHtml" id="resource_helpHtml_hidden"/>
                 <div id="resource_helpHtml_editor" style="width:100%;min-height:160px"></div>

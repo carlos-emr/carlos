@@ -39,7 +39,7 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     if (session.getAttribute("user") == null) response.sendRedirect("${ pageContext.request.contextPath }/logout.htm");
     if (session.getAttribute("userrole") == null)
-        response.sendRedirect("${ pageContext.request.contextPath }/logout.jsp");
+        response.sendRedirect("${ pageContext.request.contextPath }/logoutPage");
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     String user_no = (String) session.getAttribute("user");
     String demographicNo = (String) session.getAttribute("casemgmt_DemoNo");
@@ -74,7 +74,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc,_admin,_admin.edocdelete" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("${ pageContext.request.contextPath }/securityError.jsp?type=_edoc&type=_admin&type=_admin.edocdelete");%>
+    <%response.sendRedirect("${ pageContext.request.contextPath }/securityError?type=_edoc&type=_admin&type=_admin.edocdelete");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -84,10 +84,10 @@
     UserPropertyDAO pref = SpringUtils.getBean(UserPropertyDAO.class);
 
 // NOTE: Historic GET-triggered delete / undelete scriptlets removed.
-// Delete requests now go to /documentManager/DocumentDelete.do (POST,
-// _edoc w) and undelete to /documentManager/DocumentUndelete.do (POST,
+// Delete requests now go to /documentManager/DocumentDelete (POST,
+// _edoc w) and undelete to /documentManager/DocumentUndelete (POST,
 // _admin.edocdelete w). The submitDocAction() JS helper below posts to
-// the appropriate .do endpoint.
+// the appropriate action route.
 
 //view  - tabs
     String view = "all";
@@ -218,16 +218,16 @@
                 }
             }
 
-            /** Creates a dynamic POST form to submit a document action (delete/undelete) to the appropriate .do endpoint. */
+            /** Creates a dynamic POST form to submit a document action (delete/undelete) to the appropriate action route. */
             function submitDocAction(paramName, docId, func, funcId, viewStatus) {
                 var form = document.createElement('form');
                 form.method = 'post';
                 if (paramName === 'delDocumentNo') {
-                    form.action = '<%= request.getContextPath() %>/documentManager/DocumentDelete.do';
+                    form.action = '<%= request.getContextPath() %>/documentManager/DocumentDelete';
                 } else if (paramName === 'undelDocumentNo') {
-                    form.action = '<%= request.getContextPath() %>/documentManager/DocumentUndelete.do';
+                    form.action = '<%= request.getContextPath() %>/documentManager/DocumentUndelete';
                 } else {
-                    form.action = '<%= request.getContextPath() %>/documentManager/ViewDocumentReport.do';
+                    form.action = '<%= request.getContextPath() %>/documentManager/ViewDocumentReport';
                 }
                 var fields = {};
                 fields[paramName] = docId;
@@ -417,7 +417,7 @@
         <fmt:message key="dms.documentReport.msgPrivateDocuments" var="msgPrivateDocs"/>
         <fmt:message key="dms.documentReport.msgPublicDocuments" var="msgPublicDocs"/>
 
-        <form action="${pageContext.request.contextPath}/documentManager/combinePDFs.do" method="post">
+        <form action="${pageContext.request.contextPath}/documentManager/combinePDFs" method="post">
             <input type="hidden" name="curUser" value="<%=curUser%>">
             <input type="hidden" name="demoId" value="<%=Encode.forHtmlAttribute(moduleid)%>">
             <div class="documentLists"><%-- STUFF TO DISPLAY --%> <%
@@ -488,7 +488,7 @@
                                 <%if (DocumentBrowserLink) {%>
                                 <div class="mb-3">
                                     <a class="btn btn-link"
-                                        href="${ pageContext.request.contextPath }/documentManager/ViewDocumentBrowser.do?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&categorykey=<%=Encode.forUri(currentkey)%>">
+                                        href="${ pageContext.request.contextPath }/documentManager/ViewDocumentBrowser?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&categorykey=<%=Encode.forUri(currentkey)%>">
                                         <fmt:message key="dms.documentReport.msgBrowser"/>
                                     </a>
                                 </div>
@@ -576,7 +576,7 @@
 
                                 <td>
                                     <%
-                                        String url = "ManageDocument.do?method=display&doc_no=" + curdoc.getDocId() + "&providerNo=" + user_no;
+                                        String url = "ManageDocument?method=display&doc_no=" + curdoc.getDocId() + "&providerNo=" + user_no;
                                     %>
                                     <a <%=curdoc.getStatus() == 'D' ? "style='text-decoration:line-through'" : ""%>
                                             href="javascript:void(0);"
@@ -665,7 +665,7 @@
                                         <% if (curdoc.getStatus() != 'D') {
                                             if (curdoc.getStatus() == 'H') { %>
                                         <a href="javascript:void(0)"
-                                           onclick="popup1(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml.do?editDocumentNo=<%=Encode.forUriComponent(String.valueOf(curdoc.getDocId()))%>&function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>', 'EditDoc')"
+                                           onclick="popup1(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml?editDocumentNo=<%=Encode.forUriComponent(String.valueOf(curdoc.getDocId()))%>&function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>', 'EditDoc')"
                                            title="<fmt:message key="dms.documentReport.btnEdit"/>"
                                            class="btn btn-link" style="padding:0;">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
@@ -678,7 +678,7 @@
                                         </a>
                                         <%} else {%>
                                         <a href="javascript:void(0)"
-                                           onclick="popup1(350, 500, '<%= request.getContextPath() %>/documentManager/ViewEditDocument.do?editDocumentNo=<%=curdoc.getDocId()%>&function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>', 'EditDoc')"
+                                           onclick="popup1(350, 500, '<%= request.getContextPath() %>/documentManager/ViewEditDocument?editDocumentNo=<%=curdoc.getDocId()%>&function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>', 'EditDoc')"
                                            title="<fmt:message key="dms.documentReport.btnEdit"/>"
                                            class="btn btn-link" style="padding:0;">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
@@ -695,7 +695,7 @@
 
                                         <% if (!("demographic".equals(module) && moduleid != null && moduleid.equals(session.getAttribute("user")))) {
 
-                                            String tickler_url = request.getContextPath() + "/tickler/ForwardDemographicTickler.do?docType=DOC&docId=" + Encode.forUriComponent(curdoc.getDocId()) + "&demographic_no=" + Encode.forUriComponent(moduleid);
+                                            String tickler_url = request.getContextPath() + "/tickler/ForwardDemographicTickler?docType=DOC&docId=" + Encode.forUriComponent(curdoc.getDocId()) + "&demographic_no=" + Encode.forUriComponent(moduleid);
                                         %>
                                         <a href="javascript:void(0);" title="<fmt:message key="dms.documentReport.msgTickler"/>" class="btn btn-link"
                                            style="padding: 0;"
@@ -723,7 +723,7 @@
                         value="<fmt:message key='dms.documentReport.btnDoneClose'/>"
                         onclick="window.closeWindow()"/>
                 <input type="button" value="<fmt:message key='dms.documentReport.btnCombinePDF'/>" class="btn btn-secondary"
-                       onclick="return submitForm('<rewrite:reWrite jspPage="combinePDFs.do"/>');"/>
+                       onclick="return submitForm('<rewrite:reWrite jspPage="combinePDFs"/>');"/>
             </div>
 
         </form>

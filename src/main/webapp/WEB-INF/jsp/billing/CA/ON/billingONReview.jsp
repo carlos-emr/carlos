@@ -39,7 +39,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
-<%@ page errorPage="/errorpage.jsp"
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
          import="java.util.*,java.math.*,java.net.*,java.sql.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.appt.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.administration.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -61,7 +61,7 @@
 <%
     //
     if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     }
 
     String user_no = (String) session.getAttribute("user");
@@ -340,7 +340,7 @@
             var d = elementName;
             //t0 = escape("document.forms[0].elements[\'"+d+"\'].value");
             t0 = d;
-            popupPage('600', '700', '/billing/CA/ON/ViewOnSearch3rdBillAddr.do?param=' + t0);
+            popupPage('600', '700', '/billing/CA/ON/ViewOnSearch3rdBillAddr?param=' + t0);
         }
 
         function showtotal() {
@@ -485,7 +485,7 @@
             } else if (settle == "Settle") {
                 document.forms['titlesearch'].btnPressed.value = 'Settle';
                 document.forms['titlesearch'].submit();
-                popupPage(700, 720, '/billing/CA/ON/ViewBillingON3rdInv.do');
+                popupPage(700, 720, '/billing/CA/ON/ViewBillingON3rdInv');
             }
 
             return checkedMethod;
@@ -571,7 +571,7 @@
 
 <body onload="showtotal(),calculatePayment()">
 
-<form method="post" name="titlesearch" action="<%= request.getContextPath() %>/billing/CA/ON/BillingONSave.do" onsubmit="return onSave();">
+<form method="post" name="titlesearch" action="<%= request.getContextPath() %>/billing/CA/ON/BillingONSave" onsubmit="return onSave();">
     <input type="hidden" name="url_back" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("url_back"))) %>">
     <input type="hidden" name="billNo_old" id="billNo_old" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("billNo_old"))) %>"/>
     <input type="hidden" name="billStatus_old" id="billStatus_old" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("billStatus_old"))) %>"/>
@@ -1238,7 +1238,7 @@
                    style="width: 150px;"/>
             <input type="submit" name="submit" id="settlePrintBtn" class="btn btn-primary"
                    value="Settle & Print Invoice"
-                   onClick="document.forms['titlesearch'].btnPressed.value='Settle'; document.forms['titlesearch'].submit();javascript:popupPage(700,720,'/billing/CA/ON/ViewBillingON3rdInv.do');"
+                   onClick="document.forms['titlesearch'].btnPressed.value='Settle'; document.forms['titlesearch'].submit();javascript:popupPage(700,720,'/billing/CA/ON/ViewBillingON3rdInv');"
                    style="width: 160px;"/>
             <input type="hidden" name="btnPressed" value="">
             <input type="hidden" name="total_payment" id="total_payment" value="0.00"/>
@@ -1330,7 +1330,7 @@
 
     function addToDiseaseRegistry() {
         if (validateItems()) {
-            var url = "<%=request.getContextPath()%>/oscarResearch/oscarDxResearch/dxResearch.do";
+            var url = "<%=request.getContextPath()%>/oscarResearch/oscarDxResearch/dxResearch";
             //var data = Form.serialize(dxForm);
             data = jQuery('#dxForm').serialize();
             //new Ajax.Updater('dxListing',url, {method: 'post',postBody: data,asynchronous:true,onComplete: getNewCurrentDxCodeList});
@@ -1360,7 +1360,7 @@
 
     function getNewCurrentDxCodeList(origRequest) {
         //alert("calling get NEW current Dx Code List");
-        var url = "<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/ViewCurrentCodeList.do";
+        var url = "<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/ViewCurrentCodeList";
         var ran_number = Math.round(Math.random() * 1000000);
         var params = "demographicNo=<%= Encode.forJavaScript(StringUtils.noNull(demo_no)) %>&rand=" + ran_number;  //hack to get around ie caching the page
         //alert(params);
@@ -1388,7 +1388,7 @@
         <h3>&nbsp;Current Patient Dx List &nbsp;<a href="#" onclick="toggle('dxFullListing'); return false;"
                                                    style="font-size:small;">show/hide</a></h3>
         <div class="wrapper" id="dxFullListing">
-            <jsp:include page="/oscarResearch/oscarDxResearch/ViewCurrentCodeList.do">
+            <jsp:include page="/oscarResearch/oscarDxResearch/ViewCurrentCodeList">
                 <jsp:param name="demographicNo" value="<%= StringUtils.noNull(demo_no) %>"/>
             </jsp:include>
         </div>

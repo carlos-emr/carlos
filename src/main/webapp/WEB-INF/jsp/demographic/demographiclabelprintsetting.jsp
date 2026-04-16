@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -45,7 +45,7 @@
 %>
 
 
-<%@ page import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -64,7 +64,7 @@
 
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String curProvider_no = (String) session.getAttribute("user");
 
     java.util.Properties oscarVariables = CarlosProperties.getInstance();
@@ -163,7 +163,7 @@
             : (Encode.forHtml(phone2Raw) + "&nbsp;");
     %>
 
-    <form method="post" class="" name="labelprint" action="<%= request.getContextPath() %>/demographic/ViewDemographicPrintDemographic.do">
+    <form method="post" class="" name="labelprint" action="<%= request.getContextPath() %>/demographic/ViewDemographicPrintDemographic">
         <div class="card card-body bg-body-tertiary">
             <table style="width:100%">
                 <tr style="text-align:center">

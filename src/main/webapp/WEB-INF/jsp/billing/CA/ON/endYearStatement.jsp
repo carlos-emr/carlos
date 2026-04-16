@@ -53,8 +53,8 @@
 
         function demographicSearch() {
             var search_param = document.getElementById('nameForlooksOnly').value;
-            var url = '<%= request.getContextPath() %>/demographic/ViewDemographicSearch2ReportResults.do';
-            url += '?originalpage=' + encodeURIComponent('<%=request.getContextPath()%>/billing/CA/ON/endYearStatement.do?demosearch=true');
+            var url = '<%= request.getContextPath() %>/demographic/ViewDemographicSearch2ReportResults';
+            url += '?originalpage=' + encodeURIComponent('<%=request.getContextPath()%>/billing/CA/ON/endYearStatement?demosearch=true');
             url += '&search_mode=search_name';
             url += '&orderby=last_name, first_name';
             url += '&limit1=0&limit2=5';
@@ -114,7 +114,7 @@
 <div class="container-fluid">
 
     <div class="row card card-body bg-body-tertiary">
-        <form action="${pageContext.request.contextPath}/billing/CA/ON/endYearStatement.do" method="post">
+        <form action="${pageContext.request.contextPath}/billing/CA/ON/endYearStatement" method="post">
             <input type="hidden" name="demographicNoParam" id="demographicNoParam"/>
 
             <div class="col-md-5">

@@ -33,7 +33,7 @@
         </action>
         <action name="rx/searchDrug" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxSearchDrug2Action">
             <result name="success">/WEB-INF/jsp/rx/ChooseDrug.jsp</result>
-            <result name="error">/500.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/500.jsp</result>
         </action>
         <action name="rx/chooseDrug" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxChooseDrug2Action">
             <result name="success">/WEB-INF/jsp/rx/WriteScript.jsp</result>
@@ -117,10 +117,10 @@
             <result name="success">/WEB-INF/jsp/rx/ChooseAllergy2.jsp</result>
         </action>
         <action name="rx/addAllergy" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddAllergy2Action">
-            <result name="success" type="redirect">/rx/showAllergy.do?demographicNo=${#session.Patient.demographicNo}</result>
+            <result name="success" type="redirect">/rx/showAllergy?demographicNo=${#session.Patient.demographicNo}</result>
         </action>
         <action name="rx/addAllergy2" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddAllergy2Action">
-            <result name="success" type="redirect">/rx/showAllergy.do?demographicNo=${#session.Patient.demographicNo}</result>
+            <result name="success" type="redirect">/rx/showAllergy?demographicNo=${#session.Patient.demographicNo}</result>
         </action>
         <action name="rx/addReaction" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddReaction2Action">
             <result name="success">/WEB-INF/jsp/rx/AddReaction2.jsp</result>
@@ -136,7 +136,7 @@
         </action>
         <action name="rx/showAllergy" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxShowAllergy2Action">
             <result name="success">/WEB-INF/jsp/rx/ShowAllergies2.jsp</result>
-            <result name="failure">/errorpage.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
         </action>
         <action name="rx/drugInfo" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxDrugInfo2Action">
             <result name="success">/WEB-INF/jsp/rx/SearchDrug3.jsp</result>

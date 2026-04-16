@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -83,7 +83,7 @@
         var choiceFormat = new Array(6, 10, 12, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 62, 64, 68, 70, 74, 76, 81, 82, 86, 88, 92, 94, 98, 100, 104, 106, 111, 113, 117, 119, 123, 125, 129, 131, 135, 137, 141, 143, 147, 149, 153, 155, 159, 161, 165, 167, 171, 173, 177, 179, 183, 185, 189, 191, 195, 197, 201, 204, 208);
         var allNumericField = null;
         var allMatch = null;
-        var action = "/<%=project_home%>/form/formname.do";
+        var action = "/<%=project_home%>/form/formname";
 
         function backToPage1() {
             document.getElementById('page1').style.display = 'block';
@@ -216,7 +216,7 @@
     @oscar.formDB Field="formCreated" Type="date" Null="" Default="NULL"
     @oscar.formDB Field="formEdited" Type="timestamp"
     -->
-    <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post">
         <input type="hidden" name="demographic_no"
                value="<%= props.getProperty("demographic_no", "0") %>"/>
         <input type="hidden" name="formCreated"

@@ -33,7 +33,7 @@
 <!--  show current staff -->
 <display:table class="simple" cellspacing="2" cellpadding="3"
 	id="status" name="client_statuses" export="false" pagesize="0"
-	requestURI="/PMmodule/ProgramManagerView.do">
+	requestURI="/PMmodule/ProgramManagerView">
 	<display:setProperty name="paging.banner.placement" value="bottom" />
 	<display:setProperty name="basic.msg.empty_list"
 		value="No statuses are currently defined for this program." />

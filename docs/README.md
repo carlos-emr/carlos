@@ -11,7 +11,7 @@ This directory contains technical documentation for CARLOS EMR (Clinical Assisti
 | Category | Documents | Description |
 |----------|-----------|-------------|
 | **Testing** | [📂 test/](test/) | Comprehensive modern test framework documentation (JUnit 5) |
-| **Architecture** | [Struts Actions Summary](struts-actions-summary.md)<br>[Struts Actions Detailed](struts-actions-detailed.md)<br>[Integrator System Architecture](integrator-system-architecture.md) | System architecture and action mappings |
+| **Architecture** | [Struts Actions Summary](struts-actions-summary.md)<br>[Struts Actions Detailed](struts-actions-detailed.md)<br>[Struts Web Endpoints](struts-web-endpoints.md)<br>[Integrator System Architecture](integrator-system-architecture.md) | System architecture, action mappings, and current endpoint/JSP routing rules |
 | **Security** | [Password System](Password_System.md) | Authentication and security architecture |
 | **APIs** | [API Collections Index](api-collections-index.md) | REST API documentation and collections |
 | **Development** | [DS Guideline](dsGuideline.md)<br>[Copyright Header (Magenta)](copyright-header-magenta.md) | Development standards and guidelines |
@@ -52,8 +52,9 @@ Key testing resources:
 
 1. **Writing Tests**: Start with [test/README.md](test/README.md)
 2. **Struts Migration**: Review [Struts Actions Summary](struts-actions-summary.md)
-3. **Security**: Understand [Password System](Password_System.md)
+3. **New Pages and JSP Routing**: Review [Struts Web Endpoints](struts-web-endpoints.md)
 4. **APIs**: Check [API Collections Index](api-collections-index.md)
+5. **Security**: Understand [Password System](Password_System.md)
 
 ### For New Team Members
 
@@ -61,6 +62,7 @@ Key testing resources:
 2. Review development guidelines: [DS Guideline](dsGuideline.md)
 3. Understand the test framework: [test/](test/)
 4. Study the architecture: [Struts Actions](struts-actions-summary.md)
+5. Read the endpoint conventions: [Struts Web Endpoints](struts-web-endpoints.md)
 
 ## Project Context
 
@@ -105,4 +107,4 @@ For questions about documentation:
 
 ---
 
-*Last Updated: January 2025*
+*Last Updated: April 2026*

@@ -33,7 +33,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * View gate for {@code administration/index.jsp} — the admin dashboard home
+ * View gate for {@code administration/index} — the admin dashboard home
  * page. Mirrors the JSP's internal {@code <security:oscarSec>} OR-list:
  * passes if the caller holds any ONE of the admin sub-privileges, since the
  * page itself hides / shows each card based on individual taglib checks.

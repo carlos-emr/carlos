@@ -304,7 +304,7 @@ public class FormsManagerImpl implements FormsManager {
                 : form.getFormName();
         String demographicNo = request.getParameter("demographicNo") != null ? request.getParameter("demographicNo")
                 : form.getDemoNo();
-        String formPath = "/form/forwardshortcutname.do?method=fetch&formname=" + formName + "&demographic_no="
+        String formPath = "/form/forwardshortcutname?method=fetch&formname=" + formName + "&demographic_no="
                 + demographicNo + "&formId=" + formId;
         FormTransportContainer formTransportContainer = null;
         try {

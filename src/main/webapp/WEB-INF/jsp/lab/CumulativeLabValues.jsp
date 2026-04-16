@@ -45,7 +45,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -122,7 +122,7 @@
             function addLabToProfile(labType, testName) {
 
                 alert("calling addLabToProfile");
-                var url = "<%= request.getContextPath() %>/lab/ViewDisplayLabValue.do";
+                var url = "<%= request.getContextPath() %>/lab/ViewDisplayLabValue";
                 var ran_number = Math.round(Math.random() * 1000000);
                 var params = "demographicNo=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(demographic_no))) %>&rand=" + ran_number + "&labType=" + encodeURIComponent(labType) + "&testName=" + encodeURIComponent(testName);  //hack to get around ie caching the page
                 alert(params);
@@ -145,7 +145,7 @@
                 newNode.setAttribute('id', 'd' + ran_number);
                 document.getElementById('cumulativeLab').appendChild(newNode);
 
-                var url = "<%= request.getContextPath() %>/lab/ViewDisplayLabValue.do";
+                var url = "<%= request.getContextPath() %>/lab/ViewDisplayLabValue";
                 var ran_number = Math.round(Math.random() * 1000000);
                 var params = "demographicNo=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(demographic_no))) %>&rand=" + ran_number + "&labType=" + encodeURIComponent(labType) + "&testName=" + encodeURIComponent(testName) + "&identCode=" + encodeURIComponent(identCode);  //hack to get around ie caching the page
                 CarlosAjax.updater(newNode, url, {

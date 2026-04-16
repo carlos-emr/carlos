@@ -121,7 +121,7 @@ class DocumentRefile2ActionTest extends CarlosUnitTestBase {
         action.execute();
         String url = mockResponse.getRedirectedUrl();
         assertThat(url)
-            .contains("/documentManager/ViewDocumentBrowser.do")
+            .contains("/documentManager/ViewDocumentBrowser")
             .contains("errorMessage=Refile%20failed")
             .doesNotContain("X-ray")
             .doesNotContain("Patient");
@@ -157,7 +157,7 @@ class DocumentRefile2ActionTest extends CarlosUnitTestBase {
         assertThat(action.refileCalls).hasSize(1);
         assertThat(action.refileCalls.get(0)).containsExactly("42", "1");
         assertThat(mockResponse.getRedirectedUrl())
-            .contains("/documentManager/ViewDocumentBrowser.do")
+            .contains("/documentManager/ViewDocumentBrowser")
             .contains("categorykey=Inbox");
     }
 }

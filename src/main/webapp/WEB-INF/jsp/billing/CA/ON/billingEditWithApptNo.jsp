@@ -59,7 +59,7 @@
     String start_time = request.getParameter("start_time");
 
     if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     }
 
     CarlosProperties oscarVariables = CarlosProperties.getInstance();
@@ -160,7 +160,7 @@
         rs2 = dao.getActiveBillingItemByCh1Id(ConversionUtils.fromIntString(billNo));
     }
 
-    String action_str = request.getContextPath() + "/billing.do?billRegion=" + URLEncoder.encode(prov, StandardCharsets.UTF_8) + "&billForm=" + URLEncoder.encode(billForm, StandardCharsets.UTF_8) + "&hotclick=" + URLEncoder.encode(hotclick, StandardCharsets.UTF_8) + "&appointment_no=" + appointment_no + "&demographic_name=" + URLEncoder.encode(name, StandardCharsets.UTF_8) + "&status=" + status + "&demographic_no=" + demographic_no + "&providerview=" + providerview + "&user_no=" + curUser_no + "&apptProvider_no=" + apptProvider_no + "&appointment_date=" + appointment_date + "&start_time=" + start_time + "&bNewForm=1";
+    String action_str = request.getContextPath() + "/billing?billRegion=" + URLEncoder.encode(prov, StandardCharsets.UTF_8) + "&billForm=" + URLEncoder.encode(billForm, StandardCharsets.UTF_8) + "&hotclick=" + URLEncoder.encode(hotclick, StandardCharsets.UTF_8) + "&appointment_no=" + appointment_no + "&demographic_name=" + URLEncoder.encode(name, StandardCharsets.UTF_8) + "&status=" + status + "&demographic_no=" + demographic_no + "&providerview=" + providerview + "&user_no=" + curUser_no + "&apptProvider_no=" + apptProvider_no + "&appointment_date=" + appointment_date + "&start_time=" + start_time + "&bNewForm=1";
 
     if (status.substring(0, 1).compareTo("B") == 0) {
 %>
@@ -174,7 +174,7 @@
 %>
 
 
-<form method="post" name="editBillingForm" action="/billing.do">
+<form method="post" name="editBillingForm" action="/billing">
     <input type="hidden" name="billNo_old" id="billNo_old" value="<%=Encode.forHtmlAttribute(billNo)%>"/>
     <input type="hidden" name="billStatus_old" id="billStatus_old" value="<%=Encode.forHtmlAttribute(status)%>"/>
     <input type="hidden" name="apptProvider_no" id="apptProvider_no" value="<%=Encode.forHtmlAttribute(apptProvider_no)%>"/>

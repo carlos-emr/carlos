@@ -41,7 +41,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -112,7 +112,7 @@
             });
 
             function getSystemFlowsheets() {
-                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=listSystem", {},
+                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=listSystem", {},
                     function (xml) {
                         var arr = new Array();
                         if (xml.results instanceof Array) {
@@ -132,10 +132,10 @@
             }
 
             function saveFlowsheet() {
-                jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=addNewFlowsheet',
+                jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet?method=addNewFlowsheet',
                     jQuery('#theForm').serialize(),
                     function (data) {
-                        location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetManager.do';
+                        location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetManager';
                     });
             }
 
@@ -143,7 +143,7 @@
                 var template = document.getElementById('template').value;
 
                 if (template != '') {
-                    jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getTemplateDetails&template=" + template, {},
+                    jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=getTemplateDetails&template=" + template, {},
                         function (xml) {
                             document.getElementById('recommendationColour').value = xml.recommendationColour;
                             document.getElementById('warningColour').value = xml.warningColour;

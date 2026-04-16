@@ -37,7 +37,7 @@
     all associations.
 
     The associations table is populated dynamically via AJAX from
-    dxResearchLoadAssociations.do?method=getAllAssociations.
+    dxResearchLoadAssociations?method=getAllAssociations.
 
     Opened from dxResearchCustomization.jsp "Edit Associations" button.
 
@@ -96,7 +96,7 @@
                 var $tbody = $('<tbody>');
                 $('#associations').append($thead, $tbody);
 
-                $.getJSON("<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/dxResearchLoadAssociations.do?method=getAllAssociations",
+                $.getJSON("<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/dxResearchLoadAssociations?method=getAllAssociations",
                     function (data) {
                         for (var x = 0; x < data.length; x++) {
                             // Use .text() for each cell to prevent XSS from JSON data
@@ -120,7 +120,7 @@
                     if (confirm(i18n.confirmClear)) {
                         $.ajax({
                             type: "POST",
-                            url: "<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/dxResearchLoadAssociations.do",
+                            url: "<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/dxResearchLoadAssociations",
                             data: { method: "clearAssociations" },
                             success: function () {
                                 populateListOfAssociations();
@@ -131,13 +131,13 @@
 
                 // Export associations as CSV download
                 $("#export").click(function () {
-                    window.open("<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/dxResearchLoadAssociations.do?method=export");
+                    window.open("<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/dxResearchLoadAssociations?method=export");
                 });
 
                 // Auto-generate disease registry entries from associations
                 $("#automatch").click(function () {
                     if (confirm(i18n.confirmAutomatch)) {
-                        $.post("<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/dxResearchLoadAssociations.do",
+                        $.post("<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/dxResearchLoadAssociations",
                             { method: "autoPopulateAssociations" },
                             function (data) {
                                 alert(i18n.automatchResult + ' ' + data.recordsAdded + '.');
@@ -172,7 +172,7 @@
         <div class="card" style="margin-top:15px;">
             <div class="card-body">
                 <h5 class="card-title"><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.uploadCsvTitle"/></h5>
-                <form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchLoadAssociations.do?method=uploadFile"
+                <form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchLoadAssociations?method=uploadFile"
                       method="post" enctype="multipart/form-data">
                     <div class="mb-2">
                         <input type="file" class="form-control form-control-sm" name="file" id="file" accept=".csv"/>

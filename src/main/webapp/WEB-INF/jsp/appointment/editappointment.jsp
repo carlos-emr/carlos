@@ -38,7 +38,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_appointment");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_appointment");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -51,7 +51,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.appt.status.service.impl.AppointmentStatusMgrImpl" %>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 
 %>
 
@@ -350,7 +350,7 @@
             function demographicdetail(vheight, vwidth) {
                 if (document.forms['EDITAPPT'].demographic_no.value === "") return;
                 self.close();
-                var page = "<%=request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=" + document.forms['EDITAPPT'].demographic_no.value + "";
+                var page = "<%=request.getContextPath() %>/demographic/DemographicEdit?demographic_no=" + document.forms['EDITAPPT'].demographic_no.value + "";
                 //windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=600,screenY=200,top=0,left=0";
                 var popup = window.open(page, "demographic")//, windowprops);
             }
@@ -593,7 +593,7 @@
 
             function openTypePopup() {
                 windowprops = "height=250,width=500,location=no,scrollbars=no,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=100,left=100";
-                var popup = window.open("appointmentTypeAction.do?type=" + document.forms['EDITAPPT'].type.value, "Appointment Type", windowprops);
+                var popup = window.open("appointmentTypeAction?type=" + document.forms['EDITAPPT'].type.value, "Appointment Type", windowprops);
                 if (popup != null) {
                     if (popup.opener === null) {
                         popup.opener = self;
@@ -685,7 +685,7 @@
             });
             jQuery(document).ready(function () {
 
-                var searchDemoUrl = "<%= request.getContextPath() %>/demographic/SearchDemographic.do";
+                var searchDemoUrl = "<%= request.getContextPath() %>/demographic/SearchDemographic";
 
                 jQuery("#keyword").autocomplete({
                     source: function (req, res) {
@@ -1016,7 +1016,7 @@
                         <input type="hidden" name="orderby" value="last_name, first_name">
                         <input type="hidden" name="search_mode" id="search_mode" value="<%= Encode.forHtmlAttribute(searchMode) %>">
                         <input type="hidden" name="originalpage"
-                               value="<%=request.getContextPath() %>/appointment/editappointment.do">
+                               value="<%=request.getContextPath() %>/appointment/editappointment">
                         <input type="hidden" name="limit1" value="0">
                         <input type="hidden" name="limit2" value="5">
                         <input type="hidden" name="ptstatus" value="active">
@@ -1404,7 +1404,7 @@
                        onClick="window.location='appointmentcontrol.jsp?displaymode=PrintCard&appointment_no=' + encodeURIComponent(document.forms['EDITAPPT'].appointment_no.value)">
                         <i class="fa-solid fa-print"></i>&nbsp;<fmt:message key="appointment.editappointment.btnPrintCard"/></a>
                     <a class="btn"
-                       onClick="window.open('<%=request.getContextPath() %>/demographic/ViewDemographicLabelPrintSetting.do?demographic_no=' + encodeURIComponent(document.EDITAPPT.demographic_no.value), 'labelprint','height=550,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no')">
+                       onClick="window.open('<%=request.getContextPath() %>/demographic/ViewDemographicLabelPrintSetting?demographic_no=' + encodeURIComponent(document.EDITAPPT.demographic_no.value), 'labelprint','height=550,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no')">
                         <i class="fa-solid fa-print"></i>&nbsp;<fmt:message key="appointment.editappointment.btnLabelPrint"/></a>
                     <a class="btn"
                        onclick="document.forms['EDITAPPT'].displaymode.value='Cut';localStorage.setItem('copyPaste','1');document.forms['EDITAPPT'].submit();">
@@ -1478,7 +1478,7 @@
                         if (balance.compareTo(BigDecimal.ZERO) != 0) { %>
             <tr>
                 <td style="text-align: center; color:red;"><a href="javascript:void(0)"
-                                                              onclick="popupPage(600,800, '<%=request.getContextPath() %>/billing/CA/ON/BillingONCorrection.do?billing_no=<%=cheader1s.get(i).getId()%>')">Inv
+                                                              onclick="popupPage(600,800, '<%=request.getContextPath() %>/billing/CA/ON/BillingONCorrection?billing_no=<%=cheader1s.get(i).getId()%>')">Inv
                     #<%=cheader1s.get(i).getId() %>
                 </a></td>
                 <td style="text-align: center; color:red;"><%=fm.format(cheader1s.get(i).getTimestamp()) %>

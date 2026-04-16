@@ -29,7 +29,7 @@
 
 --%>
 
-<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat" errorPage="/errorpage.jsp" %>
+<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -126,7 +126,7 @@
 %>
 
 <center><input type="button" value="Print Preview"
-               onClick="popupPage(600,800, '<%= request.getContextPath() %>/provider/ViewProviderEncounterPrint.do?encounter_no=<%=Encode.forUriComponent(request.getParameter("encounter_no") != null ? request.getParameter("encounter_no") : "")%>&demographic_no=<%=Encode.forUriComponent(request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "")%>&username=<%=Encode.forUriComponent(request.getParameter("username") != null ? request.getParameter("username") : "")%>')">
+               onClick="popupPage(600,800, '<%= request.getContextPath() %>/provider/ViewProviderEncounterPrint?encounter_no=<%=Encode.forUriComponent(request.getParameter("encounter_no") != null ? request.getParameter("encounter_no") : "")%>&demographic_no=<%=Encode.forUriComponent(request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "")%>&username=<%=Encode.forUriComponent(request.getParameter("username") != null ? request.getParameter("username") : "")%>')">
     <input type="button" value="Close this window" onClick="self.close()">
 </center>
 </body>

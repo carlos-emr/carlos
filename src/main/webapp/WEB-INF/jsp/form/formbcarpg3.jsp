@@ -5,7 +5,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -304,7 +304,7 @@
         <!--
         function reset() {
             document.forms[0].target = "";
-            document.forms[0].action = "/<%=project_home%>/form/formname.do";
+            document.forms[0].action = "/<%=project_home%>/form/formname";
         }
 
         function onPrint() {
@@ -918,7 +918,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
         </table>
     </div>
 
-    <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post">
 
         <input type="hidden" name="commonField" value="ar2_"/>
         <input type="hidden" name="c_lastVisited" value="pg3"/>
@@ -957,15 +957,15 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 </td>
 
                 <!--  <td align="right"><b>View:</b>
-            <a href="javascript: popupPage('form/formbcarpg1.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');"> AR1</a> |
-            <a href="javascript: popupPage('form/formbcarpg2.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">AR2 <font size=-2>(pg.1)</font></a>
+            <a href="javascript: popupPage('form/formbcarpg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');"> AR1</a> |
+            <a href="javascript: popupPage('form/formbcarpg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">AR2 <font size=-2>(pg.1)</font></a>
         </td>-->
                 <td align="right"><b>Edit:</b>
-                    <a href="form/formbcarpg1.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR1</a> |
-                    <a href="form/formbcarpg2.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2 <font
+                    <a href="form/formbcarpg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR1</a> |
+                    <a href="form/formbcarpg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2 <font
                             size=-2>(pg.1)</font></a> |
                     AR2<font size=-2>(pg.2)</font> |
-                    <!--a href="javascript: popupFixedPage(700,950,'<%= request.getContextPath() %>/decision/antenatal/antenatalplanner.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');">AR Planner</a-->
+                    <!--a href="javascript: popupFixedPage(700,950,'<%= request.getContextPath() %>/decision/antenatal/antenatalplanner?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');">AR Planner</a-->
                 </td>
                 <%
                     }
@@ -2349,19 +2349,19 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     if (!bView) {
                 %>
                 <!--td>
-           <a href="javascript: popPage('form/formlabreq.do?demographic_no=<%=demoNo%>&formId=0&provNo=<%=provNo%>&labType=AR','LabReq');">LAB</a>
+           <a href="javascript: popPage('form/formlabreq?demographic_no=<%=demoNo%>&formId=0&provNo=<%=provNo%>&labType=AR','LabReq');">LAB</a>
         </td-->
 
                 <!--<td align="right"><b>View:</b>
-            <a href="javascript: popupPage('form/formbcarpg1.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');"> AR1</a> |
-            <a href="javascript: popupPage('form/formbcarpg2.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">AR2 <font size=-2>(pg.1)</font></a>
+            <a href="javascript: popupPage('form/formbcarpg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');"> AR1</a> |
+            <a href="javascript: popupPage('form/formbcarpg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">AR2 <font size=-2>(pg.1)</font></a>
         </td>-->
                 <td align="right"><b>Edit:</b>
-                    <a href="form/formbcarpg1.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR1</a> |
-                    <a href="form/formbcarpg2.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2 <font
+                    <a href="form/formbcarpg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR1</a> |
+                    <a href="form/formbcarpg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2 <font
                             size=-2>(pg.1)</font></a> |
                     AR2<font size=-2>(pg.2)</font> |
-                    <!--a href="javascript: popupFixedPage(700,950,'<%=request.getContextPath()%>/decision/antenatal/antenatalplanner.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');">AR Planner</a-->
+                    <!--a href="javascript: popupFixedPage(700,950,'<%=request.getContextPath()%>/decision/antenatal/antenatalplanner?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');">AR Planner</a-->
                 </td>
                 <%
                     }

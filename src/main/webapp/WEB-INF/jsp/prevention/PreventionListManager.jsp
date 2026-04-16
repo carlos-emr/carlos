@@ -46,7 +46,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_prevention" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_prevention");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_prevention");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -141,7 +141,7 @@
 </div><!-- container -->
 
 
-<form action="<%=request.getContextPath()%>/prevention/ViewPreventionListManager.do?formAction=update" method="post">
+<form action="<%=request.getContextPath()%>/prevention/ViewPreventionListManager?formAction=update" method="post">
     <!-- Modal -->
     <div id="modalConfirm" class="modal fade" tabindex="-1" aria-labelledby="modalConfirmLabel"
          aria-hidden="true">

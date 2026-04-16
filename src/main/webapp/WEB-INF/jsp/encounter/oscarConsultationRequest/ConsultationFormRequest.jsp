@@ -60,7 +60,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_con");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_con");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -754,7 +754,7 @@
         // Load services via AJAX - accepts callback for proper sequencing
         function loadServicesFromServer(callback) {
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', '<%= request.getContextPath() %>/encounter/ConsultationLookup2Action.do?method=getServices', true);
+            xhr.open('GET', '<%= request.getContextPath() %>/encounter/ConsultationLookup2Action?method=getServices', true);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4) {
                     if (xhr.status === 200) {
@@ -806,7 +806,7 @@
             }
 
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', '<%= request.getContextPath() %>/encounter/ConsultationLookup2Action.do?method=getSpecialists&serviceId=' + serviceId, true);
+            xhr.open('GET', '<%= request.getContextPath() %>/encounter/ConsultationLookup2Action?method=getSpecialists&serviceId=' + serviceId, true);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4) {
                     if (xhr.status === 200) {
@@ -925,7 +925,7 @@
 
         function loadAllSpecialistsData(callback) {
             jQuery.ajax({
-                url: ctx + '/encounter/ConsultationLookup2Action.do?method=getAllSpecialists',
+                url: ctx + '/encounter/ConsultationLookup2Action?method=getAllSpecialists',
                 method: 'GET',
                 dataType: 'json',
                 success: function(data) {
@@ -1061,7 +1061,7 @@
             updateFaxButton();
             <%}%>
 
-            jQuery.post(ctx + '/getProfessionalSpecialist.do', { id: specData.specId }, function(xml) {
+            jQuery.post(ctx + '/getProfessionalSpecialist', { id: specData.specId }, function(xml) {
                 document.getElementById('annotation').value = xml.annotation || '';
                 updateEFormLink(xml.eformId);
             });
@@ -1099,7 +1099,7 @@
         function getClinicalData(data, target) {
             jQuery.ajax({
                 method: "POST",
-                url: "${ pageContext.request.contextPath }/oscarConsultationRequest/consultationClinicalData.do",
+                url: "${ pageContext.request.contextPath }/oscarConsultationRequest/consultationClinicalData",
                 data: data,
                 dataType: 'JSON',
                 success: function (data) {
@@ -1128,7 +1128,7 @@
                 idx++;
                 jQuery.ajax({
                     method: "POST",
-                    url: "${ pageContext.request.contextPath }/oscarConsultationRequest/consultationClinicalData.do",
+                    url: "${ pageContext.request.contextPath }/oscarConsultationRequest/consultationClinicalData",
                     data: { method: "fetchIssueNote", issueType: issueType, demographicNo: demographicNo },
                     dataType: 'JSON',
                     success: function (data) {
@@ -1423,7 +1423,7 @@
                 }
 
                 // Load additional specialist data (annotation, eform)
-                jQuery.post(ctx + '/getProfessionalSpecialist.do', {id: savedSpecialist}, function(xml) {
+                jQuery.post(ctx + '/getProfessionalSpecialist', {id: savedSpecialist}, function(xml) {
                     document.getElementById('annotation').value = xml.annotation || '';
                     updateEFormLink(xml.eformId);
                 });
@@ -1482,7 +1482,7 @@
                     updateFaxButton();
                     <% } %>
 
-                    jQuery.post(ctx + "/getProfessionalSpecialist.do", {id: aSpeci.specNbr},
+                    jQuery.post(ctx + "/getProfessionalSpecialist", {id: aSpeci.specNbr},
                         function (xml) {
                             console.log(xml);
                             let annotation = document.getElementById("annotation");
@@ -1499,7 +1499,7 @@
 
         function updateEFormLink(eformID) {
             if (eformID > 0) {
-                let eFormURL = '<%=request.getContextPath()%>/eform/efmformadd_data.jsp?fid=' + eformID + '&demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demo))%>&appointment=null';
+                let eFormURL = '<%=request.getContextPath()%>/eform/efmformadd_data?fid=' + eformID + '&demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demo))%>&appointment=null';
                 document.getElementById("eFormButton").style.display = "inline";
                 document.getElementById("eFormButton").onclick = function () {
                     popup(eFormURL);
@@ -1982,7 +1982,7 @@ if (userAgent != null) {
             form.submission.value = "And Print Preview";
             jQuery.ajax({
                 type: "POST",
-                url: "${ pageContext.request.contextPath }/encounter/RequestConsultation.do",
+                url: "${ pageContext.request.contextPath }/encounter/RequestConsultation",
                 data: form.serialize(),
                 dataType: "json",
                 success: function (data) {
@@ -2066,7 +2066,7 @@ if (userAgent != null) {
         </ul>
     </div>
 <% } %>
-    <form id="EctConsultationFormRequest2Form" name="EctConsultationFormRequest2Form" action="${pageContext.request.contextPath}/encounter/RequestConsultation.do"
+    <form id="EctConsultationFormRequest2Form" name="EctConsultationFormRequest2Form" action="${pageContext.request.contextPath}/encounter/RequestConsultation"
                 method="post">
         <%
             EctConsultationFormRequest2Form thisForm = (EctConsultationFormRequest2Form) request.getAttribute("EctConsultationFormRequest2Form");
@@ -2211,7 +2211,7 @@ if (userAgent != null) {
                                                 <%-- <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.attachDoc"/> --%>
                                             <a href="javascript:void(0);" id="attachDocumentPanelBtn"
                                                title="Add Attachment"
-                                               data-poload="${ ctx }/previewDocs.do?method=fetchConsultDocuments&amp;demographicNo=<%=Encode.forHtmlAttribute(Encode.forUriComponent(demo))%>&amp;requestId=<%=Encode.forHtmlAttribute(Encode.forUriComponent(requestId))%>">
+                                               data-poload="${ ctx }/previewDocs?method=fetchConsultDocuments&amp;demographicNo=<%=Encode.forHtmlAttribute(Encode.forUriComponent(demo))%>&amp;requestId=<%=Encode.forHtmlAttribute(Encode.forUriComponent(requestId))%>">
                                                 Manage Attachments
                                             </a>
                                             <input type="hidden" id="isOceanEReferral"
@@ -2220,7 +2220,7 @@ if (userAgent != null) {
                                             } else { %>
                                             <a href="javascript:void(0);" id="attachDocumentPanelBtn"
                                                title="Add Attachment"
-                                               data-poload="${ ctx }/previewDocs.do?method=fetchConsultDocuments&amp;demographicNo=<%=Encode.forHtmlAttribute(Encode.forUriComponent(demo))%>&amp;requestId=<%=Encode.forHtmlAttribute(Encode.forUriComponent(requestId))%>">
+                                               data-poload="${ ctx }/previewDocs?method=fetchConsultDocuments&amp;demographicNo=<%=Encode.forHtmlAttribute(Encode.forUriComponent(demo))%>&amp;requestId=<%=Encode.forHtmlAttribute(Encode.forUriComponent(requestId))%>">
                                                 Manage Attachments
                                             </a>
 
@@ -2394,7 +2394,7 @@ if (userAgent != null) {
                                     <div class="card-header p-2 fw-semibold" style="font-size:0.85rem;">
                                         <i class="fa-solid fa-user me-1"></i>
                                         <a href="javascript:void(0);"
-                                           onClick="popupAttach(600,900,'<%=request.getContextPath()%>/demographic/DemographicEdit.do?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demo))%>')"><%=Encode.forHtml(thisForm.getPatientName())%></a>
+                                           onClick="popupAttach(600,900,'<%=request.getContextPath()%>/demographic/DemographicEdit?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demo))%>')"><%=Encode.forHtml(thisForm.getPatientName())%></a>
                                     </div>
                                     <div class="card-body p-2">
                                         <div class="row g-2" style="font-size:0.85rem;">
@@ -2547,7 +2547,7 @@ if (userAgent != null) {
                                             </td>
                                             <td class="consult-form-label" style="font-size:11px;">
                                                 <a href="javascript:void(0);"
-                                                   onclick="popupPage(500,700,'${ctx}/demographic/Contact.do?method=manageContactList&contactList=HCT&view=detached&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demo))%>' ); return false;">
+                                                   onclick="popupPage(500,700,'${ctx}/demographic/Contact?method=manageContactList&contactList=HCT&view=detached&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demo))%>' ); return false;">
                                                     edit Health Care Team
                                                 </a>
                                             </td>
@@ -2742,7 +2742,7 @@ if (userAgent != null) {
                                         <td class="consult-form-label">EForm
                                         </td>
                                         <td class="consult-form-value">
-                                            <a href="<%=request.getContextPath()%>/eform/efmshowform_data.jsp?fdid=<%=thisForm.getFdid() %>">Click
+                                            <a href="<%=request.getContextPath()%>/eform/efmshowform_data?fdid=<%=thisForm.getFdid() %>">Click
                                                 to view</a>
                                         </td>
                                     </tr>
@@ -3041,12 +3041,12 @@ if (userAgent != null) {
                                 <% if (hasStampSignature) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.altProviderSig" var="providerSigAlt"/>
                                 <div id="signatureShow" style="display: block;">
-                                    <img id="signatureImgTag" src="<%=request.getContextPath()%>/provider/providerSignatureImage.do"
+                                    <img id="signatureImgTag" src="<%=request.getContextPath()%>/provider/providerSignatureImage"
                                          alt="${e:forHtmlAttribute(providerSigAlt)}" style="max-height:120px;"/>
                                 </div>
                                 <div id="signatureFrame" style="display: none;">
                                     <iframe style="width:500px; height:132px;"
-                                        src="<%= request.getContextPath() %>/signature_pad/tabletSignature.do?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=signatureRequestId%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.CONSULTATION%>" ></iframe>
+                                        src="<%= request.getContextPath() %>/signature_pad/tabletSignature?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=signatureRequestId%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.CONSULTATION%>" ></iframe>
                                 </div>
                                 <div style="margin-top:5px;">
                                     <a href="javascript:void(0)" onclick="document.getElementById('signatureShow').style.display='none';document.getElementById('signatureFrame').style.display='block';document.getElementById('newSignature').value='true';">
@@ -3059,7 +3059,7 @@ if (userAgent != null) {
                                 </div>
 
                                 <iframe style="width:500px; height:132px;" id="signatureFrame"
-							src="<%= request.getContextPath() %>/signature_pad/tabletSignature.do?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=signatureRequestId%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.CONSULTATION%>" ></iframe>
+							src="<%= request.getContextPath() %>/signature_pad/tabletSignature?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=signatureRequestId%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.CONSULTATION%>" ></iframe>
                                 <% } %>
                         </div>
                         <% }%>
@@ -3125,7 +3125,7 @@ if (userAgent != null) {
             //--> Autocomplete searches
             jQuery("#searchHealthCareTeamInput").autocomplete({
                 source: function (request, response) {
-                    var url = ctx + "/demographic/Contact.do?method=searchAllContacts&searchMode=search_name&orderBy=c.lastName,c.firstName";
+                    var url = ctx + "/demographic/Contact?method=searchAllContacts&searchMode=search_name&orderBy=c.lastName,c.firstName";
                     jQuery.ajax({
                         url: url,
                         type: "GET",

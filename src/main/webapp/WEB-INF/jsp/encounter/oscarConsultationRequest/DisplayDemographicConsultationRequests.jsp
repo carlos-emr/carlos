@@ -54,7 +54,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_con");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_con");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -89,7 +89,7 @@
     if (demo != null) {
         demographic = demographicManager.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demo);
     } else
-        request.getRequestDispatcher("/errorpage.jsp").forward(request, response);
+        request.getRequestDispatcher("/WEB-INF/jsp/error/errorpage.jsp").forward(request, response);
 
     EctConsultationFormRequestUtil consultUtil;
     consultUtil = new EctConsultationFormRequestUtil();
@@ -216,7 +216,7 @@
         <div>
             <%
                 String newConsultUrl = request.getContextPath()
-                    + "/encounter/oscarConsultationRequest/ViewConsultationFormRequest.do"
+                    + "/encounter/oscarConsultationRequest/ViewConsultationFormRequest"
                     + "?de=" + Encode.forUriComponent(demo)
                     + "&teamVar=" + Encode.forUriComponent(team);
             %>
@@ -279,7 +279,7 @@
                     }
                     // Prebuild view URL for JS embedding (JS-attribute-encoded to prevent XSS)
                     String viewRequestUrl = request.getContextPath()
-                        + "/encounter/ViewRequest.do"
+                        + "/encounter/ViewRequest"
                         + "?de=" + Encode.forUriComponent(demo)
                         + "&requestId=" + Encode.forUriComponent(id);
             %>

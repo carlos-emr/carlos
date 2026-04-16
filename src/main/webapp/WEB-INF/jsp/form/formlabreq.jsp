@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -113,11 +113,11 @@
                 temp = document.forms[0].action;
 
                 if (pdf) {
-                    document.forms[0].action = '<%= request.getContextPath() %>/form/formname.do?__title=Lab+Request&__cfgfile=labReqPrint&__template=newReqLab';
+                    document.forms[0].action = '<%= request.getContextPath() %>/form/formname?__title=Lab+Request&__cfgfile=labReqPrint&__template=newReqLab';
                     document.forms[0].submit.value = "printall";
                     document.forms[0].target = "_self";
                 } else {
-                    document.forms[0].action = '<%= request.getContextPath() %>/form/formname.do';
+                    document.forms[0].action = '<%= request.getContextPath() %>/form/formname';
                     document.forms[0].submit.value = "printLabReq";
                     document.forms[0].target = "labReqPrint";
                 }
@@ -295,7 +295,7 @@
     </script>
 
     <body style="page: doublepage; page-break-after: right">
-    <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post">
 
         <input type="hidden" name="demographic_no"
                value="<%= Encode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>"/>

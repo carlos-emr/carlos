@@ -90,7 +90,7 @@
             <td><%=paymentType.getPaymentType()%>
             </td>
             <td>
-                <a href="<%=request.getContextPath()%>/billing/CA/ON/EditBillingPaymentType.do?id=<%=paymentType.getId()%>&type=<%=paymentType.getPaymentType()%>">Edit</a>
+                <a href="<%=request.getContextPath()%>/billing/CA/ON/EditBillingPaymentType?id=<%=paymentType.getId()%>&type=<%=paymentType.getPaymentType()%>">Edit</a>
             </td>
             <td>
                 <a href="#" data-paymentTypeId="<%=paymentType.getId()%>">Delete</a>
@@ -104,7 +104,7 @@
     <p>
     <hr/>
     <a class="btn btn-secondary"
-       href="<%=request.getContextPath()%>/billing/CA/ON/EditBillingPaymentType.do">Create
+       href="<%=request.getContextPath()%>/billing/CA/ON/EditBillingPaymentType">Create
         a new payment type</a>
 
 </div>
@@ -115,7 +115,7 @@
     jQuery(document).ready(function () {
         jQuery("tr td:nth-child(4)").on("click", "a", function (event) {
             jQuery.ajax({
-                url: "<%=request.getContextPath()%>/billing/CA/ON/managePaymentType.do",
+                url: "<%=request.getContextPath()%>/billing/CA/ON/managePaymentType",
                 type: "post",
                 async: false,
                 timeout: 30000,
@@ -127,7 +127,7 @@
                     }
                     if (parseInt(data.ret) == 0) {
                         alert("Successed deleting the payment type!");
-                        location.href = "<%=request.getContextPath()%>/billing/CA/ON/managePaymentType.do?method=listAllType";
+                        location.href = "<%=request.getContextPath()%>/billing/CA/ON/managePaymentType?method=listAllType";
                     } else {
                         alert("Failed to delete the payment type, reason:" + data.reason);
                     }

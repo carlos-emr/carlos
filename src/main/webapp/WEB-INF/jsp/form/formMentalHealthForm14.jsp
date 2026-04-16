@@ -34,7 +34,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -111,7 +111,7 @@
             //if(ret==true)
             //{
             temp = document.forms[0].action;
-            document.forms[0].action = "form/formname.do?__title=MentalHealthForm14 &__cfgfile=mentalHealthForm14Print&__template=mentalHealthForm14";
+            document.forms[0].action = "form/formname?__title=MentalHealthForm14 &__cfgfile=mentalHealthForm14Print&__template=mentalHealthForm14";
             document.forms[0].submit.value = "printall";
             document.forms[0].target = "_self";
             //}
@@ -291,7 +291,7 @@
     </script>
 
     <body style="page: doublepage; page-break-after: right">
-    <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post">
 
         <input type="hidden" name="demographic_no"
                value="<%= Encode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>"/>

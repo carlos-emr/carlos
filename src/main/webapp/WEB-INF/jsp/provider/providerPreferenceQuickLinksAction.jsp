@@ -50,5 +50,5 @@
         WebUtils.dumpParameters(request);
     }
 
-    response.sendRedirect(request.getContextPath() + "/provider/ViewProviderPreference.do");
+    response.sendRedirect(request.getContextPath() + "/provider/ViewProviderPreference");
 %>

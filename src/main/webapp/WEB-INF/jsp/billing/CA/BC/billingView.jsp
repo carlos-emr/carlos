@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -47,7 +47,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -119,7 +119,7 @@
             t0 = escape(document.serviceform.xml_diagnostic_detail1.value);
             t1 = escape(document.serviceform.xml_diagnostic_detail2.value);
             t2 = escape(document.serviceform.xml_diagnostic_detail3.value);
-            awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/BC/ViewBillingDigNewSearch.do?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=', 600, 600, 1);
+            awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/BC/ViewBillingDigNewSearch?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=', 600, 600, 1);
             awnd.focus();
 
 
@@ -206,7 +206,7 @@
         }
 
         function gotoPrintReceipt() {
-            document.location.href = "<%=request.getScheme()+"://"+request.getServerName()+":"+request.getServerPort()+request.getContextPath() %>/billing/CA/BC/billingView.do?billing_no=<%=bean.getBillingNo()%>&receipt=yes";
+            document.location.href = "<%=request.getScheme()+"://"+request.getServerName()+":"+request.getServerPort()+request.getContextPath() %>/billing/CA/BC/billingView?billing_no=<%=bean.getBillingNo()%>&receipt=yes";
         }
 
         //-->
@@ -428,7 +428,7 @@
                                 <td>&nbsp;</td>
                                 <td>&nbsp;</td>
                                 <td>&nbsp;</td>
-                                <td align="right"><form action="${pageContext.request.contextPath}/billing/CA/BC/SaveBilling.do" method="post">
+                                <td align="right"><form action="${pageContext.request.contextPath}/billing/CA/BC/SaveBilling" method="post">
                                     <input type="button" name="Submit3" value="Print Receipt"
                                            onclick="javascript:gotoPrintReceipt();"/>
                                     <input type="button" name="Submit" value="Print Bill"

@@ -32,7 +32,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <form method="post" name="form1"
-	action="DbManageBillingformService.do">
+	action="DbManageBillingformService">
 <table width="75%" border="0" cellpadding="3" bgcolor="#9999CC">
 	<tr>
 

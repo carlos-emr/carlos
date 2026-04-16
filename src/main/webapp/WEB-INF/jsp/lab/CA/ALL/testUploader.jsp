@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -274,7 +274,7 @@
     </div>
 
     <form method='POST' name="UPLOAD" id="uploadForm" enctype="multipart/form-data" onsubmit="return validateForm()"
-          action='${ctx}/lab/CA/ALL/insideLabUpload.do'>
+          action='${ctx}/lab/CA/ALL/insideLabUpload'>
 
         <fmt:message key="lab.ca.all.testUploader.pleaseSelectTheLabfile"/>: <i class="fa-solid fa-circle-question"></i>
         

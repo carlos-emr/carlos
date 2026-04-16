@@ -95,7 +95,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_msg");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -105,13 +105,13 @@
 
 
 <c:if test="${empty sessionScope.msgSessionBean}">
-    <% response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.do"); %>
+    <% response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages"); %>
 </c:if>
 <c:choose>
     <c:when test="${not empty sessionScope.msgSessionBean}">
         <c:set var="bean" value="${sessionScope.msgSessionBean}" scope="page"/>
         <c:if test="${bean.valid == false}">
-            <% response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.do"); %>
+            <% response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages"); %>
         </c:if>
     </c:when>
 </c:choose>
@@ -367,7 +367,7 @@
             <hr style="color: #A9A9A9;">
             <div style="height: 6px;"></div>
 
-            <form method="POST" action="<%= request.getContextPath() %>/messenger/AdjustAttachments.do"><input
+            <form method="POST" action="<%= request.getContextPath() %>/messenger/AdjustAttachments"><input
                     type=hidden name="xmlDoc"
                     value="<%= MsgCommxml.encode64(MsgCommxml.toXML(root)) %>"/> <input
                     type=hidden name="id" value="<%= request.getAttribute("attId")%>"/>

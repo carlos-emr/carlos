@@ -35,7 +35,7 @@
         return;
     }
 %>
-<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat" errorPage="/errorpage.jsp" %>
+<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -84,7 +84,7 @@
             }
 
             if (rowsAffected == 1) {
-                response.sendRedirect(request.getContextPath() + "/provider/providercontrol.do?displaymode=displaymygroup");
+                response.sendRedirect(request.getContextPath() + "/provider/providercontrol?displaymode=displaymygroup");
                 return;
             }
         %>

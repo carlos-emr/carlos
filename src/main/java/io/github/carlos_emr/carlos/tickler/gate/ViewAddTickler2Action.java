@@ -30,7 +30,7 @@ import org.apache.struts2.ServletActionContext;
  * <p>The {@code w} privilege here deliberately matches the mutating handler:
  * there's no value in letting a read-only user render a form they can't submit.
  * The form rendered by {@code ticklerAdd.jsp} still POSTs to
- * {@code /tickler/AddTickler.do} (the existing mutating handler) — that endpoint
+ * {@code /tickler/AddTickler} (the existing mutating handler) — that endpoint
  * remains in place and is unchanged. This gate exists solely to serve GET
  * requests that open the add-tickler popup/form. See PR #1670.
  *
@@ -46,7 +46,7 @@ public final class ViewAddTickler2Action extends ActionSupport {
      * @return {@code SUCCESS} when the caller holds {@code _tickler w};
      *         the package-level {@code global-exception-mappings} in
      *         {@code struts-scheduling.xml} routes the {@link SecurityException}
-     *         thrown on denial to {@code /securityError.jsp}.
+     *         thrown on denial to {@code /securityError}.
      * @throws SecurityException when the caller lacks {@code _tickler w}
      * @throws Exception if the underlying {@code ActionSupport.execute} contract
      *         declares one (not thrown by this implementation)

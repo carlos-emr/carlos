@@ -5,7 +5,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -85,7 +85,7 @@
 
         function reset() {
             document.forms[0].target = "";
-            document.forms[0].action = "/<%=project_home%>/form/formname.do";
+            document.forms[0].action = "/<%=project_home%>/form/formname";
         }
 
         function onPrint() {
@@ -408,7 +408,7 @@
         @oscar.formDB Field="c_lastVisited" Type="char(3)"
         --%>
 
-        <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
+        <form action="${pageContext.request.contextPath}/form/formname" method="post">
 
         <input type="hidden" name="c_lastVisited" value="pg1"/>
         <input type="hidden" name="demographic_no"
@@ -441,13 +441,13 @@
                 %>
 
                 <td align="right"><!--  b>View:</b>
-            <a href="javascript: popupPage('form/formbcnewbornpg2.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">Part2 <font size=-2>(pg.1)</font></a> |
-            <a href="javascript: popupPage('form/formbcnewbornpg3.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">Part2 <font size=-2>(pg.2)</font></a>
+            <a href="javascript: popupPage('form/formbcnewbornpg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">Part2 <font size=-2>(pg.1)</font></a> |
+            <a href="javascript: popupPage('form/formbcnewbornpg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">Part2 <font size=-2>(pg.2)</font></a>
             &nbsp;--></td>
                 <td align="right"><b>Edit:</b>Part1 | <a
-                        href="form/formbcnewbornpg2.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Part2
+                        href="form/formbcnewbornpg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Part2
                     <font size=-2>(pg.1)</font></a> | <a
-                        href="form/formbcnewbornpg3.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Part2
+                        href="form/formbcnewbornpg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Part2
                     <font size=-2>(pg.2)</font></a> |
                 </td>
                 <%
@@ -651,7 +651,7 @@
                         </tr>
                         <tr>
                             <td colspan="2"><span class="small9"> <a href=#
-                                                                     onClick="popupFixedPage(600, 300, 'formbcarpg1namepopup.do?fieldname=c_phyMid'); return false;">PHYSICIAN
+                                                                     onClick="popupFixedPage(600, 300, 'formbcarpg1namepopup?fieldname=c_phyMid'); return false;">PHYSICIAN
 					/ MIDWIFE NAME</a></span><br>
                                 <input type="text" name="c_phyMid" style="width: 100%" size="30"
                                        maxlength="60" value="<%= props.getProperty("c_phyMid", "") %>"
@@ -1766,13 +1766,13 @@
                 %>
 
                 <td align="right"><!--  b>View:</b>
-            <a href="javascript: popupPage('form/formbcnewbornpg2.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">Part2 <font size=-2>(pg.1)</font></a> |
-            <a href="javascript: popupPage('form/formbcnewbornpg3.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">Part2 <font size=-2>(pg.2)</font></a>
+            <a href="javascript: popupPage('form/formbcnewbornpg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">Part2 <font size=-2>(pg.1)</font></a> |
+            <a href="javascript: popupPage('form/formbcnewbornpg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">Part2 <font size=-2>(pg.2)</font></a>
             &nbsp;--></td>
                 <td align="right"><b>Edit:</b>Part1 | <a
-                        href="form/formbcnewbornpg2.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Part2
+                        href="form/formbcnewbornpg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Part2
                     <font size=-2>(pg.1)</font></a> | <a
-                        href="form/formbcnewbornpg3.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Part2
+                        href="form/formbcnewbornpg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Part2
                     <font size=-2>(pg.2)</font></a> |
                 </td>
                 <%

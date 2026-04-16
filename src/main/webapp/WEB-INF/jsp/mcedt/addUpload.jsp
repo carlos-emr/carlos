@@ -29,7 +29,7 @@
 
 --%>
 
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <!DOCTYPE html>
 
@@ -51,7 +51,7 @@
                 if (control) {
                     control.disabled = true;
                 }
-                window.location.href = "<%= request.getContextPath() %>/mcedt/uploads.do";
+                window.location.href = "<%= request.getContextPath() %>/mcedt/uploads";
                 return false;
             }
 
@@ -77,7 +77,7 @@
 
             <h2>Upload Details</h2>
 
-            <form action="${pageContext.request.contextPath}/mcedt/addUpload.do" method="post" id="form" enctype="multipart/form-data">
+            <form action="${pageContext.request.contextPath}/mcedt/addUpload" method="post" id="form" enctype="multipart/form-data">
 
             <jsp:include page="messages.jsp"/>
 

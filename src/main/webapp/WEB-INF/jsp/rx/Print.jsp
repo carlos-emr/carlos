@@ -40,7 +40,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -99,7 +99,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <td><form action="${pageContext.request.contextPath}/rx/searchPatient.do" method="post" focus="surname">
+                        <td><form action="${pageContext.request.contextPath}/rx/searchPatient" method="post" focus="surname">
                             <table>
                                 <tr>
                                     <td><fmt:message key="ChoosePatient.textBox"/></td>

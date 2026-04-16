@@ -30,11 +30,11 @@
 --%>
 <!DOCTYPE html>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ page
         import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*"
-        errorPage="/errorpage.jsp" %>
+        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -132,7 +132,7 @@
         <fmt:message key="schedule.scheduletemplatecodesetting.msgBookingLimit"/><br>
     </div>
     <div style="text-align: center; background-color: #CCFFCC;">
-        <form name="deletetemplatecode" method="post" action="${pageContext.request.contextPath}/schedule/TemplateCodeSetting.do">
+        <form name="deletetemplatecode" method="post" action="${pageContext.request.contextPath}/schedule/TemplateCodeSetting">
             <fmt:message key="schedule.scheduletemplatecodesetting.formTemplateCode"/>:
             <select name="code">
                 <%
@@ -153,7 +153,7 @@
     </div>
 
     <div class="card card-body bg-body-tertiary">
-        <form name="addtemplatecode" method="post" action="${pageContext.request.contextPath}/schedule/TemplateCodeSetting.do" class="">
+        <form name="addtemplatecode" method="post" action="${pageContext.request.contextPath}/schedule/TemplateCodeSetting" class="">
             <%
                 boolean bEdit = request.getParameter("dboperation") != null && request.getParameter("dboperation").equals(" Edit ");
                 if (bEdit) {

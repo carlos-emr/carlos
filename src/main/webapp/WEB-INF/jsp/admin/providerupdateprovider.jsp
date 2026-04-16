@@ -42,14 +42,14 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
 </security:oscarSec>
 <%
     if (!authed) {
         return;
     }
 %>
-<%@ page import="java.util.*, io.github.carlos_emr.SxmlMisc, io.github.carlos_emr.carlos.providers.data.ProviderBillCenter" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, io.github.carlos_emr.SxmlMisc, io.github.carlos_emr.carlos.providers.data.ProviderBillCenter" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction,io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ClinicNbr" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -194,7 +194,7 @@
             </tr>
         </table>
 
-        <form method="post" action="${pageContext.request.contextPath}/admin/ProviderUpdate.do" name="updatearecord" onsubmit="return onsub()">
+        <form method="post" action="${pageContext.request.contextPath}/admin/ProviderUpdate" name="updatearecord" onsubmit="return onsub()">
 
             <table cellspacing="0" cellpadding="2" width="100%" border="0"
                    datasrc='#xml_list'>

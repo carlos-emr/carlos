@@ -48,7 +48,7 @@
 %>
 <%@ page
         import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.db.*"
-        errorPage="/errorpage.jsp" %>
+        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.ON.dao.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONExtDao" %>
@@ -110,7 +110,7 @@
             if (confirm("${e:forJavaScript(msgOnUnbilledText)}")) {
                 var form = document.createElement('form');
                 form.method = 'post';
-                form.action = '<%= request.getContextPath() %>/billing/CA/ON/BillingDeleteNoAppt.do';
+                form.action = '<%= request.getContextPath() %>/billing/CA/ON/BillingDeleteNoAppt';
                 form.target = 'unbill_popup';
                 var fields = {billing_no: billingNo, billCode: billCode, dboperation: 'delete_bill', hotclick: '0'};
                 for (var key in fields) {
@@ -226,18 +226,18 @@
             <tr>
                 <td class="text-center">
                     <a href="javascript:void(0)"
-                       onclick="popupPage(600,800, '/billing/CA/ON/ViewBillingONDisplay.do?billing_no=<%=Encode.forUriComponent(obj.getId())%>')"
+                       onclick="popupPage(600,800, '/billing/CA/ON/ViewBillingONDisplay?billing_no=<%=Encode.forUriComponent(obj.getId())%>')"
                        title="${msgBillingDisplay}"><%=Encode.forHtml(obj.getId())%>
                     </a>
 
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="w">
                         <a href="javascript:void(0)"
-                           onclick="popupPage(600,800, '/billing/CA/ON/BillingONCorrection.do?billing_no=<%=Encode.forUriComponent(obj.getId())%>')"
+                           onclick="popupPage(600,800, '/billing/CA/ON/BillingONCorrection?billing_no=<%=Encode.forUriComponent(obj.getId())%>')"
                            title="${msgBillingCorrection}">${msgEdit}</a>
                     </security:oscarSec>
 
                     <a href="javascript:void(0)"
-                       onclick="popupPage(600,800, '/billing/CA/ON/ViewBillingON3rdInv.do?billingNo=<%=Encode.forUriComponent(obj.getId())%>')">${msgPrint}</a>
+                       onclick="popupPage(600,800, '/billing/CA/ON/ViewBillingON3rdInv?billingNo=<%=Encode.forUriComponent(obj.getId())%>')">${msgPrint}</a>
                 </td>
                 <td class="text-center"><%=Encode.forHtml(obj.getLast_name() + ", " + obj.getFirst_name())%></td>
                 <td class="text-center"><%=Encode.forHtml(obj.getBilling_date())%></td>

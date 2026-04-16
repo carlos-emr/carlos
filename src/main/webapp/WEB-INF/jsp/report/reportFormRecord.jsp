@@ -5,14 +5,14 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
         return;
     }
 %>
-<%@ page errorPage="/errorpage.jsp"
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
          import="java.util.*, io.github.carlos_emr.carlos.report.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.login.*" %>
 
@@ -57,7 +57,7 @@
 
 // search the list
     int n = bDeletedList ? 0 : 1;
-    String link = bDeletedList ? "<a href='" + request.getContextPath() + "/report/ViewReportFormRecord.do'>Report list</a>" : "<a href='" + request.getContextPath() + "/report/ViewReportFormRecord.do?undelete=true'>Deleted report list</a>";
+    String link = bDeletedList ? "<a href='" + request.getContextPath() + "/report/ViewReportFormRecord'>Report list</a>" : "<a href='" + request.getContextPath() + "/report/ViewReportFormRecord?undelete=true'>Deleted report list</a>";
     Vector vec = reportItem.getNameList(n);
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -95,7 +95,7 @@
             }
 
             function goPage(id) {
-                self.location.href = "<%= request.getContextPath() %>/report/ViewReportFilter.do?id=" + id;
+                self.location.href = "<%= request.getContextPath() %>/report/ViewReportFilter?id=" + id;
             }
 
             //-->
@@ -131,7 +131,7 @@
             String itemId = prop.getProperty("id");
         %>
         <form method="post" name="baseurl<%=i+1%>"
-              action="<%= request.getContextPath() %>/report/ViewReportFormRecord.do">
+              action="<%= request.getContextPath() %>/report/ViewReportFormRecord">
             <tr bgcolor="<%=color%>">
                 <td align="right"><b><%=i + 1%>
                 </b></td>
@@ -159,7 +159,7 @@
         </tr>
         <tr>
             <td align="center">
-                <form method="post" name="baseurl" action="<%= request.getContextPath() %>/report/ViewReportFormRecord.do">
+                <form method="post" name="baseurl" action="<%= request.getContextPath() %>/report/ViewReportFormRecord">
                     <input type="text" name="name" value="" size="60"/> <input
                         type="submit" name="submit" value="Add"
                         onclick="javascript:return onAdd();"/></form>

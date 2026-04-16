@@ -77,7 +77,7 @@
                 <%if (request.getAttribute("status") == null) {%>
                 <%=bundle.getString(providermsgEdit)%>
 
-                <form id="providerForm" action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
+                <form id="providerForm" action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
                     <input type="hidden" name="method" value="<c:out value="${method}"/>">
                     <p id="errorMessage" class="alert alert-danger" style="display: none; color: red;">
                         Invalid input.

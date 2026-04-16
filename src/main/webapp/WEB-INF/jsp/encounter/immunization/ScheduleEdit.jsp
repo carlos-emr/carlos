@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -277,7 +277,7 @@
     <tr>
         <td class="MainTableLeftColumn"></td>
         <td class="MainTableRightColumn">
-            <form name="<%=request.getContextPath() %>/encounter/scheduleEdit.do">
+            <form name="<%=request.getContextPath() %>/encounter/scheduleEdit">
                 <table>
                     <tr>
                         <td style="font-weight: bold">&nbsp;<%=Encode.forHtml(immName)%>

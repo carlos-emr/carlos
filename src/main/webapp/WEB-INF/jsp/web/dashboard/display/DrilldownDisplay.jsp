@@ -34,7 +34,7 @@
 
 <security:oscarSec roleName='${ sessionScope[userrole] }, ${ sessionScope[user] }' rights="w"
                    objectName="_dashboardDrilldown">
-    <c:redirect url="securityError.jsp?type=_dashboardDrilldown"/>
+    <c:redirect url="/securityError?type=_dashboardDrilldown"/>
 </security:oscarSec>
 
 <!DOCTYPE html >
@@ -82,7 +82,7 @@
                 Print
             </button>
 
-            <form action="${ pageContext.request.contextPath }/web/dashboard/display/ExportResults.do" method="POST"
+            <form action="${ pageContext.request.contextPath }/web/dashboard/display/ExportResults" method="POST"
                   class="inlineForm">
                 <input type="hidden" name="indicatorId" value="${ drilldown.id }">
                 <button class="btn btn-secondary exportResults" type="submit" id="exportResults_${ drilldown.id }">
@@ -191,7 +191,7 @@
                             </li>
                             <li><hr class="dropdown-divider"></li>
                             <li>
-                                <a href="${ pageContext.request.contextPath }/web/dashboard/display/AssignTickler.do" class="dropdown-item"
+                                <a href="${ pageContext.request.contextPath }/web/dashboard/display/AssignTickler" class="dropdown-item"
                                    title="Assign Tickler to Checked Rows." id="assignTicklerChecked">
                                     Assign Tickler
                                 </a>
@@ -199,7 +199,7 @@
 
                             <c:if test="${fn:contains(drilldown.actionIds, 'dxUpdate')}">
                                 <li>
-                                    <a href="${ pageContext.request.contextPath }/web/dashboard/display/BulkPatientAction.do?method=getICD9Description&dxUpdateICD9Code=${ drilldown.dxUpdateICD9Code }"
+                                    <a href="${ pageContext.request.contextPath }/web/dashboard/display/BulkPatientAction?method=getICD9Description&dxUpdateICD9Code=${ drilldown.dxUpdateICD9Code }"
                                        class="dropdown-item"
                                        title="Add Checked Patients to Disease Registry."
                                        id="addToDiseaseRegistryChecked">
@@ -274,7 +274,7 @@
                                         <c:when test="${ fn:containsIgnoreCase( primaryDataType,'demographic_no' ) }">
 
                                             <a class="donotprint"
-                                               href="${ pageContext.request.contextPath }/demographic/DemographicEdit.do?demographic_no=${ column }"
+                                               href="${ pageContext.request.contextPath }/demographic/DemographicEdit?demographic_no=${ column }"
                                                target="_blank" title="Open Patient File">
                                                 <span class="fa-solid fa-folder-open"
                                                       style="margin-right:10px;"></span>
@@ -410,7 +410,7 @@
                     <p>Description: <span id="icd9description"></span></p>
                 </div>
                 <div class="modal-footer">
-                    <form method="post" action="${ pageContext.request.contextPath }/web/dashboard/display/BulkPatientAction.do" style="display:inline">
+                    <form method="post" action="${ pageContext.request.contextPath }/web/dashboard/display/BulkPatientAction" style="display:inline">
                         <input type="hidden" name="method" value="addToDiseaseRegistry"/>
                         <input type="hidden" name="dxUpdateICD9Code" value="${ fn:escapeXml(drilldown.dxUpdateICD9Code) }"/>
                         <button type="submit" id="confirmAddToDiseaseRegistry" class="btn btn-primary">Confirm</button>
@@ -441,7 +441,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <form method="post" action="${ pageContext.request.contextPath }/web/dashboard/display/BulkPatientAction.do" style="display:inline">
+                    <form method="post" action="${ pageContext.request.contextPath }/web/dashboard/display/BulkPatientAction" style="display:inline">
                         <input type="hidden" name="method" value="excludePatients"/>
                         <input type="hidden" name="indicatorId" value="${ fn:escapeXml(drilldown.id) }"/>
                         <button type="submit" id="confirmPatientExclusion" class="btn btn-primary">Confirm</button>
@@ -468,7 +468,7 @@
                     <p>Are you sure you want to update the status of the selected patients to inactive?</p>
                 </div>
                 <div class="modal-footer">
-                    <form method="post" action="${ pageContext.request.contextPath }/web/dashboard/display/BulkPatientAction.do" style="display:inline">
+                    <form method="post" action="${ pageContext.request.contextPath }/web/dashboard/display/BulkPatientAction" style="display:inline">
                         <input type="hidden" name="method" value="setPatientsInactive"/>
                         <button type="submit" id="confirmPatientStatusUpdate" class="btn btn-primary">Confirm</button>
                     </form>

@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -53,7 +53,7 @@
 <body>
 <%@ page
         import="java.io.*, java.sql.*, java.util.*,java.net.*, io.github.carlos_emr.*, java.math.*"
-        errorPage="/errorpage.jsp" %>
+        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.*" %>
 
 
@@ -333,7 +333,7 @@
 %>
 
 <%
-        response.sendRedirect(request.getContextPath() + "/billing/CA/BC/ViewBillingCorrectionReview.do");
+        response.sendRedirect(request.getContextPath() + "/billing/CA/BC/ViewBillingCorrectionReview");
     } catch (java.lang.ArrayIndexOutOfBoundsException _e0) {
     }%>
 

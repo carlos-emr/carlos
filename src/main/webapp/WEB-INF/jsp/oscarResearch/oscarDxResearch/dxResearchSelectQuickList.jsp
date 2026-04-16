@@ -33,7 +33,7 @@
 
     Purpose:
     Popup that displays a dropdown of all available quick lists. On submit,
-    posts to dxResearchLoadQuickListItems.do which loads the selected list's
+    posts to dxResearchLoadQuickListItems which loads the selected list's
     items and opens dxResearchEditQuickList.jsp.
 
     Opened from dxResearchCustomization.jsp "Edit Quick List" button.
@@ -75,7 +75,7 @@
             </h4>
         </div>
 
-        <form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchLoadQuickListItems.do" method="post">
+        <form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchLoadQuickListItems" method="post">
             <input type="hidden" name="forward" value="error"/>
 
             <div class="mt-3">

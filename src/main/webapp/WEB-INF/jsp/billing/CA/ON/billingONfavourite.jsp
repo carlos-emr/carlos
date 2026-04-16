@@ -25,12 +25,12 @@
 <!DOCTYPE html>
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect("${pageContext.request.contextPath}/logout.jsp");
+        response.sendRedirect("${pageContext.request.contextPath}/logoutPage");
     }
     String user_no = (String) session.getAttribute("user");
 
 %>
-<%@ page errorPage="/errorpage.jsp"
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
          import="java.util.*,java.sql.*,io.github.carlos_emr.*,java.text.*,java.net.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
@@ -356,7 +356,7 @@
         </tr>
     </table>
 
-    <form method="post" name="baseur0" action="/billing/CA/ON/ViewBillingONFavourite.do">
+    <form method="post" name="baseur0" action="/billing/CA/ON/ViewBillingONFavourite">
         <table style="width:100%;">
             <tr>
                 <td style="width:50%; text-align: center;"><select name="name" id="name">
@@ -383,7 +383,7 @@
 
         </table>
     </form>
-    <form method="post" name="baseurl" action="/billing/CA/ON/ViewBillingONFavourite.do">
+    <form method="post" name="baseurl" action="/billing/CA/ON/ViewBillingONFavourite">
         <table style="width:100%;" class="table table-striped table-sm">
 
             <tr class="myGreen">

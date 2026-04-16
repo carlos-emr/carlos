@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_edoc");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_edoc");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -125,8 +125,8 @@
     else
         numOfPageStr = (new Integer(numOfPage)).toString();
 
-    String url = request.getContextPath() + "/documentManager/ManageDocument.do?method=viewDocPage&doc_no=" + docId + "&curPage=1";
-    String url2 = request.getContextPath() + "/documentManager/ManageDocument.do?method=display&doc_no=" + docId;
+    String url = request.getContextPath() + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + docId + "&curPage=1";
+    String url2 = request.getContextPath() + "/documentManager/ManageDocument?method=display&doc_no=" + docId;
 %>
 
 <html>
@@ -190,7 +190,7 @@
             if (confirm("<fmt:message key="dms.documentReport.msgDelete"/> " + docDescription)) {
                 var form = document.createElement('form');
                 form.method = 'post';
-                form.action = '<%= request.getContextPath() %>/documentManager/ViewMultiPageDocDisplay.do';
+                form.action = '<%= request.getContextPath() %>/documentManager/ViewMultiPageDocDisplay';
                 var input = document.createElement('input');
                 input.type = 'hidden';
                 input.name = 'delDocumentNo';
@@ -332,7 +332,7 @@
                                         // jQuery.noConflict() removed — no longer needed without Prototype.js
 
                                         function addDocComment(docId, status) {
-                                            var url = "<%=request.getContextPath()%>/oscarMDS/UpdateStatus.do";
+                                            var url = "<%=request.getContextPath()%>/oscarMDS/UpdateStatus";
                                             var formid = "#acknowledgeForm_" + docId;
 
                                             document.getElementById("ackStatus").value = status;
@@ -491,7 +491,7 @@
                                                 if (demoId == '-1' || saved == 'false' || saved == false) {
                                                     alert('Document is not assigned to a patient,please file it');
                                                 } else {
-                                                    var url = '<%=request.getContextPath()%>' + "/oscarMDS/UpdateStatus.do";
+                                                    var url = '<%=request.getContextPath()%>' + "/oscarMDS/UpdateStatus";
                                                     var formEl = document.getElementById(formid);
                                                     var data = new URLSearchParams(new FormData(formEl)).toString();
                                                     var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
@@ -527,7 +527,7 @@
                                                     if (isFile) {
                                                         var type = 'DOC';
                                                         if (type) {
-                                                            var url = '<%=request.getContextPath()%>/oscarMDS/FileLabs.do';
+                                                            var url = '<%=request.getContextPath()%>/oscarMDS/FileLabs';
                                                             var data = 'method=fileLabAjax&flaggedLabId=' + docId + '&labType=' + type;
                                                             var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                                                             var csrfToken = csrfEl ? csrfEl.value : '';
@@ -560,7 +560,7 @@
                                             } else {
                                                 if (confirm('Send to Most Responsible Provider?')) {
                                                     var type = 'DOC';
-                                                    var url = "<%=request.getContextPath()%>/oscarMDS/SendMRP.do";
+                                                    var url = "<%=request.getContextPath()%>/oscarMDS/SendMRP";
                                                     var data = 'demoId=' + demoId + '&docLabType=' + type + '&docLabId=' + doclabid;
                                                     var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                                                     var csrfToken = csrfEl ? csrfEl.value : '';
@@ -615,7 +615,7 @@
                                                 return false;
                                             }
                                             //save doc info
-                                            var url = "<%=request.getContextPath()%>/documentManager/ManageDocument.do";
+                                            var url = "<%=request.getContextPath()%>/documentManager/ManageDocument";
                                             var formEl = document.getElementById(eleId);
                                             var data = new URLSearchParams(new FormData(formEl)).toString();
                                             var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
@@ -844,12 +844,12 @@
                                                        value=" <fmt:message key="global.btnPrint"/> "
                                                        onClick="popup(700,960,'<%=url2%>','file download')">
                                                 <% if (demographicID != null && !demographicID.equals("") && !demographicID.equalsIgnoreCase("null") && !demographicID.equals("-1")) {
-                                                    String eURL = request.getContextPath() + "/encounter/IncomingEncounter.do?providerNo=" + Encode.forUriComponent(providerNo) + "&appointmentNo=&demographicNo=" + Encode.forUriComponent(demographicID) + "&curProviderNo=&reason=" + java.net.URLEncoder.encode("Document Notes", "UTF-8") + "&encType=" + java.net.URLEncoder.encode("encounter without client", "UTF-8") + "&userName=" + java.net.URLEncoder.encode(provider.getFullName(), StandardCharsets.UTF_8) + "&curDate=" + UtilDateUtilities.getToday("yyyy-MM-dd") + "&appointmentDate=&startTime=&status=";
+                                                    String eURL = request.getContextPath() + "/encounter/IncomingEncounter?providerNo=" + Encode.forUriComponent(providerNo) + "&appointmentNo=&demographicNo=" + Encode.forUriComponent(demographicID) + "&curProviderNo=&reason=" + java.net.URLEncoder.encode("Document Notes", "UTF-8") + "&encType=" + java.net.URLEncoder.encode("encounter without client", "UTF-8") + "&userName=" + java.net.URLEncoder.encode(provider.getFullName(), StandardCharsets.UTF_8) + "&curDate=" + UtilDateUtilities.getToday("yyyy-MM-dd") + "&appointmentDate=&startTime=&status=";
                                                 %>
                                                 <input type="button" tabindex="<%=tabindex++%>" value="Msg"
-                                                       onclick="popup(700,960,'<%=request.getContextPath()%>/messenger/SendDemoMessage.do?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographicID))%>','msg')"/>
+                                                       onclick="popup(700,960,'<%=request.getContextPath()%>/messenger/SendDemoMessage?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographicID))%>','msg')"/>
                                                 <input type="button" tabindex="<%=tabindex++%>" value="Tickler"
-                                                       onclick="popup(450,600,'<%=request.getContextPath()%>/tickler/ForwardDemographicTickler.do?docType=DOC&docId=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(docId))%>&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographicID))%>&providerNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(providerNo))%>','tickler')"/>
+                                                       onclick="popup(450,600,'<%=request.getContextPath()%>/tickler/ForwardDemographicTickler?docType=DOC&docId=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(docId))%>&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographicID))%>&providerNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(providerNo))%>','tickler')"/>
                                                 <input type="button" tabindex="<%=tabindex++%>" value="eChart"
                                                        onclick="popup(710,1024,'<%=Encode.forJavaScriptAttribute(eURL)%>','encounter')"/>
                                                 <%

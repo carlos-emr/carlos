@@ -34,7 +34,7 @@
     Purpose:
     Provides navigation to the three quick list management functions:
     - Add New Quick List (dxResearchNewQuickList.jsp)
-    - Edit Quick List (dxResearchLoadQuickList.do → dxResearchSelectQuickList.jsp)
+    - Edit Quick List (dxResearchLoadQuickList → dxResearchSelectQuickList.jsp)
     - Edit Associations (dxResearchSelectAssociations.jsp)
 
     Opened as a popup from the "add/edit" link in dxQuickList.jsp.
@@ -84,13 +84,13 @@
 
         <div class="d-flex flex-wrap gap-2 mt-3">
             <input type="button" class="btn btn-primary"
-                   onclick="popupPage(230,600,'oscarResearch/oscarDxResearch/ViewDxResearchNewQuickList.do')"
+                   onclick="popupPage(230,600,'oscarResearch/oscarDxResearch/ViewDxResearchNewQuickList')"
                    value="<fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.addNewQuickList"/>"/>
             <input type="button" class="btn btn-primary"
-                   onclick="popupPage(230,600,'oscarResearch/oscarDxResearch/dxResearchLoadQuickList.do')"
+                   onclick="popupPage(230,600,'oscarResearch/oscarDxResearch/dxResearchLoadQuickList')"
                    value="<fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.editQuickList"/>"/>
             <input type="button" class="btn btn-primary"
-                   onclick="popupPage(230,600,'oscarResearch/oscarDxResearch/dxResearchLoadAssociations.do')"
+                   onclick="popupPage(230,600,'oscarResearch/oscarDxResearch/dxResearchLoadAssociations')"
                    value="<fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.editAssociations"/>"/>
         </div>
 

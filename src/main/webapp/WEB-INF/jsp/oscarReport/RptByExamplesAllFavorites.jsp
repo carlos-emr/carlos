@@ -39,7 +39,7 @@
     - Bootstrap 5 / HTML5 compliant layout
     - OWASP encoding for all server-supplied values
     - i18n via oscarResources bundle
-    - Edit and Delete actions submitted to RptByExamplesFavorite.do
+    - Edit and Delete actions submitted to RptByExamplesFavorite
     - Close button reloads the opener window and closes this popup
 
     Parameters (set by backing Action):
@@ -63,7 +63,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -162,7 +162,7 @@
 
     <!-- Favourites management form -->
     <form id="favoritesForm"
-          action="${pageContext.request.contextPath}/oscarReport/RptByExamplesFavorite.do"
+          action="${pageContext.request.contextPath}/oscarReport/RptByExamplesFavorite"
           method="post">
 
         <input type="hidden" name="newName"/>

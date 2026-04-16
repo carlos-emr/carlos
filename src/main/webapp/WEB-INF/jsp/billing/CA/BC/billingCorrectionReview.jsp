@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -284,7 +284,7 @@
         } catch (java.lang.ArrayIndexOutOfBoundsException _e0) {
         }%>
 </table>
-<form action="<%= request.getContextPath() %>/billing/CA/BC/BillingCorrectionSubmit.do" method="post"><input type="submit"
+<form action="<%= request.getContextPath() %>/billing/CA/BC/BillingCorrectionSubmit" method="post"><input type="submit"
                                                   name="submit" value="Submit"><input type="button" name="cancel"
                                                                                       value="Cancel"
                                                                                       onclick="history.go(-1);return false;">

@@ -33,7 +33,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_admin.userAdmin,_admin.schedule" rights="r" reverse="<%=true%>">
-    <%response.sendRedirect(request.getContextPath() + "/logout.jsp");%>
+    <%response.sendRedirect(request.getContextPath() + "/logoutPage");%>
 </security:oscarSec>
 
 <html>
@@ -68,7 +68,7 @@
 </table>
 
 
-<form action="${pageContext.request.contextPath}/appointment/apptStatusSetting.do" method="post">
+<form action="${pageContext.request.contextPath}/appointment/apptStatusSetting" method="post">
     <input type="hidden" name="dispatch" value="update"/>
     <input type="hidden" name="ID" value="${fn:escapeXml(ID)}"/>
     <table>

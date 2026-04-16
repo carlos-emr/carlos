@@ -244,19 +244,16 @@ public final class FormViewRoutes {
         String query = queryIndex >= 0 ? trimmed.substring(queryIndex) : "";
 
         if ("/form/forwardshortcutname.jsp".equals(pathOnly)) {
-            return "/form/forwardshortcutname.do" + query;
+            return "/form/forwardshortcutname" + query;
         }
         if ("/form/forwardname.jsp".equals(pathOnly)) {
-            return "/form/forwardname.do" + query;
+            return "/form/forwardname" + query;
         }
         if ("/form/eCARES/formeCARES.jsp".equals(pathOnly)) {
-            return "/formeCARES.do" + query;
+            return "/formeCARES" + query;
         }
         if ("/form/pharmaForms/formBPMH.jsp".equals(pathOnly)) {
-            return "/formBPMH.do" + query;
-        }
-        if (pathOnly.endsWith(".do")) {
-            return pathOnly + query;
+            return "/formBPMH" + query;
         }
         if (!pathOnly.startsWith(PUBLIC_FORM_PREFIX)) {
             return null;
@@ -272,7 +269,7 @@ public final class FormViewRoutes {
                 || !ALLOWED_WILDCARD_FORM_VIEWS.contains(viewName)) {
             return null;
         }
-        return PUBLIC_FORM_PREFIX + viewName + ".do" + query;
+        return PUBLIC_FORM_PREFIX + viewName + query;
     }
 
     /**

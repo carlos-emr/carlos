@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -105,7 +105,7 @@
 
         <script type="text/javascript">
             function ShowDrugInfoBN(drug) {
-                window.open("<%= request.getContextPath() %>/rx/drugInfo.do?BN=" + encodeURIComponent(drug), "_blank",
+                window.open("<%= request.getContextPath() %>/rx/drugInfo?BN=" + encodeURIComponent(drug), "_blank",
                     "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
             }
 
@@ -115,7 +115,7 @@
             }
 
             function ShowDrugInfoGN(drug) {
-                window.open("<%= request.getContextPath() %>/rx/drugInfo.do?GN=" + encodeURIComponent(drug), "_blank",
+                window.open("<%= request.getContextPath() %>/rx/drugInfo?GN=" + encodeURIComponent(drug), "_blank",
                     "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
             }
         </script>
@@ -190,7 +190,7 @@
                     <tr>
                         <td width="0%" valign="top">
                             <div class="DivCCBreadCrumbs">
-                                <a href="<%= request.getContextPath() %>/rx/searchDrug.do">
+                                <a href="<%= request.getContextPath() %>/rx/searchDrug">
                                     <fmt:message key="SearchDrug.title"/></a>
                                 <b><fmt:message key="ChooseDrug.title"/></b>
                             </div>
@@ -209,7 +209,7 @@
                     </tr>
                     <tr>
                         <td>
-                            <form name="RxSearchDrugForm" action="${pageContext.request.contextPath}/rx/searchDrug.do" method="post" focus="searchString" onsubmit="processData();">
+                            <form name="RxSearchDrugForm" action="${pageContext.request.contextPath}/rx/searchDrug" method="post" focus="searchString" onsubmit="processData();">
                                 <%if (request.getParameter("rx2") != null && request.getParameter("rx2").equals("true")) { %>
                                 <input type="hidden" name="rx2" value="true"/>
                                 <%}%>
@@ -288,7 +288,7 @@
                                                 %>
                                                 <tr>
                                                     <td bgcolor="<%=bgColor%>">
-                                                        <a href="<%= request.getContextPath() %>/rx/searchDrug.do?genericSearch=<%= Encode.forUriComponent(t.pKey) %>&demographicNo=<%= Encode.forUriComponent(demoNo) %>"
+                                                        <a href="<%= request.getContextPath() %>/rx/searchDrug?genericSearch=<%= Encode.forUriComponent(t.pKey) %>&demographicNo=<%= Encode.forUriComponent(demoNo) %>"
                                                            title="<%=t.name%>">
                                                             <%= getMaxVal(t.name)%>
                                                         </a>
@@ -317,7 +317,7 @@
                                                         <a href="javascript: void(0);"
                                                            onclick="setDrugRx2('<%=Encode.forJavaScript(t.pKey)%>','<%=Encode.forJavaScript(brandName)%>')">
                                                                     <%}else{%>
-                                                            <a href="<%= request.getContextPath() %>/rx/chooseDrug.do?BN=<%=Encode.forUriComponent(brandName)%>&drugId=<%= Encode.forUriComponent(t.pKey) %>&demographicNo=<%= Encode.forUriComponent(demoNo) %>"
+                                                            <a href="<%= request.getContextPath() %>/rx/chooseDrug?BN=<%=Encode.forUriComponent(brandName)%>&drugId=<%= Encode.forUriComponent(t.pKey) %>&demographicNo=<%= Encode.forUriComponent(demoNo) %>"
                                                                title="<%=brandName %>">
                                                                 <%}%>
                                                                 <%=brandName%>
@@ -347,7 +347,7 @@
                             <script language="javascript">
                                 function customWarning() {
                                     if (confirm("<fmt:message key="ChooseDrug.msgCustomWarning"/>") == true) {
-                                        window.location.href = '<%= request.getContextPath() %>/rx/chooseDrug.do?demographicNo=<%= Encode.forUriComponent(demoNo) %>';
+                                        window.location.href = '<%= request.getContextPath() %>/rx/chooseDrug?demographicNo=<%= Encode.forUriComponent(demoNo) %>';
                                     }
                                 }
                             </script>
@@ -373,7 +373,7 @@
                                     %>
                                     <tr>
                                         <td bgcolor="<%=bgColor%>">
-                                            <a href="<%= request.getContextPath() %>/rx/searchDrug.do?genericSearch=<%= Encode.forUriComponent(t.pKey) %>&demographicNo=<%= Encode.forUriComponent(demoNo) %>">
+                                            <a href="<%= request.getContextPath() %>/rx/searchDrug?genericSearch=<%= Encode.forUriComponent(t.pKey) %>&demographicNo=<%= Encode.forUriComponent(demoNo) %>">
                                                 <%= t.name%>
                                             </a>
                                             <span>&nbsp;&nbsp;(<a

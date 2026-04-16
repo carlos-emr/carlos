@@ -28,7 +28,7 @@
 </style>
 <script>
 	function search_provider(name) {
-		var url = '<html:rewrite action="/PMmodule/ProviderSearch.do"/>';
+		var url = '<html:rewrite action="/PMmodule/ProviderSearch"/>';
 			url += '?q=' + name;
 			url += '&formName=programManagerForm';
 			url += '&formElementId=provider.providerNo';
@@ -98,7 +98,7 @@
 </table>
 </div>
 <!--  show current staff -->
-<display:table class="simple" cellspacing="2" cellpadding="3" id="provider" name="providers" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager.do">
+<display:table class="simple" cellspacing="2" cellpadding="3" id="provider" name="providers" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
 	<display:setProperty name="paging.banner.placement" value="bottom" />
 	<display:setProperty name="basic.msg.empty_list" value="No staff currently assigned to this program." />
 	<display:column sortable="false" title="">

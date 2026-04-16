@@ -48,7 +48,7 @@
 
     <div class="card card-body bg-body-tertiary">
 
-        <form action="${pageContext.request.contextPath}/form/select.do" method="post" id="selectForm" name="selectForm">
+        <form action="${pageContext.request.contextPath}/form/select" method="post" id="selectForm" name="selectForm">
             <input type="hidden" id="savedAddSelection" name="savedAddSelection" value="${param.savedAddSelection}" />
             <input type="hidden" id="savedDeleteSelection" name="savedDeleteSelection" value="${param.savedDeleteSelection}" />
             

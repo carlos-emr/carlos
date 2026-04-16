@@ -35,7 +35,7 @@
 
 <security:oscarSec roleName='${ sessionScope[userrole] }, ${ sessionScope[user] }' rights="w"
                    objectName="_dashboardDisplay">
-    <c:redirect url="securityError.jsp?type=_dashboardDisplay"/>
+    <c:redirect url="/securityError?type=_dashboardDisplay"/>
 </security:oscarSec>
 
 <!DOCTYPE html >
@@ -84,7 +84,7 @@
                 </c:if>
                 <c:if test="${fn:length(providers) gt 0}">
                     <div class="dropdown">
-                        <form action="<%=request.getContextPath()%>/web/dashboard/display/DashboardDisplay.do?method=getDashboard&dashboardId=${ dashboard.id }"
+                        <form action="<%=request.getContextPath()%>/web/dashboard/display/DashboardDisplay?method=getDashboard&dashboardId=${ dashboard.id }"
                               method="post">
                             <select id="providerNo" name="providerNo">
                                 <option value="${ preferredProvider.providerNo }"><c:out

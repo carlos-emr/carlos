@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.consult" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.consult");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.consult");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -101,7 +101,7 @@
                     </fmt:message>
                 </p>
 
-                <form action="${pageContext.request.contextPath}/encounter/UpdateServiceSpecialists.do" method="post">
+                <form action="${pageContext.request.contextPath}/encounter/UpdateServiceSpecialists" method="post">
                     <input type="hidden" name="serviceId" value="<%=serviceId %>">
                     <input type="submit" class="btn btn-primary mb-3"
                            value="<fmt:message key="encounter.oscarConsultationRequest.config.DisplayService.btnUpdateServices"/>">

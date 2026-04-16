@@ -30,9 +30,9 @@
 			<p><b>no client in this program.</b></p>
 		<%if(session.getAttribute("archiveView")==null || session.getAttribute("archiveView")=="false") { %>
 			<b>You are in Case Management View! </b>
-			&nbsp; <a href="<%=request.getContextPath() %>/ArchiveView.do">Click here for Archive View</a>
+			&nbsp; <a href="<%=request.getContextPath() %>/ArchiveView">Click here for Archive View</a>
 		<%} else {%>
-			<b>You are in the archive view ! </b>&nbsp; <a href="<%=request.getContextPath() %>/ArchiveView.do?method=cmm">Back to Case Management View</a>
+			<b>You are in the archive view ! </b>&nbsp; <a href="<%=request.getContextPath() %>/ArchiveView?method=cmm">Back to Case Management View</a>
 		<%} %>
 	 <%}else{
 		int k=0;
@@ -43,9 +43,9 @@
 		<tr>
 			<td>
 			<%if(session.getAttribute("archiveView")==null || session.getAttribute("archiveView")=="false") { %>
-			<b>You are in Case Management View! </b> &nbsp; <a href="<%=request.getContextPath() %>/ArchiveView.do">Click here for Archive View</a>
+			<b>You are in Case Management View! </b> &nbsp; <a href="<%=request.getContextPath() %>/ArchiveView">Click here for Archive View</a>
 			<%} else {%> <b>You are in Archive View ! </b>&nbsp; <a
-				href="<%=request.getContextPath() %>/ArchiveView.do?method=cmm">Back
+				href="<%=request.getContextPath() %>/ArchiveView?method=cmm">Back
 			to Case Management View</a> <%} %>
 			</td>
 		</tr>
@@ -83,7 +83,7 @@
 					<c:if test="${demographic_no == 0}">
 						<c:choose>
 							<c:when test="${not empty tickler_no}">
-									<a href="#" onClick="popupPage(700, 1000, '<%= request.getContextPath() %>/tickler/ViewTicklerDemoMain.do?demoview=0'); return false;" title="${tickler_note}">
+									<a href="#" onClick="popupPage(700, 1000, '<%= request.getContextPath() %>/tickler/ViewTicklerDemoMain?demoview=0'); return false;" title="${tickler_note}">
 										<font color="red">!</font>
 									</a>
 							</c:when>
@@ -94,7 +94,7 @@
 					</c:if>
 
 					<!-- Display demographic link -->
-					<a href="#" onclick="location.href="<%= request.getContextPath() %>/PMmodule/ClientManager.do?id=${demographic_no}"">
+					<a href="#" onclick="location.href="<%= request.getContextPath() %>/PMmodule/ClientManager?id=${demographic_no}"">
 						<c:out value="${de.label}"/>
 					</a>
 

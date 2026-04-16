@@ -92,7 +92,7 @@ Please define the following parameters control the behaviour of new service rest
 </script>
 <html:hidden property="restriction.id" />
 
-<display-el:table class="simple" cellspacing="2" cellpadding="3" id="restriction" name="service_restrictions" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager.do">
+<display-el:table class="simple" cellspacing="2" cellpadding="3" id="restriction" name="service_restrictions" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
     <display-el:setProperty name="paging.banner.placement" value="bottom" />
     <display-el:setProperty name="basic.msg.empty_list" value="No service restrictions currently in place for this program." />
 
@@ -121,7 +121,7 @@ Please define the following parameters control the behaviour of new service rest
     </table>
 </div>
 
-<display-el:table class="simple" cellspacing="2" cellpadding="3" id="restriction" name="disabled_service_restrictions" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager.do">
+<display-el:table class="simple" cellspacing="2" cellpadding="3" id="restriction" name="disabled_service_restrictions" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
     <display-el:setProperty name="paging.banner.placement" value="bottom" />
     <display-el:setProperty name="basic.msg.empty_list" value="No service restrictions currently in place for this program." />
 

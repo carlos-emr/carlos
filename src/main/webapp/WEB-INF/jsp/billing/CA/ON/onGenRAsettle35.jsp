@@ -24,7 +24,7 @@
 --%>
 
 <%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.MyDateFormat"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>

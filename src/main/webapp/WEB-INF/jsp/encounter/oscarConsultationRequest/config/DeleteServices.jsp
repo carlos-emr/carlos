@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.consult" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.consult");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.consult");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -95,7 +95,7 @@
             <div class="col-md-9">
                 <p><fmt:message key="encounter.oscarConsultationRequest.config.DeleteServices.msgCheckOff"/></p>
 
-                <form action="${pageContext.request.contextPath}/encounter/DelService.do" method="post">
+                <form action="${pageContext.request.contextPath}/encounter/DelService" method="post">
                     <input type="submit" class="btn btn-danger mb-3" name="delete"
                            value="<fmt:message key="encounter.oscarConsultationRequest.config.DeleteServices.btnDeleteService"/>"
                            onclick="return confirm('Are you sure you want to delete the selected services?');">

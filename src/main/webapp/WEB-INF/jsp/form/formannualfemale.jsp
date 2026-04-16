@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -239,7 +239,7 @@
 
     <BODY bgproperties="fixed" onLoad="javascript:window.focus()"
           topmargin="0" leftmargin="0" rightmargin="0">
-    <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post">
 
 
         <input type="hidden" name="demographic_no"
@@ -270,10 +270,10 @@
                                                                           onclick="javascript:return onPrint();"/>
                     <input type="button"
                            value="<fmt:message key="encounter.formFemaleAnnual.btnPrintPage"/>"
-                           onclick="javascript: popupPage(700,950,'formannualfemaleprint.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>')"/>
+                           onclick="javascript: popupPage(700,950,'formannualfemaleprint?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>')"/>
                 </td>
                 <td align='right'><a
-                        href="javascript: popupPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');"><fmt:message key="encounter.formFemaleAnnual.btnAnnualReview"/></a></td>
+                        href="javascript: popupPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');"><fmt:message key="encounter.formFemaleAnnual.btnAnnualReview"/></a></td>
             </tr>
         </table>
 
@@ -661,7 +661,7 @@
                         </tr>
                         <tr>
                             <td><a
-                                    href="javascript: popupPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provN
+                                    href="javascript: popupPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner?demographic_no=<%=demoNo%>&formId=<%=formId%>&provN
 o=<%=provNo%>');"><fmt:message key="encounter.formFemaleAnnual.btnRisk"/></a></td>
                         </tr>
                         <!--tr>
@@ -810,7 +810,7 @@ o=<%=provNo%>');"><fmt:message key="encounter.formFemaleAnnual.btnRisk"/></a></t
                                                                           value="<fmt:message key="encounter.formFemaleAnnual.btnPrint"/>"
                                                                           onclick="javascript:return onPrint();"/></td>
                 <td align='right'><a
-                        href="javascript: popupPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');"><fmt:message key="encounter.formFemaleAnnual.btnAnnualReview"/></a></td>
+                        href="javascript: popupPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');"><fmt:message key="encounter.formFemaleAnnual.btnAnnualReview"/></a></td>
             </tr>
         </table>
 

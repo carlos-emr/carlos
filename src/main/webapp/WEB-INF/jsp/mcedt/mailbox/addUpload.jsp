@@ -29,7 +29,7 @@
 
 --%>
 
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <!DOCTYPE html>
 
@@ -54,7 +54,7 @@
                 if (control) {
                     control.disabled = true;
                 }
-                window.location.href = '<%= request.getContextPath() %>/mcedt/kaimcedt.do?tab=upload';
+                window.location.href = '<%= request.getContextPath() %>/mcedt/kaimcedt?tab=upload';
                 return false;
             }
 
@@ -81,7 +81,7 @@
         <div class="center">
             <h1>Upload Details</h1>
 
-            <form action="${pageContext.request.contextPath}/mcedt/addUpload.do" method="post" id="formAddUpload"
+            <form action="${pageContext.request.contextPath}/mcedt/addUpload" method="post" id="formAddUpload"
                        enctype="multipart/form-data">
 
                 <jsp:include page="/WEB-INF/jsp/mcedt/messages.jsp"/>

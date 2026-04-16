@@ -30,7 +30,7 @@
 
 --%>
 
-<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" errorPage="/errorpage.jsp" %>
+<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="
       java.util.*,
       java.io.*,
@@ -65,7 +65,7 @@
     reverse="true">
   <%
     authed = false;
-    response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.backup");
+    response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.backup");
   %>
 </security:oscarSec>
 <%
@@ -115,7 +115,7 @@
               if (backuppath == null || backuppath.isEmpty()) {
                   request.setAttribute("errorMessage",
                     "backup_path missing in properties; please configure.");
-                  request.getRequestDispatcher("/errorpage.jsp")
+                  request.getRequestDispatcher("/WEB-INF/jsp/error/errorpage.jsp")
                          .forward(request, response);
                   return;
               }

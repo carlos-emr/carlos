@@ -273,8 +273,8 @@ public class JdbcBillingCreateBillingFile {
             String safeIdHtml = Encode.forHtml(String.valueOf(ch1Obj.getId()));
             String tdOpen = "<td class=\"" + styleClass + "\">";
             if (simulation) {
-                String billOnclick = onclickPopup(1000, 800, contextPath + "/billing/CA/ON/BillingONCorrection.do?billing_no=" + safeBillId);
-                String demoOnclick = onclickPopup(720, 740, contextPath + "/demographic/DemographicEdit.do?demographic_no=" + safeDemoNo);
+                String billOnclick = onclickPopup(1000, 800, contextPath + "/billing/CA/ON/BillingONCorrection?billing_no=" + safeBillId);
+                String demoOnclick = onclickPopup(720, 740, contextPath + "/demographic/DemographicEdit?demographic_no=" + safeDemoNo);
                 ret += tdOpen + Encode.forHtml(ch1Obj.getProvider_ohip_no()) + "</td>"
                         + tdOpen + "<a href=\"javascript:void(0);\"  onclick=\"" + billOnclick + "\">" + safeIdHtml + "</a></td>"
                         + tdOpen + "<a href=\"javascript:void(0);\" onclick=\"" + demoOnclick + "\">" + safeDemoName + "</a></td>";
@@ -305,8 +305,8 @@ public class JdbcBillingCreateBillingFile {
             String safeBillId = Encode.forUriComponent(String.valueOf(ch1Obj.getId()));
             String safeDemoNo = Encode.forUriComponent(String.valueOf(ch1Obj.getDemographic_no()));
             String safeIdHtml = Encode.forHtml(String.valueOf(ch1Obj.getId()));
-            String billOnclick = onclickPopup(720, 740, contextPath + "/billing/CA/ON/BillingONCorrection.do?billing_no=" + safeBillId);
-            String demoOnclick = onclickPopup(720, 740, contextPath + "/demographic/DemographicEdit.do?demographic_no=" + safeDemoNo);
+            String billOnclick = onclickPopup(720, 740, contextPath + "/billing/CA/ON/BillingONCorrection?billing_no=" + safeBillId);
+            String demoOnclick = onclickPopup(720, 740, contextPath + "/demographic/DemographicEdit?demographic_no=" + safeDemoNo);
             ret = "\n<tr><td class=\"myIvory\"><a href=\"#\" onclick=\"" + billOnclick + "\">" + safeIdHtml + "</a></td>"
                     + "<td class=\"myIvory\"><a href=\"#\" onclick=\"" + demoOnclick + "\">" + safeDemoName + "</a></td><td class='myIvory'>" + ch1Obj.getHin()
                     + ch1Obj.getVer() + "</td><td class='myIvory'>" + ch1Obj.getBilling_date() + "</td><td class='myIvory'>" + itemObj.getService_code() + "</td><td align='right' class='myIvory'>" + itemObj.getFee() + "</td><td align='right' class='myIvory'>" + itemObj.getDx() + "</td><td class='myIvory'> &nbsp; &nbsp;" + referral + hcFlag + m_Flag + " </td>" + "<td bgcolor='" + clinicBgColor + "'> " + clinicShortName.get(ch1Obj.getClinic()) + "</td></tr>";

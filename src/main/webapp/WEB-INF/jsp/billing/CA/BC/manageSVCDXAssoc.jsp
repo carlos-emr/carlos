@@ -7,7 +7,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing,_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -81,12 +81,12 @@
                             %>
                         </td>
                         <td><a
-                                href="editServiceCodeAssocAction.do?svcCode=<%=assoc.getServiceCode()%>">Edit</a>
+                                href="editServiceCodeAssocAction?svcCode=<%=assoc.getServiceCode()%>">Edit</a>
                             <br>
                             <a href="javascript:void(0)"
                                     onclick="document.getElementById('deleteAssocForm_<%=i%>').submit()">Remove</a>
                             <form id="deleteAssocForm_<%=i%>" method="post"
-                                  action="deleteServiceCodeAssoc.do" style="display:none">
+                                  action="deleteServiceCodeAssoc" style="display:none">
                                 <input type="hidden" name="svcCode" value="<%=assoc.getServiceCode()%>"/>
                             </form>
                         </td>
@@ -94,7 +94,7 @@
                     <%} %>
                     <tr bgcolor="CCCCFF">
                         <td colspan="3">
-                            <div align="center"><a href="<%= request.getContextPath() %>/billing/CA/BC/showServiceCodeAssocs.do">Create
+                            <div align="center"><a href="<%= request.getContextPath() %>/billing/CA/BC/showServiceCodeAssocs">Create
                                 New Association</a></div>
                         </td>
                     </tr>

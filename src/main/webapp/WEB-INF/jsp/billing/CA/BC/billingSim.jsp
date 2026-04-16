@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing,_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -44,7 +44,7 @@
     String user_no = (String) session.getAttribute("user");
 %>
 
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
@@ -147,7 +147,7 @@
 %>
 
 <table width="100%" border="0" bgcolor="#E6F0F7">
-    <form name="serviceform" method="post" action="<%= request.getContextPath() %>/billing/CA/BC/ViewGenSimulation.do"
+    <form name="serviceform" method="post" action="<%= request.getContextPath() %>/billing/CA/BC/ViewGenSimulation"
           onSubmit="return checkData();">
         <tr>
             <td width="220"><b><font face="Arial, Helvetica, sans-serif"
@@ -192,12 +192,12 @@
                 Service Date: </b></font></td>
             <td><font size="1" face="Arial, Helvetica, sans-serif"> <a
                     href="#"
-                    onClick="openBrWindow('<%= request.getContextPath() %>/share/CalendarPopup.do?urlfrom=<%= request.getContextPath() %>/billing/CA/BC/ViewBillingSim.do&year=<%=curYear%>&month=<%=curMonth%>&param=<%=URLEncoder.encode("&formdatebox=document.forms[0].xml_vdate.value", StandardCharsets.UTF_8)%>','','top=0,left=0,width=430,height=310'); return false;">
+                    onClick="openBrWindow('<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<%= request.getContextPath() %>/billing/CA/BC/ViewBillingSim&year=<%=curYear%>&month=<%=curMonth%>&param=<%=URLEncoder.encode("&formdatebox=document.forms[0].xml_vdate.value", StandardCharsets.UTF_8)%>','','top=0,left=0,width=430,height=310'); return false;">
                 From:</a></font> <input type="text" name="xml_vdate" maxlength="10"
                                         value="<%=Encode.forHtmlAttribute(xml_vdate)%>" readonly></td>
             <td><font size="1" face="Arial, Helvetica, sans-serif"> <a
                     href="#"
-                    onClick="openBrWindow('<%= request.getContextPath() %>/share/CalendarPopup.do?urlfrom=<%= request.getContextPath() %>/billing/CA/BC/ViewBillingSim.do&year=<%=curYear%>&month=<%=curMonth%>&param=<%=URLEncoder.encode("&formdatebox=document.forms[0].xml_appointment_date.value", StandardCharsets.UTF_8)%>','','top=0,left=0,width=430,height=310'); return false;">
+                    onClick="openBrWindow('<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<%= request.getContextPath() %>/billing/CA/BC/ViewBillingSim&year=<%=curYear%>&month=<%=curMonth%>&param=<%=URLEncoder.encode("&formdatebox=document.forms[0].xml_appointment_date.value", StandardCharsets.UTF_8)%>','','top=0,left=0,width=430,height=310'); return false;">
                 To:</a></font> <input type="text" name="xml_appointment_date" maxlength="10"
                                       value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>" readonly></td>
             <td><input type="submit" name="Submit" value="Create Report">

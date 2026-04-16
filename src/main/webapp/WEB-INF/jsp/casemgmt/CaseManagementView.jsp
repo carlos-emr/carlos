@@ -54,7 +54,7 @@
     @SuppressWarnings("unchecked")
     java.util.List<NoteDisplay> noteList = (java.util.List<NoteDisplay>) request.getAttribute("Notes");
 
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 
@@ -63,7 +63,7 @@
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/oscarClientManagement/profilePicture.js"></script>
 </head>
 <body>
-    <form action="${pageContext.request.contextPath}/CaseManagementView.do" method="get">
+    <form action="${pageContext.request.contextPath}/CaseManagementView" method="get">
         <input type="hidden" name="demographicNo" id="demographicNo"/>
         <input type="hidden" name="providerNo" id="providerNo"/>
         <input type="hidden" name="tab" id="tab"/>
@@ -329,13 +329,13 @@
                         <img id="ci"
                             src="${pageContext.request.contextPath}/imageRenderingServlet?source=local_client&amp;clientId=${demographicNo}" alt="id_photo"
                             height="100" title="Click to upload a new photo."
-                        onClick="popupUploadPage('${pageContext.request.contextPath}/casemgmt/ViewUploadimage.do', ${demographicNo}); return false;" />
+                        onClick="popupUploadPage('${pageContext.request.contextPath}/casemgmt/ViewUploadimage', ${demographicNo}); return false;" />
                     </c:when>
                     <c:otherwise>
                         <svg xmlns="http://www.w3.org/2000/svg" width="80" height="100" viewBox="0 0 80 100"
                              style="cursor: pointer; background: #e9ecef; border-radius: 4px;"
                              title="Click to upload a new photo."
-                             onclick="popupUploadPage('${pageContext.request.contextPath}/casemgmt/ViewUploadimage.do', ${demographicNo}); return false;">
+                             onclick="popupUploadPage('${pageContext.request.contextPath}/casemgmt/ViewUploadimage', ${demographicNo}); return false;">
                             <circle cx="40" cy="32" r="16" fill="#adb5bd"/>
                             <ellipse cx="40" cy="82" rx="28" ry="22" fill="#adb5bd"/>
                         </svg>
@@ -385,7 +385,7 @@
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="w">
                                 <c:if test="${sessionScope.readonly=='false'}">
                                     <c:url
-                                            value="/CaseManagementEntry.do?method=edit&note_edit=new&from=casemgmt&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
+                                            value="/CaseManagementEntry?method=edit&note_edit=new&from=casemgmt&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                             var="noteURL"/>
                                     &nbsp;|&nbsp;
                                     <span style="text-decoration: underline; cursor: pointer; color: blue"
@@ -397,7 +397,7 @@
                                     style="text-decoration: underline; cursor: pointer; color: blue"
                                     onclick="window.print();">Print</span> <c:if test="${can_restore}">
                                 <c:url
-                                        value="/CaseManagementEntry.do?method=restore&from=casemgmt&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
+                                        value="/CaseManagementEntry?method=restore&from=casemgmt&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                         var="noteURL"/>
                                 &nbsp;|&nbsp;
                                 <span style="text-decoration: underline; cursor: pointer; color: blue"
@@ -453,7 +453,7 @@
                                     <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="u">
                                         <c:choose>
                                             <c:when test="${(note.editable) and (sessionScope.readonly=='false')}">
-                                                <c:url value="/CaseManagementEntry.do?method=edit&from=casemgmt&noteId=${note.noteId}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}&forceNote=true"
+                                                <c:url value="/CaseManagementEntry?method=edit&from=casemgmt&noteId=${note.noteId}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}&forceNote=true"
                                                     var="notesURL"/>
                                                 <img src="<c:out value="${ctx}"/>/images/edit_white.png"
                                                     title="Edit/Sign Note" style="cursor: pointer"
@@ -467,7 +467,7 @@
                                     </security:oscarSec>
                                     <c:choose>
                                         <c:when test="${note.hasHistory == true and note.locked != true}">
-                                            <c:url value="/CaseManagementEntry.do?method=history&from=casemgmt&noteId=${note.noteId}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
+                                            <c:url value="/CaseManagementEntry?method=history&from=casemgmt&noteId=${note.noteId}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                                 var="historyURL"/>
                                             <img src="<c:out value="${ctx}"/>/images/history.gif" title="Note History"
                                                 style="cursor: pointer"
@@ -482,7 +482,7 @@
                                         <c:choose>
                                             <c:when test="${note.locked}">
                                                 <c:url
-                                                        value="/CaseManagementView.do?method=unlock&noteId=${note.noteId}"
+                                                        value="/CaseManagementView?method=unlock&noteId=${note.noteId}"
                                                         var="lockedURL"/>
                                                 <img src="<c:out value="${ctx}"/>/images/ulock.gif"
                                                     title="Unlock" style="cursor: pointer"
@@ -559,7 +559,7 @@
                                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes"
                                                                 rights="u">
                                                     <c:if test="${(note.editable) and (sessionScope.readonly=='false')}">
-                                                        <c:url value="/CaseManagementEntry.do?method=edit&from=casemgmt&noteId=${requestScope.noteId}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
+                                                        <c:url value="/CaseManagementEntry?method=edit&from=casemgmt&noteId=${requestScope.noteId}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                                             var="notesURL"/>
                                                         <input type="button" value="Edit and Sign"
                                                             onclick="popupNotePage('<c:out value="${notesURL}"
@@ -567,7 +567,7 @@
                                                     </c:if>
                                                 </security:oscarSec>
                                                 <c:if test="${note.hasHistory == true}">
-                                                    <c:url value="/CaseManagementEntry.do?method=history&from=casemgmt&noteId=${requestScope.noteId}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
+                                                    <c:url value="/CaseManagementEntry?method=history&from=casemgmt&noteId=${requestScope.noteId}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                                         var="historyURL"/>
                                                     <input type="button" value="Note History"
                                                         onclick="popupHistoryPage('<c:out value="${historyURL}"
@@ -576,7 +576,7 @@
                                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes"
                                                                 rights="u">
                                                     <c:if test="${note.locked}">
-                                                        <c:url value="/CaseManagementView.do?method=unlock&noteId=${requestScope.noteId}"
+                                                        <c:url value="/CaseManagementView?method=unlock&noteId=${requestScope.noteId}"
                                                             var="lockedURL"/>
                                                         <input type="button" value="Unlock"
                                                             onclick="popupPage('<c:out value="${lockedURL}"
@@ -626,7 +626,7 @@
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="w">
                     <c:if test="${sessionScope.readonly=='false'}">
                         <c:url
-                                value="/CaseManagementEntry.do?method=edit&note_edit=new&from=casemgmt&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
+                                value="/CaseManagementEntry?method=edit&note_edit=new&from=casemgmt&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                 var="noteURL"/>
                         &nbsp;|&nbsp;
 
@@ -639,7 +639,7 @@
                 <span style="text-decoration: underline; cursor: pointer; color: blue"
                     onclick="window.print();">Print</span> <c:if test="${can_restore}">
                 <c:url
-                        value="/CaseManagementEntry.do?method=restore&from=casemgmt&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
+                        value="/CaseManagementEntry?method=restore&from=casemgmt&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                         var="noteURL"/>
                 &nbsp;|&nbsp;
                 <span style="text-decoration: underline; cursor: pointer; color: blue"
@@ -654,7 +654,7 @@
         <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="w">
             <c:if test="${'Current Issues'==selectedTab and empty Notes and sessionScope.readonly=='false'}">
                 <c:url
-                        value="/CaseManagementEntry.do?method=edit&note_edit=new&from=casemgmt&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
+                        value="/CaseManagementEntry?method=edit&note_edit=new&from=casemgmt&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                         var="noteURL"/>
                 <span style="text-decoration: underline; cursor: pointer; color: blue"
                     onclick="popupNotePage('<c:out value="${noteURL}" escapeXml="false"/>')">New

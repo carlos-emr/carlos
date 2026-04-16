@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -48,7 +48,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/errorpage.jsp" %>
+<%@page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ClinicLocation" %>
@@ -143,7 +143,7 @@
     </table>
 
     <table width="100%" border="0" bgcolor="#EEEEFF">
-        <form name="serviceform" method="get" action="<%= request.getContextPath() %>/oscarReport/ViewOscarReportAgeSex.do">
+        <form name="serviceform" method="get" action="<%= request.getContextPath() %>/oscarReport/ViewOscarReportAgeSex">
             <tr>
                 <td colspan="3">
                     <div align="center"><font face="Arial, Helvetica, sans-serif"
@@ -206,7 +206,7 @@
                         <font color="#333333"><fmt:message key="oscarReport.oscarReportAgeSex.msgServiceDate"/></font></b></font></font> &nbsp;
                         &nbsp; <font
                                 size="1" face="Arial, Helvetica, sans-serif"><a href="#"
-                                                                                onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup.do?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="oscarReport.oscarReportAgeSex.btnBegin"/>:</a></font> <input type="text"
+                                                                                onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="oscarReport.oscarReportAgeSex.btnBegin"/>:</a></font> <input type="text"
                                                                                                   name="xml_vdate"
                                                                                                   value="<%= Encode.forHtmlAttribute(xml_vdate) %>">
                     </div>
@@ -214,7 +214,7 @@
                 <td colspan='2'>
                     <div align="left"><font size="1"
                                             face="Arial, Helvetica, sans-serif"><a href="#"
-                                                                                   onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup.do?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="oscarReport.oscarReportAgeSex.btnEnd"/>:</a></font> <input type="text"
+                                                                                   onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="oscarReport.oscarReportAgeSex.btnEnd"/>:</a></font> <input type="text"
                                                                                             name="xml_appointment_date"
                                                                                             value="<%= Encode.forHtmlAttribute(xml_appointment_date) %>">
                     </div>

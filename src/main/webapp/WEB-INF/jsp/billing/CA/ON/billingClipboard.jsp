@@ -25,7 +25,7 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     String user_no;
     user_no = (String) session.getAttribute("user");
     String asstProvider_no = "";
@@ -77,7 +77,7 @@
 </table>
 <table width="100%" border="0" bgcolor="#EEEEFF">
     <form name="serviceform" method="post"
-          action="/billing/CA/ON/ViewPrintBillingClipboard.do">
+          action="/billing/CA/ON/ViewPrintBillingClipboard">
         <tr>
             <td height="40"><input type="submit" name="Submit"
                                    value="Print Preview"></td>

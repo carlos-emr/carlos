@@ -33,7 +33,7 @@
     String user_no = (String) session.getAttribute("user");
 %>
 <%@ page import="java.util.*, java.sql.*, java.io.*, io.github.carlos_emr.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <html>
@@ -52,7 +52,7 @@
 </head>
 <body onLoad="setfocus()" bgcolor="#c4e9f6" bgproperties="fixed"
       topmargin="0" leftmargin="1" rightmargin="1">
-<form name="checklistedit" action="<%= request.getContextPath() %>/provider/ViewObarRiskEdit.do" method="POST">
+<form name="checklistedit" action="<%= request.getContextPath() %>/provider/ViewObarRiskEdit" method="POST">
     <%
         char sep = oscarVariables.getProperty("file_separator").toCharArray()[0];
         String str = null;

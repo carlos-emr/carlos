@@ -30,7 +30,7 @@
 --%>
 
 
-<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat" errorPage="/errorpage.jsp" %>
+<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterDao" %>
@@ -90,12 +90,12 @@
                 if (strForm.toLowerCase().compareTo("form") == 0 && st.hasMoreTokens()) {
                     strTemplateURL = "template" + (new String(st.nextToken())).trim().toLowerCase() + ".jsp";
             %> <a href=#
-                  onClick="popupPage(600,800,'<%= request.getContextPath() %>/provider/providercontrol.do?encounter_no=<%=enc.getId()%>&demographic_no=<%=Encode.forUriComponent(request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "")%>&dboperation=search_encountersingle&displaymodevariable=<%=Encode.forUriComponent(strTemplateURL)%>&displaymode=vary&bNewForm=0')"><%=Encode.forHtml(historysubject)%>
+                  onClick="popupPage(600,800,'<%= request.getContextPath() %>/provider/providercontrol?encounter_no=<%=enc.getId()%>&demographic_no=<%=Encode.forUriComponent(request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "")%>&dboperation=search_encountersingle&displaymodevariable=<%=Encode.forUriComponent(strTemplateURL)%>&displaymode=vary&bNewForm=0')"><%=Encode.forHtml(historysubject)%>
             </a></font><br>
                 <%
                 } else if (strForm.compareTo("") != 0) {
                 %> <a href=#
-                      onClick="popupPage(400,600,'<%= request.getContextPath() %>/provider/providercontrol.do?encounter_no=<%=enc.getId()%>&demographic_no=<%=Encode.forUriComponent(request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "")%>&template=<%=Encode.forUriComponent(strForm)%>&dboperation=search_encountersingle&displaymode=encountersingle')"><%=Encode.forHtml(historysubject)%>
+                      onClick="popupPage(400,600,'<%= request.getContextPath() %>/provider/providercontrol?encounter_no=<%=enc.getId()%>&demographic_no=<%=Encode.forUriComponent(request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "")%>&template=<%=Encode.forUriComponent(strForm)%>&dboperation=search_encountersingle&displaymode=encountersingle')"><%=Encode.forHtml(historysubject)%>
             </a></font><br>
                 <%
                         }

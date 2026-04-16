@@ -41,7 +41,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.fax" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.fax");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.fax");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -73,7 +73,7 @@
 
         $(document).ready(function () {
 
-            var searchDemoUrl = "<%= request.getContextPath() %>/demographic/SearchDemographic.do";
+            var searchDemoUrl = "<%= request.getContextPath() %>/demographic/SearchDemographic";
 
             $("#autocompletedemo").autocomplete({
                 source: function (req, res) {
@@ -116,7 +116,7 @@
         });
 
         function getPageCount(id, callback) {
-            var url = "<%=request.getContextPath()%>/admin/ManageFaxes.do?method=getPageCount&jobId=" + id;
+            var url = "<%=request.getContextPath()%>/admin/ManageFaxes?method=getPageCount&jobId=" + id;
             var post = $.post(url, function (resultdata) {
                 if (id == resultdata.jobId && typeof callback == "function") {
                     callback(resultdata.pageCount);
@@ -128,7 +128,7 @@
 
             getPageCount(id, function (pageCount) {
 
-                var url = "<%=request.getContextPath()%>/admin/ManageFaxes.do?method=viewFax&showAs=image&jobId=" + id;
+                var url = "<%=request.getContextPath()%>/admin/ManageFaxes?method=viewFax&showAs=image&jobId=" + id;
                 var imageContainer = $("<ul />")
                     .css("list-style-type", "none")
                     .css("padding", "0px")
@@ -294,7 +294,7 @@
 <div id="bodyrow" class="container-fluid">
     <div id="bodycolumn">
 
-        <form id="reportForm" action="<%=request.getContextPath()%>/admin/ManageFaxes.do" onsubmit="ShowSpin(true);">
+        <form id="reportForm" action="<%=request.getContextPath()%>/admin/ManageFaxes" onsubmit="ShowSpin(true);">
 
             <input type="hidden" name="method" value="fetchFaxStatus"/>
 

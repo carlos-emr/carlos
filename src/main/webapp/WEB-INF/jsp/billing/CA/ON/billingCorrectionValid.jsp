@@ -34,7 +34,7 @@
 <body>
 <%@ page
         import="java.io.*, java.sql.*, java.util.*,java.net.*, io.github.carlos_emr.*, java.math.*"
-        errorPage="/errorpage.jsp" %>
+        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.*" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <jsp:useBean id="dbBillingDataBean" scope="page"
@@ -313,7 +313,7 @@
         billingPatientDataBean.setCity(request.getParameter("demo_city"));
         billingPatientDataBean.setPostal(request.getParameter("demo_postal"));
         billingPatientDataBean.setSex(request.getParameter("demo_sex"));
-        response.sendRedirect("/billing/CA/ON/BillingCorrectionReview.do");
+        response.sendRedirect("/billing/CA/ON/BillingCorrectionReview");
     } catch (java.lang.ArrayIndexOutOfBoundsException _e0) {
     }
 

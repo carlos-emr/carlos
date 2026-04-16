@@ -40,7 +40,7 @@
         authed = false;
     %>
     <%
-        response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_dxresearch");
+        response.sendRedirect(request.getContextPath() + "/securityError?type=_dxresearch");
     %>
 </security:oscarSec>
 <%

@@ -29,8 +29,8 @@
     <package name="pmmodule" namespace="/" extends="struts-default">
 
         <global-results>
-            <result name="securityError">/securityError.jsp</result>
-            <result name="error">/errorpage.jsp</result>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </global-results>
 
         <global-exception-mappings>
@@ -43,25 +43,25 @@
         </action>
         <action name="EditPhoneNum" class="io.github.carlos_emr.carlos.providers.pageUtil.ProEditPhoneNum2Action">
             <result name="success">/WEB-INF/jsp/provider/providerPhone.jsp</result>
-            <result name="eject">/index.jsp</result>
+            <result name="eject">/WEB-INF/jsp/login/index.jsp</result>
         </action>
         <action name="EditAddress" class="io.github.carlos_emr.carlos.providers.pageUtil.ProEditAddress2Action">
             <result name="success">/WEB-INF/jsp/provider/providerAddress.jsp</result>
-            <result name="eject">/index.jsp</result>
+            <result name="eject">/WEB-INF/jsp/login/index.jsp</result>
         </action>
         <action name="EditPrinter" class="io.github.carlos_emr.carlos.providers.pageUtil.ProEditPrinter2Action">
             <result name="success">/WEB-INF/jsp/provider/providerPrinter.jsp</result>
-            <result name="eject">/index.jsp</result>
+            <result name="eject">/WEB-INF/jsp/login/index.jsp</result>
         </action>
         <action name="EditFaxNum" class="io.github.carlos_emr.carlos.providers.pageUtil.ProEditFaxNum2Action">
             <result name="success">/WEB-INF/jsp/provider/providerFax.jsp</result>
             <result name="error">/WEB-INF/jsp/provider/providerFaxErr.jsp</result>
-            <result name="eject">/index.jsp</result>
+            <result name="eject">/WEB-INF/jsp/login/index.jsp</result>
         </action>
         <action name="setProviderColour" class="io.github.carlos_emr.carlos.providers.pageUtil.ProEditColour2Action">
             <result name="success">/WEB-INF/jsp/provider/providerColourPicker.jsp</result>
             <result name="error">/WEB-INF/jsp/provider/providerColourErr.jsp</result>
-            <result name="eject">/index.jsp</result>
+            <result name="eject">/WEB-INF/jsp/login/index.jsp</result>
         </action>
         <action name="PMmodule/ProgramManager" class="io.github.carlos_emr.carlos.PMmodule.web.admin.ProgramManager2Action" method="execute">
             <result name="list">/WEB-INF/jsp/PMmodule/Admin/ProgramManagerList.jsp</result>
@@ -71,7 +71,7 @@
 
         <action name="PMmodule/ProgramManagerView" class="io.github.carlos_emr.carlos.PMmodule.web.admin.ProgramManagerView2Action" method="execute">
             <result name="view">/WEB-INF/jsp/PMmodule/Admin/ProgramManagerView.jsp</result>
-            <result name="error">/errorpage.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
             <result name="service_restriction_error">page.pmm.program.service_restriction_error</result>
         </action>
 
@@ -90,7 +90,7 @@
             <result name="edit">page.pmm.client</result>
             <result name="refer_vacancy">page.pmm.client.vacancy</result>
             <result name="edit-redirect">page.pmm.client</result>
-            <result name="search">/PMmodule/ClientSearch2.do</result>
+            <result name="search">/PMmodule/ClientSearch2</result>
             <result name="service_restriction_error">page.pmm.client.service_restriction_error</result>
         </action>
         <action name="PMmodule/ProviderInfo" class="io.github.carlos_emr.carlos.PMmodule.web.ProviderInfo2Action" method="execute">

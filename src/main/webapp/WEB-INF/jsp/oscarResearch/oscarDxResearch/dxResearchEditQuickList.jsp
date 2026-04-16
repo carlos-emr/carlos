@@ -36,8 +36,8 @@
     entry fields and a code search button. Center panel has Add/Remove buttons.
     Right panel shows current items in the list as a multi-select.
 
-    Submits to dxResearchUpdateQuickList.do which processes add/remove actions
-    and redirects back to dxResearchLoadQuickListItems.do to reload this page.
+    Submits to dxResearchUpdateQuickList which processes add/remove actions
+    and redirects back to dxResearchLoadQuickListItems to reload this page.
 
     Request Attributes:
     - quickListName: Name of the quick list being edited
@@ -89,7 +89,7 @@
                 var t3 = encodeURIComponent(document.forms[0].xml_research4.value);
                 var t4 = encodeURIComponent(document.forms[0].xml_research5.value);
                 var codeType = document.forms[0].selectedCodingSystem.value;
-                awnd = rs('att', 'dxResearchCodeSearch.do?codeType=' + codeType + '&xml_research1=' + t0 + '&xml_research2=' + t1 + '&xml_research3=' + t2 + '&xml_research4=' + t3 + '&xml_research5=' + t4 + '&demographicNo=', 600, 600, 1);
+                awnd = rs('att', 'dxResearchCodeSearch?codeType=' + codeType + '&xml_research1=' + t0 + '&xml_research2=' + t1 + '&xml_research3=' + t2 + '&xml_research4=' + t3 + '&xml_research5=' + t4 + '&demographicNo=', 600, 600, 1);
                 awnd.focus();
             }
 
@@ -127,7 +127,7 @@
         </div>
 <% } %>
 
-        <form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchUpdateQuickList.do" method="post">
+        <form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchUpdateQuickList" method="post">
             <input type="hidden" name="forward" value="none"/>
             <input type="hidden" name="quickListName" value="${e:forHtmlAttribute(quickListName)}"/>
 

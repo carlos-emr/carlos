@@ -29,7 +29,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -83,7 +83,7 @@
         <title>Letterhead</title>
     </head>
     <body onload="cleanForm(); start();">
-    <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post">
             <%//The action of the form is important.  Keep the same%>
         <input type="hidden" name="demographic_no" value="<%= props.getProperty("demographic_no", "0") %>"/>
         <input type="hidden" name="formCreated" value="<%= props.getProperty("formCreated", "") %>"/>
@@ -428,8 +428,8 @@
                 t3 = escape("document.forms[0].elements[\'" + toaddress + "\'].value");
                 t5 = escape("document.forms[0].elements[\'" + tophone + "\'].value");
                 t6 = escape("document.forms[0].elements[\'" + tofax + "\'].value");
-                //rs('att',('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc.do?param='+t0+'&toname='+t2),600,600,1);
-                rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc.do?param=' + t0 + '&toname=' + t2 + '&toaddress1=' + t3 + '&tophone=' + t5 + '&tofax=' + t6 + '&submit=Search&keyword=' + document.forms[0].elements[toname].value), 600, 600, 1);
+                //rs('att',('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc?param='+t0+'&toname='+t2),600,600,1);
+                rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc?param=' + t0 + '&toname=' + t2 + '&toaddress1=' + t3 + '&tophone=' + t5 + '&tofax=' + t6 + '&submit=Search&keyword=' + document.forms[0].elements[toname].value), 600, 600, 1);
             }
 
             function start() {

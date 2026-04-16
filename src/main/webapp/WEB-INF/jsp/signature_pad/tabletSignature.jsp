@@ -27,7 +27,7 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
-        response.sendRedirect(request.getContextPath() + "/index.jsp");
+        response.sendRedirect(request.getContextPath() + "/index");
         return;
     }
 %>
@@ -81,7 +81,7 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
     </div>
 </div>
 
-<form onsubmit="return submitSignature();" action="<%=request.getContextPath() %>/signature_pad/SaveSignatureUpload.do"
+<form onsubmit="return submitSignature();" action="<%=request.getContextPath() %>/signature_pad/SaveSignatureUpload"
       id="signatureForm" method="POST">
     <input type="hidden" id="signatureImage" name="signatureImage" value=""/>
     <input type="hidden" name="source" value="IPAD"/>

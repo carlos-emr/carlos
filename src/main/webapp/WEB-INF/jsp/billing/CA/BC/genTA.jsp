@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing,_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -105,7 +105,7 @@
     ResultSet rslocal;
     filename = documentBean.getFilename();
 
-    String forwardPage = "/billing/CA/BC/ProcessRemittance.do";
+    String forwardPage = "/billing/CA/BC/ProcessRemittance";
 
     filepath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
@@ -658,7 +658,7 @@
                 teleplanC12Dao.persist(t);
                 mspReconcile.updateStat(MSPReconcile.REJECTED, Integer.toString(Integer.parseInt(t_officefolioclaimno)));
             }
-            forwardPage = "/billing/CA/BC/reprocessBill.do";
+            forwardPage = "/billing/CA/BC/reprocessBill";
         }
 //
     }
@@ -789,9 +789,9 @@
             </td>
             <td><%=Encode.forHtml(StringUtils.noNull(newbalance))%>
             </td>
-            <td><a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS01.do?rano=<%=Encode.forUriComponent(raNo)%>&proNo=" target="_blank">Billed</a>
-                | <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS00.do?rano=<%=Encode.forUriComponent(raNo)%>&proNo=" target="_blank">Detail</a>|
-                <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS22.do?rano=<%=Encode.forUriComponent(raNo)%>&proNo=" target="_blank">Summary</a></td>
+            <td><a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS01?rano=<%=Encode.forUriComponent(raNo)%>&proNo=" target="_blank">Billed</a>
+                | <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS00?rano=<%=Encode.forUriComponent(raNo)%>&proNo=" target="_blank">Detail</a>|
+                <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS22?rano=<%=Encode.forUriComponent(raNo)%>&proNo=" target="_blank">Summary</a></td>
             <td><%=Encode.forHtml(String.valueOf(result.getStatus()))%>
             </td>
         </tr>

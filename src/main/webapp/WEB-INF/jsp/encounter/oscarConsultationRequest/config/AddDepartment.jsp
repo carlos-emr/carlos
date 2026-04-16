@@ -44,7 +44,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.consult" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.consult");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.consult");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -109,7 +109,7 @@
                 </div>
                 <% } %>
 
-                <form action="${pageContext.request.contextPath}/encounter/AddDepartment.do" method="post">
+                <form action="${pageContext.request.contextPath}/encounter/AddDepartment" method="post">
                     <input type="hidden" name="id" id="id" value="<%= id != null ? id : "" %>"/>
                     <div class="row mb-3">
                         <div class="col-md-5">

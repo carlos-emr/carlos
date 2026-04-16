@@ -30,7 +30,7 @@
 --%>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 
@@ -46,7 +46,7 @@
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_report" rights="r" reverse="<%=true%>">
     <%
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     %>
 </security:oscarSec>
 <!DOCTYPE html>
@@ -122,7 +122,7 @@
         </c:choose>
     </c:if>
     <c:if test="${ empty opentext and empty param.opentext }">
-        <!-- <form class="" action="<%=request.getContextPath() %>/oscarReport/reportByTemplate/uploadTemplates.do"
+        <!-- <form class="" action="<%=request.getContextPath() %>/oscarReport/reportByTemplate/uploadTemplates"
                         enctype="multipart/form-data">
         <div class="row">
         <div class="card card-body bg-body-tertiary">
@@ -144,7 +144,7 @@
         </div>
         </div>
     </form> -->
-        <form class="" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/uploadTemplates.do"
+        <form class="" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/uploadTemplates"
                    method="post" enctype="multipart/form-data" onsubmit="return validateFileUpload()">
             <div class="row">
                 <div class="card card-body bg-body-tertiary">
@@ -171,7 +171,7 @@
     </c:if>
     <c:if test="${ opentext eq '1' or param.opentext eq '1' }">
 
-        <form class="form" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/addEditTemplatesAction.do" method="post">
+        <form class="form" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/addEditTemplatesAction" method="post">
             <div class="row">
                 <div class="card card-body bg-body-tertiary">
                     <textarea id="xmltext" name="xmltext"
@@ -190,7 +190,7 @@
                     </c:if>
                     <c:if test="${ action ne 'edit' }">
                         <input type="button" class="btn float-end" name="cancel" value="Cancel"
-                               onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewHomePage.do'">
+                               onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewHomePage'">
                     </c:if>
                 </div>
             </div>

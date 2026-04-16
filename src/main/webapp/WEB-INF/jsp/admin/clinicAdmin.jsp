@@ -38,7 +38,7 @@
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_admin.misc" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.misc");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.misc");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -74,7 +74,7 @@
     <h4><fmt:message key="admin.admin.clinicAdmin"/></h4>
     <div class="card card-body bg-body-tertiary">
 
-        <form action="<%=request.getContextPath() %>/admin/ManageClinic.do" method="post" class="">
+        <form action="<%=request.getContextPath() %>/admin/ManageClinic" method="post" class="">
             <input type="hidden" name="clinic.id" id="clinic.id" value="<%=clinic.getId() != null ? clinic.getId() : ""%>"/>
             <input type="hidden" name="clinic.status" id="clinic.status" value="A"/>
             <input type="hidden" name="method" id="method" value="update"/>

@@ -59,7 +59,7 @@
         }
 
         function reloadPage() {
-            document.CONFIG.action = '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewRemoveMeasurementMap.do';
+            document.CONFIG.action = '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewRemoveMeasurementMap';
             return true;
         }
 
@@ -75,7 +75,7 @@
         }
 
         function remap(id, identifier, name, type) {
-            popupStart(300, 1000, '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewRemapMeasurementMap.do?id=' + encodeURIComponent(id) + '&identifier=' + encodeURIComponent(identifier) + '&name=' + encodeURIComponent(name) + '&type=' + encodeURIComponent(type), 'Remap Measurement')
+            popupStart(300, 1000, '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewRemapMeasurementMap?id=' + encodeURIComponent(id) + '&identifier=' + encodeURIComponent(identifier) + '&name=' + encodeURIComponent(name) + '&type=' + encodeURIComponent(type), 'Remap Measurement')
         }
 
         <%String outcome = request.getParameter("outcome");
@@ -96,7 +96,7 @@
 </head>
 
 <body>
-<form method="post" name="CONFIG" action="RemoveMeasurementMap.do">
+<form method="post" name="CONFIG" action="RemoveMeasurementMap">
     <input type="hidden" name="id" value=""> <input type="hidden"
                                                     name="identifier" value=""> <input type="hidden" name="name"
                                                                                        value=""> <input type="hidden"
@@ -113,8 +113,8 @@
                                                 value=" <fmt:message key="global.btnClose"/> "
                                                 onClick="window.close()"></td>
                         <td align="right"><a
-                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout.do')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewLicense.do')"><fmt:message key="global.license"/></a></td>
+                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
+                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>

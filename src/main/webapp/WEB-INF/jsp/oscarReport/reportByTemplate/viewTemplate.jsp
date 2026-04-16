@@ -30,7 +30,7 @@
 --%>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 
@@ -46,7 +46,7 @@
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_report" rights="r" reverse="<%=true%>">
     <%
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     %>
 </security:oscarSec>
 <!DOCTYPE html>
@@ -81,7 +81,7 @@
 
 
     <%if (templateid == null) { %>
-    <jsp:forward page="/oscarReport/reportByTemplate/ViewHomePage.do"/>
+    <jsp:forward page="/oscarReport/reportByTemplate/ViewHomePage"/>
     <%}%>
 
     <div class="xmlBorderDiv">
@@ -92,7 +92,7 @@
         <input type="button" class="btn btn-secondary" value="Back" onclick="javascript: window.history.back();return false;"/>
         <input type="button" class="btn btn-secondary" value="Print" onclick="javascript: window.print();"/>
         <input type="button" class="btn btn-primary" value="Edit"
-               onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate.do?templateid=<%=Encode.forUriComponent(templateid)%>&opentext=1'"/>
+               onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate?templateid=<%=Encode.forUriComponent(templateid)%>&opentext=1'"/>
     </div>
 
 </html>

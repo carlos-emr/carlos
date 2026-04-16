@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.measurements" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin.measurements");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin.measurements");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -91,7 +91,7 @@
     %>
 
 
-    <form action="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewMeasurementGroupDScomplete.do" method="post" name="formRemove">
+    <form action="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewMeasurementGroupDScomplete" method="post" name="formRemove">
         <input type="hidden" name="property" value="<%=propKey%>">
 
 

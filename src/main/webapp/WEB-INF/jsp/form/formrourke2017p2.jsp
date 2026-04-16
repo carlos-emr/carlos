@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -93,7 +93,7 @@
     EctFormData.PatientForm[] pforms = EctFormData.getPatientFormsFromLocalAndRemote(loggedInInfo, String.valueOf(demoNo), formTable);
     if (pforms.length > 0) {
         EctFormData.PatientForm pfrm = pforms[0];
-        growthChartURL = request.getContextPath() + "/form/forwardshortcutname.do?formname=" + formName + "&demographic_no=" + demoNo;
+        growthChartURL = request.getContextPath() + "/form/forwardshortcutname?formname=" + formName + "&demographic_no=" + demoNo;
     }
 
 %>
@@ -127,10 +127,10 @@
         </td>
         <td align="center" nowrap="true" width="100%">
             <% if (formId > 0) { %> <a name="length" href="#"
-                                       onclick="onGraph('<%=request.getContextPath()%>/form/formname.do?submit=graph&form_class=Rourke2017&__title=Baby+Growth+Graph1&__cfgfile=<%=growthCharts[0]%>&demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>','<%= "growth1" + demoNo %>');return false;">
+                                       onclick="onGraph('<%=request.getContextPath()%>/form/formname?submit=graph&form_class=Rourke2017&__title=Baby+Growth+Graph1&__cfgfile=<%=growthCharts[0]%>&demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>','<%= "growth1" + demoNo %>');return false;">
             <fmt:message key="encounter.formRourke1.btnGraphLenghtWeight"/></a><br>
             <a name="headCirc" href="#"
-               onclick="onGraph('<%=request.getContextPath()%>/form/formname.do?submit=graph&form_class=Rourke2017&__title=Baby+Head+Circumference&__cfgfile=<%=growthCharts[1]%>&demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>','<%= "growth2" + demoNo %>');return false;">
+               onclick="onGraph('<%=request.getContextPath()%>/form/formname?submit=graph&form_class=Rourke2017&__title=Baby+Head+Circumference&__cfgfile=<%=growthCharts[1]%>&demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>','<%= "growth2" + demoNo %>');return false;">
                 <fmt:message key="encounter.formRourke1.btnGraphHead"/></a> <% } else { %>
             &nbsp; <% } %>
         </td>
@@ -1537,10 +1537,10 @@
         </td>
         <td align="center" nowrap="true" width="100%">
             <% if (formId > 0) { %> <a name="length" href="#"
-                                       onclick="onGraph('<%=request.getContextPath()%>/form/formname.do?submit=graph&form_class=Rourke2017&__title=Baby+Growth+Graph1&__cfgfile=<%=growthCharts[0]%>&demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>','<%= "growth1" + demoNo %>');return false;">
+                                       onclick="onGraph('<%=request.getContextPath()%>/form/formname?submit=graph&form_class=Rourke2017&__title=Baby+Growth+Graph1&__cfgfile=<%=growthCharts[0]%>&demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>','<%= "growth1" + demoNo %>');return false;">
             <fmt:message key="encounter.formRourke1.btnGraphLenghtWeight"/></a><br>
             <a name="headCirc" href="#"
-               onclick="onGraph('<%=request.getContextPath()%>/form/formname.do?submit=graph&form_class=Rourke2017&__title=Baby+Head+Circumference&__cfgfile=<%=growthCharts[1]%>&demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>','<%= "growth2" + demoNo %>');return false;">
+               onclick="onGraph('<%=request.getContextPath()%>/form/formname?submit=graph&form_class=Rourke2017&__title=Baby+Head+Circumference&__cfgfile=<%=growthCharts[1]%>&demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>','<%= "growth2" + demoNo %>');return false;">
                 <fmt:message key="encounter.formRourke1.btnGraphHead"/></a> <% } else { %>
             &nbsp; <% } %>
         </td>

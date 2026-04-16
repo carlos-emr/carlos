@@ -40,7 +40,7 @@
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 
 <%
@@ -65,10 +65,10 @@
     </head>
     <body>
     <h1>Facilities</h1>
-    <form action="${pageContext.request.contextPath}/FacilityManager.do" method="post">
+    <form action="${pageContext.request.contextPath}/FacilityManager" method="post">
         <display:table class="simple" cellspacing="2" cellpadding="3"
                        id="facility" name="facilities" export="false" pagesize="0"
-                       requestURI="/FacilityManager.do">
+                       requestURI="/FacilityManager">
             <display:setProperty name="paging.banner.placement" value="bottom"/>
             <display:setProperty name="paging.banner.item_name" value="agency"/>
             <display:setProperty name="paging.banner.items_name" value="facilities"/>
@@ -78,12 +78,12 @@
             <display:column property="description" sortable="true" title="Description"/>
 
             <display:column sortable="false" title="">
-                <a href="<%=request.getContextPath() %>/FacilityManager.do?method=edit&id=${e:forHtmlAttribute(facility.id)}">
+                <a href="<%=request.getContextPath() %>/FacilityManager?method=edit&id=${e:forHtmlAttribute(facility.id)}">
                     Edit </a>
             </display:column>
             <!--
             < isplay:column sortable="false" title="">
-            <a href="< tml:rewrite action="/FacilityManager.do"/>?method=delete&id=< :out value="${facility.id}"/>&name=< :out value="${facility.name}"/>"
+            <a href="< tml:rewrite action="/FacilityManager"/>?method=delete&id=< :out value="${facility.id}"/>&name=< :out value="${facility.name}"/>"
             onclick="return ConfirmDelete('< :out value="${facility.name}"/>')">
             Delete </a>
             </ isplay:column>
@@ -91,7 +91,7 @@
         </display:table>
     </form>
     <!--
-            <p><a href="< tml:rewrite action="/FacilityManager.do"/>?method=add">
+            <p><a href="< tml:rewrite action="/FacilityManager"/>?method=add">
             Add new facility </a></p>
     -->
     </body>

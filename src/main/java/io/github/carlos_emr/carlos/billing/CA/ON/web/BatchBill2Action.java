@@ -166,7 +166,7 @@ public class BatchBill2Action extends ActionSupport {
             String providersParam = request.getParameter("providers");
             String serviceCodeParam = request.getParameter("service_code");
             response.sendRedirect(request.getContextPath()
-                    + "/billing/CA/ON/BatchBill.do?provider_no="
+                    + "/billing/CA/ON/BatchBill?provider_no="
                     + URLEncoder.encode(providersParam == null ? "" : providersParam, StandardCharsets.UTF_8)
                     + "&service_code="
                     + URLEncoder.encode(serviceCodeParam == null ? "" : serviceCodeParam, StandardCharsets.UTF_8));
@@ -206,7 +206,7 @@ public class BatchBill2Action extends ActionSupport {
             String providersParam = request.getParameter("providers");
             String serviceCodeParam = request.getParameter("service_code");
             response.sendRedirect(request.getContextPath()
-                    + "/billing/CA/ON/BatchBill.do?provider_no="
+                    + "/billing/CA/ON/BatchBill?provider_no="
                     + URLEncoder.encode(providersParam == null ? "" : providersParam, StandardCharsets.UTF_8)
                     + "&service_code="
                     + URLEncoder.encode(serviceCodeParam == null ? "" : serviceCodeParam, StandardCharsets.UTF_8));

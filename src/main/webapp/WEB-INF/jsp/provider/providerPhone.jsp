@@ -88,7 +88,7 @@
                     }
                     if (request.getAttribute("status") == null) {
 
-                %> <form action="${pageContext.request.contextPath}/EditPhoneNum.do" method="post">
+                %> <form action="${pageContext.request.contextPath}/EditPhoneNum" method="post">
 
 			
 			<span style="color:blue">By entering in a value, you will 

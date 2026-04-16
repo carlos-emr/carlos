@@ -29,8 +29,8 @@
     <package name="clinical" namespace="/" extends="struts-default">
 
         <global-results>
-            <result name="securityError">/securityError.jsp</result>
-            <result name="error">/errorpage.jsp</result>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </global-results>
 
         <global-exception-mappings>
@@ -80,15 +80,15 @@
         <action name="encounter/MeasurementData" class="io.github.carlos_emr.carlos.measurements.web.MeasurementData2Action"/>
         <action name="oscarResearch/oscarDxResearch/setupDxResearch" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxSetupResearch2Action">
             <result name="success">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearch.jsp</result>
-            <result name="error">/errorpage.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </action>
         <action name="oscarResearch/dxresearch/setupDxResearch" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxSetupResearch2Action">
             <result name="success">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearch.jsp</result>
-            <result name="error">/errorpage.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </action>
         <action name="oscarResearch/oscarDxResearch/dxResearch" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearch2Action">
-            <result name="codeSearch">/oscarResearch/oscarDxResearch/dxcodeSearch.do</result>
-            <result name="success">/oscarResearch/oscarDxResearch/setupDxResearch.do</result>
+            <result name="codeSearch">/oscarResearch/oscarDxResearch/dxcodeSearch</result>
+            <result name="success">/oscarResearch/oscarDxResearch/setupDxResearch</result>
             <result name="codeList">/WEB-INF/jsp/oscarResearch/oscarDxResearch/quickCodeList.jsp</result>
             <result name="failure">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearch.jsp</result>
         </action>
@@ -96,10 +96,10 @@
             <result name="success">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearchCodeSearch.jsp</result>
         </action>
         <action name="oscarResearch/oscarDxResearch/dxResearchUpdate" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchUpdate2Action">
-            <result name="success">/oscarResearch/oscarDxResearch/setupDxResearch.do</result>
+            <result name="success">/oscarResearch/oscarDxResearch/setupDxResearch</result>
         </action>
         <action name="oscarResearch/dxresearch/dxResearchUpdate" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchUpdate2Action">
-            <result name="success">/oscarResearch/oscarDxResearch/setupDxResearch.do</result>
+            <result name="success">/oscarResearch/oscarDxResearch/setupDxResearch</result>
         </action>
         <action name="oscarResearch/oscarDxResearch/dxResearchLoadQuickList" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchLoadQuickList2Action">
             <result name="success">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearchSelectQuickList.jsp</result>
@@ -108,7 +108,7 @@
             <result name="success">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearchEditQuickList.jsp</result>
         </action>
         <action name="oscarResearch/oscarDxResearch/dxResearchUpdateQuickList" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchUpdateQuickList2Action">
-            <result name="success">/oscarResearch/oscarDxResearch/dxResearchLoadQuickListItems.do</result>
+            <result name="success">/oscarResearch/oscarDxResearch/dxResearchLoadQuickListItems</result>
             <result name="failure">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearchEditQuickList.jsp</result>
         </action>
         <action name="dxCodeSearchJSON" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxCodeSearchJSON2Action"/>
@@ -164,7 +164,7 @@
         <action name="CaseManagementEntry" class="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementEntry2Action" method="execute">
             <result name="setUpMainEncounterPage">/WEB-INF/jsp/casemgmt/newEncounterLayout.jsp</result>
             <result name="view">/WEB-INF/jsp/casemgmt/CaseManagementEntry.jsp</result>
-            <result name="list">/CaseManagementView.do?method=view</result>
+            <result name="list">/CaseManagementView?method=view</result>
             <result name="listCPPNotes" type="redirect">
             <param name="location">${reloadUrl}</param>
         </result>
@@ -187,7 +187,7 @@
         <action name="casemgmt/ExtPrintRegistry" class="io.github.carlos_emr.carlos.casemgmt.web.ExtPrintRegistry2Action"/>
 
         <action name="ArchiveView" class="io.github.carlos_emr.carlos.casemgmt.web.ArchiveView2Action" method="execute">
-            <result name="view" type="redirect">/provider/providercontrol.do</result>
+            <result name="view" type="redirect">/provider/providercontrol</result>
         </action>
 
 
@@ -207,7 +207,7 @@
 
         <!--
             encounter/ + casemgmt/ JSPs have been relocated behind
-            /WEB-INF/jsp/ and are reached only through these View*.do view
+            /WEB-INF/jsp/ and are reached only through these view
             gates. Each gate enforces _eChart r (the prevailing clinical-work
             privilege across both modules). In-JSP <security:oscarSec>
             taglibs continue to enforce narrower per-page privileges

@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -50,7 +50,7 @@
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     String user_no;
     user_no = (String) session.getAttribute("user");
     String docdownload = oscarVariables.getProperty("project_home");
@@ -104,7 +104,7 @@
 
         <h3><fmt:message key="admin.admin.btnImportFormData"/></h3>
 
-        <form action="${pageContext.request.contextPath}/form/xmlUpload.do" method="POST" enctype="multipart/form-data">
+        <form action="${pageContext.request.contextPath}/form/xmlUpload" method="POST" enctype="multipart/form-data">
 
             <% 
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");

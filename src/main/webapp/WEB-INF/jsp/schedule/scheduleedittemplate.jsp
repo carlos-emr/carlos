@@ -37,7 +37,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page
         import="java.util.*, java.net.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*"
-        errorPage="/errorpage.jsp" %>
+        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -95,7 +95,7 @@
                 s = s.replace('/', '-');
                 var e = document.reportform.endDate.value.replace('/', '-');
                 e = e.replace('/', '-');
-                var u = '<%= request.getContextPath() %>/report/ViewReportedblist.do?startDate=' + encodeURIComponent(s) + '&endDate=' + encodeURIComponent(e);
+                var u = '<%= request.getContextPath() %>/report/ViewReportedblist?startDate=' + encodeURIComponent(s) + '&endDate=' + encodeURIComponent(e);
                 popupPage(600, 750, u);
             }
 
@@ -115,7 +115,7 @@
             function changeGroup(s) {
                 var newGroupNo = s.options[s.selectedIndex].value;
                 newGroupNo = s.options[s.selectedIndex].value;
-                self.location.href = "${pageContext.request.contextPath}/schedule/EditTemplate.do?providerid=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerid"))) %>&providername=<%=URLEncoder.encode(StringUtils.noNull(request.getParameter("providername")), StandardCharsets.UTF_8)%>&step=" + newGroupNo;
+                self.location.href = "${pageContext.request.contextPath}/schedule/EditTemplate?providerid=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerid"))) %>&providername=<%=URLEncoder.encode(StringUtils.noNull(request.getParameter("providername")), StandardCharsets.UTF_8)%>&step=" + newGroupNo;
 
             }
 
@@ -131,7 +131,7 @@
             <td align="center">
 
                 <form name="addtemplatecode1" method="post"
-                      action="${pageContext.request.contextPath}/schedule/EditTemplate.do">
+                      action="${pageContext.request.contextPath}/schedule/EditTemplate">
                     <table width="100%" border="0" cellspacing="0" cellpadding="5">
                         <input type="hidden" name="dboperation" value="">
                         <input type="hidden" name="step" value="">
@@ -171,7 +171,7 @@
                 </form>
 
                 <form name="addtemplatecode2" method="post"
-                      action="${pageContext.request.contextPath}/schedule/EditTemplate.do">
+                      action="${pageContext.request.contextPath}/schedule/EditTemplate">
                     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="95%">
                         <tr>
                             <td width="50%" align="right">&nbsp; <select name="step1"
@@ -193,7 +193,7 @@
     </table>
     </form>
     <form name="addtemplatecode" method="post"
-          action="${pageContext.request.contextPath}/schedule/EditTemplate.do">
+          action="${pageContext.request.contextPath}/schedule/EditTemplate">
         <table width="95%" border="1" cellspacing="0" cellpadding="2"
                bgcolor="silver">
             <tr bgcolor="#FOFOFO" align="center">

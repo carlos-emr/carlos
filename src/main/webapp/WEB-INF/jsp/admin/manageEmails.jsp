@@ -6,7 +6,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.email" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.email");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.email");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -145,7 +145,7 @@
 
     <script type="text/javascript">
         $(document).ready(function () {
-            var searchDemoUrl = "${ctx}/demographic/SearchDemographic.do";
+            var searchDemoUrl = "${ctx}/demographic/SearchDemographic";
             $("#autocompletedemo").autocomplete({
                 source: function (req, res) {
                     $.ajax({
@@ -252,7 +252,7 @@
 <div id="bodyrow" class="container-fluid">
     <div id="bodycolumn" class="col-sm-12">
 
-        <form id="emailSearchForm" action="${ctx}/admin/ManageEmails.do" onsubmit="ShowSpin(true);">
+        <form id="emailSearchForm" action="${ctx}/admin/ManageEmails" onsubmit="ShowSpin(true);">
 
             <input type="hidden" name="method" value="fetchEmails"/>
             <fieldset class="search-email-menu border px-3 pb-3">

@@ -61,9 +61,10 @@
            WAF_ENABLED=true               (request inspection: SQLi, XSS, traversal, bots)
     -->
 
-    <!-- XforwardHeaderFilter: resolves real client IP from X-Forwarded-For header when behind a
-         reverse proxy. Mapped first in the WAF layer so that all subsequent filters (including
-         RateLimitFilter) use the actual client IP rather than the proxy's address. -->
+    <!-- XforwardHeaderFilter: resolves real client IP from X-Forwarded-For only when the
+         immediate peer is a configured trusted proxy. Mapped first in the WAF layer so that
+         all subsequent filters (including RateLimitFilter) use the trusted client IP rather
+         than blindly trusting a spoofable header. -->
     <filter>
         <filter-name>XforwardHeader</filter-name>
         <filter-class>io.github.carlos_emr.carlos.app.XforwardHeaderFilter</filter-class>
@@ -87,16 +88,16 @@
         <url-pattern>/*</url-pattern>
     </filter-mapping>
 
-    <!-- ResponseDefaultsFilter MUST be ordered before struts2. Struts2's StrutsPrepareAndExecuteFilter
-         does not call chain.doFilter() for requests it handles, so any filter after it in the
-         chain is never invoked for Struts action responses. Ensuring this filter runs before
-         struts2 guarantees encoding, caching, and security headers are applied to Struts action responses. -->
-    <filter>
-        <filter-name>ResponseDefaultsFilter</filter-name>
-        <filter-class>io.github.carlos_emr.carlos.utility.ResponseDefaultsFilter</filter-class>
+    <!-- ResponseDefaultsFilter MUST be ordered before Struts execution. Struts action requests
+         do not reach later filters once Struts executes them, so this filter must stay ahead of
+         the Struts prepare/execute pair to guarantee encoding, caching, and security headers on
+         Struts responses. -->
+	<filter>
+		<filter-name>ResponseDefaultsFilter</filter-name>
+		<filter-class>io.github.carlos_emr.carlos.utility.ResponseDefaultsFilter</filter-class>
 		<init-param>
 			<param-name>noCacheEndings</param-name>
-			<param-value>.jsp,.jsf,.json,.do</param-value>
+			<param-value>.jsp,.jsf,.json</param-value>
 		</init-param>
     </filter>
     <filter-mapping>
@@ -104,18 +105,30 @@
 		<url-pattern>/*</url-pattern>
 	</filter-mapping>
 
+    <!-- Redirect bare context-root requests to the canonical Struts login action.
+         This replaces the old public index welcome files and must run before
+         Struts so "/" never falls through to container welcome-file resolution. -->
+    <filter>
+        <filter-name>RootEntryRedirectFilter</filter-name>
+        <filter-class>io.github.carlos_emr.carlos.login.RootEntryRedirectFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>RootEntryRedirectFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+        <dispatcher>REQUEST</dispatcher>
+    </filter-mapping>
+
     <!-- CSRFGuard, CsrfGuardScriptInjectionFilter, and LogoutBroadcastFilter MUST be ordered
-         before struts2. StrutsPrepareAndExecuteFilter does not call chain.doFilter() for
-         requests it handles, so filters placed after it in the chain are never invoked for
-         Struts action (.do) responses. Placing these filters here ensures:
+         before Struts execution. Once Struts executes an action, later filters in the chain do
+         not run for that request. Placing these filters here ensures:
            1. CSRFGuard validates tokens on all Struts action POST requests
-           2. CsrfGuardScriptInjectionFilter skips .do REQUEST dispatch (Tomcat 11 unwraps
+           2. CsrfGuardScriptInjectionFilter skips direct REQUEST dispatch (Tomcat 11 unwraps
               wrappers during forward), but runs on the FORWARD dispatch to the JSP where
               it wraps the response and injects csrfguard.js. The FORWARD dispatcher also
               prevents the default 8KB response buffer from truncating large JSP pages.
            3. LogoutBroadcastFilter wraps the response BEFORE Struts renders,
               so the logout broadcast script is injected into Struts-rendered HTML pages
-              (e.g. Inboxhub.do, DisplayMessages.do)
+              (e.g. Inboxhub, DisplayMessages)
          Filter declarations remain in their respective sections below;
          only filter-mapping order determines chain position. -->
     <filter-mapping>
@@ -130,12 +143,12 @@
     </filter-mapping>
     <filter-mapping>
         <filter-name>LogoutBroadcastFilter</filter-name>
-        <url-pattern>*.do</url-pattern>
+        <url-pattern>/*</url-pattern>
     </filter-mapping>
 
     <!-- HttpMethodGuardFilter: blocks GET requests on mutator actions and JSPs.
          Must be ordered after CSRFGuard (which validates POST tokens) and before Struts
-         (which does not call chain.doFilter for handled requests). This ensures mutator
+         execution. This ensures mutator
          GET requests are rejected before Struts processes them. -->
     <filter>
         <filter-name>HttpMethodGuardFilter</filter-name>
@@ -143,19 +156,33 @@
     </filter>
     <filter-mapping>
         <filter-name>HttpMethodGuardFilter</filter-name>
-        <url-pattern>*.do</url-pattern>
-    </filter-mapping>
-    <filter-mapping>
-        <filter-name>HttpMethodGuardFilter</filter-name>
-        <url-pattern>*.jsp</url-pattern>
+        <url-pattern>/*</url-pattern>
     </filter-mapping>
 
 	<filter>
-		<filter-name>struts2</filter-name>
-		<filter-class>org.apache.struts2.dispatcher.filter.StrutsPrepareAndExecuteFilter</filter-class>
+		<filter-name>struts2-prepare</filter-name>
+		<filter-class>org.apache.struts2.dispatcher.filter.StrutsPrepareFilter</filter-class>
 	</filter>
 	<filter-mapping>
-		<filter-name>struts2</filter-name>
+		<filter-name>struts2-prepare</filter-name>
+		<url-pattern>/*</url-pattern>
+		<dispatcher>REQUEST</dispatcher>
+		<dispatcher>FORWARD</dispatcher>
+	</filter-mapping>
+    <!-- LoggedInUserFilter runs in the documented custom-filter gap between
+         Struts prepare and execute so action requests have derived
+         authenticated-session context before action invocation. -->
+    <filter-mapping>
+        <filter-name>LoggedInUserFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+        <dispatcher>REQUEST</dispatcher>
+    </filter-mapping>
+	<filter>
+		<filter-name>struts2-execute</filter-name>
+		<filter-class>org.apache.struts2.dispatcher.filter.StrutsExecuteFilter</filter-class>
+	</filter>
+	<filter-mapping>
+		<filter-name>struts2-execute</filter-name>
 		<url-pattern>/*</url-pattern>
 		<dispatcher>REQUEST</dispatcher>
 		<dispatcher>FORWARD</dispatcher>
@@ -169,33 +196,18 @@
             <url-pattern>/ws/*</url-pattern>
     </filter-mapping>
 
-	<filter>
-		<filter-name>PrivacyStatementAppendingFilter</filter-name>
-		<filter-class>io.github.carlos_emr.carlos.commn.printing.PrivacyStatementAppendingFilter</filter-class>
+    <filter>
+        <filter-name>PrivacyStatementAppendingFilter</filter-name>
+        <filter-class>io.github.carlos_emr.carlos.commn.printing.PrivacyStatementAppendingFilter</filter-class>
 		<init-param>
 			<param-name>exclusions</param-name>
-			<param-value>/messenger,/demographic/ViewDemographicEditDemographicJs.do,/demographic/ViewDemographicPrintDemographic.do,/demographic/DemographicPdfLabel.do,/provider/ViewSchedulePageJs.do</param-value>
+			<param-value>/messenger,/demographic/ViewDemographicEditDemographicJs,/demographic/ViewDemographicPrintDemographic,/demographic/DemographicPdfLabel,/provider/ViewSchedulePageJs</param-value>
 		</init-param>
 	</filter>
 
 	<filter-mapping>
 		<filter-name>PrivacyStatementAppendingFilter</filter-name>
-		<url-pattern>*.jsp</url-pattern>
-	</filter-mapping>
-	
-	<filter-mapping>
-		<filter-name>PrivacyStatementAppendingFilter</filter-name>
-		<url-pattern>*.do</url-pattern>
-	</filter-mapping>
-	
-	<filter-mapping>
-		<filter-name>PrivacyStatementAppendingFilter</filter-name>
-		<url-pattern>*.html</url-pattern>
-	</filter-mapping>
-	
-	<filter-mapping>
-		<filter-name>PrivacyStatementAppendingFilter</filter-name>
-		<url-pattern>*.htm</url-pattern>
+		<url-pattern>/*</url-pattern>
 	</filter-mapping>
 
 	<filter>
@@ -210,14 +222,9 @@
 		<filter-class>io.github.carlos_emr.carlos.app.LogoutBroadcastFilter</filter-class>
 		<init-param>
 			<param-name>exclusions</param-name>
-			<param-value>/logout.jsp,/status/SessionHeartbeat.do</param-value>
+			<param-value>/logoutPage,/status/SessionHeartbeat</param-value>
 		</init-param>
 	</filter>
-
-	<filter-mapping>
-		<filter-name>LogoutBroadcastFilter</filter-name>
-		<url-pattern>*.jsp</url-pattern>
-	</filter-mapping>
 
     <filter>
         <filter-name>UserActivityFilter</filter-name>
@@ -240,6 +247,10 @@
 		<filter-name>LoginFilter</filter-name>
 		<filter-class>io.github.carlos_emr.carlos.sec.LoginFilter</filter-class>
 	</filter>
+    <filter>
+        <filter-name>SectionRootCompatibilityFilter</filter-name>
+        <filter-class>io.github.carlos_emr.carlos.app.SectionRootCompatibilityFilter</filter-class>
+    </filter>
 	<filter>
 		<filter-name>ResponseOverrideFilter</filter-name>
 		<filter-class>org.displaytag.filter.ResponseOverrideFilter</filter-class>
@@ -254,24 +265,23 @@
     <url-pattern>/*</url-pattern>
   </filter-mapping>
   <filter-mapping>
-    <filter-name>LoggedInUserFilter</filter-name>
-    <url-pattern>/*</url-pattern>
-  </filter-mapping>
-  <filter-mapping>
     <filter-name>PMMFilter</filter-name>
     <url-pattern>/PMmodule/*</url-pattern>
   </filter-mapping>
   <filter-mapping>
     <filter-name>ResponseOverrideFilter</filter-name>
-    <url-pattern>*.do</url-pattern>
-  </filter-mapping>
-  <filter-mapping>
-    <filter-name>ResponseOverrideFilter</filter-name>
-    <url-pattern>*.jsp</url-pattern>
+    <url-pattern>/*</url-pattern>
   </filter-mapping>
   <filter-mapping>
     <filter-name>LoginFilter</filter-name>
     <url-pattern>/*</url-pattern>
+  </filter-mapping>
+  <!-- Restores allowlisted clean section-home URLs, such as /administration/,
+       after LoginFilter has enforced the normal authenticated-session behavior. -->
+  <filter-mapping>
+    <filter-name>SectionRootCompatibilityFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+    <dispatcher>REQUEST</dispatcher>
   </filter-mapping>
 
 	<listener>
@@ -324,7 +334,7 @@
         <filter-class>io.github.carlos_emr.carlos.app.CarlosCsrfGuardFilter</filter-class>
     </filter>
     <!-- filter-mapping for CSRFGuard is declared earlier in the file, before struts2,
-         so CSRF validation runs for all Struts action (.do) requests. -->
+         so CSRF validation runs for all Struts action requests. -->
     <servlet>
         <servlet-name>CsrfServlet</servlet-name>
         <servlet-class>org.owasp.csrfguard.servlet.JavaScriptServlet</servlet-class>
@@ -587,12 +597,10 @@
 	</servlet-mapping>
 
   <welcome-file-list>
-    <welcome-file>index.jsp</welcome-file>
-    <welcome-file>index.html</welcome-file>
-    <welcome-file>index.htm</welcome-file>
+    <welcome-file>index</welcome-file>
   </welcome-file-list>
 
   <error-page>
-    <location>/errorpage.jsp</location>
+    <location>/WEB-INF/jsp/error/errorpage.jsp</location>
   </error-page>
 </web-app>

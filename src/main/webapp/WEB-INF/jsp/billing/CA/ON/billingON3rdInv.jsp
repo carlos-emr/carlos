@@ -243,7 +243,7 @@
     <oscar:customInterface section="invoice"/>
 </head>
 <body>
-<form action="<%=request.getContextPath()%>/BillingInvoice.do" method="post">
+<form action="<%=request.getContextPath()%>/BillingInvoice" method="post">
     <input type="hidden" name="method" value=""/>
     <input type="hidden" name="invoiceNo" id="invoiceNo" value="<%= Encode.forHtmlAttribute(invoiceNoStr) %>"/>
     <div class="doNotPrint">
@@ -267,7 +267,7 @@
                     if (site != null) {
                         if (site.getSiteLogoId() != null && site.getSiteLogoId() > 0) {
             %>
-            <img src="<%=request.getContextPath() %>/documentManager/ManageDocument.do?method=display&doc_no=<%=site.getSiteLogoId() %>"/>
+            <img src="<%=request.getContextPath() %>/documentManager/ManageDocument?method=display&doc_no=<%=site.getSiteLogoId() %>"/>
             <%
             } else {
             %>
@@ -287,7 +287,7 @@
             Tel.: <%=propClinic.getProperty("clinic_phone", "") %><br/>
             <%} %>
             <%} else if (isLogoImgExisted) {%>
-            <img src="<%=request.getContextPath() %>/billing/ca/on/DisplayInvoiceLogo.do"/>
+            <img src="<%=request.getContextPath() %>/billing/ca/on/DisplayInvoiceLogo"/>
             <%} else { %>
             <b><%=propClinic.getProperty("clinic_name", "") %>
             </b><br/>

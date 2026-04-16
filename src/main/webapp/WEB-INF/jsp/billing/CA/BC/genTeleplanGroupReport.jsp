@@ -37,7 +37,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting,_admin" rights="r"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting&type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting&type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -230,6 +230,6 @@
 %>
 
 
-<jsp:forward page='/billing/CA/BC/ViewBillingTeleplanGroupReport.do'>
+<jsp:forward page='/billing/CA/BC/ViewBillingTeleplanGroupReport'>
     <jsp:param name="year" value=''/>
 </jsp:forward>

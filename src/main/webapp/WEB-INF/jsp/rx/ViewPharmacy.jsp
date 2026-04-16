@@ -45,7 +45,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_rx" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -67,7 +67,7 @@
              if (request.getParameter("ID") != null && type != null && type.equals("View")){ %>
             $(function () {
                 var data = "pharmacyId=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("ID")))%>";
-                $.get("<%=request.getContextPath()%>/rx/managePharmacy.do?method=getPharmacyInfo",
+                $.get("<%=request.getContextPath()%>/rx/managePharmacy?method=getPharmacyInfo",
                     data, function (data) {
                         if (data.name) {
                             $('#pharmacyId').val('<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("ID")))%>');

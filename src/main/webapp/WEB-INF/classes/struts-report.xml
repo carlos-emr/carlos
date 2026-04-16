@@ -29,8 +29,8 @@
     <package name="report" namespace="/" extends="struts-default">
 
         <global-results>
-            <result name="securityError">/securityError.jsp</result>
-            <result name="error">/errorpage.jsp</result>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </global-results>
 
         <global-exception-mappings>
@@ -146,16 +146,16 @@
             <result name="success">/WEB-INF/jsp/oscarReport/reportByTemplate/templateGroups.jsp</result>
         </action>
         <action name="oscarReport/reportByTemplate/actions/addGroup" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.RBTAddGroup2Action">
-            <result name="success">/oscarReport/reportByTemplate/rbtGroup.do</result>
+            <result name="success">/oscarReport/reportByTemplate/rbtGroup</result>
         </action>
         <action name="oscarReport/reportByTemplate/actions/rbtAddToGroup" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.RBTAddToGroup2Action">
-            <result name="success">/oscarReport/reportByTemplate/actions/tempInGroup.do</result>
+            <result name="success">/oscarReport/reportByTemplate/actions/tempInGroup</result>
         </action>
         <action name="oscarReport/reportByTemplate/actions/remFromGroup" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.RBTRemoveFromGroup2Action">
-            <result name="success">/oscarReport/reportByTemplate/actions/tempInGroup.do</result>
+            <result name="success">/oscarReport/reportByTemplate/actions/tempInGroup</result>
         </action>
         <action name="oscarReport/reportByTemplate/actions/delGroup" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.RBTDeleteGroup2Action">
-            <result name="success">/oscarReport/reportByTemplate/rbtGroup.do</result>
+            <result name="success">/oscarReport/reportByTemplate/rbtGroup</result>
         </action>
         <action name="appointment/printAppointmentReceiptAction" class="io.github.carlos_emr.carlos.report.pageUtil.PrintAppointmentReceipt2Action"/>
 
@@ -170,7 +170,7 @@
 
         <!--
             oscarReport/ + report/ JSPs have been relocated behind
-            /WEB-INF/jsp/ and are reached only through these View*.do view
+            /WEB-INF/jsp/ and are reached only through these view
             gates. Each gate enforces _report r via ViewReport2Action
             (GET/HEAD/POST; 405 on other methods — POST is accepted because
             several report JSPs self-post filter/config forms back through

@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -71,7 +71,7 @@
 <div>
     <div>
         <label> WCB Forms available to attach.</label> <a
-            onclick="popup(700,960,'viewformwcb.do?demographic_no=<%= encodedDemoNo %>&formId=0&provNo=999998&parentAjaxId=forms&hideToBill=true','<%= encodedDemoNoJs %>NEWWCB'); return false;"
+            onclick="popup(700,960,'viewformwcb?demographic_no=<%= encodedDemoNo %>&formId=0&provNo=999998&parentAjaxId=forms&hideToBill=true','<%= encodedDemoNoJs %>NEWWCB'); return false;"
             href="javascript:void(0);">New WCB Form</a> <br>
     </div>
     <table class="table table-striped table-sm">
@@ -96,7 +96,7 @@
                    onclick="checkifSet('<%= Encode.forJavaScriptAttribute(StringUtils.noNull(wcb.getW_icd9())) %>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(wcb.getW_feeitem())) %>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(wcb.getW_extrafeeitem())) %>');">Populate</a>
             </td>
             <td align="middle">
-                <a onclick="popup(700,960,'viewformwcb.do?demographic_no=<%= encodedDemoNo %>&formId=<%=wcb.getId()%>&provNo=<%= encodedProvNo %>&parentAjaxId=forms&billingcode=<%= encodedBillingCode %>&hideToBill=true','<%= encodedDemoNoJs %>NEWWCB'); return false;"
+                <a onclick="popup(700,960,'viewformwcb?demographic_no=<%= encodedDemoNo %>&formId=<%=wcb.getId()%>&provNo=<%= encodedProvNo %>&parentAjaxId=forms&billingcode=<%= encodedBillingCode %>&hideToBill=true','<%= encodedDemoNoJs %>NEWWCB'); return false;"
                    href="javascript:void(0);"><fmt:formatDate pattern="yyyy-MM-dd" value="${wcb.w_doi}"/></a>
 
             </td>

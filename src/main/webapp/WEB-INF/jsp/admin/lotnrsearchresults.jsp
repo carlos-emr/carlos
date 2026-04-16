@@ -49,7 +49,7 @@
     String deepcolor = "#CCCCFF", weakcolor = "#EEEEFF";
 %>
 <%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" buffer="none"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <jsp:useBean id="apptMainBean" class="io.github.carlos_emr.AppointmentMainBean"
              scope="session"/>
 
@@ -62,7 +62,7 @@
 
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -100,7 +100,7 @@
         </table>
         <table cellspacing="0" cellpadding="0" width="100%" border="0"
                BGCOLOR="<%=weakcolor%>">
-            <form method="post" action="${pageContext.request.contextPath}/admin/LotNrSearchResults.do" name="searchlotnr"
+            <form method="post" action="${pageContext.request.contextPath}/admin/LotNrSearchResults" name="searchlotnr"
                   onsubmit="return onsub();">
                 <tr valign="top">
                     <td rowspan="2" align="right" valign="middle"><font
@@ -159,7 +159,7 @@
                     <td><%=Encode.forHtml(pRec.getPreventionType())%>
                     </td>
                     <td><a
-                     href="${pageContext.request.contextPath}/admin/ViewLotNrDeleteRecordHtm.do?prevention=<%=Encode.forUriComponent(pRec.getPreventionType())%>&lotnr=<%=URLEncoder.encode(pRec.getLotNr(), StandardCharsets.UTF_8)%>"><%=Encode.forHtml(pRec.getLotNr())%>
+                     href="${pageContext.request.contextPath}/admin/ViewLotNrDeleteRecordHtm?prevention=<%=Encode.forUriComponent(pRec.getPreventionType())%>&lotnr=<%=URLEncoder.encode(pRec.getLotNr(), StandardCharsets.UTF_8)%>"><%=Encode.forHtml(pRec.getLotNr())%>
                     </a></td>
                 </tr>
                 <% }
@@ -178,16 +178,16 @@
                 nLastPage = limit1 - limit2;
                 if (nLastPage >= 0) {
             %> <a
-                href="${pageContext.request.contextPath}/admin/LotNrSearchResults.do?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&limit1=<%=nLastPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnLastPage"/></a> | <%
+                href="${pageContext.request.contextPath}/admin/LotNrSearchResults?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&limit1=<%=nLastPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnLastPage"/></a> | <%
             }
             if (nItems == limit2) {
         %> <a
-                href="${pageContext.request.contextPath}/admin/LotNrSearchResults.do?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&limit1=<%=nNextPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnNextPage"/></a> <%
+                href="${pageContext.request.contextPath}/admin/LotNrSearchResults?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&limit1=<%=nNextPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnNextPage"/></a> <%
             }
         %>
             <p><fmt:message key="admin.lotnrsearchresults.msgClickForEditing"/></p>
             <br/>
-            <a href="${pageContext.request.contextPath}/admin/ViewLotNrAddRecordHtm.do">Add new Lot #</a>
+            <a href="${pageContext.request.contextPath}/admin/ViewLotNrAddRecordHtm">Add new Lot #</a>
         </center>
     </body>
 </html>

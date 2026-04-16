@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_allergy" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_allergy");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_allergy");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -103,20 +103,20 @@
                 if (isEmpty() == true) {
                     name = name.toUpperCase();
                     alert(name);
-                    submitAddReaction('<%= request.getContextPath() %>/rx/addReaction2.do', '0', '0', name);
+                    submitAddReaction('<%= request.getContextPath() %>/rx/addReaction2', '0', '0', name);
                 }
             }
 
             function addPenicillinAllergy() {
-                submitAddReaction('<%= request.getContextPath() %>/rx/addReaction2.do', '44452', '10', 'PENICILLINS');
+                submitAddReaction('<%= request.getContextPath() %>/rx/addReaction2', '44452', '10', 'PENICILLINS');
             }
 
             function addSulfonamideAllergy() {
-                submitAddReaction('<%= request.getContextPath() %>/rx/addReaction2.do', '44159', '10', 'SULFONAMIDES');
+                submitAddReaction('<%= request.getContextPath() %>/rx/addReaction2', '44159', '10', 'SULFONAMIDES');
             }
 
             function addCustomNKDA() {
-                submitAddReaction('<%= request.getContextPath() %>/rx/addReaction2.do', '0', '0', 'NKDA');
+                submitAddReaction('<%= request.getContextPath() %>/rx/addReaction2', '0', '0', 'NKDA');
             }
 
             function toggleSection(typecode) {
@@ -134,7 +134,7 @@
         </script>
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
-    <form id="addReactionForm" method="post" action="<%= request.getContextPath() %>/rx/addReaction.do" style="display:none">
+    <form id="addReactionForm" method="post" action="<%= request.getContextPath() %>/rx/addReaction" style="display:none">
         <input type="hidden" name="ID" value=""/>
         <input type="hidden" name="type" value=""/>
         <input type="hidden" name="name" value=""/>
@@ -153,8 +153,8 @@
                        height="100%">
                     <tr>
                         <td width="0%" valign="top">
-                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug.do"> <fmt:message key="SearchDrug.title"/></a>&nbsp;&gt;&nbsp; <a
-                                    href="<%= request.getContextPath() %>/rx/showAllergy.do"> <fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:message key="ChooseAllergy.title"/></b></div>
+                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug"> <fmt:message key="SearchDrug.title"/></a>&nbsp;&gt;&nbsp; <a
+                                    href="<%= request.getContextPath() %>/rx/showAllergy"> <fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:message key="ChooseAllergy.title"/></b></div>
                         </td>
                     </tr>
                     <!----Start new rows here-->
@@ -169,7 +169,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <td><form action="${pageContext.request.contextPath}/rx/searchAllergy2.do" method="post"
+                        <td><form action="${pageContext.request.contextPath}/rx/searchAllergy2" method="post"
                                        focus="searchString" onsubmit="return isEmpty()">
                             <table>
                                 <tr valign="center">
@@ -264,14 +264,14 @@
                                                     <!-- 判断是否为平铺结果显示 -->
                                                     <c:if test="${flatResults}">
                                                         <c:forEach var="allergy" items="${flatMap}">
-                                                            <a href="javascript:void(0)" data-id="${fn:escapeXml(allergy.value.drugrefId)}" data-type="${fn:escapeXml(allergy.value.typeCode)}" data-desc="${fn:escapeXml(allergy.value.description)}" onclick="submitAddReaction('<%= request.getContextPath() %>/rx/addReaction.do', this.dataset.id, this.dataset.type, this.dataset.desc)">
+                                                            <a href="javascript:void(0)" data-id="${fn:escapeXml(allergy.value.drugrefId)}" data-type="${fn:escapeXml(allergy.value.typeCode)}" data-desc="${fn:escapeXml(allergy.value.description)}" onclick="submitAddReaction('<%= request.getContextPath() %>/rx/addReaction', this.dataset.id, this.dataset.type, this.dataset.desc)">
                                                                     ${allergy.value.description}
                                                             </a>
 
                                                             <!-- 显示药物分类 -->
                                                             <c:forEach var="drugClass" items="${drugClassHash[allergy.value.drugrefId]}">
                                                                 &nbsp;&nbsp;&nbsp;
-                                                                <a style="color: orange" href="javascript:void(0)" data-id="${fn:escapeXml(drugClass[0])}" data-type="10" data-desc="${fn:escapeXml(drugClass[1])}" onclick="submitAddReaction('<%= request.getContextPath() %>/rx/addReaction.do', this.dataset.id, this.dataset.type, this.dataset.desc)">
+                                                                <a style="color: orange" href="javascript:void(0)" data-id="${fn:escapeXml(drugClass[0])}" data-type="10" data-desc="${fn:escapeXml(drugClass[1])}" onclick="submitAddReaction('<%= request.getContextPath() %>/rx/addReaction', this.dataset.id, this.dataset.type, this.dataset.desc)">
                                                                         ${drugClass[1]}
                                                                 </a>
                                                             </c:forEach>
@@ -292,14 +292,14 @@
 
                                                                 <div id="${type}_content" style="display: ${type == 11 || type == 12 ? 'none' : 'block'}">
                                                                     <c:forEach var="allergy" items="${allergyResults[type]}">
-                                                                        <a href="javascript:void(0)" data-id="${fn:escapeXml(allergy.drugrefId)}" data-type="${fn:escapeXml(allergy.typeCode)}" data-desc="${fn:escapeXml(allergy.description)}" onclick="submitAddReaction('<%= request.getContextPath() %>/rx/addReaction.do', this.dataset.id, this.dataset.type, this.dataset.desc)">
+                                                                        <a href="javascript:void(0)" data-id="${fn:escapeXml(allergy.drugrefId)}" data-type="${fn:escapeXml(allergy.typeCode)}" data-desc="${fn:escapeXml(allergy.description)}" onclick="submitAddReaction('<%= request.getContextPath() %>/rx/addReaction', this.dataset.id, this.dataset.type, this.dataset.desc)">
                                                                                 ${allergy.description}
                                                                         </a>
 
                                                                         <!-- 显示药物分类 -->
                                                                         <c:forEach var="drugClass" items="${drugClassHash[allergy.drugrefId]}">
                                                                             &nbsp;&nbsp;&nbsp;
-                                                                            <a style="color: orange" href="javascript:void(0)" data-id="${fn:escapeXml(drugClass[0])}" data-type="10" data-desc="${fn:escapeXml(drugClass[1])}" onclick="submitAddReaction('<%= request.getContextPath() %>/rx/addReaction.do', this.dataset.id, this.dataset.type, this.dataset.desc)">
+                                                                            <a style="color: orange" href="javascript:void(0)" data-id="${fn:escapeXml(drugClass[0])}" data-type="10" data-desc="${fn:escapeXml(drugClass[1])}" onclick="submitAddReaction('<%= request.getContextPath() %>/rx/addReaction', this.dataset.id, this.dataset.type, this.dataset.desc)">
                                                                                     ${drugClass[1]}
                                                                             </a>
                                                                         </c:forEach>
@@ -314,7 +314,7 @@
                                         </div>
 
                                         <%
-                                            String sBack = request.getContextPath() + "/rx/showAllergy.do";
+                                            String sBack = request.getContextPath() + "/rx/showAllergy";
                                         %> <input type=button class="ControlPushButton"
                                                   onclick="javascript:window.location.href='<%=sBack%>';"
                                                   value="Back to View Allergies"/></td>
@@ -352,7 +352,7 @@
 <%--								%><div id="11_content"><%--%>
 <%--								for(Allergy allergy:allergyResults.get(11)) {--%>
 <%--									%>--%>
-<%--									<a href="addReaction.do?ID=<%= allergy.getDrugrefId() %>&name=<%=java.net.URLEncoder.encode(allergy.getDescription())%>&type=<%=allergy.getTypeCode()%>"><%=allergy.getDescription() %></a>--%>
+<%--									<a href="addReaction?ID=<%= allergy.getDrugrefId() %>&name=<%=java.net.URLEncoder.encode(allergy.getDescription())%>&type=<%=allergy.getTypeCode()%>"><%=allergy.getDescription() %></a>--%>
 <%--									<br/>--%>
 <%--									<%--%>
 <%--								}--%>
@@ -364,7 +364,7 @@
 <%--								%><div id="12_content" style="display:none"><%--%>
 <%--								for(Allergy allergy:allergyResults.get(12)) {--%>
 <%--									%>--%>
-<%--									<a href="addReaction.do?ID=<%= allergy.getDrugrefId() %>&name=<%=java.net.URLEncoder.encode(allergy.getDescription())%>&type=<%=allergy.getTypeCode()%>"><%=allergy.getDescription() %></a>--%>
+<%--									<a href="addReaction?ID=<%= allergy.getDrugrefId() %>&name=<%=java.net.URLEncoder.encode(allergy.getDescription())%>&type=<%=allergy.getTypeCode()%>"><%=allergy.getDescription() %></a>--%>
 <%--									<br/>--%>
 <%--									<%--%>
 <%--								}--%>
@@ -377,7 +377,7 @@
 <%--								%><div id="14_content"><%--%>
 <%--								for(Allergy allergy:allergyResults.get(14)) {--%>
 <%--									%>--%>
-<%--									<a href="addReaction.do?ID=<%= allergy.getDrugrefId() %>&name=<%=java.net.URLEncoder.encode(allergy.getDescription())%>&type=<%=allergy.getTypeCode()%>"><%=allergy.getDescription() %></a>--%>
+<%--									<a href="addReaction?ID=<%= allergy.getDrugrefId() %>&name=<%=java.net.URLEncoder.encode(allergy.getDescription())%>&type=<%=allergy.getTypeCode()%>"><%=allergy.getDescription() %></a>--%>
 <%--									<br/>--%>
 <%--									<%--%>
 <%--								}--%>
@@ -390,7 +390,7 @@
 <%--				</div>--%>
 
 <%--				<%--%>
-<%--                        String sBack="/rx/showAllergy.do";--%>
+<%--                        String sBack="/rx/showAllergy";--%>
 <%--                      %> <input type=button class="ControlPushButton"--%>
 <%--					onclick="javascript:window.location.href='<%=sBack%>';"--%>
 <%--					value="Back to View Allergies" /></td>--%>

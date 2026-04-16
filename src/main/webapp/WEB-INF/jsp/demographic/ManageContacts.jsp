@@ -41,7 +41,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -95,7 +95,7 @@
                 total++;
                 jQuery("#contact_num").val(total);
                 jQuery.ajax({
-                    url: '<%= request.getContextPath() %>/demographic/ViewContact.do?search=Search&id=' + total, async: false, success: function (data) {
+                    url: '<%= request.getContextPath() %>/demographic/ViewContact?search=Search&id=' + total, async: false, success: function (data) {
                         jQuery("#contact_container").append(data);
                     }
                 });
@@ -106,7 +106,7 @@
                 total++;
                 jQuery("#contact_num").val(total);
                 jQuery.ajax({
-                    url: '<%= request.getContextPath() %>/demographic/ViewContact.do?search=&id=' + total, async: false, success: function (data) {
+                    url: '<%= request.getContextPath() %>/demographic/ViewContact?search=&id=' + total, async: false, success: function (data) {
                         jQuery("#contact_container").append(data);
                     }
                 });
@@ -125,7 +125,7 @@
                 total++;
                 jQuery("#procontact_num").val(total);
                 jQuery.ajax({
-                    url: '<%= request.getContextPath() %>/demographic/ViewProContact.do?search=Search&id=' + total, async: false, success: function (data) {
+                    url: '<%= request.getContextPath() %>/demographic/ViewProContact?search=Search&id=' + total, async: false, success: function (data) {
                         jQuery("#procontact_container").append(data);
                     }
                 });
@@ -136,7 +136,7 @@
                 total++;
                 jQuery("#procontact_num").val(total);
                 jQuery.ajax({
-                    url: '<%= request.getContextPath() %>/demographic/ViewProContact.do?search=&id=' + total, async: false, success: function (data) {
+                    url: '<%= request.getContextPath() %>/demographic/ViewProContact?search=&id=' + total, async: false, success: function (data) {
                         jQuery("#procontact_container").append(data);
                     }
                 });
@@ -181,7 +181,7 @@
                 // ticklerPlus removed - demographic search functionality disabled
                 alert('Demographic search is currently unavailable');
                 return;
-                // var url = '<%= request.getContextPath() %>/demographic/DemographicSearch.do?outofdomain=false&form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
+                // var url = '<%= request.getContextPath() %>/demographic/DemographicSearch?outofdomain=false&form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
                 // var popup = window.open(url, 'demographic_search');
                 demo_no_orig = document.contactForm.elements[valueEl].value;
                 //check_demo_no = setInterval("if (demo_no_orig != document.contactForm.elements[valueEl].value) updTklrList()",100);
@@ -195,7 +195,7 @@
             }
 
             function search_provider(nameEl, valueEl) {
-                var url = '<%= request.getContextPath() %>/provider/ViewReceptionistFindProvider.do?custom=true&form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
+                var url = '<%= request.getContextPath() %>/provider/ViewReceptionistFindProvider?custom=true&form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
                 var popup = window.open(url, 'demographic_search');
                 demo_no_orig = document.contactForm.elements[valueEl].value;
                 //check_demo_no = setInterval("if (demo_no_orig != document.contactForm.elements[valueEl].value) updTklrList()",100);
@@ -209,7 +209,7 @@
             }
 
             function search_contact(nameEl, valueEl) {
-                var url = '<%= request.getContextPath() %>/demographic/ViewContactSearch.do?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
+                var url = '<%= request.getContextPath() %>/demographic/ViewContactSearch?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
                 var popup = window.open(url, 'demographic_search');
                 demo_no_orig = document.contactForm.elements[valueEl].value;
                 //check_demo_no = setInterval("if (demo_no_orig != document.contactForm.elements[valueEl].value) updTklrList()",100);
@@ -223,7 +223,7 @@
             }
 
             function search_procontact(nameEl, valueEl) {
-                var url = '<%= request.getContextPath() %>/demographic/ViewProContactSearch.do?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
+                var url = '<%= request.getContextPath() %>/demographic/ViewProContactSearch?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
                 var popup = window.open(url, 'demographic_search');
                 demo_no_orig = document.contactForm.elements[valueEl].value;
                 //check_demo_no = setInterval("if (demo_no_orig != document.contactForm.elements[valueEl].value) updTklrList()",100);
@@ -237,7 +237,7 @@
             }
 
             function search_professionalSpecialist(nameEl, valueEl) {
-                var url = '<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch.do?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
+                var url = '<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
                 var popup = window.open(url, 'demographic_search');
                 demo_no_orig = document.contactForm.elements[valueEl].value;
                 //check_demo_no = setInterval("if (demo_no_orig != document.contactForm.elements[valueEl].value) updTklrList()",100);
@@ -359,7 +359,7 @@
                     href="javascript:window.close();">Close Window</a></td>
             <td valign="top" class="MainTableRightColumn">
 
-                <form method="post" name="contactForm" id="contactForm" action="<%= request.getContextPath() %>/demographic/Contact.do">
+                <form method="post" name="contactForm" id="contactForm" action="<%= request.getContextPath() %>/demographic/Contact">
                     <input type="hidden" name="method" value="saveManage"/>
                     <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
 

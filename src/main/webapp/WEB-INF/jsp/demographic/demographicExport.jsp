@@ -40,7 +40,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic,_demographicExport" rights="w"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic&type=_demographicExport");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic&type=_demographicExport");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -376,7 +376,7 @@
 
         <div class="col-md-2">
             <% if (demographicNo == null) { %>
-            <a href='<c:out value="${ctx}/demographic/eRourkeExport.do"></c:out>'><fmt:message key="demographic.demographicexport.rourke2009export"/></a>
+            <a href='<c:out value="${ctx}/demographic/eRourkeExport"></c:out>'><fmt:message key="demographic.demographicexport.rourke2009export"/></a>
             <%} %>
         </div><!--span2-->
 
@@ -396,7 +396,7 @@
                 <button type="button" class="btn btn-secondary" onclick="retryExport()"><fmt:message key="demographic.demographicexport.retry"/></button>
             </div>
 
-            <form id="DemographicExportForm" name="DemographicExportForm" action="${pageContext.request.contextPath}/demographic/DemographicExport.do" method="post" onsubmit="return handleExportSubmit();">
+            <form id="DemographicExportForm" name="DemographicExportForm" action="${pageContext.request.contextPath}/demographic/DemographicExport" method="post" onsubmit="return handleExportSubmit();">
 
                 <% if (demographicNo != null) { %>
                 <input type="hidden" name="demographicNo" id="demographicNo" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>

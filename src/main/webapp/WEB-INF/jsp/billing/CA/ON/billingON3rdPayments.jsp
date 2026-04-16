@@ -51,7 +51,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ page import="java.math.*,java.util.*,java.sql.*,io.github.carlos_emr.*,java.net.*,java.text.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site,io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider,io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingONPayment,io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao" %>
@@ -78,10 +78,10 @@
     String datetime = new SimpleDateFormat("yyyy-MM-dd").format(Calendar.getInstance().getTime());
 
     boolean bMultisites = IsPropertiesOn.isMultisitesEnable();
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String providerNo = (String) session.getAttribute("user");
 
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 
     boolean isTeamBillingOnly = false;
@@ -149,7 +149,7 @@
         }
 
         function onViewPayment(id) {
-            popupPage(500, 500, "<%=request.getContextPath()%>/billing/CA/ON/billingON3rdPayments.do?method=viewPayment_ext&billPaymentId=" + id);
+            popupPage(500, 500, "<%=request.getContextPath()%>/billing/CA/ON/billingON3rdPayments?method=viewPayment_ext&billPaymentId=" + id);
         }
 
         function clickSaveAndSettle() {
@@ -163,7 +163,7 @@
 
             if (validInput) {
                 jQuery.ajax({
-                    url: "<%=request.getContextPath()%>/billing/CA/ON/billingON3rdPayments.do",
+                    url: "<%=request.getContextPath()%>/billing/CA/ON/billingON3rdPayments",
                     type: "POST",
                     async: false,
                     timeout: 30000,
@@ -199,7 +199,7 @@
             if (validInput) {
                 // document.forms['editPayment'].submit();
                 jQuery.ajax({
-                    url: "<%=request.getContextPath()%>/billing/CA/ON/billingON3rdPayments.do",
+                    url: "<%=request.getContextPath()%>/billing/CA/ON/billingON3rdPayments",
                     type: "POST",
                     async: false,
                     timeout: 30000,

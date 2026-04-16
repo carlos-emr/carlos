@@ -39,7 +39,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.consult" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.consult");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.consult");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -90,7 +90,7 @@
             <div class="col-md-9">
                 <p><fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.msgClickOn"/></p>
 
-                <form action="${pageContext.request.contextPath}/encounter/EditSpecialists.do" method="post">
+                <form action="${pageContext.request.contextPath}/encounter/EditSpecialists" method="post">
                     <input type="submit" class="btn btn-danger mb-3" name="delete"
                            value="<fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.btnDeleteSpecialist"/>"
                            onclick="return confirm('Are you sure you want to delete the selected specialists?');"/>
@@ -115,7 +115,7 @@
                                     String phone = displayServiceUtil.phoneVec.elementAt(i);
                                     String fax = displayServiceUtil.faxVec.elementAt(i);
                                     String contextPath = request.getContextPath();
-                                    String url = contextPath + "/encounter/EditSpecialists.do?specId=" + specId;
+                                    String url = contextPath + "/encounter/EditSpecialists?specId=" + specId;
                             %>
                             <tr>
                                 <td><input type="checkbox" name="specialists" value="<%=specId%>"></td>

@@ -30,11 +30,11 @@
 --%>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String user_no = (String) session.getAttribute("user");
 %>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <HTML>
@@ -51,7 +51,7 @@
                 <tr>
                     <td ALIGN="CENTER"><FONT FACE="Arial, Helvetica"><B>ANTENATAL
                         PSYCHOSOCIAL HEALTH ASSESSMENT (ALPHA)</B></FONT></TD>
-                    <td align="right"><a href="<%= request.getContextPath() %>/provider/ViewFormALPHAprint1.do"> next page
+                    <td align="right"><a href="<%= request.getContextPath() %>/provider/ViewFormALPHAprint1"> next page
                     </a> | <a href=# onClick="window.print();">PRINT</a></td>
                 </tr>
             </table>

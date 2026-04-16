@@ -42,7 +42,7 @@
     <%isTeamAccessPrivacy = true; %>
 </security:oscarSec>
 
-<%@ page import="java.io.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.util.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.io.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.util.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingRAImpl" %>
@@ -195,13 +195,13 @@
             <td align="right"><%=total%>
             </td>
             <td align="center"><a
-                    href="<%= request.getContextPath() %>/billing/CA/ON/ViewOnGenRAError.do?rano=<%=raNo%>&proNo="
-                    target="_blank">Error</a> | <a href="#" onclick="postTo('<%= request.getContextPath() %>/billing/CA/ON/ViewOnGenRASummary.do','<%=raNo%>','_blank');return false;">Summary</a>|
-                    <a href="#" onclick="postTo('<%= request.getContextPath() %>/billing/CA/ON/ViewGenRADesc.do','<%=raNo%>','_blank');return false;">Report</a></td>
+                    href="<%= request.getContextPath() %>/billing/CA/ON/ViewOnGenRAError?rano=<%=raNo%>&proNo="
+                    target="_blank">Error</a> | <a href="#" onclick="postTo('<%= request.getContextPath() %>/billing/CA/ON/ViewOnGenRASummary','<%=raNo%>','_blank');return false;">Summary</a>|
+                    <a href="#" onclick="postTo('<%= request.getContextPath() %>/billing/CA/ON/ViewGenRADesc','<%=raNo%>','_blank');return false;">Report</a></td>
             <td><%
                 String ctxPath = request.getContextPath();
-                String settleUrl = ctxPath + "/billing/CA/ON/ViewOnGenRAsettle.do";
-                String settle35Url = ctxPath + "/billing/CA/ON/ViewOnGenRAsettle35.do";
+                String settleUrl = ctxPath + "/billing/CA/ON/ViewOnGenRAsettle";
+                String settle35Url = ctxPath + "/billing/CA/ON/ViewOnGenRAsettle35";
                 if (status.compareTo("N") == 0) {
             %>
                 <a href="#" onclick="checkReconcile('<%=settleUrl%>','<%=raNo%>')">Settle</a>

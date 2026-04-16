@@ -72,7 +72,7 @@ public final class WLAdd2WaitingList2Action extends ActionSupport {
         WLWaitingListUtil.add2WaitingList(listId, waitingListNote, demographicNo, onListSince);
 
         response.sendRedirect(request.getContextPath()
-                + "/demographic/DemographicEdit.do?demographic_no=" + Encode.forUriComponent(demographicNo));
+                + "/demographic/DemographicEdit?demographic_no=" + Encode.forUriComponent(demographicNo));
         return NONE;
     }
 

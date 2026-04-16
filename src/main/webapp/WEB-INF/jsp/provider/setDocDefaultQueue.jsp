@@ -130,7 +130,7 @@
             <td style="color: white" class="MainTableTopRowRightColumn"><%=bundle.getString(providermsgProvider)%></td>
         </tr>
         <%if (request.getAttribute("status") == null) {%>
-        <form action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
+        <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
             <tr>
                 <td class="MainTableLeftColumn">&nbsp;</td>
                 <td class="MainTableRightColumn">

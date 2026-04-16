@@ -207,7 +207,7 @@ public class DbAddFluBilling2Action extends ActionSupport {
         String goPrev = request.getParameter("goPrev");
         if ("goPrev".equals(goPrev) && billSaved) {
             String ctx = request.getContextPath();
-            response.sendRedirect(ctx + "/prevention/AddPrevention.do?prevention=Flu&demographic_no="
+            response.sendRedirect(ctx + "/prevention/AddPrevention?prevention=Flu&demographic_no="
                     + Encode.forUriComponent(demoNo));
             return NONE;
         }

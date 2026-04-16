@@ -178,7 +178,7 @@
                         </td>
                         <td><a
                                 href="javascript: function myFunction() {return false; }"
-                                onclick="popup(700,1000,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=(String) h.get("demographic_no")%>','master')"
+                                onclick="popup(700,1000,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<%=(String) h.get("demographic_no")%>','master')"
 					title="Master File"> <%=Encode.forHtmlContent(demoHash.get("lastName"))%>, <%=Encode.forHtmlContent(demoHash.get("firstName"))%>
                         </a></td>
                         <td><%=h.get("completion_date")%>

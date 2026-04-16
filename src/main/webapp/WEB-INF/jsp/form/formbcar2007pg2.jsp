@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -383,7 +383,7 @@
     <script type="text/javascript" language="Javascript">
         function reset() {
             document.forms[0].target = "";
-            document.forms[0].action = "/<%=project_home%>/form/formname.do";
+            document.forms[0].action = "/<%=project_home%>/form/formname";
         }
 
         function onPrint() {
@@ -409,7 +409,7 @@
         function onPrint12() {
             document.forms[0].submit.value = "printAll";
 
-            document.forms[0].action = "<%= request.getContextPath() %>/form/formname.do?__title=British+Columbia+Antenatal+Record&__cfgfile=bcar1PrintCfgPg1_2007&__cfgfile=bcar2PrintCfgPg1_2007&__cfgGraphicFile=bcar2PrintGraphCfgPg1_2007&__graphicPage=2<%= props.getProperty("pg3_date1", "") == "" ? "&__template=bcarARs2_2007" : "&__cfgfile=bcar2PrintCfgPg2_2007&__graphicPage=3&__template=bcarARs1_2007" %>";
+            document.forms[0].action = "<%= request.getContextPath() %>/form/formname?__title=British+Columbia+Antenatal+Record&__cfgfile=bcar1PrintCfgPg1_2007&__cfgfile=bcar2PrintCfgPg1_2007&__cfgGraphicFile=bcar2PrintGraphCfgPg1_2007&__graphicPage=2<%= props.getProperty("pg3_date1", "") == "" ? "&__template=bcarARs2_2007" : "&__cfgfile=bcar2PrintCfgPg2_2007&__graphicPage=3&__template=bcarARs1_2007" %>";
             document.forms[0].target = "_blank";
 
             return true;
@@ -418,7 +418,7 @@
         function onPrintAll() {
             document.forms[0].submit.value = "printAll";
 
-            document.forms[0].action = "<%= request.getContextPath() %>/form/formname.do?__title=British+Columbia+Antenatal+Record&__cfgfile=bcar1PrintCfgPg1_2007&__cfgfile=bcar2PrintCfgPg1_2007&__cfgGraphicFile=bcar2PrintGraphCfgPg1_2007&__graphicPage=2<%= props.getProperty("pg3_date1", "") == "" ? "&__cfgfile=bcar1PrintCfgPg2_2007&__cfgfile=bcar2PrintCfgScores_2007&__template=bcarAll2_2007" : "&__cfgfile=bcar2PrintCfgPg2_2007&__graphicPage=3&__cfgfile=bcar1PrintCfgPg2_2007&__cfgfile=bcar2PrintCfgScores_2007&__template=bcarAll1_2007" %>";
+            document.forms[0].action = "<%= request.getContextPath() %>/form/formname?__title=British+Columbia+Antenatal+Record&__cfgfile=bcar1PrintCfgPg1_2007&__cfgfile=bcar2PrintCfgPg1_2007&__cfgGraphicFile=bcar2PrintGraphCfgPg1_2007&__graphicPage=2<%= props.getProperty("pg3_date1", "") == "" ? "&__cfgfile=bcar1PrintCfgPg2_2007&__cfgfile=bcar2PrintCfgScores_2007&__template=bcarAll2_2007" : "&__cfgfile=bcar2PrintCfgPg2_2007&__graphicPage=3&__cfgfile=bcar1PrintCfgPg2_2007&__cfgfile=bcar2PrintCfgScores_2007&__template=bcarAll1_2007" %>";
             document.forms[0].target = "_blank";
 
             return true;
@@ -1055,7 +1055,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
         <center><i>Send Hospital copy at 36 weeks</i></center>
     </div>
 
-    <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post">
 
         <input type="hidden" name="commonField" value="ar2_"/>
         <input type="hidden" name="c_lastVisited" value="pg2"/>
@@ -1133,17 +1133,17 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 </td>
 
                 <!--<td align="right">  <b>View:</b>
-        <a href="javascript: popupPage('form/formbcarpg1.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');"> AR1</a> |
-        <a href="javascript: popupPage('form/formbcarpg3.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">AR2 <font size=-2>(pg.2)</font></a>
+        <a href="javascript: popupPage('form/formbcarpg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');"> AR1</a> |
+        <a href="javascript: popupPage('form/formbcarpg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">AR2 <font size=-2>(pg.2)</font></a>
         </td>
         -->
                 <td align="right"><b>Edit:</b>
-                    <a href="form/formbcar2007pg1.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR1</a>
+                    <a href="form/formbcar2007pg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR1</a>
                     |
                     AR2<font size=-2>(pg.1)</font> |
-                    <a href="form/formbcar2007pg3.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
+                    <a href="form/formbcar2007pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
                         <font size=-2>(pg.2)</font></a> |
-                    <!--a href="javascript: popupFixedPage(700,950,'<%= request.getContextPath() %>/decision/antenatal/antenatalplanner.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');">AR Planner</a-->
+                    <!--a href="javascript: popupFixedPage(700,950,'<%= request.getContextPath() %>/decision/antenatal/antenatalplanner?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');">AR Planner</a-->
                 </td>
                 <%
                     }
@@ -3142,20 +3142,20 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     if (!bView) {
                 %>
                 <!--td>
-        <a href="javascript: popPage('form/formlabreq.do?demographic_no=<%=demoNo%>&formId=0&provNo=<%=provNo%>&labType=AR','LabReq');">LAB</a>
+        <a href="javascript: popPage('form/formlabreq?demographic_no=<%=demoNo%>&formId=0&provNo=<%=provNo%>&labType=AR','LabReq');">LAB</a>
         </td-->
 
                 <!--  <td align="right"><b>View:</b>
-        <a href="javascript: popupPage('form/formbcarpg1.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');"> AR1</a> |
-        <a href="javascript: popupPage('form/formbcarpg3.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">AR2 <font size=-2>(pg.2)</font></a>
+        <a href="javascript: popupPage('form/formbcarpg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');"> AR1</a> |
+        <a href="javascript: popupPage('form/formbcarpg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">AR2 <font size=-2>(pg.2)</font></a>
         </td>-->
                 <td align="right"><b>Edit:</b>
-                    <a href="form/formbcar2007pg1.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR1</a>
+                    <a href="form/formbcar2007pg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR1</a>
                     |
                     AR2<font size=-2>(pg.1)</font> |
-                    <a href="form/formbcar2007pg3.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
+                    <a href="form/formbcar2007pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
                         <font size=-2>(pg.2)</font></a> |
-                    <!--a href="javascript: popupFixedPage(700,950,'<%= request.getContextPath() %>/decision/antenatal/antenatalplanner.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');">AR Planner</a-->
+                    <!--a href="javascript: popupFixedPage(700,950,'<%= request.getContextPath() %>/decision/antenatal/antenatalplanner?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');">AR Planner</a-->
                 </td>
                 <%
                     }

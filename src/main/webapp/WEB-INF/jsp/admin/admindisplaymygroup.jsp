@@ -53,7 +53,7 @@
     <%isSiteAccessPrivacy = true; %>
 </security:oscarSec>
 
-<%@ page import="java.util.*,java.sql.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*,java.sql.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <!DOCTYPE html>
 <html>
@@ -84,7 +84,7 @@
 
 
     <body>
-    <FORM NAME="UPDATEPRE" id="groupForm" METHOD="post" ACTION="${pageContext.request.contextPath}/admin/AdminNewGroup.do">
+    <FORM NAME="UPDATEPRE" id="groupForm" METHOD="post" ACTION="${pageContext.request.contextPath}/admin/AdminNewGroup">
 
         <h3><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></h3>
 
@@ -145,7 +145,7 @@
                VALUE="<fmt:message key="admin.admindisplaymygroup.btnSubmit1"/>"
                SIZE="7">
 
-        <a href="${pageContext.request.contextPath}/admin/AdminNewGroup.do" class="btn btn-primary"><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
+        <a href="${pageContext.request.contextPath}/admin/AdminNewGroup" class="btn btn-primary"><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
 
     </FORM>
 

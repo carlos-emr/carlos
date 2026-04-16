@@ -117,7 +117,7 @@ class DocumentUndelete2ActionTest extends CarlosUnitTestBase {
         action.setUndelDocumentNo("42");
         action.execute();
         assertThat(action.undeleted).containsExactly("42");
-        assertThat(mockResponse.getRedirectedUrl()).contains("ViewDocumentReport.do");
+        assertThat(mockResponse.getRedirectedUrl()).contains("ViewDocumentReport");
     }
 
     @Test

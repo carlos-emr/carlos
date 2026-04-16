@@ -133,7 +133,7 @@
             <td class="MainTableLeftColumn">&nbsp;</td>
             <td class="MainTableRightColumn">
                 <%if (request.getAttribute("status") == null) {%> <%=bundle.getString(providermsgEdit)%> <c:out value="${dateProperty.value}"/>
-                <form id="providerForm" action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post" onsubmit="return validateForm();">
+                <form id="providerForm" action="${pageContext.request.contextPath}/setProviderStaleDate" method="post" onsubmit="return validateForm();">
                 <input type="hidden" name="method" value="<c:out value="${method}"/>">
 
                 <p id="errorMessage" style="display: none; color: red;">

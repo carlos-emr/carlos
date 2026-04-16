@@ -47,7 +47,7 @@
 %>
 
 <%@ page import="java.nio.charset.StandardCharsets" %>
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.carlos.login.*, io.github.carlos_emr.*, java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.carlos.login.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
@@ -115,7 +115,7 @@
             prop.setProperty("TIME", rs.getString("start_time").substring(0, 5));
             prop.setProperty("PATIENT", Encode.forHtml(rs.getString("name")));
             prop.setProperty("DESCRIPTION", Encode.forHtml(rs.getString("reason")));
-            String tempStr = "<a href=# onClick='popupPage(700,1000, \"/billing.do?billForm="
+            String tempStr = "<a href=# onClick='popupPage(700,1000, \"/billing?billForm="
                     + URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8) + "&hotclick=&appointment_no="
                     + rs.getString("appointment_no") + "&demographic_name=" + URLEncoder.encode(rs.getString("name"), StandardCharsets.UTF_8)
                     + "&demographic_no=" + rs.getString("demographic_no") + "&user_no=" + rs.getString("provider_no")
@@ -170,7 +170,7 @@
             else if (reason.compareTo("P") == 0) reason = "Bill Patient";
 
             prop.setProperty("DESCRIPTION", Encode.forHtml(reason + "(" + note + ")"));
-            String tempStr = "<a href=# onClick='popupPage(700,720, \"" + request.getContextPath() + "/billing/CA/ON/ViewBillingCorrection.do?billing_no="
+            String tempStr = "<a href=# onClick='popupPage(700,720, \"" + request.getContextPath() + "/billing/CA/ON/ViewBillingCorrection?billing_no="
                     + rs.getString("id") + "&dboperation=search_bill&hotclick=0\"); return false;' title='"
                     + reason + "'>" + rs.getString("id") + "</a>";
             prop.setProperty("ACCOUNT", tempStr);
@@ -230,7 +230,7 @@
                 nNo++;
                 sAmountclaim = rs.getString("amountclaim");
                 sAmountpay = rs.getString("amountpay");
-                String strT = "<a href=# onClick='popupPage(700,720, \"" + request.getContextPath() + "/billing/CA/BC/billingView.do?billing_no="
+                String strT = "<a href=# onClick='popupPage(700,720, \"" + request.getContextPath() + "/billing/CA/BC/billingView?billing_no="
                         + rs.getString("billing_no") + "&dboperation=search_bill&hotclick=0\"); return false;' >"
                         + rs.getString("billing_no") + "</a>";
                 prop.setProperty("No", "" + nNo);
@@ -254,7 +254,7 @@
                 fAmountpay = fAmountpay + Float.parseFloat(rs.getString("amountpay"));
                 sAmountpay = "" + Math.round(fAmountpay * 100) / 100.00;
                 //hin = rs.getString("hin");
-                String strT = "<a href=# onClick='popupPage(700,720, \"" + request.getContextPath() + "/billing/CA/BC/billingView.do?billing_no="
+                String strT = "<a href=# onClick='popupPage(700,720, \"" + request.getContextPath() + "/billing/CA/BC/billingView?billing_no="
                         + rs.getString("billing_no") + "&dboperation=search_bill&hotclick=0\"); return false;' >"
                         + rs.getString("billing_no") + "</a>";
                 prop.setProperty("No", "" + nNo);
@@ -326,7 +326,7 @@
             else if (reason.compareTo("B") == 0) reason = "Sent OHIP";
 
             prop.setProperty("Description", reason + "(" + note + ")");
-            String tempStr = "<a href=# onClick='popupPage(700,720, \""+ request.getContextPath() + "/billing/CA/BC/billingView.do?billing_no="
+            String tempStr = "<a href=# onClick='popupPage(700,720, \""+ request.getContextPath() + "/billing/CA/BC/billingView?billing_no="
                     + rs.getString("billing_no") + "&dboperation=search_bill&hotclick=0\"); return false;' title='"
                     + reason + "'>" + rs.getString("billing_no") + "</a>";
             prop.setProperty("Billing No", tempStr);
@@ -408,7 +408,7 @@
         </h4>
     </div>
 
-    <form name="serviceform" method="post" action="/billing/CA/ON/ViewBillingONReport.do">
+    <form name="serviceform" method="post" action="/billing/CA/ON/ViewBillingONReport">
         <div class="d-flex flex-wrap align-items-center gap-2" style="margin-bottom:10px;">
             <div class="form-check form-check-inline">
                 <input class="form-check-input" type="radio" name="reportAction" value="unbilled" <%="unbilled".equals(action)? "checked" : "" %>>
@@ -515,7 +515,7 @@
 
             <input type="submit" name="Submit" class="btn btn-sm btn-primary" value="Create Report">
         </div>
-        <a href="#" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider.do?action=billingreport'); return false;" class="btn btn-sm btn-secondary">Manage Provider List</a>
+        <a href="#" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider?action=billingreport'); return false;" class="btn btn-sm btn-secondary">Manage Provider List</a>
     </form>
 
     <table id="reportTbl" class="table table-sm table-striped table-hover" style="margin-top:10px;">

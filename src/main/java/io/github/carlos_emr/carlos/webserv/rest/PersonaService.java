@@ -222,8 +222,8 @@ public class PersonaService extends AbstractServiceImpl {
         int idCounter = 0;
 
         MenuTo1 menu = new MenuTo1()
-                .add(idCounter++, bundle.getString("navbar.menu.schedule"), null, "../provider/providercontrol.do")
-                .add(idCounter++, bundle.getString("navbar.menu.inbox"), null, "../web/inboxhub/Inboxhub.do?method=displayInboxForm", "inbox");
+                .add(idCounter++, bundle.getString("navbar.menu.schedule"), null, "../provider/providercontrol")
+                .add(idCounter++, bundle.getString("navbar.menu.inbox"), null, "../web/inboxhub/Inboxhub?method=displayInboxForm", "inbox");
 
         if (!consultationManager.isConsultResponseEnabled()) {
             menu.addWithState(idCounter++, bundle.getString("navbar.menu.consults"), null, "consultRequests");
@@ -253,7 +253,7 @@ public class PersonaService extends AbstractServiceImpl {
 
         MenuTo1 moreMenuList = new MenuTo1()
                 .addWithState(idCounter++, bundle.getString("navbar.menu.reports"), null, "reports")
-                .add(idCounter++, bundle.getString("navbar.menu.documents"), null, "../documentManager/ViewDocumentReport.do?function=providers&functionid=" + provider.getPractitionerNo(), "edocView");
+                .add(idCounter++, bundle.getString("navbar.menu.documents"), null, "../documentManager/ViewDocumentReport?function=providers&functionid=" + provider.getPractitionerNo(), "edocView");
 
 
         List<Dashboard> dashboards = dashboardManager.getDashboards(getLoggedInInfo());
@@ -261,7 +261,7 @@ public class PersonaService extends AbstractServiceImpl {
         if (dashboards != null) {
             if (!dashboards.isEmpty()) {
                 for (Dashboard dashboard : dashboards) {
-                    moreMenuList.add(dashboard.getId(), "Dashboard - " + dashboard.getName(), null, "dashboard/display/DashboardDisplay.do?method=getDashboard&dashboardId=" + dashboard.getId(), "dashboard" + dashboard.getId());
+                    moreMenuList.add(dashboard.getId(), "Dashboard - " + dashboard.getName(), null, "dashboard/display/DashboardDisplay?method=getDashboard&dashboardId=" + dashboard.getId(), "dashboard" + dashboard.getId());
                 }
             }
 

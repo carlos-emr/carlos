@@ -37,12 +37,12 @@
 <hr width="100%" color="orange">
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr>
-        <td><a href="<%= request.getContextPath() %>/demographic/ViewSearch.do"> <img src="<%= request.getContextPath() %>/images/leftarrow.gif"
+        <td><a href="<%= request.getContextPath() %>/demographic/ViewSearch"> <img src="<%= request.getContextPath() %>/images/leftarrow.gif"
                                        border="0" width="25" height="20" align="absmiddle"> <fmt:message key="demographic.footer.btnBack"/></a></td>
 
         <td align="right">
             <caisi:isModuleLoad moduleName="caisi">
-            <a href='${request.contextPath}/PMmodule/ProviderInfo.do'>
+            <a href='${request.contextPath}/PMmodule/ProviderInfo'>
                 </caisi:isModuleLoad>
                 <caisi:isModuleLoad moduleName="caisi" reverse="true">
                 <a href="#" onClick="self.close();">

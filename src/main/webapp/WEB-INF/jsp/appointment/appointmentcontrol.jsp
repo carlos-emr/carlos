@@ -35,39 +35,39 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     if (session.getAttribute("userrole") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
         return;
     }
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment"
                    rights="r" reverse="<%=true%>">
-    <%response.sendRedirect(request.getContextPath() + "/logout.jsp");%>
+    <%response.sendRedirect(request.getContextPath() + "/logoutPage");%>
 </security:oscarSec>
 <%
     // associate each operation with an output action — displaymode
     // Post-migration: all sibling appointment JSPs live behind /WEB-INF/jsp/
-    // so every dispatch target is now an absolute .do URL (view gate or
-    // mutation action). The dead "Search" entry (WITHOUT trailing space)
+    // so every live dispatch target is now either an extensionless Struts
+    // action or an internal JSP. The dead "Search" entry (WITHOUT trailing space)
     // was removed — its former target appointmentsearchrecords.jsp does
     // not exist in the repo. The live "Search " operation (WITH trailing
     // space — mind the difference) is still active: addappointment.jsp
     // submits exactly "Search " as the displaymode value, so do not merge
     // the two entries in a later cleanup.
     String[][] opToFile = new String[][]{
-            {"Add Appointment", "/appointment/AddRecord.do"},
-            {"Group Appt", "/appointment/appointmentgrouprecords.do"},
-            {"Group Action", "/appointment/appointmentgrouprecords.do"},
-            {"Add Appt & PrintPreview", "/appointment/appointmentaddrecordprint.do"},
-            {"Add Appt & PrintCard", "/appointment/appointmentaddrecordcard.do"},
-            {"PrintCard", "/appointment/appointmentviewrecordcard.do"},
-            {"TicklerSearch", "/tickler/ViewAddTickler.do"},
-            {"Search ", "/demographic/DemographicSearch.do"},
-            {"edit", "/appointment/editappointment.do"},
-            {"Update Appt", "/appointment/UpdateRecord.do"},
-            {"Delete Appt", "/appointment/DeleteRecord.do"},
-            {"Cut", "/appointment/CutRecord.do"},
-            {"Copy", "/appointment/appointmentcopyrecord.do"}
+            {"Add Appointment", "/appointment/AddRecord"},
+            {"Group Appt", "/appointment/appointmentgrouprecords"},
+            {"Group Action", "/appointment/appointmentgrouprecords"},
+            {"Add Appt & PrintPreview", "/appointment/appointmentaddrecordprint"},
+            {"Add Appt & PrintCard", "/appointment/appointmentaddrecordcard"},
+            {"PrintCard", "/appointment/appointmentviewrecordcard"},
+            {"TicklerSearch", "/tickler/ViewAddTickler"},
+            {"Search ", "/demographic/DemographicSearch"},
+            {"edit", "/appointment/editappointment"},
+            {"Update Appt", "/appointment/UpdateRecord"},
+            {"Delete Appt", "/appointment/DeleteRecord"},
+            {"Cut", "/appointment/CutRecord"},
+            {"Copy", "/appointment/appointmentcopyrecord"}
     };
 
     // create an operation-to-file dictionary
@@ -91,10 +91,10 @@
         return;
     }
     out.clearBuffer();
-    // Struts2 actions (.do) require FORWARD dispatch — the Struts2 filter
-    // does not intercept INCLUDE dispatches (only REQUEST and FORWARD per
-    // the web.xml filter-mapping), so .do targets must use forward() instead of include().
-    if (target.endsWith(".do")) {
+    // Struts actions require FORWARD dispatch — the Struts filter does not
+    // intercept INCLUDE dispatches, so extensionless action targets must use
+    // forward() instead of include().
+    if (!(target.endsWith(".jsp") || target.endsWith(".jspf") || target.endsWith(".html"))) {
         if (response.isCommitted()) {
             // Defensive: nothing in the preceding scriptlet writes body bytes,
             // so this path should be unreachable in practice. If we do land

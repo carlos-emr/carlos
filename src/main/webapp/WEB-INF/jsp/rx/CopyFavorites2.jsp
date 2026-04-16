@@ -94,7 +94,7 @@
     </script>
 
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
-        <form action="<%= request.getContextPath()%>/rx/copyFavorite2.do" method="post">
+        <form action="<%= request.getContextPath()%>/rx/copyFavorite2" method="post">
             <input type="hidden" name="dispatch" value="refresh"/>
             <input type="hidden" name="userProviderNo" value="<%=providerNo%>"/>
             <input type="hidden" name="copyProviderNo" value="<%=copyProviderNo%>"/>
@@ -108,7 +108,7 @@
                             <tr>
                                 <td>
                                     <div class="DivCCBreadCrumbs">
-                                        <a href="<%= request.getContextPath() %>/rx/searchDrug.do"> 
+                                        <a href="<%= request.getContextPath() %>/rx/searchDrug"> 
                                             <fmt:message key="SearchDrug.title"/>
                                         </a> > 
                                         <b>
@@ -120,7 +120,7 @@
                             <tr>
                                 <td>
                                     <div class="DivContentPadding">
-                                        <input type="button" value="Back to Search For Drug" class="ControlPushButton" onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug.do';"/>
+                                        <input type="button" value="Back to Search For Drug" class="ControlPushButton" onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug';"/>
                                     </div>
                                 </td>
                             </tr>

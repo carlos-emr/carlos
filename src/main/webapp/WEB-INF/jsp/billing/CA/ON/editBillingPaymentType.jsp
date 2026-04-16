@@ -83,7 +83,7 @@
                 type: "POST",
                 async: true,
                 data: {method: "<%=method%>", paymentType: document.getElementById("paymentType").value},
-                url: "<%=request.getContextPath()%>/billing/CA/ON/managePaymentType.do",
+                url: "<%=request.getContextPath()%>/billing/CA/ON/managePaymentType",
                 dataType: "json",
                 success: function (ret) {
                     if (!ret) {
@@ -120,7 +120,7 @@
                     oldPaymentType: "<%=Encode.forJavaScript(type)%>",
                     paymentType: document.getElementById("paymentType").value
                 },
-                url: "<%=request.getContextPath()%>/billing/CA/ON/managePaymentType.do",
+                url: "<%=request.getContextPath()%>/billing/CA/ON/managePaymentType",
                 dataType: "json",
                 success: function (ret) {
                     if (!ret) {

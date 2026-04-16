@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -175,7 +175,7 @@
 
         function reset() {
             document.forms[0].target = "";
-            document.forms[0].action = "/<%=Encode.forJavaScript(project_home)%>/form/formname.do";
+            document.forms[0].action = "/<%=Encode.forJavaScript(project_home)%>/form/formname";
         }
 
         function $F(elem) {
@@ -336,7 +336,7 @@
          onmouseout="overdiv=0; setTimeout('hideLayer()',1000)">pop up
         description layer
     </div>
-    <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post">
 
         <input type="hidden" name="demographic_no"
                value="<%= Encode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>"/>
@@ -369,21 +369,21 @@
                             value="<fmt:message key="encounter.formRourke2006.btnPrintAll"/>"
                             onclick="javascript:return onPrintAll();"/> <input type="button"
                                                                                value="About"
-                                                                               onclick="javascript:return popPage('form/formRourke2006intro.do','About Rourke');"/>
+                                                                               onclick="javascript:return popPage('form/formRourke2006intro','About Rourke');"/>
                 </td>
                 <td align="center" width="100%">
                     <% if (formId > 0) { %> <a name="length" href="#"
-                                               onclick="onGraph('<%=request.getContextPath()%>/form/formname.do?submit=graph&form_class=Rourke2006&__title=Baby+Growth+Graph1&__cfgfile=<%=Encode.forUriComponent(growthCharts[0])%>&demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>');return false;">
+                                               onclick="onGraph('<%=request.getContextPath()%>/form/formname?submit=graph&form_class=Rourke2006&__title=Baby+Growth+Graph1&__cfgfile=<%=Encode.forUriComponent(growthCharts[0])%>&demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>');return false;">
                     <fmt:message key="encounter.formRourke1.btnGraphLenghtWeight"/></a><br>
                     <a name="headCirc" href="#"
-                       onclick="onGraph('<%=request.getContextPath()%>/form/formname.do?submit=graph&form_class=Rourke2006&__title=Baby+Head+Circumference&__cfgfile=<%=Encode.forUriComponent(growthCharts[1])%>&demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>');return false;">
+                       onclick="onGraph('<%=request.getContextPath()%>/form/formname?submit=graph&form_class=Rourke2006&__title=Baby+Head+Circumference&__cfgfile=<%=Encode.forUriComponent(growthCharts[1])%>&demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>');return false;">
                         <fmt:message key="encounter.formRourke1.btnGraphHead"/></a> <% } else { %>
                     &nbsp; <% } %>
                 </td>
                 <td nowrap="true"><a
-                        href="form/formrourke2006p1.do?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:message key="encounter.formRourke2006.Pg1"/></a>&nbsp;|&nbsp; <a><fmt:message key="encounter.formRourke2006.Pg2"/></a>&nbsp;|&nbsp; <a
-                        href="form/formrourke2006p3.do?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:message key="encounter.formRourke2006.Pg3"/></a>&nbsp;|&nbsp; <a
-                        href="form/formrourke2006p4.do?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:message key="encounter.formRourke2006.Pg4"/></a></td>
+                        href="form/formrourke2006p1?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:message key="encounter.formRourke2006.Pg1"/></a>&nbsp;|&nbsp; <a><fmt:message key="encounter.formRourke2006.Pg2"/></a>&nbsp;|&nbsp; <a
+                        href="form/formrourke2006p3?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:message key="encounter.formRourke2006.Pg3"/></a>&nbsp;|&nbsp; <a
+                        href="form/formrourke2006p4?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:message key="encounter.formRourke2006.Pg4"/></a></td>
             </tr>
         </table>
 
@@ -1521,21 +1521,21 @@
                             value="<fmt:message key="encounter.formRourke2006.btnPrintAll"/>"
                             onclick="javascript:return onPrintAll();"/> <input type="button"
                                                                                value="About"
-                                                                               onclick="javascript:return popPage('form/formRourke2006intro.do','About Rourke');"/>
+                                                                               onclick="javascript:return popPage('form/formRourke2006intro','About Rourke');"/>
                 </td>
                 <td align="center" width="100%">
                     <% if (formId > 0) { %> <a name="length" href="#"
-                                               onclick="onGraph('<%=request.getContextPath()%>/form/formname.do?submit=graph&form_class=Rourke2006&__title=Baby+Growth+Graph1&__cfgfile=<%=Encode.forUriComponent(growthCharts[0])%>&demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>');return false;">
+                                               onclick="onGraph('<%=request.getContextPath()%>/form/formname?submit=graph&form_class=Rourke2006&__title=Baby+Growth+Graph1&__cfgfile=<%=Encode.forUriComponent(growthCharts[0])%>&demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>');return false;">
                     <fmt:message key="encounter.formRourke1.btnGraphLenghtWeight"/></a><br>
                     <a name="headCirc" href="#"
-                       onclick="onGraph('<%=request.getContextPath()%>/form/formname.do?submit=graph&form_class=Rourke2006&__title=Baby+Head+Circumference&__cfgfile=<%=Encode.forUriComponent(growthCharts[1])%>&demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>');return false;">
+                       onclick="onGraph('<%=request.getContextPath()%>/form/formname?submit=graph&form_class=Rourke2006&__title=Baby+Head+Circumference&__cfgfile=<%=Encode.forUriComponent(growthCharts[1])%>&demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>');return false;">
                         <fmt:message key="encounter.formRourke1.btnGraphHead"/></a> <% } else { %>
                     &nbsp; <% } %>
                 </td>
                 <td nowrap="true"><a
-                        href="form/formrourke2006p1.do?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:message key="encounter.formRourke2006.Pg1"/></a>&nbsp;|&nbsp; <a><fmt:message key="encounter.formRourke2006.Pg2"/></a>&nbsp;|&nbsp; <a
-                        href="form/formrourke2006p3.do?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:message key="encounter.formRourke2006.Pg3"/></a>&nbsp;|&nbsp; <a
-                        href="form/formrourke2006p4.do?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:message key="encounter.formRourke2006.Pg4"/></a></td>
+                        href="form/formrourke2006p1?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:message key="encounter.formRourke2006.Pg1"/></a>&nbsp;|&nbsp; <a><fmt:message key="encounter.formRourke2006.Pg2"/></a>&nbsp;|&nbsp; <a
+                        href="form/formrourke2006p3?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:message key="encounter.formRourke2006.Pg3"/></a>&nbsp;|&nbsp; <a
+                        href="form/formrourke2006p4?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:message key="encounter.formRourke2006.Pg4"/></a></td>
             </tr>
         </table>
         <p style="font-size: 8pt;"><fmt:message key="encounter.formRourke2006.footer"/><br/>

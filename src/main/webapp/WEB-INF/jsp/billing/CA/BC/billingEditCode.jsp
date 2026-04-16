@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing,_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -149,7 +149,7 @@
                 </table>
 
 
-                <form action="${pageContext.request.contextPath}/billing/CA/BC/billingEditCode.do" method="post">
+                <form action="${pageContext.request.contextPath}/billing/CA/BC/billingEditCode" method="post">
                     <input type="hidden" name="whereTo" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("whereTo"))) %>"/>
                     <input type="hidden" name="method" value="returnToSearch"/>
                     <input type="submit" name="submit" value="Back"/>
@@ -171,7 +171,7 @@
 
 
                     function saveCode(id, billingserviceNo, Value, BillingserviceDate, TerminationDate) {
-                        var url = ('billingEditCode.do?method=ajaxCodeUpdate');
+                        var url = ('billingEditCode?method=ajaxCodeUpdate');
                         document.getElementById('save' + id).style.display = 'none';
                         document.getElementById('working' + id).style.display = '';
 

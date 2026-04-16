@@ -63,7 +63,7 @@ public class ManageFlowsheets2Action extends ActionSupport {
         if ("POST".equalsIgnoreCase(request.getMethod()) && method != null) {
             String name = request.getParameter("name");
             if (name == null || name.isEmpty()) {
-                response.sendRedirect(request.getContextPath() + "/admin/ManageFlowsheets.do");
+                response.sendRedirect(request.getContextPath() + "/admin/ManageFlowsheets");
                 return NONE;
             }
             MeasurementTemplateFlowSheetConfig config = MeasurementTemplateFlowSheetConfig.getInstance();
@@ -81,7 +81,7 @@ public class ManageFlowsheets2Action extends ActionSupport {
             }
 
             // PRG pattern: redirect after mutation to prevent duplicate submissions
-            response.sendRedirect(request.getContextPath() + "/admin/ManageFlowsheets.do");
+            response.sendRedirect(request.getContextPath() + "/admin/ManageFlowsheets");
             return NONE;
         }
 

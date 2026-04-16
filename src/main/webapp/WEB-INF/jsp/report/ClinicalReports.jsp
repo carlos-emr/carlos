@@ -38,7 +38,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -355,28 +355,28 @@
                     ArrayList<ReportEvaluator> arrList = (ArrayList) session.getAttribute("ClinicalReports");
                     if (arrList != null) {
                 %>
-                <a href="<%= request.getContextPath() %>/report/RemoveClinicalReport.do?clear=yes"><fmt:message key="report.ClinicalReports.msgClear"/></a>
+                <a href="<%= request.getContextPath() %>/report/RemoveClinicalReport?clear=yes"><fmt:message key="report.ClinicalReports.msgClear"/></a>
                 <ul style="list-style-type:square; margin-left:1px;padding-left:4px;padding-top:2px;margin-top:2px;">
                     <% for (int i = 0; i < arrList.size(); i++) {
                         ReportEvaluator re = arrList.get(i);
                     %>
                     <li title="<%=re.getName()%>"><%=re.getNumeratorCount()%> / <%=re.getDenominatorCount()%>&nbsp;
-                        <a style="text-decoration:none;" target="_blank" href="<%= request.getContextPath() %>/report/ViewReportExport.do?id=<%=i%>"><fmt:message key="report.ClinicalReports.msgCSV"/></a>&nbsp;
-                        <form method="post" action="<%= request.getContextPath() %>/report/RemoveClinicalReport.do" style="display:inline;">
+                        <a style="text-decoration:none;" target="_blank" href="<%= request.getContextPath() %>/report/ViewReportExport?id=<%=i%>"><fmt:message key="report.ClinicalReports.msgCSV"/></a>&nbsp;
+                        <form method="post" action="<%= request.getContextPath() %>/report/RemoveClinicalReport" style="display:inline;">
                             <input type="hidden" name="id" value="<%=i%>"/>
                             <a style="text-decoration:none;" href="javascript:void(0);" onclick="this.closest('form').submit();"><fmt:message key="report.ClinicalReports.msgDel"/></a>
                         </form>
                     </li>
                     <% }%>
                 </ul>
-                <a style="text-decoration:none;" target="_blank" href="<%= request.getContextPath() %>/report/ViewReportExport.do"><fmt:message key="report.ClinicalReports.msgCSV"/></a>
+                <a style="text-decoration:none;" target="_blank" href="<%= request.getContextPath() %>/report/ViewReportExport"><fmt:message key="report.ClinicalReports.msgCSV"/></a>
                 <%}%>
 
             </td>
             <td valign="top" class="MainTableRightColumn">
                 <div>
                     <fieldset>
-                        <form action="${pageContext.request.contextPath}/RunClinicalReport.do" method="post">
+                        <form action="${pageContext.request.contextPath}/RunClinicalReport" method="post">
                             <!--
                             <label for="asOfDate" >As Of Date:</label><input type="text" name="asOfDate" id="asOfDate" value="<%=""%>" size="9" > <a id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0" /></a> <br>
                             -->
@@ -713,7 +713,7 @@
                         session.setAttribute("clinicalReportCSV", swr.toString());
                     }
                 %>
-                <form target="_new" action="<%= request.getContextPath() %>/report/ViewClinicalExport.do">
+                <form target="_new" action="<%= request.getContextPath() %>/report/ViewClinicalExport">
                     <input type="submit" name="getCSV"
                            value="<fmt:message key="report.ClinicalReports.msgExporttoCSV"/>">
                     <input type="submit" name="getXLS"

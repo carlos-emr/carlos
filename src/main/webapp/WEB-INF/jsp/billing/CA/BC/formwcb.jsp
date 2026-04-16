@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -45,7 +45,7 @@
 
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     }
 %>
 <%@ page
@@ -296,7 +296,7 @@
                 var width = 575;
                 var height = 400;
                 var str = document.forms[form].elements[field].value;
-                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/BillingFeeItem.do"/>'
+                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/BillingFeeItem"/>'
                     + '?form=' + encodeURIComponent(form)
                     + '&field=' + encodeURIComponent(field)
                     + '&searchStr=' + encodeURIComponent(str);
@@ -308,7 +308,7 @@
                 var width = 575;
                 var height = 400;
                 var str = document.forms[form].elements[field].value;
-                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/Icd9.do"/>'
+                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/Icd9"/>'
                     + '?form=' + encodeURIComponent(form)
                     + '&field=' + encodeURIComponent(field)
                     + '&searchStr=' + encodeURIComponent(str);
@@ -320,7 +320,7 @@
                 var width = 650;
                 var height = 400;
                 var str = document.forms[form].elements[field].value;
-                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/BodyPart.do"/>' + '?form=' + form + '&field=' + field + '&searchStr=' + str;
+                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/BodyPart"/>' + '?form=' + form + '&field=' + field + '&searchStr=' + str;
                 var windowName = field;
                 popup(height, width, url, windowName);
             }
@@ -329,7 +329,7 @@
                 var width = 800;
                 var height = 400;
                 var str = document.forms[form].elements[field].value;
-                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/NatureInjury.do"/>' + '?form=' + form + '&field=' + field + '&searchStr=' + str;
+                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/NatureInjury"/>' + '?form=' + form + '&field=' + field + '&searchStr=' + str;
                 var windowName = field;
                 popup(height, width, url, windowName);
             }
@@ -430,7 +430,7 @@
         </ul>
     </div>
 <% } %>
-    <form action="${pageContext.request.contextPath}/billing/CA/BC/formwcb.do" method="post" onsubmit="return validateForm()">
+    <form action="${pageContext.request.contextPath}/billing/CA/BC/formwcb" method="post" onsubmit="return validateForm()">
         <input type="hidden" name="w_servicelocation" id="w_servicelocation"/>
 
         <!-- Params for billingBC.jsp `-->

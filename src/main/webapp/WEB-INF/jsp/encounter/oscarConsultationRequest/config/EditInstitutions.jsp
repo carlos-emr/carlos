@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.consult" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.consult");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.consult");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -96,7 +96,7 @@
             <div class="col-md-9">
                 <p><fmt:message key="encounter.oscarConsultationRequest.config.EditInstitutions.msgClickOn"/></p>
 
-                <form action="${pageContext.request.contextPath}/encounter/EditInstitutions.do" method="post">
+                <form action="${pageContext.request.contextPath}/encounter/EditInstitutions" method="post">
                     <input type="submit" class="btn btn-danger mb-3" name="delete"
                            value="<fmt:message key="encounter.oscarConsultationRequest.config.EditInstitutions.btnDeleteInstitution"/>"
                            onclick="return confirm('Are you sure you want to delete the selected institutions?');"/>
@@ -113,7 +113,7 @@
                             <%
                                 for (Institution i : institutions) {
                                     String contextPath = request.getContextPath();
-                                    String url = contextPath + "/encounter/EditInstitutions.do?id=" + i.getId();
+                                    String url = contextPath + "/encounter/EditInstitutions?id=" + i.getId();
                             %>
                             <tr>
                                 <td><input type="checkbox" name="institutions" value="<%=i.getId()%>"></td>

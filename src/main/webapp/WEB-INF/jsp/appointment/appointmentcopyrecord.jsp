@@ -29,11 +29,11 @@
 
 --%>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ page
         import="io.github.carlos_emr.carlos.appt.*"
-        errorPage="/errorpage.jsp" %>
+        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

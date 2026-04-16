@@ -25,7 +25,7 @@
 <%
     String user_no = (String) session.getAttribute("user");
 %>
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Ichppccode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.IchppccodeDao" %>
@@ -95,7 +95,7 @@
     (ICHPPC) Code Search <font face="Arial, Helvetica, sans-serif"
                                color="#FF0000">(Maximum 3 selections)</font></font></h3>
 <form name="servicecode" id="servicecode" method="post"
-      action="/billing/CA/ON/BillingResearchCodeUpdate.do">
+      action="/billing/CA/ON/BillingResearchCodeUpdate">
     <table width="600" border="1">
 
         <tr bgcolor="#FFBC9B">

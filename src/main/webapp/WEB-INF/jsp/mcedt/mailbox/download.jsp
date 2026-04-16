@@ -29,7 +29,7 @@
 
 --%>
 
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -109,7 +109,7 @@
 <c:set var="resourceListDL" value="${sessionScope.resourceListDL}"/>
 <c:set var="resultSize" value="${sessionScope.resultSize}"/>
 
-<form action="${pageContext.request.contextPath}/mcedt/download.do" method="post" id="formDownload">
+<form action="${pageContext.request.contextPath}/mcedt/download" method="post" id="formDownload">
     <jsp:include page="/WEB-INF/jsp/mcedt/messages.jsp"/>
     <input id="methodDownload" name="method" type="hidden" value=""/>
     <div>
@@ -136,7 +136,7 @@
             </button>
         </div>
         * You may select a maximum of 5 files at a time to download from MC-EDT
-        <br/>** to process downloads, click <a href="<%= request.getContextPath() %>/billing/CA/ON/moveMOHFiles.do">here
+        <br/>** to process downloads, click <a href="<%= request.getContextPath() %>/billing/CA/ON/moveMOHFiles">here
         to view MOH files</a>
         <c:choose>
             <c:when test="${not empty resourceListDL}">

@@ -44,7 +44,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_fax" rights="r" reverse="<%=true%>">
 	<%authed=false; %>
-	<%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_fax");%>
+	<%response.sendRedirect(request.getContextPath() + "/securityError?type=_fax");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -216,9 +216,9 @@
 		
 		<div id="page-body">
 		
-			<c:set var="formAction" value="${ctx}/fax/faxAction.do" />
+			<c:set var="formAction" value="${ctx}/fax/faxAction" />
 			<c:if test="${ transactionType eq 'CONSULTATION' }">
-				<c:set var="formAction" value="${ctx}/encounter/oscarConsultationRequest/ConsultationFormFax.do" />
+				<c:set var="formAction" value="${ctx}/encounter/oscarConsultationRequest/ConsultationFormFax" />
 			</c:if>
 			
 			<form id="coverPageForm" class="d-flex flex-wrap align-items-center gap-2" action='${ formAction }' onsubmit="return submitForm(event)" method="post" novalidate>
@@ -426,7 +426,7 @@
                     <div class="card-body">
                         <div class="container">
                             <object id="previewPDF"
-                                    data="${ctx}/fax/faxAction.do?method=getPreview&faxFilePath=<e:forUriComponent value='${faxFilePath}' />"
+                                    data="${ctx}/fax/faxAction?method=getPreview&faxFilePath=<e:forUriComponent value='${faxFilePath}' />"
                                     type="application/pdf" width="100%" height="800">
                             </object>
                         </div>
@@ -479,7 +479,7 @@
         */
         $("#fax-additional-recipients .autocomplete, #fax-recipients .autocomplete").autocomplete({
             source: function (request, response) {
-                var url = ctx + "/demographic/Contact.do?method=searchAllContacts&searchMode=search_name&orderBy=c.lastName,c.firstName";
+                var url = ctx + "/demographic/Contact?method=searchAllContacts&searchMode=search_name&orderBy=c.lastName,c.firstName";
                 jQuery.ajax({
                     url: url,
                     type: "GET",

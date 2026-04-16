@@ -13,13 +13,13 @@
 package io.github.carlos_emr.carlos.prevention.gate;
 
 /**
- * View gate for {@code prevention/index.jsp}, the prevention-module
+ * View gate for {@code prevention/index}, the prevention-module
  * landing page launched from the encounter left-nav popup and the demographic
  * "prevention" link. Enforces {@code _prevention r} before forwarding to the
  * JSP at its {@code /WEB-INF/jsp/} location.
  *
- * <p>Callers must target {@code /prevention/ViewPreventionIndex.do?demographic_no=...}
- * rather than {@code /encounter/displayPrevention.do}, which is the encounter
+ * <p>Callers must target {@code /prevention/ViewPreventionIndex?demographic_no=...}
+ * rather than {@code /encounter/displayPrevention}, which is the encounter
  * left-nav sub-dispatcher and does not render the prevention dashboard when
  * invoked as a standalone popup target.
  *

@@ -32,7 +32,7 @@
     KAI Innovations Inc.
     KAIInnovations.com
 --%>
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <!DOCTYPE html>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -146,7 +146,7 @@
                 control.disabled = true;
             }
             var temp = jQuery("#serviceId").val();
-            window.location.href = "<%= request.getContextPath() %>/mcedt/resourceInfo.do?resourceId=" + encodeURIComponent(resourceId) + "&serviceId=" + encodeURIComponent(jQuery("#serviceId").val());
+            window.location.href = "<%= request.getContextPath() %>/mcedt/resourceInfo?resourceId=" + encodeURIComponent(resourceId) + "&serviceId=" + encodeURIComponent(jQuery("#serviceId").val());
             return false;
 
         }
@@ -172,7 +172,7 @@
                 form.appendChild(input2);
                 document.body.appendChild(form);
             }
-            form.action = "<%= request.getContextPath() %>/mcedt/reSubmit.do";
+            form.action = "<%= request.getContextPath() %>/mcedt/reSubmit";
             form.elements['resourceId'].value = resourceId;
             form.elements['serviceId'].value = jQuery("#serviceId").val();
             form.submit();
@@ -275,7 +275,7 @@
 <c:set var="resourceListSent" value="${sessionScope.resourceListSent}"/>
 <c:set var="resultSize" value="${sessionScope.resultSize}"/>
 
-<form action="${pageContext.request.contextPath}/mcedt/resourceInfo.do" method="post" id="formSent">
+<form action="${pageContext.request.contextPath}/mcedt/resourceInfo" method="post" id="formSent">
     <jsp:include page="/WEB-INF/jsp/mcedt/messages.jsp"/>
     <input id="methodSent" name="method" type="hidden" value=""/>
     <div>

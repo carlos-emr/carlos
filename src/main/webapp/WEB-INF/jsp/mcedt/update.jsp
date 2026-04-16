@@ -29,7 +29,7 @@
 
 --%>
 
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <!DOCTYPE html>
 
@@ -50,7 +50,7 @@
             }
 
             function modifyResource(resourceId) {
-                window.location.href = "<%= request.getContextPath() %>/mcedt/openUpdateUpload.do?resourceId=" + resourceId;
+                window.location.href = "<%= request.getContextPath() %>/mcedt/openUpdateUpload?resourceId=" + resourceId;
                 return false;
             }
 
@@ -84,7 +84,7 @@
 
             <h2>Update Resource</h2>
 
-            <form action="${pageContext.request.contextPath}/mcedt/update.do" method="post" id="form">
+            <form action="${pageContext.request.contextPath}/mcedt/update" method="post" id="form">
 
                 <jsp:include page="messages.jsp"/>
 

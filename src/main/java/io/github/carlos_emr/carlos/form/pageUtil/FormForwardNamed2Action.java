@@ -53,14 +53,14 @@ public class FormForwardNamed2Action extends ActionSupport {
         String internalView = FormViewRoutes.resolveInternalViewFromFormLink(formLink);
         if (internalView == null) {
             MiscUtils.getLogger().warn(
-                    "form/forwardname.do: blocked invalid form_link parameter: {}",
+                    "form/forwardname: blocked invalid form_link parameter: {}",
                     LogSanitizer.sanitize(formLink));
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form link");
             return NONE;
         }
         if (demographicNo == null || !demographicNo.matches("\\d+")) {
             MiscUtils.getLogger().warn(
-                    "form/forwardname.do: blocked invalid demographic_no parameter: {}",
+                    "form/forwardname: blocked invalid demographic_no parameter: {}",
                     LogSanitizer.sanitize(demographicNo));
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid demographic number");
             return NONE;

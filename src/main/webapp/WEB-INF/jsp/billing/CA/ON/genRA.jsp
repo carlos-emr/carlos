@@ -23,5 +23,5 @@
 
 --%>
 
-<jsp:forward page="/billing/CA/ON/ViewOnGenRA.do"/>
+<jsp:forward page="/billing/CA/ON/ViewOnGenRA"/>
 

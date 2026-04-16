@@ -49,7 +49,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -155,7 +155,7 @@
                 }
             }
             if (aBoxIsChecked) {
-                popupStart(300, 400, '<%=request.getContextPath()%>/oscarMDS/ViewSelectProvider.do', 'providerselect');
+                popupStart(300, 400, '<%=request.getContextPath()%>/oscarMDS/ViewSelectProvider', 'providerselect');
             } else {
                 alert('<fmt:message key="oscarMDS.index.msgSelectOneLab"/>');
             }
@@ -176,7 +176,7 @@
                 }
             }
             if (aBoxIsChecked) {
-                document.reassignForm.action = '<%=request.getContextPath()%>/oscarLab/FileLabs.do';
+                document.reassignForm.action = '<%=request.getContextPath()%>/oscarLab/FileLabs';
                 document.reassignForm.submit();
             }
         }
@@ -209,7 +209,7 @@
 </head>
 
 <body oldclass="BodyStyle" vlink="#0000FF">
-<form name="reassignForm" method="post" action="ReportReassign.do"
+<form name="reassignForm" method="post" action="ReportReassign"
       id="lab_form">
     <table oldclass="MainTable" id="scrollNumber1" border="0"
            name="encounterTable" cellspacing="0" cellpadding="3" width="100%">
@@ -227,7 +227,7 @@
                             <input type="hidden" name="selectedProviders"> <% if (demographicNo == null) { %>
                             <input type="button" class="smallButton"
                                    value="<fmt:message key="oscarMDS.index.btnSearch"/>"
-                                   onClick="window.location='<%=request.getContextPath()%>/oscarMDS/ViewSearch.do?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>'">
+                                   onClick="window.location='<%=request.getContextPath()%>/oscarMDS/ViewSearch?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>'">
                             <% } %> <input type="button" class="smallButton"
                                            value="<fmt:message key="oscarMDS.index.btnClose"/>"
                                            onClick="window.close()">
@@ -235,9 +235,9 @@
                             <% if (demographicNo == null && request.getParameter("fname") != null) { %>
                             <input type="button" class="smallButton"
                                    value="<fmt:message key="oscarMDS.index.btnDefaultView"/>"
-                                   onClick="window.location='<%= request.getContextPath() %>/lab/ViewDemographicLab.do?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>'">
+                                   onClick="window.location='<%= request.getContextPath() %>/lab/ViewDemographicLab?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>'">
                             <% } %> <% if (demographicNo == null && labs.size() > 0) { %>
-                            <!-- <input type="button" class="smallButton" value="Reassign" onClick="popupStart(300, 400, '/oscarMDS/ViewSelectProvider.do', 'providerselect')"> -->
+                            <!-- <input type="button" class="smallButton" value="Reassign" onClick="popupStart(300, 400, '/oscarMDS/ViewSelectProvider', 'providerselect')"> -->
                             <input type="button" class="smallButton"
                                    value="<fmt:message key="oscarMDS.index.btnForward"/>"
                                    onClick="checkSelected()"> <input type="button"
@@ -259,7 +259,7 @@
 				<%}%> &nbsp;&nbsp;&nbsp; Page : <%=pageNum%> </span> <% } %>
                         </td>
                         <td align="right" valign="center" width="30%"><a
-                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout.do')"><fmt:message key="global.about"/></a></td>
+                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout')"><fmt:message key="global.about"/></a></td>
                     </tr>
                 </table>
             </td>
@@ -316,17 +316,17 @@
             <td>
                 <%
                     if (result.isMDS()) { %> <a
-                    href="javascript:reportWindow('<%= request.getContextPath() %>/oscarMDS/ViewSegmentDisplay.do?demographicId=<%= Encode.forJavaScriptAttribute(demographicNo) %>&segmentID=<%= Encode.forJavaScriptAttribute(segmentID) %>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&status=<%= Encode.forJavaScriptAttribute(status) %>')"><%= result.getDiscipline()%>
+                    href="javascript:reportWindow('<%= request.getContextPath() %>/oscarMDS/ViewSegmentDisplay?demographicId=<%= Encode.forJavaScriptAttribute(demographicNo) %>&segmentID=<%= Encode.forJavaScriptAttribute(segmentID) %>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&status=<%= Encode.forJavaScriptAttribute(status) %>')"><%= result.getDiscipline()%>
             </a>
                 <% } else if (result.isCML()) { %> <a
-                    href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ON/ViewCMLDisplay.do?demographicId=<%= Encode.forJavaScriptAttribute(demographicNo) %>&segmentID=<%= Encode.forJavaScriptAttribute(segmentID) %>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&status=<%= Encode.forJavaScriptAttribute(status) %>')"><%=(String) result.getDiscipline()%>
+                    href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ON/ViewCMLDisplay?demographicId=<%= Encode.forJavaScriptAttribute(demographicNo) %>&segmentID=<%= Encode.forJavaScriptAttribute(segmentID) %>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&status=<%= Encode.forJavaScriptAttribute(status) %>')"><%=(String) result.getDiscipline()%>
             </a>
                 <% } else if (result.isHL7TEXT()) {%>
-                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/ViewLabDisplay.do?demographicId=<%= Encode.forJavaScriptAttribute(demographicNo) %>&segmentID=<%= Encode.forJavaScriptAttribute(segmentID) %>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&status=<%= Encode.forJavaScriptAttribute(status) %>')">
+                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/ViewLabDisplay?demographicId=<%= Encode.forJavaScriptAttribute(demographicNo) %>&segmentID=<%= Encode.forJavaScriptAttribute(segmentID) %>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&status=<%= Encode.forJavaScriptAttribute(status) %>')">
                     <%=Encode.forHtml(StringUtils.trimToEmpty(result.getLabel()))%>
                 </a>
                 <% } else {%>
-                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/BC/ViewLabDisplay.do?demographicId=<%= Encode.forJavaScriptAttribute(demographicNo) %>&segmentID=<%= Encode.forJavaScriptAttribute(segmentID) %>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&status=<%= Encode.forJavaScriptAttribute(status) %>')">
+                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/BC/ViewLabDisplay?demographicId=<%= Encode.forJavaScriptAttribute(demographicNo) %>&segmentID=<%= Encode.forJavaScriptAttribute(segmentID) %>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&status=<%= Encode.forJavaScriptAttribute(status) %>')">
                     <%=Encode.forHtml(StringUtils.trimToEmpty(result.getLabel()))%>
                 </a>
                 <% }%>
@@ -363,15 +363,15 @@
                             <% if (demographicNo == null) { %> <input type="button"
                                                                       class="smallButton"
                                                                       value="<fmt:message key="oscarMDS.index.btnSearch"/>"
-                                                                      onClick="window.location='<%=request.getContextPath()%>/oscarMDS/ViewSearch.do?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>'">
+                                                                      onClick="window.location='<%=request.getContextPath()%>/oscarMDS/ViewSearch?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>'">
                             <% } %> <input type="button" class="smallButton"
                                            value="<fmt:message key="oscarMDS.index.btnClose"/>"
                                            onClick="window.close()"> <% if (request.getParameter("fname") != null) { %>
                             <input type="button" class="smallButton"
                                    value="<fmt:message key="oscarMDS.index.btnDefaultView"/>"
-                                   onClick="window.location='<%= request.getContextPath() %>/lab/ViewDemographicLab.do?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>'">
+                                   onClick="window.location='<%= request.getContextPath() %>/lab/ViewDemographicLab?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>'">
                             <% } %> <% if (demographicNo == null && labs.size() > 0) { %>
-                            <!-- <input type="button" class="smallButton" value="Reassign" onClick="popupStart(300, 400, '/oscarMDS/ViewSelectProvider.do', 'providerselect')"> -->
+                            <!-- <input type="button" class="smallButton" value="Reassign" onClick="popupStart(300, 400, '/oscarMDS/ViewSelectProvider', 'providerselect')"> -->
                             <input type="button" class="smallButton"
                                    value="<fmt:message key="oscarMDS.index.btnForward"/>"
                                    onClick="checkSelected()"> <input type="button"
@@ -382,7 +382,7 @@
                             <div class="Nav">
                                 <% if (pageNum > 1 || labs.size() > endIndex) {
                                     if (pageNum > 1) { %> <a class="visLink"
-                                                             href="<%= request.getContextPath() %>/lab/ViewDemographicLab.do?providerNo=<%= Encode.forUriComponent(providerNo) %><%= (demographicNo == null ? "" : "&demographicNo="+Encode.forUriComponent(demographicNo)) %>&searchProviderNo=<%= Encode.forUriComponent(searchProviderNo) %>&status=<%= Encode.forUriComponent(ackStatus) %><%= (request.getParameter("lname") == null ? "" : "&lname="+Encode.forUriComponent(request.getParameter("lname"))) %><%= (request.getParameter("fname") == null ? "" : "&fname="+Encode.forUriComponent(request.getParameter("fname"))) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+Encode.forUriComponent(request.getParameter("hnum"))) %>&pageNum=<%=pageNum-1%>&startIndex=<%=startIndex-20%>"><
+                                                             href="<%= request.getContextPath() %>/lab/ViewDemographicLab?providerNo=<%= Encode.forUriComponent(providerNo) %><%= (demographicNo == null ? "" : "&demographicNo="+Encode.forUriComponent(demographicNo)) %>&searchProviderNo=<%= Encode.forUriComponent(searchProviderNo) %>&status=<%= Encode.forUriComponent(ackStatus) %><%= (request.getParameter("lname") == null ? "" : "&lname="+Encode.forUriComponent(request.getParameter("lname"))) %><%= (request.getParameter("fname") == null ? "" : "&fname="+Encode.forUriComponent(request.getParameter("fname"))) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+Encode.forUriComponent(request.getParameter("hnum"))) %>&pageNum=<%=pageNum-1%>&startIndex=<%=startIndex-20%>"><
                                 <fmt:message key="oscarMDS.index.msgPrevious"/></a> <% } else { %>
                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                 <% } %> <%
@@ -390,7 +390,7 @@
                                 for (int i = 0; i < labs.size(); i = i + 20) {
                             %>
                                 <a style="text-decoration: none;" class="visLink"
-                                   href="<%= request.getContextPath() %>/lab/ViewDemographicLab.do?providerNo=<%= Encode.forUriComponent(providerNo) %><%= (demographicNo == null ? "" : "&demographicNo="+Encode.forUriComponent(demographicNo)) %>&searchProviderNo=<%= Encode.forUriComponent(searchProviderNo) %>&status=<%= Encode.forUriComponent(ackStatus) %><%= (request.getParameter("lname") == null ? "" : "&lname="+Encode.forUriComponent(request.getParameter("lname"))) %><%= (request.getParameter("fname") == null ? "" : "&fname="+Encode.forUriComponent(request.getParameter("fname"))) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+Encode.forUriComponent(request.getParameter("hnum"))) %>&pageNum=<%=count%>&startIndex=<%=i%>">[<%=count%>
+                                   href="<%= request.getContextPath() %>/lab/ViewDemographicLab?providerNo=<%= Encode.forUriComponent(providerNo) %><%= (demographicNo == null ? "" : "&demographicNo="+Encode.forUriComponent(demographicNo)) %>&searchProviderNo=<%= Encode.forUriComponent(searchProviderNo) %>&status=<%= Encode.forUriComponent(ackStatus) %><%= (request.getParameter("lname") == null ? "" : "&lname="+Encode.forUriComponent(request.getParameter("lname"))) %><%= (request.getParameter("fname") == null ? "" : "&fname="+Encode.forUriComponent(request.getParameter("fname"))) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+Encode.forUriComponent(request.getParameter("hnum"))) %>&pageNum=<%=count%>&startIndex=<%=i%>">[<%=count%>
                                     ]</a>
                                 <%
                                         count++;
@@ -398,7 +398,7 @@
                                 %> <% if (labs.size() > endIndex) { %>
                                 <a
                                         class="visLink"
-                                        href="<%= request.getContextPath() %>/lab/ViewDemographicLab.do?providerNo=<%= Encode.forUriComponent(providerNo) %><%= (demographicNo == null ? "" : "&demographicNo="+Encode.forUriComponent(demographicNo)) %>&searchProviderNo=<%= Encode.forUriComponent(searchProviderNo) %>&status=<%= Encode.forUriComponent(ackStatus) %><%= (request.getParameter("lname") == null ? "" : "&lname="+Encode.forUriComponent(request.getParameter("lname"))) %><%= (request.getParameter("fname") == null ? "" : "&fname="+Encode.forUriComponent(request.getParameter("fname"))) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+Encode.forUriComponent(request.getParameter("hnum"))) %>&pageNum=<%=pageNum+1%>&startIndex=<%=startIndex+20%>"><fmt:message key="oscarMDS.index.msgNext"/> ></a> <% } else { %>
+                                        href="<%= request.getContextPath() %>/lab/ViewDemographicLab?providerNo=<%= Encode.forUriComponent(providerNo) %><%= (demographicNo == null ? "" : "&demographicNo="+Encode.forUriComponent(demographicNo)) %>&searchProviderNo=<%= Encode.forUriComponent(searchProviderNo) %>&status=<%= Encode.forUriComponent(ackStatus) %><%= (request.getParameter("lname") == null ? "" : "&lname="+Encode.forUriComponent(request.getParameter("lname"))) %><%= (request.getParameter("fname") == null ? "" : "&fname="+Encode.forUriComponent(request.getParameter("fname"))) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+Encode.forUriComponent(request.getParameter("hnum"))) %>&pageNum=<%=pageNum+1%>&startIndex=<%=startIndex+20%>"><fmt:message key="oscarMDS.index.msgNext"/> ></a> <% } else { %>
                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                 <% }
                                 } %>

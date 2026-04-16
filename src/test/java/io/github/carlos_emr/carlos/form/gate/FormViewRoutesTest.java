@@ -26,17 +26,17 @@ class FormViewRoutesTest {
     @Test
     void shouldResolveLegacyFormJspToActionRoute() {
         assertThat(FormViewRoutes.resolveActionPath("/form/formannual.jsp?demographic_no="))
-                .isEqualTo("/form/formannual.do?demographic_no=");
+                .isEqualTo("/form/formannual?demographic_no=");
     }
 
     @Test
     void shouldResolveSpecialLegacyRoutes() {
         assertThat(FormViewRoutes.resolveActionPath("../form/forwardshortcutname.jsp?formname=Rourke"))
-                .isEqualTo("/form/forwardshortcutname.do?formname=Rourke");
+                .isEqualTo("/form/forwardshortcutname?formname=Rourke");
         assertThat(FormViewRoutes.resolveActionPath("/form/eCARES/formeCARES.jsp"))
-                .isEqualTo("/formeCARES.do");
+                .isEqualTo("/formeCARES");
         assertThat(FormViewRoutes.resolveActionPath("/form/pharmaForms/formBPMH.jsp"))
-                .isEqualTo("/formBPMH.do");
+                .isEqualTo("/formBPMH");
     }
 
     @Test

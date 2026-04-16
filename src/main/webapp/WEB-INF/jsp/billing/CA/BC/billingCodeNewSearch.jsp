@@ -45,7 +45,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -133,7 +133,7 @@
     </tr>
 </table>
 <form name="servicecode" id="servicecode" method="post"
-      action="<%= request.getContextPath() %>/billing/CA/BC/BillingCodeNewUpdate.do"><input type="hidden"
+      action="<%= request.getContextPath() %>/billing/CA/BC/BillingCodeNewUpdate"><input type="hidden"
                                                name="formName" value="<%=Encode.forHtmlAttribute(formName)%>"/> <input type="hidden"
                                                                                               name="formElement"
                                                                                               value="<%=Encode.forHtmlAttribute(formElement)%>"/>

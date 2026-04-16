@@ -35,7 +35,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
 
     String errormsg = "";
     if (request.getParameter("errormsg") != null) {
@@ -57,7 +57,7 @@
 
 <%@ page
         import="java.lang.*, java.util.*, java.text.*,java.sql.*, io.github.carlos_emr.*"
-        errorPage="/errorpage.jsp" %>
+        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%!
     CarlosProperties op = CarlosProperties.getInstance();
@@ -147,7 +147,7 @@
 
     <body onLoad="setfocus('oldpassword')" topmargin="0" leftmargin="0" rightmargin="0">
     <FORM NAME="updatepassword" METHOD="post"
-          ACTION="<%= request.getContextPath() %>/provider/ViewProviderUpdatePassword.do" onSubmit="return(checkPwdPolicy())">
+          ACTION="<%= request.getContextPath() %>/provider/ViewProviderUpdatePassword" onSubmit="return(checkPwdPolicy())">
         <table border=0 cellspacing=0 cellpadding=0 width="100%">
             <tr bgcolor="#486ebd">
                 <th align=CENTER NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:message key="provider.providerchangepassword.description"/></font></th>

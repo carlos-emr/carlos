@@ -5,7 +5,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -13,7 +13,7 @@
     }
 %>
 
-<%@ page errorPage="/errorpage.jsp"
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
          import="java.util.*, io.github.carlos_emr.carlos.report.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportFilter" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
@@ -42,7 +42,7 @@
 
 // search the list
     int n = bDeletedList ? 0 : 1;
-    String link = bDeletedList ? "<a href='" + request.getContextPath() + "/report/ViewReportFormRecord.do'>Report list</a>" : "<a href='" + request.getContextPath() + "/report/ViewReportFormRecord.do?undelete=true'>Deleted report list</a>";
+    String link = bDeletedList ? "<a href='" + request.getContextPath() + "/report/ViewReportFormRecord'>Report list</a>" : "<a href='" + request.getContextPath() + "/report/ViewReportFormRecord?undelete=true'>Deleted report list</a>";
     Vector vec = reportFilter.getNameList(reportId, n);
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -92,7 +92,7 @@
             }
 
             function goPage(id) {
-                self.location.href = "<%= request.getContextPath() %>/report/ViewReportFilter.do?id=" + id;
+                self.location.href = "<%= request.getContextPath() %>/report/ViewReportFilter?id=" + id;
             }
 
             //-->
@@ -120,12 +120,12 @@
             <td><%=msg%>
             </td>
             <td width="10%" align="right" nowrap><a
-                    href="<%= request.getContextPath() %>/report/ViewReportFormRecord.do">Back to Report List</a> | <a
-                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig.do?id=<%= Encode.forUriComponent(reportId) %>">Configuration</a></td>
+                    href="<%= request.getContextPath() %>/report/ViewReportFormRecord">Back to Report List</a> | <a
+                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<%= Encode.forUriComponent(reportId) %>">Configuration</a></td>
         </tr>
     </table>
     <table width="100%" border="0" cellspacing="2" cellpadding="2">
-        <form method="post" name="baseurl" action="<%= request.getContextPath() %>/report/ViewReportResult.do">
+        <form method="post" name="baseurl" action="<%= request.getContextPath() %>/report/ViewReportResult">
             <%
                 Vector vecJS = new Vector();
                 for (int i = 0; i < vec.size(); i++) {

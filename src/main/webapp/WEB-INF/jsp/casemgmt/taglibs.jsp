@@ -29,7 +29,7 @@
 --%>
 
 
-<%@page errorPage="/errorpage.jsp" %>
+<%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>

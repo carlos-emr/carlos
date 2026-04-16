@@ -27,7 +27,7 @@
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.DateRange" %>
 <%@ page import="java.math.*,java.util.*,java.sql.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.billing.ca.on.OHIP.*,java.net.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*,io.github.carlos_emr.carlos.providers.data.ProviderBillCenter" %>
 
@@ -210,7 +210,7 @@
     }
 %>
 
-<jsp:forward page='/billing/CA/ON/ViewBillingONMRI.do'>
+<jsp:forward page='/billing/CA/ON/ViewBillingONMRI'>
     <jsp:param name="year" value=''/>
 </jsp:forward>
 

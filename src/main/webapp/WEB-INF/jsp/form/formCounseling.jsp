@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -98,7 +98,7 @@
         <title>Counseling</title>
     </head>
     <body bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0" onload="window.resizeTo(768,768)" bgcolor="#eeeeee">
-    <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post">
 
     <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>"/>
         <div class="DoNotPrint">
@@ -235,7 +235,7 @@
         <script type="text/javascript">
             function reset() {
                 document.forms[0].target = "";
-                document.forms[0].action = "/<%=projectHome%>/form/formname.do";
+                document.forms[0].action = "/<%=projectHome%>/form/formname";
             }
 
             function onSave() {
@@ -262,7 +262,7 @@
             function onPrintPDF() {
                 temp = document.forms[0].action;
                 document.forms[0].submit.value = "printall";
-                document.forms[0].action = "<%= request.getContextPath() %>/form/formname.do?__title=form+Counseling&__cfgfile=CounselingNotePrint&__template=CounselingNoteForm";
+                document.forms[0].action = "<%= request.getContextPath() %>/form/formname?__title=form+Counseling&__cfgfile=CounselingNotePrint&__template=CounselingNoteForm";
                 document.forms[0].target = "_blank";
                 return true;
             }

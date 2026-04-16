@@ -47,8 +47,8 @@ public class EventService implements ApplicationEventPublisherAware {
 
     /*
      * Event is fired from:
-     *   /appointment/UpdateRecord.do — edit appt screen (UpdateRecord2Action)
-     *   /provider/AddStatus.do — appt status icon (AddStatus2Action)
+     *   /appointment/UpdateRecord — edit appt screen (UpdateRecord2Action)
+     *   /provider/AddStatus — appt status icon (AddStatus2Action)
      */
     public void appointmentStatusChanged(Object source, String appointment_no, String provider_no, String status) {
         if (logger.isDebugEnabled()) {
@@ -63,14 +63,14 @@ public class EventService implements ApplicationEventPublisherAware {
 
     /*
      * Event is fired from:
-     *   /appointment/AddRecord.do — AddRecord2Action
-     *   /appointment/appointmentaddrecordcard.do — forwards to
+     *   /appointment/AddRecord — AddRecord2Action
+     *   /appointment/appointmentaddrecordcard — forwards to
      *     /WEB-INF/jsp/appointment/appointmentaddrecordcard.jsp which
      *     persists via appointmentDao.persist(...) and fires the event
-     *   /appointment/appointmentaddrecordprint.do — forwards to
+     *   /appointment/appointmentaddrecordprint — forwards to
      *     /WEB-INF/jsp/appointment/appointmentaddrecordprint.jsp which
      *     persists via appointmentDao.persist(...) and fires the event
-     * The two *record{card,print}.do endpoints are ViewAppointmentSelfPost2Action
+     * The two *record{card,print} endpoints are ViewAppointmentSelfPost2Action
      * gates whose target JSPs still contain scriptlet mutations (flagged for
      * scriptlet extraction follow-up).
      */

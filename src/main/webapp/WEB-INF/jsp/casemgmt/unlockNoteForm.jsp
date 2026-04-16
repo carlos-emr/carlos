@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_casemgmt.notes");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_casemgmt.notes");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -64,7 +64,7 @@
 <h5 style="color: red">This note will only be unlocked for the
     duration of your session. To permanently unlock, click on Edit Note, and
     remove the password.</h5>
-<form action="<%= request.getContextPath() %>/CaseManagementView.do" method="post">
+<form action="<%= request.getContextPath() %>/CaseManagementView" method="post">
     <input type="hidden" name="method" value="do_unlock"/>
     <input type="hidden" name="noteId" id="noteId"/>
     <table>

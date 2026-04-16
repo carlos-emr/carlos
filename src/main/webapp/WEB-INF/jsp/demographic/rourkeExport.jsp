@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -64,7 +64,7 @@
 </head>
 <body>
 <div class="container-fluid card card-body bg-body-tertiary">
-    <form action="${pageContext.request.contextPath}/demographic/eRourkeExport.do" method="post">
+    <form action="${pageContext.request.contextPath}/demographic/eRourkeExport" method="post">
 
         <h3>Vendor Information</h3>
         <table class="table-sm">
@@ -180,7 +180,7 @@
                 <td><%=DateFormatUtils.format(dataExport.getDaterun().getTime(), DateFormatUtils.ISO_DATETIME_FORMAT.getPattern()) %>
                 </td>
                 <td>
-                    <a href='<c:out value="${ctx}/demographic/eRourkeExport.do"></c:out>?method=getFile&zipFile=<%=file%>'><%=file %>
+                    <a href='<c:out value="${ctx}/demographic/eRourkeExport"></c:out>?method=getFile&zipFile=<%=file%>'><%=file %>
                     </a></td>
                 <td><%=dataExport.getUser()%>
                 <td><%=dataExport.getType()%>

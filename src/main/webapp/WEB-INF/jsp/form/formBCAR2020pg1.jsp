@@ -31,13 +31,13 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String user = (String) session.getAttribute("user");
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName2$ = (String) session.getAttribute("userrole") + "," + user;
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -190,7 +190,7 @@
         </c:if>
 
         <div id="content_bar" class="innertube">
-            <form action="${pageContext.request.contextPath}/form/BCAR2020.do" method="post">
+            <form action="${pageContext.request.contextPath}/form/BCAR2020" method="post">
                 <input type="hidden" id="demographicNo" name="demographicNo" value="<%=demoNo%>"/>
                 <input type="hidden" id="formId" name="formId" value="<%=formId%>"/>
                 <input type="hidden" name="provider_no" value=<%=Encode.forHtmlAttribute(providerNo)%>/>

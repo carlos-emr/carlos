@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -192,7 +192,7 @@
 
             function reset() {
                 document.forms[0].target = "";
-                document.forms[0].action = "/<%=project_home%>/form/formname.do";
+                document.forms[0].action = "/<%=project_home%>/form/formname";
             }
 
             function onPrint() {
@@ -200,7 +200,7 @@
                 var ret = checkAllDates();
 
                 if (ret == true) {
-                    document.forms[0].action = "<%= request.getContextPath() %>/form/formname.do?__title=British+Columbia+Health+Passport&__cfgfile=bchpPrintCfgPg1&__cfgfile=bchpPrintCfgPg2&__template=bchp";
+                    document.forms[0].action = "<%= request.getContextPath() %>/form/formname?__title=British+Columbia+Health+Passport&__cfgfile=bchpPrintCfgPg1&__cfgfile=bchpPrintCfgPg2&__template=bchp";
                     document.forms[0].target = "_blank";
                 }
                 return ret;
@@ -478,7 +478,7 @@
         <center>3 doses* &#64; 0, 1 &amp; 6 months</center>
     </div>
 
-    <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post">
     <input type="hidden" name="c_lastVisited" value="pg1"/>
         <input type="hidden" name="demographic_no"
                value="<%= props.getProperty("demographic_no", "0") %>"/>
@@ -513,7 +513,7 @@
                 %>
 
                 <td align="right"><b>Edit:</b>HP <font size=-2>(pg.1)</font> | <a
-                        href="form/formbchppg2.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">HP
+                        href="form/formbchppg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">HP
                     <font size=-2>(pg.2)</font></a></td>
                 <%
                     }
@@ -1339,10 +1339,10 @@
                     if (!bView) {
                 %>
                 <td>
-                    <!--a href="javascript: popPage('formlabreq.do?demographic_no=<%=demoNo%>&formId=0&provNo=<%=provNo%>&labType=AR','LabReq');">LAB</a-->
+                    <!--a href="javascript: popPage('formlabreq?demographic_no=<%=demoNo%>&formId=0&provNo=<%=provNo%>&labType=AR','LabReq');">LAB</a-->
                 </td>
                 <td align="right"><b>Edit:</b>HP <font size=-2>(pg.1)</font> | <a
-                        href="form/formbchppg2.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">HP
+                        href="form/formbchppg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">HP
                     <font size=-2>(pg.2)</font></a></td>
                 <%
                     }

@@ -25,10 +25,10 @@
 --%>
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     }
 %>
-<%@ page errorPage="/errorpage.jsp"
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
          import="java.util.*,java.sql.*,io.github.carlos_emr.*,java.text.*, java.lang.*,java.net.*" %>
 
 <%@ page
@@ -464,7 +464,7 @@
             <%=msg%>
         </div>
 
-        <form method="post" id="baseurl" name="baseurl" action="/billing/CA/ON/AddEditServiceCode.do">
+        <form method="post" id="baseurl" name="baseurl" action="/billing/CA/ON/AddEditServiceCode">
 
             <div class="col-md-10">
                 Service Code <small>5 Characters, e.g. A001A</small><br>

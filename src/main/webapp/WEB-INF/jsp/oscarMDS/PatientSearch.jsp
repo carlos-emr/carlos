@@ -44,7 +44,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -116,7 +116,7 @@
 
 <table border="0" cellpadding="1" cellspacing="0" width="100%"
        bgcolor="#C4D9E7">
-    <form method="post" name="titlesearch" action="<%=request.getContextPath()%>/oscarMDS/SearchPatient.do"
+    <form method="post" name="titlesearch" action="<%=request.getContextPath()%>/oscarMDS/SearchPatient"
           onSubmit="return checkTypeIn();">
         <input type="hidden"
                name="from" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("from"))) %>"/>
@@ -189,7 +189,7 @@
 <CENTER>
     <table width="100%" border="1" cellpadding="0" cellspacing="1"
            bgcolor="#ffffff">
-        <form method="post" name="addform" action="PatientMatch.do"><input
+        <form method="post" name="addform" action="PatientMatch"><input
                 type="hidden" name="labNo" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("labNo"))) %>">
             <input type="hidden" name="labType"
                    value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("labType"))) %>"/>
@@ -406,12 +406,12 @@
     <script language="JavaScript">
         <!--
         function last() {
-            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/SearchPatient.do?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%= Encode.forJavaScript(Encode.forUriComponent(strLimit2)) %>&from=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("from")))) %>";
+            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/SearchPatient?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%= Encode.forJavaScript(Encode.forUriComponent(strLimit2)) %>&from=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("from")))) %>";
             //document.nextform.submit();
         }
 
         function next() {
-            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/SearchPatient.do?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%= Encode.forJavaScript(Encode.forUriComponent(strLimit2)) %>&from=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("from")))) %>";
+            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/SearchPatient?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%= Encode.forJavaScript(Encode.forUriComponent(strLimit2)) %>&from=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("from")))) %>";
             //document.nextform.submit();
         }
 
@@ -419,7 +419,7 @@
     </SCRIPT>
 
     <form method="post" name="nextform"
-          action="<%= request.getContextPath() %>/demographic/DemographicSearch.do"><input
+          action="<%= request.getContextPath() %>/demographic/DemographicSearch"><input
             type="hidden" name="labNo" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("labNo"))) %>">
         <input type="hidden" name="labType"
                value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("labType"))) %>"/> <%

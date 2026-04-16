@@ -128,7 +128,7 @@
 
         local_jQuery.ajax({
             type: 'POST',
-            url: '<%=request.getContextPath()%>/encounter/MeasurementData.do?action=getMeasurementsByType&demographicNo=' + demographicNo + '&measurementType=' + measurementType,
+            url: '<%=request.getContextPath()%>/encounter/MeasurementData?action=getMeasurementsByType&demographicNo=' + demographicNo + '&measurementType=' + measurementType,
             async: false,
             dataType: 'json',
             success: function (data) {
@@ -233,7 +233,7 @@
                         // If the user clicks save, complete an ajax call that will save a new measurement record to the database
                         local_jQuery.ajax({
                             type: 'POST',
-                            url: '<%=request.getContextPath()%>/encounter/MeasurementData.do?action=saveMeasurement&demographicNo=' + demographicNo + '&appointmentNo=' + appointmentNo + '&type=' + measurementType,
+                            url: '<%=request.getContextPath()%>/encounter/MeasurementData?action=saveMeasurement&demographicNo=' + demographicNo + '&appointmentNo=' + appointmentNo + '&type=' + measurementType,
                             data: {
                                 value: document.getElementById("currentMeasurementValue").value,
                                 instruction: document.getElementById('measurementInstruction').textContent,

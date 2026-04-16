@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -108,7 +108,7 @@
                 //if(ret==true) {
                 //ret = confirm("Do you wish to save this form and view the print preview?");
                 popupFixedPage(650, 850, '<%= request.getContextPath() %>/provider/notice.htm');
-                document.forms[0].action = "<%= request.getContextPath() %>/form/formmhoutcomeprint.do";
+                document.forms[0].action = "<%= request.getContextPath() %>/form/formmhoutcomeprint";
                 document.forms[0].target = "planner";
                 document.forms[0].submit();
                 document.forms[0].target = "apptProviderSearch";
@@ -370,7 +370,7 @@
     </head>
     <body bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0"
           onload="getMainAction()">
-    <form action="${pageContext.request.contextPath}/form/formname.do" method="post" onsubmit="return numvalidate()">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post" onsubmit="return numvalidate()">
 
         <input type="hidden" name="demographic_no"
                value="<%= props.getProperty("demographic_no", "0") %>"/>
@@ -398,9 +398,9 @@
                     <input type="submit" value="Print"
                            onclick="javascript:return onPrint();"/></td>
                 <td align="right"><a
-                        href="<%= request.getContextPath() %>/form/formmhreferral.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Referral</a>
+                        href="<%= request.getContextPath() %>/form/formmhreferral?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Referral</a>
                     &nbsp;|&nbsp; <a
-                            href="<%= request.getContextPath() %>/form/formmhassessment.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Assessment</a>
+                            href="<%= request.getContextPath() %>/form/formmhassessment?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Assessment</a>
                     &nbsp;|&nbsp; Outcome
                 </td>
             </tr>
@@ -605,9 +605,9 @@
                     <input type="submit" value="Print"
                            onclick="javascript:return onPrint();"/></td>
                 <td align="right"><a
-                        href="<%= request.getContextPath() %>/form/formmhreferral.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Referral</a>
+                        href="<%= request.getContextPath() %>/form/formmhreferral?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Referral</a>
                     &nbsp;|&nbsp; <a
-                            href="<%= request.getContextPath() %>/form/formmhassessment.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Assessment</a>
+                            href="<%= request.getContextPath() %>/form/formmhassessment?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Assessment</a>
                     &nbsp;|&nbsp; Outcome
                 </td>
             </tr>

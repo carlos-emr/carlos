@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_edoc");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_edoc");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -284,7 +284,7 @@
         };
 
         function changeProviderAndQueue() {
-            upload_url = "<%=request.getContextPath()%>/documentManager/addEditDocument.do?method=html5MultiUpload&queue=" + document.getElementById('queue').value + "&providers=" + document.getElementById('provider').value;
+            upload_url = "<%=request.getContextPath()%>/documentManager/addEditDocument?method=html5MultiUpload&queue=" + document.getElementById('queue').value + "&providers=" + document.getElementById('provider').value;
         }
 
         function addProviderToPost(ele) {
@@ -363,7 +363,7 @@
     </div>
     <div class="form">
         <form id="noswfupload_form" method="post"
-              action="<%=request.getContextPath()%>/documentManager/addEditDocument.do?method=html5MultiUpload&queue=<%=queueId%>&providers=<%=provider%>"
+              action="<%=request.getContextPath()%>/documentManager/addEditDocument?method=html5MultiUpload&queue=<%=queueId%>&providers=<%=provider%>"
               enctype="multipart/form-data">
             <div>
                 <input type="file" name="filedata"/>

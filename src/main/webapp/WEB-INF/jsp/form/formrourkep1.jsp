@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -255,7 +255,7 @@
     </script>
 
     <body bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0">
-    <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post">
 
         <input type="hidden" name="demographic_no"
                value="<%= Encode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>"/>
@@ -285,14 +285,14 @@
                                                                          value="<fmt:message key="encounter.formRourke1.btnPrint"/>"
                                                                          onclick="javascript:return onPrint();"/></td>
                 <td align="center" width="100%"><a name="length"
-                                                   href="javascript:popup('form/graphLengthWeight.do?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>');">
+                                                   href="javascript:popup('form/graphLengthWeight?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>');">
                     <fmt:message key="encounter.formRourke1.btnGraphLenghtWeight"/></a><br>
                     <a name="headCirc"
-                       href="javascript:popup('form/graphHeadCirc.do?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>');">
+                       href="javascript:popup('form/graphHeadCirc?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>');">
                         <fmt:message key="encounter.formRourke1.btnGraphHead"/></a></td>
                 <td nowrap="true"><a><fmt:message key="encounter.formRourke1.msgPage1"/></a>&nbsp;|&nbsp; <a
-                        href="form/formrourkep2.do?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:message key="encounter.formRourke1.btnPage2"/></a>&nbsp;|&nbsp; <a
-                        href="form/formrourkep3.do?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:message key="encounter.formRourke1.btnPage3"/></a></td>
+                        href="form/formrourkep2?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:message key="encounter.formRourke1.btnPage2"/></a>&nbsp;|&nbsp; <a
+                        href="form/formrourkep3?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:message key="encounter.formRourke1.btnPage3"/></a></td>
             </tr>
         </table>
 
@@ -1309,14 +1309,14 @@
                                                                          value="<fmt:message key="encounter.formRourke1.btnPrint"/>"
                                                                          onclick="javascript:return onPrint();"/></td>
                 <td align="center" width="100%"><a name="length"
-                                                   href="javascript:popup('form/graphLengthWeight.do?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>');">
+                                                   href="javascript:popup('form/graphLengthWeight?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>');">
                     <fmt:message key="encounter.formRourke1.btnGraphLenghtWeight"/></a><br>
                     <a name="headCirc"
-                       href="javascript:popup('form/graphHeadCirc.do?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>');">
+                       href="javascript:popup('form/graphHeadCirc?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>');">
                         <fmt:message key="encounter.formRourke1.btnGraphHead"/></a></td>
                 <td nowrap="true"><a><fmt:message key="encounter.formRourke1.msgPage1"/></a>&nbsp;|&nbsp; <a
-                        href="form/formrourkep2.do?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:message key="encounter.formRourke1.btnPage2"/></a>&nbsp;|&nbsp; <a
-                        href="form/formrourkep3.do?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:message key="encounter.formRourke1.btnPage3"/></a></td>
+                        href="form/formrourkep2?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:message key="encounter.formRourke1.btnPage2"/></a>&nbsp;|&nbsp; <a
+                        href="form/formrourkep3?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:message key="encounter.formRourke1.btnPage3"/></a></td>
             </tr>
         </table>
 

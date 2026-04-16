@@ -27,10 +27,10 @@
 <%@page import="io.github.carlos_emr.carlos.utility.DateRange" %>
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 
-<%@ page import="java.util.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderBillCenter" %>
@@ -137,6 +137,6 @@
 
 %>
 
-<jsp:forward page='/billing/CA/ON/ViewBillingONMRI.do'>
+<jsp:forward page='/billing/CA/ON/ViewBillingONMRI'>
     <jsp:param name="year" value=''/>
 </jsp:forward>

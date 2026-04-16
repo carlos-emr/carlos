@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_edoc");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_edoc");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -505,7 +505,7 @@
             if (totalPage == 0) {
                 alert("<fmt:message key="dms.incomingDocs.selectDocumentFirst"/>");
             } else {
-                var url = '<c:out value="${ctx}"/>/documentManager/ManageDocument.do?method=displayIncomingDocs'
+                var url = '<c:out value="${ctx}"/>/documentManager/ManageDocument?method=displayIncomingDocs'
                     + '&pdfDir=' + encodeURIComponent(pdfDir) + '&queueId=' + queueId + '&pdfName=' + encodeURIComponent(pdfName);
                 popupPage(700, 960, url);
             }
@@ -572,10 +572,10 @@
                 document.getElementById('pgnum').innerHTML = pn + ' of <span class="<%= numOfPage > 1 ? "multiPage" : "singlePage" %>">' + totalPage + '</span>';
 
                 if (document.PdfInfoForm.imageType.value === "Pdf") {
-                    url = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument.do?method=viewIncomingDocPageAsPdf'
+                    url = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument?method=viewIncomingDocPageAsPdf'
                         + '&curPage=' + pn + '&pdfDir=' + encodeURIComponent(pdfDir) + '&queueId=' + queueId + '&pdfName=' + encodeURIComponent(pdfName) + "#view=fitV";
                 } else {
-                    url = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument.do?method=viewIncomingDocPageAsImage'
+                    url = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument?method=viewIncomingDocPageAsImage'
                         + '&curPage=' + pn + '&pdfDir=' + encodeURIComponent(pdfDir) + '&queueId=' + queueId + '&pdfName=' + encodeURIComponent(pdfName);
                 }
                 document.getElementById('docdisp').innerHTML = '<iframe	src="' + url + '"  width="' + (width) + '" height="' + (height) + '" ></iframe>';
@@ -688,7 +688,7 @@
             if (demo == "-1") {
                 alert("<fmt:message key="dms.incomingDocs.selectDemographicFirst"/>");
             } else {
-                popupPage(710, 1024, '<c:out value="${ctx}"/>/demographic/DemographicEdit.do?demographic_no=' + demo + '');
+                popupPage(710, 1024, '<c:out value="${ctx}"/>/demographic/DemographicEdit?demographic_no=' + demo + '');
             }
         }
 
@@ -699,7 +699,7 @@
             if (demo == "-1") {
                 alert("<fmt:message key="dms.incomingDocs.selectDemographicFirst"/>");
             } else {
-                popupPage(710, 1024, '<c:out value="${ctx}"/>/demographic/DemographicApptHistory.do?demographic_no=' + encodeURIComponent(demo) + '&orderby=appttime&dboperation=appt_history&limit1=0&limit2=25');
+                popupPage(710, 1024, '<c:out value="${ctx}"/>/demographic/DemographicApptHistory?demographic_no=' + encodeURIComponent(demo) + '&orderby=appttime&dboperation=appt_history&limit1=0&limit2=25');
             }
         }
 
@@ -813,7 +813,7 @@
                     docDescriptionList.removeChild(docDescriptionList.lastChild);
                 }
 
-                var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
+                var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
                 var data = 'method=getDocumentDescriptionFromDocType&doctype=' + encodeURIComponent(docType) + "&providerNo=<%=Encode.forJavaScript(StringUtils.noNull(user_no))%>&useDocumentDescriptionTemplateType=<%=Encode.forJavaScript(useDocumentDescriptionTemplateType)%>";
                 var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                 var csrfToken = csrfEl ? csrfEl.value : '';
@@ -856,7 +856,7 @@
     <table>
         <tr style="display: flex;">
             <td align="left" valign="top">
-                <form method="post" name="PdfInfoForm" action="<%= request.getContextPath() %>/documentManager/ViewIncomingDocs.do">
+                <form method="post" name="PdfInfoForm" action="<%= request.getContextPath() %>/documentManager/ViewIncomingDocs">
                     <input type="hidden" name="pdfNo" value="<%=Encode.forHtmlAttribute(pdfNo)%>">
                     <input type="hidden" name="pdfDir" value="<%=Encode.forHtmlAttribute(pdfDir)%>">
                     <input type="hidden" name="pdfName" value="<%=Encode.forHtmlAttribute(pdfName)%>">
@@ -1009,7 +1009,7 @@
                             <option value="Fast" <%=entryMode.equals("Fast") ? "selected" : ""%> ><fmt:message key="dms.incomingDocs.fast"/></option>
                         </select>
                     </legend>
-                    <form id="forms_" method="post" action="ManageDocument.do">
+                    <form id="forms_" method="post" action="ManageDocument">
                         <input type="hidden" name="method" value="addIncomingDocument"/>
                         <input type="hidden" name="pdfDir" value="<%=Encode.forHtmlAttribute(pdfDir)%>">
                         <input type="hidden" name="pdfName" value="<%=Encode.forHtmlAttribute(pdfName)%>">
@@ -1142,7 +1142,7 @@
                             <tr>
                                 <td colspan="2"><input type="button" id="createNewDemo"
                                                        value="<fmt:message key="dms.incomingDocs.createNewDemographic"/>"
-                                                       onclick="popupPage(700,960,'<%= request.getContextPath() %>/demographic/ViewDemographicAddARecordHtm.do','demographic')"/>
+                                                       onclick="popupPage(700,960,'<%= request.getContextPath() %>/demographic/ViewDemographicAddARecordHtm','demographic')"/>
                                 </td>
                             </tr>
                             <tr>

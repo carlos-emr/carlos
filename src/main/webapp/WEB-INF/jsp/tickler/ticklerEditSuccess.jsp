@@ -23,7 +23,7 @@
  ticklerEditSuccess.jsp - Minimal sentinel response for tickler edit success.
 
  Purpose:
-   Rendered inside a hidden iframe by ticklerEdit.jsp after a successful EditTickler.do
+   Rendered inside a hidden iframe by ticklerEdit.jsp after a successful EditTickler
    action. Provides a DOM sentinel element (#tickler-edit-ok) that the iframe.onload
    callback uses to confirm the save was successful, instead of relying on URL inspection.
 

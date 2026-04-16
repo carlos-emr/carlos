@@ -70,7 +70,7 @@
 
                     <div class="row">
                         <!--ADD GROUP-->
-                        <form action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/addGroup.do"
+                        <form action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/addGroup"
                               method="post" id="addGroupTemplate" class="d-flex flex-wrap align-items-center gap-2">
                             <input type="text" name="groupName" class="check" placeholder="Group Name">
                             <input type="submit" name="subm" class="btn groupAdd" value="Add Group" disabled>
@@ -96,12 +96,12 @@
                                     <c:forEach items="${ rbtGroups }" var="groupName">
                                         <tr class="">
                                             <td title="${ groupName }">
-                                                <a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/tempInGroup.do?groupName=${ groupName }">
+                                                <a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/tempInGroup?groupName=${ groupName }">
                                                     <c:out value="${ groupName }"/>
                                                 </a>
                                             </td>
                                             <td>
-                                                <form method="post" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/delGroup.do" style="display:inline;">
+                                                <form method="post" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/delGroup" style="display:inline;">
                                                     <input type="hidden" name="groupName" value="${ groupName }"/>
                                                     <a class="float-end" href="javascript:void(0);"
                                                        onclick="if(confirm('Are you sure you want to delete this group?')){this.closest('form').submit();}"
@@ -111,7 +111,7 @@
                                                 </form>
                                                 <span>&nbsp;</span>
                                                 <a class="float-end"
-                                                   href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/tempInGroup.do?groupName=${ groupName }"
+                                                   href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/tempInGroup?groupName=${ groupName }"
                                                    title="edit group">
                                                     <i style="color:blue;" class="fa-solid fa-pen-to-square"></i>
                                                 </a>
@@ -175,7 +175,7 @@
 
                                                     <c:if test="${ template ne '0'}">
                                                         <td title="">
-                                                            <a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/ViewReportConfiguration.do?templateid=${ template }"
+                                                            <a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/ViewReportConfiguration?templateid=${ template }"
                                                                class="contentLink"> <c:out
                                                                     value="${ templates[template].title }"/> </a>
                                                         </td>
@@ -184,7 +184,7 @@
                                                         </td>
 
                                                         <td>
-                                                            <form method="post" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/remFromGroup.do" style="display:inline;">
+                                                            <form method="post" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/remFromGroup" style="display:inline;">
                                                                 <input type="hidden" name="tid" value="${template}"/>
                                                                 <input type="hidden" name="groupName" value="${temp.groupName}"/>
                                                                 <a href="javascript:void(0);"
@@ -223,7 +223,7 @@
                     </div>
                     <div class="row actions">
                         <form class="d-flex flex-wrap align-items-center gap-2"
-                              action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/rbtGroup.do"
+                              action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/rbtGroup"
                               id="goBack">
                             <button type="submit" name="back-btn" id="back-btn"
                                     title="return to template group page" class="btn btn-secondary float-end">Back
@@ -254,7 +254,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <form action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/rbtAddToGroup.do"
+                    <form action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/rbtAddToGroup"
                           method="post" id="templateToGroupForm">
                         <div>
                             <select style="width:100%;height:400px;outline:none;" name="tid" id="templateSelect"

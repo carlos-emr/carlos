@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing,_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -110,7 +110,7 @@
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#333333">
         <th align='CENTRE'>
-            <form action="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS22.do"><input type="hidden" name="rano"
+            <form action="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS22"><input type="hidden" name="rano"
                                                value="<%=Encode.forHtmlAttribute(StringUtils.noNull(raNo))%>"> <select name="proNo">
                 <option value="all" <%=proNo.equals("all") ? "selected" : ""%>>All
                     Providers

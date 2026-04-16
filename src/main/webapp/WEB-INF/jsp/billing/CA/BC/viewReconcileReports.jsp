@@ -36,7 +36,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting,_admin" rights="r"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting&type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting&type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -46,7 +46,7 @@
 
 
 <%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.MyDateFormat"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanS21Dao" %>
@@ -189,10 +189,10 @@
         <td align="right"><%=Encode.forHtml(moneyFormat(chequeamt))%></td>
         <td align="right"><%=Encode.forHtml(moneyFormat(newbalance))%></td>
         <td >&nbsp;&nbsp;
-           Billed( <a href="createBillingReportAction.do?docFormat=pdf&repType=REP_MSPREM&rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&selPayee=<%=Encode.forUriComponent(StringUtils.noNull(payeeNo))%>" target="_blank">PDF</a>|<a href="createBillingReportAction.do?docFormat=csv&repType=REP_MSPREM&rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&selPayee=<%=Encode.forUriComponent(StringUtils.noNull(payeeNo))%>" target="_blank">CSV</a>) |
-           <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS00.do?rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&proNo=" target="_blank">Detail</a> |
-           <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS22.do?rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&proNo=" target="_blank">Summary</a>
-           ( <a href="createBillingReportAction.do?docFormat=pdf&repType=REP_MSPREMSUM&rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&proNo=" target="_blank">PDF</a>|<a href="createBillingReportAction.do?docFormat=csv&repType=REP_MSPREMSUM&rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&proNo=" target="_blank">CSV</a>)
+           Billed( <a href="createBillingReportAction?docFormat=pdf&repType=REP_MSPREM&rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&selPayee=<%=Encode.forUriComponent(StringUtils.noNull(payeeNo))%>" target="_blank">PDF</a>|<a href="createBillingReportAction?docFormat=csv&repType=REP_MSPREM&rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&selPayee=<%=Encode.forUriComponent(StringUtils.noNull(payeeNo))%>" target="_blank">CSV</a>) |
+           <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS00?rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&proNo=" target="_blank">Detail</a> |
+           <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS22?rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&proNo=" target="_blank">Summary</a>
+           ( <a href="createBillingReportAction?docFormat=pdf&repType=REP_MSPREMSUM&rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&proNo=" target="_blank">PDF</a>|<a href="createBillingReportAction?docFormat=csv&repType=REP_MSPREMSUM&rano=<%=Encode.forUriComponent(StringUtils.noNull(raNo))%>&proNo=" target="_blank">CSV</a>)
         </td>
         <td ><%=Encode.forHtml(String.valueOf(result.getStatus()))%></td>
      </tr>

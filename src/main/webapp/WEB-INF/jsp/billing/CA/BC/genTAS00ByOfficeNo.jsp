@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing,_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -44,7 +44,7 @@
 %>
 
 <%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.MyDateFormat"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 
 
@@ -155,7 +155,7 @@
           %>
         <tr>
             <td width="5%" height="16"><a
-                    href="javascript: popupPage(700,750,'<%= request.getContextPath() %>/billing/CA/BC/reprocessBill.do?billingmaster_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(result.getOfficeNo())))%>')"><%=Encode.forHtml(StringUtils.noNull(result.getOfficeNo()))%>
+                    href="javascript: popupPage(700,750,'<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?billingmaster_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(result.getOfficeNo())))%>')"><%=Encode.forHtml(StringUtils.noNull(result.getOfficeNo()))%>
             </a>&nbsp;
             </td>
             <td width="5%" height="16"><%=result.getPractitionerNo()%>&nbsp;

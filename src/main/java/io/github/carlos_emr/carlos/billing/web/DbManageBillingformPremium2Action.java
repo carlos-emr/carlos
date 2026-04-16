@@ -48,7 +48,7 @@ import java.util.Date;
  * {@code service1}–{@code service10} request parameters and persists a new
  * {@link CtlBillingServicePremium} entry for each non-empty value, with
  * {@code ServiceTypeName} set to {@code "Office"}, status {@code "A"}, and
- * {@code updateDate} set to the current date. Redirects to {@code ManageBillingform.do}
+ * {@code updateDate} set to the current date. Redirects to {@code ManageBillingform}
  * on completion.
  *
  * @since 2026-04-05
@@ -102,7 +102,7 @@ public class DbManageBillingformPremium2Action extends ActionSupport {
             return NONE;
         }
 
-        response.sendRedirect(request.getContextPath() + "/billing/CA/ON/ManageBillingform.do");
+        response.sendRedirect(request.getContextPath() + "/billing/CA/ON/ManageBillingform");
         return NONE;
     }
 }

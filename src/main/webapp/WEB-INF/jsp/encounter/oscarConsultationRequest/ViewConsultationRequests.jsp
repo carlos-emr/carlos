@@ -55,7 +55,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_con");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_con");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -320,7 +320,7 @@
                 <fmt:message key="ectViewConsultationRequests.title"/>
             </h4>
             <div>
-                <a href="javascript:popupOscarConsultationConfig(700,960,'<%=request.getContextPath()%>/encounter/oscarConsultationRequest/config/ViewShowAllServices.do')"
+                <a href="javascript:popupOscarConsultationConfig(700,960,'<%=request.getContextPath()%>/encounter/oscarConsultationRequest/config/ViewShowAllServices')"
                    class="btn btn-secondary btn-sm">
                     <i class="fas fa-cog me-1"></i>
                     <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgEditSpecialists"/>
@@ -334,7 +334,7 @@
         <div class="px-3">
 
             <!-- Filter Bar -->
-            <form action="${pageContext.request.contextPath}/encounter/ViewConsultation.do" method="get">
+            <form action="${pageContext.request.contextPath}/encounter/ViewConsultation" method="get">
                 <div class="filter-bar">
                     <div class="row g-2 align-items-end">
                         <div class="col-auto">
@@ -570,7 +570,7 @@
                                     }
                                 }
 
-                                String viewUrl = request.getContextPath() + "/encounter/ViewRequest.do?requestId=" + Encode.forUriComponent(id);
+                                String viewUrl = request.getContextPath() + "/encounter/ViewRequest?requestId=" + Encode.forUriComponent(id);
                         %>
                         <tr class="<%=overdue ? "consult-row-overdue" : ""%>"
                             tabindex="0"
@@ -675,7 +675,7 @@
                     <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgAddTicklerConfirm" var="addTicklerConfirmVar"/>
                     <%  String addTicklerConfirmJs = Encode.forJavaScript((String)pageContext.getAttribute("addTicklerConfirmVar")); %>
                     <a class="btn btn-link btn-sm" target="_blank"
-                       href="<%= Encode.forHtmlAttribute(request.getContextPath() + "/tickler/ViewAddTickler.do?" + queryStr + "&message=" + java.net.URLEncoder.encode("Patient has Consultation Letter with a status of 'Nothing Done' for over one week","UTF-8")) %>"
+                       href="<%= Encode.forHtmlAttribute(request.getContextPath() + "/tickler/ViewAddTickler?" + queryStr + "&message=" + java.net.URLEncoder.encode("Patient has Consultation Letter with a status of 'Nothing Done' for over one week","UTF-8")) %>"
                        onclick="return confirm('<%=addTicklerConfirmJs%>');">
                         <i class="fas fa-bell me-1"></i><fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgAddTicklerBtn"/>
                     </a>

@@ -34,7 +34,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * View gate for {@code messenger/attachmentFrameset.jsp} — the PDF-attachment
  * preview frameset opened as a popup from {@code CreateMessage.jsp}. The
- * frameset embeds {@code messenger/PreviewPDF.do} which has its own
+ * frameset embeds {@code messenger/PreviewPDF} which has its own
  * {@code _msg r} gate via {@link io.github.carlos_emr.carlos.messenger.pageUtil.MsgPreviewPDF2Action};
  * this gate enforces the same privilege at the frameset-host layer so
  * unauthenticated direct access to the host page is also blocked. GET/HEAD

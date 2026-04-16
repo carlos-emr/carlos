@@ -96,7 +96,7 @@ public class DocumentRefile2Action extends ActionSupport {
         }
 
         String redirect = new RedirectUrlBuilder(
-                    request.getContextPath() + "/documentManager/ViewDocumentBrowser.do")
+                    request.getContextPath() + "/documentManager/ViewDocumentBrowser")
                 .param("demographicID", demographicID)
                 .param("function", function)
                 .param("doctype", doctype)

@@ -60,7 +60,7 @@
 
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     }
     String strLimit1 = "0";
     String strLimit2 = "10";
@@ -125,7 +125,7 @@
     </head>
     <body bgcolor="white" onload="setfocus()" topmargin="0" leftmargin="0" rightmargin="0">
 
-    <form method="post" name="titlesearch" action="<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch.do" onSubmit="return check();">
+    <form method="post" name="titlesearch" action="<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch" onSubmit="return check();">
         <table border="0" cellpadding="1" cellspacing="0" width="100%" bgcolor="#CCCCFF">
             <tr>
                 <td class="searchTitle" colspan="4">Search Professional Contacts</td>
@@ -198,12 +198,12 @@
         <script language="JavaScript">
             <!--
             function last() {
-                document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch.do?form=<%=Encode.forJavaScript(Encode.forUriComponent(form))%>&elementName=<%=Encode.forJavaScript(Encode.forUriComponent(elementName))%>&elementId=<%=Encode.forJavaScript(Encode.forUriComponent(elementId))%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=Encode.forJavaScript(strLimit2)%>";
+                document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch?form=<%=Encode.forJavaScript(Encode.forUriComponent(form))%>&elementName=<%=Encode.forJavaScript(Encode.forUriComponent(elementName))%>&elementId=<%=Encode.forJavaScript(Encode.forUriComponent(elementId))%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=Encode.forJavaScript(strLimit2)%>";
                 document.nextform.submit();
             }
 
             function next() {
-                document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch.do?form=<%=Encode.forJavaScript(Encode.forUriComponent(form))%>&elementName=<%=Encode.forJavaScript(Encode.forUriComponent(elementName))%>&elementId=<%=Encode.forJavaScript(Encode.forUriComponent(elementId))%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=Encode.forJavaScript(strLimit2)%>";
+                document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch?form=<%=Encode.forJavaScript(Encode.forUriComponent(form))%>&elementName=<%=Encode.forJavaScript(Encode.forUriComponent(elementName))%>&elementId=<%=Encode.forJavaScript(Encode.forUriComponent(elementId))%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=Encode.forJavaScript(strLimit2)%>";
                 document.nextform.submit();
             }
 
@@ -225,7 +225,7 @@
         %>
         </form>
         <br>
-        <a href="<%=request.getContextPath() %>/encounter/oscarConsultationRequest/config/ViewShowAllServices.do">Add/Edit
+        <a href="<%=request.getContextPath() %>/encounter/oscarConsultationRequest/config/ViewShowAllServices">Add/Edit
             Professional Specialist</a></center>
     </body>
 </html>

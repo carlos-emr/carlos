@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -126,7 +126,7 @@
 <body vlink="#0000FF">
 <jsp:include page="/images/spinner.jsp"/>
 <div id="inbox_wrapper">
-    <form name="reassignForm" method="post" action="ReportReassign.do" id="lab_form">
+    <form name="reassignForm" method="post" action="ReportReassign" id="lab_form">
         <table>
             <tr>
                 <td class="MainTableTopRowRightColumn" align="left">
@@ -151,7 +151,7 @@
                                 <% if (demographicNo == null) { %>
                                 <input type="button" class="smallButton"
                                        value="<fmt:message key="oscarMDS.index.btnSearch"/>"
-                                       onClick="window.location='${pageContext.servletContext.contextPath}/oscarMDS/ViewSearch.do?providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(providerNo))) %>'"/>
+                                       onClick="window.location='${pageContext.servletContext.contextPath}/oscarMDS/ViewSearch?providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(providerNo))) %>'"/>
                                 <% } %>
                                 <input type="button" class="smallButton"
                                        value="<fmt:message key="oscarMDS.index.btnLoadAll"/>"
@@ -161,32 +161,32 @@
                             </td>
 
                             <td align="right" valign="top">
-                                <a href="javascript:parent.reportWindow('${pageContext.servletContext.contextPath}/oscarMDS/ForwardingRules.do?providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(providerNo))) %>');"
+                                <a href="javascript:parent.reportWindow('${pageContext.servletContext.contextPath}/oscarMDS/ForwardingRules?providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(providerNo))) %>');"
                                    style="color: #FFFFFF;">Forwarding Rules</a>
-                                <a href="javascript:popupStart(800,1000,'${pageContext.servletContext.contextPath}/lab/CA/ALL/insideLabUpload.do')"
+                                <a href="javascript:popupStart(800,1000,'${pageContext.servletContext.contextPath}/lab/CA/ALL/insideLabUpload')"
                                    style="color: #FFFFFF; "><fmt:message key="admin.admin.hl7LabUpload"/></a>
                                 <% if (CarlosProperties.getInstance().getBooleanProperty("legacy_document_upload_enabled", "true")) { %>
-                                <a href="javascript:popupStart(600,500,'${pageContext.servletContext.contextPath}/documentManager/ViewHtml5AddDocuments.do')"
+                                <a href="javascript:popupStart(600,500,'${pageContext.servletContext.contextPath}/documentManager/ViewHtml5AddDocuments')"
                                    style="color: #FFFFFF; "><fmt:message key="inboxmanager.document.uploadDoc"/></a>
                                 <% } else { %>
-                                <a href="javascript:popupStart(800,1000,'${pageContext.servletContext.contextPath}/documentManager/ViewDocumentUploader.do')"
+                                <a href="javascript:popupStart(800,1000,'${pageContext.servletContext.contextPath}/documentManager/ViewDocumentUploader')"
                                    style="color: #FFFFFF; "><fmt:message key="inboxmanager.document.uploadDoc"/></a>
 
-                                <%--    Soon:         	<a href="javascript:void(0)" style="color:white;" class="dialog-link" id="/documentManager/ViewDocumentUploader.do" >
+                                <%--    Soon:         	<a href="javascript:void(0)" style="color:white;" class="dialog-link" id="/documentManager/ViewDocumentUploader" >
                                                     <fmt:message key="inboxmanager.document.uploadDoc"/>
                                                 </a> --%>
                                 <% } %>
 
-                                <a href="javascript:popupStart(700,1100,'${pageContext.servletContext.contextPath}/documentManager/inboxManage.do?method=getDocumentsInQueues')"
+                                <a href="javascript:popupStart(700,1100,'${pageContext.servletContext.contextPath}/documentManager/inboxManage?method=getDocumentsInQueues')"
                                    style="color: #FFFFFF;"><fmt:message key="inboxmanager.document.pendingDocs"/></a>
 
-                                <a href="javascript:popupStart(800,1200,'${pageContext.servletContext.contextPath}/documentManager/ViewIncomingDocs.do')"
+                                <a href="javascript:popupStart(800,1200,'${pageContext.servletContext.contextPath}/documentManager/ViewIncomingDocs')"
                                    style="color: #FFFFFF;"><fmt:message key="inboxmanager.document.incomingDocs"/></a>
 
                                 <% if (!CarlosProperties.getInstance().isBritishColumbiaBillingRegion()) { %>
-                                <a href="javascript:popupStart(800,1000, '${pageContext.servletContext.contextPath}/oscarMDS/SubmitLab.do')"
+                                <a href="javascript:popupStart(800,1000, '${pageContext.servletContext.contextPath}/oscarMDS/SubmitLab')"
                                    style="color: #FFFFFF;"><fmt:message key="global.createLab"/></a>
-                                <a href="javascript:popupPage(400, 1050,'${pageContext.servletContext.contextPath}/hospitalReportManager/Statement.do')"
+                                <a href="javascript:popupPage(400, 1050,'${pageContext.servletContext.contextPath}/hospitalReportManager/Statement')"
                                    style="color: #FFFFFF;">HRM Status/Upload</a>
                                 <% } %>
                             </td>
@@ -418,7 +418,7 @@
         }
 
         function split(id) {
-            var loc = ctx + "/oscarMDS/ViewSplit.do?document=" + id;
+            var loc = ctx + "/oscarMDS/ViewSplit?document=" + id;
             popupStart(1100, 1100, loc, "Splitter");
         }
 
@@ -440,7 +440,7 @@
         var providerNo = "<%=Encode.forJavaScript(providerNo == null ? "" : providerNo)%>";
         var searchStatus = "<%=Encode.forJavaScript(ackStatus == null ? "": ackStatus)%>";
         var abnormalStatus = "<%=abnormalStatus == null || "all".equals(abnormalStatus) ? "L" : (abnormalStatus.equals("normalOnly") ? "N" : "A")%>"
-        var url = ctx + "/documentManager/inboxManage.do?";
+        var url = ctx + "/documentManager/inboxManage?";
         const startDate = "<%=Encode.forJavaScript(StringUtils.noNull((String)request.getAttribute("startDate")))%>";
         const endDate = "<%=Encode.forJavaScript(StringUtils.noNull((String)request.getAttribute("endDate")))%>";
         var abortController = null;
@@ -730,7 +730,7 @@
             }
             jQuery.ajax({
                 type: "POST",
-                url:  ctx + "/oscarMDS/ReportReassign.do",
+                url:  ctx + "/oscarMDS/ReportReassign",
                 data: query,
                 success: function (data) {
                     jQuery("input[name='flaggedLabs']:checked").each(function () {
@@ -748,7 +748,7 @@
         function updateCategoryList() {
             jQuery.ajax({
                 type: "GET",
-                url: ctx + "/documentManager/inboxManage.do",
+                url: ctx + "/documentManager/inboxManage",
                 data: window.location.search.substr(1) + "&ajax=true",
                 success: function (data) {
                     if (jQuery("#categoryHash").length == 0 || jQuery(data)[2].value != jQuery("#categoryHash").val()) {

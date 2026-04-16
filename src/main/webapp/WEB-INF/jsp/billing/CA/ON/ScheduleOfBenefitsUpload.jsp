@@ -123,7 +123,7 @@
                 2. Browse & find file:
                 <% if (warnings == null) { %>
                 <form
-                        action="${pageContext.request.contextPath}/billing/CA/ON/benefitScheduleUpload.do" method="POST"
+                        action="${pageContext.request.contextPath}/billing/CA/ON/benefitScheduleUpload" method="POST"
                         enctype="multipart/form-data" onsubmit="return checkForm();">
                     <input type="file" name="importFile" value="/root/apr05sob.001">
                     <input class="btn btn-primary" type="submit" name="Submit" value="Import">
@@ -150,7 +150,7 @@
                     </div>
                 </form>
                 <% } else { %>
-                <a href="/billing/CA/ON/benefitScheduleUpload.do">Try again</a>
+                <a href="/billing/CA/ON/benefitScheduleUpload">Try again</a>
                 <%}%>
             </div><!--#2-->
 
@@ -174,7 +174,7 @@
             <div>
                 4. Click "Update" checkbox to select All<br>
 
-                <form action="${pageContext.request.contextPath}/billing/CA/ON/benefitScheduleChange.do" method="POST"
+                <form action="${pageContext.request.contextPath}/billing/CA/ON/benefitScheduleChange" method="POST"
                         id="sbForm">
                     <table class="table table-striped  table-sm">
                         <tr>

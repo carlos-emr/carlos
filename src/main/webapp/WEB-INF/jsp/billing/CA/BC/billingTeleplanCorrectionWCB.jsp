@@ -39,7 +39,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -179,7 +179,7 @@
         </script>
     </head>
     <body>
-    <form action="${pageContext.request.contextPath}/billing/CA/BC/billingTeleplanCorrectionWCB.do" method="post">
+    <form action="${pageContext.request.contextPath}/billing/CA/BC/billingTeleplanCorrectionWCB" method="post">
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
             <tr bgcolor="#000000">
                 <td height="40" width="10%"></td>
@@ -197,7 +197,7 @@
         <table width="100%">
             <tr>
                 <td colspan="2" class="SectionHead"><a href=#
-                                                       onClick="popup(700,900,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(form.getDemographicNumber())))%>','
+                                                       onClick="popup(700,900,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(form.getDemographicNumber())))%>','
                                                            <fmt:message key="encounter.Index.popupPage2Window"/>');return false;"
                                                        title="<fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">Patient
                     Information</a> <input type="hidden" name="id" id="id" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getId()))%>"/>
@@ -714,7 +714,7 @@
         <table width="100%">
             <tr>
                 <td colspan="2" align="center" class="SectionHead"><a
-                        href="<%= request.getContextPath() %>/billing/CA/BC/billingTeleplanCorrectionWCB.do?billing_no=<%=Encode.forUriComponent(StringUtils.noNull(form.getId()))%>">Refresh</a>
+                        href="<%= request.getContextPath() %>/billing/CA/BC/billingTeleplanCorrectionWCB?billing_no=<%=Encode.forUriComponent(StringUtils.noNull(form.getId()))%>">Refresh</a>
                     | <input type="button" name="Button" value="Close"
                              onClick="window.close();"> | <input type="button"
                                                                  name="Button" value="Print" onClick="window.print();">

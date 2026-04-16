@@ -48,7 +48,7 @@
             return false;
         }
         window.open(
-            "<c:url value='/PMmodule/ProgramManager.do'/>?method=programSignatures&programId=" + encodeURIComponent(id),
+            "<c:url value='/PMmodule/ProgramManager'/>?method=programSignatures&programId=" + encodeURIComponent(id),
             "signature",
             "width=600,height=600,scrollbars=1"
         );
@@ -276,7 +276,7 @@
         <tr>
             <td colspan="2">
                 <input type="submit" value="Save" onclick="return saveProgram();"/>
-                <button type="button" onclick="window.location.href='${pageContext.request.contextPath}/PMmodule/ProgramManager.do?method=list';">Return to program list</button>
+                <button type="button" onclick="window.location.href='${pageContext.request.contextPath}/PMmodule/ProgramManager?method=list';">Return to program list</button>
             </td>
         </tr>
     </table>

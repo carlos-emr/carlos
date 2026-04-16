@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -57,7 +57,7 @@
     if (request.getParameter("endDate") != null) endDate = request.getParameter("endDate");
 %>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <jsp:useBean id="providerNameBean" class="io.github.carlos_emr.Dict" scope="page"/>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -206,12 +206,12 @@
     String encodedEndDate = Encode.forUriComponent(endDate != null ? endDate : "");
     if(nLastPage>=0) {
 %> <a
-                href="<%= request.getContextPath() %>/report/ViewReportedblist.do?startDate=<%=encodedStartDate%>&endDate=<%=encodedEndDate%>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>">Last
+                href="<%= request.getContextPath() %>/report/ViewReportedblist?startDate=<%=encodedStartDate%>&endDate=<%=encodedEndDate%>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>">Last
             Page</a> | <%
   }
   if(nItems==intLimit2) {
 %> <a
-                href="<%= request.getContextPath() %>/report/ViewReportedblist.do?startDate=<%=encodedStartDate%>&endDate=<%=encodedEndDate%>&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>">
+                href="<%= request.getContextPath() %>/report/ViewReportedblist?startDate=<%=encodedStartDate%>&endDate=<%=encodedEndDate%>&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>">
             Next Page</a> <%}%>
 
 </body>

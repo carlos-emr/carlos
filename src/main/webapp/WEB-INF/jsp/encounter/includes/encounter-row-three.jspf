@@ -4,7 +4,7 @@
         <div class="flex-grow-1 d-flex align-items-center gap-2">
             <%-- Encounter history link --%>
             <a href="#"
-               onclick="popupPage(600,700,'<fmt:message key="encounter.Index.popupPage2Window"/>','${ctx}/report/ViewReportecharthistory.do?demographic_no=${bean.demographicNo}');return false;">
+               onclick="popupPage(600,700,'<fmt:message key="encounter.Index.popupPage2Window"/>','${ctx}/report/ViewReportecharthistory?demographic_no=${bean.demographicNo}');return false;">
                 <fmt:message key="global.encounter"/>:
                 <e:forHtmlContent value="${bean.patientLastName}"/>,
                 <e:forHtmlContent value="${bean.patientFirstName}"/>
@@ -65,7 +65,7 @@
 
         <input type="button" class="btn btn-sm btn-secondary"
                value="<fmt:message key="global.btnPrint"/>"
-               onclick="document.forms['encForm'].btnPressed.value='Save'; popupPage(700, 960, 'print', '${ctx}/encounter/ViewEncounterPrint.do');"/>
+               onclick="document.forms['encForm'].btnPressed.value='Save'; popupPage(700, 960, 'print', '${ctx}/encounter/ViewEncounterPrint');"/>
 
         <input type="hidden" name="btnPressed" value="">
 

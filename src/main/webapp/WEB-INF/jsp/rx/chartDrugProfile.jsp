@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -143,7 +143,7 @@
             </table>
 
 
-            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements.do?method=ChartMeds&demographic_no=<%= Encode.forUriComponent(demographicNo) %><%=drugForGraph%>"/>
+            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements?method=ChartMeds&demographic_no=<%= Encode.forUriComponent(demographicNo) %><%=drugForGraph%>"/>
 
 
             <fieldset>

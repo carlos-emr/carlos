@@ -37,7 +37,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting,_admin" rights="r"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting&type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting&type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -49,7 +49,7 @@
     String user_no = (String) session.getAttribute("user");
 %>
 
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.model.BillActivity" %>
@@ -171,7 +171,7 @@
         <tr>
             <td align='CENTER'><font size="2"
                                      face="Tahoma, Geneva, Arial, Helvetica, san-serif"><a
-                    href="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingTeleplanGroupReport.do?year=<%=yearArray[i]%>">YEAR
+                    href="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingTeleplanGroupReport?year=<%=yearArray[i]%>">YEAR
                 <%=yearArray[i]%>
             </a></font></td>
         </tr>
@@ -193,7 +193,7 @@
 
 
 <table width="100%" border="0" bgcolor="#E6F0F7">
-    <form name="form1" method="post" action="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTeleplanGroupReport.do"
+    <form name="form1" method="post" action="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTeleplanGroupReport"
           onsubmit="return checkSubmit();">
         <tr>
             <td width="220"><b><font face="Arial, Helvetica, sans-serif"

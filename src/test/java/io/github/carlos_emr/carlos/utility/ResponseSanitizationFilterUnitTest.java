@@ -243,7 +243,7 @@ class ResponseSanitizationFilterUnitTest {
         @Test
         @DisplayName("should pass through 200 response without modification")
         void shouldPassThrough_normalOkResponse() throws Exception {
-            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/index.jsp");
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/index");
             MockHttpServletResponse response = new MockHttpServletResponse();
             String body = "<html><body>Welcome to CARLOS EMR</body></html>";
 
@@ -283,7 +283,7 @@ class ResponseSanitizationFilterUnitTest {
         @Test
         @DisplayName("should pass through response when getWriter() is never called")
         void shouldPassThrough_whenWriterNeverCalled() throws Exception {
-            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/index.jsp");
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/index");
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             // Chain that sets status but writes nothing
@@ -330,7 +330,7 @@ class ResponseSanitizationFilterUnitTest {
         @Test
         @DisplayName("should sanitize 500 response containing a stack trace")
         void shouldSanitize_500ResponseWithStackTrace() throws Exception {
-            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/index.jsp");
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/index");
             MockHttpServletResponse response = new MockHttpServletResponse();
             String stackTraceBody = "java.lang.NullPointerException\n"
                     + "\tat io.github.carlos_emr.carlos.SomeClass.method(SomeClass.java:42)\n"
@@ -360,7 +360,7 @@ class ResponseSanitizationFilterUnitTest {
         @Test
         @DisplayName("should sanitize 404 response containing a stack trace")
         void shouldSanitize_404ResponseWithStackTrace() throws Exception {
-            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/missing.do");
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/missing");
             MockHttpServletResponse response = new MockHttpServletResponse();
             String body = "org.springframework.web.servlet.NoHandlerFoundException\n"
                     + "\tat org.springframework.web.DispatcherServlet.dispatch(DispatcherServlet.java:99)";
@@ -384,7 +384,7 @@ class ResponseSanitizationFilterUnitTest {
         @Test
         @DisplayName("should include Reference ID in sanitized response body")
         void shouldIncludeReferenceId_inSanitizedResponse() throws Exception {
-            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/carlos/AddTickler.do");
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/carlos/AddTickler");
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             FilterChain chain = (req, res) -> {
@@ -472,7 +472,7 @@ class ResponseSanitizationFilterUnitTest {
         @Test
         @DisplayName("should return 500 sanitized response for uncaught RuntimeException")
         void shouldReturn500SanitizedResponse_forUncaughtRuntimeException() throws Exception {
-            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/carlos/Save.do");
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/carlos/Save");
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             FilterChain chain = (req, res) -> {

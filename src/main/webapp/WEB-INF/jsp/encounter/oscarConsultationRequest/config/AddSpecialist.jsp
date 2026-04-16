@@ -39,7 +39,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.consult" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.consult");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.consult");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -198,7 +198,7 @@
                     $('#cpsoSpinner').show();
 
                     currentCpsoRequest = $.ajax({
-                        url: '${pageContext.request.contextPath}/encounter/CpsoSearch.do',
+                        url: '${pageContext.request.contextPath}/encounter/CpsoSearch',
                         method: 'GET',
                         data: { lastName: lastName, firstName: firstName },
                         dataType: 'json',
@@ -364,7 +364,7 @@
                 </div>
                 <% } %>
 
-                <form action="${pageContext.request.contextPath}/encounter/AddSpecialist.do" method="post">
+                <form action="${pageContext.request.contextPath}/encounter/AddSpecialist" method="post">
                     <%
                         EctConAddSpecialistForm thisForm;
                         thisForm = (EctConAddSpecialistForm) request.getAttribute("EctConAddSpecialistForm");

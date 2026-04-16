@@ -25,7 +25,7 @@
 
 <%@ page
         import="java.math.*, java.util.*, java.io.*, java.sql.*, java.net.*,io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.MyDateFormat,io.github.carlos_emr.carlos.db.*"
-        errorPage="/errorpage.jsp" %>
+        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 
@@ -198,7 +198,7 @@
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#333333">
         <th align='CENTRE' nowrap>
-            <form action="/billing/CA/ON/ViewGenRASummary.do"><input type="hidden"
+            <form action="/billing/CA/ON/ViewGenRASummary"><input type="hidden"
                                                    name="rano" value="<%=Encode.forHtmlAttribute(raNo)%>"> <select name="proNo">
                 <!--option value="all"  <%--=proNo.equals("all")?"selected":""--%>>All Providers</option-->
 
@@ -218,7 +218,7 @@
                 %>><%=Encode.forHtml(plast)%>,<%=Encode.forHtml(pfirst)%></option>
                 <% } %>
             </select> <input type="submit" name="submit" value="Generate"> <a
-                    href="/billing/CA/ON/ViewGenRASummaryDetail.do?rano=<%=Encode.forUriComponent(raNo)%>&proNo=">Detail</a></form>
+                    href="/billing/CA/ON/ViewGenRASummaryDetail?rano=<%=Encode.forUriComponent(raNo)%>&proNo=">Detail</a></form>
         </th>
     </tr>
 </table>

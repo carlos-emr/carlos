@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -47,7 +47,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -310,7 +310,7 @@
 <body onLoad="setfocus();showHideLayers('Layer1','','hide')">
 
 <div class="wrapper">
-    <form class="d-flex flex-wrap align-items-center gap-2" action="${pageContext.request.contextPath}/billing/CA/BC/SaveBilling.do" method="post">
+    <form class="d-flex flex-wrap align-items-center gap-2" action="${pageContext.request.contextPath}/billing/CA/BC/SaveBilling" method="post">
 
         <div id="page-header">
             <table id="oscarBillingHeader">
@@ -574,10 +574,10 @@
                     <%}%>
                     <% if (request.getAttribute("GOBACKWCB") != null && request.getAttribute("GOBACKWCB").equals("true")) {%>
                     <input class="btn btn-warning" type="button" name="Submit3" value="Go Back"
-                           onClick="location.href='<%= request.getContextPath() %>/billing/CA/BC/viewformwcb.do'"/>
+                           onClick="location.href='<%= request.getContextPath() %>/billing/CA/BC/viewformwcb'"/>
                     <%} else {%>
                     <input class="btn btn-warning" type="button" name="Submit3" value="Go Back"
-                           onClick="location.href='/billing.do?loadFromSession=yes'"/>
+                           onClick="location.href='/billing?loadFromSession=yes'"/>
                     <%}%>
                     <input class="btn btn-success" type="submit" name="submit" value="Another Bill"/>
                     <input class="btn btn-primary" type="submit" name="submit" value="Save Bill"/>

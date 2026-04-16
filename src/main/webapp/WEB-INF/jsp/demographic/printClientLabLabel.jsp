@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -83,7 +83,7 @@
     <%}%>
     <br>
     <object id="pdf" type="application/pdf"
-            data="printClientLabLabelAction.do?demographic_no=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("demographic_no"))) %>" height="80%"
+            data="printClientLabLabelAction?demographic_no=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("demographic_no"))) %>" height="80%"
             width="100%"></object>
     </body>
 </html>

@@ -44,7 +44,7 @@
             function deletePrivateCode(code) {
                 var form = document.createElement('form');
                 form.method = 'post';
-                form.action = '<%= request.getContextPath() %>/billing/CA/BC/DeletePrivateCode.do';
+                form.action = '<%= request.getContextPath() %>/billing/CA/BC/DeletePrivateCode';
                 var input = document.createElement('input');
                 input.type = 'hidden';
                 input.name = 'code';
@@ -60,9 +60,9 @@
     <h3><fmt:message key="admin.admin.ManagePrivFrm"/></h3>
     <div class="container-fluid card card-body bg-body-tertiary">
 
-        <a href="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode.do?addNew=true" class="btn btn-primary">Add Code</a>
+        <a href="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode?addNew=true" class="btn btn-primary">Add Code</a>
 
-        <form action="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode.do" method="get">
+        <form action="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode" method="get">
             <%if (request.getAttribute("returnMessage") != null) { %>
             <%=request.getAttribute("returnMessage")%>
             <%} %>

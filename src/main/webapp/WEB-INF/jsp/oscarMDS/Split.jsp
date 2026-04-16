@@ -29,7 +29,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
     <%
         authed = false;
-        response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");
+        response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");
     %>
 </security:oscarSec>
 <%
@@ -104,7 +104,7 @@
                 %>
                 <li>
                     <img class="page"
-                         src='<%=Encode.forHtmlAttribute(request.getContextPath() + "/documentManager/ManageDocument.do?method=viewDocPage&doc_no=" + java.net.URLEncoder.encode(documentId != null ? documentId : "", StandardCharsets.UTF_8) + "&curPage=" + i)%>'/>
+                         src='<%=Encode.forHtmlAttribute(request.getContextPath() + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + java.net.URLEncoder.encode(documentId != null ? documentId : "", StandardCharsets.UTF_8) + "&curPage=" + i)%>'/>
                 </li>
                 <%
                     }

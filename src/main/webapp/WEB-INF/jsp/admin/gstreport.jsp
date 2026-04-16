@@ -49,7 +49,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.reporting,_admin.billing" rights="w"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.billing&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.billing&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -112,7 +112,7 @@
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 </head>
 <body>
-<FORM name="gstform" action="<%=request.getContextPath()%>/admin/GstReport.do" class="d-flex flex-wrap align-items-center gap-2">
+<FORM name="gstform" action="<%=request.getContextPath()%>/admin/GstReport" class="d-flex flex-wrap align-items-center gap-2">
 
     <h3><fmt:message key="admin.admin.gstReport"/></h3>
 

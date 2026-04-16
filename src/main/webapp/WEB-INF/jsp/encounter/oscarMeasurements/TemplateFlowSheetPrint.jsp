@@ -58,8 +58,8 @@
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 
@@ -474,7 +474,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
     <body class="BodyStyle" id="printFlowsheetBody">
 
-    <form action="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheetPrint.do" id="flowsheetPrintForm" method="post" class="d-flex flex-wrap align-items-center gap-2">
+    <form action="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheetPrint" id="flowsheetPrintForm" method="post" class="d-flex flex-wrap align-items-center gap-2">
         <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no)%>"/>
         <input type="hidden" name="template" value="<%=Encode.forHtmlAttribute(temp)%>"/>
         <input type="hidden" name="printView" value="true"/>
@@ -483,7 +483,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
             <div class="module-block DoNotPrint">
                 <%if (!printView) {%>
-                <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheet.do?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&template=<%=Encode.forUriComponent(temp)%>"
+                <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheet?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&template=<%=Encode.forUriComponent(temp)%>"
                    title="go back to <%=Encode.forHtmlAttribute(temp)%>">&lt;&lt; <%=Encode.forHtml(flowSheet)%>
                 </a> <br/>
                 <a href="JavaScript:void(0);" class="back" title="go back to <%=Encode.forHtmlAttribute(flowSheet)%>"></a>
@@ -538,11 +538,11 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
                     view:
                     <div class="btn-group">
-                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheetPrint.do?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&template=<%=Encode.forUriComponent(temp)%>"
+                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheetPrint?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&template=<%=Encode.forUriComponent(temp)%>"
                            id="all-btn" class="btn btn-sm loading" data-bs-loading-text="Loading...">All</a>
-                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheetPrint.do?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&template=<%=Encode.forUriComponent(temp)%>&show=lastOnly"
+                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheetPrint?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&template=<%=Encode.forUriComponent(temp)%>&show=lastOnly"
                            id="lastOnly-btn" class="btn btn-sm loading" data-bs-loading-text="Loading...">Last Only</a>
-                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheetPrint.do?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&template=<%=Encode.forUriComponent(temp)%>&show=outOfRange"
+                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheetPrint?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&template=<%=Encode.forUriComponent(temp)%>&show=outOfRange"
                            id="outOfRange-btn" class="btn btn-sm loading" data-bs-loading-text="Loading...">Out of
                             Range</a>
                     </div>
@@ -715,7 +715,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
                         %>
                         <div class="preventionProcedure" <%=hider%>
-                             onclick="javascript:popup(465,635,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData.do?measurement=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(measure))%>&amp;id=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(String.valueOf(hdata.get("id"))))%>&amp;demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>&amp;template=<%= Encode.forJavaScriptAttribute(URLEncoder.encode(temp,"UTF-8")) %>','addMeasurementData')">
+                             onclick="javascript:popup(465,635,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData?measurement=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(measure))%>&amp;id=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(String.valueOf(hdata.get("id"))))%>&amp;demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>&amp;template=<%= Encode.forJavaScriptAttribute(URLEncoder.encode(temp,"UTF-8")) %>','addMeasurementData')">
 
                             <p <%=indColour%>
                                     title="Entered By: <%=Encode.forHtmlAttribute(mdb.getProviderFirstName())%> <%=Encode.forHtmlAttribute(mdb.getProviderLastName())%>">
@@ -807,7 +807,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                             //////PREV END
                     %>
                     <div class="preventionProcedure" <%=hider%>
-                         onclick="javascript:popup(465,635,'<%= request.getContextPath() %>/prevention/AddPrevention.do?id=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(String.valueOf(hdata.get("id"))))%>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no)) %>','addPreventionData')">
+                         onclick="javascript:popup(465,635,'<%= request.getContextPath() %>/prevention/AddPrevention?id=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(String.valueOf(hdata.get("id"))))%>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no)) %>','addPreventionData')">
                         <p <%=r(hdata.get("refused"))%>
                                 title="fade=[on] header=[<%=Encode.forHtmlAttribute(String.valueOf(hdata.get("age")))%> -- Date:<%=Encode.forHtmlAttribute(String.valueOf(hdata.get("prevention_date")))%>] body=[<%=Encode.forHtmlAttribute(com)%>]">
                             Age: <%=Encode.forHtml(String.valueOf(hdata.get("age")))%> <br/>

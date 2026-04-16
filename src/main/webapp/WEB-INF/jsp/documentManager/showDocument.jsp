@@ -66,14 +66,14 @@
         - Loads provider's configured macros from UserProperty.LAB_MACRO_JSON
         - Renders macro names as dropdown items in Bootstrap 5 dropdown
         - Clicking a macro calls runDocMacro() which verifies demographic link,
-          then invokes /oscarMDS/RunMacro.do with macro name and patient context
+          then invokes /oscarMDS/RunMacro with macro name and patient context
         - Supports closeOnSuccess flag to auto-close popup on success
 
     Tickler Alert Integration:
         - Requires "_tickler" READ privilege (SecurityInfoManager check)
         - Queries ticklers for linked patient within a 6-week window
         - Displays dismissible Bootstrap 5 alert-info banner with count and links
-        - Each tickler message links via /tickler/ViewTicklerEdit.do for quick review
+        - Each tickler message links via /tickler/ViewTicklerEdit for quick review
 
     Parameters:
         @param segmentID   String the document ID to display
@@ -107,7 +107,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_edoc");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_edoc");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -239,8 +239,8 @@
     else
         numOfPageStr = (new Integer(numOfPage)).toString();
     String cp = request.getContextPath();
-    String url = cp + "/documentManager/ManageDocument.do?method=viewDocPage&doc_no=" + docId + "&curPage=1";
-    String url2 = cp + "/documentManager/ManageDocument.do?method=display&doc_no=" + docId;
+    String url = cp + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + docId + "&curPage=1";
+    String url2 = cp + "/documentManager/ManageDocument?method=display&doc_no=" + docId;
     String currentDate = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
 
     Integer docCurrentFiledQueue = null;
@@ -272,7 +272,7 @@
 
     if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && isLinkedToDemographic) {
         // Note: tickler_note is intentionally raw HTML. All dynamic values MUST remain encoded using OWASP Encoder methods.
-        String tlinkf = "\n <a class=\"alert-link\" href='" + request.getContextPath() + "/tickler/ViewTicklerEdit.do?tickler_no=";
+        String tlinkf = "\n <a class=\"alert-link\" href='" + request.getContextPath() + "/tickler/ViewTicklerEdit?tickler_no=";
         List<String> notes = new java.util.ArrayList<>();
         List<Tickler> ticklers = ticklerManager.search_tickler(loggedInInfo, demoI, MyDateFormat.getSysDate(strDate));
         for (Tickler t : ticklers) {
@@ -328,7 +328,7 @@
             }
 
             function handleDocSave(docid, action) {
-                var url = contextpath + "/documentManager/inboxManage.do";
+                var url = contextpath + "/documentManager/inboxManage";
                 var params = new URLSearchParams({method: 'isDocumentLinkedToDemographic', docId: docid, 'CSRF-TOKEN': getCsrfToken()});
 
                 fetch(url, {
@@ -350,7 +350,7 @@
                             if (action == 'addTickler') {
                                 demoid = json.demoId;
                                 if (demoid != null && demoid.length > 0)
-                                    popupStart(450, 600, contextpath + '/tickler/ForwardDemographicTickler.do?docType=DOC&docId=' + encodeURIComponent(docid) + '&demographic_no=' + encodeURIComponent(demoid), 'tickler')
+                                    popupStart(450, 600, contextpath + '/tickler/ForwardDemographicTickler?docType=DOC&docId=' + encodeURIComponent(docid) + '&demographic_no=' + encodeURIComponent(demoid), 'tickler')
                             }
                         } else {
                             alert("Make sure demographic is linked and document changes saved!");
@@ -367,7 +367,7 @@
                 var btn = document.getElementById('rotate90btn_' + id);
                 if (btn) btn.disabled = true;
 
-                fetch(contextpath + "/documentManager/SplitDocument.do", {
+                fetch(contextpath + "/documentManager/SplitDocument", {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded'
@@ -377,7 +377,7 @@
                 .then(function(response) {
                     if (btn) btn.disabled = false;
                     var img = document.getElementById('docImg_' + id);
-                    if (img) img.src = contextpath + "/documentManager/ManageDocument.do?method=showPage&doc_no=" + encodeURIComponent(id) + "&page=1&rand=" + (new Date().getTime());
+                    if (img) img.src = contextpath + "/documentManager/ManageDocument?method=showPage&doc_no=" + encodeURIComponent(id) + "&page=1&rand=" + (new Date().getTime());
                 })
                 .catch(function(error) {
                     console.error('Error:', error);
@@ -388,7 +388,7 @@
 
             function split(id, demoName) {
                 var loc = "${pageContext.servletContext.contextPath}";
-                loc = loc + "/oscarMDS/ViewSplit.do?document=";
+                loc = loc + "/oscarMDS/ViewSplit?document=";
                 loc = loc + id;
                 loc = loc + "&queueID=";
                 loc = loc + "<%=Encode.forJavaScript(Encode.forUriComponent(StringUtils.defaultString(inQueue)))%>";
@@ -494,10 +494,10 @@
 
         %>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="msgBtn_<%=docId%>" value="<fmt:message key="showDocument.btnMsg"/>"
-               onclick="popupPatient(700,960,'${pageContext.servletContext.contextPath}/messenger/SendDemoMessage.do?demographic_no=','msg', '<%=Encode.forJavaScriptAttribute(docId)%>')" <%=btnDisabled %>>
+               onclick="popupPatient(700,960,'${pageContext.servletContext.contextPath}/messenger/SendDemoMessage?demographic_no=','msg', '<%=Encode.forJavaScriptAttribute(docId)%>')" <%=btnDisabled %>>
 
         <!--input type="button" class="btn btn-outline-secondary btn-sm" id="ticklerBtn_<%=Encode.forHtmlAttribute(docId)%>" value="Tickler" onclick="handleDocSave('<%=Encode.forJavaScriptAttribute(docId)%>','addTickler')"/-->
-        <input type="button" class="btn btn-outline-secondary btn-sm" id="mainTickler_<%=Encode.forHtmlAttribute(docId)%>" value="<fmt:message key="showDocument.btnTickler"/>" onClick="popupPatientTickler(710, 1024,'${pageContext.servletContext.contextPath}/tickler/ViewAddTickler.do?', 'Tickler','<%=Encode.forJavaScriptAttribute(docId)%>')" <%=btnDisabled %>>
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="mainTickler_<%=Encode.forHtmlAttribute(docId)%>" value="<fmt:message key="showDocument.btnTickler"/>" onClick="popupPatientTickler(710, 1024,'${pageContext.servletContext.contextPath}/tickler/ViewAddTickler?', 'Tickler','<%=Encode.forJavaScriptAttribute(docId)%>')" <%=btnDisabled %>>
         <%
                                                             String refileBtnVisibility = "";
                                                             for (Hashtable ht : queues) {
@@ -515,12 +515,12 @@
 
         <input type="button" class="btn btn-outline-secondary btn-sm" id="mainEchart_<%=docId%>"
                value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
-               onClick="popupPatient(710, 1024,'${pageContext.servletContext.contextPath}/encounter/IncomingEncounter.do?reason=<fmt:message key="oscarMDS.segmentDisplay.labResults"/>&curDate=<%=currentDate%>&appointmentNo=&appointmentDate=&startTime=&status=&demographicNo=', 'encounter', '<%=Encode.forJavaScriptAttribute(docId)%>')" <%=btnDisabled %>>
+               onClick="popupPatient(710, 1024,'${pageContext.servletContext.contextPath}/encounter/IncomingEncounter?reason=<fmt:message key="oscarMDS.segmentDisplay.labResults"/>&curDate=<%=currentDate%>&appointmentNo=&appointmentDate=&startTime=&status=&demographicNo=', 'encounter', '<%=Encode.forJavaScriptAttribute(docId)%>')" <%=btnDisabled %>>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="mainMaster_<%=docId%>" value=" <fmt:message key="oscarMDS.segmentDisplay.btnMaster"/>"
-               onClick="popupPatient(710,1024,'${pageContext.servletContext.contextPath}/demographic/DemographicEdit.do?demographic_no=','master','<%=Encode.forJavaScriptAttribute(docId)%>')" <%=btnDisabled %>>
+               onClick="popupPatient(710,1024,'${pageContext.servletContext.contextPath}/demographic/DemographicEdit?demographic_no=','master','<%=Encode.forJavaScriptAttribute(docId)%>')" <%=btnDisabled %>>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="mainApptHistory_<%=docId%>"
                value=" <fmt:message key="oscarMDS.segmentDisplay.btnApptHist"/>"
-               onClick="popupPatient(710,1024,'${pageContext.servletContext.contextPath}/demographic/DemographicApptHistory.do?orderby=appttime&dboperation=appt_history&limit1=0&limit2=25&demographic_no=','ApptHist','<%=Encode.forJavaScriptAttribute(docId)%>')" <%=btnDisabled %>>
+               onClick="popupPatient(710,1024,'${pageContext.servletContext.contextPath}/demographic/DemographicApptHistory?orderby=appttime&dboperation=appt_history&limit1=0&limit2=25&demographic_no=','ApptHist','<%=Encode.forJavaScriptAttribute(docId)%>')" <%=btnDisabled %>>
 
         <input type="button" class="btn btn-outline-secondary btn-sm" id="refileDoc_<%=docId%>"
                value="<fmt:message key="encounter.noteBrowser.msgRefile"/>" onclick="refileDoc('<%=Encode.forJavaScriptAttribute(docId)%>');" <%=refileBtnVisibility%> >
@@ -545,7 +545,7 @@
                 <td class="alert alert-info alert-dismissible fade show">
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     <strong><fmt:message key="showDocument.ticklerAlertLabel"/></strong> <fmt:message key="showDocument.ticklerAlertFollowing"/> <%=numTickler%>
-                    <a class="alert-link" href="javascript:void(0);" onclick="popup(450, 1200, '<%=Encode.forJavaScript(request.getContextPath())%>/tickler/ViewTicklerDemoMain.do?demoview=<%=Encode.forUriComponent(demographicID)%>', 'openTicklers')"><fmt:message key="showDocument.ticklerAlertLink"/></a>
+                    <a class="alert-link" href="javascript:void(0);" onclick="popup(450, 1200, '<%=Encode.forJavaScript(request.getContextPath())%>/tickler/ViewTicklerDemoMain?demoview=<%=Encode.forUriComponent(demographicID)%>', 'openTicklers')"><fmt:message key="showDocument.ticklerAlertLink"/></a>
                     <fmt:message key="showDocument.ticklerAlertPending"/>: <%=tickler_note%>
                 </td>
             </tr>
@@ -720,7 +720,7 @@
 
                                     <%}%>
                                     <input type="button" class=" btn btn-light btn-sm" id="createNewDemo" value="<fmt:message key="dms.incomingDocs.createNewDemographic"/>"
-                                           onclick="popup(700,960,'${pageContext.servletContext.contextPath}/demographic/ViewDemographicAddARecordHtm.do','demographic')">
+                                           onclick="popup(700,960,'${pageContext.servletContext.contextPath}/demographic/ViewDemographicAddARecordHtm','demographic')">
 
                                     <input id="saved_<%=docId%>" type="hidden" value="false">
                                     <br><input id="mrp_<%=docId%>" style="display: none;" type="checkbox"
@@ -946,7 +946,7 @@
                 providerNo: providerNo,
                 'CSRF-TOKEN': getCsrfToken()
             });
-            fetch(contextpath + '/documentManager/ManageDocument.do', {
+            fetch(contextpath + '/documentManager/ManageDocument', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: data.toString()
@@ -994,7 +994,7 @@
                 return;
             }
             var activeOnly = activeOnlyEl ? activeOnlyEl.checked : true;
-            var url = '${pageContext.servletContext.contextPath}/demographic/SearchDemographic.do';
+            var url = '${pageContext.servletContext.contextPath}/demographic/SearchDemographic';
             var csrfToken = getCsrfToken();
             var body = 'jqueryJSON=true&activeOnly=' + encodeURIComponent(String(activeOnly)) + '&term=' + encodeURIComponent(term);
             if (abortCtrl) { abortCtrl.abort(); }
@@ -1064,7 +1064,7 @@
         if (!inputEl || !dropdownEl) return;
 
         inputEl.setAttribute('autocomplete', 'off');
-        var baseUrl = '${pageContext.servletContext.contextPath}/provider/SearchProvider.do?method=labSearch';
+        var baseUrl = '${pageContext.servletContext.contextPath}/provider/SearchProvider?method=labSearch';
         var abortCtrl = null;
 
         inputEl.addEventListener('input', function () {
@@ -1116,7 +1116,7 @@
 
     // Macro support: check if document is linked to patient, then apply macro
     function runDocMacro(name, formid, closeOnSuccess) {
-        var url = '<%=Encode.forJavaScript(request.getContextPath())%>/documentManager/inboxManage.do';
+        var url = '<%=Encode.forJavaScript(request.getContextPath())%>/documentManager/inboxManage';
         var data = 'method=isDocumentLinkedToDemographic&docId=<%= Encode.forJavaScript(docId) %>&CSRF-TOKEN=' + encodeURIComponent(getCsrfToken());
         fetch(url, {
             method: 'POST',
@@ -1137,7 +1137,7 @@
     }
 
     function runDocMacroInternal(name, formid, closeOnSuccess, demographicNo) {
-        var url = '<%=Encode.forJavaScript(request.getContextPath())%>' + '/oscarMDS/RunMacro.do?name=' + encodeURIComponent(name) + (demographicNo.length > 0 ? '&demographicNo=' + encodeURIComponent(demographicNo) : '');
+        var url = '<%=Encode.forJavaScript(request.getContextPath())%>' + '/oscarMDS/RunMacro?name=' + encodeURIComponent(name) + (demographicNo.length > 0 ? '&demographicNo=' + encodeURIComponent(demographicNo) : '');
         var formEl = document.getElementById(formid);
         var params = new URLSearchParams(new FormData(formEl));
         if (!params.has('CSRF-TOKEN')) { params.append('CSRF-TOKEN', getCsrfToken()); }

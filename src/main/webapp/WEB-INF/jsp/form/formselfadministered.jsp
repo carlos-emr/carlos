@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -88,7 +88,7 @@
         var choiceFormat = new Array(6, 10, 11, 14, 15, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30);
         var allMatch = null;
         var allNumericField = null;
-        var action = "/<%=project_home%>/form/formname.do";
+        var action = "/<%=project_home%>/form/formname";
 
         function checkBeforeSave() {
             if (isFormCompleted(6, 30, 9, 0) == true)
@@ -112,7 +112,7 @@
     @oscar.formDB Field="formCreated" Type="date" Null="" Default="NULL"
     @oscar.formDB Field="formEdited" Type="timestamp"
     -->
-    <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post">
         <input type="hidden" name="demographic_no"
                value="<%= props.getProperty("demographic_no", "0") %>"/>
         <input type="hidden" name="formCreated"

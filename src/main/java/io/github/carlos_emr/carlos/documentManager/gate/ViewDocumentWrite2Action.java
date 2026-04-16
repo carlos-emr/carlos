@@ -35,7 +35,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * Requires {@code _edoc w}. GET-renderable (the JSPs themselves are
  * interactive forms); the underlying save endpoints
  * ({@code addEditDocument}, {@code addEditHtml}, {@code documentUpload}) are
- * already separate {@code .do} actions with their own writes.
+ * already separate action routes with their own writes.
  */
 public final class ViewDocumentWrite2Action extends ActionSupport {
 

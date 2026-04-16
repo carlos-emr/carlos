@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -475,7 +475,7 @@
     <body bgproperties="fixed" class="chfform" bgcolor="#EEEEFF"
           onLoad="javascript:window.focus()" topmargin="0" leftmargin="0"
           rightmargin="0">
-    <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post">
 
 
 
@@ -504,10 +504,10 @@
                             type="submit" value="Exit" onclick="javascript:return onExit();"/>
                     <input type="button" value="Print"
                            onclick="javascript:return onPrint();"/></td>
-                <td><a href="javascript: popupFixedPage(700,960,'form/chf.do');">Tips</a>&nbsp;&nbsp;
+                <td><a href="javascript: popupFixedPage(700,960,'form/chf');">Tips</a>&nbsp;&nbsp;
 
                     <a
-                            href="javascript: popPage('form/formlabreq07.do?demographic_no=<%=demoNo%>&formId=0&provNo=<%=provNo%>&labType=CHF','LabReq');">LAB</a>
+                            href="javascript: popPage('form/formlabreq07?demographic_no=<%=demoNo%>&formId=0&provNo=<%=provNo%>&labType=CHF','LabReq');">LAB</a>
 
                 </td>
             </tr>

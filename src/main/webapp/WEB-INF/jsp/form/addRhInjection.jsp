@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -142,7 +142,7 @@
         var choiceFormat = new Array(6, 7, 8, 9, 12, 13);
         var allNumericField = new Array(14, 15);
         var allMatch = null;
-        var action = "/<%=project_home%>/form/formname.do";
+        var action = "/<%=project_home%>/form/formname";
 
     </script>
 
@@ -221,7 +221,7 @@
         }
     </script>
 
-    <form action="${pageContext.request.contextPath}/prevention/AddPrevention.do" method="post" onsubmit="return process(this);" id="injectForm">
+    <form action="${pageContext.request.contextPath}/prevention/AddPrevention" method="post" onsubmit="return process(this);" id="injectForm">
         <input type="hidden" name="prevention" value="RH"/>
         <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
         <input type="hidden" name="workflowId" value="<%= Encode.forHtmlAttribute(workflowId) %>"/>

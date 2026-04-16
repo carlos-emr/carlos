@@ -67,7 +67,7 @@
             <td class="MainTableLeftColumn"></td>
             <td class="MainTableRightColumn">
                 <%if (request.getAttribute("status") == null) {%>
-                <form action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
+                <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
                     <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
                     <input type="checkbox" name="preventionSSOWarningProperty.checked" <c:if test="${preventionSSOWarningProperty.checked}">checked</c:if>/>
                         Hide Warning when not logged into OneID Single Sign On.

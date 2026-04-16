@@ -152,7 +152,7 @@ public class AddEditHtml2Action extends ActionSupport {
             EDocUtil.editDocumentSQL(currentDoc, this.getReviewDoc());
         }
         String contextPath = request.getContextPath();
-        StringBuffer redirect = new StringBuffer(contextPath + "/documentManager/ViewDocumentReport.do");
+        StringBuffer redirect = new StringBuffer(contextPath + "/documentManager/ViewDocumentReport");
         String functionParam = request.getParameter("function");
         String functionIdParam = request.getParameter("functionid");
         redirect.append("?function=").append(functionParam != null ? URLEncoder.encode(functionParam, StandardCharsets.UTF_8) : "");

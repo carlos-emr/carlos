@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -171,7 +171,7 @@
             </h4>
         </div>
 
-        <form action="${pageContext.request.contextPath}/report/DemographicReport.do" method="post" onsubmit="return checkQuery();">
+        <form action="${pageContext.request.contextPath}/report/DemographicReport" method="post" onsubmit="return checkQuery();">
             <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
             <input type="hidden" name="studyId" id="studyId" value='<%=studyId == null ? "" : Encode.forHtmlAttribute(studyId)%>'/>
 
@@ -186,7 +186,7 @@
                     <%}%>
                 </select>
                 <input type="submit" value="Load Query" name="query" class="btn btn-sm btn-secondary"/>
-                <a href="<%= request.getContextPath() %>/oscarReport/ViewManageDemographicQueryFavourites.do">manage</a>
+                <a href="<%= request.getContextPath() %>/oscarReport/ViewManageDemographicQueryFavourites">manage</a>
             </div>
 
             <div class="row">

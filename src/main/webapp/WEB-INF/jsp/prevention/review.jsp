@@ -79,7 +79,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_prevention" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_prevention");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_prevention");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -846,14 +846,14 @@
 
                 <% } %>
 
-                <form action="<%=request.getContextPath()%>/dhir/submit.do" method="post">
+                <form action="<%=request.getContextPath()%>/dhir/submit" method="post">
                     <input type="hidden" name="uuid" value="<%=bundle.getId()%>"/>
 
                     <input type="submit"
                            value="Submit" <%=(!validationErrors.isEmpty()) ? " disabled=\"disabled\" " : "" %>/>
                     &nbsp;&nbsp;
                     <input type="button" value="Edit Prevention"
-                           onClick="window.location.href='<%=request.getContextPath()%>/prevention/AddPrevention.do?id=<%=preventionId %>&demographic_no=<%=demographicNo%>'"/>
+                           onClick="window.location.href='<%=request.getContextPath()%>/prevention/AddPrevention?id=<%=preventionId %>&demographic_no=<%=demographicNo%>'"/>
                     &nbsp;&nbsp;
                     <input type="button" value="Cancel" onClick="window.close()"/>
                 </form>

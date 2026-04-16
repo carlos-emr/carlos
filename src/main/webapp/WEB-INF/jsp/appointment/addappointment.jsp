@@ -66,7 +66,7 @@ Ontario, Canada
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_appointment");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_appointment");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -527,7 +527,7 @@ Ontario, Canada
 
             function openTypePopup() {
                 windowprops = "height=230,width=500,location=no,scrollbars=no,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=100,left=100";
-                var popup = window.open("appointmentTypeAction.do?type=" + document.forms['ADDAPPT'].type.value, "Appointment Type", windowprops);
+                var popup = window.open("appointmentTypeAction?type=" + document.forms['ADDAPPT'].type.value, "Appointment Type", windowprops);
                 if (popup != null) {
                     if (popup.opener == null) {
                         popup.opener = self;
@@ -560,7 +560,7 @@ Ontario, Canada
 
             $(document).ready(function () {
 
-                var searchDemoUrl = "<%= request.getContextPath() %>/demographic/SearchDemographic.do";
+                var searchDemoUrl = "<%= request.getContextPath() %>/demographic/SearchDemographic";
 
                 $("#keyword").autocomplete({
                     source: function (req, res) {
@@ -807,7 +807,7 @@ Ontario, Canada
                 haveLock = false;
                 $.ajax({
                         type: "POST",
-                        url: "<%=request.getContextPath()%>/PageMonitoringService.do",
+                        url: "<%=request.getContextPath()%>/PageMonitoringService",
                         data: {
                             method: "update",
                             page: "addappointment",
@@ -879,7 +879,7 @@ Ontario, Canada
 
                 $.ajax({
                     type: "POST",
-                    url: "<%=request.getContextPath()%>/PageMonitoringService.do",
+                    url: "<%=request.getContextPath()%>/PageMonitoringService",
                     data: {
                         method: "cancel",
                         page: "addappointment",
@@ -1131,7 +1131,7 @@ Ontario, Canada
         <% } %>
 
         <form name="ADDAPPT" id="addappt" method="post"
-              action="<%=request.getContextPath()%>/appointment/appointmentcontrol.do"
+              action="<%=request.getContextPath()%>/appointment/appointmentcontrol"
               onsubmit="return(onAdd())">
             <input type="hidden" name="displaymode" value="">
             <input type="hidden" name="year" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("year"))) %>">
@@ -1451,7 +1451,7 @@ Ontario, Canada
                 %>
                 <input type="hidden" name="search_mode" id="search_mode" value="<%= Encode.forHtmlAttribute(searchMode) %>">
                 <input type="hidden" name="originalpage"
-                       value="<%=request.getContextPath() %>/appointment/addappointment.do">
+                       value="<%=request.getContextPath() %>/appointment/addappointment">
                 <input type="hidden" name="limit1" value="0">
                 <input type="hidden" name="limit2" value="5">
                 <input type="hidden" name="ptstatus" value="active">
@@ -1527,7 +1527,7 @@ Ontario, Canada
                     <div class="card-header">
                         <fmt:message key="appointment.addappointment.msgDemgraphics"/>
                         <a title="Master File"
-                           onclick="popup(700,1000,'<%=request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=Encode.forUriComponent(demoNo)%>','master')"
+                           onclick="popup(700,1000,'<%=request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<%=Encode.forUriComponent(demoNo)%>','master')"
                            href="javascript: function myFunction() {return false; }"><fmt:message key="appointment.addappointment.btnEdit"/></a>
                         &nbsp;<fmt:message key="appointment.addappointment.msgSex"/>: <%=Encode.forHtmlContent(sex)%>
                         &nbsp;<fmt:message key="appointment.addappointment.msgDOB"/>: <%=Encode.forHtmlContent(dob)%>

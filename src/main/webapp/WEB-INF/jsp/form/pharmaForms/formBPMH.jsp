@@ -49,7 +49,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -80,7 +80,7 @@
                 $("#editFamilyDr").click(function () {
                     var familyDrContactId = $("#familyDrContactId").val();
                     var demographicNo = '${ bpmh.demographic.demographicNo }';
-                    var source = "${ pageContext.request.contextPath }/demographic/ViewManageHealthCareTeam.do?" +
+                    var source = "${ pageContext.request.contextPath }/demographic/ViewManageHealthCareTeam?" +
                         "demographicNo=" + demographicNo +
                         "&view=detached" +
                         "&element=providerId";
@@ -96,7 +96,7 @@
 
     <!--  HEADING  -->
     <!-- FORM BEGIN -->
-    <form action="${pageContext.request.contextPath}/formBPMH.do" method="post">
+    <form action="${pageContext.request.contextPath}/formBPMH" method="post">
         <input type="hidden" name="demographicNo" id="demographicNo"/>
         <input type="hidden" name="formId" id="formId"/>
         <header>

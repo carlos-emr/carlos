@@ -83,7 +83,7 @@
                 io.github.carlos_emr.carlos.demographic.data.*" %>
 
 <%@ page import=" java.util.*, org.w3c.dom.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.EChartDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.EChart" %>
@@ -103,7 +103,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_msg");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -123,13 +123,13 @@
     // Reject null/missing or non-integer values before any session writes.
     int demographicNoInt;
     if (demographic_no_raw == null || demographic_no_raw.isEmpty()) {
-        response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");
+        response.sendRedirect(request.getContextPath() + "/securityError?type=_msg");
         return;
     }
     try {
         demographicNoInt = Integer.parseInt(demographic_no_raw);
     } catch (NumberFormatException e) {
-        response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");
+        response.sendRedirect(request.getContextPath() + "/securityError?type=_msg");
         return;
     }
     // Use the validated integer value as the canonical demographic number string
@@ -353,7 +353,7 @@
 
                     <tr>
 
-                        <td bgcolor="#EEEEFF"><form action="${pageContext.request.contextPath}/messenger/Doc2PDF.do" method="post">
+                        <td bgcolor="#EEEEFF"><form action="${pageContext.request.contextPath}/messenger/Doc2PDF" method="post">
 
 
                             <table border="0" cellpadding="0" cellspacing="1" width="400">
@@ -364,7 +364,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <% String currentURI = request.getContextPath() + "/demographic/DemographicPdfLabel.do?demographic_no=" + encDemoNo; %>
+                                        <% String currentURI = request.getContextPath() + "/demographic/DemographicPdfLabel?demographic_no=" + encDemoNo; %>
                                         <input type="checkbox" name="uriArray" value="<%=Encode.forHtmlAttribute(currentURI)%>"
                                                        style="display:none"/>
 
@@ -397,7 +397,7 @@
                                 %>
                                 <tr>
                                     <td>
-                                        <% currentURI = request.getContextPath() + "/encounter/ViewEcharthistoryprint.do?echartid=" + Encode.forUriComponent(String.valueOf(ec.getId())) + "&demographic_no=" + encDemoNo; %>
+                                        <% currentURI = request.getContextPath() + "/encounter/ViewEcharthistoryprint?echartid=" + Encode.forUriComponent(String.valueOf(ec.getId())) + "&demographic_no=" + encDemoNo; %>
                                         <input type="checkbox" name="uriArray" value="<%=Encode.forHtmlAttribute(currentURI)%>"
                                                        style="display:none"/>
                                         <input type="checkbox" name="indexArray" value="<%= Integer.toString(indexCount++) %>"/>
@@ -453,7 +453,7 @@
                                             Rxbean.setProviderNo((String) request.getSession().getAttribute("user"));
                                             Rxbean.setDemographicNo(demographicNoInt);
 
-                                        %> <% currentURI = request.getContextPath() + "/rx/ViewPrintDrugProfile2.do?demographic_no=" + encDemoNo; %>
+                                        %> <% currentURI = request.getContextPath() + "/rx/ViewPrintDrugProfile2?demographic_no=" + encDemoNo; %>
 
                                         <input type="checkbox" name="uriArray" value="<%=Encode.forHtmlAttribute(currentURI)%>"
                                                        style="display:none"/>

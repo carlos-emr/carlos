@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -190,7 +190,7 @@
 
             function reset() {
                 document.forms[0].target = "";
-                document.forms[0].action = "/<%=project_home%>/form/formname.do";
+                document.forms[0].action = "/<%=project_home%>/form/formname";
             }
 
             function onPrint() {
@@ -198,7 +198,7 @@
                 var ret = checkAllDates();
 
                 if (ret == true) {
-                    document.forms[0].action = "<%= request.getContextPath() %>/form/formname.do?__title=British+Columbia+Health+Passport&__cfgfile=bchpPrintCfgPg1&__cfgfile=bchpPrintCfgPg2&__template=bchp";
+                    document.forms[0].action = "<%= request.getContextPath() %>/form/formname?__title=British+Columbia+Health+Passport&__cfgfile=bchpPrintCfgPg1&__cfgfile=bchpPrintCfgPg2&__template=bchp";
                     document.forms[0].target = "_blank";
                 }
                 return ret;
@@ -452,7 +452,7 @@
 
     <body bgproperties="fixed" topmargin="0" leftmargin="1" rightmargin="1">
 
-    <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post">
     <input type="hidden" name="c_lastVisited" value="pg2"/>
         <input type="hidden" name="demographic_no"
                value="<%= props.getProperty("demographic_no", "0") %>"/>
@@ -487,7 +487,7 @@
                 %>
 
                 <td align="right"><b>Edit:</b><a
-                        href="form/formbchppg1.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">HP
+                        href="form/formbchppg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">HP
                     <font size=-2>(pg.1)</font></a> | HP <font size=-2>(pg.2)</font></td>
                 <%
                     }
@@ -1133,7 +1133,7 @@
                 %>
 
                 <td align="right"><b>Edit:</b><a
-                        href="form/formbchppg1.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">HP
+                        href="form/formbchppg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">HP
                     <font size=-2>(pg.1)</font></a> | HP <font size=-2>(pg.2)</font></td>
                 <%
                     }

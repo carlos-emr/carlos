@@ -97,7 +97,7 @@
              takes final precedence for automatic CSRF token injection -->
         <script src="<c:out value="${ctx}/csrfguard"/>"></script>
 
-        <script type="text/javascript" src="<c:out value="${ctx}"/>/casemgmt/ViewNewEncounterLayoutJs.do?v=<%= System.currentTimeMillis() %>"></script>
+        <script type="text/javascript" src="<c:out value="${ctx}"/>/casemgmt/ViewNewEncounterLayoutJs?v=<%= System.currentTimeMillis() %>"></script>
 
             <%-- for popup menu of forms --%>
         <script src="<c:out value="${ctx}"/>/share/javascript/popupmenu.js" type="text/javascript"></script>
@@ -336,7 +336,7 @@
                 jQuery("form[name='caseManagementEntryForm']").append("<input name=\"extPrint" + name + "\" id=\"extPrint" + name + "\" value=\"false\" type=\"hidden\"/>");
                 jQuery.ajax({
                     type: 'POST',
-                    url: ctx + "/casemgmt/ExtPrintRegistry.do",
+                    url: ctx + "/casemgmt/ExtPrintRegistry",
                     data: {method: 'register', name: name, bean: bean},
                     async: false,
                     success: function (data) {
@@ -475,7 +475,7 @@
                     step: 1
                 });
 
-                <c:url value="/CaseManagementEntry.do" var="issueURLCPP">
+                <c:url value="/CaseManagementEntry" var="issueURLCPP">
                 <c:param name="method" value="issueList"/>
                 <c:param name="demographicNo" value="${demographicNo}" />
                 <c:param name="providerNo" value="${providerNo}" />

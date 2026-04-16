@@ -103,7 +103,7 @@ class MsgTransferPostItems2ActionTest extends CarlosWebTestBase {
         String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(getMockResponse().getRedirectedUrl()).contains("/messenger/DisplayMessages.do");
+        assertThat(getMockResponse().getRedirectedUrl()).contains("/messenger/DisplayMessages");
     }
 
     @Test
@@ -133,7 +133,7 @@ class MsgTransferPostItems2ActionTest extends CarlosWebTestBase {
         String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(getMockResponse().getRedirectedUrl()).contains("/messenger/DisplayMessages.do");
+        assertThat(getMockResponse().getRedirectedUrl()).contains("/messenger/DisplayMessages");
     }
 
     @Test
@@ -153,7 +153,7 @@ class MsgTransferPostItems2ActionTest extends CarlosWebTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(getMockResponse().getRedirectedUrl())
-                .endsWith("/messenger/ViewCreateMessage.do");
+                .endsWith("/messenger/ViewCreateMessage");
         assertThat(bean.getAttachment()).isNotNull();
     }
 

@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -128,7 +128,7 @@
                 //ret = confirm("Do you wish to save this form and view the print preview?");
                 //popupFixedPage(650,850,'<%= request.getContextPath() %>/provider/notice.htm');
                 temp = document.forms[0].action;
-                <c:url var="formAction" value="form/formname.do">
+                <c:url var="formAction" value="form/formname">
 			        <c:param name="__title" value="Lab Request"/>
 			        <c:param name="__cfgfile" value="labReqPrint07"/>
 			        <c:param name="__template" value="labReqForm07"/>
@@ -312,7 +312,7 @@
     </script>
 
     <body style="page: doublepage; page-break-after: right">
-    <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post">
 
         <input type="hidden" name="demographic_no"
                value="<%= Encode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>"/>

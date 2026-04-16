@@ -114,7 +114,7 @@
             <td class="MainTableLeftColumn">&nbsp;</td>
             <td class="MainTableRightColumn">
                 <%if (request.getAttribute("status") == null) {%> <%=bundle.getString(providermsgEdit)%> <c:out value="${rxPageSizeProperty.value}"/>
-                <form action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
+                <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
                 <input type="hidden" name="method" value="<c:out value="${method}"/>">
                 <!--input type="text" name="rxPageSizeProperty.value" /-->
                 <select name="rxPageSizeProperty.value" id="rxPageSizeProperty.value">

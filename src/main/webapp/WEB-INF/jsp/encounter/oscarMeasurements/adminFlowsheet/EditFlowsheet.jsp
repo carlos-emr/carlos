@@ -178,7 +178,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_flowsheet" rights="w" reverse="<%=true%>">
     <%authed2 = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_flowsheet");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_flowsheet");%>
 </security:oscarSec>
 <%
     if (!authed2) {
@@ -348,7 +348,7 @@
         function submitFlowsheetCustom(params) {
             var form = document.createElement('form');
             form.method = 'post';
-            form.action = 'FlowSheetCustomAction.do';
+            form.action = 'FlowSheetCustomAction';
             for (var key in params) {
                 if (params[key] !== null && params[key] !== '') {
                     var input = document.createElement('input');
@@ -391,7 +391,7 @@
                         tracker = "&tracker=slim";
                     }
 
-                    String flowsheetPath = "encounter/oscarMeasurements/ViewTemplateFlowSheet.do";
+                    String flowsheetPath = "encounter/oscarMeasurements/ViewTemplateFlowSheet";
             %>
 
             <a href="<%= request.getContextPath() %>/<%=flowsheetPath%>?demographic_no=<%= Encode.forUriComponent(demographic) %>&template=<%=Encode.forUriComponent(flowsheet)%><%=tracker%>"
@@ -406,8 +406,8 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
                 if (demographic != null) { %>
 							Patient
 						<security:oscarSec roleName="<%=roleName2$%>" objectName="_flowsheet" rights="w">
-                            | <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet.do?flowsheet=<%=Encode.forUriComponent(flowsheet)%>">Your Patients</a>
-							| <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet.do?flowsheet=<%=Encode.forUriComponent(flowsheet)%>&scope=clinic&displayName=<%=encodedDisplayNameForUri%>">All Patients</a>
+                            | <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<%=Encode.forUriComponent(flowsheet)%>">Your Patients</a>
+							| <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<%=Encode.forUriComponent(flowsheet)%>&scope=clinic&displayName=<%=encodedDisplayNameForUri%>">All Patients</a>
                         </security:oscarSec>
 
 		            <%} else {%>
@@ -416,7 +416,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 						</security:oscarSec>
 							| Your Patients
 						<security:oscarSec roleName="<%=roleName2$%>" objectName="_flowsheet" rights="w">
-							| <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet.do?flowsheet=<%=Encode.forUriComponent(flowsheet)%>&scope=clinic&displayName=<%=encodedDisplayNameForUri%>">All Patients</a>
+							| <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<%=Encode.forUriComponent(flowsheet)%>&scope=clinic&displayName=<%=encodedDisplayNameForUri%>">All Patients</a>
                         </security:oscarSec>
 		            <%
                         }
@@ -424,7 +424,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
                     %>
 						<security:oscarSec roleName="<%=roleName2$%>" objectName="_flowsheet" rights="w">
 							<a href="#" onclick="editFlowsheetByDemographic('<%=Encode.forJavaScriptAttribute(flowsheet)%>')">Patient</a>
-							| <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet.do?flowsheet=<%=Encode.forUriComponent(flowsheet)%>&displayName=<%=encodedDisplayNameForUri%>">Your Patients</a>
+							| <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<%=Encode.forUriComponent(flowsheet)%>&displayName=<%=encodedDisplayNameForUri%>">Your Patients</a>
 						</security:oscarSec>
 							| All Patients
 			<% } %>
@@ -507,7 +507,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 		         		    if(mFlowsheet.getFlowSheetItem(mstring).getPreventionType()!=null){ %>
 		         		<i class="fa-solid fa-lock action-icon" style="opacity:0.6;" title="Prevention item - managed in Prevention module"></i>
 		                <%} else {%>
-		                <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewUpdateFlowsheet.do?flowsheet=<%=Encode.forUriComponent(temp)%>&measurement=<%=Encode.forUriComponent(mstring)%><%=demographicStr%><%=htQueryString%><%=scope==null?"":"&scope="+Encode.forUriComponent(scope)%>" title="Edit" class="action-icon"><i class="fa-solid fa-pencil"></i></a>
+		                <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewUpdateFlowsheet?flowsheet=<%=Encode.forUriComponent(temp)%>&measurement=<%=Encode.forUriComponent(mstring)%><%=demographicStr%><%=htQueryString%><%=scope==null?"":"&scope="+Encode.forUriComponent(scope)%>" title="Edit" class="action-icon"><i class="fa-solid fa-pencil"></i></a>
 		                <%}%>
 		               <%
 		                boolean isHidden = mFlowsheet.getFlowSheetItem(mstring).isHide();
@@ -645,7 +645,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
                                         <%} else if (cust.getDemographicNo().equals("0")) { %>
                                         Your patients
                                         <%} else { %>
-                                        <a href="<%=request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=Encode.forUriComponent(cust.getDemographicNo())%>"
+                                        <a href="<%=request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<%=Encode.forUriComponent(cust.getDemographicNo())%>"
                                            target="_blank"><%=Encode.forHtml(cust.getDemographicNo())%>
                                         </a>
                                         <%} %>
@@ -667,7 +667,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
                 <div class="tab-pane" id="add">
 
                     <form name="FlowSheetCustomActionForm" id="FlowSheetCustomActionForm" class="card card-body bg-body-tertiary"
-                          action="FlowSheetCustomAction.do" method="post">
+                          action="FlowSheetCustomAction" method="post">
                         <input type="hidden" name="flowsheet" value="<%=Encode.forHtmlAttribute(temp)%>"/>
                         <input type="hidden" name="method" value="save"/>
                         <%if (demographic != null) {%>
@@ -873,7 +873,7 @@ function editFlowsheetByDemographic(flowsheet) {
 	const demographicNo = prompt("Enter demographic no:");
 
 	if (demographicNo && !isNaN(demographicNo) && demographicNo.trim() !== "") {
-		window.location.href = "<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet.do?flowsheet=" + encodeURIComponent(flowsheet) + "&demographic=" + encodeURIComponent(demographicNo) + "&displayName=<%=encodedDisplayNameForJsUri%>";
+		window.location.href = "<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=" + encodeURIComponent(flowsheet) + "&demographic=" + encodeURIComponent(demographicNo) + "&displayName=<%=encodedDisplayNameForJsUri%>";
 	} else {
 		alert("Invalid demographic number. Please enter a valid number.");
 	}

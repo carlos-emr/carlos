@@ -40,7 +40,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing,_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -85,7 +85,7 @@
     <h3>Add Private Billing Code</h3>
     <div class="container-fluid card card-body bg-body-tertiary">
 
-        <form action="${pageContext.request.contextPath}/billing/CA/BC/billingAddCode.do" method="post" onsubmit="return checkUnits();">
+        <form action="${pageContext.request.contextPath}/billing/CA/BC/billingAddCode" method="post" onsubmit="return checkUnits();">
             <%
                 if (request.getAttribute("returnMessage") != null) {
             %>
@@ -104,7 +104,7 @@
             Price:<br>
             <input type="text" name="value" id="value" /><br>
 
-            <input type="submit" name="submit" class="btn btn-primary" value="Add"/> <a href="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode.do" class="btn btn-secondary">Cancel</a>
+            <input type="submit" name="submit" class="btn btn-primary" value="Add"/> <a href="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode" class="btn btn-secondary">Cancel</a>
         </form>
     </div>
     </body>

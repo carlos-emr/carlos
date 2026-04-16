@@ -32,7 +32,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider,io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingONPremium, io.github.carlos_emr.carlos.commn.dao.BillingONPremiumDao" %>
 
-<%@ page import="java.io.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.io.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 
 <%@page import="io.github.carlos_emr.carlos.commn.model.RaHeader" %>
@@ -202,7 +202,7 @@
             Reconcillation Report </font></th>
         <th align="right">
             <form><input type="button"
-                         onClick="popupPage(700,600,'/billing/CA/ON/ViewBillingClipboard.do')" value="Clipboard"></form>
+                         onClick="popupPage(700,600,'/billing/CA/ON/ViewBillingClipboard')" value="Clipboard"></form>
         </th>
     </tr>
 </table>
@@ -245,7 +245,7 @@ Colposcopy Total :
 
     if (!bPremiumList.isEmpty()) {
 %>
-<form action="<%=request.getContextPath() %>/billing/CA/ON/ApplyPractitionerPremium.do" method="post">
+<form action="<%=request.getContextPath() %>/billing/CA/ON/ApplyPractitionerPremium" method="post">
     <input type="hidden" name="rano" value="<%=Encode.forHtmlAttribute(raNo)%>"/>
     <input type="hidden" name="method" value="applyPremium"/>
     <h3><fmt:message key="oscar.billing.on.genRADesc.premiumTitle"/></h3>

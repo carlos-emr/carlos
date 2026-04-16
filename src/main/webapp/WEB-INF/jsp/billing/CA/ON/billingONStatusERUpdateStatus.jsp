@@ -24,12 +24,12 @@
 --%>
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     //String user_no = (String) session.getAttribute("user");
 %>
 <%@ page
         import="io.github.carlos_emr.carlos.billing.ca.on.data.*, java.sql.*, io.github.carlos_emr.*, java.net.*"
-        errorPage="/errorpage.jsp" %>
+        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingErrorRepImpl" %>
 <%
     String id = request.getParameter("id");

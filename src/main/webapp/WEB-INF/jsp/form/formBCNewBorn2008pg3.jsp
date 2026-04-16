@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -118,7 +118,7 @@
 
         function reset() {
             document.forms[0].target = "";
-            document.forms[0].action = "/<%=project_home%>/form/formname.do";
+            document.forms[0].action = "/<%=project_home%>/form/formname";
         }
 
 
@@ -438,7 +438,7 @@
         @oscar.formDB Field="c_lastVisited" Type="char(3)"
         --%>
 
-        <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
+        <form action="${pageContext.request.contextPath}/form/formname" method="post">
 
         <input type="hidden" name="c_lastVisited" value="pg1"/>
         <input type="hidden" name="demographic_no"
@@ -472,9 +472,9 @@
 
                 <td align="right"></td>
                 <td align="right"><b>Edit:</b>
-                    <a href="formBCNewBorn2008pg1.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Part
+                    <a href="formBCNewBorn2008pg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Part
                         1<font size=-2></font></a> |
-                    <a href="formBCNewBorn2008pg2.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Part
+                    <a href="formBCNewBorn2008pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Part
                         2 </a> |
                     Part2 <font size=-2>(pg.2)</font> |
                 </td>

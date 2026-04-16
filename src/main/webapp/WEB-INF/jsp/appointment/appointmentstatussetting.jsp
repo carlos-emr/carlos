@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_admin.userAdmin,_admin.schedule" rights="r" reverse="<%=true%>">
-    <%response.sendRedirect(request.getContextPath() + "/logout.jsp");%>
+    <%response.sendRedirect(request.getContextPath() + "/logoutPage");%>
 </security:oscarSec>
 
 
@@ -53,7 +53,7 @@
 <body>
 <%
     String reseturl = request.getContextPath();
-    reseturl = reseturl + "/appointment/apptStatusSetting.do?dispatch=reset";
+    reseturl = reseturl + "/appointment/apptStatusSetting?dispatch=reset";
 %>
 <table border=0 cellspacing=0 cellpadding=0 width="100%">
     <tr bgcolor="#486ebd">
@@ -103,12 +103,12 @@
         <td class="nowrap">
             <%
                 String url = request.getContextPath();
-                url = url + "/appointment/apptStatusSetting.do?dispatch=modify&statusID=";
+                url = url + "/appointment/apptStatusSetting?dispatch=modify&statusID=";
                 url = url + iStatusID;
             %> <a href=<%=url%>>Edit</a> &nbsp;&nbsp;&nbsp; <%
             int iToStatus = (iActive > 0) ? 0 : 1;
             url = request.getContextPath();
-            url = url + "/appointment/apptStatusSetting.do?dispatch=changestatus&iActive=";
+            url = url + "/appointment/apptStatusSetting?dispatch=changestatus&iActive=";
             url = url + iToStatus;
             url = url + "&statusID=";
             url = url + iStatusID;

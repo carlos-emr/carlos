@@ -54,7 +54,7 @@
     --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean isTeamBillingOnly = false;
     boolean isSiteAccessPrivacy = false;
@@ -347,7 +347,7 @@
                     //alert(('status'+idNum) + document.getElementById('status'+idNum).checked);
                     val = 'Y';
                 }
-                xmlHttp.open("POST", "<%= request.getContextPath() %>/billing/CA/ON/BillingONStatusERUpdateStatus.do", true);
+                xmlHttp.open("POST", "<%= request.getContextPath() %>/billing/CA/ON/BillingONStatusERUpdateStatus", true);
                 xmlHttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
                 xmlHttp.send("id=" + encodeURIComponent(idNum) + "&val=" + encodeURIComponent(val));
             }
@@ -434,8 +434,8 @@
     </h3>
     <div class="container-fluid">
         <!--Hiding for now since this does not seem to manage the providers in the select
-            <a href="javascript: function myFunction() {return false; }" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider.do?action=billingreport')">Manage Provider List</a>-->
-        <form name="serviceform" class="d-flex flex-wrap align-items-center gap-2" method="get" action="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingONStatus.do"
+            <a href="javascript: function myFunction() {return false; }" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider?action=billingreport')">Manage Provider List</a>-->
+        <form name="serviceform" class="d-flex flex-wrap align-items-center gap-2" method="get" action="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingONStatus"
               onsubmit="ShowSpin(true);">
             <input type="hidden" id="sortName" name="sortName" value="<%= Encode.forHtmlAttribute(sortName) %>">
             <input type="hidden" id="sortOrder" name="sortOrder" value="<%= Encode.forHtmlAttribute(sortOrder) %>">
@@ -746,7 +746,7 @@
             </div>
             <!-- end card card-body bg-body-tertiary -->
         </form>
-        <form name="invoiceForm" action="<%=request.getContextPath()%>/BillingInvoice.do">
+        <form name="invoiceForm" action="<%=request.getContextPath()%>/BillingInvoice">
             <input type="hidden" name="method" value="">
             <% //
                 if (statusType.equals("_")) { %>
@@ -817,7 +817,7 @@
                     <td><font size="-1"><%=bObj.getDob() %>
                     </font></td>
                     <td style="text-align:right"><a href=#
-                                                    onclick="popupPage(800,700,'<%= request.getContextPath() %>/billing/CA/ON/BillingONCorrection.do?billing_no=<%=bObj.getBilling_no()%>');return false;"><%=bObj.getBilling_no() %>
+                                                    onclick="popupPage(800,700,'<%= request.getContextPath() %>/billing/CA/ON/BillingONCorrection?billing_no=<%=bObj.getBilling_no()%>');return false;"><%=bObj.getBilling_no() %>
                     </a></td>
                     <td><%=bObj.getRef_no() %>
                     </td>
@@ -1008,7 +1008,7 @@
                         </td>
                         <!--PATIENT-->
                         <td style="text-align:center" class="<%=hideName?"d-print-none":""%>"><a href=#
-                                                                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=Encode.forJavaScriptAttribute(ch1Obj.getDemographic_no())%>');return false;"><%= Encode.forHtml(ch1Obj.getDemographic_name())%>
+                                                                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<%=Encode.forJavaScriptAttribute(ch1Obj.getDemographic_no())%>');return false;"><%= Encode.forHtml(ch1Obj.getDemographic_name())%>
                         </a></td>
                         <td style="text-align:center"><%=Encode.forHtml(ch1Obj.getFacilty_num() != null ? ch1Obj.getFacilty_num() : "")%>
                         </td>
@@ -1037,11 +1037,11 @@
                         <td style="text-align:center"><%=payProgram%>
                         </td>
                         <td style="text-align:center"><a href=#
-                                                         onclick="popupPage(800,700,'<%= request.getContextPath() %>/billing/CA/ON/BillingONCorrection.do?billing_no=<%=ch1Obj.getId()%>');nav_colour_swap(this.id, <%=bList.size()%>);return false;"><%=ch1Obj.getId()%>
+                                                         onclick="popupPage(800,700,'<%= request.getContextPath() %>/billing/CA/ON/BillingONCorrection?billing_no=<%=ch1Obj.getId()%>');nav_colour_swap(this.id, <%=bList.size()%>);return false;"><%=ch1Obj.getId()%>
                         </a></td>
                         <!--ACCOUNT-->
                         <td class="highlightBox"><a id="A<%=i%>" href=#
-                                                    onclick="popupPage(800,700,'<%= request.getContextPath() %>/billing/CA/ON/BillingONCorrection.do?billing_no=<%=ch1Obj.getId()%>');nav_colour_swap(this.id, <%=bList.size()%>);return false;">Edit</a> <%=errorCode%>
+                                                    onclick="popupPage(800,700,'<%= request.getContextPath() %>/billing/CA/ON/BillingONCorrection?billing_no=<%=ch1Obj.getId()%>');nav_colour_swap(this.id, <%=bList.size()%>);return false;">Edit</a> <%=errorCode%>
                         </td>
                         <!--MESSAGES-->
                         <td style="text-align:center">$<%=cash%>

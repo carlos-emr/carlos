@@ -37,7 +37,7 @@
     popup, and a quick list sidebar. Right panel displays the patient's active
     and resolved diagnoses with actions (resolve, delete, update date).
 
-    Loaded via setupDxResearch.do from the patient encounter or demographic view.
+    Loaded via setupDxResearch from the patient encounter or demographic view.
 
     Request Attributes:
     - demographicNo: Patient ID
@@ -68,7 +68,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_dxresearch" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_dxresearch");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_dxresearch");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -153,7 +153,7 @@
                 var codeType = document.forms[0].selectedCodingSystem.value;
                 var demographicNo = encodeURIComponent(document.forms[0].demographicNo.value);
 
-                awnd = rs('att', '${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchCodeSearch.do?codeType=' + codeType + '&xml_research1=' + t0 + '&xml_research2=' + t1 + '&xml_research3=' + t2 + '&xml_research4=' + t3 + '&xml_research5=' + t4 + '&demographicNo=' + demographicNo, 600, 600, 1);
+                awnd = rs('att', '${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchCodeSearch?codeType=' + codeType + '&xml_research1=' + t0 + '&xml_research2=' + t1 + '&xml_research3=' + t2 + '&xml_research4=' + t3 + '&xml_research5=' + t4 + '&demographicNo=' + demographicNo, 600, 600, 1);
                 awnd.focus();
             }
 
@@ -247,7 +247,7 @@
 
         <table>
             <tr>
-                <td><form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearch.do" method="post">
+                <td><form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearch" method="post">
                     <table>
                         <% 
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
@@ -434,7 +434,7 @@
             </tr>
         </table>
     </div>
-    <form id="dxResearchActionForm" method="post" action="dxResearchUpdate.do" style="display:none">
+    <form id="dxResearchActionForm" method="post" action="dxResearchUpdate" style="display:none">
         <input type="hidden" name="status" value="">
         <input type="hidden" name="startdate" value="">
         <input type="hidden" name="did" value="">

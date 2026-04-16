@@ -76,7 +76,7 @@
                 <%if (request.getAttribute("status") == null) {%>
                 <%=bundle.getString(providermsgEdit)%>
 
-                <form action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
+                <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
                     <input type="hidden" name="method" value="<c:out value="${method}"/>">
                     <br/>
                     Width: <input type="text" name="encounterWindowWidth.value" value="<c:out value='${width.value}'/>" size="5" />

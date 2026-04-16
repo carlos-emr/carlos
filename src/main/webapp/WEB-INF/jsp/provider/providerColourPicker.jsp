@@ -100,7 +100,7 @@
                     if (request.getAttribute("status") == null) {
 
                 %>
-                <form action="${pageContext.request.contextPath}/setProviderColour.do" method="post">
+                <form action="${pageContext.request.contextPath}/setProviderColour" method="post">
                 <input type="hidden" name="colour" id="colour" value="<%=colour%>"/>
                 <fmt:message key="provider.setColour.msgEdit"/>
                 <a href="javascript:TCP.popup(document.forms[0].elements['colour'])"><img

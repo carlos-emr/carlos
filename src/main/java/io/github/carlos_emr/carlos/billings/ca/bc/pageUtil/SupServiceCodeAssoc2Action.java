@@ -99,7 +99,7 @@ public class SupServiceCodeAssoc2Action extends ActionSupport {
         if (!MODE_VIEW.equals(this.getActionMode())) {
             if (validateForm()) {
                 try {
-                    response.sendRedirect(request.getContextPath() + "/billing/CA/BC/supServiceCodeAssocAction.do");
+                    response.sendRedirect(request.getContextPath() + "/billing/CA/BC/supServiceCodeAssocAction");
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }

@@ -42,7 +42,7 @@
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin, _admin.traceability" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.traceability");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.traceability");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -102,7 +102,7 @@
         You can click "Download Traceability Data from this Oscar" to generate a file with information about the system.
         This file contains information only about the OSCAR program itself -- it does not include any PHI.
 
-        <form action="GenerateTraceAction.do" method="post">
+        <form action="GenerateTraceAction" method="post">
             <input type="hidden" name="method">
             <input type="submit" class="btn btn-primary" value="Download"/>
         </form>
@@ -114,7 +114,7 @@
         Report" to create a file which will let you know what files in the OSCAR program have been modified, added, or
         removed.
 
-        <form action="GenerateTraceabilityReportAction.do" method="post" enctype="multipart/form-data"
+        <form action="GenerateTraceabilityReportAction" method="post" enctype="multipart/form-data"
               onsubmit="return validateInput()">
             <input type="file" name="file"/>
             <span title="<fmt:message key="global.uploadWarningBody"/>"

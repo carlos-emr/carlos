@@ -37,7 +37,7 @@
 %>
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     }
     String strLimit1 = "0";
     String strLimit2 = "10";
@@ -283,7 +283,7 @@
         </table>
         <br>
         <a class="btn btn-secondary"
-           href="${pageContext.request.contextPath}/encounter/oscarConsultationRequest/config/ViewEditSpecialists.do"><fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.title"/></a>
+           href="${pageContext.request.contextPath}/encounter/oscarConsultationRequest/config/ViewEditSpecialists"><fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.title"/></a>
 
     </div>
     </body>

@@ -94,7 +94,7 @@
 
 <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_tickler");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_tickler");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -116,12 +116,12 @@
     if (ticklerNo != null) {
         t = ticklerManager.getTickler(loggedInInfo, ticklerNo);
         if (t == null) {
-            response.sendRedirect(request.getContextPath() + "/errorpage.jsp");
+            response.sendRedirect(request.getContextPath() + "/errorpage");
             return;
         }
         d = demographicManager.getDemographicWithExt(loggedInInfo, t.getDemographicNo());
     } else {
-        response.sendRedirect(request.getContextPath() + "/errorpage.jsp");
+        response.sendRedirect(request.getContextPath() + "/errorpage");
         return;
     }
 
@@ -460,7 +460,7 @@
 
     <body onLoad="addQuickPick()">
     <div class="container" style="max-width: 860px;">
-        <form name="serviceform" action="<%=request.getContextPath()%>/tickler/EditTickler.do" method="post">
+        <form name="serviceform" action="<%=request.getContextPath()%>/tickler/EditTickler" method="post">
             <input type="hidden" name="method" value="editTickler"/>
             <input type="hidden" name="ticklerNo" value="<%=ticklerNo%>"/>
             <input type="hidden" name="parentAjaxId" value="<%=Encode.forHtmlAttribute(request.getParameter("parentAjaxId") != null ? request.getParameter("parentAjaxId") : "")%>"/>
@@ -475,7 +475,7 @@
                     <div class="col-sm-4">
                         <div class="demo-label"><fmt:message key="tickler.ticklerEdit.demographicName"/></div>
                         <div class="demo-name"><a href="javascript:void(0)"
-                            onClick="popupPage(600,800,'<%=request.getContextPath()%>/demographic/DemographicEdit.do?demographic_no=<%=d.getDemographicNo()%>')"><%=Encode.forHtmlContent(d.getLastName())%>, <%=Encode.forHtmlContent(d.getFirstName())%></a></div>
+                            onClick="popupPage(600,800,'<%=request.getContextPath()%>/demographic/DemographicEdit?demographic_no=<%=d.getDemographicNo()%>')"><%=Encode.forHtmlContent(d.getLastName())%>, <%=Encode.forHtmlContent(d.getFirstName())%></a></div>
                         <div class="demo-value"><%=Encode.forHtmlContent(d.getAge())%> (<%=Encode.forHtmlContent(d.getFormattedDob())%>)</div>
                     </div>
                     <div class="col-sm-4">
@@ -531,7 +531,7 @@
                         <div class="d-flex align-items-center gap-2 mb-2">
                             <label for="suggestedText" class="mb-0" style="white-space: nowrap; font-size: 13px;">
                                 <a href="javascript:void(0)"
-                                   onclick="openBrWindow('<%= request.getContextPath() %>/tickler/ViewTicklerSuggestedText.do','tickler_suggested_text','width=680,height=400')"
+                                   onclick="openBrWindow('<%= request.getContextPath() %>/tickler/ViewTicklerSuggestedText','tickler_suggested_text','width=680,height=400')"
                                    style="font-weight:bold"><fmt:message key="tickler.ticklerEdit.suggestedText"/></a>:
                             </label>
                             <select class="form-select form-select-sm" name="suggestedText" id="suggestedText" style="flex:1;">

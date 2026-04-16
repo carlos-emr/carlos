@@ -1,4 +1,4 @@
-<%@page import="java.sql.*" errorPage="/errorpage.jsp" %>
+<%@page import="java.sql.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@taglib uri="http://displaytag.sf.net" prefix="display" %>
 <%@taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -8,7 +8,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing,_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -42,7 +42,7 @@
                 var width = 575;
                 var height = 400;
                 var str = document.forms[form].elements[field].value;
-                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/BillingFeeItem.do"/>' + '?form=' + form + '&field=' + field + '&searchStr=' + str;
+                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/BillingFeeItem"/>' + '?form=' + form + '&field=' + field + '&searchStr=' + str;
                 var windowName = field;
                 popup(height, width, url, windowName);
             }
@@ -81,7 +81,7 @@
         </ul>
     </div>
 <% } %>
-    <form action="${pageContext.request.contextPath}/billing/CA/BC/supServiceCodeAssocAction.do" method="post">
+    <form action="${pageContext.request.contextPath}/billing/CA/BC/supServiceCodeAssocAction" method="post">
         <input type="hidden" name="actionMode" id="actionMode"/>
         <input type="hidden" name="id" id="id"/>
         <fieldset>

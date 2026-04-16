@@ -28,7 +28,7 @@
 <%
     //
     if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     }
     String strLimit1 = request.getParameter("limit1") == null ? "1" : request.getParameter("limit1");
     String strLimit2 = request.getParameter("limit2") == null ? "25" : request.getParameter("limit2");
@@ -78,7 +78,7 @@
         }
     }
 %>
-<%@ page errorPage="/errorpage.jsp"
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
          import="java.util.*,java.sql.*,java.net.*" %>
 <%@ page import="org.apache.commons.text.WordUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -142,7 +142,7 @@
     </head>
     <body bgcolor="white" bgproperties="fixed" onload="setfocus()" topmargin="0" leftmargin="0" rightmargin="0">
 
-    <form method="post" name="titlesearch" action="/billing/CA/ON/ViewOnSearch3rdBillAddr.do" onSubmit="return check();">
+    <form method="post" name="titlesearch" action="/billing/CA/ON/ViewOnSearch3rdBillAddr" onSubmit="return check();">
         <table border="0" cellpadding="1" cellspacing="0" width="100%" class="myDarkGreen">
             <tr>
                 <td class="searchTitle" colspan="4"><font color="white">Search
@@ -249,19 +249,19 @@
         <script language="JavaScript">
             <!--
             function last() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/ON/ViewOnSearch3rdBillAddr.do?param=<%=Encode.forJavaScript(URLEncoder.encode(param,"UTF-8"))%>&param2=<%=Encode.forJavaScript(URLEncoder.encode(param2,"UTF-8"))%>&keyword=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8"))%>&search_mode=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8"))%>&orderby=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8"))%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/ON/ViewOnSearch3rdBillAddr?param=<%=Encode.forJavaScript(URLEncoder.encode(param,"UTF-8"))%>&param2=<%=Encode.forJavaScript(URLEncoder.encode(param2,"UTF-8"))%>&keyword=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8"))%>&search_mode=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8"))%>&orderby=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8"))%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
                 document.nextform.submit();
             }
 
             function next() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/ON/ViewOnSearch3rdBillAddr.do?param=<%=Encode.forJavaScript(URLEncoder.encode(param,"UTF-8"))%>&param2=<%=Encode.forJavaScript(URLEncoder.encode(param2,"UTF-8"))%>&keyword=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8"))%>&search_mode=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8"))%>&orderby=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8"))%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/ON/ViewOnSearch3rdBillAddr?param=<%=Encode.forJavaScript(URLEncoder.encode(param,"UTF-8"))%>&param2=<%=Encode.forJavaScript(URLEncoder.encode(param2,"UTF-8"))%>&keyword=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8"))%>&search_mode=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8"))%>&orderby=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8"))%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
                 document.nextform.submit();
             }
 
             //-->
         </SCRIPT>
 
-        <form method="post" name="nextform" action="/billing/CA/ON/ViewOnSearch3rdBillAddr.do">
+        <form method="post" name="nextform" action="/billing/CA/ON/ViewOnSearch3rdBillAddr">
             <%
                 if (nLastPage >= 0) {
 
@@ -278,6 +278,6 @@
         %>
         </form>
         <br>
-        <a href="/billing/CA/ON/OnAddEdit3rdAddr.do">Add/Edit Address</a></center>
+        <a href="/billing/CA/ON/OnAddEdit3rdAddr">Add/Edit Address</a></center>
     </body>
 </html>

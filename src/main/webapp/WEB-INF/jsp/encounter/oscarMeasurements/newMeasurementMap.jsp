@@ -120,7 +120,7 @@
 
     </head>
     <body>
-    <form method="post" name="LOINC" action="encounter/oscarMeasurements/NewMeasurementMap.do"><input
+    <form method="post" name="LOINC" action="encounter/oscarMeasurements/NewMeasurementMap"><input
             type="hidden" name="identifier" value="">
         <table style="width:100%">
             <tr class="MainTableTopRow">
@@ -131,8 +131,8 @@
                                        value=" <fmt:message key="global.btnClose"/> "
                                        onClick="window.close()"></td>
                             <td style="text-align:right"><a
-                                    href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout.do')"><fmt:message key="global.about"/></a> | <a
-                                    href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewLicense.do')"><fmt:message key="global.license"/></a></td>
+                                    href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
+                                    href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
                         </tr>
                     </table>
                 </td>

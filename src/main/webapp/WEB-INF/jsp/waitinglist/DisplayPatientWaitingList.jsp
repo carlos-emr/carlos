@@ -30,7 +30,7 @@
 --%>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.pageUtil.*" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -64,7 +64,7 @@
             if (agree) {
                 var form = document.createElement('form');
                 form.method = 'post';
-                form.action = '<%= request.getContextPath() %>/waitinglist/RemoveFromWaitingList.do';
+                form.action = '<%= request.getContextPath() %>/waitinglist/RemoveFromWaitingList';
                 form.target = 'removeWaitingList';
                 var fields = {listId: waitingList, demographicNo: demographicNo};
                 for (var key in fields) {
@@ -105,7 +105,7 @@
         </tr>
         <tr>
             <td class="MainTableLeftColumn"><a
-                    href="<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<c:out value="${demographicNo}"/>"><fmt:message key="global.btnBack"/>&nbsp;</a></td>
+                    href="<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<c:out value="${demographicNo}"/>"><fmt:message key="global.btnBack"/>&nbsp;</a></td>
             <td class="MainTableRightColumn">
                 <table border=0 cellspacing=4 width=700>
                     <tr>

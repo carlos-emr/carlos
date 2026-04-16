@@ -4,7 +4,7 @@
  *
  * Requires: jQuery 3.x, jQuery UI 1.14.x (autocomplete widget),
  *           demographicProviderAutocomplete.js (resultFormatter2, resultFormatter3)
- * Endpoints: /provider/SearchProvider.do, /demographic/SearchDemographic.do
+ * Endpoints: /provider/SearchProvider, /demographic/SearchDemographic
  *
  * @since 2026-04-06
  */
@@ -35,7 +35,7 @@ function initProviderAutocomplete(inputSelector, contextPath, onSelect, options)
     $el.autocomplete({
         source: function (request, response) {
             jQuery.ajax({
-                url: contextPath + "/provider/SearchProvider.do",
+                url: contextPath + "/provider/SearchProvider",
                 type: "POST",
                 data: {query: request.term},
                 dataType: "json",
@@ -102,7 +102,7 @@ function initDemographicAutocomplete(inputSelector, contextPath, onSelect, optio
     $el.autocomplete({
         source: function (request, response) {
             jQuery.ajax({
-                url: contextPath + "/demographic/SearchDemographic.do",
+                url: contextPath + "/demographic/SearchDemographic",
                 type: "POST",
                 data: {query: request.term},
                 dataType: "json",

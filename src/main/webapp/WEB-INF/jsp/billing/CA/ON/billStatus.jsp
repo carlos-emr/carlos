@@ -43,4 +43,4 @@ on Libraries node in Projects view can be used to add the JSTL 1.1 library.
 <%@taglib uri="jakarta.tags.core" prefix="c"%> 
 --%>
 
-<jsp:forward page="/billing/CA/ON/ViewBillingONStatus.do"/>
+<jsp:forward page="/billing/CA/ON/ViewBillingONStatus"/>

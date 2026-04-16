@@ -148,7 +148,7 @@ public class EConsult2Action extends ActionSupport {
         //Sets the length of the URL, found by subtracting the length of the servlet path from the length of the full URL, that way it only gets up to the context path
         oscarUrl.setLength(urlLength);
 
-        oscarUrl.append(String.format("%1$s%2$s", File.separator, "econsultSSOLogin.do"));
+        oscarUrl.append(String.format("%1$s%2$s", File.separator, "econsultSSOLogin"));
 
         StringBuilder stringBuilder = new StringBuilder(backendEconsultUrl);
 

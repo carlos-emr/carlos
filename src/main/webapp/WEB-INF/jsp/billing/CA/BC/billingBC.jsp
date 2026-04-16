@@ -38,7 +38,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -729,7 +729,7 @@
 
         function replaceWCB(id) {
             oscarLog("In replaceWCB");
-            var ur = "<%= request.getContextPath() %>/billing/CA/BC/ViewWcbForms.do?wcbid=" + id;
+            var ur = "<%= request.getContextPath() %>/billing/CA/BC/ViewWcbForms?wcbid=" + id;
             callReplacementWebService(ur, 'wcbForms');
             oscarLog("replaceWCB out == " + ur);
         }
@@ -824,7 +824,7 @@
             t0 = escape(document.BillingCreateBillingForm.xml_other1.value);
             t1 = escape(document.BillingCreateBillingForm.xml_other2.value);
             t2 = escape(document.BillingCreateBillingForm.xml_other3.value);
-            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingCodeNewSearch.do"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=', 820, 740, 1);
+            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingCodeNewSearch"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=', 820, 740, 1);
             awnd.focus();
         }
 
@@ -841,7 +841,7 @@
             var d = elementName;
             t0 = escape(document.BillingCreateBillingForm.elements[d].value);
             t1 = escape("");
-            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingReferCodeSearch.do"/>?name=' + t0 + '&name1=' + t1 + '&name2=&search=&formElement=' + d + '&formName=BillingCreateBillingForm', 600, 600, 1);
+            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingReferCodeSearch"/>?name=' + t0 + '&name1=' + t1 + '&name2=&search=&formElement=' + d + '&formName=BillingCreateBillingForm', 600, 600, 1);
             awnd.focus();
         }
 
@@ -1017,7 +1017,7 @@
             });
 
             jQuery(document).on('change', '#xml_provider', function () {
-                let url = '${pageContext.servletContext.contextPath}/billing.do?demographic_no=' + '<%=Encode.forUriComponent(bean.getPatientNo())%>' + '&appointment_no=' + '<%=Encode.forUriComponent(bean.getApptNo())%>' + '&apptProvider_no=' + '<%=Encode.forUriComponent(bean.getApptProviderNo())%>' + '&demographic_name=' + '<%=URLEncoder.encode(bean.getPatientName(), StandardCharsets.UTF_8)%>' + '&billRegion=BC&xml_provider=' + this.value;
+                let url = '${pageContext.servletContext.contextPath}/billing?demographic_no=' + '<%=Encode.forUriComponent(bean.getPatientNo())%>' + '&appointment_no=' + '<%=Encode.forUriComponent(bean.getApptNo())%>' + '&apptProvider_no=' + '<%=Encode.forUriComponent(bean.getApptProviderNo())%>' + '&demographic_name=' + '<%=URLEncoder.encode(bean.getPatientName(), StandardCharsets.UTF_8)%>' + '&billRegion=BC&xml_provider=' + this.value;
 
                 jQuery("#billingPatientInfoWrapper").load(url + " #billingPatientInfo", function () {
                     // re-bind all the javascript
@@ -1042,7 +1042,7 @@
             /* New billing form selection method*/
             jQuery(document).on('change', "#selectBillingForm", function () {
                 let selectedValue = this.value;
-                let url = ctx + '/billing.do?demographic_no=' + '<%=Encode.forUriComponent(bean.getPatientNo())%>' + '&appointment_no=' + '<%=Encode.forUriComponent(bean.getApptNo())%>' + '&apptProvider_no=' + '<%=Encode.forUriComponent(bean.getApptProviderNo())%>' + '&demographic_name=' + '<%=URLEncoder.encode(bean.getPatientName(), StandardCharsets.UTF_8)%>' + '&xml_provider=none&billRegion=BC&billForm=' + selectedValue;
+                let url = ctx + '/billing?demographic_no=' + '<%=Encode.forUriComponent(bean.getPatientNo())%>' + '&appointment_no=' + '<%=Encode.forUriComponent(bean.getApptNo())%>' + '&apptProvider_no=' + '<%=Encode.forUriComponent(bean.getApptProviderNo())%>' + '&demographic_name=' + '<%=URLEncoder.encode(bean.getPatientName(), StandardCharsets.UTF_8)%>' + '&xml_provider=none&billRegion=BC&billForm=' + selectedValue;
                 jQuery("#billingFormTableWrapper").load(url + " #billingFormTable", function () {
                     // if the selected billing type is private, then change the billing type to private
                     if (selectedValue === 'PRI') {
@@ -1140,7 +1140,7 @@
                             return document.BillingCreateBillingForm.xml_billtype.value != "Pri";
                         },
                         remote: {
-                            url: ctx + "\/dxCodeSearchJSON.do",
+                            url: ctx + "\/dxCodeSearchJSON",
                             type: "post",
                             dataType: "json",
                             data: {
@@ -1161,7 +1161,7 @@
                     xml_diagnostic_detail2: {
                         required: false,
                         remote: {
-                            url: ctx + "\/dxCodeSearchJSON.do",
+                            url: ctx + "\/dxCodeSearchJSON",
                             type: "post",
                             dataType: "json",
                             data: {
@@ -1182,7 +1182,7 @@
                     xml_diagnostic_detail3: {
                         required: false,
                         remote: {
-                            url: ctx + "\/dxCodeSearchJSON.do",
+                            url: ctx + "\/dxCodeSearchJSON",
                             type: "post",
                             dataType: "json",
                             data: {
@@ -1305,13 +1305,13 @@
 
     <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="x">
         <button type="button" class="btn btn-link" title="View this patient's Electronic Chart"
-                onclick="popup(710, 1024,'${pageContext.servletContext.contextPath}/encounter/IncomingEncounter.do?providerNo=<%=loggedInInfo.getLoggedInProviderNo()%>&appointmentNo=&demographicNo=<%=demo.getDemographicNo()%>&curProviderNo=<%=loggedInInfo.getLoggedInProviderNo()%>&reason=&encType=face+to+face+encounter+with+client&userName=&curDate=<%= new Date().toString() %>&appointmentDate=&startTime=&status=&apptProvider_no=&providerview=<%=loggedInInfo.getLoggedInProviderNo()%>','encounter', 12556);return false;">
+                onclick="popup(710, 1024,'${pageContext.servletContext.contextPath}/encounter/IncomingEncounter?providerNo=<%=loggedInInfo.getLoggedInProviderNo()%>&appointmentNo=&demographicNo=<%=demo.getDemographicNo()%>&curProviderNo=<%=loggedInInfo.getLoggedInProviderNo()%>&reason=&encType=face+to+face+encounter+with+client&userName=&curDate=<%= new Date().toString() %>&appointmentDate=&startTime=&status=&apptProvider_no=&providerview=<%=loggedInInfo.getLoggedInProviderNo()%>','encounter', 12556);return false;">
             <fmt:message key="billing.patient.encounter"/>
         </button>
     </security:oscarSec>
 
     <button type="button" class="btn btn-link" title="View previous invoices for this patient"
-            onclick="popup(800, 1000, '<%= request.getContextPath() %>/billing/CA/BC/reprocessBill.do?lastName=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.defaultString(demo.getLastName()))) %>&firstName=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.defaultString(demo.getFirstName()))) %>&filterPatient=true&demographicNo=<%= Encode.forJavaScriptAttribute(String.valueOf(demo.getDemographicNo())) %>','InvoiceList');return false;">
+            onclick="popup(800, 1000, '<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?lastName=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.defaultString(demo.getLastName()))) %>&firstName=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.defaultString(demo.getFirstName()))) %>&filterPatient=true&demographicNo=<%= Encode.forJavaScriptAttribute(String.valueOf(demo.getDemographicNo())) %>','InvoiceList');return false;">
         <fmt:message key="demographic.demographiceditdemographic.msgInvoiceList"/>
     </button>
 
@@ -1348,7 +1348,7 @@
         <%}%>
 
         <form style="bcBillingForm" class="d-flex flex-wrap align-items-center gap-2" method="post"
-              action="${pageContext.request.contextPath}/billing/CA/BC/CreateBilling.do" onsubmit="toggleWCB();">
+              action="${pageContext.request.contextPath}/billing/CA/BC/CreateBilling" onsubmit="toggleWCB();">
 
             <input autocomplete="false" name="hidden" type="text" style="display:none;">
             <input type="hidden" name="fromBilling" value="">
@@ -2344,7 +2344,7 @@
 <oscar:oscarPropertiesCheck property="BILLING_DX_REFERENCE" value="yes">
     <script type="text/javascript">
         function getDxInformation(origRequest) {
-            let url = "<%= request.getContextPath() %>/billing/CA/BC/ViewDxReference.do";
+            let url = "<%= request.getContextPath() %>/billing/CA/BC/ViewDxReference";
             let ran_number = Math.round(Math.random() * 1000000);
             let params = "demographicNo=<%=bean.getPatientNo()%>&rand=" + ran_number;  //hack to get around ie caching the page
             CarlosAjax.updater('DX_REFERENCE', url, {method: 'get', parameters: params});

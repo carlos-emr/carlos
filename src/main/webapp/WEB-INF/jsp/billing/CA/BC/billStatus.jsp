@@ -37,7 +37,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting,_admin" rights="r"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting&type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting&type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -251,7 +251,7 @@
     <div class="row card card-body bg-body-tertiary d-print-none">
 
         <div style="text-align: right;"><a href="javascript: function myFunction() {return false; }"
-                                           onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider.do?action=billingreport')">
+                                           onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider?action=billingreport')">
             Manage Provider List</a></div>
 
         <div style="text-align: right;"><%=DateUtils.sumDate("yyyy-M-d", "0")%>
@@ -273,7 +273,7 @@
         <%}%>
 
 
-        <form name="serviceform" method="get" action="<%= request.getContextPath() %>/billing/CA/BC/reprocessBill.do" class="d-flex flex-wrap align-items-center gap-2">
+        <form name="serviceform" method="get" action="<%= request.getContextPath() %>/billing/CA/BC/reprocessBill" class="d-flex flex-wrap align-items-center gap-2">
             <input type="hidden" name="filterPatient" value="<%= Encode.forHtmlAttribute(readonly) %>"/>
             <input type="hidden" name="lastName" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("lastName"))) %>"/>
             <input type="hidden" name="firstName" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("firstName"))) %>"/>
@@ -482,7 +482,7 @@
     </div><!-- row well-->
 
 
-    <form name="ReProcessBillingForm" method="post" action="reprocessBill.do">
+    <form name="ReProcessBillingForm" method="post" action="reprocessBill">
 
         <input type="hidden" id="hiddenFilterType" name="hiddenFilterType"
                value="<%=Encode.forHtmlAttribute(request.getParameter("billTypes") != null ? request.getParameter("billTypes") : "")%>">
@@ -569,7 +569,7 @@
                 </td>
                 <td>
                     <%if ("Pri".equals(b.billingtype)) {%>
-                    <a href="javascript:popupPage(800,800, '<%=request.getContextPath()%>/billing/CA/BC/billingView.do?billing_no=<%=b.billing_no%>&receipt=yes')"><%=b.billing_no%>
+                    <a href="javascript:popupPage(800,800, '<%=request.getContextPath()%>/billing/CA/BC/billingView?billing_no=<%=b.billing_no%>&receipt=yes')"><%=b.billing_no%>
                     </a>
                     <%
                     } else {
@@ -579,7 +579,7 @@
 
 
                 <td><a href="javascript: function myFunction() {return false; }"
-                       onClick="popupPage2(500,1020,'<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS00ByOfficeNo.do?officeNo=<%=b.billMasterNo%>','RecValues');"><%=b.seqNum%>
+                       onClick="popupPage2(500,1020,'<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS00ByOfficeNo?officeNo=<%=b.billMasterNo%>','RecValues');"><%=b.seqNum%>
                 </a></td>
                 <td><%=b.apptDate%>
                 </td>
@@ -618,7 +618,7 @@
 
                 <td>
                     <% if (adminAccess) { %>
-                    <a href="javascript: popupPage(700,1000,'<%= request.getContextPath() %>/billing/CA/BC/reprocessBill.do?billingmaster_no=<%=b.billMasterNo%>&invoiceNo=<%=b.billing_no%>')">Edit </a>
+                    <a href="javascript: popupPage(700,1000,'<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?billingmaster_no=<%=b.billMasterNo%>&invoiceNo=<%=b.billing_no%>')">Edit </a>
                     <% } %>
 
 
@@ -703,7 +703,7 @@
     String isRejected(String billingNo, Properties p, boolean wcb, String contextPath) {
         String s = "";
         if (p.containsKey(billingNo)) {
-            s = "<a href=\"javascript: popupPage(700,1000,'" + contextPath + "/billing/CA/BC/reprocessBill.do?billingmaster_no=" + billingNo + "')\" > " + p.getProperty(billingNo) + "</a>";
+            s = "<a href=\"javascript: popupPage(700,1000,'" + contextPath + "/billing/CA/BC/reprocessBill?billingmaster_no=" + billingNo + "')\" > " + p.getProperty(billingNo) + "</a>";
         }
         return s;
     }

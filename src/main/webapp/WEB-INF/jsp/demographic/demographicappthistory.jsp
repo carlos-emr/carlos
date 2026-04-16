@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -49,7 +49,7 @@
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
-<%@ page import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.db.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.db.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 
 <%@page import="org.apache.commons.lang3.StringUtils" %>
@@ -184,10 +184,10 @@
                 if (value) {
                     //show deleted
                     //appt_history_w_deleted
-                    location.href = '<%=request.getContextPath()%>/demographic/DemographicApptHistory.do?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographic_no))%>&orderby=<%=Encode.forJavaScript(Encode.forUriComponent(orderby))%>&dboperation=appt_history_w_deleted&limit1=<%=Encode.forJavaScript(strLimit1)%>&limit2=<%=Encode.forJavaScript(strLimit2)%>&deleted=true';
+                    location.href = '<%=request.getContextPath()%>/demographic/DemographicApptHistory?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographic_no))%>&orderby=<%=Encode.forJavaScript(Encode.forUriComponent(orderby))%>&dboperation=appt_history_w_deleted&limit1=<%=Encode.forJavaScript(strLimit1)%>&limit2=<%=Encode.forJavaScript(strLimit2)%>&deleted=true';
                 } else {
                     //don't show deleted
-                    location.href = '<%=request.getContextPath()%>/demographic/DemographicApptHistory.do?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographic_no))%>&orderby=<%=Encode.forJavaScript(Encode.forUriComponent(orderby))%>&dboperation=appt_history&limit1=<%=Encode.forJavaScript(strLimit1)%>&limit2=<%=Encode.forJavaScript(strLimit2)%>';
+                    location.href = '<%=request.getContextPath()%>/demographic/DemographicApptHistory?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographic_no))%>&orderby=<%=Encode.forJavaScript(Encode.forUriComponent(orderby))%>&dboperation=appt_history&limit1=<%=Encode.forJavaScript(strLimit1)%>&limit2=<%=Encode.forJavaScript(strLimit2)%>';
                 }
             }
 
@@ -239,7 +239,7 @@
         </tr>
         <tr>
             <td class="MainTableLeftColumn" valign="top"><a
-                    href="<%=request.getContextPath()%>/demographic/DemographicEdit.do?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&apptProvider=<%=Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull((String) session.getAttribute("user")))%>"
+                    href="<%=request.getContextPath()%>/demographic/DemographicEdit?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&apptProvider=<%=Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull((String) session.getAttribute("user")))%>"
                     onMouseOver="self.status=document.referrer;return true">
                 <fmt:message key="global.btnBack"/></a>
                 <br/>
@@ -337,7 +337,7 @@
                             bgcolor="<%=bodd?weakColor:"white"%>" appt_no="<%=Encode.forHtmlAttribute(appointment.getId().toString())%>"
                             demographic_no="<%=Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no))%>" provider_no="<%=Encode.forHtmlAttribute(provider!=null?provider.getId():"")%>">
                         <td align="center"><a href=#
-                                              onClick="popupPageNew(360,680, '<%= request.getContextPath() %>/appointment/appointmentcontrol.do?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>&appointment_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(appointment.getId().toString()))%>&displaymode=edit&dboperation=search');return false;"><%=Encode.forHtml(appointment.getAppointmentDate() != null ? appointment.getAppointmentDate().toString() : "")%>
+                                              onClick="popupPageNew(360,680, '<%= request.getContextPath() %>/appointment/appointmentcontrol?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>&appointment_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(appointment.getId().toString()))%>&displaymode=edit&dboperation=search');return false;"><%=Encode.forHtml(appointment.getAppointmentDate() != null ? appointment.getAppointmentDate().toString() : "")%>
                         </a></td>
                         <td align="center"><%=Encode.forHtml(appointment.getStartTime() != null ? appointment.getStartTime().toString() : "")%>
                         </td>
@@ -407,14 +407,14 @@
                     nPrevPage = Integer.parseInt(strLimit1) - Integer.parseInt(strLimit2);
                     if (nPrevPage >= 0) {
                 %>
-                <a href="DemographicApptHistory.do?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&dboperation=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("dboperation"))) %>&orderby=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("orderby"))) %>&limit1=<%=nPrevPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>">
+                <a href="DemographicApptHistory?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&dboperation=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("dboperation"))) %>&orderby=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("orderby"))) %>&limit1=<%=nPrevPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>">
                     <fmt:message key="demographic.demographicappthistory.btnPrevPage"/></a>
                 <%
                     }
 
                     if (nItems >= Integer.parseInt(strLimit2)) {
                 %>
-                <a href="DemographicApptHistory.do?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&dboperation=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("dboperation"))) %>&orderby=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("orderby"))) %>&limit1=<%=nNextPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>">
+                <a href="DemographicApptHistory?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&dboperation=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("dboperation"))) %>&orderby=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("orderby"))) %>&limit1=<%=nNextPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>">
                     <fmt:message key="demographic.demographicappthistory.btnNextPage"/></a>
                 <%
                     }

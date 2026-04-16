@@ -27,7 +27,7 @@
 <%@page import="java.util.Date" %>
 <%@page import="io.github.carlos_emr.carlos.utility.DateRange" %>
 <%@ page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.billing.ca.on.OHIP.*, java.net.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
@@ -103,7 +103,7 @@
     request.setAttribute("html", htmlValue);
 %>
 
-<jsp:forward page='/billing/CA/ON/ViewBillingOHIPsimulation.do'>
+<jsp:forward page='/billing/CA/ON/ViewBillingOHIPsimulation'>
     <jsp:param name="xml_appointment_date" value='<%=dateEnd%>'/>
     <jsp:param name="xml_v_date" value='<%=dateBegin%>'/>
     <jsp:param name="provider" value='<%= provider %>'/>

@@ -28,7 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@page errorPage="/errorpage.jsp" %>
+<%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
@@ -48,7 +48,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -95,7 +95,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
         jQuery("#createLabel").click(function () {
             jQuery.ajax({
                 type: "POST",
-                url: '<%=request.getContextPath()%>' + "/lab/CA/ALL/createLabLabel.do",
+                url: '<%=request.getContextPath()%>' + "/lab/CA/ALL/createLabLabel",
                 dataType: "json",
                 data: {
                     lab_no: jQuery("#labNum").val(),
@@ -137,7 +137,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
 
 <body>
 <!-- form forwarding of the lab -->
-<form name="reassignForm" method="post" action="<%= request.getContextPath() %>/oscarMDS/Forward.do"><input
+<form name="reassignForm" method="post" action="<%= request.getContextPath() %>/oscarMDS/Forward"><input
         type="hidden" name="flaggedLabs"
         value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("segmentID"))) %>"/> <input
         type="hidden" name="selectedProviders" value=""/>
@@ -147,7 +147,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                                              value="imNotNull"/> <input type="hidden" name="providerNo"
                                                                                         value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>"/>
 </form>
-<form name="acknowledgeForm" method="post" action="UpdateStatus.do">
+<form name="acknowledgeForm" method="post" action="UpdateStatus">
 
     <table width="100%" height="100%" border="0" cellspacing="0"
            cellpadding="0">
@@ -171,24 +171,24 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                    onclick="return getComment();"> <% } %> <input type="button"
                                                                                   class="smallButton"
                                                                                   value="<fmt:message key="oscarMDS.index.btnForward"/>"
-                                                                                  onClick="popupStart(397, 700, '<%=request.getContextPath()%>/oscarMDS/ViewSelectProvider.do', 'providerselect')">
+                                                                                  onClick="popupStart(397, 700, '<%=request.getContextPath()%>/oscarMDS/ViewSelectProvider', 'providerselect')">
                             <input type="button" value=" <fmt:message key="global.btnClose"/> "
                                    onClick="window.close()"> <input type="button"
                                                                     value=" <fmt:message key="global.btnPrint"/> "
                                                                     onClick="window.print()"> <% if (demoNo != null && !demoNo.equals("") && !demoNo.equalsIgnoreCase("null")) { %>
                             <input type="button" value="Msg"
-                                   onclick="popup(700,960,'${pageContext.request.contextPath}/messenger/SendDemoMessage.do?demographic_no=<%=Encode.forJavaScriptAttribute(demoNo)%>','msg')"/>
+                                   onclick="popup(700,960,'${pageContext.request.contextPath}/messenger/SendDemoMessage?demographic_no=<%=Encode.forJavaScriptAttribute(demoNo)%>','msg')"/>
                             <input type="button" value="Tickler"
-                                   onclick="popup(450,600,'${pageContext.request.contextPath}/tickler/ForwardDemographicTickler.do?demographic_no=<%=Encode.forJavaScriptAttribute(demoNo)%>','tickler')"/>
+                                   onclick="popup(450,600,'${pageContext.request.contextPath}/tickler/ForwardDemographicTickler?demographic_no=<%=Encode.forJavaScriptAttribute(demoNo)%>','tickler')"/>
                             <% } %> <% if (request.getParameter("searchProviderNo") == null) { // we were called from e-chart %>
                             <input type="button"
                                    value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
                                    onClick="window.close()"> <% } else { // we were called from lab module %>
                             <input type="button"
                                    value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
-                                   onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=MDS&segmentID=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("segmentID"))) %>&name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
+                                   onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=MDS&segmentID=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("segmentID"))) %>&name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
                             <% } %> &nbsp; <a
-                                href="javascript:popupStart(400,850,'${pageContext.request.contextPath}/demographic/DemographicApptHistory.do?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demoNo)) %>&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25','ApptHist')"
+                                href="javascript:popupStart(400,850,'${pageContext.request.contextPath}/demographic/DemographicApptHistory?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demoNo)) %>&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25','ApptHist')"
                                 style="font-size: 12px;" title="Click to see appointment history"><span
                                 class="Field2"><i>Next Appointment: <oscar:nextAppt
                                 demographicNo="<%=demoNo%>"/></i></span></a></td>
@@ -212,11 +212,11 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                             } else {
                                 if (request.getParameter("searchProviderNo") != null) { // null if we were called from e-chart
                             %><a
-                                    href="<%=request.getContextPath()%>/oscarMDS/ViewSegmentDisplay.do?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))) %>&searchProviderNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("searchProviderNo"))) %>&status=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("status"))) %>">v<%= i + 1 %>
+                                    href="<%=request.getContextPath()%>/oscarMDS/ViewSegmentDisplay?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))) %>&searchProviderNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("searchProviderNo"))) %>&status=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("status"))) %>">v<%= i + 1 %>
                             </a>&#160;<%
                             } else {
                             %><a
-                                    href="<%=request.getContextPath()%>/oscarMDS/ViewSegmentDisplay.do?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))) %>&status=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("status"))) %>">v<%= i + 1 %>
+                                    href="<%=request.getContextPath()%>/oscarMDS/ViewSegmentDisplay?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))) %>&status=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("status"))) %>">v<%= i + 1 %>
                             </a>&#160;<%
                                         }
                                     }
@@ -260,7 +260,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                                                     <a href="javascript:window.close()"> <% } else { // we were called from lab module %>
 
                                                                         <a
-                                                                                href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=MDS&segmentID=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("segmentID"))) %>&name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8) %>', 'searchPatientWindow')">
+                                                                                href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=MDS&segmentID=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("segmentID"))) %>&name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8) %>', 'searchPatientWindow')">
                                                                             <% } %> <%=Encode.forHtml(pd.getPatientName())%>
                                                                         </a></div>
                                                             </td>
@@ -628,7 +628,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                         class="<%=thisResult.resultStatus.startsWith("Corrected")?"CorrectedRes":AbnFlag.compareTo("HI")==0?"AbnormalRes":AbnFlag.compareTo("LO")==0?"HiLoRes":"NormalRes"%>">
                         <!--td valign="top" align="right"><%=thisResult.name %></td-->
                         <td valign="top" align="left"><a
-                                href="<%= request.getContextPath() %>/lab/CA/ON/ViewLabValues.do?testName=<%=Encode.forUriComponent(thisResult.name)%>&demo=<%= Encode.forUriComponent(demoNo) %>&labType=MDS"><%=Encode.forHtml(thisResult.name)%>
+                                href="<%= request.getContextPath() %>/lab/CA/ON/ViewLabValues?testName=<%=Encode.forUriComponent(thisResult.name)%>&demo=<%= Encode.forUriComponent(demoNo) %>&labType=MDS"><%=Encode.forHtml(thisResult.name)%>
                         </a></td>
                         <% if (thisResult.observationValue.equals("") && thisResult.notes != null) {
                             lineContinued = true;
@@ -742,7 +742,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                         class="<%=thisResult.resultStatus.startsWith("Corrected")?"CorrectedRes":AbnFlag.startsWith("HI", AbnFlag.indexOf("~") + 1)?"AbnormalRes":AbnFlag.startsWith("LO", AbnFlag.indexOf("~") + 1)?"HiLoRes":"NormalRes"%>">
                         <!--td valign="top" align="left"><%=thisResult.name %></td-->
                         <td valign="top" align="left"><a
-                                href="<%= request.getContextPath() %>/lab/CA/ON/ViewLabValues.do?testName=<%=Encode.forUriComponent(thisResult.name)%>&demo=<%= Encode.forUriComponent(demoNo) %>&labType=MDS"><%=Encode.forHtml(thisResult.name)%>
+                                href="<%= request.getContextPath() %>/lab/CA/ON/ViewLabValues?testName=<%=Encode.forUriComponent(thisResult.name)%>&demo=<%= Encode.forUriComponent(demoNo) %>&labType=MDS"><%=Encode.forHtml(thisResult.name)%>
                         </a></td>
                         <% if (thisResult.observationValue.equals("") && thisResult.notes != null) {
                             lineContinued = true;
@@ -821,22 +821,22 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                    onclick="getComment()"> <% } %> <input type="button"
                                                                           class="smallButton"
                                                                           value="<fmt:message key="oscarMDS.index.btnForward"/>"
-                                                                          onClick="popupStart(397, 700, '<%=request.getContextPath()%>/oscarMDS/ViewSelectProvider.do', 'providerselect')">
+                                                                          onClick="popupStart(397, 700, '<%=request.getContextPath()%>/oscarMDS/ViewSelectProvider', 'providerselect')">
                             <input type="button" value=" <fmt:message key="global.btnClose"/> "
                                    onClick="window.close()"> <input type="button"
                                                                     value=" <fmt:message key="global.btnPrint"/> "
                                                                     onClick="window.print()"> <% if (demoNo != null && !demoNo.equals("") && !demoNo.equalsIgnoreCase("null")) { %>
                             <input type="button" value="Msg"
-                                   onclick="popup(700,960,'<%=request.getContextPath()%>/messenger/SendDemoMessage.do?demographic_no=<%=Encode.forJavaScriptAttribute(demoNo)%>','msg')"/>
+                                   onclick="popup(700,960,'<%=request.getContextPath()%>/messenger/SendDemoMessage?demographic_no=<%=Encode.forJavaScriptAttribute(demoNo)%>','msg')"/>
                             <input type="button" value="Tickler"
-                                   onclick="popup(450,600,'<%=request.getContextPath()%>/tickler/ForwardDemographicTickler.do?demographic_no=<%=Encode.forJavaScriptAttribute(demoNo)%>','tickler')"/>
+                                   onclick="popup(450,600,'<%=request.getContextPath()%>/tickler/ForwardDemographicTickler?demographic_no=<%=Encode.forJavaScriptAttribute(demoNo)%>','tickler')"/>
                             <% } %> <% if (request.getParameter("searchProviderNo") == null) { // we were called from e-chart %>
                             <input type="button"
                                    value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
                                    onClick="window.close()"> <% } else { // we were called from lab module %>
                             <input type="button"
                                    value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
-                                   onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=MDS&segmentID=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("segmentID"))) %>&name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
+                                   onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=MDS&segmentID=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("segmentID"))) %>&name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
                             <% } %>
                         </td>
                         <td width="50%" valign="center" align="left"><span

@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -155,7 +155,7 @@
 
 <%} else {%>
 <div class="container">
-    <form name="acknowledgeForm" method="post" action="<%=request.getContextPath()%>/oscarMDS/UpdateStatus.do">
+    <form name="acknowledgeForm" method="post" action="<%=request.getContextPath()%>/oscarMDS/UpdateStatus">
 
         <table>
             <tr>
@@ -278,7 +278,7 @@
                                                                                      value=" <fmt:message key="global.btnPrint"/> "
                                                                                      onClick="window.print()">
                                 <input type="button" value="Plot" class="btn btn-primary DoNotPrint"
-                                       onclick="window.location = '<%= Encode.forJavaScript(request.getContextPath()) %>/lab/CA/ON/ViewLabValuesGraph.do?demographic_no=<%= Encode.forUriComponent(String.valueOf(demographicNo)) %>&labType=<%= Encode.forUriComponent(labType) %>&identifier=<%= Encode.forUriComponent(identifier) %>&testName=<%= Encode.forUriComponent(testName) %>';"/>
+                                       onclick="window.location = '<%= Encode.forJavaScript(request.getContextPath()) %>/lab/CA/ON/ViewLabValuesGraph?demographic_no=<%= Encode.forUriComponent(String.valueOf(demographicNo)) %>&labType=<%= Encode.forUriComponent(labType) %>&identifier=<%= Encode.forUriComponent(identifier) %>&testName=<%= Encode.forUriComponent(testName) %>';"/>
 
                             </td>
                         </tr>

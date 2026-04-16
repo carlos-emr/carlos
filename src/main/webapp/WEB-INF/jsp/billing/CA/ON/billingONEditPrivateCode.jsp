@@ -25,10 +25,10 @@
 --%>
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     }
 %>
-<%@ page errorPage="/errorpage.jsp" import="java.util.*,java.sql.*" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" import="java.util.*,java.sql.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
@@ -282,7 +282,7 @@
 
 
         <div class="card card-body bg-body-tertiary">
-            <form method="post" name="baseur0" action="/billing/CA/ON/ViewBillingONEditPrivateCode.do" class="d-flex flex-wrap align-items-center gap-2">
+            <form method="post" name="baseur0" action="/billing/CA/ON/ViewBillingONEditPrivateCode" class="d-flex flex-wrap align-items-center gap-2">
 
                 Select Code to edit:<br>
                 <select name="service_code" id="service_code" required>
@@ -321,7 +321,7 @@
         </div><!--select code to edit well-->
 
         <div class="card card-body bg-body-tertiary">
-            <form method="post" name="baseurl" action="/billing/CA/ON/ViewBillingONEditPrivateCode.do">
+            <form method="post" name="baseurl" action="/billing/CA/ON/ViewBillingONEditPrivateCode">
 
                 <div class="alert alert-<%=Encode.forHtmlAttribute(alert)%>">
                     <%=msg%>

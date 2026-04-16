@@ -30,7 +30,7 @@
 --%>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.pageUtil.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -60,7 +60,7 @@
         </ul>
     </div>
 <% } %>
-    <form action="${pageContext.request.contextPath}/encounter/oscarMeasurements/DeleteMeasurementStyleSheet.do" method="post">
+    <form action="${pageContext.request.contextPath}/encounter/oscarMeasurements/DeleteMeasurementStyleSheet" method="post">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
                 <td class="MainTableTopRowLeftColumn"><fmt:message key="encounter.Measurements.msgMeasurements"/></td>

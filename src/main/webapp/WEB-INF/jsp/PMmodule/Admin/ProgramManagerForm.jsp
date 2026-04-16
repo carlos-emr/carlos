@@ -48,41 +48,41 @@
         <table cellpadding="0" cellspacing="0" border="0">
             <tr>
                 <td <c:if test="${selectedTab == 'General'}">style="background-color: #555;"</c:if>>
-                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager.do?method=edit&amp;id=<c:out value="${requestScope.id}"/>">General</a>
+                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=<c:out value="${requestScope.id}"/>">General</a>
                 </td>
                 <td <c:if test="${selectedTab == 'Staff'}">style="background-color: #555;"</c:if>>
-                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager.do?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Staff">Staff</a>
+                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Staff">Staff</a>
                 </td>
                 <td <c:if test="${selectedTab == 'Function User'}">style="background-color: #555;"</c:if>>
-                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager.do?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Function%20User">Function User</a>
+                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Function%20User">Function User</a>
                 </td>
                 <td <c:if test="${selectedTab == 'Teams'}">style="background-color: #555;"</c:if>>
-                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager.do?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Teams">Teams</a>
+                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Teams">Teams</a>
                 </td>
                 <td <c:if test="${selectedTab == 'Clients'}">style="background-color: #555;"</c:if>>
-                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager.do?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Clients">Clients</a>
+                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Clients">Clients</a>
                 </td>
                 <td <c:if test="${selectedTab == 'vacancies' or selectedTab == 'vacancy_add'}">style="background-color: #555;"</c:if>>
-                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager.do?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=vacancies">Vacancies</a>
+                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=vacancies">Vacancies</a>
                 </td>
                 <td <c:if test="${selectedTab == 'Queue'}">style="background-color: #555;"</c:if>>
-                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager.do?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Queue">Queue</a>
+                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Queue">Queue</a>
                 </td>
                 <td <c:if test="${selectedTab == 'Access'}">style="background-color: #555;"</c:if>>
-                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager.do?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Access">Access</a>
+                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Access">Access</a>
                 </td>
                 <td <c:if test="${selectedTab == 'Client Status'}">style="background-color: #555;"</c:if>>
-                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager.do?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Client%20Status">Client Status</a>
+                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Client%20Status">Client Status</a>
                 </td>
                 <td <c:if test="${selectedTab == 'Service Restrictions'}">style="background-color: #555;"</c:if>>
-                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager.do?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Service%20Restrictions">Service Restrictions</a>
+                    <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=<c:out value="${requestScope.id}"/>&amp;view.tab=Service%20Restrictions">Service Restrictions</a>
                 </td>
             </tr>
         </table>
     </div>
 </c:if>
 
-<form name="programManagerForm" action="${pageContext.request.contextPath}/PMmodule/ProgramManager.do" method="post">
+<form name="programManagerForm" action="${pageContext.request.contextPath}/PMmodule/ProgramManager" method="post">
     <c:if test="${selectedTab != 'General'}">
         <input type="hidden" name="method" value="edit"/>
     </c:if>

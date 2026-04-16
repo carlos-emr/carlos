@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("${ pageContext.request.contextPath }/securityError.jsp?type=_edoc");%>
+    <%response.sendRedirect("${ pageContext.request.contextPath }/securityError?type=_edoc");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -279,13 +279,13 @@
             <fmt:message key="dms.addDocument.AddLink"/>
         </button>
         <button type="button" class="btn btn-secondary"
-                onclick="popup1(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml.do?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&mode=addHtml', 'addhtml')">
+                onclick="popup1(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&mode=addHtml', 'addhtml')">
             <fmt:message key="dms.addDocument.AddHTML"/>
         </button>
     </div>
 
     <div id="addDocDiv" class="collapse card card-body bg-body-tertiary mb-1" data-bs-parent="#addDocAccordion">
-        <form action="${pageContext.request.contextPath}/documentManager/addEditDocument.do" method="POST"
+        <form action="${pageContext.request.contextPath}/documentManager/addEditDocument" method="POST"
               enctype="multipart/form-data" class="forms" onsubmit="return submitUpload(this)">
 
             <div id="docAlertContainer"></div>
@@ -393,13 +393,13 @@
                        value="<fmt:message key='dms.addDocument.btnAdd'/>">
                 <input type="button" name="Button" class="btn btn-warning"
                        value="<fmt:message key='global.btnCancel'/>"
-                       onclick="window.location='<%= request.getContextPath() %>/documentManager/ViewDocumentReport.do?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>'">
+                       onclick="window.location='<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>'">
             </div>
         </form>
     </div>
 
     <div id="addLinkDiv" class="collapse card card-body bg-body-tertiary" data-bs-parent="#addDocAccordion">
-        <form action="${pageContext.request.contextPath}/documentManager/addLink.do" method="POST" class="forms"
+        <form action="${pageContext.request.contextPath}/documentManager/addLink" method="POST" class="forms"
               onsubmit="return submitUploadLink(this)">
 
             <div id="linkAlertContainer"></div>
@@ -494,7 +494,7 @@
             <div class="d-flex gap-2 mb-2">
                 <input class="btn btn-warning" type="button" name="Button"
                        value="<fmt:message key='global.btnCancel'/>"
-                       onclick="window.location='<%= request.getContextPath() %>/documentManager/ViewDocumentReport.do?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>'">
+                       onclick="window.location='<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>'">
             </div>
 
         </form>

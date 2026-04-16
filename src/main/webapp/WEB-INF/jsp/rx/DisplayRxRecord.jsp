@@ -53,7 +53,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -143,7 +143,7 @@
     <script>
 
         function updateForm() {
-            popup(250, 500, '<%=request.getContextPath()%>/rx/ViewUpdateForm.do?id=<%=drugId%>', '<%=drugId%>');
+            popup(250, 500, '<%=request.getContextPath()%>/rx/ViewUpdateForm?id=<%=drugId%>', '<%=drugId%>');
         }
 
         function popup(height, width, url, windowName) {

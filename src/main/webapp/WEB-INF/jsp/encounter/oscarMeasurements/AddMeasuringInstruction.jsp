@@ -30,7 +30,7 @@
 --%>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -66,7 +66,7 @@
         </ul>
     </div>
 <% } %>
-    <form action="${pageContext.request.contextPath}/encounter/oscarMeasurements/AddMeasuringInstruction.do" method="post">
+    <form action="${pageContext.request.contextPath}/encounter/oscarMeasurements/AddMeasuringInstruction" method="post">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
                 <td class="MainTableTopRowLeftColumn"><fmt:message key="encounter.Measurements.msgMeasurements"/></td>

@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -698,7 +698,7 @@
           onload="window.focus();window.resizeTo(680,760); initialize();">
     <!--  -->
 
-    <form action="${pageContext.request.contextPath}/form/SubmitForm.do" method="post">
+    <form action="${pageContext.request.contextPath}/form/SubmitForm" method="post">
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/encounter/oscarMeasurements/styles/measurementStyle.css">
         <link rel="stylesheet" type="text/css" media="print" href="form/print.css"/>

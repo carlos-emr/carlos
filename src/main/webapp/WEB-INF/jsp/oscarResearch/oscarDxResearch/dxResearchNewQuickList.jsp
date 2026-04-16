@@ -33,7 +33,7 @@
 
     Purpose:
     Popup form that accepts a name for a new quick list. On submit, posts to
-    dxResearchLoadQuickListItems.do which creates the list and opens the
+    dxResearchLoadQuickListItems which creates the list and opens the
     edit view (dxResearchEditQuickList.jsp).
 
     Opened from dxResearchCustomization.jsp "Add New Quick List" button.
@@ -70,7 +70,7 @@
             </h4>
         </div>
 
-        <form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchLoadQuickListItems.do" method="post">
+        <form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchLoadQuickListItems" method="post">
             <input type="hidden" name="forward" value="error"/>
 
             <div class="mt-3">

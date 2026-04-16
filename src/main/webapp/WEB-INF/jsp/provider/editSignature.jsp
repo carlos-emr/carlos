@@ -69,7 +69,7 @@
         <iframe id="hiddenFrame" src="javascript:void(0)" style="display: none"></iframe>
         <script>
             function toggleSig(n) {
-                // Function disabled - infirm.do action no longer exists
+                // Function disabled - infirm action no longer exists
             }
         </script>
 
@@ -92,7 +92,7 @@
         </tr>
         <tr>
             <td class="MainTableLeftColumn">&nbsp;</td>
-            <td class="MainTableRightColumn"><form action="${pageContext.request.contextPath}/EnterSignature.do" method="post">
+            <td class="MainTableRightColumn"><form action="${pageContext.request.contextPath}/EnterSignature" method="post">
                 <%
                     if (sig.hasSignature(curUser_no)) {
                 %>

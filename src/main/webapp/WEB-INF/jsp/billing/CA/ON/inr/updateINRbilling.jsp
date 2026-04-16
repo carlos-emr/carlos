@@ -103,7 +103,7 @@
             f1 = document.serviceform.xml_dig_search1.value;
             // f2 = escape(document.serviceform.elements["File2Data"].value);
             // fname = escape(document.Compose.elements["FName"].value);
-            awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch.do?name=' + f0 + '&search=' + f1, 600, 600, 1);
+            awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch?name=' + f0 + '&search=' + f1, 600, 600, 1);
             awnd.focus();
         }
 
@@ -115,7 +115,7 @@
             // f1 = document.serviceform.xml_dig_search1.value;
             // f2 = escape(document.serviceform.elements["File2Data"].value);
             // fname = escape(document.Compose.elements["FName"].value);
-            awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCodeSearch.do?name=' + t0 + '&name1=' + "" + '&name2=' + "" + '&search=', 600, 600, 1);
+            awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCodeSearch?name=' + t0 + '&name1=' + "" + '&name2=' + "" + '&search=', 600, 600, 1);
             awnd.focus();
         }
 
@@ -134,7 +134,7 @@
 
 <table BORDER="0" CELLPADDING="1" CELLSPACING="0" WIDTH="100%"
        BGCOLOR="#C4D9E7">
-    <FORM NAME="serviceform" ACTION="DbUpdateINRbilling.do" METHOD="POST">
+    <FORM NAME="serviceform" ACTION="DbUpdateINRbilling" METHOD="POST">
         <tr valign="top">
             <td rowspan="2" ALIGN="right" valign="middle">
                 <div align="center">

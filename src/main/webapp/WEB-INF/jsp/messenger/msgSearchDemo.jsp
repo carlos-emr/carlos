@@ -81,7 +81,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_msg");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -89,7 +89,7 @@
     }
 %>
 
-<%@ page import="java.lang.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.lang.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%
@@ -154,7 +154,7 @@
 <table BORDER="0" CELLPADDING="0" CELLSPACING="2" WIDTH="100%"
        bgcolor="#CCCCFF">
     <form method="post" name="titlesearch"
-          action="<%= request.getContextPath() %>/demographic/DemographicSearch.do"
+          action="<%= request.getContextPath() %>/demographic/DemographicSearch"
           onsubmit="return checkTypeIn()">
         <tr>
             <td colspan="6" class="RowTop"><b><fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/></b></td>

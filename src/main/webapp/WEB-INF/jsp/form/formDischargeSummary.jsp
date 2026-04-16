@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -108,7 +108,7 @@
 
         function reset() {
             document.forms[0].target = "apptProviderSearch";
-            document.forms[0].action = "/<%=project_home%>/form/formname.do";
+            document.forms[0].action = "/<%=project_home%>/form/formname";
         }
 
         function onPrint() {
@@ -129,7 +129,7 @@
             document.forms[0].submit.value = "save";
             var ret = checkAllDates();
             if (ret) {
-                document.forms[0].action = "/<%=project_home%>/form/formname.do";
+                document.forms[0].action = "/<%=project_home%>/form/formname";
                 ret = confirm("Are you sure you want to save this form and see the print preview?");
             }
             return ret;
@@ -318,7 +318,7 @@
     <body bgproperties="fixed" topmargin="0" leftmargin="1" rightmargin="1">
     <c:set var="ctx" value="${pageContext.request.contextPath}"
            scope="request"/>
-    <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post">
     <input type="hidden" name="demographic_no"
                value="<%= props.getProperty("demographic_no", "0") %>"/>
         <input type="hidden" name="formCreated"
@@ -356,9 +356,9 @@
                 %> <% if (formId > 0) { %> <input type="submit"
                                                   value="Print Preview" onclick="javascript:return onPrintPreview();"/>
                     <!--
-            <input type="button" value="Print Preview" onclick="location.href='<%= appPath %>/form/formDischargeSummaryPrint.do?demographic_no=<%=demoNo%>&formId=<%=formId%>&user=<%=provNo%>' " />
+            <input type="button" value="Print Preview" onclick="location.href='<%= appPath %>/form/formDischargeSummaryPrint?demographic_no=<%=demoNo%>&formId=<%=formId%>&user=<%=provNo%>' " />
             
-            <a href='<%=appPath %>/form/formDischargeSummaryPrint.do' onClick="window.open(this.href,'Discharge Summary Form Print Preview','width=800,height=600,toolbar=no,location=no,directories=no,status=no,menubar=yes,scrollbars=yes,copyhistory=no,resizable=yes');return false;">Print Preview</a> 
+            <a href='<%=appPath %>/form/formDischargeSummaryPrint' onClick="window.open(this.href,'Discharge Summary Form Print Preview','width=800,height=600,toolbar=no,location=no,directories=no,status=no,menubar=yes,scrollbars=yes,copyhistory=no,resizable=yes');return false;">Print Preview</a> 
             --> <% } %>
                 </td>
             </tr>

@@ -38,7 +38,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing,_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -67,7 +67,7 @@
             function deletePrivateCode(code) {
                 var form = document.createElement('form');
                 form.method = 'post';
-                form.action = '<%= request.getContextPath() %>/billing/CA/BC/DeletePrivateCode.do';
+                form.action = '<%= request.getContextPath() %>/billing/CA/BC/DeletePrivateCode';
                 var input = document.createElement('input');
                 input.type = 'hidden';
                 input.name = 'code';
@@ -98,9 +98,9 @@
         </tr>
         <tr>
             <td class="MainTableLeftColumn" valign="top">&nbsp; <a
-                    href="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode.do?addNew=true">Add Code</a></td>
+                    href="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode?addNew=true">Add Code</a></td>
             <td class="MainTableRightColumn">
-                <form action="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode.do" method="get">
+                <form action="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode" method="get">
                     <%if (request.getAttribute("returnMessage") != null) { %>
                     <table>
                         <tr>
@@ -139,7 +139,7 @@
                 <table border=1 width="80%">
                     <tr>
                         <th>Service Code<a
-                                href="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode.do?sortOrder=<%=newOrder%>"><%=arrow%>
+                                href="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode?sortOrder=<%=newOrder%>"><%=arrow%>
                         </a></th>
                         <th>Description</th>
                         <th>Price</th>
@@ -157,7 +157,7 @@
                         <td><%=Encode.forHtml(bcd.getValue())%>
                         </td>
                         <td><a
-                                href="<%= request.getContextPath() %>/billing/CA/BC/billingEditCode.do?codeId=<%=Encode.forUriComponent(String.valueOf(bcd.getBillingserviceNo()))%>&code=<%=Encode.forUriComponent(bcd.getServiceCode())%>&desc=<%=Encode.forUriComponent(bcd.getDescription())%>&value=<%=Encode.forUriComponent(bcd.getValue())%>">Edit</a>
+                                href="<%= request.getContextPath() %>/billing/CA/BC/billingEditCode?codeId=<%=Encode.forUriComponent(String.valueOf(bcd.getBillingserviceNo()))%>&code=<%=Encode.forUriComponent(bcd.getServiceCode())%>&desc=<%=Encode.forUriComponent(bcd.getDescription())%>&value=<%=Encode.forUriComponent(bcd.getValue())%>">Edit</a>
                             <br>
                             <a href="javascript:void(0);" onclick="deletePrivateCode('<%=Encode.forJavaScript(String.valueOf(bcd.getBillingserviceNo()))%>');">Delete</a></td>
                     </tr>

@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -236,7 +236,7 @@
 
         function reset() {
             document.forms[0].target = "";
-            document.forms[0].action = "/<%=project_home%>/form/formname.do";
+            document.forms[0].action = "/<%=project_home%>/form/formname";
         }
 
         function onGraph(url, name) {
@@ -253,7 +253,7 @@
 
         function onPrintAll() {
 
-            document.forms["frmP1"].action = "<%= request.getContextPath() %>/form/formname.do?__title=Rourke+Baby+Report&__cfgfile=rourke2009printCfgPg1&__cfgfile=rourke2009printCfgPg2&__cfgfile=rourke2009printCfgPg3&__cfgfile=rourke2009printCfgPg4&__template=rourke2009";
+            document.forms["frmP1"].action = "<%= request.getContextPath() %>/form/formname?__title=Rourke+Baby+Report&__cfgfile=rourke2009printCfgPg1&__cfgfile=rourke2009printCfgPg2&__cfgfile=rourke2009printCfgPg3&__cfgfile=rourke2009printCfgPg4&__template=rourke2009";
             document.forms["frmP1"].action += "&submit=printAll";
             document.forms["frmP1"].target = "_blank";
 
@@ -706,7 +706,7 @@
     </script>
 </head>
 <body onload="init()">
-<form id="frmP1" name="frmP1" action="${pageContext.request.contextPath}/form/formname.do" method="post">
+<form id="frmP1" name="frmP1" action="${pageContext.request.contextPath}/form/formname" method="post">
     <table>
         <tr>
             <td id="cp1">

@@ -51,7 +51,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -216,7 +216,7 @@
                 <span style="color:red;"><%=request.getAttribute("message") %></span>
                 <%} %>
 
-                <form action="${pageContext.request.contextPath}/rx/RxReason.do" method="post" id="rxReasonForm">
+                <form action="${pageContext.request.contextPath}/rx/RxReason" method="post" id="rxReasonForm">
 
                     <fieldset>
                         <input type="hidden" name="method" value="addDrugReason"/>
@@ -311,7 +311,7 @@
                                         <td colspan="7">
                                             <div>
 
-                                                <form action="${pageContext.request.contextPath}/rx/RxReason.do" method="post">
+                                                <form action="${pageContext.request.contextPath}/rx/RxReason" method="post">
                                                     <fieldset>
                                                         <legend>Archive Coding
                                                             System: <%=drugReason.getCodingSystem() %>

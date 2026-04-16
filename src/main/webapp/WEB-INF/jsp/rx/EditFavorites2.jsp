@@ -137,7 +137,7 @@
                     params.append('special', special);
                     var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                     if (csrfEl) params.append('CSRF-TOKEN', csrfEl.value);
-                    var url = "<c:out value="${ctx}"/>" + "/rx/updateFavorite2.do?method=ajaxEditFavorite";
+                    var url = "<c:out value="${ctx}"/>" + "/rx/updateFavorite2?method=ajaxEditFavorite";
 
                     var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                     var csrfToken = csrfEl ? csrfEl.value : '';
@@ -184,7 +184,7 @@
 
     </head>
     <body>
-    <form action="${pageContext.request.contextPath}/rx/updateFavorite2.do" method="post">
+    <form action="${pageContext.request.contextPath}/rx/updateFavorite2" method="post">
         <input type="hidden" name="favoriteId" id="favoriteId"/>
         <input type="hidden" name="favoriteName" id="favoriteName"/>
         <input type="hidden" name="customName" id="customName"/>
@@ -201,7 +201,7 @@
         <input type="hidden" name="customInstr" id="customInstr"/>
     </form>
 
-    <form name="RxDeleteFavoriteForm" action="${pageContext.request.contextPath}/rx/deleteFavorite2.do" method="post">
+    <form name="RxDeleteFavoriteForm" action="${pageContext.request.contextPath}/rx/deleteFavorite2" method="post">
         <input type="hidden" name="favoriteId" id="favoriteId"/>
     </form>
 
@@ -219,7 +219,7 @@
                 <table style="width:100%; height:100%">
                     <tr>
                         <td style="width:10%; vertical-align:top">
-                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug.do"> <fmt:message key="SearchDrug.title"/></a> > <b><fmt:message key="StaticScript.title.EditFavorites"/></b></div>
+                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug"> <fmt:message key="SearchDrug.title"/></a> > <b><fmt:message key="StaticScript.title.EditFavorites"/></b></div>
                         </td>
                     </tr>
 
@@ -231,7 +231,7 @@
                             <div class=DivContentPadding><input type=button
                                                                 value="Back to Search For Drug"
                                                                 class="ControlPushButton"
-                                                                onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug.do';"/>
+                                                                onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug';"/>
                             </div>
                         </td>
                     </tr>
@@ -407,7 +407,7 @@
                             <div class=DivContentPadding><input type=button
                                                                 value="Back to Search For Drug"
                                                                 class="ControlPushButton"
-                                                                onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug.do';"/>
+                                                                onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug';"/>
                             </div>
                         </td>
                     </tr>

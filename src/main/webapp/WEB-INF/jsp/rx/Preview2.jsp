@@ -78,7 +78,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -307,7 +307,7 @@
             showPatientDOB = true;
         }
     %>
-    <form action="${pageContext.request.contextPath}/form/formname.do" method="post" id="preview2Form">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post" id="preview2Form">
         <input type="hidden" name="demographic_no" value="<%=bean.getDemographicNo()%>"/>
         <table>
             <tr>
@@ -558,7 +558,7 @@
                                     } else if (!"true".equalsIgnoreCase(rePrint) && hasRxStampSignature) {
                                         // Only apply the stamp on new prescriptions; reprints use the stored digital signature only.
                                         // Note: this displays the live stamp file, not an immutable DigitalSignature copy (unlike consultations).
-                                        startimageUrl = request.getContextPath() + "/provider/providerSignatureImage.do";
+                                        startimageUrl = request.getContextPath() + "/provider/providerSignatureImage";
                                     }
                                 %>
 

@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -116,7 +116,7 @@
         }
 
         function removeLink(docType, docId, providerNo, e) {
-            var url = contextpath + "/documentManager/ManageDocument.do";
+            var url = contextpath + "/documentManager/ManageDocument";
             var data = 'method=removeLinkFromDocument&docType=' + docType + '&docId=' + docId + '&providerNo=' + providerNo;
             CarlosAjax.request(url, {
                 method: 'post', parameters: data, onSuccess: function (transport) {
@@ -128,7 +128,7 @@
         }
 
         function handleDocSave(docid, action) {
-            var url = contextpath + "/documentManager/inboxManage.do";
+            var url = contextpath + "/documentManager/inboxManage";
             var data = 'method=isDocumentLinkedToDemographic&docId=' + docid;
             CarlosAjax.request(url, {
                 method: 'post', parameters: data, onSuccess: function (transport) {
@@ -141,7 +141,7 @@
                             if (action == 'addTickler') {
                                 demoid = json.demoId;
                                 if (demoid != null && demoid.length > 0)
-                                    popupStart(450, 600, contextpath + '/tickler/ForwardDemographicTickler.do?docType=DOC&docId=' + docid + '&demographic_no=' + demoid, 'tickler')
+                                    popupStart(450, 600, contextpath + '/tickler/ForwardDemographicTickler?docType=DOC&docId=' + docid + '&demographic_no=' + demoid, 'tickler')
                             }
                         } else {
                             alert("Make sure demographic is linked and document changes saved!");
@@ -157,7 +157,7 @@
 
             jQuery.ajax({
                 type: "POST",
-                url: contextpath + "/oscarMDS/ReportReassign.do",
+                url: contextpath + "/oscarMDS/ReportReassign",
                 data: query,
                 success: function (data) {
                     refreshView();
@@ -250,7 +250,7 @@
                 width = getWidth() - 650;
             }
 
-            var url = cp + '/documentManager/ManageDocument.do?method=display&doc_no=' + docid + '&rand=' + Math.random() + '#view=fitV&page=1';
+            var url = cp + '/documentManager/ManageDocument?method=display&doc_no=' + docid + '&rand=' + Math.random() + '#view=fitV&page=1';
 
             var pdfContainer = document.getElementById('docDispPDF_' + docid);
             while (pdfContainer.firstChild) { pdfContainer.removeChild(pdfContainer.firstChild); }
@@ -270,12 +270,12 @@
             if (confirm("!! This is a destructive action that can cause loss of document data !! \n Click OK to delete the first page of this document, or Cancel to abort.")) {
                 var displayDocumentAs = $('displayDocumentAs_' + id).value;
 
-                CarlosAjax.request(contextpath + "/documentManager/SplitDocument.do", {
+                CarlosAjax.request(contextpath + "/documentManager/SplitDocument", {
                     method: 'post', parameters: "method=removeFirstPage&document=" + id, onSuccess: function (data) {
                         if (displayDocumentAs == "PDF") {
                             showPDF(id, contextpath);
                         } else {
-                            jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument.do?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
+                            jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
                         }
                         var numPages = parseInt(jQuery("#numPages_" + id).text()) - 1;
                         jQuery("#numPages_" + id).text("" + numPages);
@@ -296,13 +296,13 @@
             jQuery("#rotate180btn_" + id).attr('disabled', 'disabled');
             var displayDocumentAs = $('displayDocumentAs_' + id).value;
 
-            CarlosAjax.request(contextpath + "/documentManager/SplitDocument.do", {
+            CarlosAjax.request(contextpath + "/documentManager/SplitDocument", {
                 method: 'post', parameters: "method=rotate180&document=" + id, onSuccess: function (data) {
                     jQuery("#rotate180btn_" + id).removeAttr('disabled');
                     if (displayDocumentAs == "PDF") {
                         showPDF(id, contextpath);
                     } else {
-                        jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument.do?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
+                        jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
                     }
                 }
             });
@@ -312,20 +312,20 @@
             jQuery("#rotate90btn_" + id).attr('disabled', 'disabled');
             var displayDocumentAs = $('displayDocumentAs_' + id).value;
 
-            CarlosAjax.request(contextpath + "/documentManager/SplitDocument.do", {
+            CarlosAjax.request(contextpath + "/documentManager/SplitDocument", {
                 method: 'post', parameters: "method=rotate90&document=" + id, onSuccess: function (data) {
                     jQuery("#rotate90btn_" + id).removeAttr('disabled');
                     if (displayDocumentAs == "PDF") {
                         showPDF(id, contextpath);
                     } else {
-                        jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument.do?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
+                        jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
                     }
                 }
             });
         }
 
         function split(id, demoName) {
-            var loc = "<%= request.getContextPath()%>/oscarMDS/ViewSplit.do?document=" + encodeURIComponent(id) + "&queueID=" + encodeURIComponent(queueID) + "&demoName=" + encodeURIComponent(demoName);
+            var loc = "<%= request.getContextPath()%>/oscarMDS/ViewSplit?document=" + encodeURIComponent(id) + "&queueID=" + encodeURIComponent(queueID) + "&demoName=" + encodeURIComponent(demoName);
             popupStart(1400, 1400, loc, "Splitter");
         }
 
@@ -627,7 +627,7 @@
             } else {
                 if (confirm('Send to Most Responsible Provider?')) {
                     var type = checkType(doclabid);
-                    var url = contextpath + "/oscarMDS/SendMRP.do";
+                    var url = contextpath + "/oscarMDS/SendMRP";
                     var data = 'demoId=' + demoId + '&docLabType=' + type + '&docLabId=' + doclabid;
                     CarlosAjax.request(url, {
                         method: 'post', parameters: data, onSuccess: function (transport) {
@@ -717,7 +717,7 @@
                 b = true;
             }
             if (b) {
-                var url = '<%=request.getContextPath()%>/messenger/SendDemoMessage.do?' + 'demographic_no=' + encodeURIComponent(dn);
+                var url = '<%=request.getContextPath()%>/messenger/SendDemoMessage?' + 'demographic_no=' + encodeURIComponent(dn);
                 popup(width, height, url, 'msg');
             }
         }
@@ -728,7 +728,7 @@
             if (dn == -1 || saved == 'false') {
                 alert('Please link document with a patient');
             } else {
-                var url = "<%=request.getContextPath()%>/tickler/ForwardDemographicTickler.do?docType=DOC&demographic_no=" + encodeURIComponent(dn) + "&docId=" + encodeURIComponent(docid);
+                var url = "<%=request.getContextPath()%>/tickler/ForwardDemographicTickler?docType=DOC&demographic_no=" + encodeURIComponent(dn) + "&docId=" + encodeURIComponent(docid);
                 popup(width, height, url, 'Tickler');
             }
         }
@@ -792,7 +792,7 @@
                 }
             }
             if (aBoxIsChecked) {
-                document.reassignForm.action = '<%=request.getContextPath()%>/oscarMDS/FileLabs.do';
+                document.reassignForm.action = '<%=request.getContextPath()%>/oscarMDS/FileLabs';
                 document.reassignForm.submit();
             }
         }
@@ -911,11 +911,11 @@
             //alert(div);
             var url = '';
             if (type == 'DOC')
-                url = "<%= request.getContextPath() %>/documentManager/ViewShowDocument.do";
+                url = "<%= request.getContextPath() %>/documentManager/ViewShowDocument";
             else if (type == 'MDS')
                 url = "";
             else if (type == 'HL7')
-                url = "<%= request.getContextPath() %>/lab/CA/ALL/ViewLabDisplayAjax.do";
+                url = "<%= request.getContextPath() %>/lab/CA/ALL/ViewLabDisplayAjax";
             else if (type == 'CML')
                 url = "";
             else
@@ -1564,7 +1564,7 @@
             if (pn && pn != null) {
                 return pn;
             } else {
-                var url = contextpath + "/documentManager/ManageDocument.do";
+                var url = contextpath + "/documentManager/ManageDocument";
                 var data = 'method=getDemoNameAjax&demo_no=' + patientId;
                 //console.log('in getp '+patientId);
                 CarlosAjax.request(url, {
@@ -1692,7 +1692,7 @@
         }
 
         function popupConsultation(segmentId) {
-            var page = contextpath + '/encounter/ViewRequest.do?segmentId=' + segmentId;
+            var page = contextpath + '/encounter/ViewRequest?segmentId=' + segmentId;
             var windowprops = "height=960,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
             var popup = window.open(page, msgConsReq, windowprops);
             if (popup != null) {
@@ -1723,7 +1723,7 @@
                 }
             }
             if (aBoxIsChecked) {
-                popupStart(397, 700, '<%= request.getContextPath() %>/oscarMDS/ViewSelectProvider.do', 'providerselect');
+                popupStart(397, 700, '<%= request.getContextPath() %>/oscarMDS/ViewSelectProvider', 'providerselect');
             } else {
                 alert(msgSelectOneLab);
             }
@@ -2020,7 +2020,7 @@
         }
 
         function createPatientDocLabEle(patientId, doclabid) {
-            var url = contextpath + "/documentManager/ManageDocument.do";
+            var url = contextpath + "/documentManager/ManageDocument";
             var data = 'method=getDemoNameAjax&demo_no=' + patientId;
             //console.log('in cre '+patientId);
             CarlosAjax.request(url, {
@@ -2102,7 +2102,7 @@
 
         function updateDocStatusInQueue(docid) {//change status of queue document link row to I=inactive
             //console.log('in updateDocStatusInQueue, docid '+docid);
-            var url = "<%=request.getContextPath()%>/documentManager/inboxManage.do", data = "docid=" + docid + "&method=updateDocStatusInQueue";
+            var url = "<%=request.getContextPath()%>/documentManager/inboxManage", data = "docid=" + docid + "&method=updateDocStatusInQueue";
             CarlosAjax.request(url, {
                 method: 'post', parameters: data, onSuccess: function (transport) {
                 }
@@ -2112,7 +2112,7 @@
         }
 
         function updateDocument(eleId, isNext) {//save doc info
-            var url = "<%=request.getContextPath()%>/documentManager/ManageDocument.do", data = new URLSearchParams(new FormData(document.getElementById(eleId))).toString();
+            var url = "<%=request.getContextPath()%>/documentManager/ManageDocument", data = new URLSearchParams(new FormData(document.getElementById(eleId))).toString();
             CarlosAjax.request(url, {
                 method: 'post', parameters: data, onSuccess: function (transport) {
                     var json = JSON.parse(transport.responseText);
@@ -2171,7 +2171,7 @@
                     if (demoId == '-1' || saved == 'false') {
                         alert('Document is not assigned and saved to a patient,please file it');
                     } else {
-                        var url = contextpath + "/oscarMDS/UpdateStatus.do";
+                        var url = contextpath + "/oscarMDS/UpdateStatus";
                         var data = new URLSearchParams(new FormData(document.getElementById(formid))).toString();
 
                         CarlosAjax.request(url, {
@@ -2210,7 +2210,7 @@
                     if (isFile) {
                         var type = 'DOC';
                         if (type) {
-                            var url = '<%=request.getContextPath()%>/oscarMDS/FileLabs.do';
+                            var url = '<%=request.getContextPath()%>/oscarMDS/FileLabs';
                             var data = 'method=fileLabAjax&flaggedLabId=' + docId + '&labType=' + type;
                             CarlosAjax.request(url, {
                                 method: 'post', parameters: data, onSuccess: function (transport) {
@@ -2232,7 +2232,7 @@
 
                     var type = 'DOC';
                     if (type) {
-                        var url = '<%=request.getContextPath()%>/oscarMDS/FileLabs.do';
+                        var url = '<%=request.getContextPath()%>/oscarMDS/FileLabs';
                         var data = 'method=fileLabAjax&flaggedLabId=' + docId + '&labType=' + type;
                         CarlosAjax.request(url, {
                             method: 'post', parameters: data, onSuccess: function (transport) {
@@ -2267,7 +2267,7 @@
             if (labs.lastIndexOf(",") == labs.length - 1) {
                 labs = labs.substring(0, labs.length - 1);
             }
-            var url = '<%=request.getContextPath()%>/documentManager/inboxManage.do?';
+            var url = '<%=request.getContextPath()%>/documentManager/inboxManage?';
             var data = 'method=previewPatientDocLab&demog=' + pid + '&docs=' + docs + '&labs=' + labs + '&providerNo=' + providerNo + '&searchProviderNo=' + searchProviderNo + '&ackStatus=' + ackStatus;
             url = url + data;
             var windowprops = "height=800,width=800,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=600,screenY=200,top=0,left=0";
@@ -2279,7 +2279,7 @@
         function showPageImg(docid, pn, cp) {
             if (docid && pn && cp) {
                 var e = $('docImg_' + docid);
-                var url = cp + '/documentManager/ManageDocument.do?method=viewDocPage&doc_no=' + encodeURIComponent(docid) + '&curPage=' + encodeURIComponent(pn);
+                var url = cp + '/documentManager/ManageDocument?method=viewDocPage&doc_no=' + encodeURIComponent(docid) + '&curPage=' + encodeURIComponent(pn);
                 e.setAttribute('src', url);
             }
         }

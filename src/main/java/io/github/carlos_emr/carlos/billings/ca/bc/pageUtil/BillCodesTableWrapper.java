@@ -47,7 +47,7 @@ public class BillCodesTableWrapper
     public String getBillingserviceNo() {
         BillingService bcd = (BillingService) this.getCurrentRowObject();
         String code = String.valueOf(bcd.getBillingserviceNo());
-        String links = "<a href=\"billingEditCode.do?codeId=" + Encode.forHtmlAttribute(code)
+        String links = "<a href=\"billingEditCode?codeId=" + Encode.forHtmlAttribute(code)
                 + "&amp;code=" + Encode.forHtmlAttribute(Encode.forUriComponent(bcd.getServiceCode()))
                 + "&amp;desc=" + Encode.forHtmlAttribute(Encode.forUriComponent(bcd.getDescription()))
                 + "&amp;value=" + Encode.forHtmlAttribute(Encode.forUriComponent(bcd.getValue()))

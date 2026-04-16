@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -124,7 +124,7 @@
             <td class="MainTableLeftColumn" valign="top">&nbsp;
                 <%if (IsPropertiesOn.isCaisiEnable()) { %>
 
-                <a href="<%=request.getContextPath()%>/PMmodule/ClientManager.do?id=<%= Encode.forUriComponent(creatorDemo) %>">Back to PMM </a>
+                <a href="<%=request.getContextPath()%>/PMmodule/ClientManager?id=<%= Encode.forUriComponent(creatorDemo) %>">Back to PMM </a>
 
                 <%} %>
 
@@ -132,7 +132,7 @@
             <td valign="top" class="MainTableRightColumn">
 
                 <form id="ADDAPPT" method="post"
-                      action="<%= request.getContextPath() %>/appointment/appointmentcontrol.do">
+                      action="<%= request.getContextPath() %>/appointment/appointmentcontrol">
                     <div>Name: <input type="text" name="keyword" size="25" value=""/>
 
                         <input type="submit" name="Submit" value="Search"/> <input
@@ -147,7 +147,7 @@
                         <input
                                 type="hidden" name="search_mode" value="<%= Encode.forHtmlAttribute(searchMode) %>"/> <input
                                 type="hidden" name="originalpage"
-                                value="<%= request.getContextPath() %>/demographic/AddRelation.do"/> <input
+                                value="<%= request.getContextPath() %>/demographic/AddRelation"/> <input
                                 type="hidden" name="limit1" value="0"/> <input type="hidden"
                                                                                name="limit2" value="5"/> <input
                                 type="hidden" name="displaymode"
@@ -182,7 +182,7 @@
                     String name = request.getParameter("name");
                     String origDemo = request.getParameter("remarks");
                     if (demoNo != null) {
-                %> <form action="${pageContext.request.contextPath}/demographic/AddRelation.do" method="post">
+                %> <form action="${pageContext.request.contextPath}/demographic/AddRelation" method="post">
                 <input type="hidden" name="origDemo" value="<%= Encode.forHtmlAttribute(origDemo) %>"/>
                 <input type="hidden" name="linkingDemo" value="<%= Encode.forHtmlAttribute(demoNo) %>"/>
 
@@ -243,7 +243,7 @@
 				<td><%=Encode.forHtmlContent(returnYesIf1(h.get("sub_decision_maker")))%></td>
 				<td><%=Encode.forHtmlContent(h.get("notes"))%></td>
 				<td>
-					<form method="post" action="<%=request.getContextPath()%>/demographic/DeleteRelation.do" style="display:inline;">
+					<form method="post" action="<%=request.getContextPath()%>/demographic/DeleteRelation" style="display:inline;">
 						<input type="hidden" name="id" value="<%=h.get("id")%>"/>
 						<input type="hidden" name="origDemo" value="<%= Encode.forHtmlAttribute(creatorDemo) %>"/>
 						<a href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this relationship?')){this.closest('form').submit();}">del</a>
@@ -257,7 +257,7 @@
 
                 <oscar:oscarPropertiesCheck property="TORONTO_RFQ" value="yes">
                     <br/>
-                    <form action="<%=request.getContextPath() %>/demographic/AddRelation.do">
+                    <form action="<%=request.getContextPath() %>/demographic/AddRelation">
                         <input type="hidden" name="origDemo" value="<%= Encode.forHtmlAttribute(creatorDemo) %>"/>
                         <input type="submit" name="pmmClient" value="Finished"/>
                     </form>

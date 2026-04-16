@@ -20,7 +20,7 @@ function goDOC() {
 
 
 function goOMD() {
-    var docURL = "../common/OntarioMDRedirect.do?keyword=eCPS&params=" + document.RxSearchDrugForm.searchString.value;
+    var docURL = "../common/OntarioMDRedirect?keyword=eCPS&params=" + document.RxSearchDrugForm.searchString.value;
     popupDrugOfChoice(743, 817, docURL);
 }
 
@@ -44,7 +44,7 @@ function customWarning() {
         + '\n  *  Drug-Drug Interaction Information'
         + '\n  *  Drug Information'
         + '\n\nAre you sure you wish to use this feature?') == true) {
-        window.location.href = 'chooseDrug.do?demographicNo=<%=response.encodeURL(Integer.toString(bean.getDemographicNo()))%>';
+        window.location.href = 'chooseDrug?demographicNo=<%=response.encodeURL(Integer.toString(bean.getDemographicNo()))%>';
     }
 }
 
@@ -129,7 +129,7 @@ function submitPending(stashId, action) {
 
 
 function ShowDrugInfo(GN) {
-    window.open("drugInfo.do?GN=" + escape(GN), "_blank",
+    window.open("drugInfo?GN=" + escape(GN), "_blank",
         "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
 }
 

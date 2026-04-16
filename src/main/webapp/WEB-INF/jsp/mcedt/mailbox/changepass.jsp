@@ -29,7 +29,7 @@
 
 --%>
 
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -123,7 +123,7 @@
         </div>
 
         <div class="center" style="width:45%">
-            <form action="${pageContext.request.contextPath}/mcedt/kaichpass.do" method="post" id="form">
+            <form action="${pageContext.request.contextPath}/mcedt/kaichpass" method="post" id="form">
                 <input id="method" name="method" type="hidden" value=""/>
                 <table class="password">
                     <tr>
