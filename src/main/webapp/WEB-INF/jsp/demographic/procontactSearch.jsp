@@ -201,6 +201,7 @@
                     <input type="hidden" name="limit1" value="0">
                     <input type="hidden" name="limit2" value="10">
                     <input type="hidden" name="submit" value='Search'>
+                    <input type="hidden" name="submit" value='Search'>
                     <input type="submit" value='<fmt:message key="demographic.contactSearch.search"/>'>
                 </td>
             </tr>

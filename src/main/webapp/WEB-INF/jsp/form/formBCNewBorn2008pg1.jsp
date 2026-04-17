@@ -1530,6 +1530,10 @@
             ifFormat: "%d/%m/%Y",
             showsTime: false,
             button: "Section8Date_cal",
+            inputField: "Section8Date",
+            ifFormat: "%d/%m/%Y",
+            showsTime: false,
+            button: "Section8Date_cal",
             singleClick: true,
             step: 1
         });

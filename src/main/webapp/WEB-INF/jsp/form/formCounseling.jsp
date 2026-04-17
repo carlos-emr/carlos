@@ -241,12 +241,14 @@
                 document.forms[0].submit.value = "save";
                 reset();
                 var ret = confirm("<fmt:message key='global.msgWannaSave'/>");
+                var ret = confirm("<fmt:message key='global.msgWannaSave'/>");
                 return ret;
             }
 
             function onSaveExit() {
                 document.forms[0].submit.value = "exit";
                 reset();
+                var ret = confirm("<fmt:message key='global.msgSaveExit'/>");
                 var ret = confirm("<fmt:message key='global.msgSaveExit'/>");
                 return ret;
             }

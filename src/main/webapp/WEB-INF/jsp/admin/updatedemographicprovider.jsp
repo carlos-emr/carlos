@@ -252,7 +252,7 @@
                 String regexpMrp = null;
                 if (lastNameFromMrp != null && lastNameFromMrp.matches("[A-Za-z]")
                         && lastNameToMrp != null && lastNameToMrp.matches("[A-Za-z]")) {
-                    regexpMrp = "^[" + lastNameFromMrp.toUpperCase() + "-" + lastNameToMrp.toUpperCase() + "]";
+                    regexpMrp = "^[" + java.util.regex.Pattern.quote(lastNameFromMrp.toUpperCase()) + "-" + java.util.regex.Pattern.quote(lastNameToMrp.toUpperCase()) + "]";
                 }
                 Provider provider = providerManager.getProvider(loggedInInfo, request.getParameter("oldcust5"));
                 List<Demographic> noList = null;
