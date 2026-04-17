@@ -102,7 +102,7 @@
     String roleTo = request.getParameter("role_to");
     String error = "";
     if (roleTo == null || "0".equals(roleTo)) {
-        error = "<fmt:message key='admin.fixRolesOnNotes.errorRole'/>";
+        error = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale()).getString("admin.fixRolesOnNotes.errorRole");
     }
 
     CaseManagementNoteDAO noteDao = SpringUtils.getBean(CaseManagementNoteDAO.class);

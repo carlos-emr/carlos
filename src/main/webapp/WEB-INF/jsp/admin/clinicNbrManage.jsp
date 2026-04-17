@@ -129,7 +129,7 @@
                 </td>
 
                 <td>
-                    <input type="submit" name="subbutton" value="<fmt:message key="admin.clinicNbrManage.removeSelected"/>" onclick="return removeCode();">
+                    <input type="submit" name="subbutton" value='<fmt:message key="admin.clinicNbrManage.removeSelected"/>' onclick="return removeCode();">
                 </td>
             </tr>
         </table>
@@ -147,7 +147,7 @@
                     <fmt:message key="admin.clinicNbrManage.description"/> <input id="nbr_string" type="text" name="nbr_string"/>
                 </td>
                 <td>
-                    <input type="submit" name="subbutton" value="<fmt:message key="admin.clinicNbrManage.addNewCode"/>" onclick="return addCode();">
+                    <input type="submit" name="subbutton" value='<fmt:message key="admin.clinicNbrManage.addNewCode"/>' onclick="return addCode();">
                 </td>
             </tr>
         </table>

@@ -1054,8 +1054,8 @@
                                    value="<%= props.getProperty("DatePg3", "") %>" @oscar.formDB dbType="date"/><img
                                     src="<%= request.getContextPath() %>/images/cal.gif" id="DatePg3_cal"><br><fmt:message key='ddmmyyyy'/>
                         </td>
-                        <td><fmt:message key='form.bcnewborn.signature'/><br><input type="text" name="<fmt:message key='form.bcnewborn.signature'/>Pg3" id="<fmt:message key='form.bcnewborn.signature'/>Pg3"
-                                                value="<%= props.getProperty("<fmt:message key='form.bcnewborn.signature'/>", "") %>" @oscar.formDB/><br>
+                        <td><fmt:message key='form.bcnewborn.signature'/><br><input type="text" name="SIGNATUREPg3" id="SIGNATUREPg3"
+                                                value="<%= props.getProperty("SIGNATURE", "") %>" @oscar.formDB/><br>
                             <fmt:message key='form.bcnewborn.mdRm'/>
                         </td>
                     </tr>

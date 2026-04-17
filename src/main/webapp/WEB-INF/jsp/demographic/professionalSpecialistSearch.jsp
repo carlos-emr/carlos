@@ -139,7 +139,7 @@
                     <input type="hidden" name="orderby" value="c.lastName, c.firstName">
                     <input type="hidden" name="limit1" value="0">
                     <input type="hidden" name="limit2" value="10">
-                    <input type="hidden" name="submit" value='<fmt:message key="demographic.contactSearch.search"/>'>
+                    <input type="hidden" name="submit" value='Search'>
                     <input type="submit" value='<fmt:message key="demographic.contactSearch.search"/>'>
                 </td>
             </tr>
