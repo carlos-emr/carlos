@@ -1,0 +1,3 @@
+## 2026-04-17 - Improve Accessibility in Dynamic Tables
+**Learning:** Legacy JSPs often construct HTML strings dynamically using Javascript for data tables. Interactive anchor tags (`<a>`) used purely as buttons (via `onclick`) frequently lack `href` attributes, making them unreachable via keyboard tabbing. Additionally, icon-only action links require `aria-label`s, and purely decorative `<i>` tags should have `aria-hidden="true"` to prevent screen reader noise.
+**Action:** Always verify that dynamically injected interactive elements have `href="javascript:void(0);"` and appropriate ARIA roles/labels when modifying or adding them in JSP string builders.
