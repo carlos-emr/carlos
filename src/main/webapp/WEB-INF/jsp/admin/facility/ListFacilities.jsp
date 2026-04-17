@@ -74,7 +74,8 @@
             <display:setProperty name="paging.banner.placement" value="bottom"/>
             <display:setProperty name="paging.banner.item_name" value="agency"/>
             <display:setProperty name="paging.banner.items_name" value="facilities"/>
-            <display:setProperty name="basic.msg.empty_list" value="<fmt:message key='admin.facility.list.msgNoFacilities'/>"/>
+            <fmt:message key="admin.facility.list.msgNoFacilities" var="noFacilitiesMessage"/>
+            <display:setProperty name="basic.msg.empty_list" value="${noFacilitiesMessage}"/>
 
             <display:column property="name" sortable="true" titleKey="admin.facility.list.header.name"/>
             <display:column property="description" sortable="true" titleKey="admin.facility.list.header.description"/>
