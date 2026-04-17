@@ -28,8 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page session="true" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ page session="true" import="org.owasp.encoder.Encode" %>
 <html>
 
     <html>
@@ -43,7 +42,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><e:forHtmlContent value='<%= error %>' /></li>
+                <li><%= Encode.forHtml(error) %></li>
             <% } %>
         </ul>
     </div>

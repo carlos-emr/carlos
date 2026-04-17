@@ -48,8 +48,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class LoginJspMigrationRegressionTest {
 
     /**
-     * Matches legacy public error JSP references such as "/errorpage.jsp" that
-     * should no longer appear after the WEB-INF error-page migration.
+     * Matches legacy public error JSP references such as "/errorpage.jsp" while
+     * intentionally excluding migrated internal paths like
+     * "/WEB-INF/jsp/error/errorpage.jsp".
      */
     private static final Pattern LEGACY_PUBLIC_ERROR_JSP_REFERENCE =
             Pattern.compile("(^|[^A-Za-z0-9])/(errorpage|failure|securityError|500)\\.jsp(?=[\"'<\\s]|$)");
@@ -184,8 +185,8 @@ class LoginJspMigrationRegressionTest {
     }
 
     @Test
-    @DisplayName("error JSPs should keep safe navigation links and OWASP encoder taglibs")
-    void errorJspViewsShouldKeepSafeNavigationLinksAndEncoderTaglibs() throws IOException {
+    @DisplayName("error JSPs should keep safe navigation links and OWASP HTML encoding")
+    void errorJspViewsShouldKeepSafeNavigationLinksAndOwaspHtmlEncoding() throws IOException {
         String errorPage = Files.readString(ERROR_PAGE_JSP, StandardCharsets.UTF_8);
         String failurePage = Files.readString(FAILURE_JSP, StandardCharsets.UTF_8);
         String securityErrorPage = Files.readString(SECURITY_ERROR_JSP, StandardCharsets.UTF_8);
@@ -194,8 +195,11 @@ class LoginJspMigrationRegressionTest {
         assertThat(errorPage).contains("href=\"${e:forUri(pageContext.request.contextPath)}/provider/providercontrol\"");
         assertThat(errorPage).contains("href=\"${e:forHtmlAttribute(LoginResourceBean.supportLink)}\"");
         assertThat(errorPage).contains("src=\"${e:forUri(pageContext.request.contextPath)}/loginResource/supportLogo.png\"");
-        assertThat(failurePage).contains("<%@ taglib uri=\"owasp.encoder.jakarta.advanced\" prefix=\"e\" %>");
-        assertThat(securityErrorPage).contains("<%@ taglib uri=\"owasp.encoder.jakarta.advanced\" prefix=\"e\" %>");
+        assertThat(failurePage).contains("import=\"org.owasp.encoder.Encode\"");
+        assertThat(failurePage).contains("Encode.forHtml(error)");
+        assertThat(securityErrorPage).contains("org.owasp.encoder.Encode");
+        assertThat(securityErrorPage).contains("Encode.forHtml(val)");
+        assertThat(securityErrorPage).contains("Encode.forHtml(error)");
     }
 
     @Test
