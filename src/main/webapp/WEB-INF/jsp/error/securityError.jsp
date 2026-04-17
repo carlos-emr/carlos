@@ -28,7 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page import="java.util.List,org.owasp.encoder.Encode" %>
+<%@ page import="java.util.List, org.owasp.encoder.Encode" %>
 
 <html>
 <head>

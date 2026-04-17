@@ -53,7 +53,7 @@ class LoginJspMigrationRegressionTest {
      * "/WEB-INF/jsp/error/errorpage.jsp".
      */
     private static final Pattern LEGACY_PUBLIC_ERROR_JSP_REFERENCE =
-            Pattern.compile("(^|[^A-Za-z0-9])/(errorpage|failure|securityError|500)\\.jsp(?=[\"'<\\s]|$)");
+            Pattern.compile("(?<![A-Za-z0-9])/(errorpage|failure|securityError|500)\\.jsp(?=[\"'<\\s]|$)");
     private static final Path STRUTS_LOGIN_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts-login.xml");
     private static final Path STRUTS_XML =
@@ -237,7 +237,7 @@ class LoginJspMigrationRegressionTest {
 
     private static Stream<String> readLines(Path path) {
         try {
-            return Files.lines(path, StandardCharsets.UTF_8)
+            return Files.readString(path, StandardCharsets.UTF_8).lines()
                     .map(line -> path + ": " + line.trim());
         }
         catch (IOException e) {
