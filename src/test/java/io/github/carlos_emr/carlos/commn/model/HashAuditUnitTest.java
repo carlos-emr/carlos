@@ -43,7 +43,7 @@ class HashAuditUnitTest {
 
     @Test
     @DisplayName("should create SHA-256 signature when hashing note content")
-    void shouldCreateSha256Signature_whenHashingInput() throws Exception {
+    void shouldCreateSha256Signature_whenHashingNoteContent() throws Exception {
         HashAudit hashAudit = new HashAudit();
         byte[] input = "signed note content".getBytes(StandardCharsets.UTF_8);
         String expectedSignature = HexFormat.of()
@@ -52,6 +52,20 @@ class HashAuditUnitTest {
         hashAudit.makeHash(input);
 
         assertThat(hashAudit.getAlgorithm()).isEqualTo("SHA-256");
+        assertThat(hashAudit.getSignature()).isEqualTo(expectedSignature);
+        assertThat(hashAudit.getSignature()).hasSize(64);
+    }
+
+    @Test
+    @DisplayName("should create SHA-256 signature when hashing empty input")
+    void shouldCreateSha256Signature_whenHashingEmptyInput() throws Exception {
+        HashAudit hashAudit = new HashAudit();
+        byte[] input = new byte[0];
+        String expectedSignature = HexFormat.of()
+                .formatHex(MessageDigest.getInstance(HashAudit.ALGORITHM).digest(input));
+
+        hashAudit.makeHash(input);
+
         assertThat(hashAudit.getSignature()).isEqualTo(expectedSignature);
         assertThat(hashAudit.getSignature()).hasSize(64);
     }
