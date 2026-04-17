@@ -39,7 +39,6 @@ import java.util.regex.Pattern;
 
 import jakarta.persistence.Query;
 
-import org.apache.commons.lang3.time.DateFormatUtils;
 import io.github.carlos_emr.carlos.commn.model.EForm;
 import io.github.carlos_emr.carlos.commn.model.EFormReportTool;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
@@ -164,15 +163,18 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         sb.deleteCharAt(sb.length() - 1);
 
         sb.append(" ) VALUES (");
-        sb.append(fdid + ",");
-        sb.append(demographicNo + ",");
-        sb.append("\'" + DateFormatUtils.format(dateFormCreated, "yyyy-MM-dd HH:mm:ss") + "\',");
-        sb.append("\'" + persistedProviderNo + "\',");
+        sb.append("?1,");
+        sb.append("?2,");
+        sb.append("?3,");
+        sb.append("?4,");
         sb.append("0,");
         sb.append("now(),");
+
+        int paramIndex = 5;
         for (EFormValue v : values) {
-            sb.append("\'" + v.getVarValue() + "\'");
+            sb.append("?" + paramIndex);
             sb.append(",");
+            paramIndex++;
         }
         sb.deleteCharAt(sb.length() - 1);
 
@@ -181,6 +183,16 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         //logger.debug("sql=" + sb.toString());
 
         Query q = entityManager.createNativeQuery(sb.toString());
+        q.setParameter(1, fdid);
+        q.setParameter(2, demographicNo);
+        q.setParameter(3, dateFormCreated);
+        q.setParameter(4, persistedProviderNo);
+
+        paramIndex = 5;
+        for (EFormValue v : values) {
+            q.setParameter(paramIndex, v.getVarValue());
+            paramIndex++;
+        }
         q.executeUpdate();
     }
 
