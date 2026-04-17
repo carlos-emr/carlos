@@ -31,11 +31,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -54,8 +54,9 @@ import static org.assertj.core.api.Assertions.*;
  * <p>The {@code execute()} method uses {@code EntityManager.createNativeQuery()},
  * so it participates in the Spring {@code @Transactional} test transaction.
  * The {@link EntityManager} is injected into {@link TestQueryHandler} via
- * reflection in {@link #setUp()}. Execution tests use self-contained queries
- * (e.g., {@code SELECT 1 AS result}) that do not depend on pre-existing test data.</p>
+ * {@link ReflectionTestUtils#setField} in {@link #setUp()}. Execution tests
+ * use self-contained queries (e.g., {@code SELECT 1 AS result}) that do not
+ * depend on pre-existing test data.</p>
  *
  * <p>The test is organized into five {@link Nested} inner classes, each covering a
  * distinct aspect of the query handler lifecycle:</p>
@@ -85,9 +86,10 @@ public class AbstractQueryHandlerIntegrationTest extends CarlosTestBase {
      * JPA EntityManager injected from the test persistence unit.
      *
      * <p>Provides JPA-level access to the test database. Injected into the
-     * {@link TestQueryHandler} during {@link #setUp()} via reflection to wire
-     * the handler's inherited {@link AbstractJpaDao#entityManager()} to the
-     * Spring-managed transactional context.</p>
+     * {@link TestQueryHandler} during {@link #setUp()} via
+     * {@link ReflectionTestUtils#setField} to wire the handler's inherited
+     * {@link AbstractJpaDao#entityManager()} to the Spring-managed transactional
+     * context.</p>
      */
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
@@ -98,8 +100,8 @@ public class AbstractQueryHandlerIntegrationTest extends CarlosTestBase {
      * from the test class.
      *
      * <p>Initialized in {@link #setUp()} before each test with the Spring-managed
-     * {@link EntityManager} injected via reflection, so that execution tests can
-     * run real queries against the test database.</p>
+     * {@link EntityManager} injected via {@link ReflectionTestUtils#setField},
+     * so that execution tests can run real queries against the test database.</p>
      */
     private TestQueryHandler queryHandler;
 
@@ -116,7 +118,8 @@ public class AbstractQueryHandlerIntegrationTest extends CarlosTestBase {
      *
      * <p>No additional behavior is added beyond delegation. The handler inherits
      * {@link AbstractJpaDao} from its parent, and the Spring-managed
-     * {@link EntityManager} is injected via reflection in {@link #setUp()}.</p>
+     * {@link EntityManager} is injected via {@link ReflectionTestUtils#setField}
+     * in {@link #setUp()}.</p>
      */
     static class TestQueryHandler extends AbstractQueryHandler {
 
@@ -173,19 +176,16 @@ public class AbstractQueryHandlerIntegrationTest extends CarlosTestBase {
      *
      * <p>Creates a fresh {@link TestQueryHandler} instance and injects the
      * Spring-managed {@link EntityManager} into the inherited
-     * {@code AbstractJpaDao.entityManager} private field via reflection. This
-     * ensures each test starts with a clean handler state (no residual parameters,
-     * ranges, columns, or cached query results from previous tests) while
-     * routing database calls through the transactional test context.</p>
-     *
-     * @throws Exception if reflection-based field access fails
+     * {@code AbstractJpaDao.entityManager} private field via
+     * {@link ReflectionTestUtils#setField}. This ensures each test starts with
+     * a clean handler state (no residual parameters, ranges, columns, or cached
+     * query results from previous tests) while routing database calls through
+     * the transactional test context.</p>
      */
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         queryHandler = new TestQueryHandler();
-        Field emField = AbstractJpaDao.class.getDeclaredField("entityManager");
-        emField.setAccessible(true);
-        emField.set(queryHandler, entityManager);
+        ReflectionTestUtils.setField(queryHandler, AbstractJpaDao.class, "entityManager", entityManager, EntityManager.class);
     }
 
     /**
