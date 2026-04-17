@@ -343,7 +343,8 @@
                 setStyle('textareaDiv', 'position', 'relative');
                 window.print();
 
-                if (ret = confirm("<fmt:message key='global.msgDoYouWishMakeChanges'/>")) {
+                const ret = confirm("<fmt:message key='global.msgDoYouWishMakeChanges'/>");
+                if (ret) {
                     setStyle('textareaDiv', 'position', 'absolute');
                     setStyle('textDiv', 'position', 'absolute');
                     setVisibility('textDiv', 'hidden');
@@ -359,7 +360,7 @@
 
             function onSave() {
                 document.forms[0].submit.value = "save";
-                ret = confirm("<fmt:message key='global.msgWannaSave'/>");
+                const ret = confirm("<fmt:message key='global.msgWannaSave'/>");
                 return ret;
             }
 
@@ -372,7 +373,7 @@
 
             function onSaveExit() {
                 document.forms[0].submit.value = "exit";
-                ret = confirm("<fmt:message key='global.msgSaveExit'/>");
+                const ret = confirm("<fmt:message key='global.msgSaveExit'/>");
                 return ret;
             }
 
