@@ -34,10 +34,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.openpdf.text.pdf.PdfReader;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
@@ -142,10 +140,7 @@ public class PDFHandler implements MessageHandler {
 
         newDoc.setDocPublic("0");
 
-        InputStream fis = null;
-
         try {
-            fis = new FileInputStream(filePath);
             newDoc.setContentType("application/pdf");
 
             //Find the number of pages
@@ -179,20 +174,11 @@ public class PDFHandler implements MessageHandler {
                 }
             }
         } catch (FileNotFoundException e) {
-            logger.error("An unexpected error has occurred", e);
+            logger.error("File not found: {}", LogSanitizer.sanitize(filePath), e);
             return null;
         } catch (Exception e) {
-            logger.error("An unexpected error has occurred", e);
+            logger.error("Error uploading PDF: {}", LogSanitizer.sanitize(filePath), e);
             return null;
-        } finally {
-            try {
-                if (fis != null) {
-                    fis.close();
-                }
-            } catch (IOException e1) {
-                logger.error("An unexpected error has occurred", e1);
-                return null;
-            }
         }
 
         return "success";
