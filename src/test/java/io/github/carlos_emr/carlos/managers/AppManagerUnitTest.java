@@ -108,6 +108,13 @@ public class AppManagerUnitTest extends CarlosUnitTestBase {
         verify(mockAppUserDao, never()).findForProvider(30, "999998");
     }
 
+    /**
+     * Creates an app definition fixture for authentication flag tests.
+     *
+     * @param id Integer the application identifier
+     * @param name String the application display name
+     * @return AppDefinition the populated test app definition
+     */
     private AppDefinition createAppDefinition(Integer id, String name) {
         AppDefinition appDefinition = new AppDefinition();
         appDefinition.setId(id);
@@ -119,6 +126,13 @@ public class AppManagerUnitTest extends CarlosUnitTestBase {
         return appDefinition;
     }
 
+    /**
+     * Creates an authenticated app-user association fixture.
+     *
+     * @param appId Integer the application identifier
+     * @param providerNo String the provider number linked to the app
+     * @return AppUser the populated test association
+     */
     private AppUser createAppUser(Integer appId, String providerNo) {
         AppUser appUser = new AppUser();
         appUser.setAppId(appId);

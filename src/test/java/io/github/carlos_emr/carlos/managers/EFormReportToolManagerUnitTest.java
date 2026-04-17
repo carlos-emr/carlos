@@ -127,6 +127,13 @@ public class EFormReportToolManagerUnitTest extends CarlosUnitTestBase {
         verify(mockEFormReportToolDao, never()).populateReportTableItem(eq(reportTool), anyList(), eq(11), eq(1002), any(Date.class), eq("999998"));
     }
 
+    /**
+     * Creates an eform value fixture for a specific form-data row.
+     *
+     * @param formDataId Integer the form-data identifier the value belongs to
+     * @param varName String the eform variable name
+     * @return EFormValue the populated test value
+     */
     private EFormValue createValue(Integer formDataId, String varName) {
         EFormValue value = new EFormValue();
         value.setFormDataId(formDataId);

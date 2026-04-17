@@ -630,6 +630,12 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
             }
         }
 
+        /**
+         * Creates a minimal HRM document row keyed by ID for attachment filtering tests.
+         *
+         * @param id Integer the HRM document identifier to expose in the map
+         * @return HashMap<String, Object> the simulated HRM document row
+         */
         private HashMap<String, Object> createHrmDocument(Integer id) {
             HashMap<String, Object> hrmDocument = new HashMap<>();
             hrmDocument.put("id", id);

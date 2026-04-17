@@ -711,6 +711,17 @@ public class ConsultationManagerImpl implements ConsultationManager {
         return filteredHRMDocuments;
     }
 
+    /**
+     * Extracts and normalizes the HRM document ID stored in a listHRMDocuments map entry.
+     *
+     * <p>The legacy HRM utility may return IDs as either {@link Number} or {@link String}
+     * values depending on the backing query path, so this helper converts both forms into
+     * a consistent {@link Integer} key for map-based lookups.</p>
+     *
+     * @param hrmDocument Map<String, ? extends Object> the HRM document entry returned by HRMUtil
+     * @return Integer the normalized HRM document ID, or {@code null} when the entry has no usable ID
+     * @since 2026-04-17
+     */
     private Integer getHrmDocumentId(Map<String, ? extends Object> hrmDocument) {
         Object hrmDocumentId = hrmDocument.get("id");
         if (hrmDocumentId instanceof Number) {

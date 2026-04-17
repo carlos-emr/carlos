@@ -296,6 +296,12 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
             verify(mockTicklerDao, never()).findByTicklerNoDemo(anyInt(), anyInt());
         }
 
+        /**
+         * Creates a minimal tickler link for linked-lab lookup tests.
+         *
+         * @param ticklerNo Integer the linked tickler identifier
+         * @return TicklerLink the simulated link row
+         */
         private TicklerLink createLink(Integer ticklerNo) {
             TicklerLink link = new TicklerLink();
             link.setTicklerNo(ticklerNo);
