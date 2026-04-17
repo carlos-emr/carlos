@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.password.PasswordHashHelper;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 
@@ -474,7 +475,7 @@ public class CaseManagementNote extends BaseObject {
     }
 
     public void setPassword(String password) {
-        if (password == null || password.startsWith("{bcrypt}")) {
+        if (password == null || PasswordHashHelper.isBcryptHash(password)) {
             this.password = password;
             return;
         }

@@ -33,6 +33,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 
 /**
@@ -45,6 +46,7 @@ import java.util.Map;
 public class PasswordHashHelper {
 
     private static final PasswordEncoder PASSWORD_ENCODER = PasswordHashHelper.getDelegatingPasswordEncoder();
+    private static final Pattern BCRYPT_HASH_PATTERN = Pattern.compile("^\\{bcrypt}\\$2[aby]\\$\\d\\d\\$[./A-Za-z0-9]{53}$");
 
     /**
      * Creates a {@link DelegatingPasswordEncoder} with default mappings.
@@ -124,6 +126,16 @@ public class PasswordHashHelper {
      */
     public static boolean upgradeEncoding(String encodedPassword) {
         return PASSWORD_ENCODER.upgradeEncoding(encodedPassword);
+    }
+
+    /**
+     * Checks whether the supplied value is a fully formatted delegated BCrypt hash.
+     *
+     * @param encodedPassword String the stored password candidate to inspect
+     * @return boolean true when the value is a BCrypt hash with the expected delegated prefix
+     */
+    public static boolean isBcryptHash(String encodedPassword) {
+        return encodedPassword != null && BCRYPT_HASH_PATTERN.matcher(encodedPassword).matches();
     }
 
 }

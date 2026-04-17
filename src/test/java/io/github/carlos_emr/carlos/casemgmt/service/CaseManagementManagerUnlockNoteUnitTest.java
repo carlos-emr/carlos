@@ -103,6 +103,19 @@ public class CaseManagementManagerUnlockNoteUnitTest extends CarlosUnitTestBase 
 
             assertThat(note.getPassword()).isEqualTo(encodedPassword);
         }
+
+        @Test
+        @DisplayName("should hash passwords that only mimic the bcrypt prefix")
+        void shouldHashPassword_whenPasswordOnlyLooksLikeBcryptPrefix() {
+            CaseManagementNote note = new CaseManagementNote();
+            String prefixedPlaintextPassword = "{bcrypt}plaintext";
+
+            note.setPassword(prefixedPlaintextPassword);
+
+            assertThat(note.getPassword()).startsWith("{bcrypt}");
+            assertThat(note.getPassword()).isNotEqualTo(prefixedPlaintextPassword);
+            assertThat(EncryptionUtils.verify(prefixedPlaintextPassword, note.getPassword())).isTrue();
+        }
     }
 
     @Nested
@@ -136,7 +149,7 @@ public class CaseManagementManagerUnlockNoteUnitTest extends CarlosUnitTestBase 
         @Test
         @DisplayName("should upgrade legacy plaintext password when unlock succeeds")
         void shouldUpgradeLegacyPassword_whenPlaintextPasswordMatches() {
-            CaseManagementNote note = createLockedNoteWithStoredPassword(RAW_PASSWORD);
+            CaseManagementNote note = createLockedNoteWithDirectPasswordInjection(RAW_PASSWORD);
             when(mockCaseManagementNoteDAO.getNote(TEST_NOTE_ID)).thenReturn(note);
 
             boolean unlocked = manager.unlockNote(TEST_NOTE_ID.intValue(), RAW_PASSWORD);
@@ -150,7 +163,7 @@ public class CaseManagementManagerUnlockNoteUnitTest extends CarlosUnitTestBase 
         @Test
         @DisplayName("should return false when supplied password does not match legacy plaintext password")
         void shouldReturnFalse_whenLegacyPlaintextPasswordDoesNotMatch() {
-            CaseManagementNote note = createLockedNoteWithStoredPassword(RAW_PASSWORD);
+            CaseManagementNote note = createLockedNoteWithDirectPasswordInjection(RAW_PASSWORD);
             when(mockCaseManagementNoteDAO.getNote(TEST_NOTE_ID)).thenReturn(note);
 
             boolean unlocked = manager.unlockNote(TEST_NOTE_ID.intValue(), "wrong password");
@@ -183,7 +196,7 @@ public class CaseManagementManagerUnlockNoteUnitTest extends CarlosUnitTestBase 
         @Test
         @DisplayName("should return false when note is not locked")
         void shouldReturnFalse_whenNoteIsNotLocked() {
-            CaseManagementNote note = createLockedNoteWithStoredPassword(RAW_PASSWORD);
+            CaseManagementNote note = createLockedNoteWithDirectPasswordInjection(RAW_PASSWORD);
             note.setLocked(false);
             when(mockCaseManagementNoteDAO.getNote(TEST_NOTE_ID)).thenReturn(note);
 
@@ -196,7 +209,7 @@ public class CaseManagementManagerUnlockNoteUnitTest extends CarlosUnitTestBase 
         @Test
         @DisplayName("should return false when stored note password is null")
         void shouldReturnFalse_whenStoredPasswordIsNull() {
-            CaseManagementNote note = createLockedNoteWithStoredPassword(null);
+            CaseManagementNote note = createLockedNoteWithDirectPasswordInjection(null);
             when(mockCaseManagementNoteDAO.getNote(TEST_NOTE_ID)).thenReturn(note);
 
             boolean unlocked = manager.unlockNote(TEST_NOTE_ID.intValue(), RAW_PASSWORD);
@@ -214,7 +227,7 @@ public class CaseManagementManagerUnlockNoteUnitTest extends CarlosUnitTestBase 
         return note;
     }
 
-    private CaseManagementNote createLockedNoteWithStoredPassword(String storedPassword) {
+    private CaseManagementNote createLockedNoteWithDirectPasswordInjection(String storedPassword) {
         CaseManagementNote note = new CaseManagementNote();
         note.setId(TEST_NOTE_ID);
         note.setLocked(true);

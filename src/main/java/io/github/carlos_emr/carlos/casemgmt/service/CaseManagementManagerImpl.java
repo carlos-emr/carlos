@@ -59,6 +59,7 @@ import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.password.PasswordHashHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.CarlosProperties;
@@ -1826,7 +1827,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
 
         String storedPassword = note.getPassword();
-        if (StringUtils.startsWith(storedPassword, "{bcrypt}")) {
+        if (PasswordHashHelper.isBcryptHash(storedPassword)) {
+            // Current-format hashes only need verification; legacy plaintext values are upgraded below.
             return EncryptionUtils.verify(password, storedPassword);
         }
 
