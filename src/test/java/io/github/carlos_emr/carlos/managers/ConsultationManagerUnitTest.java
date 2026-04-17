@@ -612,14 +612,14 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
                             new ConsultDocs(TEST_REQUEST_ID, 128, ConsultDocs.DOCTYPE_HRM, TEST_PROVIDER_NO),
                             new ConsultDocs(TEST_REQUEST_ID, 5, ConsultDocs.DOCTYPE_HRM, TEST_PROVIDER_NO)));
 
-            ArrayList<HashMap<String, Object>> allHrmDocuments = new ArrayList<>();
+            ArrayList<HashMap<String, ? extends Object>> allHrmDocuments = new ArrayList<>();
             allHrmDocuments.add(createHrmDocument(128));
             allHrmDocuments.add(createHrmDocument(999));
             allHrmDocuments.add(createHrmDocument(5));
 
             try (MockedStatic<HRMUtil> hrmUtilMock = Mockito.mockStatic(HRMUtil.class)) {
                 hrmUtilMock.when(() -> HRMUtil.listHRMDocuments(mockLoggedInInfo, "report_date", false, TEST_DEMOGRAPHIC_NO.toString(), false))
-                        .thenReturn((ArrayList) allHrmDocuments);
+                        .thenReturn(allHrmDocuments);
 
                 // When
                 ArrayList<HashMap<String, ? extends Object>> result =

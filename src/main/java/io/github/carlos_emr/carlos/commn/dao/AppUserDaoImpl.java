@@ -31,6 +31,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import jakarta.persistence.Query;
@@ -61,7 +62,7 @@ public class AppUserDaoImpl extends AbstractDaoImpl<AppUser> implements AppUserD
     @Override
     public List<AppUser> findForProviderByAppIds(List<Integer> appIds, String providerNo) {
         if (appIds == null || appIds.isEmpty()) {
-            return List.of();
+            return new ArrayList<>();
         }
 
         Query query = entityManager.createQuery("select x from AppUser x where x.appId in (?1) and x.providerNo = ?2");
