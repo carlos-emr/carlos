@@ -145,42 +145,28 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
     public void populateReportTableItem(EFormReportTool eft, List<EFormValue> values, Integer fdid, Integer demographicNo, Date dateFormCreated, String providerNo) {
         String tableName = getValidatedTableName(eft);
         String persistedProviderNo = normalizeProviderNoForReportTable(providerNo);
-        //create an insert statement
-        StringBuilder sb = new StringBuilder();
-        sb.append("INSERT INTO ");
-        sb.append(tableName);
-        sb.append(" (");
-        sb.append("fdid,");
-        sb.append("demographicNo,");
-        sb.append("dateFormCreated,");
-        sb.append("providerNo,");
-        sb.append("eft_latest,");
-        sb.append("dateCreated,");
-        for (EFormValue v : values) {
-            sb.append("`" + v.getVarName() + "`");
-            sb.append(",");
+
+        StringBuilder columnFragment = new StringBuilder();
+        StringBuilder placeholderFragment = new StringBuilder();
+        for (int i = 0; i < values.size(); i++) {
+            String varName = values.get(i).getVarName();
+            if (varName == null || !VALID_IDENTIFIER_PATTERN.matcher(varName).matches()) {
+                throw new IllegalArgumentException("Invalid eform var name: " + varName);
+            }
+            columnFragment.append(", `").append(varName).append("`");
+            placeholderFragment.append(", ?").append(i + 5);
         }
 
-        sb.deleteCharAt(sb.length() - 1);
+        String sql = String.format("INSERT INTO %s (fdid, demographicNo, dateFormCreated, providerNo, eft_latest, dateCreated%s) VALUES (?1, ?2, ?3, ?4, 0, now()%s)", tableName, columnFragment.toString(), placeholderFragment.toString());
 
-        sb.append(" ) VALUES (");
-        sb.append(fdid + ",");
-        sb.append(demographicNo + ",");
-        sb.append("\'" + DateFormatUtils.format(dateFormCreated, "yyyy-MM-dd HH:mm:ss") + "\',");
-        sb.append("\'" + persistedProviderNo + "\',");
-        sb.append("0,");
-        sb.append("now(),");
-        for (EFormValue v : values) {
-            sb.append("\'" + v.getVarValue() + "\'");
-            sb.append(",");
+        Query q = entityManager.createNativeQuery(sql);
+        q.setParameter(1, fdid);
+        q.setParameter(2, demographicNo);
+        q.setParameter(3, DateFormatUtils.format(dateFormCreated, "yyyy-MM-dd HH:mm:ss"));
+        q.setParameter(4, persistedProviderNo);
+        for (int i = 0; i < values.size(); i++) {
+            q.setParameter(i + 5, values.get(i).getVarValue());
         }
-        sb.deleteCharAt(sb.length() - 1);
-
-        sb.append(")");
-
-        //logger.debug("sql=" + sb.toString());
-
-        Query q = entityManager.createNativeQuery(sb.toString());
         q.executeUpdate();
     }
 
