@@ -58,17 +58,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  *       and {@code inOrg}. These participate in the Spring-managed transaction and are fully
  *       testable with the H2 in-memory database. ({@code updateOrgStatus} is private and called
  *       indirectly by {@code SaveAsOrgCode}.)</li>
- *   <li><b>Raw JDBC via {@code DBPreparedHandler}</b>: {@code LoadCodeList}, {@code GetCode},
+ *   <li><b>Native SQL via JPA {@code EntityManager}</b>: {@code LoadCodeList}, {@code GetCode},
  *       {@code GetCodeFieldValues}, {@code SaveCodeValue} (insert/update), and
- *       {@code getCountOfActiveClient}. These use {@code DbConnectionFilter.getThreadLocalDbConnection()},
- *       which obtains a <em>separate</em> JDBC connection that does <strong>not</strong>
- *       participate in the Spring-managed test transaction. Data written through Hibernate
- *       is invisible to these methods, and vice versa.</li>
+ *       {@code getCountOfActiveClient}. These participate in the Spring-managed
+ *       transactional persistence context. Data written through Hibernate is visible
+ *       after {@code hibernateTemplate.flush()}.</li>
  * </ul>
  *
- * <p>For raw-JDBC methods, tests verify:</p>
+ * <p>For native-SQL methods, tests verify:</p>
  * <ul>
- *   <li>Early-return / null-guard code paths that execute <em>before</em> the JDBC call</li>
+ *   <li>Early-return / null-guard code paths that execute <em>before</em> the SQL query</li>
  *   <li>Correct delegation between overloaded methods</li>
  *   <li>Behavior when dependent HQL lookups return null (causing empty result lists)</li>
  *   <li>SQL generation correctness is documented for the EntityManager migration</li>
@@ -645,6 +644,21 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             INSERT INTO nr_null_row_test (code, description, active_col, orderby_col)
             VALUES ('A', 'Alpha', NULL, NULL)""";
 
+    /** Literal backing-table name for the all-codes distinct-row regression fixture. */
+    private static final String ALL_CODES_TABLE_NAME = "cfv_all_codes_test";
+
+    /** Literal DDL for the all-codes distinct-row regression fixture — idempotent across runs. */
+    private static final String CREATE_ALL_CODES_TABLE = """
+            CREATE TABLE IF NOT EXISTS cfv_all_codes_test (
+                code_col VARCHAR(10),
+                name_col VARCHAR(100)
+            )""";
+
+    /** Literal INSERT for the all-codes distinct-row regression fixture. */
+    private static final String INSERT_ALL_CODES_ROWS = """
+            INSERT INTO cfv_all_codes_test (code_col, name_col)
+            VALUES ('A', 'Alpha'), ('B', 'Beta')""";
+
     // =========================================================================
     // GetCodeFieldValues tests
     // =========================================================================
@@ -653,7 +667,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
      * Tests for {@link LookupDao#GetCodeFieldValues(LookupTableDefValue, String)}.
      *
      * <p>This method builds dynamic SQL from the field definitions and executes
-     * via {@code DBPreparedHandler}. It also calls back to {@code GetCode} for
+     * it via JPA native query APIs. It also calls back to {@code GetCode} for
      * fields with lookup tables. Tests verify the field-list loading and
      * behavior when no matching code row is found.</p>
      */
@@ -753,6 +767,55 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             assertThat(result).isNotNull();
             assertThat(result).isEmpty();
         }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return distinct field lists when multiple rows are loaded")
+        void shouldReturnDistinctFieldLists_whenMultipleRowsLoaded() {
+            // Given
+            hibernateTemplate.execute(session -> {
+                session.createNativeQuery(CREATE_ALL_CODES_TABLE).executeUpdate();
+                session.createNativeQuery("DELETE FROM " + ALL_CODES_TABLE_NAME).executeUpdate();
+                session.createNativeQuery(INSERT_ALL_CODES_ROWS).executeUpdate();
+                return null;
+            });
+
+            String tableId = nextTableId("CG");
+            insertLookupTableDef(tableId, ALL_CODES_TABLE_NAME);
+            insertField(tableId, "code_col", 1, 1);
+            insertField(tableId, "name_col", 2, 2);
+            hibernateTemplate.flush();
+
+            LookupTableDefValue tableDef = lookupDao.GetLookupTableDef(tableId);
+
+            // When
+            @SuppressWarnings("unchecked")
+            List<List> result = lookupDao.GetCodeFieldValues(tableDef);
+
+            // Then
+            assertThat(result).hasSize(2);
+
+            @SuppressWarnings("unchecked")
+            List<FieldDefValue> firstRow = result.stream()
+                .map(row -> (List<FieldDefValue>) row)
+                .filter(row -> "A".equals(row.get(0).getVal()))
+                .findFirst()
+                .orElseThrow();
+
+            @SuppressWarnings("unchecked")
+            List<FieldDefValue> secondRow = result.stream()
+                .map(row -> (List<FieldDefValue>) row)
+                .filter(row -> "B".equals(row.get(0).getVal()))
+                .findFirst()
+                .orElseThrow();
+
+            assertThat(firstRow).isNotSameAs(secondRow);
+            assertThat(firstRow.get(0)).isNotSameAs(secondRow.get(0));
+            assertThat(firstRow.get(0).getVal()).isEqualTo("A");
+            assertThat(firstRow.get(1).getVal()).isEqualTo("Alpha");
+            assertThat(secondRow.get(0).getVal()).isEqualTo("B");
+            assertThat(secondRow.get(1).getVal()).isEqualTo("Beta");
+        }
     }
 
     // =========================================================================
@@ -763,13 +826,12 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
      * Tests for {@link LookupDao#SaveCodeValue(boolean, LookupTableDefValue, List)} and
      * {@link LookupDao#SaveCodeValue(boolean, LookupCodeValue)}.
      *
-     * <p>These methods use raw JDBC for INSERT/UPDATE operations via
-     * {@code DbConnectionFilter.getThreadLocalDbConnection()}, which obtains a
-     * separate connection outside the Spring-managed test transaction. Full
-     * insert/update testing requires the raw JDBC connection to share the same
-     * transaction, which only happens in the production servlet filter context.</p>
+     * <p>These methods now use native SQL through the JPA {@code EntityManager}.
+     * Full insert/update testing still requires broader fixture setup than this
+     * class currently provides, so these tests stay focused on the code paths
+     * that execute before the final SQL write.</p>
      *
-     * <p>Tests here verify the code paths that execute <em>before</em> JDBC calls:
+     * <p>Tests here verify the code paths that execute <em>before</em> the final SQL write:
      * the LookupCodeValue-to-FieldDefValue mapping logic, and behavior when the
      * table definition or field definitions are invalid.</p>
      */

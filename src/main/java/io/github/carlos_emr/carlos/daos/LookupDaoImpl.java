@@ -344,12 +344,12 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
     @Override
     public List<List> GetCodeFieldValues(LookupTableDefValue tableDef) {
         String tableName = validateSqlIdentifier(tableDef.getTableName());
-        List fs = LoadFieldDefList(tableDef.getTableId());
-        if (fs.isEmpty()) return new ArrayList<List>();
+        List<FieldDefValue> fieldDefs = LoadFieldDefList(tableDef.getTableId());
+        if (fieldDefs.isEmpty()) return new ArrayList<List>();
         ArrayList<List> codes = new ArrayList<List>();
         String sql = "select ";
-        for (int i = 0; i < fs.size(); i++) {
-            FieldDefValue fdv = (FieldDefValue) fs.get(i);
+        for (int i = 0; i < fieldDefs.size(); i++) {
+            FieldDefValue fdv = fieldDefs.get(i);
             String fieldSql = validateFieldSql(fdv.getFieldSQL());
             if (i == 0) {
                 sql += fieldSql;
@@ -362,8 +362,9 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         List<?> rows = query.getResultList();
         for (Object rawRow : rows) {
             Object[] row = (rawRow instanceof Object[]) ? (Object[]) rawRow : new Object[]{ rawRow };
-            for (int i = 0; i < fs.size(); i++) {
-                FieldDefValue fdv = (FieldDefValue) fs.get(i);
+            List<FieldDefValue> rowFields = new ArrayList<>(fieldDefs.size());
+            for (int i = 0; i < fieldDefs.size(); i++) {
+                FieldDefValue fdv = copyFieldDefValue(fieldDefs.get(i));
                 String val = asString(row[i]);
                 if ("D".equals(fdv.getFieldType()))
                     val = MyDateFormat.getStandardDateTime(MyDateFormat.getCalendarwithTime(val));
@@ -373,10 +374,30 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
                     if (lkv != null)
                         fdv.setValDesc(lkv.getDescription());
                 }
+                rowFields.add(fdv);
             }
-            codes.add(fs);
+            codes.add(rowFields);
         }
         return codes;
+    }
+
+    private static FieldDefValue copyFieldDefValue(FieldDefValue source) {
+        FieldDefValue copy = new FieldDefValue();
+        copy.setTableId(source.getTableId());
+        copy.setFieldName(source.getFieldName());
+        copy.setFieldDesc(source.getFieldDesc());
+        copy.setFieldType(source.getFieldType());
+        copy.setLookupTable(source.getLookupTable());
+        copy.setFieldSQL(source.getFieldSQL());
+        copy.setEditable(source.isEditable());
+        copy.setAuto(source.isAuto());
+        copy.setUnique(source.isUnique());
+        copy.setGenericIdx(source.getGenericIdx());
+        copy.setFieldIndex(source.getFieldIndex());
+        copy.setFieldLength(source.getFieldLength());
+        copy.setVal(source.getVal());
+        copy.setValDesc(source.getValDesc());
+        return copy;
     }
 
     private int GetNextId(String idFieldName, String tableName) { // identifiers validated below
